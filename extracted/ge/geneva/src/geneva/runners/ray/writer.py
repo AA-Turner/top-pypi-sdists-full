@@ -1103,6 +1103,8 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
     checkpoint_base_storage_options: Optional[dict[str, str]] = attrs.field(
         default=None, repr=redact_dict_values
     )
+    # Driver's store layout, pinned so workers don't re-derive it from config.
+    checkpoint_layout: Optional[str] = None
     # Where this fragment's staged output data file goes. None = dataset root.
     data_file_dir: Optional[str] = None
     data_file_base_id: Optional[int] = None
@@ -1187,6 +1189,7 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
             base_checkpoint_uris=self.checkpoint_base_uris,
             frag_to_base=self.checkpoint_frag_to_base,
             base_storage_options=self.checkpoint_base_storage_options,
+            layout=self.checkpoint_layout,
         )
 
     def _old_column_stream(

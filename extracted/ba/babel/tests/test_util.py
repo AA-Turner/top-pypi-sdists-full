@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -73,7 +73,7 @@ def test_parse_encoding_non_ascii():
     assert parse_encoding('K\xf6ln') is None
 
 
-@pytest.mark.parametrize('source, result', [
+@pytest.mark.parametrize(('source', 'result'), [
     ('''
 from __future__ import print_function,
     division, with_statement,

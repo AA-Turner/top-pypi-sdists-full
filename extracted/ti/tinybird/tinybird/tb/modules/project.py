@@ -16,8 +16,6 @@ _PATTERN_TYPE_KAFKA = re.compile(r"TYPE kafka", re.IGNORECASE)
 _PATTERN_TYPE_S3 = re.compile(r"TYPE s3", re.IGNORECASE)
 _PATTERN_TYPE_GCS = re.compile(r"TYPE gcs", re.IGNORECASE)
 _PATTERN_TYPE_DYNAMODB = re.compile(r"TYPE dynamodb", re.IGNORECASE)
-_PATTERN_KAFKA_CONNECTION = re.compile(r"KAFKA_CONNECTION_NAME", re.IGNORECASE)
-_PATTERN_IMPORT_CONNECTION = re.compile(r"IMPORT_CONNECTION_NAME", re.IGNORECASE)
 
 
 class Project:
@@ -35,10 +33,6 @@ class Project:
     @property
     def vendor_path(self) -> str:
         return f"{self.path}/vendor"
-
-    @property
-    def tests_path(self) -> str:
-        return f"{self.path}/tests"
 
     def get_files(self, extension: str) -> List[str]:
         project_files: List[str] = []
@@ -74,34 +68,6 @@ class Project:
             for level in range(3):
                 vendored_files.extend(glob.glob(f"{self.vendor_path}{'/*' * level}/*.{extension}", recursive=True))
         return vendored_files
-
-    def get_fixture_files(self) -> List[str]:
-        fixture_files: List[str] = []
-        for extension in [
-            "csv",
-            "csv.gz",
-            "ndjson",
-            "ndjson.gz",
-            "jsonl",
-            "jsonl.gz",
-            "json",
-            "json.gz",
-            "parquet",
-            "parquet.gz",
-        ]:
-            for fixture_file in self.get_files(extension):
-                if self.vendor_path in fixture_file:
-                    continue
-                fixture_files.append(fixture_file)
-        return fixture_files
-
-    def get_test_files(self) -> List[str]:
-        test_files: List[str] = []
-        for test_file in self.get_files("yaml"):
-            if self.vendor_path in test_file or self.tests_path not in test_file:
-                continue
-            test_files.append(test_file)
-        return test_files
 
     def get_secrets(self) -> dict[str, str]:
         """Load secrets from .env.local file in the project folder."""
@@ -234,15 +200,3 @@ class Project:
     @staticmethod
     def is_dynamodb_connection(content: str) -> bool:
         return _PATTERN_TYPE_DYNAMODB.search(content) is not None
-
-    @staticmethod
-    def is_kafka_datasource(content: str) -> bool:
-        return _PATTERN_KAFKA_CONNECTION.search(content) is not None
-
-    @staticmethod
-    def is_s3_datasource(content: str) -> bool:
-        return _PATTERN_IMPORT_CONNECTION.search(content) is not None
-
-    @staticmethod
-    def is_gcs_datasource(content: str) -> bool:
-        return _PATTERN_IMPORT_CONNECTION.search(content) is not None

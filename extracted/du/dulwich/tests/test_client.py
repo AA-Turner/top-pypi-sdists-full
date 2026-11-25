@@ -24,6 +24,7 @@ import hashlib
 import logging
 import os
 import shutil
+import socket
 import stat
 import sys
 import tempfile
@@ -2851,6 +2852,18 @@ class HttpGitClientTests(TestCase):
 
 
 class TCPGitClientTests(TestCase):
+    def test_timeout(self) -> None:
+        server = socket.socket()
+        self.addCleanup(server.close)
+        server.bind(("127.0.0.1", 0))
+        server.listen(1)
+        c, path = get_transport_and_path_from_url(
+            f"git://127.0.0.1:{server.getsockname()[1]}/repo", timeout=1
+        )
+        with self.assertRaises(GitProtocolError) as cm:
+            c.get_refs(path)
+        self.assertEqual("timed out", str(cm.exception))
+
     def test_get_url(self) -> None:
         host = "github.com"
         path = "/jelmer/dulwich"
@@ -3491,6 +3504,7 @@ class SubprocessSSHVendorTests(TestCase):
                 f"SetEnv GIT_PROTOCOL=version={DEFAULT_GIT_PROTOCOL_VERSION_FETCH}",
             ]
         expected += [
+            "--",
             "user@host",
             "git-clone-url",
         ]
@@ -3521,6 +3535,7 @@ class SubprocessSSHVendorTests(TestCase):
                 f"SetEnv GIT_PROTOCOL=version={DEFAULT_GIT_PROTOCOL_VERSION_FETCH}",
             ]
         expected += [
+            "--",
             "host",
             "git-clone-url",
         ]

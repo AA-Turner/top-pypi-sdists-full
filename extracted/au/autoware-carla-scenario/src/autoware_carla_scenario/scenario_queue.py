@@ -16,7 +16,7 @@ from .maps import capture_opendrive
 from .maps.pack import MapPack
 from .odd import OddCase, OddDefinition, resolve_odd
 from .rerun import RerunConverter
-from .run_outputs import remove_run_outputs
+from .run_outputs import RECORDING_SUFFIX, remove_run_outputs
 from .run_timeout import check_run_timeout
 from .t4 import T4Recorder
 from .t4_scene import T4SceneExporter
@@ -479,13 +479,15 @@ class ScenarioQueue:
                 # scenario's, so nothing is left keyed by it.
                 self._forget(key)
             # The stem every attempt writes under: the one given, or the one
-            # the runner names the first attempt by (the first free in the
-            # output directory), settled right before that attempt runs, after
-            # its cooldown.  Before a retry its outputs are removed, so the
-            # retry writes over the attempt it replaces -- a runner naming its
-            # own then takes the same stem again -- rather than taking the
-            # next stem and leaving that attempt's partial outputs under this
-            # one.  Only a queue that retries needs it.
+            # the runner names the first attempt to run by (the first free in
+            # the output directory), settled right before that attempt runs,
+            # after its cooldown and any server restart.  An attempt that
+            # failed before it got there (its restart raised) wrote nothing,
+            # so the next one settles it (#2481).  Before a retry its outputs
+            # are removed, so the retry writes over the attempt it replaces --
+            # a runner naming its own then takes the same stem again -- rather
+            # than taking the next stem and leaving that attempt's partial
+            # outputs under this one.  Only a queue that retries needs it.
             run_stem = ""
             if file_stem is not None:
                 run_stem = file_stem
@@ -511,7 +513,7 @@ class ScenarioQueue:
                     if self._server_down():
                         self._restart_server(i + 1, total)
                         self._world_dirty = False
-                    if attempt == 0 and not run_stem and max_attempts > 1:
+                    if not run_stem and max_attempts > 1:
                         run_stem = _run_file_stem(
                             self._output_dir, type(scenario).__name__
                         )
@@ -523,6 +525,13 @@ class ScenarioQueue:
                         # recording (or takes the sensors) over this one's.
                         if self._rerun is not None:
                             self._rerun.wait()
+                            # Its recording goes with the outputs: the
+                            # converter no longer reports it (#2485), so a
+                            # retry that records none is not counted as
+                            # written.
+                            self._rerun.forget(
+                                self._output_dir / (run_stem + RECORDING_SUFFIX)
+                            )
                         # What the failed attempt wrote under the stem (its
                         # trajectory log, a partial T4 dataset the writer
                         # would refuse to write over ...) makes way for this

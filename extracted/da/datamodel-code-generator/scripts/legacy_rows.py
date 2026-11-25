@@ -49,6 +49,27 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         ),
     ),
     LegacyRow(
+        "legacy-default-values-skip-true-properties",
+        (
+            "without `--apply-default-values-to-true-properties`, a property whose schema is `true` takes no default "
+            "from `--default-values`, in the class that declares it and in a child that restates an inherited "
+            "property as `true` (`parser/jsonschema.py:JsonSchemaParser._true_property_default_state`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/default_values_true_properties/settings.json",
+            "--input-file-type",
+            "jsonschema",
+            "--disable-timestamp",
+            "--default-values",
+            '{"Settings.retry-count": 3}',
+            "--formatters",
+            "builtin",
+        ),
+        option="--apply-default-values-to-true-properties",
+    ),
+    LegacyRow(
         "legacy-generic-base-drops-configured-bases",
         (
             "without `--keep-bases-beside-generic-base-class`, the generated base class of `--use-generic-base-class` "
@@ -845,6 +866,43 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "--disable-timestamp",
         ),
         option="--distribute-allof-over-unions",
+    ),
+    LegacyRow(
+        "legacy-union-branch-of-union-as-one",
+        (
+            "without `--distribute-allof-over-object-branches`, a branch of an allOf's `anyOf` or `oneOf` that is "
+            "itself a union, by a `$ref` or written there, or an alias of another schema, is one model "
+            "(`JsonSchemaParser._branch_models`): a root model that later passes drop from the variant's bases, so the "
+            "variant checks none of its fields, or no variant at all for an inline union (#6869); it warns"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_union_object_branches/other_document/model.json",
+            "--input-file-type",
+            "jsonschema",
+            "--formatters",
+            "builtin",
+        ),
+        option="--distribute-allof-over-object-branches",
+    ),
+    LegacyRow(
+        "legacy-union-variant-required-names-inherited",
+        (
+            "without `--distribute-allof-over-object-branches`, a union variant of an allOf takes a name that another "
+            "part requires as its bases hold it (`JsonSchemaParser._union_model_restated_names`): optional where its "
+            "branch declares it optional, and `Any` where the class of the other members holds it first (#6867)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/allof_union_object_branches/required_names.json",
+            "--input-file-type",
+            "jsonschema",
+            "--formatters",
+            "builtin",
+        ),
+        option="--distribute-allof-over-object-branches",
     ),
     LegacyRow(
         "legacy-all-of-object-merge-row",
@@ -4189,6 +4247,28 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "client",
             "--client-model-package",
             "models",
+            "--formatters",
+            "builtin",
+        ),
+    ),
+    LegacyRow(
+        "legacy-running-packages-load",
+        (
+            "the refusal of a class beside a module of its name in its package reads an import of the module by an "
+            "ancestor package, which has started before the package's `__init__.py`, as a load of that `__init__.py`, "
+            "and writes the output where the classes do not evaluate their annotations as they are defined (output "
+            "other than Pydantic, with deferred annotations) (`parser/_passes/_import_edges.py:init_loads`, "
+            "`parser/_passes/imports.py:_class_named_like_submodule`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/submodule_named_like_package_class_root_import.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "dataclasses.dataclass",
+            "--disable-timestamp",
             "--formatters",
             "builtin",
         ),

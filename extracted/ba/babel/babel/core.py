@@ -63,7 +63,7 @@ def _raise_no_data_error():
         'This usually happens because you are using '
         'a source checkout from Babel and you did '
         'not build the data files.  Just make sure '
-        'to run "python setup.py import_cldr" before '
+        'to run "make import-cldr" before '
         'installing the library.',
     )
 
@@ -152,9 +152,12 @@ class Locale:
     >>> locale.display_name
     'English (United States)'
 
-    A `Locale` object can also be instantiated from a raw locale string:
+    The constructor preserves the casing of the components. Use lowercase
+    language codes, uppercase territory and variant codes, and title-case
+    script codes. A `Locale` object can also be instantiated from a raw locale
+    string with :meth:`parse`, which normalizes the casing of these codes:
 
-    >>> locale = Locale.parse('en-US', sep='-')
+    >>> locale = Locale.parse('EN-us', sep='-')
     >>> repr(locale)
     "Locale('en', territory='US')"
 
@@ -191,10 +194,15 @@ class Locale:
         >>> locale.territory
         'US'
 
-        :param language: the language code
-        :param territory: the territory (country or region) code
-        :param script: the script code
-        :param variant: the variant code
+        The components are stored as supplied, without case normalization.
+        Use :meth:`parse` for case-insensitive parsing of locale identifier
+        strings.
+
+        :param language: the lowercase language code
+        :param territory: the uppercase territory (country or region) code,
+                          or a numeric region code
+        :param script: the title-case script code
+        :param variant: the uppercase variant code
         :param modifier: a modifier (following the '@' symbol, sometimes called '@variant')
         :raise `UnknownLocaleError`: if no locale data is available for the
                                      requested locale
@@ -295,6 +303,13 @@ class Locale:
         >>> l.display_name
         'Deutsch (Deutschland)'
 
+        For string identifiers, language, territory, script, and variant codes
+        are case-insensitive and normalized to their usual casing. Modifiers
+        retain their casing.
+
+        >>> Locale.parse('ZH_hANT_tw')
+        Locale('zh', territory='TW', script='Hant')
+
         If the `identifier` parameter is not a string, but actually a `Locale`
         object, that object is returned:
 
@@ -360,6 +375,11 @@ class Locale:
 
         if not isinstance(identifier, str):
             raise TypeError(f"Unexpected value for identifier: {identifier!r}")
+
+        # C/POSIX is not a CLDR language. Same mapping default_locale uses.
+        posix_stem = identifier.partition(".")[0]
+        if posix_stem.upper() in {"C", "POSIX"}:
+            identifier = "en_US_POSIX"
 
         parts = parse_locale(identifier, sep=sep)
         input_id = get_locale_identifier(parts)
@@ -471,7 +491,7 @@ class Locale:
     @property
     def _data(self) -> localedata.LocaleDataDict:
         if self.__data is None:
-            self.__data = localedata.LocaleDataDict(localedata.load(self.__data_identifier))
+            self.__data = localedata.get_locale_data(self.__data_identifier)
         return self.__data
 
     def get_display_name(self, locale: Locale | str | None = None) -> str | None:
@@ -509,9 +529,9 @@ class Locale:
                 retval += f" ({detail_string})"
         return retval
 
-    display_name = property(
-        get_display_name,
-        doc="""\
+    @property
+    def display_name(self) -> str | None:
+        """
         The localized display name of the locale.
 
         >>> Locale('en').display_name
@@ -520,10 +540,8 @@ class Locale:
         'English (United States)'
         >>> Locale('sv').display_name
         'svenska'
-
-        :type: `unicode`
-        """,
-    )
+        """
+        return self.get_display_name()
 
     def get_language_name(self, locale: Locale | str | None = None) -> str | None:
         """Return the language of this locale in the given locale.
@@ -540,15 +558,15 @@ class Locale:
         locale = Locale.parse(locale)
         return locale.languages.get(self.language)
 
-    language_name = property(
-        get_language_name,
-        doc="""\
+    @property
+    def language_name(self) -> str | None:
+        """
         The localized language name of the locale.
 
         >>> Locale('en', 'US').language_name
         'English'
-    """,
-    )
+        """
+        return self.get_language_name()
 
     def get_territory_name(self, locale: Locale | str | None = None) -> str | None:
         """Return the territory name in the given locale."""
@@ -557,15 +575,15 @@ class Locale:
         locale = Locale.parse(locale)
         return locale.territories.get(self.territory or '')
 
-    territory_name = property(
-        get_territory_name,
-        doc="""\
+    @property
+    def territory_name(self) -> str | None:
+        """
         The localized territory name of the locale if available.
 
         >>> Locale('de', 'DE').territory_name
         'Deutschland'
-    """,
-    )
+        """
+        return self.get_territory_name()
 
     def get_script_name(self, locale: Locale | str | None = None) -> str | None:
         """Return the script name in the given locale."""
@@ -574,15 +592,15 @@ class Locale:
         locale = Locale.parse(locale)
         return locale.scripts.get(self.script or '')
 
-    script_name = property(
-        get_script_name,
-        doc="""\
+    @property
+    def script_name(self) -> str | None:
+        """
         The localized script name of the locale if available.
 
         >>> Locale('sr', 'ME', script='Latn').script_name
         'latinica'
-    """,
-    )
+        """
+        return self.get_script_name()
 
     @property
     def english_name(self) -> str | None:
@@ -592,8 +610,7 @@ class Locale:
         'German'
         >>> Locale('de', 'DE').english_name
         'German (Germany)'
-
-        :type: `unicode`"""
+        """
         return self.get_display_name(Locale('en'))
 
     # { General Locale Display Names
@@ -854,13 +871,18 @@ class Locale:
     def time_zones(self) -> localedata.LocaleDataDict:
         """Locale display names for time zones.
 
+        The keys are canonical IANA time zone IDs like ``Asia/Kolkata``,
+        not ``Asia/Calcutta``, like the ``zone_aliases`` global.
+
         .. note:: The format of the value returned may change between
                   Babel versions.
 
-        >>> Locale('en', 'US').time_zones['Europe/London']['long']['daylight']
-        'British Summer Time'
+        >>> Locale('en', 'US').time_zones['Etc/UTC']['long']['standard']
+        'Coordinated Universal Time'
         >>> Locale('en', 'US').time_zones['America/St_Johns']['city']
         'St. John’s'
+        >>> Locale('de').time_zones['Asia/Kolkata']['city']
+        'Kalkutta'
         """
         return self._data['time_zones']
 
@@ -892,6 +914,10 @@ class Locale:
         '%(1)s (%(0)s)'
         >>> Locale('pt', 'BR').zone_formats['region']
         'Horário %s'
+        >>> Locale('sl').zone_formats['gmt']
+        'GMT %s'
+        >>> Locale('sl').zone_formats['gmt_utc']
+        'UTC %s'
 
         .. versionadded:: 0.9
         """
@@ -979,6 +1005,22 @@ class Locale:
         return self._data['datetime_formats']
 
     @property
+    def datetime_formats_relative(self) -> localedata.LocaleDataDict:
+        """Locale patterns for combining a relative date with a time.
+
+        Introduced in CLDR 48.
+
+        .. note:: The format of the value returned may change between
+                  Babel versions.
+
+        >>> Locale('en').datetime_formats_relative['full']
+        "{1} 'at' {0}"
+
+        .. versionadded:: 2.19
+        """
+        return self._data['datetime_formats_relative']
+
+    @property
     def datetime_skeletons(self) -> localedata.LocaleDataDict:
         """Locale patterns for formatting parts of a datetime.
 
@@ -987,7 +1029,7 @@ class Locale:
         >>> Locale('fr').datetime_skeletons['MEd']
         <DateTimePattern 'E dd/MM'>
         >>> Locale('fr').datetime_skeletons['H']
-        <DateTimePattern "HH 'h'">
+        <DateTimePattern 'HH'>
         """
         return self._data['datetime_skeletons']
 
@@ -1375,7 +1417,7 @@ def get_cldr_version() -> str:
     function is a string representing a version number, e.g. '47'.
 
     >>> get_cldr_version()
-    '47'
+    '49'
 
     .. versionadded:: 2.18
 

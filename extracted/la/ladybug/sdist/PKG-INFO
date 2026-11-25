@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ladybug
-Version: 0.22.3
+Version: 0.23.0
 Summary: Highly scalable, extremely fast, easy-to-use embeddable graph database
 Home-page: https://github.com/LadybugDB/ladybug
 License: MIT
@@ -9,10 +9,27 @@ Project-URL: Documentation, https://docs.ladybugdb.com/
 Project-URL: Repository, https://github.com/LadybugDB/ladybug-python
 Project-URL: Changelog, https://github.com/LadybugDB/ladybug/releases
 Keywords: graph,database
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.16,>=3.11
 Description-Content-Type: text/markdown
-Provides-Extra: dev
 License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: black>=26.3.1; extra == "dev"
+Requires-Dist: mypy==1.16.0; extra == "dev"
+Requires-Dist: networkx~=3.0; extra == "dev"
+Requires-Dist: numpy~=2.0; extra == "dev"
+Requires-Dist: pandas~=2.2; extra == "dev"
+Requires-Dist: polars~=1.30; extra == "dev"
+Requires-Dist: pre-commit>=4.6.0; extra == "dev"
+Requires-Dist: pyarrow>=25; extra == "dev"
+Requires-Dist: pybind11>=2.13; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio~=1.0; extra == "dev"
+Requires-Dist: pytest-xdist~=3.0; extra == "dev"
+Requires-Dist: ruff==0.15.19; extra == "dev"
+Requires-Dist: setuptools>=80.9; extra == "dev"
+Requires-Dist: torch-geometric>=2.5.0; extra == "dev"
+Requires-Dist: torch>=2.5.0; extra == "dev"
+Dynamic: license-file
 
 <div align="center">
   <picture>
@@ -63,6 +80,8 @@ The database was formerly known as [Kuzu](https://github.com/kuzudb/kuzu).
 | Go       | `go get github.com/LadybugDB/go-ladybug`                                     |
 | Swift    | [lbug-swift](https://github.com/LadybugDB/swift-ladybug)                     |
 | Java     | [Maven Central](https://central.sonatype.com/artifact/com.ladybugdb/lbug) |
+| .NET     | [NuGet](https://www.nuget.org/packages/LadybugDB) |
+| Lean4    | [Reservoir](https://reservoir.lean-lang.org/@Volland/ladybug) |
 | C/C++    | [precompiled binaries](https://github.com/LadybugDB/ladybug/releases/latest) |
 | CLI      | [precompiled binaries](https://github.com/LadybugDB/ladybug/releases/latest) |
 

@@ -34,7 +34,6 @@ from dreamscale.control import (
 
 # Benchmarks that run on Dreamscale's simulators, not this computer.
 HOSTED_BENCHMARKS = {"robolab": "RoboLab"}
-DEFAULT_SUITE = "smoke10"
 DEFAULT_EPISODES = 4
 DEFAULT_MAX_UNITS = 1
 SIM_RUNS_PATH = "/v1/sim-runs"
@@ -70,14 +69,14 @@ def run_body(
     episodes: int = DEFAULT_EPISODES,
     max_units: int = DEFAULT_MAX_UNITS,
 ) -> dict[str, Any]:
-    """``POST /v1/sim-runs``'s body: one named task, or a suite (smoke10 when neither)."""
-    if task_id is not None and task_suite is not None:
-        raise ValueError("choose one: --task-id <task> or --task-suite <suite>")
+    """``POST /v1/sim-runs``'s body: one task by id, or a suite (``all``: every task)."""
+    if (task_id is None) == (task_suite is None):
+        raise ValueError("choose one: a task id or a suite")
     body: dict[str, Any] = {"benchmark": benchmark, "model": model}
     if task_id is not None:
         body["tasks"] = [task_id]
     else:
-        body["suite"] = task_suite or DEFAULT_SUITE
+        body["suite"] = task_suite
     return {**body, "episodes": episodes, "max_units": max_units}
 
 
@@ -424,7 +423,8 @@ def run_hosted(
         say(f"{GETTING}: 0s elapsed")
     run = call(client_factory, create_run, body, view)
     run_id = run["id"]
-    what = f"task {task_id}" if task_id is not None else f"suite {body['suite']}"
+    what = (f"task {task_id}" if task_id is not None else "every task"
+            if body["suite"] == "all" else f"suite {body['suite']}")
     if not json_output:
         print_fn(f"{HOSTED_BENCHMARKS[benchmark]} run {run_id}: {model} · {what} · "
                  f"{episodes} episode{'s' if episodes != 1 else ''} per task")

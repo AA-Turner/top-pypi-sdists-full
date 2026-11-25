@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openai
-Version: 3.58.0
+Version: 3.59.0
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -644,6 +644,8 @@ The async client uses the exact same interface. If you pass a [`PathLike`](https
 ## Webhook Verification
 
 Verifying webhook signatures is _optional but encouraged_.
+
+After verifying the signature, use the `webhook-id` header as an idempotency key to avoid processing the same event twice.
 
 For more information about webhooks, see [the API docs](https://platform.openai.com/docs/guides/webhooks).
 

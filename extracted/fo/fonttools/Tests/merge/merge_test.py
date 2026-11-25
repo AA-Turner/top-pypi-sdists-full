@@ -84,6 +84,15 @@ class MergeIntegrationTest(unittest.TestCase):
         mergedfont = ttLib.TTFont(mergedpath)
         self.expect_ttx(mergedfont, self.getpath("CFFFont_expected.ttx"))
 
+    def test_merge_cff_objects(self):
+        fonts = []
+        for name in ("CFFFont1.ttx", "CFFFont2.ttx"):
+            font = ttLib.TTFont(recalcBBoxes=False, recalcTimestamp=False)
+            font.importXML(self.getpath(name))
+            fonts.append(font)
+        merged = _merge_and_recompile(fonts)
+        self.expect_ttx(merged, self.getpath("CFFFont_expected.ttx"))
+
 
 class gaspMergeUnitTest(unittest.TestCase):
     def setUp(self):
@@ -391,6 +400,32 @@ def _merge_and_recompile(fontfiles, options=None):
     return ttLib.TTFont(buf)
 
 
+@pytest.mark.parametrize("first_in_memory", [False, True])
+def test_merge_ttfont_inputs(first_in_memory, tmp_path):
+    first = ttLib.TTFont(_make_fontfile_with_glyphs(0xE000, 2))
+    second = ttLib.TTFont(_make_fontfile_with_glyphs(0xE000, 2))
+    first.ensureDecompiled()
+    FontBuilder(font=first).setupPost()
+    second.ensureDecompiled()
+    FontBuilder(font=second).setupPost()
+    glyph_name = second.getBestCmap()[0xE000]
+    for subtable in second["cmap"].tables:
+        if subtable.isUnicode():
+            subtable.cmap = {0xE001: glyph_name}
+    second["hmtx"].metrics[glyph_name] = (777, 11)
+
+    if not first_in_memory:
+        first_path = tmp_path / "first.ttf"
+        first.save(first_path)
+        first = first_path
+    merged = _merge_and_recompile([first, second])
+    cmap = merged.getBestCmap()
+    assert set(cmap) == {0xE000, 0xE001}
+    assert cmap[0xE000] != cmap[0xE001]
+    assert merged["hmtx"].metrics[cmap[0xE000]] == (500, 0)
+    assert merged["hmtx"].metrics[cmap[0xE001]] == (777, 11)
+
+
 @pytest.mark.parametrize("first_format", [14, 15])
 @pytest.mark.parametrize("second_format", [14, 15])
 @pytest.mark.parametrize("high_glyph_ids", [False, True])
@@ -437,6 +472,44 @@ def test_merge_extended_uvs(first_format, second_format, high_glyph_ids):
                 assert roundtripped.getGlyphID(actualGlyph) == merged.getGlyphID(
                     expectedGlyph
                 )
+
+
+@pytest.mark.parametrize(
+    "non_bmp, extra_range",
+    [(False, False), (True, False), (False, True)],
+)
+def test_merge_cmap_exceeding_format4_capacity(non_bmp, extra_range):
+    fontfiles = []
+    expected_cmap = {}
+    expected_uvs = []
+    for first_gid, start in [(0x20, 0x800), (0x40, 0x800 + 20000)]:
+        font = ttLib.TTFont(_make_fontfile_with_glyphs(first_gid, 3))
+        font.ensureDecompiled()
+        glyphs = font.getGlyphOrder()[1:]
+        cmap = {start + i: glyphs[i % 2] for i in range(20000)}
+        if first_gid == 0x40:
+            if non_bmp:
+                cmap[0x10000] = glyphs[0]
+            if extra_range:
+                cmap.update(
+                    {0x800 + 40000 + 100 + i: glyphs[i % 2] for i in range(1000)}
+                )
+        fb = FontBuilder(font=font)
+        fb.setupCharacterMap(
+            cmap, uvs=[(start, 0xFE0F, None), (start + 1, 0xFE0F, glyphs[0])]
+        )
+        fb.setupOS2()
+        fb.setupPost()
+        fontfiles.append(_compile(font))
+        expected_cmap.update(cmap)
+        expected_uvs.extend([(start, None), (start + 1, glyphs[0])])
+
+    merged = _merge_and_recompile(fontfiles)
+    assert merged.getBestCmap() == expected_cmap
+    actual_uvs = merged["cmap"].getcmap(0, 5).uvsDict
+    assert {selector: dict(mappings) for selector, mappings in actual_uvs.items()} == {
+        0xFE0F: dict(expected_uvs)
+    }
 
 
 @pytest.mark.parametrize("reverse_order", [False, True])

@@ -16,7 +16,7 @@ from marimo._code_mode.screenshot_meta import (
 )
 from marimo._messaging.cell_output import CellChannel
 from marimo._messaging.errors import MarimoAncestorStoppedError
-from marimo._messaging.notebook.outputs import CellOutputs
+from marimo._messaging.notebook.outputs import CellOutputs, scratchpad_snapshot
 from marimo._messaging.notification import (
     CellNotification,
     CompletedRunNotification,
@@ -33,14 +33,16 @@ if TYPE_CHECKING:
 
     from starlette.requests import Request
 
-    from marimo._messaging.notebook.document import NotebookCell
+    from marimo._messaging.notebook.document import (
+        NotebookCell,
+    )
     from marimo._messaging.types import KernelMessage
     from marimo._session.session import Session
+    from marimo._types.encodable import Encodable
 
 EXECUTION_TIMEOUT = (
     30.0  # seconds — used only by wait(); stream() has no timeout
 )
-
 # Channel name constants for SSE events
 _CHANNEL_MAP = {
     CellChannel.STDOUT: "stdout",
@@ -237,7 +239,7 @@ class ScratchCellListener(EventAwareExtension):
                 msg = await asyncio.wait_for(
                     self._queue.get(), timeout=remaining
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self.timed_out = True
                 return
             if msg is None:
@@ -249,6 +251,48 @@ class ScratchCellListener(EventAwareExtension):
 # -- Helpers ------------------------------------------------------------------
 
 
+def build_scratchpad_request(
+    session: Session,
+    request: Request,
+    *,
+    server_url: str,
+    auth_token: str,
+) -> HTTPRequest:
+    """Build kernel request metadata for scratchpad execution.
+
+    Args:
+        session (Session): Notebook that owns the scratchpad.
+        request (Request): HTTP request to serialize.
+        server_url (str): Trusted URL for screenshot callbacks.
+        auth_token (str): Token for screenshot callbacks.
+    """
+    http_req = HTTPRequest.from_request(request)
+    http_req.meta.update(
+        scratchpad_request_metadata(
+            session, server_url=server_url, auth_token=auth_token
+        )
+    )
+    return http_req
+
+
+def scratchpad_request_metadata(
+    session: Session, *, server_url: str, auth_token: str
+) -> dict[str, Encodable]:
+    """Return server metadata for scratchpad screenshot callbacks.
+
+    Args:
+        session (Session): Session that owns the scratchpad.
+        server_url (str): Trusted URL for screenshot callbacks.
+        auth_token (str): Token for screenshot callbacks.
+    """
+    return {
+        SCREENSHOT_SERVER_URL_KEY: server_url,
+        SCREENSHOT_AUTH_TOKEN_KEY: auth_token,
+        SCREENSHOT_FILE_KEY: session.app_file_manager.path
+        or session.initialization_id,
+    }
+
+
 def snapshot_for_scratchpad(
     session: Session,
 ) -> tuple[tuple[NotebookCell, ...], CellOutputs]:
@@ -258,15 +302,7 @@ def snapshot_for_scratchpad(
     and passed on `ExecuteScratchpadCommand` so `cm.get_context()`
     can expose cells and their last outputs.
     """
-    cell_ids = session.document.cell_ids
-    notebook_cells = tuple(session.document.cells)
-    cell_outputs = CellOutputs(
-        output=session.session_view.get_cell_outputs(cell_ids),
-        console_outputs=session.session_view.get_cell_console_outputs(
-            cell_ids
-        ),
-    )
-    return notebook_cells, cell_outputs
+    return scratchpad_snapshot(session.document, session.session_view)
 
 
 def _format_console(msg: CellNotification) -> list[str]:
@@ -300,8 +336,7 @@ def build_done_event(
     response — `done` carries only the success bit plus the scratch
     cell's rendered output on success (empty on failure).
     """
-    cell_notif = session.session_view.cell_notifications.get(SCRATCH_CELL_ID)
-    output = cell_notif.output if cell_notif is not None else None
+    output = session.session_view.current_execution_output(SCRATCH_CELL_ID)
 
     scratch_errored = (
         output is not None and output.channel == CellChannel.MARIMO_ERROR
@@ -329,9 +364,10 @@ def extract_result(
     if cell_notif is None:
         return CodeExecutionResult(success=True)
 
+    output = session.session_view.current_execution_output(SCRATCH_CELL_ID)
     output_data = None
-    if cell_notif.output is not None:
-        data = cell_notif.output.data
+    if output is not None:
+        data = output.data
         if isinstance(data, str):
             output_data = data
         elif isinstance(data, dict):
@@ -352,10 +388,8 @@ def extract_result(
             stderr.append(str(out.data))
 
     errors: list[str] = []
-    if cell_notif.output is not None and isinstance(
-        cell_notif.output.data, list
-    ):
-        for err in cell_notif.output.data:
+    if output is not None and isinstance(output.data, list):
+        for err in output.data:
             errors.append(str(getattr(err, "msg", None) or err))
 
     # Include child cell error summaries.
@@ -366,11 +400,7 @@ def extract_result(
     return CodeExecutionResult(
         success=len(errors) == 0,
         output=output_data,
-        output_mimetype=(
-            cell_notif.output.mimetype
-            if cell_notif.output is not None
-            else None
-        ),
+        output_mimetype=output.mimetype if output is not None else None,
         stdout=stdout,
         stderr=stderr,
         errors=errors,
@@ -387,11 +417,8 @@ async def run_scratchpad_code(
     timeout: float = EXECUTION_TIMEOUT,
 ) -> CodeExecutionResult:
     """Drive the kernel scratchpad on behalf of code-mode"""
-    http_req = HTTPRequest.from_request(request)
-    http_req.meta[SCREENSHOT_SERVER_URL_KEY] = server_url
-    http_req.meta[SCREENSHOT_AUTH_TOKEN_KEY] = auth_token
-    http_req.meta[SCREENSHOT_FILE_KEY] = (
-        session.app_file_manager.path or session.initialization_id
+    http_req = build_scratchpad_request(
+        session, request, server_url=server_url, auth_token=auth_token
     )
 
     session.instantiate(

@@ -14,14 +14,14 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 
 def new_pipe(
-    p,
+    p: Dict[str, Any],
     config: CLIConfig,
     tb_client: TinyB,
     force: bool = False,
     check: bool = True,
     populate: bool = False,
-    populate_subset=None,
-    populate_condition=None,
+    populate_subset: Optional[float] = None,
+    populate_condition: Optional[str] = None,
     unlink_on_populate_error: bool = False,
     wait_populate: bool = False,
     skip_tokens: bool = False,
@@ -40,7 +40,7 @@ def new_pipe(
     tests_check_requests_from_branch: bool = False,
     fork_downstream: Optional[bool] = False,
     fork: Optional[bool] = False,
-):
+) -> None:
     # TODO use tb_client instead of calling the urls directly.
     host = tb_client.host
     token = config.get_user_token()
@@ -75,13 +75,13 @@ def new_pipe(
     if populate_condition:
         params["populate_condition"] = populate_condition
     if populate_subset:
-        params["populate_subset"] = populate_subset
+        params["populate_subset"] = str(populate_subset)
     params["unlink_on_populate_error"] = "true" if unlink_on_populate_error else "false"
     params["branch_mode"] = "fork" if fork_downstream or fork else "None"
 
     body = {"name": p["name"], "description": p.get("description", "")}
 
-    def parse_node(node):
+    def parse_node(node: Dict[str, Any]) -> Dict[str, Any]:
         if "params" in node:
             node.update(node["params"])
             if node.get("type", "") == "materialized" and override_datasource:
@@ -131,6 +131,8 @@ def new_pipe(
                 scopes = [f"PIPES:{tk['permissions']}:{p['name']}"]
                 for x in t["scopes"]:
                     sc = x["type"] if "resource" not in x else f"{x['type']}:{x['resource']}"
+                    if x.get("filter"):
+                        sc = f"{sc}:{x['filter']}"
                     scopes.append(sc)
                 try:
                     r = tb_client.alter_tokens(token_name, scopes)
@@ -177,7 +179,7 @@ def get_token_from_main_branch(branch_tb_client: TinyB) -> Optional[str]:
     return token_from_main_branch
 
 
-def show_materialized_view_warnings(warnings):
+def show_materialized_view_warnings(warnings: List[Dict[str, Any]]) -> None:
     """
     >>> show_materialized_view_warnings([{'code': 'SIM', 'weight': 1}])
 

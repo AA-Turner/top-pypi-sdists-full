@@ -402,7 +402,7 @@ class Scaling(list):
 _SCALING_SETUP = 'pm←¿[1024 1024]ρ0 ◇ sq←¿[512 512]ρ0 ◇ hq←sq+⍉sq ◇ stk←¿[16384 8 8]ρ0 ◇ img←¿[256 256 16]ρ0 ◇ cw←[64516 144]ρ3 3↕img ◇ ck←¿[144 32]ρ0 ◇ big←¿4194304ρ0 ◇ n←≢big'
 _SCALING_THREADS = 4
 # Each case's serial fraction s: the share of its one-thread time that doesn't split across threads. On t threads it should then speed up 1/(s + (1 − s)/t) times, by Amdahl's law. A product, a stack's cells and an elementwise function split into independent pieces. A product of windows splits its rows into one piece for each thread, which gathers its own windows a block at a time. A copy of a view splits its items across threads, but memory bandwidth limits its gain. Its serial fraction comes from measurement: a copy of a convolution's windows gained 1.6 to 1.9 times on 4 threads of an M5 Max (28 October 2026). A serial fraction of 0.5 matches the lower gain. A 512×512 SVD or Hermitian eigendecomposition spends about half its time in matrix products and half in its one-stage reduction. The products split. The reduction's matrix-vector passes over the trailing matrix are mostly too short to split.
-_SCALING = {'pm+.×pm': 0, '"svd"•decompose sq': 0.5, '"eigen"•decompose hq': 0.5, '"qr"•decompose⍤2 stk': 0, 'cw+.×ck': 0, '3 3↕img': 0.5, '*big': 0}
+_SCALING = {'pm+.×pm': 0, '"svd"•decompose sq': 0.5, '"eigen"•decompose hq': 0.5, '"qr"•decompose²stk': 0, 'cw+.×ck': 0, '3 3↕img': 0.5, '*big': 0}
 # On macOS, Accelerate computes these cases, and their serial fractions come from measurement. Its GESDD and SYEVD run on one thread whatever its threading setting, as NumPy's calls into the same Accelerate show. Its 1024×1024 product ran at about 480 GFLOP/s on one thread of an M5 Max and gained 1.35 times on 4 threads (27 October 2026), a serial fraction of 0.65. The product of windows gained 1.88 times on 4 threads (28 October 2026), a serial fraction of 0.38.
 _ACCELERATED = {'pm+.×pm': 0.65, '"svd"•decompose sq': 1, '"eigen"•decompose hq': 1, 'cw+.×ck': 0.38}
 
@@ -422,7 +422,9 @@ def thread_scaling(
     least = lambda s: 1 + (1 / (s + (1 - s) / threads) - 1) / 2 if s < 1 else 0.9
     build, timeout = resolved(build), Limit.of(timeout)
     def timed(codes):
-        one, many = (time_cases(codes, setup, threads=t, build=build, timeout=timeout) for t in (1, threads))
+        one = time_cases(codes, setup, threads=1, build=build, timeout=timeout)
+        # Warm the worker's Rayon pool before timing so pool creation and CPU ramp don't skew scaling.
+        many = time_cases(['*262144ρ1.0', *codes], setup, threads=threads, build=build, timeout=timeout)[1:] if threads > 1 else time_cases(codes, setup, threads=1, build=build, timeout=timeout)
         return {code: (code, a, b, a / b, least(serial[code])) for (code, a, _), (_, b, _) in zip(one, many)}
     rows = timed(listify(cases) or list(serial))
     for pause in _retry_pauses:

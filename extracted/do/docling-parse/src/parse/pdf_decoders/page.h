@@ -23,7 +23,7 @@ namespace pdflib
   {
   public:
 
-    pdf_decoder(QPDFObjectHandle page, int page_num);
+    pdf_decoder(QPDFObjectHandle page, int page_num, bool resolve_inherited_resources = false);
 
     // Thread-safe constructor: creates its own QPDF document from the shared buffer
     pdf_decoder(std::shared_ptr<std::string> buffer,
@@ -110,6 +110,7 @@ namespace pdflib
   private:
 
     bool has_marked_content = false;
+    bool resolve_inherited_resources = false;
 
     void decode_dimensions();
 
@@ -250,7 +251,8 @@ namespace pdflib
     pdf_timings timings;
   };
 
-  pdf_decoder<PAGE>::pdf_decoder(QPDFObjectHandle page, int page_num):
+  pdf_decoder<PAGE>::pdf_decoder(QPDFObjectHandle page, int page_num, bool resolve_inherited_resources):
+    resolve_inherited_resources(resolve_inherited_resources),
     thread_safe(false),
     owned_buffer(nullptr),
     owned_qpdf_document(nullptr),
@@ -958,20 +960,19 @@ namespace pdflib
       local.reset();
       page_item_sanitator<PAGE_CELLS> sanitator;
 
-      if(config.do_remove_duplicate_cells)
-        {
-          utils::timer step_timer;
-          sanitator.remove_duplicate_cells(page_cells, 0.5, true);
-          timings.add_timing(pdf_timings::KEY_SANITIZE_CELLS_REMOVE_DUPLICATE_CELLS,
-                             step_timer.get_time());
-        }
-
       {
         utils::timer step_timer;
         sanitator.sanitize_text(page_cells, config.do_char_normalization);
         timings.add_timing(pdf_timings::KEY_SANITIZE_CELLS_SANITIZE_TEXT,
                            step_timer.get_time());
       }
+      if(config.do_remove_duplicate_cells)
+        {
+          utils::timer step_timer;
+          sanitator.remove_overprinted_runs(page_cells);
+          timings.add_timing(pdf_timings::KEY_SANITIZE_CELLS_REMOVE_DUPLICATE_CELLS,
+                             step_timer.get_time());
+        }
       timings.add_timing(pdf_timings::KEY_SANITIZE_CELLS, local.get_time());
     }
 
@@ -1019,6 +1020,16 @@ namespace pdflib
   void pdf_decoder<PAGE>::decode_resources(const decode_config& config)
   {
     LOG_S(INFO) << __FUNCTION__;
+
+    if(resolve_inherited_resources)
+      {
+        qpdf_resources = QPDFPageObjectHelper(qpdf_page).getAttribute("/Resources", false);
+        if(qpdf_resources.isDictionary())
+          {
+            decode_resources_low_level(config);
+          }
+        return;
+      }
 
     bool has_resources = qpdf_page.hasKey("/Resources");
     bool has_parent = qpdf_page.hasKey("/Parent");

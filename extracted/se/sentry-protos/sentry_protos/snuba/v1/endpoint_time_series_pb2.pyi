@@ -45,6 +45,7 @@ class TimeSeriesRequest(google.protobuf.message.Message):
     GRANULARITY_SECS_FIELD_NUMBER: builtins.int
     GROUP_BY_FIELD_NUMBER: builtins.int
     TRACE_FILTERS_FIELD_NUMBER: builtins.int
+    ROUTING_HINT_FIELD_NUMBER: builtins.int
     granularity_secs: builtins.int
     """the level of detail in the timeseries graph,
     low granularity is very detailed, high is less detail.
@@ -52,6 +53,11 @@ class TimeSeriesRequest(google.protobuf.message.Message):
         if its 1m you have a data point every 1m
     tip: for performance, if the query is is over a large time period you should
      have high granularity
+    """
+    routing_hint: builtins.str
+    """optional, the routing_hint from an earlier TimeSeriesResponse. When set,
+    this request reads the same data that response read. Clients should not
+    inspect, construct, or modify it.
     """
     @property
     def meta(self) -> sentry_protos.snuba.v1.request_common_pb2.RequestMeta:
@@ -98,9 +104,10 @@ class TimeSeriesRequest(google.protobuf.message.Message):
         granularity_secs: builtins.int = ...,
         group_by: collections.abc.Iterable[sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey] | None = ...,
         trace_filters: collections.abc.Iterable[sentry_protos.snuba.v1.request_common_pb2.TraceItemFilterWithType] | None = ...,
+        routing_hint: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["filter", b"filter", "meta", b"meta"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregations", b"aggregations", "expressions", b"expressions", "filter", b"filter", "granularity_secs", b"granularity_secs", "group_by", b"group_by", "meta", b"meta", "trace_filters", b"trace_filters"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["aggregations", b"aggregations", "expressions", b"expressions", "filter", b"filter", "granularity_secs", b"granularity_secs", "group_by", b"group_by", "meta", b"meta", "routing_hint", b"routing_hint", "trace_filters", b"trace_filters"]) -> None: ...
 
 global___TimeSeriesRequest = TimeSeriesRequest
 
@@ -298,6 +305,12 @@ class TimeSeriesResponse(google.protobuf.message.Message):
 
     RESULT_TIMESERIES_FIELD_NUMBER: builtins.int
     META_FIELD_NUMBER: builtins.int
+    ROUTING_HINT_FIELD_NUMBER: builtins.int
+    routing_hint: builtins.str
+    """opaque value identifying how this response was routed. Pass it as
+    TimeSeriesRequest.routing_hint to make a related query read the same
+    data. Clients should not inspect, construct, or modify it.
+    """
     @property
     def result_timeseries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___TimeSeries]: ...
     @property
@@ -307,8 +320,9 @@ class TimeSeriesResponse(google.protobuf.message.Message):
         *,
         result_timeseries: collections.abc.Iterable[global___TimeSeries] | None = ...,
         meta: sentry_protos.snuba.v1.request_common_pb2.ResponseMeta | None = ...,
+        routing_hint: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["meta", b"meta"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["meta", b"meta", "result_timeseries", b"result_timeseries"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["meta", b"meta", "result_timeseries", b"result_timeseries", "routing_hint", b"routing_hint"]) -> None: ...
 
 global___TimeSeriesResponse = TimeSeriesResponse

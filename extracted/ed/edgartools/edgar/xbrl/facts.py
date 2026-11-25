@@ -106,7 +106,7 @@ _DIMENSION_COLUMNS: Dict[str, Any] = {
 # by_statement_type() to test against (gh #1242); they are list-valued, and the
 # frame's schema is declared rather than inferred (edgartools-rsyt), so they
 # stay off it rather than widening the contract with two list cells.
-_SKIP_COLUMNS = frozenset({'fact_key', 'original_label',
+_SKIP_COLUMNS = frozenset({'fact_key', 'original_label', 'dedup_value',
                            'statement_types', 'statement_roles'})
 
 
@@ -118,7 +118,26 @@ _DEDUP_REQUIRED = ('concept', 'context_ref', 'value', 'decimals')
 # `is_nil` is in it because a filed nil item and an empty non-nil element share
 # every other identity field; without it the frame kept whichever came first
 # (GH #1254). Two nil items, or two empty ones, still collapse.
-_DEDUP_OPTIONAL = ('unit_ref', 'is_nil')
+# `dedup_value` stands in for `value` where it is set (see `_dedup_value`).
+_DEDUP_OPTIONAL = ('unit_ref', 'is_nil', 'dedup_value')
+
+# Extensible-enumeration values are xs:token lists (Extensible Enumerations 2.0
+# section 6.2.2): whitespace between members is not significant, so two facts
+# naming the same members, one with a space and one with a line break, are
+# duplicates (section 6.2.3, GH #1760). Matched on the local type name, whatever
+# prefix the schema binds to the enum2 namespace.
+_ENUMERATION_TYPES = ('enumerationItemType', 'enumerationSetItemType')
+
+
+def _dedup_value(data_type: Optional[str], value: Any) -> Optional[str]:
+    """The value an enumeration fact is compared by, or None for any other fact.
+
+    `value` itself is never rewritten: the kept row reports its value exactly
+    as filed. Only the de-duplication identity collapses the whitespace.
+    """
+    if isinstance(value, str) and data_type and data_type.endswith(_ENUMERATION_TYPES):
+        return ' '.join(value.split())
+    return None
 
 
 def _source_column_presence(results: List[Dict[str, Any]], names) -> set:
@@ -168,8 +187,15 @@ def _deduplicate_facts(df: pd.DataFrame) -> pd.DataFrame:
     dedup_cols = list(_DEDUP_REQUIRED)
     if all(col in df.columns for col in dedup_cols):
         # Repeated tags of one fact still collapse (gh #769): they share a unit.
-        dedup_cols.extend(col for col in _DEDUP_OPTIONAL if col in df.columns)
-        df = df.drop_duplicates(subset=dedup_cols, keep='first')
+        optional = [col for col in _DEDUP_OPTIONAL if col in df.columns]
+        if 'dedup_value' in optional:
+            # Compare the collapsed enumeration value in place of `value`.
+            key = df['dedup_value'].where(df['dedup_value'].notna(), df['value'])
+            subset = ['_dedup_key' if col == 'value' else col for col in dedup_cols]
+            subset += [col for col in optional if col != 'dedup_value']
+            df = df.loc[~df.assign(_dedup_key=key).duplicated(subset=subset, keep='first')]
+        else:
+            df = df.drop_duplicates(subset=dedup_cols + optional, keep='first')
     return df
 
 
@@ -357,7 +383,8 @@ class FactQuery:
         Args:
             value_filter: Can be:
                 - A callable predicate that takes a value and returns bool
-                - A specific value to match exactly
+                - A string to match the filed text exactly
+                - A number to match the parsed numeric value exactly
                 - A tuple or list of (min, max) for range filtering
 
         Returns:
@@ -379,6 +406,12 @@ class FactQuery:
                         min_val <= f['numeric_value'] <= max_val)
 
             self._filters.append(numeric_range_filter)
+        elif isinstance(value_filter, str):
+            def text_equality_filter(fact):
+                text = fact.get('value')
+                return text == value_filter
+
+            self._filters.append(text_equality_filter)
         else:
             def numeric_equality_filter(f):
                 return ('numeric_value' in f and
@@ -1653,6 +1686,11 @@ class FactsView:
                 from edgar.xbrl.parsers.concepts import resolve_balance
                 fact_dict['balance'] = resolve_balance(element.balance, fact.element_id)  # "debit", "credit", or None
 
+                # GH #1760: enumeration members compare without their whitespace.
+                dedup_value = _dedup_value(element.data_type, fact_dict.get('value'))
+                if dedup_value is not None:
+                    fact_dict['dedup_value'] = dedup_value
+
                 # Add preferred_sign from presentation linkbase (Issue #463)
                 # Convert preferredLabel to a numeric sign multiplier for display
                 # -1 means "negate for display", 1 means "use as-is", None means "not specified"
@@ -1728,6 +1766,8 @@ class FactsView:
         facts = self.get_facts()
         df = pd.DataFrame(facts)
         df = _deduplicate_facts(df)
+        if 'dedup_value' in df.columns:
+            df = df.drop(columns=['dedup_value'])
         self._facts_df_cache = df
         return df
 

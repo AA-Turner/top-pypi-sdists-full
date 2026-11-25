@@ -98,10 +98,67 @@ def test_design(dataset, design, contrast):
     assert_res_almost_equal(res, r_res, tol=0.04 if dataset == "continuous" else 0.02)
 
 
+def test_single_sample_level():
+    """Test that PyDESeq2 matches DESeq2 when zero counts in a single-sample level or in a whole condition make coefficients diverge."""
+    counts_df, metadata = load_data("synthetic")
+    metadata = metadata.assign(batch=["b2"] + ["b1"] * (len(metadata) - 1))
+    counts_df = counts_df.copy()
+    counts_df.iloc[0, :5] = 0
+    counts_df.loc[metadata.condition == "B", "gene6"] = 0
+    design, contrast = "~batch + group + condition", ["batch", "b2", "b1"]
+
+    res = run_pydeseq2(counts_df, metadata, design, contrast, {}, {})
+    r_res = run_r_deseq2(counts_df, metadata, design, contrast, {}, {})
+
+    assert_res_almost_equal(res, r_res, tol=0.005)
+    assert (abs(r_res.lfcSE - res.lfcSE) / r_res.lfcSE).max() < 0.005
+
+
+@pytest.mark.parametrize(
+    ("dataset", "design", "reduced", "contrast"),
+    [
+        ("synthetic", "~group + condition", "~group", ["condition", "B", "A"]),
+        ("synthetic", "~group * condition", "~group + condition", ["condition", "B", "A"]),
+        ("synthetic", "~group + condition", "~1", ["condition", "B", "A"]),
+        ("continuous", "~group + condition + measurement", "~condition", ["group", "Y", "X"]),
+    ],
+)
+def test_lrt(dataset, design, reduced, contrast):
+    """Test that the likelihood ratio test of PyDESeq2 matches DESeq2."""
+    counts_df, metadata = load_data(dataset)
+
+    res = run_pydeseq2(counts_df, metadata, design, contrast, {}, {"reduced": reduced})
+    r_res = run_r_deseq2(counts_df, metadata, design, contrast, {"test": "LRT", "reduced": ro.Formula(reduced)}, {})
+
+    assert_res_almost_equal(res, r_res)
+    assert (abs(r_res.stat - res.stat) / r_res.stat).max() < 2e-3
+
+
+@pytest.mark.parametrize(
+    ("dds_kwargs", "deseq_kwargs"),
+    [({}, {}), ({"refit_cooks": False}, {"minReplicatesForReplace": np.inf})],
+)
+def test_lrt_outlier(dds_kwargs, deseq_kwargs):
+    """Test that the likelihood ratio test of PyDESeq2 matches DESeq2 when a count is replaced or filtered as an outlier."""
+    counts_df, metadata = load_data("synthetic")
+    counts_df = counts_df.copy()
+    counts_df.iloc[3, 1] = 2000
+    design, reduced, contrast = "~group + condition", "~group", ["condition", "B", "A"]
+
+    res = run_pydeseq2(counts_df, metadata, design, contrast, dds_kwargs, {"reduced": reduced})
+    r_res = run_r_deseq2(
+        counts_df, metadata, design, contrast, {"test": "LRT", "reduced": ro.Formula(reduced), **deseq_kwargs}, {}
+    )
+
+    assert_res_almost_equal(res, r_res)
+    assert (abs(r_res.stat - res.stat) / r_res.stat).max() < 2e-3
+
+
 @pytest.mark.parametrize(
     ("dds_kwargs", "ds_kwargs", "deseq_kwargs", "results_kwargs"),
     [
         ({"fit_type": "mean"}, {}, {"fitType": "mean"}, {}),
+        ({"fit_type": "local"}, {}, {"fitType": "local"}, {}),
         ({"size_factors_fit_type": "poscounts"}, {}, {"sfType": "poscounts"}, {}),
         ({}, {"independent_filter": False}, {}, {"independentFiltering": False}),
         ({}, {"alpha": 0.01}, {}, {"alpha": 0.01}),

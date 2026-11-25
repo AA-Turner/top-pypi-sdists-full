@@ -5,7 +5,7 @@ import hashlib
 import re
 from datetime import datetime
 from probe.foundation.compat.compat import UTC
-from typing import Any
+from typing import Any, NamedTuple
 #: With an observation id the server keys on the host too, and bounds it.
 MAX_OBSERVATION_HOST_BYTES = 255
 
@@ -14,6 +14,9 @@ _HEX64 = re.compile(r"[0-9a-f]{64}")
 _HEX32 = re.compile(r"[0-9a-f]{32}")
 #: `hash_file`'s fingerprint: size, mtime_ns, sha256 of the edges.
 _FINGERPRINT = re.compile(r"[0-9]+:-?[0-9]+:[0-9a-f]{64}")
+#: A cloud object's identity (`object_store.make_fingerprint`): ``obj1:`` + its
+#: generation, VersionId or ETag, printable ASCII, at most 256 characters in all.
+_OBJECT_FINGERPRINT = re.compile(r"obj1:[!-~]{1,251}")
 #: What `_now_iso()` writes into a spool's "t".
 _ISO_INSTANT = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})")
 
@@ -74,7 +77,7 @@ def _typed_row(
         # scanning disabled: "path": redaction.scrub_string(path),
         "path": path,
         "content_hash": sha if isinstance(sha, str) and _HEX64.fullmatch(sha) else None,
-        "fingerprint": fp if isinstance(fp, str) and _FINGERPRINT.fullmatch(fp) else None,
+        "fingerprint": fp if _is_valid_fingerprint(fp) else None,
         "size_bytes": size if isinstance(size, int) and not isinstance(size, bool) and size >= 0 else None,
         "host": host,
         "stable": bool(stable),
@@ -133,7 +136,7 @@ def _typed_output_row(
         "path": path,
         "host": host,
         "content_hash": sha if isinstance(sha, str) and _HEX64.fullmatch(sha) else "",
-        "fingerprint": fp if isinstance(fp, str) and _FINGERPRINT.fullmatch(fp) else None,
+        "fingerprint": fp if _is_valid_fingerprint(fp) else None,
         "size_bytes": size if isinstance(size, int) and not isinstance(size, bool) and size >= 0 else None,
         "first_written_at": written_at,
         "last_modified_at": modified_at,
@@ -151,3 +154,79 @@ def _row_count(rows: Any) -> int | None:
 
 def _without_observation(row: dict) -> dict:
     return {k: v for k, v in row.items() if k != "observation_id"}
+
+
+def _is_valid_fingerprint(fp: Any) -> bool:
+    """A local file's fingerprint (`hash_file`) or a cloud object's identity (``obj1:``)."""
+    return isinstance(fp, str) and bool(_FINGERPRINT.fullmatch(fp) or _OBJECT_FINGERPRINT.fullmatch(fp))
+
+
+class ObjectRows(NamedTuple):
+    """A run's cloud-object reads and writes in the server's row shapes; how many
+    were dropped because the server cannot store them (a URI too long or holding
+    NUL, an endpoint too long), and how many a ``.probeignore`` pattern excluded."""
+
+    inputs: list
+    outputs: list
+    unsendable_inputs: int = 0
+    unsendable_outputs: int = 0
+    ignored_inputs: int = 0
+    ignored_outputs: int = 0
+
+
+def _is_host_sendable(host: str) -> bool:
+    """An endpoint the server can key on: UTF-8, no NUL, at most 255 bytes (a
+    253-byte DNS name and a port is more). One that is not refuses its batch."""
+    try:
+        return "\x00" not in host and len(host.encode("utf-8")) <= MAX_OBSERVATION_HOST_BYTES
+    except UnicodeEncodeError:
+        return False
+
+
+def _build_object_rows(
+    run_id: str, objects: Any, *, should_read: bool, should_write: bool, rules: Any = None
+) -> ObjectRows:
+    """Rows for the objects a run's spools hold (`_SpooledObjects`): ``host`` is the
+    storage endpoint, ``content_hash`` empty, ``fingerprint`` the ``obj1:`` identity.
+    The observation id is derived from (run, endpoint, uri, identity), so two versions
+    stay two rows and a recovery's re-send replaces, never adds. A credential-shaped
+    key is never sent, nor one the run's ``.probeignore`` ``rules`` exclude."""
+    out = ObjectRows([], [])
+    unsendable = [0, 0]
+    ignored = [0, 0]
+    for (kind, uri, host, fingerprint), note in sorted(objects.rows.items(), key=lambda kv: (str(kv[1].get("t", "")), kv[0])):
+        reading = kind == "r"
+        side = 0 if reading else 1
+        if not (should_read if reading else should_write):
+            continue
+        if _is_object_excluded(uri):
+            continue
+        if _is_object_ignored(rules, uri):
+            ignored[side] += 1
+            continue
+        if not (_sendable(uri) and _is_host_sendable(host)):
+            unsendable[side] += 1
+            continue
+        observation = _read_observation(run_id, host, uri, ("obj", fingerprint))
+        seen_at = note.get("t")
+        if reading:
+            row = _typed_row(uri, None, fingerprint, note.get("s"), host, True, seen_at, observation)
+        else:
+            row = _typed_output_row(uri, None, fingerprint, note.get("s"), host, seen_at, seen_at, observation)
+        if row is not None and row["fingerprint"] is not None:
+            (out.inputs if reading else out.outputs).append(row)
+    return out._replace(
+        unsendable_inputs=unsendable[0],
+        unsendable_outputs=unsendable[1],
+        ignored_inputs=ignored[0],
+        ignored_outputs=ignored[1],
+    )
+
+
+def _build_object_coverage(spooled: Any) -> str | None:
+    """The coverage's ``object_store`` line: what this process hooked, and what the
+    run's other processes (``probe exec``'s child) spooled that they hooked."""
+    from . import object_store
+
+    return object_store.join_coverage([*object_store._STATUS.values(), *spooled])
+from probe.sdk.capture.lineage.exclusions import _is_object_excluded, _is_object_ignored, _sendable  # noqa: E402 -- pieces need each other; the front door loads this one first

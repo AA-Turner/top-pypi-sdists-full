@@ -19,6 +19,7 @@ class ActionErrorCode(StrEnum):
     PERMISSION = "permission"
     RATE_LIMITED = "rate_limited"
     READY_TO_MERGE = "ready_to_merge"
+    STATUS_UNKNOWN = "status_unknown"
     UNKNOWN = "unknown"
 
     def __str__(self) -> str:

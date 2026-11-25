@@ -50,6 +50,9 @@ from . import (
 from .clip_index import CLIP_DIM, ClipIndex
 from .embedding_index import VECTOR_DIM as VECTOR_DIM  # the legacy width, re-exported
 from .embedding_index import EmbeddingIndex, PageScorer, expected_parent_state
+from .perceptual_hash import average_hash as _avg_hash
+from .perceptual_hash import hamming as _hamming
+from .perceptual_hash import hash_bits as _hash_bits
 from .vector_index_common import vec_gate as _vec_gate
 
 log = logging.getLogger(__name__)
@@ -368,7 +371,7 @@ def get_reranker():
 
             def load_cross_encoder(**kwargs):
                 if backend == "onnx":
-                    # Do not auto-select CUDA: that would bypass Exomem's
+                    # Do not auto-select CUDA: that would bypass Evermatter's
                     # explicit accelerator/headroom policy. ONNX Runtime has
                     # no provider in the lean MPS profile, so MPS uses CPU.
                     provider = (
@@ -558,7 +561,8 @@ def embed_clip_text(query: str) -> np.ndarray:
             model = get_clip_query_model()
         except (ImportError, embedding_backend.ModelFilesUnavailable) as error:
             raise ClipUnavailable(f"multilingual image query encoder unavailable: {error}") from error
-        with _turn_for(model)():
+        # The process admission bounds every encode, a search query's included; the lane only orders turns.
+        with runtime_resources.model_admission(), _turn_for(model)():
             vec = model.encode([query])[0]
     return vec.astype(np.float32, copy=False)
 
@@ -611,32 +615,6 @@ def _max_video_keyframes() -> int:
     return MAX_VIDEO_KEYFRAMES
 
 
-def _hash_bits(arr: np.ndarray) -> int:
-    """Pack a small grayscale array into an average-hash int: bit per pixel vs mean.
-
-    Shared core between the PIL path (`_avg_hash`) and the ndarray path used by the
-    scene-detection metrics pass, so both produce comparable hashes.
-    """
-    flat = np.asarray(arr, dtype=np.float32).ravel()
-    bits = flat >= flat.mean()
-    val = 0
-    for b in bits:
-        val = (val << 1) | int(b)
-    return val
-
-
-def _avg_hash(img, *, size: int = 8) -> int:
-    """64-bit perceptual average-hash: downscale → grayscale → bit per pixel vs mean.
-
-    Keys on luminance *structure*, so it distinguishes textured frames (faces, slides,
-    whiteboards — what real recordings contain) but is blind to two flat frames of
-    differing uniform colour (both hash to all-ones). Dedup is best-effort; a
-    pathologically flat video simply keeps fewer keyframes.
-    """
-    small = img.convert("L").resize((size, size))
-    return _hash_bits(np.asarray(small, dtype=np.float32))
-
-
 def _pool_gray(arr: np.ndarray, *, size: int = 8) -> np.ndarray:
     """Mean-pool a grayscale array down to size×size (hash input for ndarray frames)."""
     a = np.asarray(arr, dtype=np.float32)
@@ -655,10 +633,6 @@ def _gray_hist(arr: np.ndarray, *, bins: int = 32) -> np.ndarray:
     if not total:
         return np.zeros(bins, dtype=np.float32)
     return (h / total).astype(np.float32)
-
-
-def _hamming(a: int, b: int) -> int:
-    return bin(a ^ b).count("1")
 
 
 def _retain_video_candidate(image, max_edge: int | None, hashes: list[int | None] | None):
@@ -1313,7 +1287,7 @@ def embed_texts(texts: list[str], *, is_query: bool = False) -> np.ndarray:
 
 
 def _encode_caller() -> str:
-    """The nearest Exomem module above the encoder, as a span name suffix.
+    """The nearest Evermatter module above the encoder, as a span name suffix.
 
     An `embeddings.encode` of 80 s with 837 texts sat in the ledger for days
     with no way to say who asked for it; the caller was the semantic segmenter

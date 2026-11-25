@@ -381,6 +381,7 @@ class Parser:
         "_prev_comments",
         "_pipe_cte_counter",
         "_chunks",
+        "_chunk_ends",
         "_chunk_index",
         "_tokens_size",
         "_node_count",
@@ -2049,6 +2050,7 @@ class Parser:
         self._prev_comments: list[str] = []
         self._pipe_cte_counter: int = 0
         self._chunks: list[list[Token]] = []
+        self._chunk_ends: dict[int, int] = {}
         self._chunk_index: i64 = 0
         self._node_count: int = 0
 
@@ -2064,6 +2066,7 @@ class Parser:
         self._prev_comments = []
         self._pipe_cte_counter = 0
         self._chunks = []
+        self._chunk_ends.clear()
         self._chunk_index = 0
         self._node_count = 0
 
@@ -2342,6 +2345,7 @@ class Parser:
         indexed_tokens = enumerate(raw_tokens)
         for i, token in indexed_tokens:
             if token.token_type == TokenType.SEMICOLON:
+                self._chunk_ends[len(chunks) - 1] = token.start
                 if token.comments:
                     chunks.append([token])
 
@@ -8571,9 +8575,25 @@ class Parser:
 
         return self.expression(exp.Extract(this=this, expression=self._parse_bitwise()))
 
+    def _parse_table_argument(self, table_token: Token | None = None) -> exp.Expr | None:
+        if table_token is None and self._match(TokenType.TABLE):
+            table_token = self._prev
+
+        relation = (
+            self._parse_wrapped(self._parse_table_parts, optional=True)
+            if table_token
+            else self._parse_table()
+        )
+        if isinstance(relation, exp.Table):
+            return self.expression(
+                exp.TableArgument(this=relation),
+                table_token,
+                comments=table_token.comments if table_token else None,
+            )
+        return relation
+
     def _parse_gap_fill(self) -> exp.GapFill:
-        self._match(TokenType.TABLE)
-        this = self._parse_table()
+        this = self._parse_table_argument()
 
         self._match(TokenType.COMMA)
         args = [this, *self._parse_csv(self._parse_lambda)]
@@ -9778,14 +9798,18 @@ class Parser:
 
     def _parse_alter_session(self) -> exp.AlterSession:
         """Parse ALTER SESSION SET/UNSET statements."""
+
+        def parse_parameter() -> exp.Expr | None:
+            return self._parse_identifier() or self._parse_var(tokens=self.ID_VAR_TOKENS)
+
         if self._match(TokenType.SET):
-            expressions = self._parse_csv(lambda: self._parse_set_item_assignment())
+            expressions = self._parse_csv(
+                lambda: self._parse_set_item_assignment(parse_left=parse_parameter)
+            )
             return self.expression(exp.AlterSession(expressions=expressions, unset=False))
 
         self._match_text_seq("UNSET")
-        expressions = self._parse_csv(
-            lambda: self.expression(exp.SetItem(this=self._parse_id_var(any_token=True)))
-        )
+        expressions = self._parse_csv(lambda: self.expression(exp.SetItem(this=parse_parameter())))
         return self.expression(exp.AlterSession(expressions=expressions, unset=True))
 
     def _parse_alter(self) -> exp.Alter | exp.Command:
@@ -10139,13 +10163,18 @@ class Parser:
             return parser(self)
         return self._parse_as_command(self._prev)
 
-    def _parse_set_item_assignment(self, kind: str | None = None) -> exp.Expr | None:
+    def _parse_set_item_assignment(
+        self,
+        kind: str | None = None,
+        *,
+        parse_left: t.Callable[[], exp.Expr | None] | None = None,
+    ) -> exp.Expr | None:
         index = self._index
 
         if kind in ("GLOBAL", "SESSION") and self._match_text_seq("TRANSACTION"):
             return self._parse_set_transaction(global_=kind == "GLOBAL")
 
-        left = self._parse_primary() or self._parse_column()
+        left = parse_left() if parse_left else self._parse_primary() or self._parse_column()
         assignment_delimiter = self._match_texts(self.SET_ASSIGNMENT_DELIMITERS)
 
         if not left or (self.SET_REQUIRES_ASSIGNMENT_DELIMITER and not assignment_delimiter):
@@ -10215,10 +10244,16 @@ class Parser:
 
         return exp.var(option)
 
-    def _parse_as_command(self, start: Token) -> exp.Command:
+    def _parse_as_command(
+        self, start: Token, include_trailing_comments: bool = False
+    ) -> exp.Command:
         while self._curr:
             self._advance()
         text = self._find_sql(start, self._prev)
+        if include_trailing_comments and self._prev.comments and self._prev is not start:
+            # Trailing comments lie between the last token and the statement delimiter.
+            end = self._chunk_ends.get(self._chunk_index - 1)
+            text += self.sql[self._prev.end + 1 : end]
         size = len(start.text)
         self._warn_unsupported()
         return exp.Command(this=text[:size], expression=text[size:])

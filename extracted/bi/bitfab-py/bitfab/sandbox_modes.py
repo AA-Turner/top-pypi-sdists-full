@@ -28,8 +28,8 @@ from bitfab.linear_sandbox import (
     build_linear_sandbox,
 )
 from bitfab.linear_sandbox import READ_WHOLE_OBJECT as LINEAR_READ_WHOLE_OBJECT
-from bitfab.linear_sandbox import Transport as LinearTransport
 from bitfab.mock_override import MockOverrideCtx
+from bitfab.postgres_calls import NEON_BRANCH
 from bitfab.sandbox import (
     POSTGRES_SANDBOX_NAME,
     Sandbox,
@@ -277,26 +277,23 @@ def slack_sandbox(
 
 def linear_sandbox(
     mode: str = LINEAR_READ_WHOLE_OBJECT,
-    token: str | None = None,
     start: Callable[[SandboxStartCtx], Any] | None = None,
-    _transport: LinearTransport | None = None,
 ) -> Sandbox:
-    """The Linear sandbox: answers Linear GraphQL calls during replay, never sending a write to Linear.
+    """The Linear sandbox: answers Linear GraphQL calls during replay, never reaching Linear.
 
     It answers GraphQL requests to ``api.linear.app/graphql`` made with
     ``requests`` (and clients built on it, such as ``gql``'s requests
     transport) or ``httpx``, sync or async. Any other client that reaches
     ``api.linear.app`` while it is on is refused and fails the replay item.
 
-    Whenever a request reads any part of an issue, the sandbox holds the
-    whole issue: every field Linear has for it, every list on it to the end
-    (comments, sub-issues, relations, attachments, labels, history and the
-    rest), and each user, team, state, project or other record those point
-    to. With the ``linear`` integration on, the original run records each
-    issue it reads whole, once per trace, in as many queries as that takes;
-    the replay starts from those
-    whole issues and every other Linear read the trace recorded, so a later
-    read of a part the original run never touched is still answered.
+    With the ``linear`` integration on, the original run records each issue
+    it reads whole, once per trace: every field Linear has for it, every
+    list on it to the end (comments, sub-issues, relations, attachments,
+    labels, history and the rest), and each user, team, state, project or
+    other record those point to. It saves them, with every other Linear
+    read the run made, in the sandbox store for the trace, and the replay
+    starts from a copy of that, so a later read of a part of a recorded
+    issue the original run never touched is still answered.
 
     Issue creates, updates, label changes, archives and deletes, and comment
     creates, edits and deletes stay in the sandbox and show on later reads.
@@ -304,19 +301,14 @@ def linear_sandbox(
     with ``replay(sandbox_modes={"linear": False})``.
 
     Args:
-        mode: ``"test-read-whole-object"`` (default) reads an issue the trace did
-            not record whole from Linear, once per replay item, and sends any
-            other query it cannot answer to Linear as it is asked; only
-            reads ever go to Linear. Each read that went to Linear is listed
-            as ``liveReads`` on the replay trace. ``"recorded"`` never
-            reaches Linear and fails the replay item on a read the trace has
-            nothing for.
-        token: ``"test-read-whole-object"`` mode only. The Linear API key or
-            OAuth token (sent as the ``Authorization`` header) that reads
-            from Linear. ``None`` uses the ``BITFAB_LINEAR_TOKEN``
-            environment variable, and without that the header each replayed
-            call was made with. It is never written to a span, the sandbox's
-            state, or the replay trace.
+        mode: ``"test-read-whole-object"`` (default) answers a read the saved
+            state has nothing for, such as an issue the original run never
+            read or a list with other filters, with Linear's ``Entity not
+            found`` error for that field, and a write to such an object the
+            same way, so the replay goes on without reaching Linear. Each
+            read is listed in ``readsFromTrace`` on the replay trace, with
+            ``found`` false for those. ``"recorded"`` fails the replay item on
+            such a read or write instead. Neither mode ever reaches Linear.
         start: Builds the workspace for one replay item from a
             ``SandboxStartCtx``, in place of the recording. Return
             ``{"viewer": {...}, "teams": [...], "workflowStates": [...],
@@ -332,13 +324,8 @@ def linear_sandbox(
             f"The Linear sandbox has no mode {mode!r}. Its modes are "
             f"{', '.join(repr(m) for m in LINEAR_MODES)}."
         )
-    if mode == RECORDED and token is not None:
-        raise ValueError(
-            f'linear_sandbox(token=...) is for mode="{LINEAR_READ_WHOLE_OBJECT}"; '
-            f'mode="{RECORDED}" never reads from Linear.'
-        )
     install_linear_interception()
-    return build_linear_sandbox(start, mode, token, _transport)
+    return build_linear_sandbox(start, mode)
 
 
 @dataclass(frozen=True)
@@ -386,7 +373,6 @@ SERVICE_MODES: dict[str, ServiceModes] = {
 }
 
 
-NEON_BRANCH = "neon-branch"
 # TODO: add a Postgres sandbox mode for an Ardent branch, beside "neon-branch".
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vismatch
-Version: 1.5.0
+Version: 1.6.0
 Summary: Easily test and apply pairwise image matching models
 Author-email: Alex Stoken <alex.stoken@gmail.com>, Gabriele Berton <berton.gabri@gmail.com>, Gabriele Trivigno <gabriele.trivigno@polito.it>
 Maintainer-email: Alex Stoken <alex.stoken@gmail.com>, Gabriele Berton <berton.gabri@gmail.com>
@@ -40,18 +40,17 @@ Keywords: image matching
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: torch>=2.0
+Requires-Dist: torch>=2.5.1
 Requires-Dist: torchvision>=0.15
 Requires-Dist: opencv-python>=4.5.4
 Requires-Dist: matplotlib>=3.3
-Requires-Dist: kornia<0.8.3,>=0.7.3
+Requires-Dist: kornia<0.10,>=0.9.2
 Requires-Dist: einops>=0.6.0
 Requires-Dist: transforms3d>=0.4.0
 Requires-Dist: kornia_moons>=0.1

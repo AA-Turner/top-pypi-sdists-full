@@ -71,6 +71,41 @@ def test_rating_initial_end():
     Rating(label='Max 10', end=10, value=7)
 
 
+def test_rating_end_does_not_mutate_class_bounds():
+    """Instance bounds must not leak to the class or to other instances."""
+    Rating(end=10, value=7)
+    assert Rating.param.value.bounds == (0, None)
+    assert Rating().param.value.bounds == (0, 5)
+    with pytest.raises(ValueError):
+        Rating(value=8)
+
+
+def test_rating_lowering_end_clamps_value():
+    rating = Rating(end=10, value=8)
+    rating.end = 3
+    assert rating.value == 3
+    assert rating.param.value.bounds == (0, 3)
+    rating.end = 6
+    assert rating.value == 3
+    assert rating.param.value.bounds == (0, 6)
+
+
+@pytest.mark.parametrize('slider_type', [FloatSlider, RangeSlider, EditableRangeSlider, IntRangeSlider])
+@pytest.mark.parametrize('step', [0, -1])
+def test_slider_rejects_non_positive_step(slider_type, step):
+    with pytest.raises(ValueError):
+        slider_type(step=step)
+
+
+@pytest.mark.parametrize('slider_type', [RangeSlider, IntRangeSlider, EditableRangeSlider])
+def test_range_slider_does_not_sync_readonly_value_start_end(slider_type):
+    """value_start/value_end are derived on the server, echoing them is wasted traffic."""
+    slider = slider_type(start=0, end=10, value=(1, 2))
+    msg = slider._process_param_change({'value': (2, 3), 'value_start': 2, 'value_end': 3})
+    assert 'value_start' not in msg
+    assert 'value_end' not in msg
+
+
 @pytest.mark.parametrize('throttled', [False, True])
 def test_discrete_slider_value_throttled(throttled):
     """Throttled updates arrive as indexes and must map to option values."""
@@ -80,3 +115,59 @@ def test_discrete_slider_value_throttled(throttled):
         slider._process_events({'value': 1, 'value_throttled': 1})
     assert slider.value == options[1]
     assert slider.value_throttled == options[1]
+
+
+def test_discrete_slider_empty_options_renders(document, comm):
+    slider = DiscreteSlider(label='x', options=[])
+    assert slider.value is None
+    model = slider.get_root(document, comm)
+    assert model.data.value is None
+    assert model.data.options == []
+
+
+def test_discrete_slider_options_cleared(document, comm):
+    slider = DiscreteSlider(options=[1, 2, 3], value=2)
+    model = slider.get_root(document, comm)
+    slider.options = []
+    assert slider.value is None
+    assert slider.value_throttled is None
+    assert slider.end == 0
+    assert model.data.value is None
+    assert model.data.options == []
+
+
+def test_discrete_slider_options_populated_after_empty(document, comm):
+    slider = DiscreteSlider(options=[])
+    model = slider.get_root(document, comm)
+    slider.options = ['a', 'b', 'c']
+    assert slider.value == 'a'
+    assert slider.value_throttled == 'a'
+    assert slider.end == 2
+    assert model.data.value == 0
+    slider.value = 'c'
+    assert model.data.value == 2
+
+
+def test_discrete_slider_options_change_keeps_valid_value():
+    slider = DiscreteSlider(options=[1, 2, 3], value=2)
+    slider.options = [2, 3, 4]
+    assert slider.value == 2
+    slider.options = [5, 6]
+    assert slider.value == 5
+
+
+@pytest.mark.parametrize(('options', 'kwargs', 'expected'), [
+    ([5, 0], {}, 5),
+    ([5, 0], {'value': 0}, 0),
+    ([5, 0], {'value': 7}, 5),
+    ({'a': 1, 'b': 2}, {}, 1),
+])
+def test_discrete_slider_initial_value(options, kwargs, expected):
+    slider = DiscreteSlider(options=options, **kwargs)
+    assert slider.value == expected
+    assert slider.end == len(options) - 1
+
+
+def test_discrete_slider_ignores_out_of_range_index():
+    slider = DiscreteSlider(options=[])
+    assert slider._process_property_change({'value': 0, 'value_throttled': 0}) == {}

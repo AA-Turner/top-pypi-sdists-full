@@ -341,8 +341,28 @@ class BeginCommit(google.protobuf.message.Message):
     END_COMMIT.
     """
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    HEADER_FIELD_NUMBER: builtins.int
 
-    def __init__(self) -> None:
+    @property
+    def header(self) -> common.types.base_types_pb2.ItemHeader:
+        """Specifies which document to associate the commit with
+
+        API clients should always specify this field.  Legacy clients passing an empty BeginCommit
+        will continue to work as long as the user has only one possible document open, otherwise
+        KiCad will return an error.
+
+        Use of BeginCommit without a document specified will be deprecated in a future release.
+
+        Since: 10.0.7
+        """
+
+    def __init__(self, *, header: common.types.base_types_pb2.ItemHeader | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['header', b'header']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['header', b'header']) -> None:
         ...
 global___BeginCommit = BeginCommit
 
@@ -371,6 +391,7 @@ class EndCommit(google.protobuf.message.Message):
     ID_FIELD_NUMBER: builtins.int
     ACTION_FIELD_NUMBER: builtins.int
     MESSAGE_FIELD_NUMBER: builtins.int
+    HEADER_FIELD_NUMBER: builtins.int
     action: global___CommitAction.ValueType
     'What to do with this commit'
     message: builtins.str
@@ -380,13 +401,26 @@ class EndCommit(google.protobuf.message.Message):
     def id(self) -> common.types.base_types_pb2.KIID:
         """The ID that was given by BeginCommit"""
 
-    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., action: global___CommitAction.ValueType=..., message: builtins.str=...) -> None:
+    @property
+    def header(self) -> common.types.base_types_pb2.ItemHeader:
+        """Specifies which document to associate the commit with
+
+        API clients should always specify this field.  Legacy clients passing an EndCommit without it
+        will continue to work as long as the user has only one possible document open, otherwise
+        KiCad will return an error.
+
+        Use of EndCommit without a document specified will be deprecated in a future release.
+
+        Since: 10.0.7
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., action: global___CommitAction.ValueType=..., message: builtins.str=..., header: common.types.base_types_pb2.ItemHeader | None=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['id', b'id']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['header', b'header', 'id', b'id']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['action', b'action', 'id', b'id', 'message', b'message']) -> None:
+    def ClearField(self, field_name: typing.Literal['action', b'action', 'header', b'header', 'id', b'id', 'message', b'message']) -> None:
         ...
 global___EndCommit = EndCommit
 

@@ -8,6 +8,9 @@ launcher when ``CARLA_EXECUTABLE`` is not set::
     scenario-setup            # download, or keep an install that is current
     scenario-setup --force    # download again regardless
     scenario-setup --nightly  # CARLA's nightly build (the ue58-dev branch) instead
+    scenario-setup --nightly 20261124           # the last nightly built that day
+    scenario-setup --nightly 23d487e3           # the nightly built from that commit
+    scenario-setup --nightly 20261124_23d487e3  # a nightly by its own name
 
 The client speaks the 1.0 release's RPC by default (``TYPESAFE_CARLA_CARLA_REF``,
 see :mod:`autoware_carla_scenario.carla_release`); a nightly server wants
@@ -42,14 +45,21 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import datetime
 import errno
+import functools
+import gzip
 import http.client
 import json
+import logging
+import os
 import platform
+import re
 import shutil
 import sys
 import tarfile
 import time
+import zlib
 from email.message import Message
 from pathlib import Path, PurePosixPath
 from typing import IO, Callable, Iterator, Optional, cast
@@ -83,12 +93,26 @@ from .carla_install_paths import package_url as package_url
 # such a file system by them too.
 from .slurm.start_lock import _NO_FLOCK_ERRNOS
 
+logger = logging.getLogger(__name__)
+
 RELEASE_URL = "https://downloads.carlasim.com/Linux/CARLA_1.0.tar.gz"
 """The CARLA release the framework targets (1.0), as linked from its release page."""
 
 NIGHTLY_URL = "https://downloads.carlasim.com/Linux/Dev/CARLA_UE5_Latest.tar.gz"
 """CARLA's nightly Linux build (the ``ue58-dev`` branch), as linked from its
 download page."""
+
+NIGHTLY_DIR_URL = "https://downloads.carlasim.com/Linux/Dev/"
+"""Where CARLA's CI keeps every nightly it built, ``<YYYYMMDD>_<commit>.tar.gz``:
+the committer date and the abbreviated hash of the ``ue58-dev`` commit it built
+(``Util/Tools/Deploy.sh`` in CARLA), beside the ``CARLA_UE5_Latest.tar.gz`` it
+also replaces."""
+
+NIGHTLY_COMMITS_API = "https://api.github.com/repos/carla-simulator/carla/commits"
+"""The GitHub API a nightly given by date or commit is looked up in."""
+
+NIGHTLY_BRANCH = "ue58-dev"
+"""The branch CARLA's nightly is built from."""
 
 USER_AGENT = "autoware-carla-scenario (scenario-setup)"
 """The ``User-Agent`` every download request sends.
@@ -184,7 +208,7 @@ def _install(url: str, target: Path, force: bool, writable: bool = True) -> Path
     from tqdm import tqdm  # noqa: PLC0415
 
     if not writable and force:
-        raise _cannot_install(target)
+        raise _cannot_install(target, force=True)
     if writable:
         # What an interrupted run left: an unfinished download and an old install
         # moved aside but not yet deleted. Neither is ever trusted as an install.
@@ -216,6 +240,17 @@ def _install(url: str, target: Path, force: bool, writable: bool = True) -> Path
             return _launcher_of(target)
         if not writable:
             raise _cannot_install(target)
+        # Checked before the download, not before finding the install current
+        # (a leftover that cannot be deleted does not stop a run that keeps the
+        # install): the swap needs the name free, and would otherwise fail only
+        # once the whole package is unpacked.
+        if _replaced(target).exists():
+            raise RuntimeError(
+                f"{_replaced(target)}, a previous install moved aside, cannot be "
+                "deleted (files held open by a CARLA server, perhaps on another "
+                "node, or owned by another user such as root); delete it and run "
+                "scenario-setup again"
+            )
         size = int(source["size"]) if source["size"] else None
         target.parent.mkdir(parents=True, exist_ok=True)
         staging = _staging(target)
@@ -239,13 +274,14 @@ def _install(url: str, target: Path, force: bool, writable: bool = True) -> Path
                     f"{url} has no {LAUNCHER.name} (at its top, as CARLA 1.0 "
                     f"has it, or in {LAUNCHER.parent}/): not a CARLA Linux package"
                 )
-        except BaseException:  # Ctrl-C and a dead connection too: no 30 GB left over
+            (staging / _STAMP).write_text(json.dumps(source, indent=2) + "\n")
+            _swap_into_place(staging, target)
+        # Ctrl-C, a dead connection, a failed swap: no 30 GB left over.
+        except BaseException:
             shutil.rmtree(staging, ignore_errors=True)
             raise
         finally:
             stream.close()
-    (staging / _STAMP).write_text(json.dumps(source, indent=2) + "\n")
-    _swap_into_place(staging, target)
     return _launcher_of(target)
 
 
@@ -305,11 +341,12 @@ def _locked(target: Path) -> Iterator[bool]:
 class _ResumingStream:
     """The body of *response*, reconnecting with a range request when it drops.
 
-    ``tarfile`` in ``r|gz`` mode only reads forward, so when a read fails or the
-    body ends short of its Content-Length, the rest is asked for with
+    The unpacking only reads forward, so when a read fails or the body ends
+    short of its Content-Length, the rest is asked for with
     ``Range: bytes=<read so far>-`` and the stream carries on as if nothing
     happened. ``If-Range`` makes a download replaced in the meantime come back
     whole (200) instead of spliced onto the old one, which ends the install.
+    A body that ends short and cannot be resumed raises ``RuntimeError``.
     """
 
     def __init__(
@@ -355,7 +392,13 @@ class _ResumingStream:
                     self._offset += len(data)
                     return data
                 if not self._resumable:
-                    return data  # tarfile reports the archive as truncated
+                    # Content-Length says there is more; urllib's read() just
+                    # returns nothing when the connection closes early.
+                    raise RuntimeError(
+                        f"the download of {self._url} ended at {self._offset} of "
+                        f"{self._size} bytes and cannot be resumed; run "
+                        "scenario-setup again"
+                    )
                 error = None
             failures += 1
             self._reconnect(failures, error)
@@ -490,12 +533,43 @@ def _require_extraction_filters() -> None:
 
     Raises:
         RuntimeError: The running Python is one of those older patch releases.
+
+    The filters themselves have known bypasses before 3.10.18, 3.11.13,
+    3.12.11 and 3.13.4 (:data:`_FILTER_FIXES`): there, a warning is logged
+    rather than the install refused, which would lock out Pythons still
+    shipped (Ubuntu 24.04's 3.12.3).
     """
     if not hasattr(tarfile, "data_filter"):
         raise RuntimeError(
             f"scenario-setup needs tarfile's extraction filters, which Python "
             f"{platform.python_version()} lacks: upgrade Python to 3.10.12, "
             f"3.11.4, 3.12 or later"
+        )
+    major, minor, micro = sys.version_info[:3]
+    _warn_of_filter_bypasses(major, minor, micro)
+
+
+_FILTER_FIXES = {(3, 10): 18, (3, 11): 13, (3, 12): 11, (3, 13): 4}
+"""The patch release of each minor version that fixed the extraction filters'
+bypasses (CVE-2024-12718, CVE-2025-4138, CVE-2025-4330, CVE-2025-4517)."""
+
+
+@functools.lru_cache(maxsize=None)
+def _warn_of_filter_bypasses(major: int, minor: int, micro: int) -> None:
+    """Warn, once per run, of a Python whose extraction filters can be bypassed."""
+    fixed = _FILTER_FIXES.get((major, minor))
+    if fixed is not None and micro < fixed:
+        logger.warning(
+            "Python %d.%d.%d's tarfile extraction filters can be bypassed by a "
+            "crafted archive (CVE-2024-12718, CVE-2025-4138, CVE-2025-4330, "
+            "CVE-2025-4517; fixed in %d.%d.%d): pass only a --url you trust, or "
+            "upgrade Python",
+            major,
+            minor,
+            micro,
+            major,
+            minor,
+            fixed,
         )
 
 
@@ -575,19 +649,192 @@ class _StripTop:
 
 
 def _unpack(stream: IO[bytes], destination: Path) -> None:
-    """Unpack a gzipped tar *stream* into *destination*, dropping its top directory."""
+    """Unpack a gzipped tar *stream* into *destination*, dropping its top directory.
+
+    ``tarfile``'s own ``r|gz`` takes a stream cut at a member boundary for the
+    end of the archive and never checks the gzip trailer, so the gzip stream
+    is read here, to its end once the archive is unpacked: one cut short
+    raises ``EOFError``, a wrong CRC or length ``gzip.BadGzipFile``.
+    """
     _require_extraction_filters()
     destination.mkdir(parents=True)
-    # 1 MiB reads: the default 10 KiB makes 1.6 M calls through the progress bar.
-    with tarfile.open(fileobj=stream, mode="r|gz", bufsize=1 << 20) as archive:
+    # 1 MiB reads of the unpacked tar, not tarfile's default 10 KiB. The progress
+    # bar counts gzip's reads of the download (8 KiB before 3.12, 128 KiB on).
+    with gzip.GzipFile(fileobj=stream, mode="rb") as unzipped:
+        with tarfile.open(fileobj=unzipped, mode="r|", bufsize=1 << 20) as archive:
+            try:
+                archive.extractall(destination, filter=_StripTop())
+            except KeyError as exc:
+                # tarfile's own report of a hard link whose target is not (yet)
+                # on disk nor in the archive; a TarError, so main() reports it
+                # cleanly.
+                raise tarfile.ExtractError(
+                    f"a hard link's target is not in the archive: {exc}"
+                ) from exc
+        while unzipped.read(1 << 20):  # the rest, up to the trailer's checks
+            pass
+
+
+_HASH_LENGTHS = (8, 7, 9, 10, 11, 12)
+"""Abbreviated hash lengths a nightly's name may use, likeliest first: ``git log
+%h`` abbreviates as the repository's size demands (8 for CARLA in 2026)."""
+
+_DATE_SLACK_DAYS = 1
+"""Days either side of a day a commit is looked for in: a nightly is named by
+the committer's local date, the GitHub API answers in UTC."""
+
+_ONE_DAY = datetime.timedelta(days=1)
+
+
+def nightly_url(build: Optional[str] = None) -> str:
+    """The URL of the CARLA nightly *build* names (``scenario-setup --nightly``).
+
+    *build* is one of:
+
+    - ``None`` or ``latest``: the latest nightly (:data:`NIGHTLY_URL`);
+    - a nightly's own name, ``YYYYMMDD_<commit>`` (``20261124_23d487e3``), used
+      as it is;
+    - a date, ``YYYYMMDD`` or ``YYYY-MM-DD``: the last nightly built from a
+      commit of that day;
+    - a commit of ``ue58-dev`` (7 to 40 hex digits): the nightly built from it.
+
+    A date or a commit is looked up in the branch's history (the GitHub API;
+    ``GITHUB_TOKEN`` is sent if set) and the nightlies it names are asked for,
+    since the download server lists none. CARLA's CI builds only some commits,
+    and an old nightly may have been deleted, so the build asked for may not
+    exist.
+
+    Raises:
+        ValueError: *build* is none of the above, or no nightly matches it.
+        OSError: The GitHub API or the download server cannot be reached.
+    """
+    if build is None or build.strip().lower() in ("", "latest"):
+        return NIGHTLY_URL
+    name = build.strip().lower()
+    if name.endswith(".tar.gz"):
+        name = name[: -len(".tar.gz")]
+    if re.fullmatch(r"\d{8}_[0-9a-f]{7,40}", name):
+        _parse_day(name[:8], build)
+        return f"{NIGHTLY_DIR_URL}{name}.tar.gz"
+    day = _maybe_day(name)
+    if day is not None:
+        candidates = [
+            (day, sha) for sha in _commits_between(day - _ONE_DAY, day + 2 * _ONE_DAY)
+        ]
+        what = f"of {day:%Y-%m-%d}"
+    elif re.fullmatch(r"[0-9a-f]{7,40}", name):
+        sha, committed = _commit(name)
+        candidates = [
+            (committed + offset * _ONE_DAY, sha)
+            for offset in range(-_DATE_SLACK_DAYS, _DATE_SLACK_DAYS + 1)
+        ]
+        what = f"built from commit {sha[:12]}"
+    else:
+        raise ValueError(
+            f"--nightly {build!r}: expected 'latest', a date (YYYYMMDD or "
+            "YYYY-MM-DD), a commit hash, or a nightly's name (YYYYMMDD_<commit>)"
+        )
+    for length in _HASH_LENGTHS:
+        for when, sha in candidates:
+            url = f"{NIGHTLY_DIR_URL}{when:%Y%m%d}_{sha[:length]}.tar.gz"
+            if _exists(url):
+                return url
+    raise ValueError(
+        f"no CARLA nightly {what} on {NIGHTLY_DIR_URL}: CARLA's CI builds only "
+        f"some commits of {NIGHTLY_BRANCH}, and old nightlies may be gone. Pick "
+        "another date or commit, or name a nightly as YYYYMMDD_<commit>"
+    )
+
+
+def _parse_day(text: str, build: str) -> datetime.date:
+    try:
+        return datetime.datetime.strptime(text, "%Y%m%d").date()
+    except ValueError:
+        raise ValueError(f"--nightly {build!r}: {text} is not a date") from None
+
+
+def _maybe_day(name: str) -> Optional[datetime.date]:
+    """The day *name* writes (``YYYYMMDD``, ``YYYY-MM-DD``), or ``None``.
+
+    Eight digits that are no date are left to be read as a commit hash."""
+    for pattern in ("%Y%m%d", "%Y-%m-%d"):
         try:
-            archive.extractall(destination, filter=_StripTop())
-        except KeyError as exc:
-            # tarfile's own report of a hard link whose target is not (yet) on
-            # disk nor in the archive; a TarError, so main() reports it cleanly.
-            raise tarfile.ExtractError(
-                f"a hard link's target is not in the archive: {exc}"
-            ) from exc
+            return datetime.datetime.strptime(name, pattern).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _github(url: str) -> object:
+    """The JSON the GitHub API answers *url* with."""
+    import urllib.error  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=_TIMEOUT) as response:  # noqa: S310 -- a fixed https URL
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code in (404, 422):
+            raise ValueError(f"{url}: not found on GitHub") from None
+        if exc.code in (403, 429):
+            raise OSError(
+                f"GitHub refused {url} (HTTP {exc.code}; anonymous requests are "
+                "rate-limited): set GITHUB_TOKEN, or name the nightly as "
+                "YYYYMMDD_<commit>"
+            ) from None
+        raise OSError(f"GitHub answered {url} with HTTP {exc.code}") from None
+
+
+def _commits_between(first: datetime.date, end: datetime.date) -> list[str]:
+    """The ``ue58-dev`` commits committed from *first* to before *end* (UTC),
+    newest first."""
+    import urllib.parse  # noqa: PLC0415
+
+    query = urllib.parse.urlencode(
+        {
+            "sha": NIGHTLY_BRANCH,
+            "since": f"{first:%Y-%m-%d}T00:00:00Z",
+            "until": f"{end:%Y-%m-%d}T00:00:00Z",
+            "per_page": "100",
+        }
+    )
+    answer = _github(f"{NIGHTLY_COMMITS_API}?{query}")
+    if not isinstance(answer, list):
+        raise OSError(f"unexpected answer from {NIGHTLY_COMMITS_API}")
+    return [str(entry["sha"]) for entry in answer if isinstance(entry, dict)]
+
+
+def _commit(ref: str) -> tuple[str, datetime.date]:
+    """The full hash of commit *ref* of CARLA and the day (UTC) it was committed."""
+    answer = _github(f"{NIGHTLY_COMMITS_API}/{ref}")
+    try:
+        sha = str(answer["sha"])  # type: ignore[index]
+        committed = str(answer["commit"]["committer"]["date"])  # type: ignore[index]
+    except (KeyError, TypeError):
+        raise OSError(f"unexpected answer for commit {ref} from GitHub") from None
+    return sha, datetime.date.fromisoformat(committed[:10])
+
+
+def _exists(url: str) -> bool:
+    """Whether the download server has *url* (a ``HEAD`` request)."""
+    import urllib.error  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+
+    request = urllib.request.Request(
+        url, method="HEAD", headers={"User-Agent": USER_AGENT}
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=_TIMEOUT):  # noqa: S310 -- a fixed https URL
+            return True
+    except urllib.error.HTTPError as exc:
+        if exc.code in (403, 404):
+            return False
+        raise OSError(f"{url}: HTTP {exc.code}") from None
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -611,17 +858,20 @@ def _main(argv: Optional[list[str]]) -> int:
     source = parser.add_mutually_exclusive_group()
     source.add_argument(
         "--url",
-        default=RELEASE_URL,
+        default=None,
         help="CARLA Linux package (.tar.gz) to install, as a URL or a local path "
         "(default: the CARLA 1.0 release)",
     )
     source.add_argument(
         "--nightly",
-        action="store_const",
-        const=NIGHTLY_URL,
-        dest="url",
+        nargs="?",
+        const="latest",
+        default=None,
+        metavar="BUILD",
         help="install CARLA's nightly build (the ue58-dev branch) instead of the "
-        "release; run the scenarios with TYPESAFE_CARLA_CARLA_REF=ue58-dev",
+        "release: the latest, or BUILD -- a date (YYYYMMDD: the last nightly of "
+        "that day), a ue58-dev commit, or a nightly's name (YYYYMMDD_<commit>); "
+        "run the scenarios with TYPESAFE_CARLA_CARLA_REF=ue58-dev",
     )
     parser.add_argument(
         "--dir",
@@ -634,12 +884,16 @@ def _main(argv: Optional[list[str]]) -> int:
     )
     args = parser.parse_args(argv)
     machine = platform.machine()
-    official = {RELEASE_URL: "CARLA 1.0", NIGHTLY_URL: "CARLA's nightly build"}
-    if args.url in official and (
+    official: Optional[str] = None
+    if args.nightly is not None:
+        official = "CARLA's nightly build"
+    elif args.url is None:
+        official = "CARLA 1.0"
+    if official is not None and (
         not sys.platform.startswith("linux") or machine not in PACKAGE_MACHINES
     ):
         print(
-            f"scenario-setup: {official[args.url]} is for Linux x86_64 and does not "
+            f"scenario-setup: {official} is for Linux x86_64 and does not "
             f"run on {sys.platform} {machine}. Run the CARLA server on an x86_64 host and point the "
             f"runner at it (server.host=<address>), or pass --url to install another "
             f"CARLA package.",
@@ -647,11 +901,19 @@ def _main(argv: Optional[list[str]]) -> int:
         )
         return 1
     try:
-        launcher = install(args.url, args.dir, args.force)
+        if args.nightly is not None:
+            url = nightly_url(args.nightly)
+            if url != NIGHTLY_URL:
+                print(f"CARLA nightly: {url}")
+        else:
+            url = RELEASE_URL if args.url is None else args.url
+        launcher = install(url, args.dir, args.force)
     except (
         OSError,
         RuntimeError,
         ValueError,
+        EOFError,  # a gzip stream cut short (gzip.BadGzipFile is an OSError)
+        zlib.error,
         tarfile.TarError,
         http.client.HTTPException,
     ) as exc:

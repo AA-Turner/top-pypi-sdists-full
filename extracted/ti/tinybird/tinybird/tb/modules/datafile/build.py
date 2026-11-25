@@ -6,7 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import click
 
@@ -717,9 +717,9 @@ def process_file(
                 # materialized columns expressions could have joins so we need to add them as a dep
                 deps += tables
                 # generate replacements and replace the query
-                replacements = {t: t for t in tables}
+                column_replacements: Dict[Union[str, Tuple[str, str]], str] = {t: t for t in tables}
 
-                replaced_results = tb_client.replace_tables(q, replacements)
+                replaced_results = tb_client.replace_tables(q, column_replacements)
                 x["default_value"] = replaced_results.replace("SELECT", "materialized", 1)
             if x.get("jsonpath", None):
                 _format = "ndjson"

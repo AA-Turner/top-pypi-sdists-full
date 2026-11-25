@@ -1,5 +1,5 @@
 from fontTools.misc.fixedTools import floatToFixedToFloat
-from fontTools.misc.roundTools import noRound
+from fontTools.misc.roundTools import noRound, otRound
 from fontTools.misc.testTools import stripVariableItemsFromTTX
 from fontTools.misc.textTools import Tag
 from fontTools.pens.recordingPen import RecordingPen
@@ -349,6 +349,40 @@ class InstantiateGvarTest(object):
         ]
 
         assert "gvar" not in varfont
+
+    @pytest.mark.parametrize("location", [400, 600, 700, 900, (400, 700, 900)])
+    def test_nested_composite_bounds_roundtrip(self, varfont, location):
+        glyf = varfont["glyf"]
+        pen = TTGlyphPen(glyf)
+        pen.addComponent("minus", (1.5, 0, 0, 1.5, 0, 0))
+        glyf["nested"] = pen.glyph()
+        varfont["hmtx"].metrics["nested"] = (500, 0)
+        varfont["vmtx"].metrics["nested"] = (1000, 0)
+        varfont["HVAR"].table.AdvWidthMap.mapping["nested"] = 0xFFFFFFFF
+        varfont["gvar"].variations["minus"] = [
+            TupleVariation({"wght": (0, 1, 1)}, [(1, -1)] + [(0, 0)] * 4)
+        ]
+
+        instance = instancer.instantiateVariableFont(
+            varfont, {"wght": location, "wdth": 100}
+        )
+        output = BytesIO()
+        instance.save(output)
+        output.seek(0)
+        saved = ttLib.TTFont(output)
+        glyph = saved["glyf"]["nested"]
+        stored_bounds = glyph.xMin, glyph.yMin, glyph.xMax, glyph.yMax
+        component = saved["glyf"]["minus"].components[0]
+        points = [
+            (1.5 * (x + component.x), 1.5 * (y + component.y))
+            for x, y in saved["glyf"]["hyphen"].coordinates
+        ]
+        xs, ys = zip(*points)
+        assert stored_bounds == tuple(
+            otRound(value) for value in (min(xs), min(ys), max(xs), max(ys))
+        )
+        glyph.recalcBounds(saved["glyf"])
+        assert stored_bounds == (glyph.xMin, glyph.yMin, glyph.xMax, glyph.yMax)
 
     def test_composite_glyph_not_in_gvar(self, varfont):
         """The 'minus' glyph is a composite glyph, which references 'hyphen' as a
@@ -2629,6 +2663,65 @@ class InstantiateAvar2Test(object):
         assert not instancer._isTupleVariationDead(live, {"wght": (-0.5, 0.0)})
         dead = TupleVariation({"wght": (0.5, 0.75, 1.0)}, [10] * 4)
         assert instancer._isTupleVariationDead(dead, {"wght": (0.0, 0.25)})
+
+    @pytest.mark.parametrize(
+        "support, reachable, dead",
+        [
+            ((0.5, 0.75, 1), (0, 0.5), True),
+            ((-1, -0.75, -0.5), (-0.5, 0), True),
+            ((-1, -1, 0), (0, 0.25), True),
+            ((0, 1, 1), (-0.25, 0), True),
+            ((0.5, 0.5, 1), (0, 0.5), False),
+            ((-1, -0.5, -0.5), (-0.5, 0), False),
+            ((0.5, 0.75, 1), (0, 0.75), False),
+            ((-1, 0, 1), (0, 0), False),
+            ((0.5, 0.25, 1), (0, 0.25), False),
+            ((-1, 0.5, 1), (-1, -0.5), False),
+        ],
+    )
+    def test_culling_zero_endpoint_support(self, support, reachable, dead):
+        tv = TupleVariation({"wght": support}, [100])
+        assert instancer._isTupleVariationDead(tv, {"wght": reachable}) == dead
+
+    @pytest.mark.parametrize("weight", [100, 400, 900, (400, 600)])
+    @pytest.mark.parametrize("suffix", ["", "-negative"])
+    def test_coupled_pin_prunes_mvar_and_hvar_endpoints(self, weight, suffix):
+        # Weight remains variable in final space when pinned to 400: avar2
+        # adds a nonnegative width-dependent delta. Negative-weight support
+        # then touches the reachable range only at its zero-valued endpoint.
+        if suffix and isinstance(weight, tuple):
+            weight = (200, 400)
+        original = ttLib.TTFont(
+            os.path.join(TESTDATA, f"avar2-region-endpoints{suffix}.ttf"),
+            recalcTimestamp=False,
+        )
+        partial = instancer.instantiateVariableFont(original, {"wght": weight})
+        for tag in ("MVAR", "HVAR"):
+            assert partial[tag].table.VarStore.VarRegionList.RegionCount == 1
+
+        for width in (75, 100, 112.5, 125):
+            location = {
+                "wght": weight if isinstance(weight, int) else sum(weight) / 2,
+                "wdth": width,
+            }
+            oldCoords = _avar2_final_coords(original, location)
+            newCoords = _avar2_final_coords(partial, location)
+            for tag in ("MVAR", "HVAR"):
+                oldStore = varStore.VarStoreInstancer(
+                    original[tag].table.VarStore, original["fvar"].axes, oldCoords
+                )
+                newStore = varStore.VarStoreInstancer(
+                    partial[tag].table.VarStore, partial["fvar"].axes, newCoords
+                )
+                if tag == "MVAR":
+                    oldIdx = original[tag].table.ValueRecord[0].VarIdx
+                    newIdx = partial[tag].table.ValueRecord[0].VarIdx
+                else:
+                    oldMap = original[tag].table.AdvWidthMap
+                    newMap = partial[tag].table.AdvWidthMap
+                    oldIdx = oldMap.mapping["A"] if oldMap else 1
+                    newIdx = newMap.mapping["A"] if newMap else 1
+                assert newStore[newIdx] == pytest.approx(oldStore[oldIdx], abs=0.02)
 
     @pytest.mark.parametrize("gvarTag", ["gvar", "GVAR"])
     def test_cull_glyph_variations(self, gvarTag):

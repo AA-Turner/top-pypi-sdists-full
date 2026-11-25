@@ -1,10 +1,16 @@
-from paddle_billing.ResponseParser import ResponseParser
+from requests import Response
 
-from paddle_billing.Entities.Adjustment import Adjustment
-from paddle_billing.Entities.AdjustmentCreditNote import AdjustmentCreditNote
-from paddle_billing.Entities.Collections import Paginator, AdjustmentCollection
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
 
-from paddle_billing.Resources.Adjustments.Operations import CreateAdjustment, GetCreditNote, ListAdjustments
+from paddle_billing.Entities.Adjustment import Adjustment as Adjustment
+from paddle_billing.Entities.AdjustmentCreditNote import AdjustmentCreditNote as AdjustmentCreditNote
+from paddle_billing.Entities.Collections import Paginator as Paginator, AdjustmentCollection as AdjustmentCollection
+
+from paddle_billing.Resources.Adjustments.Operations import (
+    CreateAdjustment as CreateAdjustment,
+    GetCreditNote as GetCreditNote,
+    ListAdjustments as ListAdjustments,
+)
 
 from typing import TYPE_CHECKING
 
@@ -15,7 +21,7 @@ if TYPE_CHECKING:
 class AdjustmentsClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(self, operation: ListAdjustments | None = None) -> AdjustmentCollection:
         if operation is None:

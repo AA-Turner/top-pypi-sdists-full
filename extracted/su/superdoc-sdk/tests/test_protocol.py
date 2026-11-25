@@ -30,6 +30,7 @@ from superdoc.protocol import (
     JsonRpcResponse,
 )
 from superdoc.errors import SuperDocError
+from superdoc.generated.contract import OPERATION_INDEX
 
 
 # ---------------------------------------------------------------------------
@@ -605,3 +606,48 @@ class TestRealContractUserInjection:
         argv = build_operation_argv(op, {'doc': 'seed.docx', 'collaboration': collaboration})
         assert '--collaboration-json' in argv
         assert json.loads(argv[argv.index('--collaboration-json') + 1]) == collaboration
+
+
+@pytest.mark.parametrize('field', ['metadata', 'externalId', 'authorImage', 'unsupported'])
+def test_comments_patch_rejects_unknown_fields(field):
+    operation = OPERATION_INDEX['doc.comments.patch']
+    for payload in ({'id': '1', 'text': 'Changed', field: 'value'}, {'id': '1', field: 'value'}):
+        with pytest.raises(SuperDocError) as error:
+            build_operation_argv(operation, payload)
+        assert error.value.code == 'INVALID_INPUT'
+        assert error.value.details == {'field': field}
+
+
+def test_comments_patch_accepts_supported_mutation_and_transport_fields():
+    argv = build_operation_argv(OPERATION_INDEX['doc.comments.patch'], {
+        'id': '1', 'text': 'Changed', 'sessionId': 'session', 'changeTag': 'tag',
+    })
+    assert '--id' in argv
+    assert '--text' in argv
+    assert '--session' in argv
+    assert '--change-tag' in argv
+
+@pytest.mark.parametrize('unknown_key', [None, '', 0])
+def test_comments_patch_rejects_nonstandard_unknown_key_before_other_unsupported_fields(unknown_key):
+    with pytest.raises(SuperDocError) as error:
+        build_operation_argv(OPERATION_INDEX['doc.comments.patch'], {
+            'id': '1', 'text': 'Changed', unknown_key: 'value', 'metadata': {'rejected': True},
+        })
+    assert error.value.code == 'INVALID_INPUT'
+    assert error.value.details == {'field': unknown_key}
+
+@pytest.mark.parametrize('field', ['metadata', 'externalId', 'authorImage', 'unsupported', None])
+def test_generated_comments_patch_preserves_unknown_fields_until_validation(field):
+    from superdoc.generated.client import _SyncDocCommentsApi
+
+    class Runtime:
+        def invoke(self, operation_id, params, **kwargs):
+            build_operation_argv(OPERATION_INDEX[operation_id], params)
+            raise AssertionError('Invalid input reached serialization')
+
+    api = _SyncDocCommentsApi(Runtime())
+    for payload in ({'id': '1', field: 'value'}, {'id': '1', 'text': 'Changed', field: 'value'}):
+        with pytest.raises(SuperDocError) as error:
+            api.patch(payload)
+        assert error.value.code == 'INVALID_INPUT'
+        assert error.value.details == {'field': field}

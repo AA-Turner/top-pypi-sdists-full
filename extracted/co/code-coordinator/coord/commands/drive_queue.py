@@ -103,6 +103,7 @@ from coord.drive_queue import (
     is_policy_refusal_reason,
     is_pre_dispatch_block_reason,
     is_premise_refusal_reason,
+    is_review_fix_budget_stop_reason,
     is_test_stage_routing_dead_end_reason,
     is_unsatisfiable_prereq_reason,
     merge_gate_remedy_command,
@@ -7430,25 +7431,38 @@ def _fetch_merge_only_ready(
 
 def _pipeline_max_fix_rounds_default(config_path: Path | None) -> int | None:
     """``pipeline.max_fix_rounds`` off *config_path*, or ``None`` on any read
-    failure (unreadable file, bad YAML) — the fail-soft advisory-read posture
-    every other config peek in this module takes.
+    failure (missing file, unreadable file, bad YAML) — the fail-soft
+    advisory-read posture every other config peek in this module takes.
 
     #2972: the ONE place this reads — used by both :func:`_launch_argv` (to
     build the subprocess's own ``--max-fix-rounds``) and the tick's
     `plan_tick` call (to give `_reconcile_running`'s fix-round ceiling the
     identical number) — so a launch and the ceiling that gated it can never
     read two different config snapshots.
+
+    Resolves through ``coord.commands._common.resolve_and_load_config`` —
+    the same resolution ``_load_config`` itself delegates to (#2096: one
+    question, one answer), but the layer BELOW its CLI exit handling.
+    ``_load_config`` reports an unresolvable config as ``click.echo`` +
+    ``sys.exit(2)``, and ``SystemExit`` is a ``BaseException``: through
+    this function it escapes the ``except`` below, so the "``None`` on any
+    read failure" the docstring promises would not hold and the caller
+    would die mid-tick instead. Reading the non-exiting layer makes the
+    failure an ordinary ``ConfigError``, which is what gets caught.
     """
     try:
-        from coord.commands._common import _load_config  # noqa: PLC0415
+        from coord.commands._common import resolve_and_load_config  # noqa: PLC0415
 
-        return _load_config(config_path).pipeline.max_fix_rounds
+        return resolve_and_load_config(config_path).pipeline.max_fix_rounds
     except Exception:  # noqa: BLE001 — advisory read, see docstring
         return None
 
 
 def _launch_argv(
-    entry: QueueEntry, config_path: Path | None, facts: IssueFacts | None = None
+    entry: QueueEntry,
+    config_path: Path | None,
+    facts: IssueFacts | None = None,
+    own_reason: str | None = None,
 ) -> list[str]:
     """The ``coord drive --tmux`` argv for *entry*.
 
@@ -7496,15 +7510,36 @@ def _launch_argv(
     (every caller predating this parameter, and any call site with no board
     read on hand) falls back to the plain per-drive figure — the exact
     pre-#2972 behaviour.
+
+    #4117: *own_reason* — why *entry*'s last drive session stopped, read
+    from the same two sources `_reconcile_running` itself reads (this
+    tick's `drive_exited` summary when the death is this tick's, else the
+    row's own persisted `last_reason`) and classified by the same
+    :func:`is_review_fix_budget_stop_reason` that function's ceiling
+    exemption consults, so the two cannot disagree about this entry.
+    When it names a review-fix-budget stop, the #2972 narrowing above is
+    skipped in favour of the plain per-drive `effective_max_fix_rounds`
+    figure instead — the "fresh per-drive allowance"
+    `_reconcile_running`'s own #4117 ceiling exemption decides for this
+    exact shape. Without this, that exemption only widens the
+    `_reconcile_running` CEILING CHECK; this function would still narrow
+    the relaunch's own ``--max-fix-rounds`` down to
+    `remaining_fix_rounds`, which is arithmetically always ``0`` for the
+    shape the exemption targets (the fix rounds this drive already spent
+    on an earlier Test failure are the same lifetime figure
+    `remaining_fix_rounds` subtracts) — so the relaunch would die on
+    `coord drive`'s own ``fix_rounds >= max_fix_rounds`` check with the
+    identical message, spending a tmux launch and an `attempts` slot while
+    dispatching zero fix legs. ``None`` (every caller predating this
+    parameter) reproduces the pre-#4117 narrowing exactly.
     """
     from coord.drive import coord_argv  # noqa: PLC0415
 
     config_default = _pipeline_max_fix_rounds_default(config_path)
-    fix_rounds = (
-        remaining_fix_rounds(entry, facts, config_default)
-        if facts is not None
-        else effective_max_fix_rounds(entry, config_default)
-    )
+    if facts is None or is_review_fix_budget_stop_reason(own_reason):
+        fix_rounds = effective_max_fix_rounds(entry, config_default)
+    else:
+        fix_rounds = remaining_fix_rounds(entry, facts, config_default)
     argv = coord_argv() + ["drive", entry.repo, str(entry.issue), "--tmux"]
     if entry.machine:
         argv += ["--machine", entry.machine]
@@ -9970,7 +10005,25 @@ def drive_queue_tick(
         # `--max-fix-rounds` is narrowed to what's actually left (see
         # `_launch_argv`'s docstring) — `board` is this SAME tick's read, the
         # one `plan_tick` above already reconciled against.
-        argv = _launch_argv(target, config_path, board.facts(target.key))
+        #
+        # #4117: *own_reason* for the SAME narrowing decision — prefer
+        # *exit_reasons*, this tick's own fresh `drive_exited` read, for an
+        # entry relaunching in the SAME tick it just died in; fall back to
+        # `target.last_reason`, the row's persisted reason as of the START
+        # of this tick, for an entry whose relaunch was deferred to a LATER
+        # tick — the common case, since #2273 paces every relaunch behind a
+        # post-death backoff. `target` is no longer `STATE_RUNNING` by the
+        # time that tick's `_fetch_exit_reasons` runs, so `exit_reasons` has
+        # nothing for it, but the retry write that moved it to `waiting`
+        # stamped its own death text into `last_reason`, and
+        # `entries`/`target` were freshly re-read off the DB at the top of
+        # THIS tick — so it is current, not stale. What survives in it by
+        # then is the first line of that text plus the backoff sentence
+        # (`_augment_backoff_reason`), which is why
+        # `is_review_fix_budget_stop_reason` matches on the first line
+        # alone — see its docstring.
+        own_reason = exit_reasons.get(target.key) or target.last_reason
+        argv = _launch_argv(target, config_path, board.facts(target.key), own_reason)
         try:
             result = subprocess.run(  # noqa: S603 — argv built from coord_argv + typed row
                 argv,

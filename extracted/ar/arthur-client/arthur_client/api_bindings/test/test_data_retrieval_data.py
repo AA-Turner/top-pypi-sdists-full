@@ -36,7 +36,8 @@ class TestDataRetrievalData(unittest.TestCase):
         if include_optional:
             return DataRetrievalData(
                 content = '',
-                data_schema = None
+                data_schema = None,
+                total_count = 56
             )
         else:
             return DataRetrievalData(

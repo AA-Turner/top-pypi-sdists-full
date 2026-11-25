@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import os
 import sqlite3
 import stat
@@ -30,6 +31,7 @@ from trajectory.lib._exceptions import FileUploadError
 from trajectory.lib.benchmark_operations import BenchmarkOperation
 from trajectory.lib.benchmark_progress import _SubmissionProgress
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
+from trajectory.lib.runtime_dockerfile import MAX_RUNTIME_DOCKERFILE_BYTES, RuntimeDockerfile
 from trajectory.lib.upload_pool import RetryBudget, UploadPool
 from trajectory.types.benchmark_ingestion_upload_urls import BenchmarkIngestionUploadUrls
 
@@ -55,10 +57,16 @@ BENCHMARK_UPLOAD_CONCURRENCY = 128
 _RESERVED_OPEN_FILES = 64
 BENCHMARK_NAME_MIN_LENGTH = 3
 BENCHMARK_NAME_MAX_LENGTH = 1024
+BENCHMARK_DESCRIPTION_MAX_LENGTH = 1024
+AGENT_ID_MAX_LENGTH = 64
+AGENT_NAME_MAX_LENGTH = 256
 # Allocations and uploads retry past the client's default so they outlast minutes of signing
 # throttling; RETRY_WAIT_BUDGET_SECONDS bounds the total wait.
 DEFAULT_UPLOAD_MAX_RETRIES = 32
 _ALLOCATION_EXTRA_BODY = {"upload_method": "post"}
+
+
+logger = logging.getLogger(__name__)
 
 
 class SubmissionUpload:
@@ -243,6 +251,7 @@ class SubmissionUpload:
     reporter = self.progress
     self.validate_benchmark_name(bench_name)
     self.validate_agent(agent_id, agent_name)
+    self.validate_benchmark_description(metadata.get("description"))
     self._flush_part()
     if not self.part_count:
       raise ValueError("Submission must contain tasks")
@@ -257,15 +266,15 @@ class SubmissionUpload:
     for (declaration,) in self.database.execute("SELECT declaration FROM files ORDER BY path"):
       digest.update(declaration.encode() + b"\n")
     body = {
-      "bench_name": bench_name,
+      "spec_name": bench_name,
       "metadata": {key: value for key, value in metadata.items() if key != "name"},
       "build_images": build_images,
       "upload_digest": digest.hexdigest(),
     }
     if agent_id is not None:
-      body["agent_id"] = agent_id
+      body["project_id"] = agent_id
     if agent_name is not None:
-      body["agent_name"] = agent_name
+      body["project_name"] = agent_name
     self._require_bounded(body)
     session = client.specs.ingestion.create_session(
       idempotency_key=idempotency_key or uuid4().hex,
@@ -429,7 +438,8 @@ class SubmissionUpload:
         dockerfile = (runtime.get("source") or {}).get("dockerfile_path")
       if not dockerfile:
         continue
-      parent = PurePosixPath(dockerfile).parent.as_posix()
+      stored = self._validate_runtime_dockerfile(dockerfile)
+      parent = PurePosixPath(stored).parent.as_posix()
       prefix = parent + "/" if parent != "." else ""
       if prefix in checked:
         continue
@@ -442,6 +452,44 @@ class SubmissionUpload:
         parameters = (prefix, prefix[:-1] + "0")
       count, size = self.database.execute(query, parameters).fetchone()
       self.validate_runtime_context(dockerfile, count, size)
+
+  def _find_stored_file(self, path: str) -> tuple[str, str, int] | None:
+    """Return the stored path, source and size of the file packaging names `path`."""
+    posix = PurePosixPath(path).as_posix()
+    row = self.database.execute(
+      "SELECT path, source, size FROM files WHERE path = ?", (posix,)
+    ).fetchone()
+    key = self._get_dockerfile_key(posix)
+    if row is not None or key == posix:
+      return row
+    # Under packaging's case rule, Windows `env/DOCKERFILE` names the stored `env/Dockerfile`.
+    self.database.create_function("dockerfile_key", 1, self._get_dockerfile_key, deterministic=True)
+    return self.database.execute(
+      "SELECT path, source, size FROM files WHERE path NOT GLOB 'parts/*' "
+      "AND dockerfile_key(path) = ?",
+      (key,),
+    ).fetchone()
+
+  def _validate_runtime_dockerfile(self, dockerfile: str) -> str:
+    """Check the runtime Dockerfile and return its stored path, which names its context."""
+    row = self._find_stored_file(dockerfile)
+    # A missing, oversized or undecodable Dockerfile is the platform's to report.
+    if row is None:
+      return dockerfile
+    stored, source, size = row
+    if size > MAX_RUNTIME_DOCKERFILE_BYTES:
+      return stored
+    try:
+      text = Path(source).read_bytes().decode()
+    except (OSError, UnicodeDecodeError):
+      return stored
+    try:
+      RuntimeDockerfile.validate(text)
+    except ValueError as error:
+      raise ValueError(f"Runtime Dockerfile {dockerfile!r}: {error}") from error
+    for warning in RuntimeDockerfile.find_warnings(text):
+      logger.warning("Runtime Dockerfile %r: %s", dockerfile, warning)
+    return stored
 
   @staticmethod
   def validate_runtime_context(context_path: str, count: int, size: int) -> None:
@@ -553,9 +601,16 @@ class SubmissionUpload:
   def validate_agent(agent_id: str | None, agent_name: str | None) -> None:
     if agent_id is None and agent_name is None:
       raise ValueError("Provide agent_id or agent_name")
-    for field, value in (("agent_id", agent_id), ("agent_name", agent_name)):
-      if value is not None and (not isinstance(value, str) or not value.strip()):
+    for field, value, limit in (
+      ("agent_id", agent_id, AGENT_ID_MAX_LENGTH),
+      ("agent_name", agent_name, AGENT_NAME_MAX_LENGTH),
+    ):
+      if value is None:
+        continue
+      if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} must be a non-empty string")
+      if len(value) > limit:
+        raise ValueError(f"{field} must be at most {limit} characters")
 
   @staticmethod
   def validate_benchmark_name(name: object) -> None:
@@ -565,6 +620,13 @@ class SubmissionUpload:
       raise ValueError(f"benchmark name must be at least {BENCHMARK_NAME_MIN_LENGTH} characters")
     if len(name) > BENCHMARK_NAME_MAX_LENGTH:
       raise ValueError(f"benchmark name must be at most {BENCHMARK_NAME_MAX_LENGTH} characters")
+
+  @staticmethod
+  def validate_benchmark_description(description: object) -> None:
+    if isinstance(description, str) and len(description) > BENCHMARK_DESCRIPTION_MAX_LENGTH:
+      raise ValueError(
+        f"benchmark description must be at most {BENCHMARK_DESCRIPTION_MAX_LENGTH} characters"
+      )
 
   @staticmethod
   def _require_bounded(body: dict, limit: int = MAX_REQUEST_BYTES) -> None:

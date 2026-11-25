@@ -14,6 +14,7 @@
 #include "planner/operator/logical_intersect.h"
 #include "planner/operator/logical_limit.h"
 #include "planner/operator/logical_multiplcity_reducer.h"
+#include "planner/operator/logical_order_by.h"
 #include "planner/operator/logical_path_property_probe.h"
 #include "planner/operator/scan/logical_scan_node_table.h"
 #include "planner/operator/sip/logical_semi_masker.h"
@@ -218,6 +219,28 @@ static bool subPlanContainsRelScan(LogicalOperator* root) {
     return false;
 }
 
+// Build-to-probe SIP pre-filters probe-side scans, which changes results when the probe
+// has a row-limiting barrier below the join (e.g. WITH ... ORDER BY ... LIMIT/SKIP ...
+// MATCH ...): non-matching probe rows must still consume the LIMIT budget, so filtering
+// them out lets the LIMIT pick later matching rows instead (issue #1537).
+static bool subPlanContainsLimit(LogicalOperator* root) {
+    if (root->getOperatorType() == LogicalOperatorType::LIMIT) {
+        return true;
+    }
+    if (root->getOperatorType() == LogicalOperatorType::ORDER_BY) {
+        auto& orderBy = root->constCast<LogicalOrderBy>();
+        if (orderBy.hasLimitNum() || orderBy.hasSkipNum()) {
+            return true;
+        }
+    }
+    for (auto i = 0u; i < root->getNumChildren(); ++i) {
+        if (subPlanContainsLimit(root->getChild(i).get())) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool isProbeSideQualified(LogicalOperator* probeRoot) {
     if (probeRoot->getOperatorType() == LogicalOperatorType::ACCUMULATE) {
         // No Acc hash join if probe side has already been accumulated. This can be solved.
@@ -412,6 +435,7 @@ static bool tryProbeToBuildHJSIP(LogicalOperator* op,
     // buildCard rows while materialization pays collect + rescan over probeCard rows, so the
     // optimization cannot pay off: keep the plain pipelined hash join. Exempt the LIMIT
     // pushdown path (probeLimit), whose capped probe still benefits from the mask.
+    // Planner::tryPlanLookupJoin relies on this condition for correlated node rescans.
     if (probeLimit == nullptr &&
         hashJoin.getChild(0)->getCardinality() >= hashJoin.getChild(1)->getCardinality()) {
         return false;
@@ -480,6 +504,10 @@ static bool tryBuildToProbeHJSIP(LogicalOperator* op) {
     if (hashJoin.getJoinType() != JoinType::INNER) {
         return false;
     }
+    // See subPlanContainsLimit: masking the probe side is not result-preserving under LIMIT.
+    if (subPlanContainsLimit(op->getChild(0).get())) {
+        return false;
+    }
     if (hashJoin.getSIPInfo().direction != SIPDirection::FORCE_BUILD_TO_PROBE &&
         !isBuildSideQualified(op->getChild(1).get()) && !isBuildSmallRelativeToProbe(op)) {
         return false;
@@ -535,6 +563,10 @@ void HashJoinSIPOptimizer::visitHashJoin(LogicalOperator* op) {
 static void tryBuildToProbeIntersectSIP(LogicalIntersect& intersect,
     std::unordered_set<const LogicalOperator*>& maskedScans) {
     auto probeRoot = intersect.getChild(0).get();
+    // Same as hash join: masking the probe side is not result-preserving under LIMIT.
+    if (subPlanContainsLimit(probeRoot)) {
+        return;
+    }
     auto hasSemiMaskApplied = false;
     for (auto i = 1u; i < intersect.getNumChildren(); ++i) {
         auto keyNodeID = intersect.getKeyNodeID(i - 1);

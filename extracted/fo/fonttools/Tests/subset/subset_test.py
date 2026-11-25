@@ -11,10 +11,22 @@ from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._c_m_a_p import CmapSubtable
 from fontTools.ttLib.tables._g_l_y_f import Glyph
 from fontTools.ttLib.tables import otTables as ot
+from fontTools.ttLib.tables.BitmapGlyphMetrics import SmallGlyphMetrics
+from fontTools.ttLib.tables.E_B_D_T_ import (
+    EbdtComponent,
+    ebdt_bitmap_format_1,
+    ebdt_bitmap_format_8,
+)
+from fontTools.ttLib.tables.E_B_L_C_ import (
+    SbitLineMetrics,
+    Strike,
+    eblc_index_sub_table_1,
+)
 from fontTools.ttLib.tables.TupleVariation import TupleVariation
 from fontTools.misc.loggingTools import CapturingLogHandler
 from fontTools.subset.svg import etree
 import difflib
+import itertools
 import logging
 import os
 import shutil
@@ -280,6 +292,34 @@ class SubsetTest:
         subsetfont = TTFont(subsetpath)
         self.expect_ttx(subsetfont, self.getpath("expect_bsln_3.ttx"), ["bsln"])
 
+    @pytest.mark.parametrize(
+        "ttx, glyphs",
+        [
+            # Format 1: .notdef uses the Roman baseline (0), space the
+            # ideographic default (1).
+            ("TestBSLN-1.ttx", [".notdef", "space"]),
+            # Format 3: .notdef and P use 0, space and uni2EA2 use 1.
+            ("TestBSLN-3.ttx", [".notdef", "space", "P", "uni2EA2"]),
+        ],
+    )
+    def test_subset_bsln_default_tie(self, ttx, glyphs):
+        # When several baselines are equally common, the new default must not
+        # depend on the order of the glyph set, which varies between runs
+        # (PYTHONHASHSEED). The baseline of the first glyph in glyph order wins.
+        for order in itertools.permutations(glyphs):
+            font = TTFont()
+            font.importXML(self.getpath(ttx))
+            subsetter = subset.Subsetter()
+            subsetter.glyphs = list(order)
+            subsetter.reverseOrigGlyphMap = {g: font.getGlyphID(g) for g in glyphs}
+
+            assert font["bsln"].subset_glyphs(subsetter)
+            baseline = font["bsln"].table.Baseline
+            assert baseline.DefaultBaseline == 0
+            assert baseline.BaselineValues == {
+                g: 1 for g in glyphs if g in ("space", "uni2EA2")
+            }
+
     def test_subset_BASE(self):
         fontpath = self.compile_font(self.getpath("TestBASE.ttx"), ".ttf")
         subsetpath = self.temp_path(".ttf")
@@ -476,6 +516,25 @@ class SubsetTest:
         subsetfont = TTFont(subsetpath)
         self.expect_ttx(subsetfont, self.getpath("expect_prop_1.ttx"), ["prop"])
 
+    def test_subset_prop_default_tie(self):
+        # .notdef, space and two have three different properties (0, 10, 3).
+        # The new default must not depend on the order of the glyph set, which
+        # varies between runs (PYTHONHASHSEED). The value of the first glyph in
+        # glyph order wins.
+        glyphs = [".notdef", "space", "two"]
+        for order in itertools.permutations(glyphs):
+            font = TTFont()
+            font.importXML(self.getpath("TestPROP.ttx"))
+            subsetter = subset.Subsetter()
+            subsetter.glyphs = list(order)
+            subsetter.reverseOrigGlyphMap = {g: font.getGlyphID(g) for g in glyphs}
+
+            assert font["prop"].subset_glyphs(subsetter)
+            prop = font["prop"].table.GlyphProperties
+            assert prop.Format == 1
+            assert prop.DefaultProperties == 0
+            assert prop.Properties == {"space": 10, "two": 3}
+
     def test_options(self):
         # https://github.com/fonttools/fonttools/issues/413
         opt1 = subset.Options()
@@ -502,6 +561,144 @@ class SubsetTest:
         subsetfont = TTFont(subsetpath)
         assert "x" in subsetfont["CBDT"].strikeData[0]
         assert "y" in subsetfont["CBDT"].strikeData[0]
+
+    @staticmethod
+    def _make_ebdt_composite_font():
+        # Glyph order: .notdef a b c d e f g h i j k l (gids 0-12).
+        # `f` (gid 6) is an EBDT format 8 composite of a (1), c (3) and
+        # l (12); the components carry format 1 bitmaps of their own.
+        glyph_order = [".notdef"] + [chr(c) for c in range(ord("a"), ord("l") + 1)]
+
+        def small_metrics(height, width):
+            metrics = SmallGlyphMetrics()
+            metrics.height = height
+            metrics.width = width
+            metrics.BearingX = 0
+            metrics.BearingY = height
+            metrics.Advance = width
+            return metrics
+
+        fb = FontBuilder(1000, isTTF=True)
+        fb.setupGlyphOrder(glyph_order)
+        fb.setupCharacterMap({ord(g): g for g in glyph_order[1:]})
+        fb.setupGlyf({g: Glyph() for g in glyph_order})
+        fb.setupHorizontalMetrics({g: (500, 0) for g in glyph_order})
+        fb.setupHorizontalHeader(ascent=800, descent=-200)
+        fb.setupNameTable(
+            {
+                "familyName": "EBDTTest",
+                "styleName": "Regular",
+                "uniqueFontIdentifier": "EBDTTest",
+                "fullName": "EBDTTest",
+                "psName": "EBDTTest",
+            }
+        )
+        fb.setupOS2()
+        fb.setupPost()
+        font = fb.font
+
+        strike = {}
+        for name in ("a", "c", "l"):
+            glyph = ebdt_bitmap_format_1(None, font)
+            glyph.metrics = small_metrics(2, 8)
+            glyph.imageData = b"\xff\xff"
+            strike[name] = glyph
+        glyph = ebdt_bitmap_format_8(None, font)
+        glyph.metrics = small_metrics(10, 10)
+        glyph.componentArray = []
+        for name, xoff in (("a", 0), ("c", 1), ("l", 2)):
+            comp = EbdtComponent()
+            comp.name = name
+            comp.xOffset = xoff
+            comp.yOffset = 0
+            glyph.componentArray.append(comp)
+        strike["f"] = glyph
+        ebdt = newTable("EBDT")
+        ebdt.version = 2.0
+        ebdt.strikeData = [strike]
+        font["EBDT"] = ebdt
+
+        strike = Strike()
+        bst = strike.bitmapSizeTable
+        for direction in ("hori", "vert"):
+            m = SbitLineMetrics()
+            m.ascender = 10
+            m.descender = 0
+            m.widthMax = 10
+            m.caretSlopeNumerator = 0
+            m.caretSlopeDenominator = 0
+            m.caretOffset = 0
+            m.minOriginSB = 0
+            m.minAdvanceSB = 0
+            m.maxBeforeBL = 0
+            m.minAfterBL = 0
+            m.pad1 = 0
+            m.pad2 = 0
+            vars(bst)[direction] = m
+        bst.colorRef = 0
+        bst.ppemX = 16
+        bst.ppemY = 16
+        bst.bitDepth = 1
+        bst.flags = 1
+        for image_format, names in ((8, ["f"]), (1, ["a", "c", "l"])):
+            ist = eblc_index_sub_table_1(None, font)
+            ist.indexFormat = 1
+            ist.imageFormat = image_format
+            ist.names = names
+            ist.locations = []
+            strike.indexSubTables.append(ist)
+        eblc = newTable("EBLC")
+        eblc.version = 2.0
+        eblc.strikes = [strike]
+        font["EBLC"] = eblc
+        return font
+
+    def _subset_ebdt_font(self, gids):
+        fontpath = self.temp_path(".ttf")
+        subsetpath = self.temp_path(".ttf")
+        self._make_ebdt_composite_font().save(fontpath)
+        # EBDT/EBLC are dropped by default; keep them.
+        options = subset.Options()
+        options.drop_tables = [
+            t for t in options.drop_tables if t not in ("EBDT", "EBLC")
+        ]
+        subsetter = subset.Subsetter(options)
+        font = TTFont(fontpath)
+        subsetter.populate(gids=gids)
+        subsetter.subset(font)
+        retained_order = font.getGlyphOrder()
+        font.save(subsetpath)
+        return retained_order, TTFont(subsetpath)
+
+    @staticmethod
+    def _ebdt_components(font):
+        glyph = font["EBDT"].strikeData[0]["f"]
+        glyph.ensureDecompiled()
+        return [(font.getGlyphID(c.name), c.name) for c in glyph.componentArray]
+
+    def test_subset_ebdt_composite_components_kept(self):
+        # All components of the composite are in the subset already;
+        # their glyph IDs must be remapped to the new glyph order.
+        _, subsetfont = self._subset_ebdt_font([0, 1, 3, 6, 12])
+        assert subsetfont.getGlyphOrder() == [".notdef", "a", "c", "f", "l"]
+        assert self._ebdt_components(subsetfont) == [
+            (1, "a"),
+            (2, "c"),
+            (4, "l"),
+        ]
+
+    def test_subset_ebdt_composite_components_closed_over(self):
+        # The components are not requested; the subsetter must retain
+        # them (and their bitmaps) and remap the component references.
+        retained_order, subsetfont = self._subset_ebdt_font([0, 3, 6, 9, 12])
+        assert retained_order == [".notdef", "a", "c", "f", "i", "l"]
+        components = self._ebdt_components(subsetfont)
+        assert [gid for gid, _ in components] == [1, 2, 5]
+        assert [retained_order[gid] for gid, _ in components] == ["a", "c", "l"]
+        strike_gids = {
+            subsetfont.getGlyphID(name) for name in subsetfont["EBDT"].strikeData[0]
+        }
+        assert {retained_order[gid] for gid in strike_gids} == {"a", "c", "f", "l"}
 
     def test_sbix(self):
         fontpath = self.compile_font(self.getpath("sbix.ttx"), ".ttf")
@@ -965,6 +1162,34 @@ class SubsetTest:
         )
         assert 0 == TTFont(subsetpath)["OS/2"].usMaxContext
 
+    @pytest.mark.parametrize("os2_version", [0, 1])
+    def test_recalc_max_context_old_os2_version(self, os2_version):
+        # usMaxContext only exists in OS/2 version 2 and later
+        font = TTFont()
+        font.importXML(self.getpath("Lobster.subset.ttx"))
+        os2 = font["OS/2"]
+        os2.version = os2_version
+        for attr in ("sxHeight", "sCapHeight", "usDefaultChar", "usBreakChar"):
+            delattr(os2, attr)
+        del os2.usMaxContext
+        if os2_version < 1:
+            del os2.ulCodePageRange1, os2.ulCodePageRange2
+        fontpath = self.temp_path(".otf")
+        font.save(fontpath)
+        subsetpath = self.temp_path(".otf")
+
+        subset.main(
+            [
+                fontpath,
+                "--recalc-max-context",
+                "--drop-tables+=GSUB,GPOS",
+                "--output-file=%s" % subsetpath,
+            ]
+        )
+        os2 = TTFont(subsetpath)["OS/2"]
+        assert os2.version == os2_version
+        assert not hasattr(os2, "usMaxContext")
+
     def test_retain_gids_ttf(self):
         fontpath = self.compile_font(self.getpath("TestTTF-Regular.ttx"), ".ttf")
         font = TTFont(fontpath)
@@ -1250,6 +1475,41 @@ class SubsetTest:
             subsetfont, self.getpath("cmap14_font1.uvs_non_default.ttx"), ["cmap"]
         )
 
+    @pytest.mark.parametrize("cmap_format", [14, 15])
+    @pytest.mark.parametrize("unicodes", [[0x4E05], [0x4E05, 0xE0100]])
+    def test_retain_all_variation_sequences(self, cmap_format, unicodes):
+        fontpath = self.compile_font(self.getpath("cmap14_font1.ttx"), ".otf")
+        font = TTFont(fontpath)
+        old_table = next(t for t in font["cmap"].tables if t.format == 14)
+        table = CmapSubtable.newSubtable(cmap_format)
+        table.platformID = old_table.platformID
+        table.platEncID = old_table.platEncID
+        table.language = old_table.language
+        table.cmap = {}
+        table.uvsDict = old_table.uvsDict
+        table.uvsDict[0xFE00] = [(0x4E05, "g14"), (0x4E06, "g16")]
+        table.uvsDict[0xE0101] = [(0x4E05, "g13"), (0x4E06, "g16")]
+        font["cmap"].tables[font["cmap"].tables.index(old_table)] = table
+
+        options = subset.Options()
+        options.glyph_names = True
+        options.retain_all_variation_sequences = True
+        subsetter = subset.Subsetter(options=options)
+        subsetter.populate(unicodes=unicodes)
+        subsetter.subset(font)
+
+        stream = io.BytesIO()
+        font.save(stream)
+        font = TTFont(io.BytesIO(stream.getvalue()))
+        assert font.getBestCmap() == {0x4E05: "g15"}
+        assert font.getGlyphOrder() == [".notdef", "g13", "g14", "g15"]
+        table = next(t for t in font["cmap"].tables if t.format == cmap_format)
+        assert table.uvsDict == {
+            0xFE00: [(0x4E05, "g14")],
+            0xE0100: [(0x4E05, None)],
+            0xE0101: [(0x4E05, "g13")],
+        }
+
     def test_cmap_format15(self):
         fontpath = self.compile_font(self.getpath("cmap14_font1.ttx"), ".otf")
         inputpath = self.temp_path(".otf")
@@ -1440,12 +1700,18 @@ class SubsetTest:
         font = TTFont(io.BytesIO(stream.getvalue()))
         assert [font.getBestCmap(p) for p in preferences] == expected
 
+    @pytest.mark.parametrize("retain_all_variation_sequences", [False, True])
     @pytest.mark.parametrize("cmap_format", [14, 15])
     @pytest.mark.parametrize("dmap_format", [14, 15])
     @pytest.mark.parametrize("glyph_zero", [".notdef", "zero"])
     @pytest.mark.parametrize("dmap_mapping", ["zero", "default", "nonzero"])
     def test_DMAP_UVS_fallback(
-        self, cmap_format, dmap_format, glyph_zero, dmap_mapping
+        self,
+        cmap_format,
+        dmap_format,
+        glyph_zero,
+        dmap_mapping,
+        retain_all_variation_sequences,
     ):
         glyph_order = [glyph_zero, "baseA", "cmapA.var", "dmapA.var"]
         fb = FontBuilder(1024, isTTF=True)
@@ -1482,8 +1748,11 @@ class SubsetTest:
         font = TTFont(io.BytesIO(stream.getvalue()))
         options = subset.Options()
         options.glyph_names = True
+        options.retain_all_variation_sequences = retain_all_variation_sequences
         subsetter = subset.Subsetter(options=options)
-        subsetter.populate(unicodes=[0x41, 0xFE00])
+        subsetter.populate(
+            unicodes=[0x41] if retain_all_variation_sequences else [0x41, 0xFE00]
+        )
         subsetter.subset(font)
 
         expected_glyphs = [glyph_zero, "baseA"]
@@ -1878,6 +2147,65 @@ def test_subset_preserves_condition_varstore(
         {"wght": 1},
     )
     assert value.DefaultValue + evaluator[value.VarIdx] == (1 if varIdx == 1 else -1)
+
+
+@pytest.mark.parametrize("varIdx", [1, 7, 0x10000])
+def test_subset_device_of_missing_delta_set(varIdx):
+    # A variation Device whose delta set the GDEF VarStore lacks contributes
+    # zero; subsetting must not fail on it, but map it to NO_VARIATION_INDEX
+    # like a ConditionTable.
+    from fontTools.varLib.builder import (
+        buildVarData,
+        buildVarDevTable,
+        buildVarRegionList,
+        buildVarStore,
+    )
+    from fontTools.varLib.varStore import VarStoreInstancer
+
+    fb = FontBuilder(unitsPerEm=100)
+    fb.setupGlyphOrder([".notdef", "f"])
+    fb.setupCharacterMap({ord("f"): "f"})
+    fb.setupNameTable({"familyName": "TestDevice", "styleName": "Regular"})
+    fb.setupPost()
+    fb.setupFvar(axes=[("wght", 100, 400, 900, "Weight")], instances=[])
+    fb.addOpenTypeFeatures("feature kern { pos f 10; } kern;")
+    buf = io.BytesIO()
+    fb.save(buf)
+    buf.seek(0)
+    font = TTFont(buf)
+
+    subtable = font["GPOS"].table.LookupList.Lookup[0].SubTable[0]
+    subtable.ValueFormat |= 0x0040  # XAdvDevice
+    subtable.Value.XAdvDevice = buildVarDevTable(varIdx)
+    gdef = ot.GDEF()
+    gdef.Version = 0x00010003
+    gdef.GlyphClassDef = gdef.AttachList = gdef.LigCaretList = None
+    gdef.MarkAttachClassDef = gdef.MarkGlyphSetsDef = None
+    gdef.VarStore = buildVarStore(
+        buildVarRegionList([{"wght": (0, 1, 1)}], ["wght"]),
+        [buildVarData([0], [[99], [2]], optimize=False)],
+    )
+    font["GDEF"] = newTable("GDEF")
+    font["GDEF"].table = gdef
+
+    subsetter = subset.Subsetter()
+    subsetter.populate(unicodes=[ord("f")])
+    subsetter.subset(font)
+
+    output = io.BytesIO()
+    font.save(output)
+    output.seek(0)
+    roundtripped = TTFont(output)
+    value = roundtripped["GPOS"].table.LookupList.Lookup[0].SubTable[0].Value
+    device = value.XAdvDevice
+    newVarIdx = (device.StartSize << 16) + device.EndSize
+    assert newVarIdx == (0 if varIdx == 1 else ot.NO_VARIATION_INDEX)
+    evaluator = VarStoreInstancer(
+        roundtripped["GDEF"].table.VarStore if "GDEF" in roundtripped else None,
+        roundtripped["fvar"].axes,
+        {"wght": 1},
+    )
+    assert evaluator[newVarIdx] == (2 if varIdx == 1 else 0)
 
 
 def test_subset_lookup_variations_prevents_feature_dedup(featureVarsTestFont):
@@ -2994,6 +3322,66 @@ def test_subset_COLRv1_drop_all_v0_glyphs(colrv1_path):
     assert colr.table.LayerRecordCount == 0
 
 
+def test_subset_COLRv1_keeps_v0_layer_order(tmp_path):
+    # The v0 layers of a COLRv1 table are rebuilt from the retained glyphs.
+    # They must follow the base glyph order, not the order of the glyph set,
+    # which varies between runs (PYTHONHASHSEED).
+    base_glyph_names = ["uni%04X" % i for i in range(0xE000, 0xE000 + 31)]
+    layer_glyph_names = ["layer%02d" % i for i in range(3)]
+    glyph_order = [".notdef"] + base_glyph_names + layer_glyph_names
+
+    pen = TTGlyphPen(glyphSet=None)
+    pen.moveTo((0, 0))
+    pen.lineTo((0, 500))
+    pen.lineTo((500, 500))
+    pen.closePath()
+    glyph = pen.glyph()
+
+    fb = FontBuilder(unitsPerEm=1024, isTTF=True)
+    fb.setupGlyphOrder(glyph_order)
+    fb.setupCharacterMap({int(name[3:], 16): name for name in base_glyph_names})
+    fb.setupGlyf({g: glyph for g in glyph_order})
+    fb.setupHorizontalMetrics({g: (500, 0) for g in glyph_order})
+    fb.setupHorizontalHeader()
+    fb.setupOS2()
+    fb.setupPost()
+    fb.setupNameTable({"familyName": "TestCOLRv1", "styleName": "Regular"})
+    colorGlyphs = {
+        # Layer counts of 1 to 3, so that the layer indices differ.
+        name: [(layer_glyph_names[j], j) for j in range(i % 3 + 1)]
+        for i, name in enumerate(base_glyph_names[1:])
+    }
+    colorGlyphs[base_glyph_names[0]] = {
+        "Format": ot.PaintFormat.PaintGlyph,
+        "Paint": (ot.PaintFormat.PaintSolid, 0),
+        "Glyph": "layer00",
+    }
+    fb.setupCOLR(colorGlyphs)
+    fb.setupCPAL([[(1.0, 0.0, 0.0, 1.0), (0.0, 1.0, 0.0, 1.0), (0.0, 0.0, 1.0, 1.0)]])
+    font_path = tmp_path / "TestCOLRv1.ttf"
+    fb.save(font_path)
+
+    subset_path = tmp_path / "TestCOLRv1.subset.ttf"
+    subset.main(
+        [
+            str(font_path),
+            "--glyph-names",
+            f"--output-file={subset_path}",
+            "--unicodes=E000-E01E",
+        ]
+    )
+    colr = TTFont(subset_path)["COLR"].table
+
+    assert colr.Version == 1
+    baseRecords = colr.BaseGlyphRecordArray.BaseGlyphRecord
+    assert [r.BaseGlyph for r in baseRecords] == base_glyph_names[1:]
+    firstLayerIndex = 0
+    for record in baseRecords:
+        assert record.FirstLayerIndex == firstLayerIndex
+        firstLayerIndex += record.NumLayers
+    assert firstLayerIndex == len(colr.LayerRecordArray.LayerRecord)
+
+
 def test_subset_COLRv1_no_ClipList(colrv1_path):
     font = TTFont(colrv1_path)
     font["COLR"].table.ClipList = None  # empty ClipList
@@ -3276,6 +3664,44 @@ def test_prune_user_name_IDs_with_keep_all(ttf_path):
     nameIDs = {n.nameID for n in font["name"].names}
     assert not any(n > 255 for n in nameIDs)
     assert nameIDs == keepNameIDs
+
+
+def test_preserve_all_standard_name_IDs_by_default(ttf_path):
+    font = TTFont(ttf_path)
+    name = font["name"]
+    name.setName("Test trademark", 7, 3, 1, 0x409)
+    name.setName("Test license", 13, 3, 1, 0x409)
+
+    options = subset.Options()
+    options.name_legacy = True
+    options.name_languages = ["*"]
+
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=font.getBestCmap().keys())
+    subsetter.subset(font)
+
+    nameIDs = {n.nameID for n in font["name"].names}
+    assert {7, 13}.issubset(nameIDs)
+
+
+def test_subtract_name_ID_from_default(ttf_path):
+    font = TTFont(ttf_path)
+    name = font["name"]
+    name.setName("Test trademark", 7, 3, 1, 0x409)
+    name.setName("Test license", 13, 3, 1, 0x409)
+
+    options = subset.Options()
+    options.parse_opts(["--name-IDs-=7"])
+    options.name_legacy = True
+    options.name_languages = ["*"]
+
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=font.getBestCmap().keys())
+    subsetter.subset(font)
+
+    nameIDs = {n.nameID for n in font["name"].names}
+    assert 7 not in nameIDs
+    assert 13 in nameIDs
 
 
 def test_prune_unused_user_name_IDs_with_keep_all(ttf_path):

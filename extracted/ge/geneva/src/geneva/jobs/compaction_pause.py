@@ -40,6 +40,7 @@ from __future__ import annotations
 import enum
 import json
 import logging
+import math
 import threading
 import time
 from datetime import datetime, timedelta
@@ -58,11 +59,13 @@ from geneva.jobs.job_registry_reader import (
     in_flight_compactions,
     reader_for,
 )
+from geneva.jobs.jobs import UNFINISHED_JOB_STATUSES
 from geneva.utils import dt_now_utc
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection
 
+    from geneva.jobs.compaction_sweep import CompactionSweeper
     from geneva.jobs.heartbeat import DriverHeartbeatWriter
 
 _LOG = logging.getLogger(__name__)
@@ -85,13 +88,14 @@ PAUSE_NOTE = (
 COMPACTION_PAUSE_ENV_PREFIX = "GENEVA_COMPACTION_PAUSE__"
 
 _MAX_UPDATE_ATTEMPTS = 5
-# geneva_jobs statuses of a job that has not finished.
-_UNFINISHED_STATUSES = ("RUNNING", "PENDING")
 # How many of its own heartbeat leases a driver must be silent for before its
 # job stops holding the pause: 30 min at the default 30 s heartbeat interval.
 DEFAULT_STALE_LEASES = 15.0
 # The lease of a driver whose heartbeats are turned off.
 _DEFAULT_LEASE_S = DEFAULT_HEARTBEAT_INTERVAL_S * DEFAULT_LEASE_INTERVALS
+# How often running drivers sweep the database for compaction that dead drivers
+# left paused (see geneva.jobs.compaction_sweep).
+DEFAULT_SWEEP_INTERVAL_S = 1800.0
 
 # Inside Geneva's tag: holds renewed by drivers whose heartbeat is not landing,
 # as {job_id: {"at": <iso time>, "valid_s": <seconds>}}.
@@ -137,7 +141,11 @@ class CompactionPauseConfig(ConfigBase):
       never commits after it could have been released.
 
     The next Geneva job on the table to end resumes compaction, as does the
-    submitter when Ray reports a driver lost, or :func:`resume_if_idle`.
+    submitter when Ray reports a driver lost, or :func:`resume_if_idle`. For a
+    job whose driver and submitter died together, running drivers sweep the
+    database every ``..._SWEEP_INTERVAL_S`` (1800 s; 0 turns it off), one
+    driver at a time, and resume compaction that no running job holds (see
+    :mod:`geneva.jobs.compaction_sweep`).
 
     Operators keep the last word, through the overrides they already edit:
 
@@ -153,14 +161,21 @@ class CompactionPauseConfig(ConfigBase):
     With ``..._JOB_REGISTRY_ROOT_URI`` (the agent's ``jobRegistryRootUri``, e.g.
     ``s3://bucket/lancedb-system``) and ``..._JOB_REGISTRY_DATABASE`` (the
     Enterprise database name) set, a job also waits for compactions already
-    running on its table before planning (``..._COMPACTION_WAIT_TIMEOUT_S``, 0
-    to skip). It first pauses ``..._COMPACTION_SETTLE_S`` so that a compaction
-    admitted just before the pause has been recorded, then checks every
-    ``..._COMPACTION_POLL_INTERVAL_S``.
+    running on its table before planning. In this mode unreadable records,
+    incomplete configuration and ``..._COMPACTION_WAIT_TIMEOUT_S`` expiry fail
+    the job before planning. Sophon must publish compaction InProgress before
+    checking Geneva's active history; Geneva publishes its active history
+    and acknowledges a driver heartbeat before reading the registry. The
+    compactor uses that heartbeat to keep canceled jobs blocked until their
+    drivers exit. This ordering, rather than the optional
+    ``..._COMPACTION_SETTLE_S`` delay, prevents simultaneous starts.
     """
 
     enabled: bool = attrs.field(default=False, converter=str_to_bool)
     stale_leases: float = attrs.field(default=DEFAULT_STALE_LEASES, converter=float)
+    sweep_interval_s: float = attrs.field(
+        default=DEFAULT_SWEEP_INTERVAL_S, converter=float
+    )
     job_registry_root_uri: str | None = attrs.field(default=None)
     job_registry_database: str | None = attrs.field(default=None)
     job_registry_region: str | None = attrs.field(default=None)
@@ -171,6 +186,35 @@ class CompactionPauseConfig(ConfigBase):
     @classmethod
     def name(cls) -> str:
         return "geneva_compaction_pause"
+
+    def coordinates_compaction(self) -> bool:
+        """Whether registry admission is configured; reject partial settings."""
+        if not self.enabled:
+            return False
+        if not self.job_registry_root_uri and not self.job_registry_database:
+            return False
+        if (
+            not self.job_registry_root_uri
+            or not self.job_registry_database
+            or not self.job_registry_root_uri.strip()
+            or not self.job_registry_database.strip()
+            or not all(
+                math.isfinite(value)
+                for value in (
+                    self.compaction_wait_timeout_s,
+                    self.compaction_poll_interval_s,
+                    self.compaction_settle_s,
+                )
+            )
+            or self.compaction_wait_timeout_s <= 0
+            or self.compaction_poll_interval_s < 0
+            or self.compaction_settle_s < 0
+        ):
+            raise ValueError(
+                "Compaction coordination requires a registry root, database, "
+                "positive wait timeout and nonnegative polling/settle intervals"
+            )
+        return True
 
 
 class PauseOutcome(enum.Enum):
@@ -201,6 +245,14 @@ def _section(parent: dict[str, Any], key: str) -> dict[str, Any]:
     if not isinstance(section, dict):
         raise ValueError(f"{TABLE_OVERRIDES_CONFIG_KEY} {key} is not a JSON object")
     return section
+
+
+def is_paused_by_geneva(dataset: Any) -> bool:
+    """Whether the dataset's table overrides carry Geneva's pause tag."""
+    overrides = _parse_overrides(dataset.config().get(TABLE_OVERRIDES_CONFIG_KEY))
+    job_types = overrides.get("job_types")
+    compaction = job_types.get("compaction") if isinstance(job_types, dict) else None
+    return isinstance(compaction, dict) and PAUSE_MARKER in compaction
 
 
 def update_table_overrides(
@@ -420,6 +472,10 @@ def _released_because(
     return None
 
 
+class CompactionCheckInterruptedError(Exception):
+    """A background check ran out of time before establishing idleness."""
+
+
 def jobs_holding_pause(
     history: Any,
     table_name: str,
@@ -427,6 +483,8 @@ def jobs_holding_pause(
     exclude_job_id: str | None = None,
     stale_leases: float = DEFAULT_STALE_LEASES,
     now: datetime | None = None,
+    first_only: bool = False,
+    stopped: Callable[[], bool] = lambda: False,
 ) -> list[str]:
     """Ids of Geneva jobs on ``table_name``, other than ``exclude_job_id``, whose
     driver heartbeat keeps its compaction paused: PENDING or RUNNING, with a
@@ -435,22 +493,31 @@ def jobs_holding_pause(
 
     Jobs are matched by table name, so a same-named table in another namespace
     of the same database also counts; that only keeps compaction paused longer.
+    With ``first_only``, stop reading heartbeats after finding one holder.
+    An interrupted background check raises instead of claiming the table is idle.
     """
     now = now or dt_now_utc()
+    if stopped():
+        raise CompactionCheckInterruptedError
     holding = []
-    for status in _UNFINISHED_STATUSES:
-        for job in history.list_jobs(table_name=table_name, status=status):
-            if job.job_id == exclude_job_id:
-                continue
-            if reason := _released_because(history, job.job_id, stale_leases, now):
-                _LOG.debug(
-                    "Job %s does not hold the compaction pause of table %s: %s",
-                    job.job_id,
-                    table_name,
-                    reason,
-                )
-                continue
-            holding.append(job.job_id)
+    for job_id in sorted(history.unfinished_job_ids(table_name)):
+        if stopped():
+            raise CompactionCheckInterruptedError
+        if job_id == exclude_job_id:
+            continue
+        if reason := _released_because(history, job_id, stale_leases, now):
+            _LOG.debug(
+                "Job %s does not hold the compaction pause of table %s: %s",
+                job_id,
+                table_name,
+                reason,
+            )
+            continue
+        holding.append(job_id)
+        if first_only:
+            return holding
+    if stopped():
+        raise CompactionCheckInterruptedError
     return holding
 
 
@@ -462,7 +529,7 @@ def _finished(history: Any, job_ids: list[str]) -> set[str]:
         statuses = [
             getattr(job.status, "value", job.status) for job in history.get(job_id)
         ]
-        if statuses and not set(statuses) & set(_UNFINISHED_STATUSES):
+        if statuses and set(statuses).isdisjoint(UNFINISHED_JOB_STATUSES):
             finished.add(job_id)
     return finished
 
@@ -618,7 +685,7 @@ class _HoldKeeper:
             report = lapsed_after is not None and not self._lapse_reported
             self._lapse_reported = self._lapse_reported or report
         if report and lapsed_after is not None:
-            _report(
+            report_job_event(
                 self._on_event,
                 f"Compaction pause may have lapsed: no heartbeat or renewal for "
                 f"{lapsed_after / 60:.0f} min; stopping before the next commit",
@@ -725,7 +792,7 @@ class _HoldKeeper:
                 self._table_name,
                 self.renewal.job_id,
             )
-            _report(
+            report_job_event(
                 self._on_event,
                 "Compaction pause was removed while this job runs, e.g. by an "
                 "overrides reset; paused it again",
@@ -738,7 +805,7 @@ class _HoldKeeper:
                 self._table_name,
                 self.renewal.job_id,
             )
-            _report(
+            report_job_event(
                 self._on_event,
                 "Compaction was turned on by hand while this job runs; leaving it on",
             )
@@ -783,9 +850,10 @@ class CompactionPause:
     stale_leases: float = DEFAULT_STALE_LEASES
     on_event: Callable[[str], None] | None = attrs.field(default=None, repr=False)
     keeper: _HoldKeeper | None = attrs.field(default=None, repr=False)
+    sweeper: CompactionSweeper | None = attrs.field(default=None, repr=False)
 
 
-def _report(on_event: Callable[[str], None] | None, message: str) -> None:
+def report_job_event(on_event: Callable[[str], None] | None, message: str) -> None:
     """Record ``message`` on the job, if asked. Never raises."""
     if on_event is None:
         return
@@ -804,6 +872,8 @@ def pause_for_job(
     heartbeat: DriverHeartbeatWriter | None = None,
     config: CompactionPauseConfig | None = None,
     on_event: Callable[[str], None] | None = None,
+    open_table: Callable[[str], Any] | None = None,
+    namespace: list[str] | None = None,
 ) -> CompactionPause | None:
     """Pause automatic compaction of a job's table while the job runs.
 
@@ -811,6 +881,11 @@ def pause_for_job(
     one still holds the pause. Until its first heartbeat lands, and whenever
     its heartbeats stop landing, the job renews its hold in Geneva's tag
     instead.
+
+    ``open_table`` opens another table in the job's namespace, by name, at its
+    latest version. With it, the driver also takes its turn sweeping the
+    database for compaction that dead drivers left paused, until the job ends
+    (see :mod:`geneva.jobs.compaction_sweep`).
 
     Returns None when pausing is not configured. When pausing fails, the job
     runs unprotected and the failure is passed to ``on_event`` to record on the
@@ -846,7 +921,9 @@ def pause_for_job(
             job_id,
             exc_info=True,
         )
-        _report(on_event, f"Compaction not paused: {type(exc).__name__}: {exc}")
+        report_job_event(
+            on_event, f"Compaction not paused: {type(exc).__name__}: {exc}"
+        )
         if config is None:  # couldn't be read, so nothing says pausing is on
             return None
         return CompactionPause(
@@ -886,6 +963,21 @@ def pause_for_job(
         on_event=on_event,
         keeper=keeper,
     )
+    if open_table is not None and config.sweep_interval_s > 0:
+        # Imported here because the sweep is built on this module.
+        from geneva.jobs.compaction_sweep import CompactionSweeper
+
+        pause.sweeper = CompactionSweeper(
+            job_id=job_id,
+            table_name=table_name,
+            open_table=open_table,
+            history=history,
+            interval_s=config.sweep_interval_s,
+            stale_leases=config.stale_leases,
+            on_event=on_event,
+            namespace=namespace,
+        )
+        pause.sweeper.start()
     if keeper is not None:
         with _ACTIVE_PAUSES_LOCK:
             _ACTIVE_PAUSES[job_id] = pause
@@ -899,6 +991,7 @@ def resume_if_idle(
     history: Any,
     exclude_job_id: str | None = None,
     stale_leases: float = DEFAULT_STALE_LEASES,
+    stopped: Callable[[], bool] = lambda: False,
 ) -> bool:
     """Undo Geneva's pause of a table's compaction if no Geneva job on it,
     other than ``exclude_job_id``, still holds it: through its heartbeat (see
@@ -909,26 +1002,30 @@ def resume_if_idle(
     was left running. Raises when a holder's heartbeat can't be read, leaving
     compaction paused. Also for cleanup once a dead driver's row is marked
     finished.
+    ``stopped`` can interrupt checks before resuming; the safety re-check after
+    a resume always finishes, even after the background work budget expires.
     """
 
-    def holding() -> list[str]:
+    def holding(*, interrupted: Callable[[], bool] = lambda: False) -> list[str]:
         return jobs_holding_pause(
             history,
             table_name,
             exclude_job_id=exclude_job_id,
             stale_leases=stale_leases,
+            first_only=True,
+            stopped=interrupted,
         )
 
-    others = holding()
+    others = holding(interrupted=stopped)
     if others:
         _LOG.info(
-            "Automatic compaction of table %s stays paused for %d unfinished "
-            "job(s): %s",
+            "Automatic compaction of table %s stays paused for unfinished job %s",
             table_name,
-            len(others),
-            ", ".join(others),
+            others[0],
         )
         return False
+    if stopped():
+        raise CompactionCheckInterruptedError
     ignore = set() if exclude_job_id is None else {exclude_job_id}
     resumed, renewed_by = _resume(open_dataset, ignore)
     # A job that renewed and has since finished, or whose lost driver the
@@ -945,7 +1042,13 @@ def resume_if_idle(
         return False
     if not resumed:
         return False
-    if holding():
+    # Finish the safety re-check even if the background budget elapsed.
+    try:
+        others = holding()
+    except Exception:
+        pause_compaction(open_dataset)
+        raise
+    if others:
         pause_compaction(open_dataset)
         _LOG.info(
             "A job started on table %s while compaction was resuming; paused it again",
@@ -963,6 +1066,9 @@ def resume_after_job(pause: CompactionPause | None) -> None:
     failure is recorded on the job; never raises."""
     if pause is None:
         return
+    # First, so the job doesn't keep sweeping other tables after it ends.
+    if pause.sweeper is not None:
+        pause.sweeper.stop()
     with _ACTIVE_PAUSES_LOCK:
         if _ACTIVE_PAUSES.get(pause.job_id) is pause:
             del _ACTIVE_PAUSES[pause.job_id]
@@ -984,7 +1090,7 @@ def resume_after_job(pause: CompactionPause | None) -> None:
             pause.job_id,
             exc_info=True,
         )
-        _report(
+        report_job_event(
             pause.on_event,
             f"Compaction left paused: {type(exc).__name__}: {exc}",
         )
@@ -1050,24 +1156,23 @@ def wait_for_compactions(
 
     Pausing stops the agent starting compactions, not one it already started,
     which can rewrite the fragments the job is about to plan over. Calls
-    ``on_wait`` once with the compaction job ids it waits for, gives up after
-    ``compaction_wait_timeout_s``, and returns the job ids it found. Giving up,
-    or failing to check, is passed to ``on_event`` to record on the job. Never
-    raises.
+    ``on_wait`` once with the compaction job ids it waits for and returns the
+    job ids it found. Once registry admission is configured, a timeout or any
+    uncertainty raises before planning; the failure is also recorded on the job.
     """
     try:
         config = config or CompactionPauseConfig.get()
-        if (
-            not config.enabled
-            or not config.job_registry_root_uri
-            or not config.job_registry_database
-            or config.compaction_wait_timeout_s <= 0
-        ):
+        if not config.coordinates_compaction():
             return []
-        reader = reader_for(config.job_registry_root_uri, config.job_registry_region)
+        root_uri = config.job_registry_root_uri
+        database = config.job_registry_database
+        # coordinates_compaction validates these together before admission.
+        assert root_uri is not None
+        assert database is not None
+        reader = reader_for(root_uri, config.job_registry_region)
         if reader is None:
-            return []
-        table = RegistryTableRef.for_table(config.job_registry_database, table_id)
+            raise ValueError("Compaction coordination supports S3 and local registries")
+        table = RegistryTableRef.for_table(database, table_id)
         sleep(config.compaction_settle_s)
         deadline = clock() + config.compaction_wait_timeout_s
         seen: list[str] = []
@@ -1076,20 +1181,11 @@ def wait_for_compactions(
                 on_wait(running)
             seen.extend(job_id for job_id in running if job_id not in seen)
             if clock() >= deadline:
-                _LOG.warning(
-                    "Compaction %s of table %s still running after %.0fs; "
-                    "proceeding, and the job fails if it rewrites fragments the "
-                    "job planned over",
-                    ", ".join(running),
-                    table.dist_key,
-                    config.compaction_wait_timeout_s,
+                raise TimeoutError(
+                    f"Compaction {', '.join(running)} of {table.dist_key} still "
+                    f"has workers after {config.compaction_wait_timeout_s:.0f}s; "
+                    "backfill stopped before planning. Retry after compaction drains."
                 )
-                _report(
-                    on_event,
-                    f"Stopped waiting for compaction {', '.join(running)} after "
-                    f"{config.compaction_wait_timeout_s:.0f}s; planning anyway",
-                )
-                return seen
             _LOG.info(
                 "Waiting for compaction %s of table %s to finish before planning",
                 ", ".join(running),
@@ -1097,13 +1193,13 @@ def wait_for_compactions(
             )
             sleep(config.compaction_poll_interval_s)
         return seen
-    except Exception as exc:  # noqa: BLE001 - checking must never fail the job
+    except Exception as exc:
         _LOG.warning(
             "Failed to check the job registry for running compactions",
             exc_info=True,
         )
-        _report(
+        report_job_event(
             on_event,
             f"Could not check for running compactions: {type(exc).__name__}: {exc}",
         )
-        return []
+        raise

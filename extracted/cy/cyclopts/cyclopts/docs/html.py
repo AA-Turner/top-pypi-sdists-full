@@ -9,9 +9,9 @@ from cyclopts.docs.base import (
     extract_usage,
     filter_help_entries,
     format_usage_line,
-    generate_anchor,
     iterate_commands,
     resolve_doc_root_name,
+    unique_anchor,
     usage_display_chain,
 )
 
@@ -19,28 +19,54 @@ if TYPE_CHECKING:
     from cyclopts.core import App
 
 
+def _build_anchor_map(
+    app: "App", include_hidden: bool, recursive: bool, command_chain: list[str]
+) -> dict[tuple[str, ...], str]:
+    """Map the path of each command section that will be rendered to a unique anchor id, in document order.
+
+    Colliding anchors (e.g. ``files-cp`` vs ``files cp``) get ``_N`` suffixes.
+    """
+    anchors: dict[tuple[str, ...], str] = {}
+    used: set[str] = set()
+
+    def walk(app: "App", chain: tuple[str, ...]) -> None:
+        for name, subapp in iterate_commands(app, include_hidden):
+            sub_chain = (*chain, name)
+            anchors[sub_chain] = unique_anchor(" ".join(sub_chain), used)
+            if recursive:
+                walk(subapp, sub_chain)
+
+    if command_chain:
+        root = tuple(command_chain)
+        anchors[root] = unique_anchor(" ".join(root), used)
+    else:
+        root = (resolve_doc_root_name(app),)
+    walk(app, root)
+    return anchors
+
+
 def _generate_html_toc(
     lines: list[str],
     app: "App",
     include_hidden: bool,
-    app_name: str,
-    prefix: str,
+    anchors: dict[tuple[str, ...], str],
+    chain: tuple[str, ...],
     depth: int = 0,
+    recursive: bool = True,
 ) -> None:
     """Recursively generate HTML table of contents."""
     if not app._commands:
         return
 
     for name, subapp in iterate_commands(app, include_hidden):
-        display_name = f"{prefix}{name}" if prefix else name
-        full_path = f"{app_name}-{display_name.replace(' ', '-')}".lower()
+        sub_chain = (*chain, name)
 
         indent = "  " * (depth + 1)
-        lines.append(f'{indent}<li><a href="#{full_path}"><code>{name}</code></a>')
+        lines.append(f'{indent}<li><a href="#{escape_html(anchors[sub_chain])}"><code>{escape_html(name)}</code></a>')
 
-        if subapp._commands:
+        if recursive and subapp._commands:
             lines.append(f"{indent}  <ul>")
-            _generate_html_toc(lines, subapp, include_hidden, app_name, f"{display_name} ", depth + 1)
+            _generate_html_toc(lines, subapp, include_hidden, anchors, sub_chain, depth + 1)
             lines.append(f"{indent}  </ul>")
 
         lines.append(f"{indent}</li>")
@@ -382,11 +408,41 @@ def generate_html_docs(
     str
         The generated HTML documentation.
     """
-    from cyclopts.help.formatters.html import HtmlFormatter
-
-    # Initialize command chain if not provided
     if command_chain is None:
         command_chain = []
+    return _generate_html_docs(
+        app,
+        recursive=recursive,
+        include_hidden=include_hidden,
+        heading_level=heading_level,
+        max_heading_level=max_heading_level,
+        standalone=standalone,
+        custom_css=custom_css,
+        command_chain=command_chain,
+        generate_toc=generate_toc,
+        flatten_commands=flatten_commands,
+        usage_name=usage_name,
+        anchors=_build_anchor_map(app, include_hidden, recursive, command_chain),
+    )
+
+
+def _generate_html_docs(
+    app: "App",
+    *,
+    recursive: bool,
+    include_hidden: bool,
+    heading_level: int,
+    max_heading_level: int,
+    standalone: bool,
+    custom_css: str | None,
+    command_chain: list[str],
+    generate_toc: bool,
+    flatten_commands: bool,
+    usage_name: str | None,
+    anchors: dict[tuple[str, ...], str],
+) -> str:
+    """Recursive implementation of :func:`generate_html_docs` sharing one anchor map."""
+    from cyclopts.help.formatters.html import HtmlFormatter
 
     lines = []
 
@@ -409,12 +465,11 @@ def generate_html_docs(
         # Nested command - build full path
         app_name = command_chain[0] if command_chain else app.name[0]
         full_command = " ".join(command_chain)
-        # Create anchor-friendly ID using shared logic
-        anchor_id = generate_anchor(full_command)
+        anchor_id = anchors[tuple(command_chain)]
         effective_level = min(heading_level, max_heading_level)
         lines.append('<section class="command-section">')
         lines.append(
-            f'<h{effective_level} id="{anchor_id}" class="command-title"><code>{escape_html(full_command)}</code></h{effective_level}>'
+            f'<h{effective_level} id="{escape_html(anchor_id)}" class="command-title"><code>{escape_html(full_command)}</code></h{effective_level}>'
         )
 
     # Add application description
@@ -430,7 +485,7 @@ def generate_html_docs(
         lines.append('<div class="table-of-contents">')
         lines.append("<h2>Table of Contents</h2>")
         lines.append("<ul>")
-        _generate_html_toc(lines, app, include_hidden, app_name, "", 0)
+        _generate_html_toc(lines, app, include_hidden, anchors, (app_name,), 0, recursive=recursive)
         lines.append("</ul>")
         lines.append("</div>")
 
@@ -462,14 +517,13 @@ def generate_html_docs(
         include_hidden=include_hidden,
         app_name=app_name,
         command_chain=command_chain,
+        anchors=anchors,
     )
     formatter.reset()
     for group, panel in help_panels_with_groups:
         if not include_hidden and group and not group.show:
             continue
-        # Filter out entries based on include_hidden
-        if not include_hidden:
-            panel.entries = filter_help_entries(app, panel, include_hidden)
+        panel.entries = filter_help_entries(app, panel)
         if panel.entries:  # Only render non-empty panels
             formatter(None, None, panel)
 
@@ -492,15 +546,10 @@ def generate_html_docs(
 
             # Generate subcommand documentation
             lines.append('<section class="command-section">')
-            # Create anchor-friendly ID
-            anchor_id = (
-                f"{app_name}-{'-'.join(sub_command_chain[1:])}".lower()
-                if len(sub_command_chain) > 1
-                else f"{app_name}-{name}".lower()
-            )
+            anchor_id = anchors[tuple(sub_command_chain)]
             effective_sub_level = min(sub_heading_level, max_heading_level)
             lines.append(
-                f'<h{effective_sub_level} id="{anchor_id}" class="command-title"><code>{escape_html(" ".join(sub_command_chain))}</code></h{effective_sub_level}>'
+                f'<h{effective_sub_level} id="{escape_html(anchor_id)}" class="command-title"><code>{escape_html(" ".join(sub_command_chain))}</code></h{effective_sub_level}>'
             )
 
             # Get subapp help
@@ -548,12 +597,12 @@ def generate_html_docs(
                         include_hidden=include_hidden,
                         app_name=app_name,
                         command_chain=sub_command_chain,
+                        anchors=anchors,
                     )
                     for sub_group, sub_panel in sub_panels:
                         if not include_hidden and sub_group and not sub_group.show:
                             continue
-                        if not include_hidden:
-                            sub_panel.entries = filter_help_entries(subapp, sub_panel, include_hidden)
+                        sub_panel.entries = filter_help_entries(subapp, sub_panel)
                         if sub_panel.entries:
                             sub_formatter(None, None, sub_panel)
 
@@ -574,7 +623,7 @@ def generate_html_docs(
                         # Set up context for nested_app, then recurse
                         # The recursive call's app_stack([app]) will stack on top of this
                         with nested_app.app_stack([subapp, nested_app]):
-                            nested_docs = generate_html_docs(
+                            nested_docs = _generate_html_docs(
                                 nested_app,
                                 recursive=recursive,
                                 include_hidden=include_hidden,
@@ -586,6 +635,7 @@ def generate_html_docs(
                                 generate_toc=False,  # No TOC for nested commands
                                 flatten_commands=flatten_commands,
                                 usage_name=usage_name,
+                                anchors=anchors,
                             )
                         lines.append(nested_docs)
 

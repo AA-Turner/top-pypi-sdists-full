@@ -70,11 +70,19 @@ def git_permits_legacy_adoption(path: Path) -> bool:
     """
     import subprocess
 
+    from ..cache.cached_repo import inert_git_args
+    from ..utils.git_env import get_git_executable
+
     env = {**os.environ, "LC_ALL": "C"}
 
     def git(*args: str) -> subprocess.CompletedProcess[bytes]:
         return subprocess.run(
-            ["git", *args], cwd=path.parent, env=env, capture_output=True, check=False, timeout=30
+            [get_git_executable(), *inert_git_args(), *args],
+            cwd=path.parent,
+            env=env,
+            capture_output=True,
+            check=False,
+            timeout=30,
         )
 
     try:

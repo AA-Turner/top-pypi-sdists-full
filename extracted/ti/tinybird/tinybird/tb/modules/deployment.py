@@ -25,43 +25,6 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.project import Project
 
 
-def download_github_contents(api_url: str, target_dir: Path) -> None:
-    """
-    Recursively downloads contents from GitHub API URL to target directory.
-
-    Args:
-        api_url: str - GitHub API URL to fetch contents from
-        target_dir: Path - Directory to save downloaded files to
-    """
-    response = requests.get(api_url)
-    if response.status_code != 200:
-        click.echo(
-            FeedbackManager.error(message=f"Failed to fetch contents from GitHub: {response.json().get('message', '')}")
-        )
-        return
-
-    contents = response.json()
-    if not isinstance(contents, list):
-        click.echo(FeedbackManager.error(message="Invalid response from GitHub API"))
-        return
-
-    for item in contents:
-        item_path = target_dir / item["name"]
-
-        if item["type"] == "dir":
-            # Create directory and recursively download its contents
-            item_path.mkdir(parents=True, exist_ok=True)
-            download_github_contents(item["url"], item_path)
-        elif item["type"] == "file":
-            # Download file
-            file_response = requests.get(item["download_url"])
-            if file_response.status_code == 200:
-                item_path.write_bytes(file_response.content)
-                click.echo(FeedbackManager.info(message=f"Downloaded {item['path']}"))
-            else:
-                click.echo(FeedbackManager.warning(message=f"Failed to download {item['path']}"))
-
-
 def download_github_template(url: str) -> Optional[Path]:
     """
     Downloads a template from a GitHub URL and returns the path to the downloaded files.
@@ -104,7 +67,11 @@ def download_github_template(url: str) -> Optional[Path]:
             )
 
             # Copy the specific path to current directory
-            source_path = Path(temp_dir) / path
+            clone_path = Path(temp_dir).resolve()
+            source_path = (clone_path / path).resolve()
+            if any(not p.resolve().is_relative_to(clone_path) for p in [source_path, *source_path.rglob("*")]):
+                click.echo(FeedbackManager.error(message=f"Path {path} points outside the repository"))
+                return None
             if not source_path.exists():
                 click.echo(FeedbackManager.error(message=f"Path {path} not found in repository"))
                 return None
@@ -135,7 +102,7 @@ def download_github_template(url: str) -> Optional[Path]:
 
 
 # TODO(eclbg): This should eventually end up in client.py, but we're not using it here yet.
-def api_fetch(url: str, headers: dict, request_from: Optional[str] = None) -> dict:
+def api_fetch(url: str, headers: Dict[str, str], request_from: Optional[str] = None) -> Dict[str, Any]:
     request_params = {"from": request_from} if request_from and "from=" not in url else None
     r = requests.get(url, headers=headers, params=request_params)
     if r.status_code == 200:
@@ -551,11 +518,12 @@ def create_deployment_cmd(
         ingest_hint=not is_web_analytics_starter_kit,
         output=output,
         env=env,
+        branch=ctx.ensure_object(dict)["branch"],
     )
     show_web_analytics_starter_kit_hints(client, is_web_analytics_starter_kit)
 
 
-def show_web_analytics_starter_kit_hints(client, is_web_analytics_starter_kit: bool) -> None:
+def show_web_analytics_starter_kit_hints(client: TinyB, is_web_analytics_starter_kit: bool) -> None:
     try:
         if not is_web_analytics_starter_kit:
             return

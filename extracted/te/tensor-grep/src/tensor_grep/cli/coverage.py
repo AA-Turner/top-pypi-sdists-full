@@ -53,6 +53,24 @@ def _display_path(path: Path, root: Path) -> str:
         return path.name
 
 
+def _validate_session_records(records: list[Any]) -> list[Any]:
+    for record in records:
+        if (
+            not isinstance(record.session_id, str)
+            or not record.session_id
+            or not isinstance(record.created_at, str)
+            or not isinstance(record.root, str)
+            or isinstance(record.version, bool)
+            or not isinstance(record.version, int)
+            or isinstance(record.file_count, bool)
+            or not isinstance(record.file_count, int)
+            or isinstance(record.symbol_count, bool)
+            or not isinstance(record.symbol_count, int)
+        ):
+            raise ValueError("invalid session index entry")
+    return records
+
+
 def _load_session_index(root: Path, floor: Path | None) -> list[Any]:
     from tensor_grep.cli import session_store
     from tensor_grep.cli._index_lock import record_from_entry
@@ -61,7 +79,16 @@ def _load_session_index(root: Path, floor: Path | None) -> list[Any]:
     if not index_path.exists():
         return []
     if floor is None:
-        return session_store._load_index(root)
+        try:
+            raw_payload = json.loads(index_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise ValueError("session index is not valid JSON") from exc
+        if not isinstance(raw_payload, list):
+            raise ValueError("session index is not a JSON array")
+        try:
+            return _validate_session_records(session_store._load_index(root))
+        except (AttributeError, TypeError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise ValueError("invalid session index entry") from exc
     anchor = floor.resolve()
     if not root.resolve().is_relative_to(anchor):
         return []
@@ -77,10 +104,20 @@ def _load_session_index(root: Path, floor: Path | None) -> list[Any]:
         raise ValueError("session index is not valid JSON") from exc
     if not isinstance(payload, list):
         raise ValueError("session index is not a JSON array")
-    return [record_from_entry(session_store.SessionRecord, entry) for entry in payload]
+    records: list[Any] = []
+    for entry in payload:
+        if not isinstance(entry, dict):
+            raise ValueError("invalid session index entry")
+        try:
+            records.append(record_from_entry(session_store.SessionRecord, entry))
+        except TypeError as exc:
+            raise ValueError("invalid session index entry") from exc
+    return _validate_session_records(records)
 
 
-def _session_entries(root: Path, floor: Path | None = None) -> dict[str, tuple[str, float]]:
+def _session_entries(
+    root: Path, floor: Path | None = None, warnings: list[str] | None = None
+) -> dict[str, tuple[str, float]]:
     from tensor_grep.cli import session_store
     from tensor_grep.cli.session_provenance import read_session_payload, verified_session_readonly
 
@@ -95,7 +132,12 @@ def _session_entries(root: Path, floor: Path | None = None) -> dict[str, tuple[s
     result: dict[str, tuple[str, float]] = {}
     for record in sorted(records, key=lambda item: item.created_at, reverse=True):
         session_path = session_store._session_payload_path(session_root, record.session_id)
-        payload = read_session_payload(session_root, session_path)
+        try:
+            payload = read_session_payload(session_root, session_path)
+        except FileNotFoundError:
+            if warnings is not None:
+                warnings.append(f"missing session payload: {record.session_id}")
+            continue
         if payload.get("session_id") != record.session_id or not verified_session_readonly(payload):
             raise ValueError("session snapshot authentication failed")
         entries = payload.get("snapshot", [])
@@ -215,11 +257,15 @@ def check_coverage(path: Path, *, confinement_root: Path | None = None) -> dict[
     from tensor_grep.cli import repo_map
 
     root = path.expanduser().resolve()
+    floor = confinement_root.resolve() if confinement_root is not None else None
+    if floor is not None and not _under_confinement(root, floor):
+        raise ValueError("path is outside confinement root")
     if not root.exists():
         raise FileNotFoundError(f"Path not found: {root}")
     is_directory = root.is_dir()
     scope = root if is_directory else root.parent
-    floor = confinement_root.resolve() if confinement_root is not None else None
+    if floor is not None and not _under_confinement(scope, floor):
+        raise ValueError("path is outside confinement root")
     cap = repo_map.DEFAULT_AGENT_REPO_MAP_LIMIT
     unreadable = repo_map._UnreadablePathFlag()
     walked = repo_map._iter_repo_files(root, max_files=cap + 1, unreadable_hit=unreadable)
@@ -229,7 +275,8 @@ def check_coverage(path: Path, *, confinement_root: Path | None = None) -> dict[
     if floor is not None:
         files = [item for item in files if _under_confinement(item, floor)]
     displayed = {_display_path(item, scope): item for item in files}
-    receipts: dict[str, tuple[str, float]] = dict(_session_entries(scope, floor))
+    warnings: list[str] = []
+    receipts: dict[str, tuple[str, float]] = dict(_session_entries(scope, floor, warnings=warnings))
     for name, (digest, cache_stamp) in _ast_cache_entries(scope, floor).items():
         prior = receipts.get(name)
         if prior is None or cache_stamp >= prior[1]:
@@ -267,7 +314,7 @@ def check_coverage(path: Path, *, confinement_root: Path | None = None) -> dict[
     if unreadable.hit:
         caps.append("unreadable_paths")
     complete = not stale and not unindexed and not unparsed and not caps
-    return {
+    payload_out: dict[str, Any] = {
         "path": str(root),
         "files_total": len(files),
         "stale": sorted(stale, key=lambda item: (item["path"], item["reason"])),
@@ -276,6 +323,9 @@ def check_coverage(path: Path, *, confinement_root: Path | None = None) -> dict[
         "complete": complete,
         "caps": caps,
     }
+    if warnings:
+        payload_out["stale_session_warnings"] = warnings
+    return payload_out
 
 
 def coverage_command(path: str, *, json_output: bool) -> int:
@@ -284,7 +334,14 @@ def coverage_command(path: str, *, json_output: bool) -> int:
     try:
         payload = check_coverage(Path(path))
     except (OSError, ValueError, sqlite3.Error) as exc:
-        typer.echo(f"coverage: {exc}", err=True)
+        raw_error = str(exc)
+        error_message = raw_error.splitlines()[0][:240] if raw_error else type(exc).__name__
+        if json_output:
+            typer.echo(
+                json.dumps({"path": str(Path(path)), "complete": False, "error": error_message})
+            )
+        else:
+            typer.echo(f"coverage: {error_message}", err=True)
         return 1
     rendered = json.dumps(payload, indent=2)
     if json_output:

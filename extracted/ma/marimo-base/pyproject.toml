@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.8.3,<0.13.0"]
+requires = ["uv_build>=0.8.3,<0.14.0"]
 build-backend = "uv_build"
 
 [project]
 name = "marimo-base"
-version = "0.25.2"
+version = "0.26.0"
 description = "A library for making reactive notebooks and apps"
 dependencies = [
     "click>=8.0,<9; sys_platform != 'emscripten'",
@@ -14,14 +14,13 @@ dependencies = [
     "pygments>=2.19,<3",
     "tomlkit>=0.12.0",
     "pyyaml>=6.0.1",
-    "uvicorn>=0.22.0; sys_platform != 'emscripten'",
+    "uvicorn>=0.23.0; sys_platform != 'emscripten'",
     "starlette>=0.37.2; sys_platform != 'emscripten'",
     "python-multipart>=0.0.18",
     "websockets >= 14.2.0; sys_platform != 'emscripten'",
-    "loro>=1.10.0; python_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'android'",
     "typing_extensions>=4.4.0; python_version < '3.12'",
     "docutils>=0.16.0",
-    "psutil>=5.0; sys_platform != 'emscripten' and sys_platform != 'android'",
+    "psutil>=5.6.0; sys_platform != 'emscripten' and sys_platform != 'android'",
     "itsdangerous>=2.0.0",
     "narwhals>=2.0.0",
     "packaging",
@@ -31,7 +30,7 @@ dependencies = [
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Operating System :: OS Independent",
     "Environment :: Console",
@@ -40,7 +39,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: Education",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -63,7 +61,8 @@ marimo_markdown_converter = "marimo._utils.docs:MarkdownConverter"
 sql = [
     "duckdb>=1.0.0",
     "polars[pyarrow]>=1.9.0",
-    "sqlglot[c]>=30.7.0",
+    "sqlglot[c]>=30.11.0; python_version < '3.15'",
+    "sqlglot[c]>=30.23.0; python_version >= '3.15'",
 ]
 sandbox = ["uv>=0.9.21"]
 recommended = [
@@ -99,7 +98,8 @@ dev = [
     "opentelemetry-exporter-otlp-proto-http~=1.28.0",
     "opentelemetry-exporter-otlp-proto-grpc~=1.28.0",
     "duckdb>=1.0.0; python_version < '3.15'",
-    "sqlglot[c]>=30.7.0",
+    "sqlglot>=30.11.0; python_version < '3.15'",
+    "sqlglot>=30.23.0; python_version >= '3.15'",
     "pyarrow-stubs",
     "ruff>=0.16.6",
     "pydantic-ai-slim[openai]>=2.34.0,<3.0.0",
@@ -107,7 +107,7 @@ dev = [
 test = [
     "httpx~=0.28.0",
     "urllib3~=2.5.0",
-    "pytest~=9.0.2",
+    "pytest~=9.1.1",
     "pytest-timeout~=2.4.0",
     "pytest-codecov~=0.7.0",
     "pytest-rerunfailures~=16.1",
@@ -118,8 +118,11 @@ test = [
     "inline-snapshot~=0.29.0",
     "hypothesis~=6.102.1",
     "dirty-equals~=0.9.0",
+    "jinja2>=3.1.6",
+    "openapi-spec-validator>=0.9.0",
+    "python-jsonpath==2.2.1",
     "matplotlib~=3.10.7; python_version < '3.15'",
-    "numpy",
+    "numpy>=1.23.4",
     "pillow>=9",
     "zstandard>=0.21.0; python_version < '3.15'",
     "cffi>=1.16.0",
@@ -136,7 +139,8 @@ test-optional = [
     "altair>=5.4.0",
     "plotly>=5.14.0",
     "polars>=1.32.2",
-    "sqlglot[c]>=30.7.0",
+    "sqlglot>=30.11.0; python_version < '3.15'",
+    "sqlglot>=30.23.0; python_version >= '3.15'",
     "sqlalchemy[asyncio]>=2.0.40",
     "obstore>=0.8.2",
     "huggingface-hub>=1.24.0",
@@ -148,9 +152,10 @@ test-optional = [
     "redshift-connector[full]>=2.1.7",
     "starrocks>=1.3.0",
     "pandas>=1.5.3",
+    "pandas-stubs>=1.5.3.230321",
     "hvplot~=0.11.3",
     "geopandas>=1.1.0",
-    "duckdb>=1.0.0",
+    "duckdb>=1.0.0,<2",
     "ibis-framework[duckdb]>=10.3.0",
     "pillow~=12.0,>=12.3",
     "anywidget~=0.9.21",
@@ -162,7 +167,7 @@ test-optional = [
     "nbconvert>=7.17.0",
     "sympy>=1.13.3",
     "jupytext>=1.17.2",
-    "jax>=0.4.27,<0.11.2; python_version == '3.12'",
+    "jax>=0.4.27; python_version == '3.12'",
     "flax>=0.10.0; python_version == '3.12'",
     "torch>=2.4.0; python_version == '3.12'",
     "scikit-bio>=0.6.3; python_version == '3.12'",
@@ -177,17 +182,17 @@ typecheck = [
     "leafmap~=0.39.2",
     "panel>=1.5.3",
     "polars>=1.9.0",
-    "pytest>=9.0.2",
+    "pytest>=9.1.1",
     "duckdb>=1.0.0",
     "narwhals>=2.0.0",
     "matplotlib>=3.8.0",
-    "sqlglot[c]>=30.7.0",
+    "sqlglot>=30.11.0; python_version < '3.15'",
+    "sqlglot>=30.23.0; python_version >= '3.15'",
     "sqlalchemy[asyncio]>=2.0.40",
     "obstore>=0.8.2",
     "huggingface_hub>=1.24.0",
     "fsspec>=2026.2.0",
     "pydantic-ai-slim[google,anthropic,bedrock,openai]>=2.34.0,<3.0.0",
-    "loro>=1.5.0",
     "boto3-stubs>=1.38.46",
     "pandas-stubs>=1.5.3.230321",
     "pyiceberg>=0.9.0",
@@ -220,7 +225,7 @@ docs = [
     "mkdocs-redirects>=1.2.2",
     "mkdocs-click>=0.8.1",
     "mike>=2.0.0",
-    "pillow>=10.2.0,!=11.3.0",
+    "pillow>=10.2.0",
     "cairosvg>=2.7.1",
     "mdx-include>=1.4.2",
     "pymdown-extensions>=10.21.2",
@@ -231,9 +236,9 @@ docs = [
 
 [tool.uv]
 required-environments = [
-    "sys_platform == 'linux' and platform_machine == 'x86_64' and python_version >= '3.10' and python_version < '3.16'",
-    "sys_platform == 'darwin' and platform_machine == 'arm64' and python_version == '3.10'",
-    "sys_platform == 'win32' and platform_machine == 'AMD64' and python_version == '3.10'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.16'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64' and python_version == '3.11'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64' and python_version == '3.11'",
 ]
 exclude-newer = "7 days"
 
@@ -245,6 +250,15 @@ marimo-lens = false
 path = "./docs"
 editable = true
 
+[tool.uv.sources.torch]
+index = "pytorch-cpu"
+marker = "sys_platform == 'linux'"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.uv.build-backend]
 module-name = "marimo"
 module-root = ""
@@ -255,31 +269,31 @@ source-include = [
 wheel-exclude = [
     "marimo/_smoke_tests/**",
     "marimo/_lsp",
-    "marimo/_static/favicon.ico",
-    "marimo/_static/site.webmanifest",
-    "marimo/_static/android-chrome-192x192.png",
-    "marimo/_static/logo.png",
     "marimo/_static/favicon-32x32.png",
-    "marimo/_static/assets",
     "marimo/_static/apple-touch-icon.png",
+    "marimo/_static/site.webmanifest",
+    "marimo/_static/assets",
+    "marimo/_static/android-chrome-512x512.png",
+    "marimo/_static/CLAUDE.md",
+    "marimo/_static/favicon.ico",
     "marimo/_static/favicon-16x16.png",
     "marimo/_static/manifest.json",
-    "marimo/_static/CLAUDE.md",
-    "marimo/_static/android-chrome-512x512.png",
+    "marimo/_static/android-chrome-192x192.png",
+    "marimo/_static/logo.png",
 ]
 source-exclude = [
     "marimo/_lsp",
-    "marimo/_static/favicon.ico",
-    "marimo/_static/site.webmanifest",
-    "marimo/_static/android-chrome-192x192.png",
-    "marimo/_static/logo.png",
     "marimo/_static/favicon-32x32.png",
-    "marimo/_static/assets",
     "marimo/_static/apple-touch-icon.png",
+    "marimo/_static/site.webmanifest",
+    "marimo/_static/assets",
+    "marimo/_static/android-chrome-512x512.png",
+    "marimo/_static/CLAUDE.md",
+    "marimo/_static/favicon.ico",
     "marimo/_static/favicon-16x16.png",
     "marimo/_static/manifest.json",
-    "marimo/_static/CLAUDE.md",
-    "marimo/_static/android-chrome-512x512.png",
+    "marimo/_static/android-chrome-192x192.png",
+    "marimo/_static/logo.png",
 ]
 
 [tool.ruff]
@@ -324,8 +338,9 @@ ignore = [
     "PT011",
     "E501",
     "D415",
-    "PLR1711",
     "ASYNC119",
+    "ASYNC109",
+    "UP042",
     "BLE001",
     "DTZ001",
     "PLW1510",
@@ -386,6 +401,7 @@ extend-select = [
     "D211",
     "D214",
     "D215",
+    "PLR1711",
     "PLW1514",
     "UP",
 ]
@@ -539,6 +555,9 @@ autosave_delay = 1000
 autosave = "after_delay"
 format_on_save = true
 
+[tool.marimo.formatting]
+infer_types = "jedi"
+
 [tool.marimo.experimental]
 multi_column = true
 cache_panel = true
@@ -572,8 +591,8 @@ platforms = [
 ]
 
 [tool.pixi.dependencies]
-nodejs = "22.*"
-pnpm = "10.*"
+nodejs = "24.*"
+pnpm = "12.*"
 make = ">=4.4.1,<5"
 pre_commit = ">=4.2.0,<5"
 uv = ">=0.6.12,<0.7"

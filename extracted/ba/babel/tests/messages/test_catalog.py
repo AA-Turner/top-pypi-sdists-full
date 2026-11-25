@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -12,12 +12,45 @@
 
 import copy
 import datetime
+import operator
 import pickle
 from io import StringIO
+
+import pytest
 
 from babel.dates import UTC, format_datetime
 from babel.messages import catalog, pofile
 from babel.util import FixedOffsetTimezone
+
+
+@pytest.mark.parametrize('other', [None, 1, 'foo', object()])
+def test_message_equality_with_other_types(other):
+    message = catalog.Message('foo')
+    assert not (message == other)
+    assert not (other == message)
+    assert message != other
+    assert other != message
+
+
+@pytest.mark.parametrize('other', [None, 1, 'foo', object()])
+@pytest.mark.parametrize('compare', [operator.lt, operator.le, operator.gt, operator.ge])
+def test_message_ordering_with_other_types(other, compare):
+    message = catalog.Message('foo')
+    with pytest.raises(TypeError):
+        compare(message, other)
+    with pytest.raises(TypeError):
+        compare(other, message)
+
+
+def test_message_equality_uses_reflected_comparison():
+    class EqualToMessage:
+        def __eq__(self, other):
+            return isinstance(other, catalog.Message)
+
+    message = catalog.Message('foo')
+    other = EqualToMessage()
+    assert message == other
+    assert not (message != other)
 
 
 def test_message_python_format():
@@ -66,13 +99,31 @@ def test_message_translator_comments():
     assert mess.auto_comments == ['Comment 1 About `foo`', 'Comment 2 About `foo`']
 
 
+@pytest.mark.parametrize('attribute', ['auto_comments', 'user_comments'])
+@pytest.mark.parametrize(
+    ('comments', 'expected'),
+    [
+        ([], []),
+        (['KEY:', 'KEY:', 'KEY:'], ['KEY:']),
+        (['KEY:', 'first', 'KEY:', 'second'], ['KEY:', 'first', 'KEY:', 'second']),
+        (['KEY:', 'KEY:', 'first', 'KEY:', 'KEY:'], ['KEY:', 'first', 'KEY:']),
+        (['', '', 'text', ''], ['', 'text', '']),
+    ],
+)
+def test_message_collapses_only_consecutive_comment_lines(attribute, comments, expected):
+    message = catalog.Message('foo', **{attribute: iter(comments)})
+    assert getattr(message, attribute) == expected
+    assert getattr(message.clone(), attribute) == expected
+
+
 def test_message_clone_message_object():
     msg = catalog.Message('foo', locations=[('foo.py', 42)])
     clone = msg.clone()
     clone.locations.append(('bar.py', 42))
     assert msg.locations == [('foo.py', 42)]
     msg.flags.add('fuzzy')
-    assert not clone.fuzzy and msg.fuzzy
+    assert not clone.fuzzy
+    assert msg.fuzzy
 
 
 def test_catalog_add_returns_message_instance():
@@ -303,8 +354,7 @@ def test_catalog_update_po_updates_pot_creation_date():
     localized_catalog.locale = 'de_DE'
     assert template.mime_headers != localized_catalog.mime_headers
     assert template.creation_date == localized_catalog.creation_date
-    template.creation_date = datetime.datetime.now() - \
-        datetime.timedelta(minutes=5)
+    template.creation_date = datetime.datetime.now() - datetime.timedelta(minutes=5)
     localized_catalog.update(template)
     assert template.creation_date == localized_catalog.creation_date
 
@@ -315,8 +365,7 @@ def test_catalog_update_po_ignores_pot_creation_date():
     localized_catalog.locale = 'de_DE'
     assert template.mime_headers != localized_catalog.mime_headers
     assert template.creation_date == localized_catalog.creation_date
-    template.creation_date = datetime.datetime.now() - \
-        datetime.timedelta(minutes=5)
+    template.creation_date = datetime.datetime.now() - datetime.timedelta(minutes=5)
     localized_catalog.update(template, update_creation_date=False)
     assert template.creation_date != localized_catalog.creation_date
 
@@ -329,8 +378,7 @@ def test_catalog_update_po_keeps_po_revision_date():
     localized_catalog.revision_date = fake_rev_date
     assert template.mime_headers != localized_catalog.mime_headers
     assert template.creation_date == localized_catalog.creation_date
-    template.creation_date = datetime.datetime.now() - \
-        datetime.timedelta(minutes=5)
+    template.creation_date = datetime.datetime.now() - datetime.timedelta(minutes=5)
     localized_catalog.update(template)
     assert localized_catalog.revision_date == fake_rev_date
 
@@ -344,6 +392,27 @@ def test_catalog_stores_datetime_correctly():
     for key, value in localized.mime_headers:
         if key in ('POT-Creation-Date', 'PO-Revision-Date'):
             assert value == '2009-03-09 15:47-0700'
+
+
+def test_catalog_handles_blank_revision_and_creation_date():
+    cat = catalog.Catalog()
+    default_creation_date = cat.creation_date
+    default_revision_date = cat.revision_date
+
+    cat[''] = catalog.Message(
+        '',
+        "POT-Creation-Date: \n"
+        "PO-Revision-Date: \n",
+    )
+
+    # We didn't crash and we retained the original values
+    assert cat.creation_date == default_creation_date
+    assert cat.revision_date == default_revision_date
+
+    for key, value in cat.mime_headers:
+        if key in ('POT-Creation-Date', 'PO-Revision-Date'):
+            assert value is not None
+            assert 'None' not in str(value)
 
 
 def test_catalog_mime_headers_contain_same_information_as_attributes():
@@ -395,8 +464,7 @@ def test_message_python_brace_format_2():
 
 
 def test_catalog():
-    cat = catalog.Catalog(project='Foobar', version='1.0',
-                          copyright_holder='Foo Company')
+    cat = catalog.Catalog(project='Foobar', version='1.0', copyright_holder='Foo Company')
     assert cat.header_comment == (
         '# Translations template for Foobar.\n'
         '# Copyright (C) %(year)d Foo Company\n'
@@ -405,8 +473,7 @@ def test_catalog():
         '# FIRST AUTHOR <EMAIL@ADDRESS>, %(year)d.\n'
         '#') % {'year': datetime.date.today().year}
 
-    cat = catalog.Catalog(project='Foobar', version='1.0',
-                          copyright_holder='Foo Company')
+    cat = catalog.Catalog(project='Foobar', version='1.0', copyright_holder='Foo Company')
     cat.header_comment = (
         '# The POT for my really cool PROJECT project.\n'
         '# Copyright (C) 1990-2003 ORGANIZATION\n'
@@ -418,13 +485,13 @@ def test_catalog():
         '# Copyright (C) 1990-2003 Foo Company\n'
         '# This file is distributed under the same license as the Foobar\n'
         '# project.\n'
-        '#\n')
+        '#\n'
+    )
 
 
 def test_catalog_mime_headers():
     created = datetime.datetime(1990, 4, 1, 15, 30, tzinfo=UTC)
-    cat = catalog.Catalog(project='Foobar', version='1.0',
-                          creation_date=created)
+    cat = catalog.Catalog(project='Foobar', version='1.0', creation_date=created)
     assert cat.mime_headers == [
         ('Project-Id-Version', 'Foobar 1.0'),
         ('Report-Msgid-Bugs-To', 'EMAIL@ADDRESS'),
@@ -442,10 +509,15 @@ def test_catalog_mime_headers():
 def test_catalog_mime_headers_set_locale():
     created = datetime.datetime(1990, 4, 1, 15, 30, tzinfo=UTC)
     revised = datetime.datetime(1990, 8, 3, 12, 0, tzinfo=UTC)
-    cat = catalog.Catalog(locale='de_DE', project='Foobar', version='1.0',
-                          creation_date=created, revision_date=revised,
-                          last_translator='John Doe <jd@example.com>',
-                          language_team='de_DE <de@example.com>')
+    cat = catalog.Catalog(
+        locale='de_DE',
+        project='Foobar',
+        version='1.0',
+        creation_date=created,
+        revision_date=revised,
+        last_translator='John Doe <jd@example.com>',
+        language_team='de_DE <de@example.com>',
+    )
     assert cat.mime_headers == [
         ('Project-Id-Version', 'Foobar 1.0'),
         ('Report-Msgid-Bugs-To', 'EMAIL@ADDRESS'),
@@ -481,14 +553,14 @@ def test_catalog_num_plurals():
 def test_catalog_plural_expr():
     assert catalog.Catalog(locale='en').plural_expr == '(n != 1)'
     assert (catalog.Catalog(locale='ga').plural_expr
-            == '(n==1 ? 0 : n==2 ? 1 : n>=3 && n<=6 ? 2 : n>=7 && n<=10 ? 3 : 4)')
+            == '(n == 1 ? 0 : n == 2 ? 1 : n >= 3 && n <= 6 ? 2 : n >= 7 && n <= 10 ? 3 : 4)')
 
 
 def test_catalog_plural_forms():
     assert (catalog.Catalog(locale='en').plural_forms
             == 'nplurals=2; plural=(n != 1);')
     assert (catalog.Catalog(locale='pt_BR').plural_forms
-            == 'nplurals=2; plural=(n > 1);')
+            == 'nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;')
 
 
 def test_catalog_setitem():
@@ -518,8 +590,7 @@ def test_catalog_update():
     cat = catalog.Catalog(locale='de_DE')
     cat.add('blue', 'blau', locations=[('main.py', 98)])
     cat.add('head', 'Kopf', locations=[('util.py', 33)])
-    cat.add(('salad', 'salads'), ('Salat', 'Salate'),
-            locations=[('util.py', 38)])
+    cat.add(('salad', 'salads'), ('Salat', 'Salate'), locations=[('util.py', 38)])
 
     cat.update(template)
     assert len(cat) == 3
@@ -560,24 +631,30 @@ def test_datetime_parsing():
 def test_update_catalog_comments():
     # Based on https://web.archive.org/web/20100710131029/http://babel.edgewall.org/attachment/ticket/163/cat-update-comments.py
 
-    catalog = pofile.read_po(StringIO('''
+    catalog = pofile.read_po(
+        StringIO('''
     # A user comment
     #. An auto comment
     #: main.py:1
     #, fuzzy, python-format
     msgid "foo %(name)s"
     msgstr "foo %(name)s"
-    '''))
+    '''),
+    )
 
-    assert all(message.user_comments and message.auto_comments for message in catalog if message.id)
+    assert all(
+        message.user_comments and message.auto_comments for message in catalog if message.id
+    )
 
     # NOTE: in the POT file, there are no comments
-    template = pofile.read_po(StringIO('''
+    template = pofile.read_po(
+        StringIO('''
     #: main.py:1
     #, fuzzy, python-format
     msgid "bar %(name)s"
     msgstr ""
-    '''))
+    '''),
+    )
 
     catalog.update(template)
 
@@ -596,3 +673,34 @@ msgid ""
 msgstr ""
 "POT-Creation-Date: 2007-04-01 15:30+0200\n"
     """))))
+
+
+def test_catalog_is_identical_with_context():
+    """A catalog holding a context-specific message must compare equal to itself."""
+    cat = catalog.Catalog(locale='en')
+    cat.add('Guide', 'Guide', context='navigation')
+    assert cat.is_identical(cat)
+
+    same = catalog.Catalog(locale='en')
+    same.add('Guide', 'Guide', context='navigation')
+    assert cat.is_identical(same)
+
+    translated_differently = catalog.Catalog(locale='en')
+    translated_differently.add('Guide', 'Manual', context='navigation')
+    assert not cat.is_identical(translated_differently)
+
+    # The same msgid under a different context is a different message.
+    other_context = catalog.Catalog(locale='en')
+    other_context.add('Guide', 'Guide', context='footer')
+    assert not cat.is_identical(other_context)
+
+
+def test_catalog_is_identical_with_pluralizable_context():
+    """The same, for a context-specific *pluralizable* message."""
+    cat = catalog.Catalog(locale='en')
+    cat.add(('%d page', '%d pages'), ('%d page', '%d pages'), context='report')
+    assert cat.is_identical(cat)
+
+    same = catalog.Catalog(locale='en')
+    same.add(('%d page', '%d pages'), ('%d page', '%d pages'), context='report')
+    assert cat.is_identical(same)

@@ -115,6 +115,98 @@ def test_download_and_extract_uses_lance_file_session_without_namespace(
     assert (output_dir / "pkg" / "mod.py").read_text() == "VALUE = 1\n"
 
 
+class _RecordingSession:
+    """Stands in for LanceFileSession, recording how it was constructed."""
+
+    calls: list[dict] = []
+
+    def __init__(self, base_path: str, **kwargs) -> None:
+        self.base_path = base_path
+        self.kwargs = kwargs
+        type(self).calls.append({"base_path": base_path, **kwargs})
+
+    def download_file(self, remote_path: str, download_path) -> None:
+        with zipfile.ZipFile(download_path, "w") as zf:
+            zf.writestr("pkg/mod.py", "VALUE = 1\n")
+
+
+@pytest.fixture
+def recording_session(monkeypatch: pytest.MonkeyPatch) -> type[_RecordingSession]:
+    import lance.file
+    import lance_namespace
+
+    _RecordingSession.calls = []
+    monkeypatch.setattr(lance.file, "LanceFileSession", _RecordingSession)
+    monkeypatch.setattr(lance_namespace, "connect", lambda impl, props: object())
+    return _RecordingSession
+
+
+def test_download_and_extract_forwards_namespace_storage_options(
+    tmp_path: Path, recording_session: type[_RecordingSession]
+) -> None:
+    """The workspace zip is the FIRST thing a worker fetches, from inside
+    `import geneva`. A `dir` namespace client vends no credentials, so without
+    the storage options the session falls back to the ambient environment --
+    empty on a pod with no cloud identity -- and the import dies with a bare
+    "Bucket not found" before any user code runs."""
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+
+    geneva._download_and_extract(
+        {
+            "src_path": "s3://bucket/db/tbl/_geneva_uploads/payload.zip",
+            "download_path": tmp_path / "download.zip",
+            "output_dir": output_dir,
+            "namespace": {
+                "impl": "dir",
+                "properties": {
+                    "root": "s3://bucket/db",
+                    "storage.aws_endpoint": "https://example.r2.cloudflarestorage.com",
+                    "storage.aws_access_key_id": "key",
+                    "storage.aws_secret_access_key": "secret",
+                },
+                "table_id": ["db", "tbl"],
+            },
+        }
+    )
+
+    (call,) = recording_session.calls
+    assert call["base_path"] == "s3://bucket/db/tbl"
+    assert call["storage_options"] == {
+        "aws_endpoint": "https://example.r2.cloudflarestorage.com",
+        "aws_access_key_id": "key",
+        "aws_secret_access_key": "secret",
+    }
+    assert call["table_id"] == ["db", "tbl"]
+    assert (output_dir / "pkg" / "mod.py").read_text() == "VALUE = 1\n"
+
+
+def test_download_and_extract_omits_storage_options_when_none_present(
+    tmp_path: Path, recording_session: type[_RecordingSession]
+) -> None:
+    """A namespace that carries no storage properties -- a REST namespace that
+    vends its own credentials, say -- must not gain an empty storage_options,
+    which would otherwise override what the namespace client provides."""
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+
+    geneva._download_and_extract(
+        {
+            "src_path": "s3://bucket/db/tbl/_geneva_uploads/payload.zip",
+            "download_path": tmp_path / "download.zip",
+            "output_dir": output_dir,
+            "namespace": {
+                "impl": "rest",
+                "properties": {"uri": "https://namespace.example.com"},
+                "table_id": ["db", "tbl"],
+            },
+        }
+    )
+
+    (call,) = recording_session.calls
+    assert "storage_options" not in call
+
+
 @pytest.mark.slow
 def test_package_local_env_into_zips(tmp_path: Path) -> None:
     # two calls to package_local_env_into_zips.

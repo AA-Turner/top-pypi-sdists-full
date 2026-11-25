@@ -158,7 +158,7 @@ SQL_KEYWORDS = {
     "when",
     "where",
     "with",
-    "writable"
+    "writable",
     # Extra keywords that were added here but don't come from CH source code
     "anti",
     "asof",

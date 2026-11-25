@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flwr
-Version: 1.44.0
+Version: 1.45.0
 Summary: Flower: A Friendly Federated AI Framework
 Keywords: Artificial Intelligence,Federated AI,Federated Analytics,Federated Evaluation,Federated Learning,Flower,Machine Learning
 Author: The Flower Authors
@@ -82,7 +82,7 @@ Description-Content-Type: text/markdown
 
 [![GitHub license](https://img.shields.io/github/license/flwrlabs/flower)](https://github.com/flwrlabs/flower/blob/main/LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/flwrlabs/flower/blob/main/CONTRIBUTING.md)
-![Build](https://github.com/flwrlabs/flower/actions/workflows/framework.yml/badge.svg)
+![Build](https://github.com/flwrlabs/flower/actions/workflows/framework-test.yml/badge.svg)
 [![Downloads](https://static.pepy.tech/badge/flwr)](https://pepy.tech/project/flwr)
 [![Docker Hub](https://img.shields.io/badge/Docker%20Hub-flwr-blue)](https://hub.docker.com/u/flwr)
 [![Slack](https://img.shields.io/badge/Chat-Slack-red)](https://flower.ai/join-slack)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyprobables
-Version: 0.7.0
+Version: 0.7.1
 Summary: Probabilistic data structures in python
 Author-email: Tyler Barrus <barrust@gmail.com>
 License-Expression: MIT

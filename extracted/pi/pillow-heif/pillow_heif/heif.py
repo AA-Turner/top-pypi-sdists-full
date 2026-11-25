@@ -19,6 +19,7 @@ from .misc import (
     _get_heif_meta,
     _get_orientation_for_encoder,
     _get_primary_index,
+    _get_reader,
     _pil_to_supported_mode,
     _retrieve_exif,
     _retrieve_xmp,
@@ -122,6 +123,7 @@ class BaseImage:
             when reading `data` or `stride` property of image will be loaded automatically.
         """
         if not self._data:
+            self._c_image.read_file()  # not under `_load_lock`: reading the file runs Python code
             with self._load_lock:
                 if not self._data:
                     data = self._c_image.data
@@ -189,7 +191,7 @@ class HeifImage(BaseImage):
 
     def __init__(self, c_image):
         super().__init__(c_image)
-        metadata: list[dict] = c_image.metadata
+        metadata: list[dict] = [i for i in c_image.metadata if i is not None]
         exif = _retrieve_exif(metadata)
         xmp = _retrieve_xmp(metadata)
         thumbnails: list[int | None] = [i for i in c_image.thumbnails if i is not None] if options.THUMBNAILS else []
@@ -285,6 +287,19 @@ class HeifImage(BaseImage):
         return HeifThumbnail(self._c_image.get_thumbnail(index))
 
 
+def _preferred_decoder(mimetype: str) -> str:
+    if mimetype.find("avif") != -1:
+        decoder_id = options.PREFERRED_DECODER.get("AVIF", "")
+    elif mimetype.find("heic") != -1 or mimetype.find("heif") != -1:
+        decoder_id = options.PREFERRED_DECODER.get("HEIF", "")
+    else:
+        decoder_id = ""
+    # the C module has room for 63 bytes, checked before the file is parsed
+    if isinstance(decoder_id, str) and len(decoder_id.encode()) > 63:
+        raise ValueError("decoder ID is longer than 63 bytes")
+    return decoder_id
+
+
 class HeifFile:
     """Representation of the :py:class:`~pillow_heif.HeifImage` classes container.
 
@@ -303,21 +318,18 @@ class HeifFile:
         if hasattr(fp, "seek"):
             fp.seek(0, SEEK_SET)
 
+        self._images: list[HeifImage] = []
         if fp is None:
             images = []
             entity_groups = []
             mimetype = ""
         else:
-            fp_bytes = _get_bytes(fp)
+            reader, fp_bytes = _get_reader(fp, kwargs.get("filename")) if kwargs.get("lazy_read") else (None, b"")
+            if reader is None:
+                fp_bytes = _get_bytes(fp)
             mimetype = get_file_mimetype(fp_bytes)
-            if mimetype.find("avif") != -1:
-                preferred_decoder = options.PREFERRED_DECODER.get("AVIF", "")
-            elif mimetype.find("heic") != -1 or mimetype.find("heif") != -1:
-                preferred_decoder = options.PREFERRED_DECODER.get("HEIF", "")
-            else:
-                preferred_decoder = ""
-            images, entity_groups = _pillow_heif.load_file(
-                fp_bytes,
+            preferred_decoder = _preferred_decoder(mimetype)
+            load_args = (
                 options.DECODE_THREADS,
                 convert_hdr_to_8bit,
                 bgr_mode,
@@ -326,9 +338,15 @@ class HeifFile:
                 preferred_decoder,
                 options.DISABLE_SECURITY_LIMITS,
             )
+            try:
+                images, entity_groups = self._load_file(fp_bytes if reader is None else reader, reader, load_args)
+            except (ValueError, SyntaxError, RuntimeError, EOFError):
+                if reader is None:
+                    raise
+                # libheif reads a few valid files only from memory, e.g. with an `ftyp` box bigger than 1 KB
+                fp.seek(0)
+                images, entity_groups = self._load_file(_get_bytes(fp), None, load_args)
         self.mimetype = mimetype
-        images = [i for i in images if i is not None]
-        self._images: list[HeifImage] = [HeifImage(i) for i in images]
         self.primary_index = 0
         for index, _ in enumerate(self._images):
             if _.info.get("primary", False):
@@ -339,6 +357,20 @@ class HeifFile:
                 group["images"] = [item_ids.get(i) for i in group["entities"]]
             for image in self._images:
                 image.info["entity_groups"] = deepcopy(entity_groups)
+
+    def _load_file(self, file_data, reader, load_args):
+        while True:
+            try:
+                result = _pillow_heif.load_file(file_data, *load_args)
+                if result is not None:
+                    images = [i for i in result[0] if i is not None]
+                    self._images = [HeifImage(i) for i in images]
+            except (ValueError, SyntaxError, RuntimeError, EOFError):
+                if reader is None or not reader.missing:
+                    raise
+            # `libheif` fails to read a part of the file that is not loaded yet, the reader remembers which one.
+            if reader is None or not reader.fetch_missing():
+                return images, result[1]
 
     @property
     def size(self):

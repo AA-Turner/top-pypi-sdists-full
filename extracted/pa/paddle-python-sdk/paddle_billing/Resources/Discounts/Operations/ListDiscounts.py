@@ -1,13 +1,17 @@
-from paddle_billing.EnumStringify import enum_stringify
-from paddle_billing.HasParameters import HasParameters
+from typing import Any
 
-from paddle_billing.Entities.Shared import Status
-from paddle_billing.Entities.Discounts.DiscountMode import DiscountMode
+from paddle_billing.EnumStringify import enum_stringify as enum_stringify
+from paddle_billing.HasParameters import HasParameters as HasParameters
 
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
+from paddle_billing.Entities.Shared import Status as Status
+from paddle_billing.Entities.Discounts.DiscountMode import DiscountMode as DiscountMode
 
-from paddle_billing.Resources.Discounts.Operations.DiscountInclude import DiscountInclude
-from paddle_billing.Resources.Shared.Operations import Pager
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
+
+from paddle_billing.Resources.Discounts.Operations.DiscountInclude import DiscountInclude as DiscountInclude
+from paddle_billing.Resources.Shared.Operations import Pager as Pager
 
 
 class ListDiscounts(HasParameters):
@@ -30,13 +34,14 @@ class ListDiscounts(HasParameters):
         self.includes = includes if includes is not None else []
 
         # Validation
-        for field_name, field_value, field_type in [
+        validations: list[tuple[str, list[Any], type]] = [
             ("ids", self.ids, str),
             ("statuses", self.statuses, Status),
             ("codes", self.codes, str),
             ("discount_group_ids", self.discount_group_ids, str),
             ("includes", self.includes, DiscountInclude),
-        ]:
+        ]
+        for field_name, field_value, field_type in validations:
             invalid_items = [item for item in field_value if not isinstance(item, field_type)]
             if invalid_items:
                 raise InvalidArgumentException.array_contains_invalid_types(

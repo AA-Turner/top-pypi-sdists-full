@@ -1,0 +1,1 @@
+import{i as e}from"./constants-DNk4ayrJ.js";import{t}from"./badge-CwiWMJpB.js";import{t as n}from"./state-badge-Di9vIKp7.js";import{o as r}from"./vendor-codemirror-BXwWnOp4.js";var i=r();function a({name:r}){return Object.hasOwn(e,r)?(0,i.jsx)(n,{name:r,type:e[r]}):(0,i.jsx)(t,{variant:`secondary`,children:r})}export{a as t};

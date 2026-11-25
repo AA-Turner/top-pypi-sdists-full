@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rasa-sdk
-Version: 3.22.0
+Version: 3.22.1
 Summary: Open source machine learning framework to automate text- and voice-based conversations: NLU, dialogue management, connect to Slack, Facebook, and more - Create chatbots and voice assistants
 License: Apache-2.0
 License-File: LICENSE.txt
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
+Requires-Dist: certifi (>=2026.10.19)
 Requires-Dist: coloredlogs (>=10,<16)
 Requires-Dist: grpcio (>=1.85.0,<1.86.0)
 Requires-Dist: grpcio-health-checking (>=1.85.0,<1.86.0)
@@ -137,6 +138,12 @@ you have to install Poetry first. This is how it can be done:
 
 ```
 curl -sSL https://install.python-poetry.org | python3 -
+```
+
+Then install the Poetry plugin used to export requirements into Poetry's environment:
+
+```
+poetry self add "poetry-plugin-export==1.10.2"
 ```
 
 There are several other ways to install Poetry. Please, follow

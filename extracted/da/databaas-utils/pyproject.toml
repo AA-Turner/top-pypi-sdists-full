@@ -1,6 +1,6 @@
 [project]
 name = "databaas-utils"
-version = "0.6.0"
+version = "0.6.1"
 description = "Lakekeeper/Iceberg lakehouse access for Databaas: catalog, remote-signed object storage, and Airflow integration."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -142,6 +142,7 @@ source_modules = [
     "databaas_utils.diagnostics",
     "databaas_utils.errors",
     "databaas_utils.profiles",
+    "databaas_utils.s3config",
     "databaas_utils.tokenstore",
     "databaas_utils.userauth",
     "databaas_utils.cli",

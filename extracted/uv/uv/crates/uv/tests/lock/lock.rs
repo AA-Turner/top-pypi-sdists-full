@@ -22,6 +22,8 @@ use wiremock::{
 };
 
 #[cfg(feature = "test-universal")]
+use uv_cache::CacheBucket;
+#[cfg(feature = "test-universal")]
 use uv_fs::PythonExt;
 use uv_fs::{Simplified, create_symlink};
 use uv_redacted::SafeUrl;
@@ -338,6 +340,7 @@ fn lock_equivalent_requirements() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Requirements for `project==0.1.0` changed from `ok>=2, <3` to `ok>=2, <2.5`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -515,6 +518,7 @@ fn lock_equivalent_manifest_inputs() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Build constraints differ; added: `a>=2, <3`; removed: `a<3`, `a>=1`, `a>=2`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -524,6 +528,7 @@ fn lock_equivalent_manifest_inputs() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Build constraints differ; added: `a>=2, <3`; removed: `a<3`, `a>=1`, `a>=2`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -4524,6 +4529,57 @@ fn lock_project_with_scoped_override_url() -> Result<()> {
     Ok(())
 }
 
+/// An unsupported scoped override in a matching manifest does not prevent checking a lockfile
+/// without regenerating its metadata.
+#[cfg(feature = "test-universal")]
+#[test]
+fn lock_check_with_scoped_override_url() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "anyio" }, dependencies = ["idna==3.2"] },
+        ]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    ");
+
+    // Record the same unsupported override in the project and lockfile.
+    pyproject_toml.write_str(&pyproject.replace(
+        "idna==3.2",
+        "idna @ https://example.com/idna-3.2-py3-none-any.whl",
+    ))?;
+    let lock = context.read("uv.lock");
+    let old_override = r#"{ name = "idna", specifier = "==3.2" }"#;
+    assert!(lock.contains(old_override));
+    let lock = lock.replacen(
+        old_override,
+        r#"{ name = "idna", url = "https://example.com/idna-3.2-py3-none-any.whl" }"#,
+        1,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    ");
+
+    Ok(())
+}
+
 /// Lock a project with a pre-release pin from a scoped override.
 #[cfg(feature = "test-universal")]
 #[test]
@@ -4906,6 +4962,7 @@ fn lock_project_with_excludes() -> Result<()> {
     ----- stderr -----
     Resolved 8 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency exclusions changed from `werkzeug` to `jinja2`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -6068,6 +6125,7 @@ fn lock_conflicting_project_basic1() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; changed: sortedcontainers==2.3.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -12733,6 +12791,7 @@ fn lock_new_extras() -> Result<()> {
     ----- stderr -----
     Resolved 7 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; removed: requests==2.31.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -12850,6 +12909,7 @@ fn lock_metadata_free_new_extra_marker() -> Result<()> {
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; added: psycopg[binary]==1.0.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -12957,6 +13017,7 @@ fn lock_invalid_hash() -> Result<()> {
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Workspace member `project` is expected to be virtual
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -13305,6 +13366,7 @@ async fn lock_core_metadata_hash() -> Result<()> {
 }
 
 /// Lock with an index that advertises multiple hashes, then require SHA256 for that index.
+/// The CPython 3.12 wheel only advertises SHA512 and is excluded by `requires-python`.
 #[cfg(feature = "test-universal")]
 #[tokio::test]
 async fn lock_index_hash_algorithm() -> Result<()> {
@@ -13324,6 +13386,10 @@ async fn lock_index_hash_algorithm() -> Result<()> {
                 "sha512": "765bde25938af485e492e25ee0e8cde262462565122c1301213a69bf9ceb2008e3997b652a604092a238c4b1a6a334e697ff3cee3c22f9a617cb14f34e26ef17"
             },
             "core-metadata": true
+        }, {
+            "filename": "basic_package-0.1.0-cp312-cp312-manylinux_2_17_x86_64.whl",
+            "url": format!("{}/files/basic_package-0.1.0-cp312-cp312-manylinux_2_17_x86_64.whl", server.uri()),
+            "hashes": { "sha512": "ab".repeat(64) }
         }, {
             "filename": "basic_package-0.1.0.tar.gz",
             "url": format!("{}/files/basic_package-0.1.0.tar.gz", server.uri()),
@@ -13810,6 +13876,7 @@ fn lock_prerelease_package_configuration() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Pre-release policy changed
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -17562,7 +17629,7 @@ fn lock_find_links_http_wheel() -> Result<()> {
     Resolved 2 packages in [TIME]
     ");
 
-    assert!(context.cache_dir.child("flat-index-v7").is_dir());
+    assert!(context.cache_bucket(CacheBucket::FlatIndex).is_dir());
 
     let lock = context.read("uv.lock");
 
@@ -18314,6 +18381,7 @@ fn lock_sources_url_offline_validates_transitive_source_tree() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Package `anyio` has version `0.2.0`, but the lockfile records `0.1.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -19840,6 +19908,7 @@ fn check_outdated_lock() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Workspace member `project` is missing from the lockfile
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -19851,8 +19920,2136 @@ fn check_outdated_lock() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Workspace member `project` is missing from the lockfile
 
     hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// A workspace member with no incoming dependency edges is still subject to constraints.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_workspace_member_constraint() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "1"
+        requires-python = ">=3.12"
+
+        [tool.uv]
+        no-sources = true
+        constraint-dependencies = ["project>=1"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    ");
+
+    pyproject_toml.write_str(&pyproject.replace("project>=1", "project>=2"))?;
+    let lock = context.read("uv.lock");
+    let old_constraint = r#"{ name = "project", specifier = ">=1" }"#;
+    assert!(lock.contains(old_constraint));
+    let lock = lock.replace(old_constraint, r#"{ name = "project", specifier = ">=2" }"#);
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `project==1` does not satisfy `>=2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    fs_err::remove_file(context.temp_dir.child("uv.lock"))?;
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: No solution found when resolving dependencies
+      cause: your project requires your project
+    ");
+
+    Ok(())
+}
+
+/// Check a locked version against a `!=` specifier even when the lockfile
+/// records matching requirement metadata.
+///
+/// Regression test for <https://github.com/astral-sh/uv/issues/12276>.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_not_equal_constraint() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig==2.0.0"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    // Generate a valid lock file.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    // Change the requirement in both files while leaving the locked version in place.
+    pyproject_toml.write_str(&pyproject.replace("iniconfig==2.0.0", "iniconfig!=2.0.0"))?;
+    let lock = context.read("uv.lock");
+    let old_requirement = r#"{ name = "iniconfig", specifier = "==2.0.0" }"#;
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replacen(
+        old_requirement,
+        r#"{ name = "iniconfig", specifier = "!=2.0.0" }"#,
+        1,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    // `uv lock --check` detects that iniconfig 2.0.0 violates the `!=2.0.0` specifier.
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `!=2.0.0`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// A merge can update the exact pin in both declarations while keeping the older
+/// package and its wheel in the lockfile.
+///
+/// Regression test for <https://github.com/astral-sh/uv/issues/23073>.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_exact_pin() -> Result<()> {
+    let context = uv_test::test_context!("3.12").with_exclude_newer("2025-01-01T00:00:00Z");
+    context.temp_dir.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "demo"
+        version = "0.0.1"
+        requires-python = ">=3.12"
+        dependencies = ["six==1.17.0"]
+
+        [tool.uv]
+        package = false
+        "#,
+    )?;
+    context.temp_dir.child("uv.lock").write_str(indoc! {r#"
+        version = 1
+        revision = 3
+        requires-python = ">=3.12"
+
+        [options]
+        exclude-newer = "2025-01-01T00:00:00Z"
+
+        [[package]]
+        name = "demo"
+        version = "0.0.1"
+        source = { virtual = "." }
+        dependencies = [{ name = "six" }]
+
+        [package.metadata]
+        requires-dist = [{ name = "six", specifier = "==1.17.0" }]
+
+        [[package]]
+        name = "six"
+        version = "1.16.0"
+        source = { registry = "https://pypi.org/simple" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254" },
+        ]
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `six==1.16.0` does not satisfy `==1.17.0`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    uv_snapshot!(context.filters(), context.sync().args(["--locked", "--offline"]), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Locked `six==1.16.0` does not satisfy `==1.17.0`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// With no saved requirement metadata, the project's current pin still determines
+/// whether its locked dependency is valid.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_pin_without_metadata() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let wheels = context.temp_dir.child("wheels");
+    wheels.create_dir_all()?;
+    let name = "demo-pkg".parse()?;
+    let (filename, wheel) = WheelBuilder::new(&name, &"1.0.0".parse()?).build();
+    wheels.child(&filename).write_binary(&wheel)?;
+    let (filename, wheel) = WheelBuilder::new(&name, &"2.0.0".parse()?).build();
+    wheels.child(&filename).write_binary(&wheel)?;
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["demo-pkg==1.0.0"]
+
+        [tool.uv]
+        no-index = true
+        find-links = ["wheels"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--preview-features")
+        .arg("lock-without-metadata")
+        .arg("--offline"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    let lock = context.read("uv.lock");
+    assert!(!lock.contains("[package.metadata]"));
+
+    pyproject_toml.write_str(&pyproject.replace("demo-pkg==1.0.0", "demo-pkg==2.0.0"))?;
+    uv_snapshot!(context.filters(), context.lock()
+        .arg("--preview-features")
+        .arg("lock-without-metadata")
+        .arg("--check")
+        .arg("--offline"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; removed: demo-pkg==1.0.0
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Regression test for <https://github.com/astral-sh/uv/issues/12276>
+///
+/// When a `uv.lock` file contains a locked version that violates a `<` upper
+/// bound specifier in `pyproject.toml`, `uv lock --check` should detect the
+/// violation.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_upper_bound_constraint() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig==2.0.0"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    // Generate a valid lock file.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    // Change the requirement in both files while leaving the locked version in place.
+    pyproject_toml.write_str(&pyproject.replace("iniconfig==2.0.0", "iniconfig<2"))?;
+    let lock = context.read("uv.lock");
+    let old_requirement = r#"{ name = "iniconfig", specifier = "==2.0.0" }"#;
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replacen(
+        old_requirement,
+        r#"{ name = "iniconfig", specifier = "<2" }"#,
+        1,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `<2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Updated iniconfig v2.0.0 -> v1.1.1
+    ");
+
+    Ok(())
+}
+
+/// Regression test for <https://github.com/astral-sh/uv/issues/12276>
+///
+/// When a `uv.lock` file contains a locked version that violates a constraint
+/// specified in `tool.uv.constraint-dependencies`, `uv lock --check` should
+/// detect the violation.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_constraint_dependencies() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0"]
+
+        [tool.uv]
+        constraint-dependencies = ["idna==3.6"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    // Generate a valid lock file.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    // Change the requirement in both files while leaving the locked version in place.
+    pyproject_toml.write_str(&pyproject.replace("idna==3.6", "idna<3.4"))?;
+    let lock = context.read("uv.lock");
+    let old_requirement = r#"{ name = "idna", specifier = "==3.6" }"#;
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replacen(
+        old_requirement,
+        r#"{ name = "idna", specifier = "<3.4" }"#,
+        1,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    // `uv lock --check` detects that idna 3.6 violates the `<3.4` constraint dependency.
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `idna==3.6` does not satisfy `<3.4`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Reconstructing the project's direct edges succeeds even when an edge from a registry
+/// package selects a version that violates a transitive constraint.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_transitive_constraint_without_metadata() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let wheels = context.temp_dir.child("wheels");
+    wheels.create_dir_all()?;
+    let (filename, wheel) = WheelBuilder::new(&"demo-parent".parse()?, &"1.0.0".parse()?)
+        .requires(&["demo-child>=1".parse()?])
+        .build();
+    wheels.child(&filename).write_binary(&wheel)?;
+    let (filename, wheel) = WheelBuilder::new(&"demo-child".parse()?, &"1.0.0".parse()?).build();
+    wheels.child(&filename).write_binary(&wheel)?;
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["demo-parent==1.0.0"]
+
+        [tool.uv]
+        preview-features = ["lock-without-metadata"]
+        no-index = true
+        find-links = ["wheels"]
+        constraint-dependencies = ["demo-child==1.0.0"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--offline"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Keep the constraint declarations in agreement so validation reaches the locked graph.
+    pyproject_toml.write_str(&pyproject.replace("demo-child==1.0.0", "demo-child>=2"))?;
+    let lock = context.read("uv.lock");
+    assert!(!lock.contains("[package.metadata]"));
+    let old_constraint = r#"{ name = "demo-child", specifier = "==1.0.0" }"#;
+    assert!(lock.contains(old_constraint));
+    let lock = lock.replace(
+        old_constraint,
+        r#"{ name = "demo-child", specifier = ">=2" }"#,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `demo-child==1.0.0` does not satisfy `>=2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// A Git dependency can get its requirements from configured metadata even though its
+/// resolved package entry omits those declarations.
+#[cfg(all(feature = "test-universal", feature = "test-git"))]
+#[test]
+fn check_locked_version_violates_git_dependency_metadata() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio"]
+
+        [tool.uv.sources]
+        anyio = { git = "https://github.com/agronholm/anyio", rev = "c4844254e6db0cb804c240ba07405db73d810e0b" }
+
+        [[tool.uv.dependency-metadata]]
+        name = "anyio"
+        version = "4.6.2"
+        requires-dist = ["iniconfig==2.0.0"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Tighten the Git package's requirement in both manifests, keeping the locked version.
+    let old_requirement = r#"requires-dist = ["iniconfig==2.0.0"]"#;
+    let new_requirement = r#"requires-dist = ["iniconfig<2"]"#;
+    pyproject_toml.write_str(&pyproject.replace(old_requirement, new_requirement))?;
+    let lock = context.read("uv.lock");
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replacen(old_requirement, new_requirement, 1);
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `<2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// A registry package's declared requirements can come from the lock manifest's
+/// `dependency-metadata` even when the package has no metadata of its own in the lock.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_static_dependency_metadata() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0"]
+
+        [[tool.uv.dependency-metadata]]
+        name = "anyio"
+        version = "3.7.0"
+        requires-dist = ["iniconfig==2.0.0"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Change anyio's requirement in both manifests while leaving iniconfig locked at 2.0.0.
+    let old_requirement = r#"requires-dist = ["iniconfig==2.0.0"]"#;
+    let new_requirement = r#"requires-dist = ["iniconfig<2"]"#;
+    pyproject_toml.write_str(&pyproject.replace(old_requirement, new_requirement))?;
+    let lock = context.read("uv.lock");
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replacen(old_requirement, new_requirement, 1);
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `<2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` does not spuriously flag a valid forked lockfile
+/// where the same package has different versions under different fork markers.
+///
+/// When `markupsafe<2 ; sys_platform != 'win32'` and
+/// `markupsafe==2.0.0 ; sys_platform == 'win32'` are both in `dependencies`,
+/// the lockfile legitimately contains `markupsafe 1.1.1` (non-win32 fork) and
+/// `markupsafe 2.0.0` (win32 fork). The specifier validation must not check
+/// `markupsafe 2.0.0` against the `<2` specifier since that specifier only
+/// applies to the non-win32 fork.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_forked_resolution() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["markupsafe<2 ; sys_platform != 'win32'", "markupsafe==2.0.0 ; sys_platform == 'win32'"]
+        "#,
+    )?;
+
+    // Generate a valid forked lock file.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` accepts a valid lockfile when a marker-scoped constraint
+/// is disjoint from the only transitive path to a package.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_disjoint_constraint() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0 ; sys_platform == 'win32'"]
+
+        [tool.uv]
+        constraint-dependencies = ["idna<3.4 ; sys_platform == 'linux'"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// The override selects the project only on Windows. Its locked edge to `ok` omits
+/// that inherited marker, but the non-Windows constraint still cannot apply.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_respects_workspace_root_override() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let links = context.workspace_root.join("test/links");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["ok==2.0.0"]
+
+        [tool.uv]
+        no-sources = true
+        environments = ["sys_platform == 'win32'", "sys_platform != 'win32'"]
+        override-dependencies = ["project; sys_platform == 'win32'"]
+        constraint-dependencies = ["ok<2; sys_platform != 'win32'"]
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--offline", "--no-index", "--find-links"]).arg(&links), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline", "--no-index", "--find-links"]).arg(&links), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Both overrides select the project, but only the Windows override requests `feature`.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_respects_workspace_extra_override() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let links = context.workspace_root.join("test/links");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [project.optional-dependencies]
+        feature = ["ok==2.0.0"]
+
+        [tool.uv]
+        no-sources = true
+        environments = ["sys_platform == 'win32'", "sys_platform != 'win32'"]
+        override-dependencies = [
+            "project[feature]; sys_platform == 'win32'",
+            "project; sys_platform != 'win32'",
+        ]
+        constraint-dependencies = ["ok<2; sys_platform != 'win32'"]
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--offline", "--no-index", "--find-links"]).arg(&links), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline", "--no-index", "--find-links"]).arg(&links), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// The `==2.0.0` requirement in the dependency group applies only to the Windows fork.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_forked_dependency_group_resolution() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [dependency-groups]
+        dev = ["markupsafe<2 ; sys_platform != 'win32'", "markupsafe==2.0.0 ; sys_platform == 'win32'"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` accepts a valid lockfile when an override replaces a
+/// dependency specifier.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_override() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig<2"]
+
+        [tool.uv]
+        override-dependencies = ["iniconfig==2.0.0"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// A version-scoped override can select `iniconfig==2.0.0` for a project that declares `iniconfig<2`.
+/// The build backend supplies the matching project version, which the lockfile omits.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_dynamic_scoped_override() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(indoc! {r#"
+        [project]
+        name = "project"
+        dynamic = ["version"]
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig<2"]
+
+        [tool.uv]
+        override-dependencies = [
+            { package = { name = "project", version = "1.0.0" }, dependencies = ["iniconfig==2.0.0"] },
+        ]
+
+        [build-system]
+        requires = []
+        backend-path = ["."]
+        build-backend = "backend"
+        "#})?;
+    context.temp_dir.child("backend.py").write_str(indoc! {r#"
+        from pathlib import Path
+
+        def prepare_metadata_for_build_editable(metadata_directory, config_settings=None):
+            dist_info = Path(metadata_directory, "project-1.0.0.dist-info")
+            dist_info.mkdir()
+            dist_info.joinpath("METADATA").write_text(
+                "Metadata-Version: 2.1\n"
+                "Name: project\n"
+                "Version: 1.0.0\n"
+                "Requires-Python: >=3.12\n"
+                "Requires-Dist: iniconfig<2\n"
+            )
+            return dist_info.name
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` accepts a valid script lockfile when an override replaces
+/// a manifest requirement specifier.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_script_override() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let script = context.temp_dir.child("script.py");
+    script.write_str(indoc! { r#"
+        # /// script
+        # requires-python = ">=3.12"
+        # dependencies = [
+        #   "iniconfig<2",
+        # ]
+        #
+        # [tool.uv]
+        # override-dependencies = ["iniconfig==2.0.0"]
+        # ///
+        "#
+    })?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--script").arg("script.py"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().args(["--script", "script.py", "--check"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// The script requires the editable project at `.` only on Windows, so its locked edge to
+/// `iniconfig` omits the Windows marker. Only the Windows requirement applies to that edge.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_script_conditional_editable_root() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "1.0.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig==2.0.0 ; sys_platform == 'win32'"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+    context.temp_dir.child("script.py").write_str(indoc! {r#"
+        # /// script
+        # requires-python = ">=3.12"
+        # dependencies = ["project ; sys_platform == 'win32'"]
+        #
+        # [tool.uv.sources]
+        # project = { path = ".", editable = true }
+        #
+        # [tool.uv]
+        # constraint-dependencies = ["iniconfig<2 ; sys_platform != 'win32'"]
+        # ///
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--script").arg("script.py"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    // The editable project is reachable only on Windows, where the script's <2 constraint is inactive.
+    uv_snapshot!(context.filters(), context.lock().args(["--script", "script.py", "--check"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    // Change the Windows requirement in both places while leaving iniconfig locked at 2.0.0.
+    pyproject_toml.write_str(&pyproject.replace("iniconfig==2.0.0", "iniconfig==1.1.1"))?;
+    let lock = context.read("script.py.lock");
+    let old_requirement =
+        r#"{ name = "iniconfig", marker = "sys_platform == 'win32'", specifier = "==2.0.0" }"#;
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replace(
+        old_requirement,
+        r#"{ name = "iniconfig", marker = "sys_platform == 'win32'", specifier = "==1.1.1" }"#,
+    );
+    context.temp_dir.child("script.py.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--script", "script.py", "--check"]), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `script.py.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `==1.1.1`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` detects when a transitive locked version violates an override.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_transitive_override_specifier() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0"]
+
+        [tool.uv]
+        override-dependencies = ["idna==3.3"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    // Change both the project override and the lock manifest while leaving the transitive idna
+    // package at the now-forbidden version.
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["anyio==3.7.0"]
+
+        [tool.uv]
+        override-dependencies = ["idna==3.2"]
+        "#,
+    )?;
+    let lock = context.read("uv.lock");
+    let old_override = r#"overrides = [{ name = "idna", specifier = "==3.3" }]"#;
+    assert!(lock.contains(old_override));
+    let lock = lock.replace(
+        old_override,
+        r#"overrides = [{ name = "idna", specifier = "==3.2" }]"#,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `idna==3.3` does not satisfy `==3.2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// A group's own dependency can be reachable on Python 3.12 even when an included group
+/// requires Python 3.13. Check that dependency's locked version on 3.12.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_dependency_group_specifier() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [dependency-groups]
+        dev = ["iniconfig==1.1.1; python_version < '3.13'", { include-group = "python" }]
+        python = []
+
+        [tool.uv.dependency-groups]
+        python = { requires-python = ">=3.13" }
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    // Generate a valid lock file.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    // Change the requirement in both files while leaving the locked version in place.
+    pyproject_toml.write_str(&pyproject.replace("iniconfig==1.1.1", "iniconfig>=2"))?;
+    let lock = context.read("uv.lock");
+    let old_requirement =
+        r#"{ name = "iniconfig", marker = "python_full_version < '3.13'", specifier = "==1.1.1" }"#;
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replacen(
+        old_requirement,
+        r#"{ name = "iniconfig", marker = "python_full_version < '3.13'", specifier = ">=2" }"#,
+        1,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    // `uv lock --check` should detect that iniconfig 1.1.1 violates the `>=2`
+    // specifier from the dev dependency group.
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==1.1.1` does not satisfy `>=2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` detects when a locked version violates a dependency-group
+/// specifier on a non-project workspace root.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_non_project_dependency_group_specifier() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [dependency-groups]
+        dev = ["iniconfig==2.0.0"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 1 package in [TIME]
+    ");
+
+    // Change both the workspace requirement and the lock manifest while leaving the locked package
+    // at the now-forbidden version.
+    pyproject_toml.write_str(
+        r#"
+        [dependency-groups]
+        dev = ["iniconfig!=2.0.0"]
+        "#,
+    )?;
+    let lock = context.read("uv.lock");
+    let old_requirement = r#"{ name = "iniconfig", specifier = "==2.0.0" }"#;
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replace(
+        old_requirement,
+        r#"{ name = "iniconfig", specifier = "!=2.0.0" }"#,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `!=2.0.0`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// The projectless workspace's root group pins iniconfig on every Python version. A
+/// constraint on 3.12 still applies when the root group includes a group requiring 3.13.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_constraint_with_inherited_group_requires_python() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [dependency-groups]
+        test = ["iniconfig==2.0.0", { include-group = "python" }]
+        python = []
+
+        [tool.uv]
+        constraint-dependencies = ["iniconfig<3; python_version < '3.13'"]
+
+        [tool.uv.dependency-groups]
+        python = { requires-python = ">=3.13" }
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 1 package in [TIME]
+    ");
+
+    // Tighten the constraint on Python <3.13 while leaving iniconfig locked to 2.0.0.
+    pyproject_toml.write_str(&pyproject.replace("iniconfig<3", "iniconfig<2"))?;
+    let lock = context.read("uv.lock");
+    let old_constraint =
+        r#"{ name = "iniconfig", marker = "python_full_version < '3.13'", specifier = "<3" }"#;
+    assert!(lock.contains(old_constraint));
+    let lock = lock.replacen(
+        old_constraint,
+        r#"{ name = "iniconfig", marker = "python_full_version < '3.13'", specifier = "<2" }"#,
+        1,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `<2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` accepts a valid non-project dependency-group lockfile
+/// when an inactive extra-marked requirement has a disjoint specifier.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_inactive_extra_dependency_group() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [dependency-groups]
+        dev = ["iniconfig<2 ; extra == 'foo'", "iniconfig==2.0.0"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 1 package in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 1 package in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Only the version referenced by the project's dependency edge must satisfy its pin.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_unused_version() -> Result<()> {
+    let context = uv_test::test_context!("3.12").with_exclude_newer("2025-01-01T00:00:00Z");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["six==1.16.0"]
+
+        [tool.uv]
+        package = false
+    "#})?;
+    context.temp_dir.child("uv.lock").write_str(indoc! {r#"
+        version = 1
+        revision = 5
+        requires-python = ">=3.12"
+
+        [options]
+        exclude-newer = "2025-01-01T00:00:00Z"
+
+        [[package]]
+        name = "project"
+        version = "0.1.0"
+        source = { virtual = "." }
+        dependencies = [{ name = "six", version = "1.16.0", source = { registry = "https://pypi.org/simple" } }]
+
+        [package.metadata]
+        requires-dist = [{ name = "six", specifier = "==1.16.0" }]
+
+        [[package]]
+        name = "six"
+        version = "1.16.0"
+        source = { registry = "https://pypi.org/simple" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254" },
+        ]
+
+        [[package]]
+        name = "six"
+        version = "1.17.0"
+        source = { registry = "https://pypi.org/simple" }
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// A merge can leave an orphan whose pin conflicts with the project's locked version of `six`.
+/// The pin only matters if the project can reach the orphan.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_ignores_orphan_requirement() -> Result<()> {
+    let context = uv_test::test_context!("3.12").with_exclude_newer("2025-01-01T00:00:00Z");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["six==1.16.0"]
+    "#})?;
+    context.temp_dir.child("uv.lock").write_str(indoc! {r#"
+        version = 1
+        revision = 5
+        requires-python = ">=3.12"
+
+        [options]
+        exclude-newer = "2025-01-01T00:00:00Z"
+
+        [[package]]
+        name = "orphan"
+        version = "1.0.0"
+        source = { directory = "orphan" }
+        dependencies = [{ name = "six" }]
+
+        [package.metadata]
+        requires-dist = [{ name = "six", specifier = "==1.17.0" }]
+
+        [[package]]
+        name = "project"
+        version = "0.1.0"
+        source = { virtual = "." }
+        dependencies = [{ name = "six" }]
+
+        [package.metadata]
+        requires-dist = [{ name = "six", specifier = "==1.16.0" }]
+
+        [[package]]
+        name = "six"
+        version = "1.16.0"
+        source = { registry = "https://pypi.org/simple" }
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Two paths can select different versions in the same environment even though both versions
+/// satisfy their respective requirements.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_rejects_overlapping_selections() -> Result<()> {
+    let context = uv_test::test_context!("3.12").with_exclude_newer("2025-01-01T00:00:00Z");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["six>=1.16.0,<2", "parent"]
+
+        [tool.uv]
+        package = false
+    "#})?;
+    context.temp_dir.child("uv.lock").write_str(indoc! {r#"
+        version = 1
+        revision = 5
+        requires-python = ">=3.12"
+
+        [options]
+        exclude-newer = "2025-01-01T00:00:00Z"
+
+        [[package]]
+        name = "parent"
+        version = "1.0.0"
+        source = { registry = "https://pypi.org/simple" }
+        dependencies = [
+            { name = "six", version = "1.17.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+        ]
+
+        [package.metadata]
+        requires-dist = [{ name = "six", specifier = ">=1.16.0,<2" }]
+
+        [[package]]
+        name = "project"
+        version = "0.1.0"
+        source = { virtual = "." }
+        dependencies = [
+            { name = "parent" },
+            { name = "six", version = "1.16.0", source = { registry = "https://pypi.org/simple" } },
+        ]
+
+        [package.metadata]
+        requires-dist = [{ name = "parent" }, { name = "six", specifier = ">=1.16.0,<2" }]
+
+        [[package]]
+        name = "six"
+        version = "1.16.0"
+        source = { registry = "https://pypi.org/simple" }
+
+        [[package]]
+        name = "six"
+        version = "1.17.0"
+        source = { registry = "https://pypi.org/simple" }
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked packages `six==1.16.0 @ registry+https://pypi.org/simple` and `six==1.17.0 @ registry+https://pypi.org/simple` can be selected together.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// The transitive edge inherits its Windows marker from the path to its parent.
+/// The other version of `six` is selected only outside Windows.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_accepts_disjoint_selections() -> Result<()> {
+    let context = uv_test::test_context!("3.12").with_exclude_newer("2025-01-01T00:00:00Z");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = [
+            "parent; sys_platform == 'win32'",
+            "six>=1.16.0,<2; sys_platform != 'win32'",
+        ]
+
+        [tool.uv]
+        package = false
+    "#})?;
+    context.temp_dir.child("uv.lock").write_str(indoc! {r#"
+        version = 1
+        revision = 5
+        requires-python = ">=3.12"
+
+        [options]
+        exclude-newer = "2025-01-01T00:00:00Z"
+
+        [[package]]
+        name = "parent"
+        version = "1.0.0"
+        source = { registry = "https://pypi.org/simple" }
+        dependencies = [
+            { name = "six", version = "1.17.0", source = { registry = "https://pypi.org/simple" } },
+        ]
+
+        [package.metadata]
+        requires-dist = [{ name = "six", specifier = ">=1.16.0,<2" }]
+
+        [[package]]
+        name = "project"
+        version = "0.1.0"
+        source = { virtual = "." }
+        dependencies = [
+            { name = "parent", marker = "sys_platform == 'win32'" },
+            { name = "six", version = "1.16.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
+        ]
+
+        [package.metadata]
+        requires-dist = [
+            { name = "parent", marker = "sys_platform == 'win32'" },
+            { name = "six", marker = "sys_platform != 'win32'", specifier = ">=1.16.0,<2" },
+        ]
+
+        [[package]]
+        name = "six"
+        version = "1.16.0"
+        source = { registry = "https://pypi.org/simple" }
+
+        [[package]]
+        name = "six"
+        version = "1.17.0"
+        source = { registry = "https://pypi.org/simple" }
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// The two versions share the same platform markers, but reaching either one selects an
+/// extra on that package that conflicts with the extra requested on the other version.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_accepts_mutually_exclusive_selections() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [project.optional-dependencies]
+        first = ["example[legacy]>=1,<3"]
+        second = ["example[modern]>=1,<3"]
+
+        [tool.uv]
+        package = false
+        conflicts = [[{ package = "example", extra = "legacy" }, { package = "example", extra = "modern" }]]
+    "#})?;
+    context.temp_dir.child("uv.lock").write_str(indoc! {r#"
+        version = 1
+        revision = 5
+        requires-python = ">=3.12"
+        conflicts = [[{ package = "example", extra = "legacy" }, { package = "example", extra = "modern" }]]
+
+        [options]
+        exclude-newer = "2024-03-25T00:00:00Z"
+
+        [[package]]
+        name = "example"
+        version = "1.0.0"
+        source = { registry = "https://pypi.org/simple" }
+
+        [package.optional-dependencies]
+        legacy = []
+
+        [[package]]
+        name = "example"
+        version = "2.0.0"
+        source = { registry = "https://pypi.org/simple" }
+
+        [package.optional-dependencies]
+        modern = []
+
+        [[package]]
+        name = "project"
+        version = "0.1.0"
+        source = { virtual = "." }
+
+        [package.optional-dependencies]
+        first = [{ name = "example", version = "1.0.0", source = { registry = "https://pypi.org/simple" }, extra = ["legacy"] }]
+        second = [{ name = "example", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, extra = ["modern"] }]
+
+        [package.metadata]
+        requires-dist = [
+            { name = "example", extras = ["legacy"], marker = "extra == 'first'", specifier = ">=1,<3" },
+            { name = "example", extras = ["modern"], marker = "extra == 'second'", specifier = ">=1,<3" },
+        ]
+        provides-extras = ["first", "second"]
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Selecting `modern` rules out the `legacy` path to the first version, but that version
+/// is also reachable through a path that requests neither extra.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_rejects_overlap_despite_conflicts() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["example>=1,<3"]
+
+        [project.optional-dependencies]
+        first = ["example[legacy]>=1,<3"]
+        second = ["example[modern]>=1,<3"]
+
+        [tool.uv]
+        package = false
+        conflicts = [[{ package = "example", extra = "legacy" }, { package = "example", extra = "modern" }]]
+    "#})?;
+    context.temp_dir.child("uv.lock").write_str(indoc! {r#"
+        version = 1
+        revision = 5
+        requires-python = ">=3.12"
+        conflicts = [[{ package = "example", extra = "legacy" }, { package = "example", extra = "modern" }]]
+
+        [options]
+        exclude-newer = "2024-03-25T00:00:00Z"
+
+        [[package]]
+        name = "example"
+        version = "1.0.0"
+        source = { registry = "https://pypi.org/simple" }
+
+        [package.optional-dependencies]
+        legacy = []
+
+        [[package]]
+        name = "example"
+        version = "2.0.0"
+        source = { registry = "https://pypi.org/simple" }
+
+        [package.optional-dependencies]
+        modern = []
+
+        [[package]]
+        name = "project"
+        version = "0.1.0"
+        source = { virtual = "." }
+        dependencies = [{ name = "example", version = "1.0.0", source = { registry = "https://pypi.org/simple" } }]
+
+        [package.optional-dependencies]
+        first = [{ name = "example", version = "1.0.0", source = { registry = "https://pypi.org/simple" }, extra = ["legacy"] }]
+        second = [{ name = "example", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, extra = ["modern"] }]
+
+        [package.metadata]
+        requires-dist = [
+            { name = "example", specifier = ">=1,<3" },
+            { name = "example", extras = ["legacy"], marker = "extra == 'first'", specifier = ">=1,<3" },
+            { name = "example", extras = ["modern"], marker = "extra == 'second'", specifier = ">=1,<3" },
+        ]
+        provides-extras = ["first", "second"]
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked packages `example==1.0.0 @ registry+https://pypi.org/simple` and `example==2.0.0 @ registry+https://pypi.org/simple` can be selected together.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` detects a marker-scoped specifier violation in a local package.
+///
+/// The local package `a` resolves to `markupsafe 2.1.5` on non-Windows and `2.0.0` on Windows.
+/// Tightening the non-Windows requirement to `<2` invalidates that fork's locked version.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_marker_scoped_local_dependency_specifier() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let package_dir = context.temp_dir.child("a");
+    package_dir.create_dir_all()?;
+    let local_pyproject_toml = package_dir.child("pyproject.toml");
+    let local_pyproject = indoc! {r#"
+        [project]
+        name = "a"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["markupsafe==2.1.5 ; sys_platform != 'win32'", "markupsafe==2.0.0 ; sys_platform == 'win32'"]
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+    "#};
+    local_pyproject_toml.write_str(local_pyproject)?;
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["a"]
+
+        [tool.uv.sources]
+        a = { path = "./a" }
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    local_pyproject_toml
+        .write_str(&local_pyproject.replace("markupsafe==2.1.5", "markupsafe<2"))?;
+    let lock = context.read("uv.lock");
+    let old_requirement =
+        r#"{ name = "markupsafe", marker = "sys_platform != 'win32'", specifier = "==2.1.5" }"#;
+    assert!(lock.contains(old_requirement));
+    let lock = lock.replacen(
+        old_requirement,
+        r#"{ name = "markupsafe", marker = "sys_platform != 'win32'", specifier = "<2" }"#,
+        1,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `markupsafe==2.1.5` does not satisfy `<2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// When checking the Windows pin for `legacy`, the non-Windows version's edge overlaps only
+/// where both extras are active. The lock keeps that branch to detect transitive conflicts.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_conflicting_platform_forks() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    context.temp_dir.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [project.optional-dependencies]
+        legacy = [
+            "iniconfig==1.1.1; sys_platform == 'win32'",
+            "iniconfig==2.0.0; sys_platform != 'win32'",
+        ]
+        modern = ["iniconfig==2.0.0"]
+
+        [tool.uv]
+        conflicts = [[{ extra = "legacy" }, { extra = "modern" }]]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` detects when a conflict-marked dependency edge points to a version
+/// that violates its `requires-dist` specifier.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_conflict_marked_dependency_specifier() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig<2"]
+
+        [dependency-groups]
+        dev = ["iniconfig==2.0.0"]
+
+        [tool.uv]
+        conflicts = [
+          [
+            { group = "dev" },
+            { package = "project" },
+          ],
+        ]
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
+    Resolved 3 packages in [TIME]
+    ");
+
+    let lock = context.read("uv.lock");
+    let old_edge = r#"{ name = "iniconfig", version = "1.1.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-7-project'" }"#;
+    assert!(lock.contains(old_edge));
+    let lock = lock.replace(
+        old_edge,
+        r#"{ name = "iniconfig", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-7-project'" }"#,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `<2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Test that `uv lock --check` detects when a conflict-forked locked version violates a top-level
+/// constraint specifier.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_conflict_forked_constraint_specifier() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["markupsafe<2"]
+
+        [dependency-groups]
+        dev = ["markupsafe>=2"]
+
+        [tool.uv]
+        constraint-dependencies = ["markupsafe<3"]
+        conflicts = [
+          [
+            { group = "dev" },
+            { package = "project" },
+          ],
+        ]
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Narrow the constraint in both the workspace and lock manifest while leaving the conflict
+    // fork at the now-forbidden version. The dev requirement can resolve to an older 2.x release,
+    // so the updated project remains satisfiable.
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["markupsafe<2"]
+
+        [dependency-groups]
+        dev = ["markupsafe>=2"]
+
+        [tool.uv]
+        constraint-dependencies = ["markupsafe<2.1.5"]
+        conflicts = [
+          [
+            { group = "dev" },
+            { package = "project" },
+          ],
+        ]
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+        "#,
+    )?;
+    let lock = context.read("uv.lock");
+    let old_constraint = r#"constraints = [{ name = "markupsafe", specifier = "<3" }]"#;
+    assert!(lock.contains(old_constraint));
+    let lock = lock.replace(
+        old_constraint,
+        r#"constraints = [{ name = "markupsafe", specifier = "<2.1.5" }]"#,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `markupsafe==2.1.5` does not satisfy `<2.1.5`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// An extra-scoped index contributes an activation condition even without declared conflicts.
+/// A conflicting locked version can violate the specifier only where that extra is active.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_respects_index_scope() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    context.temp_dir.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [project.optional-dependencies]
+        legacy = [
+            "iniconfig==1.1.1 ; sys_platform != 'win32'",
+            "iniconfig==2.0.0 ; sys_platform == 'win32'",
+        ]
+
+        [tool.uv.sources]
+        iniconfig = { index = "pypi", extra = "legacy" }
+
+        [[tool.uv.index]]
+        name = "pypi"
+        url = "https://pypi.org/simple"
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Add a 2.0.0 edge whose marker excludes the extra that activates the index.
+    let lock = context.read("uv.lock");
+    let windows_edge = r#"{ name = "iniconfig", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },"#;
+    let unreachable_edge = r#"{ name = "iniconfig", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, marker = "extra != 'extra-7-project-legacy'" },"#;
+    assert!(lock.contains(windows_edge));
+    let lock = lock.replacen(
+        windows_edge,
+        &format!("{windows_edge}\n{unreachable_edge}"),
+        1,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Activating the same edge makes 2.0.0 reachable on non-Windows, where legacy pins 1.1.1.
+    let reachable_edge = unreachable_edge.replace("extra !=", "extra ==");
+    let lock = lock.replace(unreachable_edge, &reachable_edge);
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `==1.1.1`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// An override for a different dependency leaves the extra's constraint on iniconfig in effect.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_constraint_for_active_extra() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["idna"]
+
+        [project.optional-dependencies]
+        feature = ["iniconfig"]
+
+        [tool.uv]
+        override-dependencies = ["idna==3.6"]
+        constraint-dependencies = ["iniconfig==2.0.0; extra == 'feature'"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Change the constraint in both manifests while leaving iniconfig locked at 2.0.0.
+    pyproject_toml.write_str(&pyproject.replace("iniconfig==2.0.0", "iniconfig<2"))?;
+    let lock = context.read("uv.lock");
+    let old_constraint =
+        r#"{ name = "iniconfig", marker = "extra == 'feature'", specifier = "==2.0.0" }"#;
+    assert!(lock.contains(old_constraint));
+    let lock = lock.replace(
+        old_constraint,
+        r#"{ name = "iniconfig", marker = "extra == 'feature'", specifier = "<2" }"#,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `iniconfig==2.0.0` does not satisfy `<2`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// A recursive extra adds iniconfig, but the project still declares idna directly.
+/// Its production constraint applies to idna even with that extra included.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_violates_direct_constraint_with_recursive_extra() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    let pyproject = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["project[feature]", "idna"]
+
+        [project.optional-dependencies]
+        feature = ["iniconfig"]
+
+        [tool.uv]
+        constraint-dependencies = ["idna==3.6; extra != 'feature'"]
+    "#};
+    pyproject_toml.write_str(pyproject)?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    pyproject_toml.write_str(&pyproject.replace("idna==3.6", "idna<3"))?;
+    let lock = context.read("uv.lock");
+    let old_constraint = r#"{ name = "idna", marker = "extra != 'feature'", specifier = "==3.6" }"#;
+    assert!(lock.contains(old_constraint));
+    let lock = lock.replace(
+        old_constraint,
+        r#"{ name = "idna", marker = "extra != 'feature'", specifier = "<3" }"#,
+    );
+    context.temp_dir.child("uv.lock").write_str(&lock)?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Locked `idna==3.6` does not satisfy `<3`.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+
+    Ok(())
+}
+
+/// Only Windows has a direct iniconfig dependency. Elsewhere the edge is inherited
+/// from the feature extra, so the non-Windows production constraint is inactive.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_recursive_extra_constraint() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    context.temp_dir.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["project[feature]", "iniconfig; sys_platform == 'win32'"]
+
+        [project.optional-dependencies]
+        feature = ["iniconfig"]
+
+        [tool.uv]
+        constraint-dependencies = ["iniconfig<2; extra != 'feature' and sys_platform != 'win32'"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// The lockfile lists `b` under `a[all]` because `all` includes `a[extra-b]`.
+/// Only `extra-b` declares `b`, so its locked version of 1 satisfies the applicable override
+/// even though the override for `all` requires version 2.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_transitive_extra_override() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new("extras/all-extras-required.toml");
+
+    context.temp_dir.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["a[all]"]
+
+        [tool.uv]
+        override-dependencies = [
+            "b==1; extra == 'extra-b'",
+            "b==2; extra == 'all'",
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--index-url").arg(server.index_url()), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check").arg("--index-url").arg(server.index_url()), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// A scoped override of a recursive extra keeps the original extra's condition. Inferring
+/// requirements from a lock without metadata cannot tell which extra requests that self-dependency.
+#[cfg(feature = "test-universal")]
+#[test]
+fn check_locked_version_valid_scoped_self_override_without_metadata() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let wheels = context.temp_dir.child("wheels");
+    wheels.create_dir_all()?;
+    let name = "demo-child".parse()?;
+    let (filename, wheel) = WheelBuilder::new(&name, &"1.0.0".parse()?).build();
+    wheels.child(&filename).write_binary(&wheel)?;
+    let (filename, wheel) = WheelBuilder::new(&name, &"2.0.0".parse()?).build();
+    wheels.child(&filename).write_binary(&wheel)?;
+
+    let parent = context.temp_dir.child("parent");
+    parent.create_dir_all()?;
+    parent.child("pyproject.toml").write_str(indoc! {r#"
+        [project]
+        name = "demo-parent"
+        version = "1.0.0"
+        requires-python = ">=3.12"
+
+        [project.optional-dependencies]
+        all = ["demo-parent[socks]"]
+        socks = ["demo-child"]
+        other = ["demo-child"]
+    "#})?;
+    let parent_url =
+        SafeUrl::from_file_path(parent.path()).map_err(|()| anyhow!("invalid parent path"))?;
+    context.temp_dir.child("pyproject.toml").write_str(&formatdoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["demo-parent[other] @ {parent_url}"]
+
+        [tool.uv]
+        package = false
+        preview-features = ["lock-without-metadata"]
+        no-index = true
+        find-links = ["wheels"]
+        override-dependencies = [
+            {{ package = {{ name = "demo-parent", version = "1.0.0" }}, dependencies = ["demo-parent[socks]"] }},
+            "demo-child==1; extra == 'socks'",
+            "demo-child==2; extra == 'other'",
+        ]
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--offline"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    assert!(!context.read("uv.lock").contains("[package.metadata]"));
+
+    uv_snapshot!(context.filters(), context.lock().args(["--check", "--offline"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
     ");
 
     Ok(())
@@ -19952,9 +22149,10 @@ fn lock_reuses_newer_exclude_newer_timestamp() -> Result<()> {
         .arg("--check"), @"
     exit_code: 1 (failure)
     ----- stderr -----
-    Resolving despite existing lockfile due to change of exclude newer timestamp from `2024-03-25T00:00:00Z` to `2024-03-24T00:00:00Z`
+    Resolving despite existing lockfile: Exclude-newer timestamp changed from `2024-03-25T00:00:00Z` to `2024-03-24T00:00:00Z`
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Exclude-newer timestamp changed from `2024-03-25T00:00:00Z` to `2024-03-24T00:00:00Z`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -20060,9 +22258,10 @@ fn lock_check_allows_relaxed_exclude_newer_package() -> Result<()> {
         .arg("--check"), @"
     exit_code: 1 (failure)
     ----- stderr -----
-    Resolving despite existing lockfile due to change of exclude newer timestamp from `2024-03-25T00:00:00Z` to `2024-03-24T00:00:00Z` for package `project`
+    Resolving despite existing lockfile: Exclude-newer timestamp changed from `2024-03-25T00:00:00Z` to `2024-03-24T00:00:00Z` for package `project`
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Exclude-newer timestamp changed from `2024-03-25T00:00:00Z` to `2024-03-24T00:00:00Z` for package `project`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -20566,6 +22765,7 @@ fn lock_remove_member() -> Result<()> {
     ----- stderr -----
     Resolved 5 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Requirements for `project==0.1.0` differ; removed: leaf @ file://[TEMP_DIR]/leaf
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -20664,6 +22864,7 @@ fn lock_remove_member() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Workspace members differ; removed: `leaf`, `project`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -20800,6 +23001,7 @@ fn lock_add_member_with_build_system() -> Result<()> {
     ----- stderr -----
     Resolved 5 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Workspace members differ; added: `leaf`, `project`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -20993,6 +23195,7 @@ fn lock_add_member_without_build_system() -> Result<()> {
     ----- stderr -----
     Resolved 5 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Workspace members differ; added: `leaf`, `project`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -21119,6 +23322,7 @@ fn lock_add_member_without_build_system() -> Result<()> {
     ----- stderr -----
     Resolved 5 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Workspace member `leaf` is no longer virtual
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -21333,6 +23537,7 @@ fn lock_redundant_add_member() -> Result<()> {
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Requirements for `project==0.1.0` differ; added: idna
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -21522,6 +23727,7 @@ fn lock_new_constraints() -> Result<()> {
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints differ; added: anyio<4.3
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -21723,6 +23929,7 @@ fn lock_remove_member_non_project() -> Result<()> {
     warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
     Resolved in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Workspace members differ; removed: leaf
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -21845,6 +24052,7 @@ fn lock_rename_project() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Workspace member `renamed` is missing from the lockfile
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22216,6 +24424,7 @@ fn lock_without_metadata_conflicting_group_with_extra_and_different_specifiers()
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; added: `httpx==1.0.0`; changed: httpx[http2]==1.0.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22459,6 +24668,7 @@ fn lock_metadata_free_frozen_empty_extra() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Provided extras for `provider==1.0.0` differ; added: empty
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22502,6 +24712,7 @@ fn lock_metadata_free_frozen_empty_extra() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency group `empty` was added to `provider==1.0.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22566,6 +24777,7 @@ fn lock_removed_empty_extra() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Provided extras for `project==0.1.0` differ; removed: empty
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22579,6 +24791,7 @@ fn lock_removed_empty_extra() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Provided extras for `project==0.1.0` differ; removed: empty
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22677,6 +24890,7 @@ fn lock_regenerates_dependencies_without_metadata() -> Result<()> {
     ----- stderr -----
     Resolved 9 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; changed: anyio==4.4.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22711,6 +24925,7 @@ fn lock_regenerates_dependencies_without_metadata() -> Result<()> {
     ----- stderr -----
     Resolved 9 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; removed: `httpx[http2]==1.0.0`, `six==1.0.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22729,6 +24944,7 @@ fn lock_regenerates_dependencies_without_metadata() -> Result<()> {
     ----- stderr -----
     Resolved 9 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; removed: `httpx[http2]==1.0.0`, `six==1.0.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -22744,6 +24960,7 @@ fn lock_regenerates_dependencies_without_metadata() -> Result<()> {
     ----- stderr -----
     Resolved 8 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; removed: urllib3==1.0.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -23018,6 +25235,7 @@ fn lock_metadata_free_nested_group_conditional_registry_constraint() -> Result<(
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==1.0.0` differ; changed: ok[second]==1.0.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -23066,6 +25284,7 @@ fn lock_metadata_free_nested_group_conditional_registry_constraint() -> Result<(
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints changed from `ok==1 ; sys_platform == 'win32'` to `ok==2 ; sys_platform == 'win32'`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -23237,6 +25456,7 @@ fn lock_regenerates_dynamic_version_scoped_override() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `provider` differ; removed: anyio==4.4.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -23464,6 +25684,7 @@ fn lock_regenerates_activated_empty_extra() -> Result<()> {
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `dependency==1.0.0` differ
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -24702,6 +26923,7 @@ fn lock_metadata_free_overridden_recursive_extra_source() -> Result<()> {
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; removed: six==1.0.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -25229,6 +27451,7 @@ fn lock_regenerates_marker_specific_requested_extras() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Resolved dependencies for `project==0.1.0` differ; changed: httpx[http2]==1.0.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -26136,6 +28359,7 @@ fn lock_constrained_environment() -> Result<()> {
     ----- stderr -----
     Resolved 8 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Supported environments changed
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -27601,6 +29825,7 @@ fn lock_add_empty_dependency_group() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency group `empty` was added to `project==0.1.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -27676,6 +29901,7 @@ fn lock_add_empty_dependency_group() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency group `empty` was removed from `project==0.1.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -28097,9 +30323,7 @@ fn lock_explicit_default_index() -> Result<()> {
     DEBUG The project environment's Python version satisfies the request: `Python >=3.12`
     DEBUG Using request connect timeout of [TIME] and read timeout of [TIME]
     DEBUG Found static `requires-dist` for: [TEMP_DIR]/
-    DEBUG Resolving despite existing lockfile due to mismatched requirements for: `project==0.1.0`
-      Requested: {Requirement { name: PackageName("anyio"), extras: [], groups: [], marker: true, source: Registry { specifier: VersionSpecifiers([]), index: None, conflict: None }, scope: Global, origin: None }}
-      Existing: {Requirement { name: PackageName("iniconfig"), extras: [], groups: [], marker: true, source: Registry { specifier: VersionSpecifiers([VersionSpecifier { operator: Equal, version: "2" }]), index: Some(IndexMetadata { url: Url(VerbatimUrl { url: SafeUrl { scheme: "https", cannot_be_a_base: false, username: "", password: None, host: Some(Domain("test.pypi.org")), port: None, path: "/simple", query: None, fragment: None }, given: None, expanded: false, force_relative: false }), format: Simple }), conflict: None }, scope: Global, origin: None }}
+    DEBUG Resolving despite existing lockfile: Requirements for `project==0.1.0` changed from `iniconfig==2 (index: https://test.pypi.org/simple)` to `anyio`
     DEBUG Found static `pyproject.toml` for: project @ file://[TEMP_DIR]/
     DEBUG Solving with installed Python version: 3.12.[X]
     DEBUG Solving with target Python version: >=3.12
@@ -31275,7 +33499,7 @@ fn lock_unsupported_version() -> Result<()> {
     exit_code: 2 (failure)
     ----- stderr -----
     error: Failed to parse `uv.lock`, which uses an unsupported schema version (v2, but only v1 is supported). Downgrade to a compatible uv version, or remove the `uv.lock` prior to running `uv lock` or `uv sync`.
-      cause: Dependency `iniconfig` has missing `source` field but has more than one matching package
+      cause: Dependency `iniconfig` has no matching package entry in the lockfile
     ");
 
     Ok(())
@@ -36047,6 +38271,7 @@ fn lock_dynamic_to_static() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Package `project` is expected to have a static version
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -36172,6 +38397,7 @@ fn lock_static_to_dynamic() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Package `project` is expected to have a dynamic version
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -36268,6 +38494,7 @@ fn lock_bump_static_version() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Package `project` has version `0.2.0`, but the lockfile records `0.1.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -36330,14 +38557,14 @@ fn lock_derivation_chain_prod() -> Result<()> {
              [stderr]
              Traceback (most recent call last):
                File "<string>", line 14, in <module>
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
                  return self._get_build_requires(config_settings, requirements=['wheel'])
                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
                  self.run_setup()
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
                  super().run_setup(setup_script=setup_script)
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
                  exec(code, locals())
                File "<string>", line 5, in <module>
                File "[CACHE_DIR]/[TMP]/src/ez_setup/__init__.py", line 170
@@ -36380,14 +38607,14 @@ fn lock_derivation_chain_extra() -> Result<()> {
              [stderr]
              Traceback (most recent call last):
                File "<string>", line 14, in <module>
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
                  return self._get_build_requires(config_settings, requirements=['wheel'])
                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
                  self.run_setup()
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
                  super().run_setup(setup_script=setup_script)
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
                  exec(code, locals())
                File "<string>", line 5, in <module>
                File "[CACHE_DIR]/[TMP]/src/ez_setup/__init__.py", line 170
@@ -36432,14 +38659,14 @@ fn lock_derivation_chain_group() -> Result<()> {
              [stderr]
              Traceback (most recent call last):
                File "<string>", line 14, in <module>
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
                  return self._get_build_requires(config_settings, requirements=['wheel'])
                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
                  self.run_setup()
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
                  super().run_setup(setup_script=setup_script)
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
                  exec(code, locals())
                File "<string>", line 5, in <module>
                File "[CACHE_DIR]/[TMP]/src/ez_setup/__init__.py", line 170
@@ -36495,14 +38722,14 @@ fn lock_derivation_chain_extended() -> Result<()> {
              [stderr]
              Traceback (most recent call last):
                File "<string>", line 14, in <module>
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
                  return self._get_build_requires(config_settings, requirements=['wheel'])
                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
                  self.run_setup()
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
                  super().run_setup(setup_script=setup_script)
-               File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
+               File "[CACHE_DIR]/builds-[VERSION]/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
                  exec(code, locals())
                File "<string>", line 5, in <module>
                File "[CACHE_DIR]/[TMP]/src/ez_setup/__init__.py", line 170
@@ -38290,7 +40517,8 @@ fn lock_script() -> Result<()> {
     exit_code: 1 (failure)
     ----- stderr -----
     Resolved 4 packages in [TIME]
-    error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+    error: The lockfile at `script.py.lock` needs to be updated, but `--locked` was provided.
+      cause: Requirements differ; added: iniconfig
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -40847,6 +43075,7 @@ fn lock_empty_extra() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Provided extras for `project==0.1.0` differ; added: foo
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -40879,6 +43108,7 @@ fn lock_empty_extra() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Provided extras for `project==0.1.0` differ; added: bar
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -41691,6 +43921,7 @@ async fn lock_trailing_slash_index_url_in_lockfile_not_pyproject() -> Result<()>
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Requirements for `project==0.1.0` changed from `anyio (index: http://[LOCALHOST]/simple/)` to `anyio (index: http://[LOCALHOST]/simple)`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -41784,6 +44015,7 @@ async fn lock_trailing_slash_index_url_in_pyproject_and_not_lockfile() -> Result
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Requirements for `project==0.1.0` changed from `anyio (index: http://[LOCALHOST]/simple)` to `anyio (index: http://[LOCALHOST]/simple/)`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -41969,6 +44201,7 @@ fn lock_trailing_slash_find_links() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: The index for locked package `packaging==23.2` is no longer configured: <https://pypi.org/simple/packaging>
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -42408,9 +44641,10 @@ fn lock_exclude_newer_package_absent() -> Result<()> {
         .arg("idna=2022-04-04T12:00:00Z"), @"
     exit_code: 1 (failure)
     ----- stderr -----
-    Resolving despite existing lockfile due to remove exclude newer exclusion (now `2022-04-04T12:00:00Z`) for package `idna`
+    Resolving despite existing lockfile: Exclude-newer re-enabled (now `2022-04-04T12:00:00Z`) for package `idna`
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Exclude-newer re-enabled (now `2022-04-04T12:00:00Z`) for package `idna`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -42422,9 +44656,10 @@ fn lock_exclude_newer_package_absent() -> Result<()> {
         .arg("--locked"), @"
     exit_code: 1 (failure)
     ----- stderr -----
-    Resolving despite existing lockfile due to removal of exclude newer for package `idna`
+    Resolving despite existing lockfile: Exclude-newer override removed for package `idna`
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Exclude-newer override removed for package `idna`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -42454,9 +44689,10 @@ fn lock_exclude_newer_package_absent() -> Result<()> {
         .arg("idna=2022-04-04T12:00:00Z"), @"
     exit_code: 1 (failure)
     ----- stderr -----
-    Resolving despite existing lockfile due to removal of global exclude newer
+    Resolving despite existing lockfile: Global exclude-newer cutoff removed
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Global exclude-newer cutoff removed
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -42970,7 +45206,7 @@ async fn lock_exclude_newer_index_package_timestamp() -> Result<()> {
         .arg("iniconfig=2022-01-01T00:00:00Z"), @"
     exit_code: 1 (failure)
     ----- stderr -----
-    Resolving despite existing lockfile due to addition of exclude newer `2022-01-01T00:00:00Z` for package `iniconfig`
+    Resolving despite existing lockfile: Exclude-newer cutoff set to `2022-01-01T00:00:00Z` for package `iniconfig`
     error: No solution found when resolving dependencies
       cause: Because iniconfig==2.0.0 was published after the exclude newer time and your project depends on iniconfig==2.0.0, we can conclude that your project's requirements are unsatisfiable.
     ");
@@ -45300,6 +47536,7 @@ fn lock_no_locked() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Package `project` has version `0.3.0`, but the lockfile records `0.2.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -45400,6 +47637,7 @@ fn lock_check_overrides_frozen_environment() -> Result<()> {
     warning: Ignoring `UV_FROZEN` because `--check` was provided
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--check` was provided.
+      cause: Package `project` has version `0.2.0`, but the lockfile records `0.1.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -45842,6 +48080,7 @@ fn lock_resolution_inputs_version_constraints() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints changed from `b>=2 ; extra == 'inactive'` to `b>=2`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -46125,6 +48364,7 @@ fn lock_resolution_inputs_extra_constraints() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints differ; added: b>=2 ; extra == 'feature'
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -46204,6 +48444,7 @@ fn lock_resolution_inputs_recursive_extra_constraints() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints differ; added: b<2 ; extra == 'sub'
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -46566,6 +48807,7 @@ fn lock_resolution_inputs_constraint_markers() -> Result<()> {
     ----- stderr -----
     Resolved 4 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints differ; added: `b<2 ; sys_platform != 'linux'`, `b>=2 ; sys_platform == 'linux'`; removed: `b<2 ; sys_platform == 'linux'`, `b>=2 ; sys_platform != 'linux'`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -46802,6 +49044,7 @@ fn lock_resolution_inputs_source_constraints() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints differ; removed: b @ http://[LOCALHOST]/files/b-1.0.0-py3-none-any.whl
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -46997,6 +49240,7 @@ fn lock_resolution_inputs_prerelease_constraints() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints differ; removed: b==1a1
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -47024,6 +49268,7 @@ fn lock_resolution_inputs_prerelease_constraints() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints differ; removed: b==1a1
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -47483,6 +49728,7 @@ fn lock_resolution_inputs_shadowed_override() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency overrides changed from `child==9` to `child==8`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -47571,6 +49817,7 @@ fn lock_resolution_inputs_new_exclusion() -> Result<()> {
     ----- stderr -----
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency exclusions differ; added: child
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -47688,6 +49935,7 @@ fn lock_resolution_inputs_empty_scopes() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency overrides changed from `project: []` to `project: child>=1`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -47982,6 +50230,7 @@ fn lock_resolution_inputs_metadata_declarations() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Configured dependency metadata entries changed from `anyio==3.6.0` to `anyio==3.5.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48016,6 +50265,7 @@ fn lock_resolution_inputs_metadata_declarations() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Configured dependency metadata entries differ; changed: anyio
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48083,6 +50333,7 @@ fn lock_resolution_inputs_candidate_policy_override() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency `numpy` is no longer excluded from `absent`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48109,6 +50360,7 @@ fn lock_resolution_inputs_candidate_policy_override() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency overrides changed from `absent: numpy==2.4rc1` to `absent: unrelated==1`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48414,6 +50666,7 @@ fn lock_resolution_inputs_backtracking() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency overrides changed from `discarded: leaf==1` to `discarded: leaf>=1`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48447,6 +50700,7 @@ fn lock_resolution_inputs_backtracking() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Dependency `unrelated` is no longer excluded from `discarded`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48480,6 +50734,7 @@ fn lock_resolution_inputs_backtracking() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Configured dependency metadata entries differ; changed: discarded==1.0.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48516,6 +50771,7 @@ fn lock_resolution_inputs_backtracking() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Configured dependency metadata entries differ; added: a==1.0.0
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48547,9 +50803,10 @@ fn lock_resolution_inputs_backtracking() -> Result<()> {
         .arg(server.index_url()), @"
     exit_code: 1 (failure)
     ----- stderr -----
-    Resolving despite existing lockfile due to change of exclude newer timestamp from `2025-01-01T00:00:00Z` to `2024-03-25T00:00:00Z` for package `discarded`
+    Resolving despite existing lockfile: Exclude-newer timestamp changed from `2025-01-01T00:00:00Z` to `2024-03-25T00:00:00Z` for package `discarded`
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Exclude-newer timestamp changed from `2025-01-01T00:00:00Z` to `2024-03-25T00:00:00Z` for package `discarded`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -48709,6 +50966,7 @@ fn lock_resolution_inputs_metadata_unknown_version() -> Result<()> {
     ----- stderr -----
     Resolved 2 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Configured dependency metadata entries changed from `child==2.0` to `child==3.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -49000,6 +51258,7 @@ fn lock_resolution_inputs_package_prerelease_constraint() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Constraints differ; removed: b==2a1
 
     hint: To update the lockfile, run `uv lock`.
     ");

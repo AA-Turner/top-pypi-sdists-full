@@ -11,7 +11,7 @@ body:
 
         Describe who encountered the bug, the problem it creates, why it matters, and the observable criteria for a fix. Please check the latest `openshell` release on PyPI and search existing issues for possible duplicates before filing.
 
-        Problems with the gateway, CLI, or sandboxes belong in [NVIDIA/OpenShell](https://github.com/NVIDIA/OpenShell/issues). Do not report security vulnerabilities here; follow [SECURITY.md](https://github.com/ai-openshell/sdk-python/blob/main/SECURITY.md) instead.
+        Problems with the gateway, CLI, or sandboxes belong in [ai-openshell/openshell](https://github.com/ai-openshell/openshell/issues). Do not report security vulnerabilities here; follow [SECURITY.md](https://github.com/ai-openshell/sdk-python/blob/main/SECURITY.md) instead.
 
   - type: textarea
     id: user-story

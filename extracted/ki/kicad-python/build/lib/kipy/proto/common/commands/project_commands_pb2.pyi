@@ -76,6 +76,9 @@ class ExpandTextVariables(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
     DOCUMENT_FIELD_NUMBER: builtins.int
     TEXT_FIELD_NUMBER: builtins.int
+    EXPAND_ENV_VARS_FIELD_NUMBER: builtins.int
+    expand_env_vars: builtins.bool
+    'If set, environment variables (such as ${KIPRJMOD} or user-defined variables) will be\n    expanded in addition to the usual text variables, after the text variables are expanded.\n    Since: 10.0.7\n    '
 
     @property
     def document(self) -> common.types.base_types_pb2.DocumentSpecifier:
@@ -85,13 +88,13 @@ class ExpandTextVariables(google.protobuf.message.Message):
     def text(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         ...
 
-    def __init__(self, *, document: common.types.base_types_pb2.DocumentSpecifier | None=..., text: collections.abc.Iterable[builtins.str] | None=...) -> None:
+    def __init__(self, *, document: common.types.base_types_pb2.DocumentSpecifier | None=..., text: collections.abc.Iterable[builtins.str] | None=..., expand_env_vars: builtins.bool=...) -> None:
         ...
 
     def HasField(self, field_name: typing.Literal['document', b'document']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['document', b'document', 'text', b'text']) -> None:
+    def ClearField(self, field_name: typing.Literal['document', b'document', 'expand_env_vars', b'expand_env_vars', 'text', b'text']) -> None:
         ...
 global___ExpandTextVariables = ExpandTextVariables
 

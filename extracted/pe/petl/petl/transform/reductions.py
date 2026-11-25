@@ -221,6 +221,9 @@ def aggregate(table, key, aggregation=None, value=None, presorted=False,
     A single-field key may also be specified as a one-item list or tuple,
     for both simple and multiple aggregations.
 
+    The source fields of multiple aggregations may also be given by field
+    index.
+
     """
 
     if callable(aggregation):
@@ -271,15 +274,21 @@ def itersimpleaggregate(table, key, aggregation, value, field):
     if isinstance(key, (list, tuple)) and len(key) == 1:
         key = key[0]
 
+    if key is not None and not callable(key):
+        it = iter(table)
+        hdr = next(it, ())
+        table = itertools.chain([hdr], it)
+        keyflds = _aggregatekeyfields(hdr, key)
+
     # determine output header
     if isinstance(key, (list, tuple)):
-        outhdr = tuple(key) + (field,)
+        outhdr = tuple(keyflds) + (field,)
     elif callable(key):
         outhdr = ('key', field)
     elif key is None:
         outhdr = field,
     else:
-        outhdr = (key, field)
+        outhdr = (keyflds[0], field)
     yield outhdr
 
     # generate data
@@ -297,6 +306,26 @@ def itersimpleaggregate(table, key, aggregation, value, field):
     else:
         for k, grp in rowgroupby(table, key, value):
             yield k, aggregation(grp)
+
+
+def _aggregatekeyfields(hdr, key):
+    # name the output key fields, using the header field name for any part
+    # of the key given by field index
+    keyspec = _keyspec(key)
+    if not hdr:
+        # a table without a header has nothing to resolve the key against,
+        # so keep the key as given and let the empty table pass through
+        return list(keyspec)
+    keyidxs = _mergekeyindices(hdr, keyspec)
+    return [hdr[i] if isinstance(k, int) else k
+            for k, i in zip(keyspec, keyidxs)]
+
+
+def _aggregatesrcindex(hdr, fld):
+    # a source field may also be given by field index
+    if isinstance(fld, int):
+        return _mergekeyindices(hdr, fld)[0]
+    return hdr.index(fld)
 
 
 class MultiAggregateView(Table):
@@ -337,7 +366,7 @@ def itermultiaggregate(source, key, aggregation):
 
     aggregation = OrderedDict(aggregation.items())  # take a copy
     it = iter(source)
-    hdr = next(it)
+    hdr = next(it, ())
     # push back header to ensure we iterate only once
     it = itertools.chain([hdr], it)
 
@@ -346,9 +375,9 @@ def itermultiaggregate(source, key, aggregation):
         agg = aggregation[outfld]
         if callable(agg):
             aggregation[outfld] = None, agg
-        elif isinstance(agg, string_types):
+        elif isinstance(agg, string_types + (int,)):
             aggregation[outfld] = agg, list  # list is default
-        elif len(agg) == 1 and isinstance(agg[0], string_types):
+        elif len(agg) == 1 and isinstance(agg[0], string_types + (int,)):
             aggregation[outfld] = agg[0], list  # list is default
         elif len(agg) == 1 and callable(agg[0]):
             aggregation[outfld] = None, agg[0]  # aggregate whole rows
@@ -358,14 +387,12 @@ def itermultiaggregate(source, key, aggregation):
             raise ArgumentError('invalid aggregation: %r, %r' % (outfld, agg))
 
     # determine output header
-    if isinstance(key, (list, tuple)):
-        outhdr = list(key)
-    elif callable(key):
+    if callable(key):
         outhdr = ['key']
     elif key is None:
         outhdr = []
     else:
-        outhdr = [key]
+        outhdr = _aggregatekeyfields(hdr, key)
     for outfld in aggregation:
         outhdr.append(outfld)
     yield tuple(outhdr)
@@ -391,13 +418,13 @@ def itermultiaggregate(source, key, aggregation):
                 aggval = aggfun(rows)
                 outrow.append(aggval)
             elif isinstance(srcfld, (list, tuple)):
-                idxs = [hdr.index(f) for f in srcfld]
+                idxs = [_aggregatesrcindex(hdr, f) for f in srcfld]
                 valgetter = operator.itemgetter(*idxs)
                 vals = (valgetter(row) for row in rows)
                 aggval = aggfun(vals)
                 outrow.append(aggval)
             else:
-                idx = hdr.index(srcfld)
+                idx = _aggregatesrcindex(hdr, srcfld)
                 # try using generator comprehension
                 vals = (row[idx] for row in rows)
                 aggval = aggfun(vals)

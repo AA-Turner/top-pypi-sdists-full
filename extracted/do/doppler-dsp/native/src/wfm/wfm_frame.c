@@ -108,7 +108,22 @@ supplied_bits (const wfm_field_t *f)
   if (f->derived_by || f->seq.len == 0)
     return 0;
   const size_t reps = f->reps ? f->reps : 1u;
-  return f->seq.len * reps;
+  return dp_size_mul_sat (f->seq.len, reps);
+}
+
+/* The same bits, refusing a product past size_t instead of saturating. The
+   layout takes its sizes here, because a description can reach it without
+   add_field (a scene's JSON, ccsds_tm/desc.c fill the struct directly), so
+   the arithmetic the layout does is the one that must not wrap. Returns 0 on
+   overflow. */
+static int
+supplied_bits_checked (const wfm_field_t *f, size_t *out)
+{
+  *out = 0;
+  if (f->derived_by || f->seq.len == 0)
+    return 1;
+  const size_t reps = f->reps ? f->reps : 1u;
+  return dp_size_mul (f->seq.len, reps, out);
 }
 
 size_t
@@ -155,6 +170,20 @@ typedef struct
 static const char FIELD_TOO_LONG[]
     = "LEN * REPS is past the Field bound "
       "of " FIELD_STR (WFM_FIELD_MAX_BITS) " bits";
+
+/* The bound on one field's bits, LEN * max(REPS, 1), read by the Field
+   grammar and by dp_wfm_frame_add_field alike, so the two cannot disagree.
+   Each factor is compared with the bound BEFORE the product is formed, so the
+   product of two values at most WFM_FIELD_MAX_BITS (2^18) is at most 2^36 and
+   cannot wrap, whatever size_t is. A zero REPS is one repetition. */
+static int
+field_bits_fit (size_t len, size_t reps)
+{
+  if (len > WFM_FIELD_MAX_BITS || reps > WFM_FIELD_MAX_BITS)
+    return 0;
+  const uint64_t one = reps ? reps : 1u;
+  return (uint64_t)len * one <= WFM_FIELD_MAX_BITS;
+}
 
 static int
 field_refuse (const char **why, const char *msg)
@@ -443,10 +472,7 @@ dp_wfm_field_parse (const char *spec, wfm_field_t *field, uint8_t **owned,
   if (rc != DP_OK)
     return rc;
 
-  /* LEN and REPS are each at most WFM_FIELD_MAX_BITS here, so the product
-     is computed in 64 bits without wrapping. */
-  if (q.len > WFM_FIELD_MAX_BITS || reps > WFM_FIELD_MAX_BITS
-      || (uint64_t)q.len * reps > WFM_FIELD_MAX_BITS)
+  if (!field_bits_fit (q.len, reps))
     {
       free (mine);
       return field_refuse (why, FIELD_TOO_LONG);
@@ -657,7 +683,8 @@ dp_wfm_frame_desc_layout (const wfm_frame_desc_t  *d,
       if (!f->derived_by && f->seq.kind == WFM_SEQ_DATA && f->seq.len
           && ++n_data > 1u)
         return -1;
-      out->field_bits[i] = supplied_bits (f);
+      if (!supplied_bits_checked (f, &out->field_bits[i]))
+        return -1; /* LEN * REPS wraps: a field the layout cannot size */
     }
 
   /* 2. size the derived fields. A stage that covers no supplied bits derives
@@ -686,16 +713,26 @@ dp_wfm_frame_desc_layout (const wfm_frame_desc_t  *d,
 
       size_t src = 0;
       for (unsigned c = 0; c < st->n_fields; c++)
-        src += supplied_bits (&d->field[st->first_field + c]);
+        {
+          size_t b;
+          if (!supplied_bits_checked (&d->field[st->first_field + c], &b)
+              || !dp_size_add (src, b, &src))
+            return -1; /* the cover's bits wrap: refused, not laid out */
+        }
       out->field_bits[i] = src ? f->bits : 0u;
     }
 
-  /* 3. offsets, in wire order */
+  /* 3. offsets, in wire order. Every sum is checked: a field's bits and a
+     derived width are each a size_t, and the running offset is their sum, so
+     two fields near 2^63 wrap it. A wrap is refused here, where every writer's
+     sizes are consumed (the builder, the JSON reader, ccsds_tm/desc.c), so
+     assemble never indexes or sizes a buffer from a wrapped frame. */
   size_t off = 0;
   for (unsigned i = 0; i < d->n_fields; i++)
     {
       out->field_off[i] = off;
-      off += out->field_bits[i];
+      if (!dp_size_add (off, out->field_bits[i], &off))
+        return -1;
     }
   out->frame_bits = off;
 
@@ -705,7 +742,8 @@ dp_wfm_frame_desc_layout (const wfm_frame_desc_t  *d,
       const wfm_stage_t *st = &d->stage[s];
       size_t             n  = 0;
       for (unsigned c = 0; c < st->n_fields; c++)
-        n += out->field_bits[st->first_field + c];
+        if (!dp_size_add (n, out->field_bits[st->first_field + c], &n))
+          return -1; /* the span wraps */
       if (n)
         {
           out->stage[s].first = out->field_off[st->first_field];
@@ -738,8 +776,17 @@ dp_wfm_frame_desc_layout (const wfm_frame_desc_t  *d,
         continue;
       if (emitting || out->stage[s].n != out->frame_bits)
         return -1;
-      emitting      = 1;
-      out->out_bits = out->frame_bits * st->emit_num / st->emit_den;
+      emitting = 1;
+      size_t scaled;
+      if (!dp_size_mul (out->frame_bits, st->emit_num, &scaled))
+        return -1; /* frame_bits * emit_num wraps: refused, not scaled */
+      out->out_bits = scaled / st->emit_den;
+      /* An emitting stage must EXPAND (or keep) the frame. assemble forms
+         `out + (out_bits - frame_bits)`, which wraps below zero when the
+         stream shrinks, so a shrinking emitter is refused here, where the
+         sizes are decided (#3321). Nothing implements a shrinking emit. */
+      if (out->out_bits < out->frame_bits)
+        return -1;
     }
   return 0;
 }
@@ -970,6 +1017,9 @@ dp_wfm_frame_assemble_data (const wfm_frame_desc_t *d,
   /* The frame is assembled in the TAIL of the buffer when a stage expands it
      into a different stream, so the stream can be written from the head with
      no scratch allocation. With no such stage the tail IS the buffer. */
+  /* Safe because dp_wfm_frame_desc_layout refuses an emitting stage that
+     shrinks the frame (out_bits < frame_bits), so this subtraction never
+     wraps. Without that check it writes below `out` (#3321). */
   uint8_t *frame = out + (l.out_bits - l.frame_bits);
 
   for (unsigned i = 0; i < d->n_fields; i++)
@@ -1082,6 +1132,77 @@ dp_wfm_frame_desc_crc_ok (const wfm_frame_desc_t *d, const uint8_t *rx_bits)
   return -1; /* no CRC stage: "carries no check" is not "the check failed" */
 }
 
+/* Where field `name` sits in a received frame laid out by `d`: its offset and
+   length, or a refusal. The one place both reads locate a field, so they
+   refuse the same frames for the same reasons. */
+static const char *
+field_span (const wfm_frame_desc_t *d, const uint8_t *rx_bits, size_t rx_len,
+            const char *name, size_t *off, size_t *bits)
+{
+  wfm_frame_desc_layout_t l;
+  if (!d || !rx_bits || !name)
+    return "a frame read needs a description, the received bits and a name";
+  if (dp_wfm_frame_desc_layout (d, &l) != 0)
+    return "the description is refused (dp_wfm_frame_desc_layout)";
+  /* rx_bits are in the FRAME's layout (frame_bits of them), the bits
+     dp_wfm_frame_check() and dp_wfm_frame_desc_crc_ok() read: after any
+     emitting stage (a convolutional code) is undone, so a coded frame reads
+     the same as an uncoded one. */
+  if (rx_len < l.frame_bits)
+    return "fewer received bits than the frame holds";
+  const int k = dp_wfm_frame_field_index (d, name);
+  if (k < 0)
+    return "no field of that name in the description";
+  *off  = l.field_off[k];
+  *bits = l.field_bits[k];
+  return NULL;
+}
+
+int
+dp_wfm_frame_desc_field (const wfm_frame_desc_t *d, const uint8_t *rx_bits,
+                         size_t rx_len, const char *name, uint64_t *value,
+                         const char **why)
+{
+  size_t      off = 0, n = 0;
+  const char *no = value ? field_span (d, rx_bits, rx_len, name, &off, &n)
+                         : "a frame read needs somewhere to put the value";
+  if (!no && n > 64u)
+    no = "the field is longer than 64 bits: read it with "
+         "dp_wfm_frame_desc_field_bits";
+  if (no)
+    {
+      if (why)
+        *why = no;
+      return -1;
+    }
+  /* most significant first, the order the assembler writes a field in */
+  uint64_t v = 0;
+  for (size_t i = 0; i < n; i++)
+    v = (v << 1) | (uint64_t)(rx_bits[off + i] & 1u);
+  *value = v;
+  return 0;
+}
+
+size_t
+dp_wfm_frame_desc_field_bits (const wfm_frame_desc_t *d,
+                              const uint8_t *rx_bits, size_t rx_len,
+                              const char *name, uint8_t *out, size_t max,
+                              const char **why)
+{
+  size_t      off = 0, n = 0;
+  const char *no = field_span (d, rx_bits, rx_len, name, &off, &n);
+  if (no)
+    {
+      if (why)
+        *why = no;
+      return 0;
+    }
+  if (out)
+    for (size_t i = 0; i < n && i < max; i++)
+      out[i] = (uint8_t)(rx_bits[off + i] & 1u);
+  return n;
+}
+
 int
 dp_wfm_frame_desc_rx (const wfm_frame_desc_t *d, uint8_t *sync,
                       size_t sync_max, size_t *sync_len, size_t *frame_syms,
@@ -1159,10 +1280,17 @@ dp_wfm_dsss_desc_nchips (const wfm_frame_desc_t *d, size_t acq_len,
   wfm_frame_desc_layout_t l;
   if (!d || dp_wfm_frame_desc_layout (d, &l) != 0)
     return 0;
-  const size_t pre = acq_len * acq_reps;
+  /* Every product and sum is checked: a count past size_t is refused as 0,
+     the same answer as a description that has nothing to send (#3321). */
+  size_t pre, body, total;
+  if (!dp_size_mul (acq_len, acq_reps, &pre))
+    return 0;
   if (l.out_bits && data_len == 0)
-    return 0;                         /* frame bits with no spreading code */
-  return pre + l.out_bits * data_len; /* 0 when there is nothing to send */
+    return 0; /* frame bits with no spreading code */
+  if (!dp_size_mul (l.out_bits, data_len, &body)
+      || !dp_size_add (pre, body, &total))
+    return 0;
+  return total; /* 0 when there is nothing to send */
 }
 
 size_t
@@ -1290,6 +1418,12 @@ dp_wfm_frame_add_field (wfm_frame_desc_t *d, const char *name,
 {
   if (!d || !seq || d->n_fields >= WFM_FRAME_MAX_FIELDS
       || name_taken (d, name))
+    return -1;
+  /* Refused: LEN * max(REPS, 1) past size_t, which has no bits to
+     hold. Nothing tighter: the Field text bound is the grammar's, and the
+     layout sums every field with checked adds. */
+  size_t bits;
+  if (!dp_size_mul (seq->len, reps ? reps : 1u, &bits))
     return -1;
 
   const unsigned i = d->n_fields;

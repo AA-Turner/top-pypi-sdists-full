@@ -37,7 +37,7 @@ def local_copy_node_uses_on_demand_compute(project: Project, pipe_name: str) -> 
 
 @cli.group()
 @click.pass_context
-def copy(ctx):
+def copy(ctx: Context) -> None:
     """Copy pipe commands."""
 
 

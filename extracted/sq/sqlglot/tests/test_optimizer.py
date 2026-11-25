@@ -305,6 +305,18 @@ class TestOptimizer(unittest.TestCase):
             schema=schema,
         )
 
+    def test_optimize_built_is_not(self):
+        query = exp.select("x").from_("(VALUES (TRUE), (FALSE), (NULL)) AS t(x)")
+        for operand, expected in (
+            (exp.null(), [(True,), (False,)]),
+            (exp.true(), [(False,), (None,)]),
+            (exp.false(), [(True,), (None,)]),
+        ):
+            with self.subTest(operand=operand):
+                filtered = query.where(exp.column("x").is_(exp.not_(operand)))
+                optimized = optimizer.optimize(filtered, dialect="duckdb").sql("duckdb")
+                self.assertCountEqual(self.conn.execute(optimized).fetchall(), expected)
+
     def test_optimize_copy(self):
         sql = "SELECT a + 1 + 1 AS b FROM x"
         expression = parse_one(sql)
@@ -2809,6 +2821,27 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             "SELECT x.a AS a, MAX(x.b) AS x FROM x AS x GROUP BY 1 HAVING x > 1",
         )
 
+    def test_projection_alias_flags(self):
+        dialect = sqlglot.Dialect.get_or_raise("clickhouse")
+        schema = {"t": {"x": "INT", "src": "INT", "s": "Tuple(f Int32)", "obj": "Tuple(f Int32)"}}
+        sql = "SELECT src * 2 AS derived, t.x AS src, t.s AS obj FROM t WHERE obj.f > 0"
+        for forward, dotted, src, obj in ((True, False, "x", "obj"), (False, True, "src", "s")):
+            with (
+                self.subTest(forward=forward, dotted=dotted),
+                patch.multiple(
+                    dialect,
+                    SUPPORTS_FORWARD_ALIAS_REFS=forward,
+                    PREFER_PROJECTION_ALIASES_IN_DOT_PATHS=dotted,
+                ),
+            ):
+                qualified = qualify(
+                    parse_one(sql, dialect), schema=schema, dialect=dialect, identify=False
+                )
+                self.assertEqual(
+                    qualified.sql(dialect),
+                    f"SELECT t.{src} * 2 AS derived, t.x AS src, t.s AS obj FROM t AS t WHERE t.{obj}.f > 0",
+                )
+
     def test_optimize_joins(self):
         self.check_file(
             "optimize_joins",
@@ -2912,6 +2945,49 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             "eliminate_ctes",
             optimizer.eliminate_ctes.eliminate_ctes,
             pretty=True,
+        )
+
+    def test_table_argument_sources(self):
+        call = "SELECT * FROM ML.VALIDATE_DATA_DRIFT(TABLE t, TABLE t) AS t"
+        sql = f"WITH t AS (SELECT 1 AS x) {call}"
+        query = parse_one(sql, dialect="bigquery")
+        scope = build_scope(query)
+        self.assertEqual(list(scope.selected_sources), ["t"])
+        self.assertIsInstance(scope.selected_sources["t"][1], exp.Table)
+        self.assertFalse(scope.subquery_scopes)
+        self.assertEqual(scope.ref_count()[id(scope.cte_sources["t"])], 2)
+        self.assertEqual(optimizer.eliminate_ctes.eliminate_ctes(query.copy()), query)
+
+        query = parse_one(
+            f"WITH t AS (SELECT 1 AS x), unused AS ({call}) SELECT 1", dialect="bigquery"
+        )
+        self.assertEqual(optimizer.eliminate_ctes.eliminate_ctes(query), exp.select("1"))
+
+        query = parse_one(
+            "WITH t AS (SELECT 1 AS x) SELECT * FROM ML.DESCRIBE_DATA(TABLE ds.t) AS t",
+            dialect="bigquery",
+        )
+        self.assertFalse(optimizer.eliminate_ctes.eliminate_ctes(query).ctes)
+
+        query = optimizer.optimize(
+            "WITH t AS (SELECT x, y FROM src) "
+            "SELECT t.x, f.name FROM t CROSS JOIN ML.DESCRIBE_DATA(TABLE t) AS f",
+            schema={"src": {"x": "INT", "y": "INT"}},
+            dialect="bigquery",
+        )
+        self.assertEqual(query.ctes[0].this.named_selects, ["x", "y"])
+
+        query = parse_one(
+            "SELECT * FROM (WITH t AS (SELECT 1 AS x), t_2 AS (SELECT 2 AS x) "
+            "SELECT * FROM ML.VALIDATE_DATA_DRIFT(TABLE t, TABLE t_2)) AS a "
+            "CROSS JOIN ML.DESCRIBE_DATA(TABLE t) AS b",
+            dialect="bigquery",
+        )
+        self.assertEqual(
+            optimizer.eliminate_subqueries.eliminate_subqueries(query).sql("bigquery"),
+            "WITH t_2 AS (SELECT 1 AS x), t_2_2 AS (SELECT 2 AS x), "
+            "a AS (SELECT * FROM ML.VALIDATE_DATA_DRIFT(TABLE t_2, TABLE t_2_2)) "
+            "SELECT * FROM a AS a CROSS JOIN ML.DESCRIBE_DATA(TABLE t) AS b",
         )
 
     def test_journal(self):
@@ -4088,12 +4164,14 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             self.assertEqual(expression.type, exp.DataType.build(numeric_type))
 
     def test_typeddiv_annotation(self):
-        expressions = annotate_types(
-            parse_one("SELECT 2 / 3, 2 / 3.0", dialect="presto")
-        ).expressions
-
-        self.assertEqual(expressions[0].type.this, exp.DataType.Type.BIGINT)
-        self.assertEqual(expressions[1].type.this, exp.DataType.Type.DOUBLE)
+        sql = "SELECT 2147483647 / 2, 2147483648 / 2, 2 / 2147483648, 2 / 3.0"
+        for dialect in ("presto", "trino", "athena"):
+            with self.subTest(dialect=dialect):
+                query = annotate_types(parse_one(sql, dialect=dialect), dialect=dialect)
+                self.assertEqual(
+                    [e.type.this for e in query.expressions],
+                    [exp.DType.INT, exp.DType.BIGINT, exp.DType.BIGINT, exp.DType.DOUBLE],
+                )
 
         expressions = annotate_types(
             parse_one("SELECT SUM(2 / 3), CAST(2 AS DECIMAL) / 3", dialect="mysql")

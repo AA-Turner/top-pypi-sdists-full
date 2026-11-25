@@ -174,7 +174,7 @@ void optimize_onedimensional_bound(
     // same cost), so the bound the onedimensional solver finds for it
     // (which runs the same dichotomic search) is a valid lower bound here.
     onedimensional::InstanceBuilder onedim_instance_builder;
-    onedim_instance_builder.set_objective(instance.objective());
+    onedim_instance_builder.set_objective(onedimensional_subproblem_objective(instance.objective()));
     for (BinTypeId bin_type_id = 0;
             bin_type_id < instance.number_of_bin_types();
             ++bin_type_id) {
@@ -237,7 +237,7 @@ void optimize_onedimensional_bound(
         algorithm_formatter.update_knapsack_bound(
                 onedim_output.knapsack_bound + negative_penalty_sum(instance));
         break;
-    } case Objective::VariableSizedBinPacking: {
+    } case Objective::VariableSizedBinPacking: case Objective::VariableSizedBinPackingWithLeftovers: {
         algorithm_formatter.update_variable_sized_bin_packing_bound(
                 onedim_output.variable_sized_bin_packing_bound);
         break;
@@ -414,6 +414,8 @@ void optimize_sequential_single_knapsack(
             = [&algorithm_formatter, &parameters, &queue_size, &queue_size_ms](const Instance& kp_instance)
             {
                 OptimizeParameters kp_parameters;
+                // The leftovers of the sub-instance don't matter.
+                kp_parameters.post_process = false;
                 kp_parameters.verbosity_level = 0;
                 kp_parameters.timer = parameters.timer;
                 kp_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
@@ -478,6 +480,8 @@ void optimize_sequential_value_correction(
         = [&algorithm_formatter, &parameters](const Instance& kp_instance)
         {
             OptimizeParameters kp_parameters;
+            // The leftovers of the sub-instance don't matter.
+            kp_parameters.post_process = false;
             kp_parameters.verbosity_level = 0;
             kp_parameters.timer = parameters.timer;
             kp_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
@@ -533,6 +537,8 @@ void optimize_dichotomic_search(
             = [&algorithm_formatter, &parameters, &queue_size](const Instance& bpp_instance)
             {
                 OptimizeParameters bpp_parameters;
+                // The leftovers of the sub-instance don't matter.
+                bpp_parameters.post_process = false;
                 bpp_parameters.verbosity_level = 0;
                 bpp_parameters.timer = parameters.timer;
                 bpp_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
@@ -592,6 +598,8 @@ void optimize_column_generation(
         = [&parameters](const Instance& kp_instance, PricingType pricing_type)
         {
             OptimizeParameters kp_parameters;
+            // The leftovers of the sub-instance don't matter.
+            kp_parameters.post_process = false;
             kp_parameters.verbosity_level = 0;
             kp_parameters.timer = parameters.timer;
             kp_parameters.optimization_mode
@@ -740,36 +748,59 @@ void optimize_tree_search_packing_classes(
 }
 
 /**
- * Post-processes for BinPackingWithLeftovers in a not-anytime mode.
+ * Leftover post-processes in a not-anytime mode, for the objectives of
+ * 'leftover_post_process_objective'.
  *
- * Last bin post-process: re-optimize just the last bin of 'solution_best'
- * with the tree search with guides {2, 3} (see 'reoptimize_bin'), in case they
- * pack it into less leftover space: the used area of the last bin doesn't
- * have to span the whole width or the whole height of the bin, whichever
- * algorithm found the solution. It is only applied if the last bin contains
- * fewer items than 'post_process_last_bin_maximum_number_of_items': the tree
- * search may take much longer than the algorithm which found the solution.
+ * Last bin post-process, for 'BinPackingWithLeftovers' only: re-optimize
+ * just the last bin of 'solution_best' with the tree search with guides
+ * {2, 3} (see 'reoptimize_bin_leftovers'), in case they pack it into less
+ * leftover space: the used area of the last bin doesn't have to span the
+ * whole width or the whole height of the bin, whichever algorithm found the
+ * solution. It is only applied if the last bin contains fewer items than
+ * 'post_process_last_bin_maximum_number_of_items': the tree search may take
+ * much longer than the algorithm which found the solution.
  *
  * It is applied to the best solution of each algorithm, not only to the
  * best solution overall: the re-optimized last bin of a solution which isn't
  * the best one may make it better than the best one.
  *
  * Other bins post-process: the leftover values of the other bins only come
- * after the ones of the last bin in the objective, so the algorithms hardly
- * try to keep the free space of the other bins in a single region.
- * Re-optimize each other bin of the best solution, with the algorithms
- * selected as for any instance (see 'reoptimize_non_last_bins'). It is only
+ * after the ones of the last bin in the 'BinPackingWithLeftovers' objective,
+ * and the other objectives don't consider the leftovers at all, so the
+ * algorithms hardly try to keep the free space of the bins in a single
+ * region. Re-optimize each bin of the best solution (each bin but the last
+ * one for 'BinPackingWithLeftovers'), with the algorithms selected as for any
+ * instance (see 'reoptimize_non_last_bins_leftovers' and
+ * 'reoptimize_all_bins_leftovers'). For 'BinPackingWithLeftovers', it is only
  * applied if 'leftover_all_bins' is enabled, since it can only improve the
  * leftover values of the other bins.
+ *
+ * For the objectives other than 'BinPackingWithLeftovers' and
+ * 'VariableSizedBinPackingWithLeftovers', the post-processed solution has
+ * the same value as the best solution: it replaces it if its leftovers are
+ * better (see 'AlgorithmFormatter::update_solution_leftovers').
  */
 bool post_process_applies(
         const Instance& instance,
         const OptimizeParameters& parameters)
 {
-    return instance.objective() == Objective::BinPackingWithLeftovers
+    return leftover_post_process_objective(instance.objective())
         && parameters.optimization_mode != OptimizationMode::Anytime
         && parameters.optimization_mode != OptimizationMode::Exact
         && parameters.post_process;
+}
+
+/** Report a solution of the leftover post-process. */
+void update_post_process_solution(
+        const Instance& instance,
+        const Solution& solution,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    if (instance.objective() == Objective::BinPackingWithLeftovers) {
+        algorithm_formatter.update_solution(solution, "post-process");
+    } else {
+        algorithm_formatter.update_solution_leftovers(solution, "post-process");
+    }
 }
 
 void optimize_last_bin_post_process(
@@ -778,10 +809,14 @@ void optimize_last_bin_post_process(
         const Solution& solution_best,
         AlgorithmFormatter& algorithm_formatter)
 {
-    if (post_process_applies(instance, parameters)
-            && solution_best.number_of_bins() > 0
-            && solution_best.bin(solution_best.number_of_different_bins() - 1).copies == 1
-            && (ItemPos)solution_best.bin(solution_best.number_of_different_bins() - 1).items.size()
+    if (!post_process_applies(instance, parameters)
+            || instance.objective() != Objective::BinPackingWithLeftovers
+            || solution_best.number_of_bins() == 0) {
+        return;
+    }
+    BinPos bin_pos = solution_best.number_of_different_bins() - 1;
+    if (solution_best.bin(bin_pos).copies == 1
+            && (ItemPos)solution_best.bin(bin_pos).items.size()
             < parameters.post_process_last_bin_maximum_number_of_items) {
         // Only the tree search is run: the guides {2, 3} are specific to it.
         OptimizeParameters last_bin_parameters;
@@ -791,11 +826,11 @@ void optimize_last_bin_post_process(
         last_bin_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
         last_bin_parameters.tree_search_guides = {2, 3};
         last_bin_parameters.use_tree_search = true;
-        Solution solution = reoptimize_bin(
+        Solution solution = reoptimize_bin_leftovers(
                 solution_best,
-                solution_best.number_of_different_bins() - 1,
+                bin_pos,
                 last_bin_parameters);
-        algorithm_formatter.update_solution(solution, "post-process");
+        update_post_process_solution(instance, solution, algorithm_formatter);
     }
 }
 
@@ -805,16 +840,27 @@ void optimize_other_bins_post_process(
         const Solution& solution_best,
         AlgorithmFormatter& algorithm_formatter)
 {
-    if (!post_process_applies(instance, parameters)
-            || !instance.parameters().leftover_all_bins) {
+    if (!post_process_applies(instance, parameters))
+        return;
+    bool bin_packing_with_leftovers = (instance.objective() == Objective::BinPackingWithLeftovers);
+    if (bin_packing_with_leftovers
+            && !instance.parameters().leftover_all_bins) {
         return;
     }
     OptimizeParameters post_process_parameters = parameters;
-    post_process_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
-    Solution solution = reoptimize_non_last_bins(
-            solution_best,
-            post_process_parameters);
-    algorithm_formatter.update_solution(solution, "post-process");
+    // The solutions of the post-process are reported through the algorithm
+    // formatter.
+    post_process_parameters.new_solution_callback = [](const packingsolver::rectangle::Output&) { };
+    // For the objectives which don't value the leftovers, the algorithm
+    // formatter ends as soon as the best solution is proven optimal, which
+    // doesn't mean that its leftovers can't be improved: only the time limit
+    // stops the post-process.
+    if (bin_packing_with_leftovers)
+        post_process_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    Solution solution = (bin_packing_with_leftovers)?
+        reoptimize_non_last_bins_leftovers(solution_best, post_process_parameters):
+        reoptimize_all_bins_leftovers(solution_best, post_process_parameters);
+    update_post_process_solution(instance, solution, algorithm_formatter);
 }
 
 /**
@@ -947,7 +993,7 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
     if (instance.objective() == Objective::BinPacking
             || instance.objective() == Objective::BinPackingWithLeftovers
             || instance.objective() == Objective::Knapsack
-            || instance.objective() == Objective::VariableSizedBinPacking
+            || is_variable_sized_bin_packing(instance.objective())
             || instance.objective() == Objective::Feasibility) {
         optimize_onedimensional_bound(
                 instance,
@@ -1012,7 +1058,7 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
         // single bin but 'VariableSizedBinPacking' (through the sequential
         // feasibility algorithm for the objectives other than 'Knapsack' and
         // 'Feasibility').
-        if (instance.objective() == Objective::VariableSizedBinPacking)
+        if (is_variable_sized_bin_packing(instance.objective()))
             use_tree_search_maximal_spaces = false;
         // 'tree_search_maximal_spaces' doesn't implement unloading
         // constraints at all (unlike 'tree_search'): force it off even if
@@ -1217,7 +1263,7 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
                 }
             }
         }
-    } else if (instance.objective() == Objective::VariableSizedBinPacking) {
+    } else if (is_variable_sized_bin_packing(instance.objective())) {
         // Disable algorithms which are not available for this objective.
         use_tree_search_maximal_spaces = false;
         // 'benders_decomposition_contiguity' only supports 'Knapsack'/
@@ -1298,7 +1344,9 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
     // 'NotAnytimeDeterministic' mode, these local formatters forward every
     // solution and bound to the shared 'algorithm_formatter' as soon as they
     // get it, instead of only at the end.
-    bool local = deterministic || post_process_applies(instance, parameters);
+    bool local = deterministic
+        || (post_process_applies(instance, parameters)
+                && instance.objective() == Objective::BinPackingWithLeftovers);
     if (local && !deterministic) {
         local_parameters.new_solution_callback = [&algorithm_formatter](const rectangle::Output& local_output)
         {
@@ -1510,11 +1558,12 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
         }
     }
 
-    // Last bin post-process, on the best solution of each algorithm, and on
-    // the best solution overall if it doesn't come from one of them (e.g.
-    // found before running them). The best solution is copied since the
-    // post-process may replace it.
-    if (post_process_applies(instance, parameters)) {
+    // Last bin post-process, for 'BinPackingWithLeftovers', on the best
+    // solution of each algorithm, and on the best solution overall if it
+    // doesn't come from one of them (e.g. found before running them). The
+    // best solution is copied since the post-process may replace it.
+    if (post_process_applies(instance, parameters)
+            && instance.objective() == Objective::BinPackingWithLeftovers) {
         Solution solution_best = output.solution_pool.best();
         bool solution_best_found_by_an_algorithm = false;
         for (const auto& local_output: local_outputs) {

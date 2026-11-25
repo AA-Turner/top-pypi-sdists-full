@@ -1270,6 +1270,15 @@ class IdentityStrength(StrEnum):
     pointer = 'pointer'
 
 
+class IdleActionKind(StrEnum):
+    """
+    A team's setting (`tenant_settings.compute_idle_action`; NULL reads as EMAIL).
+    """
+
+    email = 'email'
+    off = 'off'
+
+
 class Outcome(StrEnum):
     failed = 'failed'
     launch_failed = 'launch_failed'
@@ -1306,6 +1315,7 @@ class InstallMode(StrEnum):
     cluster = 'cluster'
     host = 'host'
     pod = 'pod'
+    queue = 'queue'
 
 
 class Role5(StrEnum):
@@ -1366,6 +1376,17 @@ class KeyDropStatus(StrEnum):
     other_account = 'other_account'
 
 
+class KeyMetricsRunType(StrEnum):
+    """
+    The run types a project keeps one pinned list for. The one place the set lives; each value is the stored
+    `runs.run_type`, so stored rows and these keys agree.
+    """
+
+    general = 'general'
+    sft = 'sft'
+    rl = 'rl'
+
+
 class KeyReadsAs(StrEnum):
     """
     Whose view a team key reads: its creator's, or (creator gone from the team) only what every member
@@ -1385,6 +1406,17 @@ class ExitStatus(StrEnum):
     failed = 'failed'
     canceled = 'canceled'
     crashed = 'crashed'
+
+
+class LeftInPlaceKind(StrEnum):
+    """
+    What Probe cannot remove from a machine it does not run on as a service.
+    """
+
+    pod_wrapper = 'pod_wrapper'
+    daemonset_pod = 'daemonset_pod'
+    sdk = 'sdk'
+    runs_submit_key = 'runs_submit_key'
 
 
 class LineageEntityType(StrEnum):
@@ -1530,6 +1562,29 @@ class LossRole(StrEnum):
 
     actor = 'actor'
     critic = 'critic'
+
+
+class MachineSource(StrEnum):
+    """
+    Who listed a machine last: `probe compute connect`, or the queue reader of that scheduler.
+    """
+
+    connect = 'connect'
+    kubernetes = 'kubernetes'
+    slurm = 'slurm'
+    skypilot = 'skypilot'
+
+
+class MachineStatus(StrEnum):
+    """
+    An expected machine now: its node reports, it never reported, its node stopped, or its scheduler
+    no longer lists it.
+    """
+
+    reporting = 'reporting'
+    never_reported = 'never_reported'
+    stopped = 'stopped'
+    gone = 'gone'
 
 
 class MaskEvidence(StrEnum):
@@ -1711,7 +1766,8 @@ class NodeKind(StrEnum):
 
 class NodeState(StrEnum):
     """
-    Where a node is. `silent` after missed reports; `released` on a goodbye or a provider answer.
+    Where a node is. `silent` after missed reports; `released` on a goodbye or a provider answer;
+    `uninstalling` once an admin asked to remove Probe from it (its report ack carries the order).
     """
 
     active = 'active'
@@ -1720,6 +1776,7 @@ class NodeState(StrEnum):
     billing_unattended = 'billing_unattended'
     unknown = 'unknown'
     retired = 'retired'
+    uninstalling = 'uninstalling'
 
 
 class NoteKind(StrEnum):
@@ -2067,6 +2124,11 @@ class PingEvent(StrEnum):
     asked = 'asked'
     ended = 'ended'
     injected = 'injected'
+
+
+class PodCredential(StrEnum):
+    run_token = 'run_token'
+    login = 'login'
 
 
 class PointBy(StrEnum):
@@ -2555,6 +2617,16 @@ class Fn3(StrEnum):
     delta = 'delta'
 
 
+class SchedulerKind(StrEnum):
+    """
+    The scheduler whose queue a report reads. Each has one variant in `app/compute/queues/schedulers/`.
+    """
+
+    slurm = 'slurm'
+    kubernetes = 'kubernetes'
+    skypilot = 'skypilot'
+
+
 class Scope(StrEnum):
     """
     Coarse v1 authorization scopes (D2). Narrowable later; checked as explicit
@@ -2565,6 +2637,8 @@ class Scope(StrEnum):
     write = 'write'
     delete = 'delete'
     admin = 'admin'
+    compute_enroll = 'compute:enroll'
+    runs_submit = 'runs:submit'
 
 
 class ScorerKind(StrEnum):
@@ -2741,6 +2815,7 @@ class StintEndReason(StrEnum):
     exited = 'exited'
     node_gone = 'node_gone'
     node_released = 'node_released'
+    gpu_lost = 'gpu_lost'
 
 
 class StoredState(StrEnum):
@@ -2972,6 +3047,10 @@ class UpdateLevel(StrEnum):
     update = 'update'
     rank = 'rank'
     micro_batch = 'micro_batch'
+
+
+class SourceReadContract2Enum(StrEnum):
+    coverage_v1 = 'coverage-v1'
 
 
 class Via(StrEnum):

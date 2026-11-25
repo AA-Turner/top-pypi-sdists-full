@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: testfixtures
-Version: 12.4.0
+Version: 12.5.0
 Summary: A collection of helpers and mock objects for unit tests and doc tests.
 Project-URL: Homepage, https://github.com/Simplistix/testfixtures
 Project-URL: Documentation, http://testfixtures.readthedocs.org/en/latest/
@@ -48,7 +48,7 @@ Testfixtures
 
 |Docs|_ |PyPI|_  |Git|_
 
-.. |Docs| image:: https://readthedocs.org/projects/testfixtures/badge/?version=latest
+.. |Docs| image:: https://img.shields.io/readthedocs/testfixtures
 .. _Docs: http://testfixtures.readthedocs.org/en/latest/
 
 .. |PyPI| image:: https://badge.fury.io/py/testfixtures.svg

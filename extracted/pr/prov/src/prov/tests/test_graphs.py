@@ -60,6 +60,21 @@ def test_round_trip_of_a_graph_of_inferred_endpoints_under_a_default() -> None:
     assert result == document.unified()
 
 
+@pytest.mark.parametrize(
+    ("make_argument", "type_name"),
+    [
+        (lambda document: document.bundle("ex:b"), "ProvBundle"),
+        (lambda _: None, "NoneType"),
+    ],
+    ids=["bundle", "none"],
+)
+def test_prov_to_graph_rejects_anything_but_a_document(
+    document, make_argument, type_name
+) -> None:
+    with pytest.raises(TypeError, match=f"must be a ProvDocument, not {type_name}$"):
+        prov_to_graph(make_argument(document))
+
+
 def test_relation_with_missing_end_is_skipped_with_warning(document) -> None:
     # A generation record with no activity: one endpoint is None, so the
     # relation cannot become an edge. The drop is reported, not silent.
@@ -140,22 +155,21 @@ def test_ignores_non_record_and_bundle_less_nodes() -> None:
     assert list(prov_doc.get_records()) == []
 
 
-def test_ignores_edges_without_relation_key() -> None:
+@pytest.mark.parametrize(
+    "edge_data",
+    [
+        # No relation= kwarg in the edge data.
+        pytest.param({}, id="no-relation-key"),
+        pytest.param({"relation": "not-a-record"}, id="not-a-record"),
+    ],
+)
+def test_graph_to_prov_ignores_an_edge_whose_relation_is_not_a_prov_record(
+    edge_data: dict[str, str],
+) -> None:
     g = nx.MultiDiGraph()
     g.add_node("a")
     g.add_node("b")
-    g.add_edge("a", "b")  # no relation= kwarg in the edge data
-
-    prov_doc = graph_to_prov(g)
-
-    assert list(prov_doc.get_records()) == []
-
-
-def test_ignores_edges_whose_relation_is_not_a_prov_record() -> None:
-    g = nx.MultiDiGraph()
-    g.add_node("a")
-    g.add_node("b")
-    g.add_edge("a", "b", relation="not-a-record")
+    g.add_edge("a", "b", **edge_data)
 
     prov_doc = graph_to_prov(g)
 

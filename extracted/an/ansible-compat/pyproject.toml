@@ -127,7 +127,9 @@ baseline = ".config/pydoclint-baseline.txt"
 check-return-types = false
 check-yield-types = false
 exclude = '\.ansible|\.cache|\.git|\.tox|build|ansible_collections|out|venv'
-should-document-private-class-attributes = true
+ignore-private-class-attributes = false
+ignore-special-dunder-class-attributes = false
+ignore-underscore-only-class-attributes = false
 show-filenames-in-every-violation-message = true
 skip-checking-short-docstrings = false
 style = "google"
@@ -702,11 +704,12 @@ PRE_COMMIT_COLOR = "always"
 [tool.uv]
 constraint-dependencies = [
   "ansible-core>=2.20.0.dev0; python_version >= '3.14'",
-  "cairosvg>=2.9.0",
+  "cairosvg>=2.9.1",
   "certifi>=2026.10.18",
   "cryptography>=50.0.0",
-  "dnspython>=2.9.0; python_version >= '3.11'",
+  "dnspython>=2.9.2; python_version >= '3.11'",
   "pillow>=13.0.0; python_version >= '3.11'",
+  "soupsieve>=4.0.0; python_full_version >= '3.11.5'",
 ]
 default-groups = ["dev", "docs", "lint", "pkg"]
 package = true

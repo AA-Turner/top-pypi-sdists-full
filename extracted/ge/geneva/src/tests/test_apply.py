@@ -4,6 +4,8 @@
 import hashlib
 import json
 import logging
+import subprocess
+import sys
 import threading
 import time
 from collections import Counter
@@ -89,9 +91,531 @@ from geneva.utils.parse_rust_debug import (
 _LOG = logging.getLogger(__name__)
 
 
+def _pin_checkpoint_layout(monkeypatch: pytest.MonkeyPatch, layout: str) -> None:
+    """Force the configured checkpoint layout (patches ``CheckpointConfig.get``)."""
+    monkeypatch.setattr(
+        CheckpointConfig,
+        "get",
+        classmethod(lambda cls, _layout=layout: cls(store_layout=_layout)),
+    )
+
+
 @pytest.fixture
 def tbl_ref(tmp_path) -> TableReference:
     return TableReference(table_id=["tbl"], version=None, db_uri=str(tmp_path))
+
+
+@pytest.mark.parametrize("layout", ["flat", "hierarchical"])
+def test_checkpoint_store_namespace_args_carries_driver_layout(
+    tmp_path: Path, layout: str
+) -> None:
+    """The driver advertises its store layout so workers rebuild the same class;
+    a non-Lance store advertises ``None``."""
+    store = CheckpointStore.from_uri(str(tmp_path / layout), layout=layout)
+    assert pipeline_module._checkpoint_store_namespace_args(store).layout == layout
+    assert (
+        pipeline_module._checkpoint_store_namespace_args(
+            InMemoryCheckpointStore()
+        ).layout
+        is None
+    )
+
+
+@pytest.mark.parametrize("layout", ["flat", "hierarchical"])
+def test_log_checkpoint_layout_names_layout_and_root(
+    tmp_path: Path, layout: str
+) -> None:
+    """Job drivers log the checkpoint layout in use and its root, once per call."""
+    store = CheckpointStore.from_uri(str(tmp_path / layout), layout=layout)
+    records: list[logging.LogRecord] = []
+    collector = logging.Handler()
+    collector.emit = records.append  # type: ignore[method-assign]
+    layout_log = pipeline_module._LAYOUT_LOG
+    layout_log.addHandler(collector)
+    try:
+        pipeline_module._log_checkpoint_layout(store)
+        pipeline_module._log_checkpoint_layout(store)
+    finally:
+        layout_log.removeHandler(collector)
+    expected = f"Using {layout} checkpoint layout at {store.uri()}"
+    assert [r.getMessage() for r in records] == [expected, expected]
+
+
+def test_log_checkpoint_layout_visible_with_unconfigured_logging(
+    tmp_path: Path,
+) -> None:
+    """The layout line is emitted even where logging was never configured, as in
+    a Ray driver task (root at WARNING, no handlers), and is not duplicated when
+    a later job in the same worker configures root logging (refresh driver)."""
+    script = (
+        "import logging, sys\n"
+        "import geneva.runners.ray.pipeline as p\n"
+        "from geneva import CheckpointStore\n"
+        "s = CheckpointStore.from_uri(sys.argv[1], layout='hierarchical')\n"
+        "p._log_checkpoint_layout(s)\n"
+        "logging.basicConfig(level=logging.INFO)\n"
+        "p._log_checkpoint_layout(s)\n"
+    )
+    root = str(tmp_path / "ckp")
+    proc = subprocess.run(
+        [sys.executable, "-c", script, root],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    lines = [ln for ln in proc.stderr.splitlines() if "checkpoint layout at" in ln]
+    assert len(lines) == 2
+    for line in lines:
+        assert "INFO" in line
+        assert f"Using hierarchical checkpoint layout at {root}" in line
+
+
+@pytest.mark.parametrize(
+    ("config_layout", "pin", "expected_cls"),
+    [
+        ("flat", "hierarchical", HierarchicalLanceCheckpointStore),
+        ("hierarchical", "flat", FlatLanceCheckpointStore),
+        ("flat", None, FlatLanceCheckpointStore),
+    ],
+)
+def test_checkpointing_applier_layout_pin_overrides_worker_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    config_layout: str,
+    pin: str | None,
+    expected_cls: type,
+) -> None:
+    """The applier (rebuilt on each Ray worker) honors the driver's pinned layout
+    over worker-local config; ``None`` falls back to config."""
+    _pin_checkpoint_layout(monkeypatch, config_layout)
+    applier = CheckpointingApplier(
+        checkpoint_uri=str(tmp_path / f"ckp_{config_layout}_{pin}"),
+        map_task=_DummyMapTask(),
+        checkpoint_layout=pin,
+    )
+    assert type(applier.checkpoint_store) is expected_cls
+
+
+def _plant_pre_upgrade_flat_checkpoint(
+    tmp_path: Path,
+) -> tuple[Any, BackfillUDFTask, str]:
+    """A table whose fragment 0 was checkpointed by a pre-upgrade (flat) run."""
+    db = connect(tmp_path)
+    # a2 still NULL: the run checkpointed fragment 0 but never committed it.
+    tbl = db.create_table(
+        "tbl", pa.table({"a": [1, 2, 3], "a2": pa.array([None] * 3, pa.int64())})
+    )
+
+    @udf(data_type=pa.int64())
+    def double_a(a: int) -> int:
+        return a * 2
+
+    map_task = BackfillUDFTask(
+        udfs={"a2": double_a},
+        where="a2 IS NULL",
+        min_checkpoint_size=DEFAULT_CHECKPOINT_ROWS,
+        max_checkpoint_size=DEFAULT_CHECKPOINT_ROWS,
+    )
+    dataset = tbl.to_lance()
+    dedupe_key = _get_fragment_dedupe_key(
+        tbl.uri,
+        0,
+        map_task,
+        dataset_version=dataset.version,
+        src_files_hash=_src_files_hash_for_cols(tbl, ["a"]),
+    )
+    out_ids = sorted(extract_field_ids(dataset.lance_schema, "a2"))
+    expected_path = next(
+        df.path
+        for df in dataset.get_fragment(0).data_files()
+        if set(df.fields) >= set(out_ids)
+    )
+    flat = tbl.get_reference().open_checkpoint_store(layout="flat")
+    flat[dedupe_key] = pa.RecordBatch.from_pydict(
+        {"file": [expected_path], "output_field_ids": [json.dumps(out_ids)]}
+    )
+    return tbl, map_task, dedupe_key
+
+
+@pytest.mark.parametrize("env_layout", [None, "flat"], ids=["default", "flat-env"])
+def test_resume_after_upgrade_with_pre_upgrade_flat_checkpoints(
+    tmp_path: Path,
+    tbl_ref: TableReference,
+    monkeypatch: pytest.MonkeyPatch,
+    env_layout: str | None,
+) -> None:
+    """GEN-602 upgrade path: a backfill checkpointed under the old flat default
+    and resumed after the upgrade.
+
+    Under the new hierarchical default the flat checkpoint is ignored (by
+    design, documented in checkpoint-layout-v2.md): the fragment is planned
+    again and the flat checkpoint is left in place for cleanup_checkpoints.
+    With ``CHECKPOINT__STORE_LAYOUT=flat`` the resumed backfill finds the
+    checkpoint and skips the fragment.
+    """
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    CheckpointConfig.get.cache_clear()
+    if env_layout is None:
+        monkeypatch.delenv("CHECKPOINT__STORE_LAYOUT", raising=False)
+    else:
+        monkeypatch.setenv("CHECKPOINT__STORE_LAYOUT", env_layout)
+    try:
+        tbl, map_task, dedupe_key = _plant_pre_upgrade_flat_checkpoint(tmp_path)
+
+        store = tbl.get_reference().open_checkpoint_store()
+        plans, pipeline_args = plan_read(
+            tbl.uri,
+            tbl_ref,
+            ["a"],
+            where="a2 IS NULL",
+            batch_size=16,
+            map_task=map_task,
+            checkpoint_store=store,
+        )
+        tasks = list(plans)
+
+        if env_layout == "flat":
+            assert type(store) is FlatLanceCheckpointStore
+            assert tasks == []
+            assert pipeline_args["skipped_fragments"][0][1] == 3
+        else:
+            assert type(store) is HierarchicalLanceCheckpointStore
+            assert dedupe_key not in store
+            assert {t.dest_frag_id() for t in tasks} == {0}
+            assert not pipeline_args.get("skipped_fragments")
+        # The pre-upgrade checkpoint is never touched by the resumed plan.
+        flat = tbl.get_reference().open_checkpoint_store(layout="flat")
+        assert dedupe_key in flat
+    finally:
+        CheckpointConfig.get.cache_clear()
+
+
+def test_detect_backfill_mismatches_sees_flat_checkpoints_under_hierarchical_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A UDF-version change recorded only in the flat root is still detected
+    under the hierarchical default. Otherwise the default ``where=None``
+    backfill is restricted to ``col IS NULL`` and a populated column stays
+    stale."""
+    from geneva.apply.utils import detect_backfill_mismatches
+    from geneva.checkpoint_utils import format_checkpoint_prefix
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _pin_checkpoint_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"a": [1, 2, 3]}))
+
+    @udf(data_type=pa.int64())
+    def c_udf(a: int) -> int:
+        return a * 2
+
+    tbl.add_columns({"c": c_udf})
+
+    flat = tbl.get_reference().open_checkpoint_store(layout="flat")
+    old_prefix = format_checkpoint_prefix(
+        udf_name="c",
+        udf_version="oldversion0000",
+        column="c",
+        where=None,
+        dataset_uri=tbl.uri,
+        src_files_hash="cc",
+    )
+    flat[f"{old_prefix}_frag-0"] = pa.RecordBatch.from_pydict({"file": ["f0.lance"]})
+
+    assert c_udf.checkpoint_version != "oldversion0000"
+    udf_mismatch, _ = detect_backfill_mismatches(tbl, "c", c_udf, tbl.version)
+    assert udf_mismatch is True
+
+
+def _plant_srcfiles_fragment_key(
+    store: CheckpointStore, tbl: Any, udf_version: str, src_files_hash: str
+) -> None:
+    """Write a fragment-0 dedupe key for column ``c`` with ``src_files_hash``."""
+    from geneva.checkpoint_utils import format_checkpoint_prefix
+
+    prefix = format_checkpoint_prefix(
+        udf_name="c",
+        udf_version=udf_version,
+        column="c",
+        where=None,
+        dataset_uri=tbl.uri,
+        src_files_hash=src_files_hash,
+    )
+    store[f"{prefix}_frag-0"] = pa.RecordBatch.from_pydict({"file": ["f0.lance"]})
+
+
+def _table_with_input_udf(tmp_path: Path) -> tuple[Any, Any, str]:
+    """A table with column ``c`` computed from ``a``, plus the current
+    srcfiles hash of fragment 0's ``a`` data files."""
+    from geneva.checkpoint_utils import hash_source_files
+    from geneva.runners.ray.pipeline import (
+        _get_relevant_field_ids,
+        get_source_data_files,
+    )
+
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"a": [1, 2, 3]}))
+
+    @udf(data_type=pa.int64())
+    def c_udf(a: int) -> int:
+        return a * 2
+
+    tbl.add_columns({"c": c_udf})
+    ds = tbl.to_lance()
+    current_hash = hash_source_files(
+        get_source_data_files(ds.get_fragments()[0], _get_relevant_field_ids(ds, ["a"]))
+    )
+    return tbl, c_udf, current_hash
+
+
+def test_detect_backfill_mismatches_srcfiles_union_across_layout_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The flat root holds only a pre-upgrade input hash while the hierarchical
+    root holds the current one: the current hash is known, so no mismatch.
+    Deciding per root would report a mismatch on every later backfill."""
+    from geneva.apply.utils import detect_backfill_mismatches
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _pin_checkpoint_layout(monkeypatch, "hierarchical")
+    tbl, c_udf, current_hash = _table_with_input_udf(tmp_path)
+    ref = tbl.get_reference()
+    flat = ref.open_checkpoint_store(layout="flat")
+    stale_hash = "0" * len(current_hash)
+    assert stale_hash != current_hash
+    _plant_srcfiles_fragment_key(flat, tbl, c_udf.checkpoint_version, stale_hash)
+
+    # Only the stale hash is stored anywhere: the input changed.
+    assert detect_backfill_mismatches(tbl, "c", c_udf, tbl.version) == (False, True)
+
+    _plant_srcfiles_fragment_key(
+        ref.open_checkpoint_store(), tbl, c_udf.checkpoint_version, current_hash
+    )
+    assert detect_backfill_mismatches(tbl, "c", c_udf, tbl.version) == (False, False)
+
+
+def test_detect_backfill_mismatches_srcfiles_error_on_one_root_checks_other(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A raise from one root's srcfiles listing must not skip the other root."""
+    from geneva.apply.utils import detect_backfill_mismatches
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _pin_checkpoint_layout(monkeypatch, "hierarchical")
+    tbl, c_udf, current_hash = _table_with_input_udf(tmp_path)
+    _plant_srcfiles_fragment_key(
+        tbl.get_reference().open_checkpoint_store(),
+        tbl,
+        c_udf.checkpoint_version,
+        "0" * len(current_hash),
+    )
+
+    def _flat_raises(self: object, _col_name: str) -> set[str]:
+        raise OSError("simulated flat _ckp/ listing error")
+
+    monkeypatch.setattr(FlatLanceCheckpointStore, "srcfiles_hashes", _flat_raises)
+
+    _, srcfiles_mismatch = detect_backfill_mismatches(tbl, "c", c_udf, tbl.version)
+    assert srcfiles_mismatch is True
+
+
+def test_detect_backfill_mismatches_keeps_both_stores_under_shared_subdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With a blanket GENEVA_CHECKPOINT_SUBDIR both layouts share one root; both
+    readers must still be consulted (dedupe by uri + class, not uri alone)."""
+    from geneva.apply.utils import detect_backfill_mismatches
+
+    monkeypatch.setenv("GENEVA_CHECKPOINT_SUBDIR", "_shared")
+    _pin_checkpoint_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"a": [1, 2, 3]}))
+
+    @udf(data_type=pa.int64())
+    def c_udf(a: int) -> int:
+        return a * 2
+
+    tbl.add_columns({"c": c_udf})
+    tbl_ref = tbl.get_reference()
+    assert (
+        tbl_ref.open_checkpoint_store(layout="flat").uri()
+        == tbl_ref.open_checkpoint_store(layout="hierarchical").uri()
+    )
+
+    def _no(self: object, _col_name: str, _version: str) -> bool:
+        return False
+
+    # The flat root is checked from its key listing (shared with the
+    # skipped-progress warning), so stub the key-level check.
+    monkeypatch.setattr(
+        "geneva.apply.utils.keys_have_udf_version_mismatch", lambda *_: True
+    )
+    monkeypatch.setattr(
+        HierarchicalLanceCheckpointStore, "has_udf_version_mismatch", _no
+    )
+
+    udf_mismatch, _ = detect_backfill_mismatches(tbl, "c", c_udf, tbl.version)
+    assert udf_mismatch is True
+
+
+def _write_column(tbl: Any, column: str, frag_id: int) -> None:
+    """Commit a data file holding ``column`` into one fragment, as a backfill
+    commit does."""
+    ds = tbl.to_lance()
+    frag = ds.get_fragment(frag_id)
+    data_file = frag.data_files()[0]
+    name = f"{column}-{frag_id}.lance"
+    values = pa.record_batch({column: pa.nulls(frag.count_rows(), pa.int64())})
+    with lance.file.LanceFileWriter(f"{ds.uri}/data/{name}", values.schema) as w:
+        w.write_batch(values)
+    new_file = lance.fragment.DataFile(
+        name,
+        sorted(extract_field_ids(ds.lance_schema, column)),
+        [0],
+        data_file.file_major_version,
+        data_file.file_minor_version,
+    )
+    op = lance.LanceOperation.DataReplacement(
+        [lance.LanceOperation.DataReplacementGroup(frag_id, new_file)]
+    )
+    lance.LanceDataset.commit(ds.uri, op, read_version=ds.version)
+    tbl.checkout_latest()
+
+
+@pytest.mark.parametrize(
+    ("client_layout", "manifest_layout", "written_frags", "expected_pending"),
+    [
+        ("hierarchical", None, [], 2),
+        # Fragments already written for this column need no recompute.
+        ("hierarchical", None, [0], 1),
+        ("hierarchical", None, [0, 1], 0),
+        # On flat the progress is reused, so there is nothing to warn about.
+        ("flat", None, [], 0),
+        # The manifest's setting is what the cluster runs with.
+        ("hierarchical", "flat", [], 0),
+        ("flat", "hierarchical", [], 2),
+    ],
+)
+def test_detect_backfill_mismatches_warns_on_skipped_flat_progress(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    client_layout: str,
+    manifest_layout: str | None,
+    written_frags: list[int],
+    expected_pending: int,
+) -> None:
+    """Unfinished fragments with flat-root progress at the current UDF version
+    are reported once when the job's hierarchical layout will not reuse them."""
+    from types import SimpleNamespace
+
+    from geneva.apply.utils import detect_backfill_mismatches
+    from geneva.checkpoint_utils import format_checkpoint_prefix
+    from geneva.manifest.mgr import GenevaManifest
+
+    monkeypatch.delenv("CHECKPOINT__STORE_LAYOUT", raising=False)
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _pin_checkpoint_layout(monkeypatch, client_layout)
+    if manifest_layout is not None:
+        manifest = GenevaManifest(
+            name="m", env_vars={"CHECKPOINT__STORE_LAYOUT": manifest_layout}
+        )
+        monkeypatch.setattr(
+            "geneva.apply.utils.get_current_context",
+            lambda: SimpleNamespace(manifest=manifest),
+        )
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"a": [1, 2, 3]}))
+    tbl.add(pa.table({"a": [4, 5]}))
+
+    @udf(data_type=pa.int64())
+    def c_udf(a: int) -> int:
+        return a * 2
+
+    tbl.add_columns({"c": c_udf})
+    for frag_id in written_frags:
+        _write_column(tbl, "c", frag_id)
+    prefix = format_checkpoint_prefix(
+        udf_name=c_udf.name,
+        udf_version=c_udf.checkpoint_version,
+        column="c",
+        where=None,
+        dataset_uri=tbl.uri,
+    )
+    flat = tbl.get_reference().open_checkpoint_store(layout="flat")
+    batch = pa.record_batch({"file": ["f"]})
+    flat[f"{prefix}_frag-0"] = batch
+    flat[f"{prefix}_frag-1_range-0-1"] = batch
+
+    with caplog.at_level(logging.WARNING, logger="geneva.apply.utils"):
+        udf_mismatch, _ = detect_backfill_mismatches(tbl, "c", c_udf, tbl.version)
+
+    assert udf_mismatch is False
+    warnings = [r for r in caplog.records if "flat checkpoint layout" in r.message]
+    if expected_pending:
+        assert len(warnings) == 1
+        message = warnings[0].getMessage()
+        assert message.startswith(f"{expected_pending} fragment(s)")
+        assert "may need recomputing" in message
+        if manifest_layout is None:
+            assert (
+                "unless CHECKPOINT__STORE_LAYOUT=flat is set on the client" in message
+            )
+        else:
+            assert "unless the manifest's CHECKPOINT__STORE_LAYOUT" in message
+            assert "on the client" not in message
+    else:
+        assert warnings == []
+
+
+@pytest.mark.parametrize("layout", ["hierarchical", "flat"])
+def test_skipped_flat_progress_warning_with_progress_in_both_roots(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    layout: str,
+) -> None:
+    """With valid progress in both roots the hierarchical run may reuse its own
+    progress, so the warning is conditional; on flat there is no warning."""
+    from geneva.apply.utils import detect_backfill_mismatches
+    from geneva.checkpoint_utils import format_checkpoint_prefix
+
+    monkeypatch.delenv("CHECKPOINT__STORE_LAYOUT", raising=False)
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _pin_checkpoint_layout(monkeypatch, layout)
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"a": [1, 2, 3]}))
+
+    @udf(data_type=pa.int64())
+    def c_udf(a: int) -> int:
+        return a * 2
+
+    tbl.add_columns({"c": c_udf})
+    prefix = format_checkpoint_prefix(
+        udf_name=c_udf.name,
+        udf_version=c_udf.checkpoint_version,
+        column="c",
+        where=None,
+        dataset_uri=tbl.uri,
+    )
+    ref = tbl.get_reference()
+    batch = pa.record_batch({"file": ["f"]})
+    for root in ("flat", "hierarchical"):
+        ref.open_checkpoint_store(layout=root)[f"{prefix}_frag-0"] = batch
+
+    with caplog.at_level(logging.WARNING, logger="geneva.apply.utils"):
+        detect_backfill_mismatches(tbl, "c", c_udf, tbl.version)
+
+    warnings = [
+        r.getMessage() for r in caplog.records if "flat checkpoint layout" in r.message
+    ]
+    if layout == "flat":
+        assert warnings == []
+    else:
+        assert len(warnings) == 1
+        assert warnings[0].startswith("1 fragment(s)")
+        assert "may need recomputing" in warnings[0]
+        assert "will be recomputed" not in warnings[0]
 
 
 class _NoopRemote:
@@ -1692,7 +2216,7 @@ def test_skip_checkpoint_index_scan_preserves_exact_task_checkpoint_reuse(
 
     assert direct_result is None
     assert [checkpoint.checkpoint_key for checkpoint in checkpoints] == [task_key]
-    assert cnt_udf_computed == 3
+    assert cnt_udf_computed == 0
 
 
 def test_plan_read_replans_fully_checkpointed_uncommitted_fragment(
@@ -2305,12 +2829,14 @@ def test_checkpoint_key_format(tmp_path: Path, tbl_ref: TableReference) -> None:
 
 
 def test_plan_read_with_legacy_checkpoint_and_partial(
-    tmp_path: Path, tbl_ref: TableReference
+    tmp_path: Path, tbl_ref: TableReference, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
     Legacy fragment checkpoints are still honored even when srcfiles hashes are
     available. Partial old batch checkpoints should not skip.
     """
+    # Legacy and old-format batch keys exist only in the flat layout.
+    _pin_checkpoint_layout(monkeypatch, "flat")
     db = connect(tmp_path)
     tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3]}))
     tbl.add(pa.table({"a": [4, 5, 6]}))  # second fragment
@@ -3641,6 +4167,9 @@ def test_plan_read_falls_back_when_checkpoint_indexing_fails(
     monkeypatch: pytest.MonkeyPatch,
     use_legacy_key: bool,
 ) -> None:
+    # Legacy bare-hash keys exist only in the flat layout.
+    if use_legacy_key:
+        _pin_checkpoint_layout(monkeypatch, "flat")
     db = connect(tmp_path)
     tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "a2": [2, 4, 6]}))
 
@@ -4278,6 +4807,8 @@ def test_plan_read_parallel_filter_count_skips_checkpointed_fragments(
     """
     import threading
 
+    # Plants a legacy (bare-hash) fragment checkpoint, which is flat-only.
+    _pin_checkpoint_layout(monkeypatch, "flat")
     db = connect(tmp_path)
     tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "a2": [2, 4, 6]}))
     tbl.add(pa.table({"a": [4, 5, 6], "a2": [8, 10, 12]}))
@@ -5800,6 +6331,9 @@ def test_fragment_writer_uses_precomputed_metadata(tmp_path: Path, monkeypatch) 
     """Ensure writer avoids opening dataset when metadata is provided."""
     from collections import deque
 
+    # Synthetic, non-fragment-shaped checkpoint keys need the flat store.
+    _pin_checkpoint_layout(monkeypatch, "flat")
+
     tbl_path = tmp_path / "tbl.lance"
     ds = lance.write_dataset(pa.table({"a": [1, 2, 3]}), tbl_path)
     frag = ds.get_fragment(0)
@@ -5861,6 +6395,9 @@ def test_fragment_writer_falls_back_to_open_dataset(
 ) -> None:
     """Ensure writer opens dataset when metadata is missing."""
     from collections import deque
+
+    # Synthetic, non-fragment-shaped checkpoint keys need the flat store.
+    _pin_checkpoint_layout(monkeypatch, "flat")
 
     tbl_path = tmp_path / "tbl.lance"
     ds = lance.write_dataset(pa.table({"a": [1, 2, 3]}), tbl_path)

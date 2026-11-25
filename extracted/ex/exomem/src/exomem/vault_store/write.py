@@ -934,9 +934,11 @@ def commit(
             "a store commit needs the vault mutation boundary, which derived-row work does not hold",
         )
     # Close the transaction before releasing capacity, including on rollback. The
-    # source lookup and admission run before the first canonical mutation.
-    transaction = (writer.handle.transaction() if before_move_commit is None
-                   else writer.handle.transaction(before_commit=before_move_commit))
+    # source lookup and admission run before the first canonical mutation. A commit writes only the
+    # vault store's tables (`_require_owned`), so the collections' release cache holds across it,
+    # unless it changes a registry or the access policy, which a collection's release also reads.
+    overlay = rederive.changes_overlay(writer.root, change.paths)
+    transaction = writer.handle.transaction(before_commit=before_move_commit, collection_free=not overlay)
     with ExitStack() as allocations, transaction as tx:
         row = tx.execute("SELECT mode, revision FROM store_mode WHERE id = 1").fetchone()
         if row is None or row[0] != mode.STORE_MODE:
@@ -965,8 +967,9 @@ def commit(
             _delete_binary(tx, binary, audit)
         for move in change.binary_moves:
             _move_binary(tx, move, revision, audit)
-        # The overlay job settles the rows that the registries under ``_Schema`` derive.
-        rederive.record_overlay_change(tx, writer.root, change.paths, revision)
+        if overlay:
+            # The overlay job settles the rows that the registries under ``_Schema`` derive.
+            rederive.record_overlay_change(tx, revision)
         _enqueue(tx, audit.intents, revision, now)
         _enqueue_folders(tx, change.vacated_folders, revision, now)
         # An original's rows, and those of the path that a move of one vacates, draw on the floor.
@@ -1192,7 +1195,7 @@ def _projected(tx: Connection, rel: str, revision: int, sha256: str) -> bool:
 #: Which audit operations open and end a path's life in the store, as ``_Trail`` records them. A
 #: write, an import, or the new side of a move (the row that names the old path) opens a life; a
 #: delete, or the old side of a move, ends one. The projector reads them to tell the bytes that
-#: Exomem put at a path in its current life from those of an earlier life, which a person may have
+#: Evermatter put at a path in its current life from those of an earlier life, which a person may have
 #: restored.
 BEGINS_A_LIFE = (
     "(operation IN ('write', 'import') OR (operation = 'move' AND from_path IS NOT NULL))"
@@ -1200,7 +1203,7 @@ BEGINS_A_LIFE = (
 ENDS_A_LIFE = "(operation = 'delete' OR (operation = 'move' AND from_path IS NULL))"
 #: A migration or a rollback writes one audit row for the whole vault, with no path. Every path's
 #: life starts after the latest one: the vault ran in file mode in between, so no byte that the
-#: audit trail names from before it is known to be Exomem's.
+#: audit trail names from before it is known to be Evermatter's.
 RESETS_EVERY_LIFE = "(path IS NULL AND operation IN ('migrate', 'rollback'))"
 
 

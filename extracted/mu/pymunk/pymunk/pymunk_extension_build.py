@@ -24,7 +24,7 @@ sources = []
 for folder in source_folders:
     for fn in os.listdir(folder):
         fn_path = os.path.join(folder, fn)
-        if fn[-1] == "c":
+        if fn.endswith(".c"):
             # Ignore cpHastySpace since it depends on pthread which
             # creates a dependency on libwinpthread-1.dll when built
             # with  mingw-w64 gcc.
@@ -34,7 +34,7 @@ for folder in source_folders:
             if platform.system() != "Windows" or fn != "cpHastySpace.c":
                 sources.append(fn_path)
             # sources.append(fn_path)
-        elif fn[-1] == "o":
+        elif fn.endswith(".o"):
             os.remove(fn_path)
 
 libraries: list[str] = []
@@ -52,6 +52,12 @@ with open("pymunk_cffi/extensions_cdef.h", "r") as f:
 
 with open("pymunk_cffi/extensions.c", "r") as f:
     custom_functions = f.read()
+
+# TODO: Temp workaround until setuptools is fixed.
+# https://github.com/pypa/setuptools/issues/5367
+extension_options = {}
+if platform.python_implementation() == "PyPy":
+    extension_options["py_limited_api"] = False
 
 ffibuilder.set_source(
     "pymunk._chipmunk",  # name of the output C extension
@@ -78,6 +84,7 @@ ffibuilder.set_source(
     sources=sources,
     libraries=libraries,
     define_macros=[("CP_OVERRIDE_MESSAGE", None)],
+    **extension_options,
 )
 
 if __name__ == "__main__":

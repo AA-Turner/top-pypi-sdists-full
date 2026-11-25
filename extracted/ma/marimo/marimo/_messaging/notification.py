@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 import time
 from typing import (
+    Annotated,
     Any,
     ClassVar,
     Literal,
@@ -16,7 +17,8 @@ import msgspec
 
 from marimo import _loggers as loggers
 from marimo._ast.app_config import _AppConfig
-from marimo._ast.cell import CellConfig, RuntimeStateType
+from marimo._ast.cell import RuntimeStateType
+from marimo._core.protocol import Revision
 from marimo._data._external_storage.models import (
     StorageEntry,
     StorageNamespace,
@@ -47,7 +49,7 @@ from marimo._types.ids import (
     VariableName,
     WidgetModelId,
 )
-from marimo._utils.msgspec_basestruct import BaseStruct
+from marimo._utils.msgspec_basestruct import BaseStruct, MsgspecSchema
 from marimo._utils.platform import is_pyodide, is_windows
 
 LOGGER = loggers.marimo_logger()
@@ -88,10 +90,13 @@ class Notification(msgspec.Struct, tag_field="op"):
 class ExecutionNotification(Notification, tag="execution"):
     """An attempt's lifecycle, independent of a cell's displayed status.
 
-    `planned` supplies the source and identity before output is reported.
+    `planned` includes the execution ID and code fingerprint before any output.
+    `code` is null when source is withheld.
     `running` means evaluation began. `completed` follows the final output
     and errors, including for attempts that never ran. Buffered and background
     console output may still arrive with the completed attempt's identity.
+    A completed attempt that never ran and reported no error names why in
+    `skipped`, such as `superseded` when a newer attempt replaced it.
     """
 
     name: ClassVar[str] = "execution"
@@ -100,26 +105,24 @@ class ExecutionNotification(Notification, tag="execution"):
     run_id: str | None
     phase: Literal["planned", "running", "completed"]
     code: str | None = None
+    code_fingerprint: str | None = None
     caused_by: str | None = None
+    depends_on: dict[str, Revision | None] | None = None
+    skipped: str | None = None
+    # Exact session-cache source identity when run mode withholds the code.
+    code_hash: str | None = None
 
 
 class CellNotification(Notification, tag="cell-op"):
-    """Updates a cell's state in the frontend.
-
-    This is a partial update: each field carries its own "unchanged" semantics,
-    documented per field below. Most fields treat None as "unchanged"; fields
-    that need to distinguish "unchanged" from "clear" use msgspec.UNSET for the
-    former and None for the latter.
+    """A partial update to the kernel session view.
 
     Attributes:
         cell_id: Unique identifier of the cell being updated.
         output: Cell's output. Use CellOutput.empty() to clear.
         console: Console messages. Single/list appends, [] clears, None unchanged.
         status: Execution status (idle/running/stale/queued/disabled-transitively).
-        stale_inputs: Whether cell has stale inputs from changed dependencies.
         run_id: Execution run ID for tracing. Auto-set from context.
         execution_id: Evaluation of this cell producing the update, when known.
-        serialization: Top-level reusability hint. UNSET unchanged, None clears, str sets.
         timestamp: Creation timestamp, auto-set.
     """
 
@@ -128,13 +131,8 @@ class CellNotification(Notification, tag="cell-op"):
     output: CellOutput | None = None
     console: CellOutput | list[CellOutput] | None = None
     status: RuntimeStateType | None = None
-    stale_inputs: bool | None = None
     run_id: RunId_t | None = None
     execution_id: str | None = None
-    # Tri-state partial update: UNSET (omitted on the wire) leaves the cell's
-    # serialization hint unchanged; None explicitly clears it (cell is no
-    # longer a top-level definition); a string sets it.
-    serialization: str | msgspec.UnsetType | None = msgspec.UNSET
     timestamp: float = msgspec.field(default_factory=lambda: time.time())
 
     def __post_init__(self) -> None:
@@ -436,38 +434,24 @@ class KernelReadyNotification(Notification, tag="kernel-ready"):
     """Kernel ready for execution. First notification sent at startup.
 
     Attributes:
-        cell_ids: Cell IDs in order.
-        codes: Source code for each cell.
-        names: Cell names/titles.
         layout: Notebook layout config.
-        configs: Per-cell configuration.
         resumed: Whether resumed from previous session.
         ui_values: Previous UI element values if resumed.
-        last_executed_code: Last executed code per cell if resumed.
-        last_execution_time: Last execution time per cell if resumed.
         app_config: Application configuration.
         kiosk: Whether running in kiosk mode.
         capabilities: Available kernel capabilities.
-        auto_instantiated: Whether cells already executed (run mode).
         stable_session_id: Server-owned Session identity that survives
             browser reconnects. None where no server Session exists.
     """
 
     name: ClassVar[str] = "kernel-ready"
-    cell_ids: tuple[CellId_t, ...]
-    codes: tuple[str, ...]
-    names: tuple[str, ...]
     layout: LayoutConfig | None
-    configs: tuple[CellConfig, ...]
     resumed: bool
     ui_values: dict[str, JSONType] | None
-    last_executed_code: dict[CellId_t, str] | None
-    last_execution_time: dict[CellId_t, float] | None
     app_config: _AppConfig
     kiosk: bool
     capabilities: KernelCapabilitiesNotification
     consumer_capabilities: ConsumerCapabilities
-    auto_instantiated: bool = False
     stable_session_id: StableSessionId | None = None
 
 
@@ -622,12 +606,6 @@ class EnvironmentOperationNotification(
     log_mode: Literal["append", "replace"]
 
 
-class ReconnectedNotification(Notification, tag="reconnected"):
-    """WebSocket reconnection confirmed."""
-
-    name: ClassVar[str] = "reconnected"
-
-
 class StartupLogsNotification(Notification, tag="startup-logs"):
     """Streaming kernel startup logs.
 
@@ -714,6 +692,8 @@ class VariableValue(BaseStruct):
     name: str
     value: str | None
     datatype: str | None
+    execution_id: str | None = None
+    revision: Annotated[Revision, MsgspecSchema] | None = None
 
 
 class VariablesNotification(Notification, tag="variables"):
@@ -727,15 +707,24 @@ class VariablesNotification(Notification, tag="variables"):
     variables: list[VariableDeclarationNotification]
 
 
+class VariableRemoval(BaseStruct):
+    """A binding removed from the runtime's namespace."""
+
+    name: str
+    execution_id: str
+
+
 class VariableValuesNotification(Notification, tag="variable-values"):
     """Current variable values.
 
     Attributes:
         variables: Variables with current values and types.
+        removed: Bindings that no longer exist, identified by their producer.
     """
 
     name: ClassVar[str] = "variable-values"
     variables: list[VariableValue]
+    removed: list[VariableRemoval] = msgspec.field(default_factory=list)
 
 
 class DatasetsNotification(Notification, tag="datasets"):
@@ -1030,6 +1019,71 @@ class FocusCellNotification(Notification, tag="focus-cell"):
     cell_id: CellId_t
 
 
+class PdbOutputNotification(Notification, tag="pdb-output"):
+    """Show debugger output in the cell that failed.
+
+    Append live entries. When `replace` is true, replace the debugger's
+    transcript for this cell with the supplied entries. The editor's
+    `after_seq` gives the preceding execution item sequence for each entry,
+    or -1 before the first item.
+    """
+
+    name: ClassVar[str] = "pdb-output"
+    cell_id: CellId_t
+    entries: list[CellOutput]
+    replace: bool = False
+    after_seq: list[int] | msgspec.UnsetType = msgspec.UNSET
+
+
+class CallbackOutputNotification(Notification, tag="callback-output"):
+    """Show a widget callback or registered function's output in its defining cell.
+
+    Append live entries. When `replace` is true, replace the callback
+    transcript for this cell with the supplied entries. The editor's
+    `after_seq` gives the preceding execution item sequence for each entry,
+    or -1 before the first item.
+    """
+
+    name: ClassVar[str] = "callback-output"
+    cell_id: CellId_t
+    entries: list[CellOutput]
+    replace: bool = False
+    after_seq: list[int] | msgspec.UnsetType = msgspec.UNSET
+
+    @property
+    def clears_cell_console(self) -> bool:
+        return not self.entries and not self.replace
+
+
+class ConsoleInputsClearedNotification(
+    Notification, tag="console-inputs-cleared"
+):
+    """The settled input rows hidden by clear_console() in this execution."""
+
+    name: ClassVar[str] = "console-inputs-cleared"
+    cell_id: CellId_t
+    execution_id: str
+    input_ids: list[str]
+
+
+class PdbInputNotification(Notification, tag="pdb-input"):
+    """Identify the debugger prompt waiting for a command in a failed cell.
+
+    A null input ID closes the prompt.
+    """
+
+    name: ClassVar[str] = "pdb-input"
+    cell_id: CellId_t
+    input_id: str | None
+
+
+class BreakpointsNotification(Notification, tag="breakpoints"):
+    """The session's complete breakpoint set, restored on connection."""
+
+    name: ClassVar[str] = "breakpoints"
+    breakpoints: dict[CellId_t, list[int]]
+
+
 class ActiveLineNotification(Notification, tag="active-line"):
     """Reports the line a cell's frame watcher is currently executing.
 
@@ -1103,17 +1157,13 @@ class NotebookDocumentTransactionNotification(
     transaction: Transaction
 
 
-NotificationMessage = (
-    # Cell operations
-    CellNotification
-    | ExecutionNotification
-    | FunctionCallResultNotification
+EditorNotification = (
+    FunctionCallResultNotification
     | UIElementMessageNotification
     | ModelLifecycleNotification
     | RemoveUIElementsNotification
     # Notebook lifecycle
     | ReloadNotification
-    | ReconnectedNotification
     | InterruptedNotification
     | CompletedRunNotification
     | KernelReadyNotification
@@ -1157,9 +1207,18 @@ NotificationMessage = (
     # Kiosk
     | FocusCellNotification
     # Debugger
+    | CallbackOutputNotification
+    | PdbOutputNotification
+    | ConsoleInputsClearedNotification
+    | PdbInputNotification
+    | BreakpointsNotification
     | ActiveLineNotification
     # Document
     | NotebookDocumentTransactionNotification
     # Consumer
     | ConsumerCapabilitiesNotification
+)
+
+NotificationMessage = (
+    EditorNotification | CellNotification | ExecutionNotification
 )

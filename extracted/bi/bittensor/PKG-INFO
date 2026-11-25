@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: bittensor
-Version: 11.3.5
+Version: 11.3.6
 Summary: A lean Python SDK (import bittensor) and CLI (btcli) for the Bittensor chain.
 Project-URL: Documentation, https://bittensor.com/docs
 Project-URL: Repository, https://github.com/RaoFoundation/subtensor

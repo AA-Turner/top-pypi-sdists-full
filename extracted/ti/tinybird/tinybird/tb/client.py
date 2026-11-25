@@ -10,7 +10,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
 import requests
 import requests.adapters
-from requests import Response
+from requests import PreparedRequest, Response
 from urllib3 import Retry
 
 from tinybird.tb.modules.telemetry import add_telemetry_event
@@ -62,7 +62,7 @@ class JobException(Exception):
     pass
 
 
-def connector_equals(connector, datafile_params):
+def connector_equals(connector: Optional[Mapping[str, Any]], datafile_params: Mapping[str, Any]) -> bool:
     if not connector:
         return False
     return connector["name"] == datafile_params["kafka_connection_name"]
@@ -80,6 +80,17 @@ def parse_error_response(response: Response) -> str:
         return error
     except json.decoder.JSONDecodeError:
         return f"Server error, cannot parse response. {response.content.decode('utf-8')}"
+
+
+class BearerTokenAuth(requests.auth.AuthBase):
+    """Send the token in the `Authorization` header so URLs in logs do not contain it."""
+
+    def __init__(self, token: str) -> None:
+        self.token = token.strip()
+
+    def __call__(self, request: PreparedRequest) -> PreparedRequest:
+        request.headers["Authorization"] = f"Bearer {self.token}"
+        return request
 
 
 class TinyB:
@@ -119,18 +130,16 @@ class TinyB:
     def _req_raw(
         self,
         endpoint: str,
-        data=None,
-        files=None,
+        data: Any = None,
+        files: Optional[Dict[str, Any]] = None,
         method: str = "GET",
         retries: int = LIMIT_RETRIES,
         use_token: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Response:
         url = f"{self.host.strip('/')}/{endpoint.strip('/')}"
 
         token_to_use = use_token or self.token
-        if token_to_use:
-            url += ("&" if "?" in endpoint else "?") + "token=" + token_to_use
         if self.version:
             url += ("&" if "?" in url else "?") + "cli_version=" + quote(self.version)
         if self.semver:
@@ -143,6 +152,8 @@ class TinyB:
         verify_ssl = not self.disable_ssl_checks
         try:
             with requests.Session() as session:
+                if token_to_use:
+                    session.auth = BearerTokenAuth(token_to_use)
                 if retries > 0:
                     retry = Retry(
                         total=retries,
@@ -186,13 +197,13 @@ class TinyB:
     def _req(
         self,
         endpoint: str,
-        data=None,
-        files=None,
+        data: Any = None,
+        files: Optional[Dict[str, Any]] = None,
         method: str = "GET",
         retries: int = LIMIT_RETRIES,
         use_token: Optional[str] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> Any:
         token_to_use = use_token or self.token
         response = self._req_raw(endpoint, data, files, method, retries, use_token, **kwargs)
 
@@ -265,7 +276,7 @@ class TinyB:
     def alter_tokens(self, name: str, scopes: List[str]):
         if not scopes:
             return None
-        scopes_url: str = "&".join([f"scope={scope}" for scope in scopes])
+        scopes_url: str = urlencode([("scope", scope) for scope in scopes])
         url = f"/v0/tokens/{name}"
         if len(url + "?" + scopes_url) > TinyB.MAX_GET_LENGTH:
             return self._req(url, method="PUT", data=scopes_url)
@@ -404,11 +415,11 @@ class TinyB:
         except DoesNotExistException:
             raise Exception(f"Data Source {datasource} not found.")
 
-    def datasource_analyze(self, url):
+    def datasource_analyze(self, url: str) -> Dict[str, Any]:
         params = {"url": url}
         return self._req(f"/v0/analyze?{urlencode(params)}", method="POST", data="")
 
-    def datasource_analyze_file(self, data):
+    def datasource_analyze_file(self, data: bytes) -> Dict[str, Any]:
         return self._req("/v0/analyze", method="POST", data=data)
 
     def datasource_create_from_definition(self, parameter_definition: Dict[str, str]):
@@ -419,7 +430,7 @@ class TinyB:
         table_name: str,
         url: str,
         mode: str = "create",
-        status_callback=None,
+        status_callback: Optional[Callable[..., None]] = None,
         sql_condition: Optional[str] = None,
         format: str = "csv",
         replace_options: Optional[Set[str]] = None,
@@ -486,11 +497,11 @@ class TinyB:
         datasource_name: str,
         file: Union[str, Path],
         mode: str = "append",
-        status_callback=None,
+        status_callback: Optional[Callable[..., None]] = None,
         sql_condition: Optional[str] = None,
         format: str = "csv",
         replace_options: Optional[Set[str]] = None,
-    ):
+    ) -> Dict[str, Any]:
         # Keep this argument for SDK compatibility; v1 returns before import completion.
         del status_callback
         with open(file, "rb") as content:
@@ -680,7 +691,13 @@ class TinyB:
             params.update({"on_demand_compute": "true"})
         return self._req(f"/v0/pipes/{pipe_name}/nodes/{node_name}/population?{urlencode(params)}", method="POST")
 
-    def pipes(self, branch=None, dependencies: bool = False, node_attrs=None, attrs=None) -> List[Dict[str, Any]]:
+    def pipes(
+        self,
+        branch: Optional[str] = None,
+        dependencies: bool = False,
+        node_attrs: Optional[str] = None,
+        attrs: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
         params = {
             "dependencies": "true" if dependencies else "false",
             "attrs": attrs or "",
@@ -840,7 +857,9 @@ class TinyB:
         return self._req(f"/v0/jobs/{job_id}/retry", method="POST", data=b"")
 
     def user_workspaces(self, version: str = "v0"):
-        data = self._req(f"/{version}/user/workspaces/?with_environments=false")
+        data = self._req(
+            f"/{version}/user/workspaces/?with_dedicated_cluster=false&with_member_notifications=false&with_environments=false"
+        )
         # TODO: this is repeated in local_common.py but I'm avoiding circular imports
         local_port = int(os.getenv("TB_LOCAL_PORT", 80))
         local_host = f"http://localhost:{local_port}"
@@ -851,20 +870,24 @@ class TinyB:
         return {**data, "workspaces": local_workspaces}
 
     def user_workspaces_and_branches(self, version: str = "v0"):
-        return self._req(f"/{version}/user/workspaces/?with_environments=true")
+        return self._req(
+            f"/{version}/user/workspaces/?with_dedicated_cluster=false&with_member_notifications=false&with_environments=true"
+        )
 
     def user_workspaces_with_organization(self, version: str = "v0"):
         return self._req(
-            f"/{version}/user/workspaces/?with_environments=false&with_organization=true&with_members_and_owner=false"
+            f"/{version}/user/workspaces/?with_dedicated_cluster=false&with_environments=false&with_organization=true&with_members_and_owner=false"
         )
 
     def user_workspace_branches(self, version: str = "v0"):
-        return self._req(f"/{version}/user/workspaces/?with_environments=true&only_environments=true")
+        return self._req(
+            f"/{version}/user/workspaces/?with_dedicated_cluster=false&with_member_notifications=false&with_environments=true&only_environments=true"
+        )
 
     def branches(self, version: str = "v1"):
         return self._req(f"/{version}/environments")
 
-    def releases(self, workspace_id):
+    def releases(self, workspace_id: str) -> Dict[str, Any]:
         return self._req(f"/v0/workspaces/{workspace_id}/releases")
 
     def create_workspace(
@@ -1010,9 +1033,6 @@ class TinyB:
     def organization_limits(self, organization_id: str):
         return self._req(f"/v1/billing/{organization_id}/limits")
 
-    def organization_subscription(self, organization_id: str):
-        return self._req(f"/v1/billing/{organization_id}/subscription")
-
     def create_organization(
         self,
         name: str,
@@ -1090,7 +1110,9 @@ class TinyB:
 
         return res
 
-    def datasource_kafka_connect(self, connection_id, datasource_name, topic, group, auto_offset_reset):
+    def datasource_kafka_connect(
+        self, connection_id: str, datasource_name: str, topic: str, group: str, auto_offset_reset: str
+    ) -> Dict[str, Any]:
         return self._req(
             f"/v0/datasources?connector={connection_id}&name={datasource_name}&"
             f"kafka_topic={topic}&kafka_group_id={group}&kafka_auto_offset_reset={auto_offset_reset}",
@@ -1100,22 +1122,22 @@ class TinyB:
 
     def connection_create_kafka(
         self,
-        kafka_bootstrap_servers,
-        kafka_key,
-        kafka_secret,
-        kafka_connection_name,
-        kafka_auto_offset_reset=None,
-        kafka_schema_registry_url=None,
-        kafka_sasl_mechanism="PLAIN",
-        kafka_security_protocol="SASL_SSL",
-        kafka_ssl_ca_pem=None,
-        kafka_sasl_oauthbearer_method=None,
-        kafka_sasl_oauthbearer_aws_region=None,
-        kafka_sasl_oauthbearer_aws_role_arn=None,
-        kafka_sasl_oauthbearer_aws_external_id=None,
-    ):
+        kafka_bootstrap_servers: str,
+        kafka_key: Optional[str],
+        kafka_secret: Optional[str],
+        kafka_connection_name: str,
+        kafka_auto_offset_reset: Optional[str] = None,
+        kafka_schema_registry_url: Optional[str] = None,
+        kafka_sasl_mechanism: str = "PLAIN",
+        kafka_security_protocol: str = "SASL_SSL",
+        kafka_ssl_ca_pem: Optional[str] = None,
+        kafka_sasl_oauthbearer_method: Optional[str] = None,
+        kafka_sasl_oauthbearer_aws_region: Optional[str] = None,
+        kafka_sasl_oauthbearer_aws_role_arn: Optional[str] = None,
+        kafka_sasl_oauthbearer_aws_external_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         is_oauthbearer = kafka_sasl_mechanism == "OAUTHBEARER"
-        params = {
+        params: Dict[str, Optional[str]] = {
             "service": "kafka",
             "kafka_security_protocol": kafka_security_protocol,
             "kafka_sasl_mechanism": kafka_sasl_mechanism,
@@ -1148,7 +1170,7 @@ class TinyB:
             data=json.dumps(connection_params),
         )
 
-    def kafka_list_topics(self, connection_id: str, timeout=10, retries=3):
+    def kafka_list_topics(self, connection_id: str, timeout: int = 10, retries: int = 3) -> List[str]:
         resp = self._req(
             f"/v0/connectors/{connection_id}/preview?preview_activity=false",
             timeout=timeout,
@@ -1156,7 +1178,7 @@ class TinyB:
         )
         return [x["topic"] for x in resp["preview"]]
 
-    def kafka_preview_group(self, connection_id: str, topic: str, group_id: str, timeout=30):
+    def kafka_preview_group(self, connection_id: str, topic: str, group_id: str, timeout: int = 30) -> Dict[str, Any]:
         params = {
             "log": "previewGroup",
             "kafka_group_id": group_id,
@@ -1248,7 +1270,7 @@ class TinyB:
     def get_connector_by_id(self, connector_id: Optional[str] = None):
         return self._req(f"/v0/connectors/{connector_id}")
 
-    def connector_delete(self, connection_id):
+    def connector_delete(self, connection_id: str) -> Optional[Dict[str, Any]]:
         return self._req(f"/v0/connectors/{connection_id}", method="DELETE")
 
     def validate_preview_connection(self, service: str, params: Dict[str, Any]) -> bool:
@@ -1344,7 +1366,7 @@ class TinyB:
     def sql_get_used_tables(self, sql: str, raising: bool = False, is_copy: Optional[bool] = False) -> List[str]:
         return self._sql_get_used_tables_remote(sql, raising, is_copy)
 
-    def _replace_tables_remote(self, q: str, replacements):
+    def _replace_tables_remote(self, q: str, replacements: Mapping[Union[str, Tuple[str, str]], str]) -> str:
         params = {
             "q": q,
             "replacements": json.dumps({k[1] if isinstance(k, tuple) else k: v for k, v in replacements.items()}),
@@ -1352,10 +1374,10 @@ class TinyB:
         result = self._req("/v0/sql_replace", data=params, method="POST")
         return result["query"]
 
-    def replace_tables(self, q: str, replacements):
+    def replace_tables(self, q: str, replacements: Mapping[Union[str, Tuple[str, str]], str]) -> str:
         return self._replace_tables_remote(q, replacements)
 
-    def get_connection(self, **kwargs):
+    def get_connection(self, **kwargs: Any) -> Optional[Dict[str, Any]]:
         result = self._req("/v0/connectors")
         return next((connector for connector in result["connectors"] if connector_equals(connector, kwargs)), None)
 
@@ -1437,6 +1459,7 @@ class TinyB:
         )
 
         if "scopes" in token:
+            scope_params = []
             for scope_dict in token["scopes"]:
                 scope_types = scope_dict["name"].split(",")
                 for scope_type in scope_types:
@@ -1446,7 +1469,8 @@ class TinyB:
                         scope += f":{resource}"
                         if "filter" in scope_dict:
                             scope += f":{scope_dict['filter']}"
-                    params += f"&scope={scope}"
+                    scope_params.append(f"&scope={scope}")
+            params += "".join(scope_params)
         return params
 
     def token_create(self, token: Dict[str, Any]):

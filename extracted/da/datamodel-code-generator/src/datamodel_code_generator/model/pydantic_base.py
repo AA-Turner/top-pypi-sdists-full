@@ -57,6 +57,7 @@ from datamodel_code_generator.model._render_plan import CallArguments as _FieldA
 from datamodel_code_generator.model.base import (
     _default_state,
     _field_render,
+    _model_of_reference,
     _nested_model_factory,
     _NestedModelFactory,
     _normalized_constraint_kwargs,
@@ -74,7 +75,6 @@ if TYPE_CHECKING:
     from collections import defaultdict
     from collections.abc import Callable, Mapping
 
-    from datamodel_code_generator.model._views import ModelView, ReferenceView
     from datamodel_code_generator.reference import Reference
 
 # Preserve names that were historically importable from this module.
@@ -134,11 +134,6 @@ class _PydanticFieldRenderPlan(NamedTuple):
 
 
 _EMPTY_FIELD_TEXT = _PydanticFieldRenderPlan("", None, (), None)
-
-
-def _model_of_reference(reference: ReferenceView) -> ModelView | None:
-    """Return the model a reference names, as the written output holds it, or None when it names no model."""
-    return source if isinstance(source := cast("Reference", reference).source, DataModel) else None
 
 
 def _put_discriminator_last(args: _FieldArguments) -> None:
@@ -298,10 +293,7 @@ class DataModelField(DataModelFieldBase):
             if overridden.reason == "override-type-does-not-take":
                 reasons.append(f"--type-overrides writes {self.data_type.type_hint} in place of {overridden.detail}")
                 count += cast("int", overridden.value)
-        if rejected := [
-            *(o.value for o in omitted if o.why.rule == _PYTHON_ENGINE_REJECTS),
-            *(pattern for _, pattern in self._rejected_type_patterns()),
-        ]:
+        if rejected := self._python_rejected_patterns():
             reasons.append(
                 "Python's regex engine, which the config building it selects, does not compile "
                 + ", ".join(f"pattern={represent_python_value(value)}" for value in rejected)
@@ -402,6 +394,17 @@ class DataModelField(DataModelFieldBase):
             if data_type.kwargs
             and isinstance(pattern := data_type.kwargs.get("pattern"), str)
             and self._python_engine_rejects(pattern)
+        ]
+
+    def _python_rejected_patterns(self) -> list[object]:
+        """Return the patterns ``python-re`` builds and Python's ``re`` rejects that the field leaves out.
+
+        The ``pattern`` of its ``Field()`` (the render plan's ``omitted``) and those of its types
+        (``_rejected_type_patterns``).
+        """
+        return [
+            *(o.value for o in self._render_plan().omitted if o.why.rule == _PYTHON_ENGINE_REJECTS),
+            *(pattern for _, pattern in self._rejected_type_patterns()),
         ]
 
     def _written_type(self) -> DataType | None:

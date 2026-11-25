@@ -341,10 +341,13 @@
     }).catch(() => {});
   }
 
-  // The title's ‹ › while there is no email that way.
+  // The title's ‹ › while there is no email that way, and which of the listed emails it is.
   function markSteps() {
     const rows = viewRows();
     const at = rows.indexOf(viewing);
+    document.querySelectorAll("#page-view [data-view-count]").forEach((count) => {
+      count.textContent = at < 0 ? "" : `${at + 1} / ${rows.length}`;
+    });
     document.querySelectorAll("#page-view [data-view-step]").forEach((button) => {
       button.disabled = !rows[at + Number(button.dataset.viewStep)];
     });

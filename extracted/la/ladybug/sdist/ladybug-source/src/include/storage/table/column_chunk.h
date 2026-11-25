@@ -258,7 +258,7 @@ public:
     // Applies a capture taken earlier: drops sub-horizon chains in place and stages
     // synthetic horizon base nodes from the captured values. Safe on chunks shared with
     // in-flight scans: every removed node is invisible to all live scans (startTS is
-    // always >= the horizon), and empty vector shells are pruned only when unshared.
+    // always >= the horizon), and trailing empty vector shells are popped only when unshared.
     void applyUpdateRetention(UpdateRetentionCapture&& capture);
     // Copies retained chains (kept nodes, kept newest-below nodes, synthetic horizon base
     // nodes) from an in-memory source chunk whose rows land `rowDelta` rows later in this
@@ -270,6 +270,12 @@ public:
     // path), since their chunk-level buffers and null masks are not positionally valid.
     void readBaseValue(common::row_idx_t rowInChunk, ColumnChunkData& out,
         common::row_idx_t outPos) const;
+    // Folds committed update chains into the in-memory base and drops the folded nodes.
+    // Only runs on IN_MEMORY chunks exclusively owned (use_count == 1); ON_DISK chunks
+    // and shared chunks are skipped. `horizon` is the oldest active startTS (or
+    // INVALID_TRANSACTION when no readers are active); only committed versions below it
+    // are folded. Returns true when any chain data was reclaimed.
+    bool vacuumInMemoryUpdates(common::transaction_t horizon);
 
     // Clears the pending updates. If a scan shares them, drops only this chunk's reference
     // and the scan keeps the pre-checkpoint updates.
@@ -326,6 +332,13 @@ public:
         for (auto& segment : data) {
             DASSERT(segment->getResidencyState() == ResidencyState::IN_MEMORY);
             segment->flush(pageAllocator);
+        }
+    }
+
+    void appendSegments(std::vector<std::unique_ptr<ColumnChunkData>> segments) {
+        data.reserve(data.size() + segments.size());
+        for (auto& segment : segments) {
+            data.push_back(std::move(segment));
         }
     }
 
@@ -395,6 +408,18 @@ private:
     // pointer without a lock while a writer may be adding the chunk's first update.
     std::shared_ptr<UpdateInfo> updateInfo = std::make_shared<UpdateInfo>();
 };
+
+// Checkpoint rewrite-size gate (gh-1678): when a checkpoint would rewrite at most
+// this many bytes (persistent last segment + inserts), it uses the legacy exact paths
+// (in-place updates through the shadow file, merged segments). Above it, pure appends
+// take the bounded O(batch) append path instead of rebuilding the whole segment out
+// of place, which needs pool memory proportional to one node group's string data.
+// All existing segmentation/shadow-page tests operate far below this threshold.
+inline constexpr uint64_t kCheckpointExactRewriteMaxBytes = 8ull << 20;
+
+// Disk footprint of one ON_DISK segment summed from its metadata page ranges
+// (no buffer scan). Includes child chunks for nested/variable-size types.
+LBUG_API uint64_t GetOnDiskSegmentBytes(const ColumnChunkData& chunk);
 
 } // namespace storage
 } // namespace lbug

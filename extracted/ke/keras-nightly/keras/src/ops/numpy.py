@@ -1403,7 +1403,7 @@ def _hamming(x):
         return backend.ops.numpy.hamming(x)
     dtype = config.floatx()
     compute_dtype = result_type(dtype, "float32")
-    x = backend.ops.cast(x, "int32")
+    x = backend.ops.cast(x, "int32") if backend.ops.is_tensor(x) else int(x)
     n = backend.ops.numpy.arange(x, dtype=compute_dtype)
     x_minus_1 = backend.ops.cast(x - 1, compute_dtype)
     phase = (
@@ -1448,7 +1448,7 @@ def _hanning(x):
         return backend.ops.numpy.hanning(x)
     dtype = config.floatx()
     compute_dtype = result_type(dtype, "float32")
-    x = backend.ops.cast(x, "int32")
+    x = backend.ops.cast(x, "int32") if backend.ops.is_tensor(x) else int(x)
     n = backend.ops.numpy.arange(x, dtype=compute_dtype)
     x_minus_1 = backend.ops.cast(x - 1, compute_dtype)
     phase = (
@@ -1880,7 +1880,7 @@ def _blackman(x):
         return backend.ops.numpy.blackman(x)
     dtype = config.floatx()
     compute_dtype = dtypes.result_type(dtype, "float32")
-    x = backend.ops.cast(x, "int32")
+    x = backend.ops.cast(x, "int32") if backend.ops.is_tensor(x) else int(x)
     n = backend.ops.numpy.arange(x, dtype=compute_dtype)
     x_minus_1 = backend.ops.cast(x - 1, compute_dtype)
     phase = (
@@ -3497,7 +3497,9 @@ def _exp2(x):
         return backend.ops.numpy.exp2(x)
     x = backend.ops.convert_to_tensor(x)
     x = backend.ops.cast(x, dtypes.promote_to_float_dtype(x.dtype))
-    return backend.ops.numpy.power(2.0, x)
+    return backend.ops.numpy.exp(
+        backend.ops.numpy.multiply(x, python_math.log(2.0))
+    )
 
 
 class Exp2(ElementwiseUnaryOperation):
@@ -4246,7 +4248,7 @@ def _hsplit(x, indices_or_sections):
 
 class Hypot(Operation):
     def call(self, x1, x2):
-        return backend.ops.numpy.hypot(x1, x2)
+        return _hypot(x1, x2)
 
     def compute_output_spec(self, x1, x2):
         dtype = dtypes.promote_to_float_dtype(
@@ -4283,7 +4285,43 @@ def hypot(x1, x2):
     """
     if any_symbolic_tensors((x1, x2)):
         return Hypot().symbolic_call(x1, x2)
-    return backend.ops.numpy.hypot(x1, x2)
+    return _hypot(x1, x2)
+
+
+def _hypot(x1, x2):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "hypot"
+    ):
+        return backend.ops.numpy.hypot(x1, x2)
+    x1 = backend.ops.convert_to_tensor(x1)
+    x2 = backend.ops.convert_to_tensor(x2)
+    dtype = dtypes.promote_to_float_dtype(
+        dtypes.result_type(x1.dtype, x2.dtype)
+    )
+    x1 = backend.ops.cast(x1, dtype)
+    x2 = backend.ops.cast(x2, dtype)
+    x1_abs = backend.ops.numpy.absolute(x1)
+    x2_abs = backend.ops.numpy.absolute(x2)
+    scale = backend.ops.numpy.maximum(x1_abs, x2_abs)
+    both_zero = backend.ops.numpy.equal(scale, 0)
+    scale = backend.ops.stop_gradient(
+        backend.ops.numpy.where(both_zero, 1, scale)
+    )
+    sum_sq = backend.ops.numpy.add(
+        backend.ops.numpy.square(backend.ops.numpy.divide(x1, scale)),
+        backend.ops.numpy.square(backend.ops.numpy.divide(x2, scale)),
+    )
+    sum_sq = backend.ops.numpy.where(both_zero, 1, sum_sq)
+    result = backend.ops.numpy.where(
+        both_zero,
+        0,
+        backend.ops.numpy.multiply(scale, backend.ops.numpy.sqrt(sum_sq)),
+    )
+    is_inf = backend.ops.numpy.logical_or(
+        backend.ops.numpy.isinf(x1_abs), backend.ops.numpy.isinf(x2_abs)
+    )
+    inf = backend.ops.cast(float("inf"), dtype)
+    return backend.ops.numpy.where(is_inf, inf, result)
 
 
 @keras_export(["keras.ops.identity", "keras.ops.numpy.identity"])
@@ -6174,7 +6212,7 @@ class Nanmax(Operation):
     def compute_output_spec(self, x):
         dtype = dtypes.result_type(getattr(x, "dtype", config.floatx()))
 
-        if backend.backend() == "torch" and dtype == "uint32":
+        if config.backend() == "torch" and dtype == "uint32":
             dtype = "int32"
 
         return KerasTensor(
@@ -6395,7 +6433,7 @@ class Nanmin(Operation):
     def compute_output_spec(self, x):
         dtype = dtypes.result_type(getattr(x, "dtype", config.floatx()))
 
-        if backend.backend() == "torch" and dtype == "uint32":
+        if config.backend() == "torch" and dtype == "uint32":
             dtype = "int32"
 
         return KerasTensor(
@@ -6579,7 +6617,7 @@ class Nanprod(Operation):
         elif dtype in ("uint8", "uint16"):
             dtype = "uint32"
 
-        if backend.backend() == "torch" and dtype == "uint32":
+        if config.backend() == "torch" and dtype == "uint32":
             dtype = "int32"
 
         return KerasTensor(
@@ -6884,7 +6922,7 @@ class Nansum(Operation):
         elif dtype in ("uint8", "uint16"):
             dtype = "uint32"
 
-        if backend.backend() == "torch" and dtype == "uint32":
+        if config.backend() == "torch" and dtype == "uint32":
             dtype = "int32"
         sparse = getattr(x, "sparse", False)
         return KerasTensor(
@@ -7451,7 +7489,7 @@ class Prod(Operation):
             elif dtype in ("uint8", "uint16"):
                 dtype = "uint32"
         # TODO: torch doesn't support uint32
-        if backend.backend() == "torch" and dtype == "uint32":
+        if config.backend() == "torch" and dtype == "uint32":
             dtype = "int32"
         return KerasTensor(
             reduce_shape(x.shape, axis=self.axis, keepdims=self.keepdims),
@@ -8662,7 +8700,7 @@ class Trace(Operation):
             output_dtype = "int32"
         elif output_dtype in ("uint8", "uint16"):
             output_dtype = "uint32"
-        if output_dtype == "uint32" and backend.backend() == "torch":
+        if output_dtype == "uint32" and config.backend() == "torch":
             # Torch backend doesn't support uint32 dtype.
             output_dtype = "int32"
         return KerasTensor(output_shape, dtype=output_dtype)
@@ -9791,7 +9829,7 @@ class Sum(Operation):
         elif dtype in ("uint8", "uint16"):
             dtype = "uint32"
         # TODO: torch doesn't support uint32
-        if backend.backend() == "torch" and dtype == "uint32":
+        if config.backend() == "torch" and dtype == "uint32":
             dtype = "int32"
         sparse = getattr(x, "sparse", False)
         return KerasTensor(
@@ -10317,7 +10355,7 @@ class Histogram(Operation):
         x = backend.ops.convert_to_tensor(x)
         if len(x.shape) > 1:
             raise ValueError("Input tensor must be 1-dimensional")
-        return backend.ops.numpy.histogram(x, bins=self.bins, range=self.range)
+        return _histogram(x, bins=self.bins, range=self.range)
 
     def compute_output_spec(self, x):
         return (
@@ -10382,7 +10420,43 @@ def histogram(x, bins=10, range=None):
             "Input tensor must be 1-dimensional. "
             f"Received: input.shape={x.shape}"
         )
-    return backend.ops.numpy.histogram(x, bins=bins, range=range)
+    return _histogram(x, bins=bins, range=range)
+
+
+def _histogram(x, bins=10, range=None):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "histogram"
+    ):
+        return backend.ops.numpy.histogram(x, bins=bins, range=range)
+    x = backend.ops.convert_to_tensor(x)
+    dtype = dtypes.promote_to_float_dtype(x.dtype)
+    x = backend.ops.cast(x, dtype)
+    if range is None:
+        min_val = backend.ops.numpy.min(x)
+        max_val = backend.ops.numpy.max(x)
+    else:
+        min_val = backend.ops.convert_to_tensor(range[0], dtype=dtype)
+        max_val = backend.ops.convert_to_tensor(range[1], dtype=dtype)
+    is_constant = backend.ops.numpy.equal(min_val, max_val)
+    min_val = backend.ops.numpy.where(
+        is_constant, backend.ops.numpy.subtract(min_val, 0.5), min_val
+    )
+    max_val = backend.ops.numpy.where(
+        is_constant, backend.ops.numpy.add(max_val, 0.5), max_val
+    )
+    bin_edges = backend.ops.numpy.linspace(
+        min_val, max_val, bins + 1, dtype=dtype
+    )
+    bin_indices = backend.ops.numpy.searchsorted(bin_edges, x, side="right")
+    bin_indices = backend.ops.numpy.where(
+        backend.ops.numpy.equal(x, bin_edges[-1]), bins, bin_indices
+    )
+    bin_counts = backend.ops.scatter(
+        backend.ops.numpy.expand_dims(bin_indices, -1),
+        backend.ops.numpy.ones_like(x),
+        (bins + 2,),
+    )
+    return bin_counts[1:-1], bin_edges
 
 
 class ArraySplit(Operation):

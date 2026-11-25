@@ -1,10 +1,12 @@
 import os
-from collections import namedtuple
-from typing import Any, Callable, Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 import click
 
-FeedbackMessage = namedtuple("FeedbackMessage", "message")
+
+class FeedbackMessage(NamedTuple):
+    message: str
+
 
 PROJECT_TYPE_PYTHON = "python-sdk"
 PROJECT_TYPE_TYPESCRIPT = "ts-sdk"
@@ -143,7 +145,7 @@ class FeedbackManager:
     error_invalid_token = error_message(
         "Invalid token\n** Run '{cli} auth --interactive' to select region. If you belong to a custom region, include your region host in the command:\n** {cli} auth --host https://<region>.tinybird.co"
     )
-    error_token_cannot_be_overriden = error_message("Token '{token}' cannot be overriden")
+    error_token_cannot_be_overriden = error_message("Token '{token}' cannot be overridden")
     error_invalid_query = error_message("Only SELECT queries are supported")
     error_pipe_does_not_exist = error_message("'{pipe}' pipe does not exist")
     error_datasource_does_not_exist = error_message("'{datasource}' Data Source does not exist")
@@ -438,6 +440,12 @@ class FeedbackManager:
     )
     error_number_of_fixed_params_and_resources_mismatch = error_message(
         "The number of --fixed-params options must not exceed the number of --scope and --resource options."
+    )
+    error_jwt_fixed_params_scope_mismatch = error_message(
+        "--fixed-params apply to the --scope and --resource at the same position, which is {scope} {resource}. Only PIPES:READ accepts --fixed-params."
+    )
+    error_jwt_filter_scope_mismatch = error_message(
+        "--filter applies to the --scope and --resource at the same position, which is {scope} {resource}. Only DATASOURCES:READ accepts --filter."
     )
     error_pipe_not_materialized = error_message("Pipe {pipe} is not materialized.")
     error_populate_no_materialized_in_pipe = error_message("No materialized nodes in pipe {pipe}. Use --node param.")
@@ -801,7 +809,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     warning_unknown_response = warning_message("** Warning. Unknown response from server: {response}")
     warning_resource_not_in_workspace = warning_message("** Warning: '{resource_name}' not found in workspace")
     warning_copy_pipes_changed = warning_message(
-        "Your changes in the copy pipe will be applied directly to Live. Alter strategy is prefered to change copy pipes. Increment the post-release number of the semver (for example: 0.0.1 -> 0.0.1-1)"
+        "Your changes in the copy pipe will be applied directly to Live. Alter strategy is preferred to change copy pipes. Increment the post-release number of the semver (for example: 0.0.1 -> 0.0.1-1)"
     )
     warning_sink_no_connection = warning_message(
         "** Warning: pipe '{pipe_name}' does not have an associated Sink connection."
@@ -1190,8 +1198,8 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     success_workspace_users_added = success_message("** Users added to workspace '{workspace_name}'")
     success_workspace_user_removed = success_message("** User {user} removed from workspace '{workspace_name}'")
     success_workspace_users_removed = success_message("** Users removed from workspace '{workspace_name}'")
-    success_workspace_user_changed_role = success_message("** {user}'s role setted to {role} in '{workspace_name}'")
-    success_workspace_users_changed_role = success_message("** Users' role setted to {role} in '{workspace_name}'")
+    success_workspace_user_changed_role = success_message("** {user}'s role set to {role} in '{workspace_name}'")
+    success_workspace_users_changed_role = success_message("** Users' role set to {role} in '{workspace_name}'")
 
     success_test_added = success_message("** Test added successfully")
     success_remember_api_host = success_message("** Remember to use {api_host} in all your API calls.")

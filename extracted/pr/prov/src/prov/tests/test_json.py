@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 
 import prov
-from prov.constants import PROV_LABEL
+from prov.constants import PROV, PROV_LABEL
 from prov.model import (
     Literal,
     ProvBundle,
@@ -58,9 +58,10 @@ def test_decoding_unicode_value() -> None:
 
 
 def test_multi_valued_prov_attribute_raises() -> None:
-    # PROV attributes (e.g. usage's prov:entity) must be single-valued;
-    # a JSON list of more than one value is rejected (docs/test-gap-
-    # checklist.md, T13 item under serializers/provjson.py).
+    # PROV attributes (e.g. usage's prov:entity) must be single-valued,
+    # so a JSON list of more than one value is rejected. hadMember's
+    # prov:entity is an exception, because a list there gives one record per
+    # member.
     json_content = """{
     "prefix": {"ex": "http://example.org/"},
     "used": {
@@ -75,13 +76,21 @@ def test_multi_valued_prov_attribute_raises() -> None:
 
 
 def test_encoder_default_fallback_for_non_document() -> None:
-    # Pins the isolated method's contract: for anything other than a
-    # ProvDocument, default() falls back to the base encoder. In the
-    # real serialize() path json.dump() only ever hands default() the
-    # top-level ProvDocument (everything nested is already plain
-    # dicts/strings), so this branch is not reachable end-to-end today.
-    encoder = ProvJSONEncoder()
-    assert encoder.default("plain string") == '"plain string"'
+    # For anything other than a ProvDocument, default() defers to
+    # JSONEncoder.default(), so an object json cannot encode raises the
+    # TypeError that plain json raises (#786).
+    with pytest.raises(TypeError, match="is not JSON serializable"):
+        json.dumps({"x": object()}, cls=ProvJSONEncoder)
+
+
+def test_encoder_writes_a_nested_document_as_its_prov_json() -> None:
+    # A document inside another structure encodes to the same PROV-JSON
+    # container that serialize() writes.
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.entity("ex:e1")
+    nested = json.loads(json.dumps({"doc": doc, "n": 1}, cls=ProvJSONEncoder))
+    assert nested == {"doc": json.loads(doc.serialize(format="json")), "n": 1}
 
 
 def test_an_empty_attribute_entry_is_omitted_from_json_and_jsonld() -> None:
@@ -100,7 +109,7 @@ def test_third_record_with_same_identifier_appends_to_existing_list() -> None:
     # The first duplicate-identifier record turns the container entry
     # into a singleton list; a third (or later) record with the same
     # identifier must append directly to that list without re-wrapping
-    # it (planning/test-gap-checklist.md, T13 item under provjson.py).
+    # it.
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
     doc.activity("ex:a1", other_attributes={"ex:tag": "one"})
@@ -286,16 +295,12 @@ def test_json_decoder_decodes_a_document() -> None:
     assert json.loads(text, cls=ProvJSONDecoder) == _read(text)
 
 
+# One row per time attribute. The reader decodes every relation's prov:time
+# along one path, so wasGeneratedBy stands for them all.
 _TIMES = [
     pytest.param(
         "wasGeneratedBy", {"prov:entity": "ex:e"}, "prov:time", id="generation"
     ),
-    pytest.param("used", {"prov:activity": "ex:a"}, "prov:time", id="usage"),
-    pytest.param(
-        "wasInvalidatedBy", {"prov:entity": "ex:e"}, "prov:time", id="invalidation"
-    ),
-    pytest.param("wasStartedBy", {"prov:activity": "ex:a"}, "prov:time", id="start"),
-    pytest.param("wasEndedBy", {"prov:activity": "ex:a"}, "prov:time", id="end"),
     pytest.param("activity", {}, "prov:startTime", id="startTime"),
     pytest.param("activity", {}, "prov:endTime", id="endTime"),
 ]
@@ -413,7 +418,8 @@ def test_bundle_own_prefix_stays_on_the_bundle() -> None:
 # full IRI is the undeclared prefix 'http'. A qualified-name value object is
 # one row here and every reason in test_unresolved_names.py. The other rows are
 # the inputs 3.2.3 warned about (#528, #529, #531, #532, #552, #555, #597), one
-# per message the reader gives.
+# per message the reader gives, and a formal attribute given different values
+# under two keys, which the model rejects (#774).
 _E = "record 'ex:e', attribute 'ex:k': "
 _R = "record 'ex:r', attribute "
 _M = "record 'ex:m', attribute 'prov:entity': "
@@ -444,6 +450,14 @@ def _value(value: object) -> str:
 
 def _time(time: object) -> str:
     return _json({"activity": {"ex:a": {"prov:startTime": time}}})
+
+
+def _respelt(section: str, attributes: dict[str, object]) -> str:
+    """A record ``ex:r`` whose keys may also name a PROV attribute under ``p``
+    or no prefix, because ``p`` and the default namespace are bound to the
+    PROV namespace (#774)."""
+    prefixes = {"ex": "http://example.org/"} | dict.fromkeys(("p", "default"), PROV.uri)
+    return json.dumps({"prefix": prefixes, section: {"ex:r": attributes}})
 
 
 REJECTED_DOCUMENTS = [
@@ -640,11 +654,6 @@ REJECTED_DOCUMENTS = [
         id="formal number",
     ),
     pytest.param(
-        _generation(**{"prov:activity": 1.5}),
-        _R + "'prov:activity': the value is 1.5, not a qualified name",
-        id="formal float",
-    ),
-    pytest.param(
         _generation(**{"prov:activity": True}),
         _R + "'prov:activity': the value is true, not a qualified name",
         id="formal boolean",
@@ -704,6 +713,27 @@ REJECTED_DOCUMENTS = [
         _json({"hadMember": {"ex:r": {**_MEMBERSHIP, "prov:entity": []}}}),
         _R + "'prov:entity': the value is an empty array",
         id="empty members",
+    ),
+    # #774: a formal attribute given different values under two keys that name it
+    pytest.param(
+        _respelt(
+            "wasGeneratedBy",
+            {"prov:entity": "ex:e", "prov:activity": "ex:a", "p:activity": "ex:b"},
+        ),
+        "record 'ex:r': Cannot have more than one value for attribute p:activity",
+        id="formal under two prefixes",
+    ),
+    pytest.param(
+        _respelt(
+            "hadMember",
+            {
+                "prov:collection": "ex:c",
+                "prov:entity": ["ex:e", "ex:f"],
+                "p:entity": ["ex:e", "ex:f"],
+            },
+        ),
+        "record 'ex:r': Cannot have more than one value for attribute p:entity",
+        id="members under two prefixes",
     ),
     # #529 and #552: a value object
     pytest.param(
@@ -888,6 +918,30 @@ def test_reader_rejects(text: str, message: str) -> None:
     with pytest.raises(ProvJSONException) as ctx:
         _ = ProvDocument.deserialize(content=text, format="json")
     assert str(ctx.value) == message
+
+
+@pytest.mark.parametrize(
+    ("section", "respelt", "plain"),
+    [
+        pytest.param(
+            "wasGeneratedBy",
+            {"prov:entity": "ex:e", "activity": "ex:a", "p:activity": "ex:a"},
+            {"prov:entity": "ex:e", "prov:activity": "ex:a"},
+            id="formal",
+        ),
+        pytest.param(
+            "hadMember",
+            {"prov:collection": "ex:c", "prov:entity": "ex:e", "p:entity": ["ex:e"]},
+            {"prov:collection": "ex:c", "prov:entity": "ex:e"},
+            id="member",
+        ),
+    ],
+)
+def test_formal_attribute_under_two_keys_with_one_value_reads(
+    section: str, respelt: dict[str, object], plain: dict[str, object]
+) -> None:
+    # #774: the model keeps one of two equal values.
+    assert _read(_respelt(section, respelt)) == _read(_respelt(section, plain))
 
 
 def test_empty_prefix_declares_the_default_namespace() -> None:

@@ -25,6 +25,8 @@ from geneva.checkpoint import (
     MultiBaseCheckpointStore,
     _parse_flat_key,
     _select_store_class,
+    _store_class_for_layout,
+    configured_store_layout,
     discard_short_checkpoint,
     read_checkpoint_num_rows,
     stamp_checkpoint_num_rows,
@@ -728,38 +730,59 @@ def test_checkpoint_store_rehydrates_namespace_session_from_properties(
     assert not (tmp_path / "checkpointed.lance" / "frag.lance").exists()
 
 
-def _seed_checkpoint_store(store: CheckpointStore) -> None:
-    """Populate a store with a representative mix of checkpoint keys."""
+# The UDF base parses on both layouts; UDTF keys always live in the flat store.
+_CLEANUP_UDTF_PREFIX = "udtf_x_v1_src-1_g=a"
+
+
+def _seed_checkpoint_store(
+    udf_store: CheckpointStore, udtf_store: CheckpointStore
+) -> None:
+    """Populate stores with a representative mix of checkpoint keys."""
     batch = pa.RecordBatch.from_pydict({"a": [1]})
-    base = "udf-foo_ver-1_col-c_where-w_uri-u"
+    base = _FLAT_KEY_BASE
     # frag 0: has dedupe + two batch keys -> batches should be cleaned
-    store[f"{base}_frag-0"] = batch
-    store[f"{base}_frag-0_range-0-100"] = batch
-    store[f"{base}_frag-0_range-100-200"] = batch
+    udf_store[f"{base}_frag-0"] = batch
+    udf_store[f"{base}_frag-0_range-0-100"] = batch
+    udf_store[f"{base}_frag-0_range-100-200"] = batch
     # frag 1: has batch keys but no dedupe yet -> retained
-    store[f"{base}_frag-1_range-0-100"] = batch
+    udf_store[f"{base}_frag-1_range-0-100"] = batch
     # frag 99: orphaned (no longer in dataset)
-    store[f"{base}_frag-99"] = batch
-    store[f"{base}_frag-99_range-0-100"] = batch
+    udf_store[f"{base}_frag-99"] = batch
+    udf_store[f"{base}_frag-99_range-0-100"] = batch
     # UDTF partition with both _fragment and _batch- keys
-    udtf_prefix = "udtf_x_v1_src-1_g=a"
-    store[f"{udtf_prefix}_batch-0000"] = batch
-    store[f"{udtf_prefix}_batch-0001"] = batch
-    store[f"{udtf_prefix}_fragment"] = batch
+    udtf_store[f"{_CLEANUP_UDTF_PREFIX}_batch-0000"] = batch
+    udtf_store[f"{_CLEANUP_UDTF_PREFIX}_batch-0001"] = batch
+    udtf_store[f"{_CLEANUP_UDTF_PREFIX}_fragment"] = batch
 
 
-def test_table_cleanup_checkpoints(tmp_path: Path) -> None:
-    """Manual sweep removes redundant batch + orphan-frag + UDTF batch keys."""
+def _seeded_table(
+    path: Path,
+) -> tuple[object, CheckpointStore, CheckpointStore]:
+    """A one-fragment table with seeded UDF (configured) + UDTF (flat) stores."""
     from geneva import connect
 
-    db = connect(tmp_path)
+    db = connect(path)
     tbl = db.create_table("t", pa.table({"id": list(range(8))}))
-    # Single fragment with id 0 exists; frag 99 is intentionally orphaned.
-    current_frag_ids = {f.fragment_id for f in tbl.to_lance().get_fragments()}
-    assert 99 not in current_frag_ids
+    udf_store = tbl.get_reference().open_checkpoint_store()
+    udtf_store = tbl.get_reference().open_checkpoint_store(layout="flat")
+    _seed_checkpoint_store(udf_store, udtf_store)
+    return tbl, udf_store, udtf_store
 
-    store = tbl.get_reference().open_checkpoint_store()
-    _seed_checkpoint_store(store)
+
+@pytest.mark.parametrize("store_layout", ["flat", "hierarchical"])
+def test_table_cleanup_checkpoints(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store_layout: str
+) -> None:
+    """Manual sweep removes redundant batch + orphan-frag + UDTF batch keys.
+
+    Under the hierarchical default, UDF and UDTF checkpoints live in separate
+    roots (``_ckpv2`` vs ``_ckp``), so the sweep must cover both.
+    """
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _patch_layout(monkeypatch, store_layout)
+    tbl, udf_store, udtf_store = _seeded_table(tmp_path)
+    # Single fragment with id 0 exists; frag 99 is intentionally orphaned.
+    assert 99 not in {f.fragment_id for f in tbl.to_lance().get_fragments()}
 
     counts = tbl.cleanup_checkpoints()
 
@@ -771,32 +794,30 @@ def test_table_cleanup_checkpoints(tmp_path: Path) -> None:
     assert counts["orphan_frag_deleted"] == 2
     assert counts["udtf_batch_deleted"] == 2
 
-    base = "udf-foo_ver-1_col-c_where-w_uri-u"
-    udtf_prefix = "udtf_x_v1_src-1_g=a"
-
-    assert f"{base}_frag-0" in store  # dedupe key retained
-    assert f"{base}_frag-0_range-0-100" not in store
-    assert f"{base}_frag-0_range-100-200" not in store
-    assert f"{base}_frag-99" not in store
-    assert f"{base}_frag-99_range-0-100" not in store
-    assert f"{udtf_prefix}_fragment" in store
-    assert f"{udtf_prefix}_batch-0000" not in store
-    assert f"{udtf_prefix}_batch-0001" not in store
+    base = _FLAT_KEY_BASE
+    assert f"{base}_frag-0" in udf_store  # dedupe key retained
+    assert f"{base}_frag-0_range-0-100" not in udf_store
+    assert f"{base}_frag-0_range-100-200" not in udf_store
+    assert f"{base}_frag-99" not in udf_store
+    assert f"{base}_frag-99_range-0-100" not in udf_store
+    assert f"{_CLEANUP_UDTF_PREFIX}_fragment" in udtf_store
+    assert f"{_CLEANUP_UDTF_PREFIX}_batch-0000" not in udtf_store
+    assert f"{_CLEANUP_UDTF_PREFIX}_batch-0001" not in udtf_store
 
 
-def test_table_cleanup_checkpoints_pass_flags(tmp_path: Path) -> None:
+@pytest.mark.parametrize("store_layout", ["flat", "hierarchical"])
+def test_table_cleanup_checkpoints_pass_flags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store_layout: str
+) -> None:
     """Each `_clean_*` flag scopes the sweep to a single pass."""
-    from geneva import connect
-
-    base = "udf-foo_ver-1_col-c_where-w_uri-u"
-    udtf_prefix = "udtf_x_v1_src-1_g=a"
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _patch_layout(monkeypatch, store_layout)
+    base = _FLAT_KEY_BASE
+    udtf_prefix = _CLEANUP_UDTF_PREFIX
 
     # Pass 1 only: batch checkpoints under matching dedupe keys.
-    db = connect(tmp_path / "batches")
-    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
-    store = tbl.get_reference().open_checkpoint_store()
-    _seed_checkpoint_store(store)
-    counts = tbl.cleanup_checkpoints(
+    tbl, udf_store, udtf_store = _seeded_table(tmp_path / "batches")
+    counts = tbl.cleanup_checkpoints(  # type: ignore[attr-defined]
         _clean_batches=True,
         _clean_orphan_fragments=False,
         _clean_udtf_batches=False,
@@ -807,15 +828,12 @@ def test_table_cleanup_checkpoints_pass_flags(tmp_path: Path) -> None:
         "udtf_batch_deleted": 0,
     }
     # Orphan frag-99 dedupe survives this scoped pass.
-    assert f"{base}_frag-99" in store
-    assert f"{udtf_prefix}_batch-0000" in store
+    assert f"{base}_frag-99" in udf_store
+    assert f"{udtf_prefix}_batch-0000" in udtf_store
 
     # Pass 2 only: orphaned fragment ids.
-    db = connect(tmp_path / "orphans")
-    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
-    store = tbl.get_reference().open_checkpoint_store()
-    _seed_checkpoint_store(store)
-    counts = tbl.cleanup_checkpoints(
+    tbl, udf_store, udtf_store = _seeded_table(tmp_path / "orphans")
+    counts = tbl.cleanup_checkpoints(  # type: ignore[attr-defined]
         _clean_batches=False,
         _clean_orphan_fragments=True,
         _clean_udtf_batches=False,
@@ -828,15 +846,12 @@ def test_table_cleanup_checkpoints_pass_flags(tmp_path: Path) -> None:
         "udtf_batch_deleted": 0,
     }
     # Pass 1 was skipped, so batches under matching dedupe survive.
-    assert f"{base}_frag-0_range-0-100" in store
-    assert f"{udtf_prefix}_batch-0000" in store
+    assert f"{base}_frag-0_range-0-100" in udf_store
+    assert f"{udtf_prefix}_batch-0000" in udtf_store
 
     # Pass 3 only: UDTF batch keys with completed partition.
-    db = connect(tmp_path / "udtf")
-    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
-    store = tbl.get_reference().open_checkpoint_store()
-    _seed_checkpoint_store(store)
-    counts = tbl.cleanup_checkpoints(
+    tbl, udf_store, udtf_store = _seeded_table(tmp_path / "udtf")
+    counts = tbl.cleanup_checkpoints(  # type: ignore[attr-defined]
         _clean_batches=False,
         _clean_orphan_fragments=False,
         _clean_udtf_batches=True,
@@ -846,9 +861,131 @@ def test_table_cleanup_checkpoints_pass_flags(tmp_path: Path) -> None:
         "orphan_frag_deleted": 0,
         "udtf_batch_deleted": 2,
     }
-    assert f"{base}_frag-0_range-0-100" in store
-    assert f"{base}_frag-99" in store
-    assert f"{udtf_prefix}_batch-0000" not in store
+    assert f"{base}_frag-0_range-0-100" in udf_store
+    assert f"{base}_frag-99" in udf_store
+    assert f"{udtf_prefix}_batch-0000" not in udtf_store
+
+
+@pytest.mark.parametrize("clean_udtf", [True, False])
+def test_cleanup_reclaims_legacy_flat_udf_keys_under_hierarchical_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clean_udtf: bool
+) -> None:
+    """UDF checkpoints left in the flat root from before the flip are reclaimed,
+    whether or not the UDTF pass runs (the documented migration remediation)."""
+    from geneva import connect
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _patch_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
+
+    base = _FLAT_KEY_BASE
+    flat = tbl.get_reference().open_checkpoint_store(layout="flat")
+    batch = pa.RecordBatch.from_pydict({"a": [1]})
+    flat[f"{base}_frag-0"] = batch  # live-fragment dedupe -> kept
+    flat[f"{base}_frag-0_range-0-100"] = batch  # batch w/ matching dedupe -> reclaimed
+    flat[f"{base}_frag-99"] = batch  # orphaned fragment dedupe -> reclaimed
+
+    counts = tbl.cleanup_checkpoints(_clean_udtf_batches=clean_udtf)
+
+    assert counts["batch_deleted"] == 1
+    assert counts["orphan_frag_deleted"] == 1
+    assert f"{base}_frag-0_range-0-100" not in flat
+    assert f"{base}_frag-99" not in flat
+    assert f"{base}_frag-0" in flat
+
+
+def test_cleanup_orphan_key_in_both_roots_reclaims_both(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An orphaned key present in both roots is reclaimed from each in one sweep."""
+    from geneva import connect
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _patch_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
+
+    key = f"{_FLAT_KEY_BASE}_frag-99"
+    batch = pa.RecordBatch.from_pydict({"a": [1]})
+    hier = tbl.get_reference().open_checkpoint_store(layout="hierarchical")
+    flat = tbl.get_reference().open_checkpoint_store(layout="flat")
+    hier[key] = batch
+    flat[key] = batch
+
+    counts = tbl.cleanup_checkpoints()
+
+    assert counts["orphan_frag_deleted"] == 2
+    assert key not in hier
+    assert key not in flat
+
+
+def test_cleanup_reclaims_udtf_batches_from_hierarchical_keys_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """UDTF keys written to the hierarchical ``_keys/`` dir (the pre-flip opt-in
+    window) are still reclaimed."""
+    from geneva import connect
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _patch_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
+    hier = tbl.get_reference().open_checkpoint_store(layout="hierarchical")
+    batch = pa.RecordBatch.from_pydict({"x": [1]})
+    part = "udtf_v_src-1_g=a"
+    hier[f"{part}_batch-0000"] = batch
+    hier[f"{part}_fragment"] = batch
+
+    counts = tbl.cleanup_checkpoints()
+
+    assert counts["udtf_batch_deleted"] == 1
+    assert f"{part}_batch-0000" not in hier
+
+
+def test_cleanup_reclaims_udtf_batches_under_shared_subdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Under a blanket GENEVA_CHECKPOINT_SUBDIR both layouts share a root; the
+    flat reader must still be swept so root-level UDTF batches are reclaimed."""
+    from geneva import connect
+
+    monkeypatch.setenv("GENEVA_CHECKPOINT_SUBDIR", "_shared")
+    _patch_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
+    tbl_ref = tbl.get_reference()
+    flat = tbl_ref.open_checkpoint_store(layout="flat")
+    assert flat.uri() == tbl_ref.open_checkpoint_store(layout="hierarchical").uri()
+
+    batch = pa.RecordBatch.from_pydict({"x": [1]})
+    part = "udtf_v_src-1_g=a"
+    flat[f"{part}_batch-0000"] = batch
+    flat[f"{part}_fragment"] = batch
+
+    counts = tbl.cleanup_checkpoints()
+
+    assert counts["udtf_batch_deleted"] == 1
+    assert f"{part}_batch-0000" not in flat
+
+
+def test_cleanup_tolerates_missing_flat_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A table that never had flat checkpoints sweeps cleanly under hierarchical."""
+    from geneva import connect
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _patch_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
+    hier = tbl.get_reference().open_checkpoint_store()
+    hier[f"{_FLAT_KEY_BASE}_frag-99"] = pa.RecordBatch.from_pydict({"a": [1]})
+
+    counts = tbl.cleanup_checkpoints()
+
+    assert counts["orphan_frag_deleted"] == 1
+    assert not (tmp_path / "t.lance" / "_ckp").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -1266,7 +1403,7 @@ def test_v2_iter_bf_identities_enumerates_blob_only_no_pyarrow_fs(
     (``list_with_delimiter``), never PyArrow's AzureFileSystem, which probes
     the Azure HNS endpoint and aborts on flat-namespace / unreachable-dfs
     accounts. If it silently yielded nothing there, has_udf_version_mismatch /
-    has_srcfiles_hash_mismatch would report "no mismatch" and reuse stale
+    srcfiles_hashes would report "no mismatch" and reuse stale
     checkpoints even when the UDF changed (GEN-645/GEN-661).
     """
     import geneva.utils.storage as storage_module
@@ -1590,8 +1727,8 @@ def test_v2_list_bf_dir_leaves_scope_not_doubled_in_namespace_mode(
     In namespace mode ``_ckp_root()`` is the bare prefix (no trailing slash); a
     doubled scope lists empty *without raising* on most backends, so
     iter_bf_identities would silently yield nothing -> has_udf_version_mismatch /
-    has_srcfiles_hash_mismatch always return "no mismatch" and reuse stale
-    checkpoints (GEN-645).
+    srcfiles_hashes always report "no mismatch" and reuse stale checkpoints
+    (GEN-645).
     """
     import types
 
@@ -1654,15 +1791,12 @@ def test_hierarchical_read_identity_corrupt_sidecar_cached_as_absent(
 
 
 def test_config_selects_store_class(tmp_path: Path) -> None:
-    """``store_layout="hierarchical"`` selects ``HierarchicalLanceCheckpointStore``."""
-    store = CheckpointConfig(
-        mode="tempfile",
-        store_layout="hierarchical",
-    ).make()
-    assert type(store) is HierarchicalLanceCheckpointStore
-    # Default is flat — exact-type check so a future subclass swap is noticed.
+    """``store_layout`` selects the matching store; the default is hierarchical."""
+    store = CheckpointConfig(mode="tempfile", store_layout="flat").make()
+    assert type(store) is FlatLanceCheckpointStore
+    # Default is hierarchical — exact-type check so a subclass swap is noticed.
     default_store = CheckpointConfig(mode="tempfile").make()
-    assert type(default_store) is FlatLanceCheckpointStore
+    assert type(default_store) is HierarchicalLanceCheckpointStore
     # Unknown layout values raise immediately.
     with pytest.raises(ValueError, match="store_layout"):
         CheckpointConfig(mode="tempfile", store_layout="unknown")
@@ -1682,12 +1816,10 @@ def test_default_table_subdir_per_class() -> None:
 def test_select_store_class_for_each_layout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``_select_store_class()`` honors the configured layout (and unset = flat).
+    """``_select_store_class()`` honors the configured layout (unset = hierarchical).
 
     Patches ``CheckpointConfig.get`` directly rather than driving the env-var
-    loader; the loader walks every required nested field (e.g.
-    ``object_store.path``) the moment any ``CHECKPOINT__*`` env var is set,
-    which is orthogonal to the layout selection under test.
+    loader, which is covered by the config-loading tests below.
     """
     for layout, expected in (
         ("flat", FlatLanceCheckpointStore),
@@ -1700,12 +1832,142 @@ def test_select_store_class_for_each_layout(
         )
         assert _select_store_class() is expected
 
-    # Config unavailable / failing falls back to flat (default).
+    # Config unavailable / failing falls back to the default (hierarchical).
     def _raise(cls: type) -> "CheckpointConfig":
         raise RuntimeError("config unavailable")
 
     monkeypatch.setattr(CheckpointConfig, "get", classmethod(_raise))
-    assert _select_store_class() is FlatLanceCheckpointStore
+    assert _select_store_class() is HierarchicalLanceCheckpointStore
+
+
+@pytest.mark.parametrize(
+    ("env_layout", "expected"),
+    [
+        (None, HierarchicalLanceCheckpointStore),
+        ("flat", FlatLanceCheckpointStore),
+        ("hierarchical", HierarchicalLanceCheckpointStore),
+    ],
+)
+def test_partial_checkpoint_env_config_loads(
+    monkeypatch: pytest.MonkeyPatch, env_layout: str | None, expected: type
+) -> None:
+    """``CHECKPOINT__*`` vars set without an object-store path load instead of
+    raising inside ``CheckpointConfig.get()``; the path is still required when
+    an object-store checkpoint store is actually built."""
+    CheckpointConfig.get.cache_clear()
+    monkeypatch.delenv("CHECKPOINT__OBJECT_STORE__PATH", raising=False)
+    monkeypatch.setenv("CHECKPOINT__MULTI_BASE_PLACEMENT", "0")
+    if env_layout is None:
+        monkeypatch.delenv("CHECKPOINT__STORE_LAYOUT", raising=False)
+    else:
+        monkeypatch.setenv("CHECKPOINT__STORE_LAYOUT", env_layout)
+    try:
+        cfg = CheckpointConfig.get()
+        assert cfg.multi_base_placement is False
+        assert _select_store_class() is expected
+        with pytest.raises(ValueError, match="path is required"):
+            cfg.make()
+    finally:
+        CheckpointConfig.get.cache_clear()
+
+
+def test_store_layout_from_config_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``checkpoint.store_layout`` in a config file selects the layout."""
+    from geneva.config import loader
+    from geneva.config.loader import from_file
+
+    monkeypatch.delenv("CHECKPOINT__STORE_LAYOUT", raising=False)
+    cfg_file = tmp_path / "geneva.toml"
+    cfg_file.write_text('[checkpoint]\nstore_layout = "flat"\n')
+    monkeypatch.setattr("geneva.config._CONFIG_LOADER", loader(from_file(cfg_file)))
+    CheckpointConfig.get.cache_clear()
+    try:
+        assert configured_store_layout() == "flat"
+        assert _select_store_class() is FlatLanceCheckpointStore
+    finally:
+        CheckpointConfig.get.cache_clear()
+
+
+def test_default_store_layout_is_hierarchical() -> None:
+    """GEN-602: the configured checkpoint layout defaults to hierarchical."""
+    assert CheckpointConfig().store_layout == "hierarchical"
+    assert _store_class_for_layout("hierarchical") is HierarchicalLanceCheckpointStore
+    assert _store_class_for_layout("flat") is FlatLanceCheckpointStore
+
+
+def test_hierarchical_unparseable_keys_absent_for_reads(tmp_path: Path) -> None:
+    """Keys with no hierarchical path (legacy bare-hash dedupe keys, malformed
+    keys) read as absent instead of raising."""
+    store = HierarchicalLanceCheckpointStore(str(tmp_path))
+    for key in ("deadbeefcafe1234", "not-a-checkpoint-key"):
+        assert key not in store
+        with pytest.raises(KeyError):
+            _ = store[key]
+        with pytest.raises(KeyError):
+            store.read_range(key, 0, 1)
+        with pytest.raises(KeyError):
+            store.delete(key)
+        with pytest.raises(KeyError):
+            store.purge(key)
+
+
+def test_hierarchical_round_trips_udtf_generic_key(tmp_path: Path) -> None:
+    """UDTF work-item keys route to ``_keys/`` and pass the read gates."""
+    store = HierarchicalLanceCheckpointStore(str(tmp_path))
+    key = "udtf_x_v1_src-1_g=a_fragment"
+
+    store[key] = pa.RecordBatch.from_pydict({"x": [1]})
+
+    assert key in store
+    assert store[key].to_pydict() == {"x": [1]}
+    assert (tmp_path / "_keys" / f"{key}.lance").exists()
+    store.purge(key)
+    assert key not in store
+
+
+def test_hierarchical_coexists_with_root_level_generic_keys(tmp_path: Path) -> None:
+    """A flat store sharing the root (blanket GENEVA_CHECKPOINT_SUBDIR) writes
+    UDTF keys at the root; that is not a layout mix. A flat ``udf-`` key still
+    is (see test_hierarchical_refuses_root_with_flat_entries)."""
+    flat = FlatLanceCheckpointStore(str(tmp_path))
+    batch = pa.RecordBatch.from_pydict({"x": [1]})
+    flat["udtf_x_v1_src-1_g=a_batch-0000"] = batch
+
+    hierarchical = HierarchicalLanceCheckpointStore(str(tmp_path))
+    hierarchical[f"{_FLAT_KEY_BASE}_frag-0"] = batch
+    assert f"{_FLAT_KEY_BASE}_frag-0" in hierarchical
+
+
+@pytest.mark.parametrize("layout", ["hierarchical", "flat"])
+def test_shared_subdir_with_legacy_flat_udf_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, layout: str
+) -> None:
+    """Upgrade impact of a blanket GENEVA_CHECKPOINT_SUBDIR (documented in
+    checkpoint-layout-v2.md): both layouts share one root, so legacy flat UDF
+    keys make the first hierarchical write fail with the remedy, while
+    ``store_layout=flat`` keeps writing."""
+    from geneva import connect
+
+    monkeypatch.setenv("GENEVA_CHECKPOINT_SUBDIR", "_shared")
+    _patch_layout(monkeypatch, layout)
+    db = connect(tmp_path)
+    tbl = db.create_table("t", pa.table({"id": list(range(8))}))
+    tbl_ref = tbl.get_reference()
+    batch = pa.RecordBatch.from_pydict({"x": [1]})
+    tbl_ref.open_checkpoint_store(layout="flat")[f"{_FLAT_KEY_BASE}_frag-7"] = batch
+
+    store = tbl_ref.open_checkpoint_store()
+    new_key = f"{_FLAT_KEY_BASE}_frag-9"
+    if layout == "flat":
+        store[new_key] = batch
+        assert new_key in store
+    else:
+        with pytest.raises(
+            CheckpointRootMixedLayoutError, match="CHECKPOINT__STORE_LAYOUT=flat"
+        ):
+            store[new_key] = batch
 
 
 def test_hierarchical_at_sibling_subdir_ignores_flat_root(tmp_path: Path) -> None:
@@ -1751,17 +2013,76 @@ def test_open_checkpoint_store_uses_per_class_subdir(
     db.create_table("t", pa.table({"id": [1]}))
     tbl_ref = db.open_table("t").get_reference()
 
-    # Flat (default) -> _ckp.
+    # Flat -> _ckp.
     _patch_layout(monkeypatch, "flat")
     flat_store = tbl_ref.open_checkpoint_store()
     assert type(flat_store) is FlatLanceCheckpointStore
     assert flat_store.root.rstrip("/").endswith("/t.lance/_ckp")
 
-    # Hierarchical -> _ckpv2.
+    # Hierarchical (default) -> _ckpv2.
     _patch_layout(monkeypatch, "hierarchical")
     hier_store = tbl_ref.open_checkpoint_store()
     assert type(hier_store) is HierarchicalLanceCheckpointStore
     assert hier_store.root.rstrip("/").endswith("/t.lance/_ckpv2")
+
+
+def test_open_checkpoint_store_layout_override_pins_store(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``layout=`` pins the store + subdir regardless of the configured default.
+
+    UDTF refresh relies on this to stay flat while the default is hierarchical.
+    """
+    from geneva import connect
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _patch_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    db.create_table("t", pa.table({"id": [1]}))
+    tbl_ref = db.open_table("t").get_reference()
+
+    default_store = tbl_ref.open_checkpoint_store()
+    assert type(default_store) is HierarchicalLanceCheckpointStore
+    assert default_store.root.rstrip("/").endswith("/t.lance/_ckpv2")
+
+    forced_flat = tbl_ref.open_checkpoint_store(layout="flat")
+    assert type(forced_flat) is FlatLanceCheckpointStore
+    assert forced_flat.root.rstrip("/").endswith("/t.lance/_ckp")
+
+    assert (
+        type(CheckpointStore.from_uri(str(tmp_path / "x"), layout="flat"))
+        is FlatLanceCheckpointStore
+    )
+    assert (
+        type(CheckpointStore.from_uri(str(tmp_path / "y"), layout="hierarchical"))
+        is HierarchicalLanceCheckpointStore
+    )
+
+
+def test_hierarchical_mismatch_detection_via_namespace_session(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mismatch detection works through ``open_checkpoint_store`` (a namespace
+    session), not only on a directly-constructed store."""
+    from geneva import connect
+
+    monkeypatch.delenv("GENEVA_CHECKPOINT_SUBDIR", raising=False)
+    _patch_layout(monkeypatch, "hierarchical")
+    db = connect(tmp_path)
+    db.create_table("t", pa.table({"id": [1]}))
+    tbl_ref = db.open_table("t").get_reference()
+
+    writer = tbl_ref.open_checkpoint_store()
+    assert writer._uses_namespace_session()
+    writer[f"{_FLAT_KEY_BASE}_frag-0"] = pa.RecordBatch.from_pydict({"x": [1]})
+
+    reader = tbl_ref.open_checkpoint_store()
+    assert list(reader.iter_bf_identities()), "no bf= identities found via session"
+    # _FLAT_KEY_BASE encodes _ver-1_col-c; mismatch only on a different version.
+    assert reader.has_udf_version_mismatch("c", "2") is True
+    assert reader.has_udf_version_mismatch("c", "1") is False
 
 
 def test_open_checkpoint_store_hierarchical_purge_many_uses_table_subdir(
@@ -1978,9 +2299,7 @@ def _patch_config(
     """Force ``CheckpointConfig.get()`` to a config with the given fields.
 
     Patches the cached classmethod directly rather than driving the env-var
-    loader; the loader eagerly walks every required nested field (e.g.
-    ``object_store.path``) the moment any ``CHECKPOINT__*`` env var is set,
-    which is orthogonal to the per-layout subdir selection under test.
+    loader, which is orthogonal to the per-layout subdir selection under test.
     """
     kwargs: dict[str, str] = {"store_layout": store_layout}
     if flat_subdir is not None:

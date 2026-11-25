@@ -3,7 +3,6 @@ from __future__ import annotations
 import typing as t
 from dataclasses import dataclass
 
-import sqlglot
 from dbt.clients.jinja import get_rendered
 from dbt.context.providers import generate_runtime_model_context
 from dbt.contracts.graph.nodes import GenericTestNode, ModelNode, SingularTestNode, SnapshotNode
@@ -11,10 +10,9 @@ from query_cache_common.models import shared_models
 from query_cache_common.models.services import (
     clone_service_models,
     execution_service_models,
+    sql_analysis_service_models,
     sql_service_models,
 )
-from sqlglot import exp
-from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 
 from dbt_state import events
 from dbt_state.adapters import BaseAdapterExtension
@@ -48,6 +46,13 @@ class PreHookResult(t.NamedTuple):
     context: t.Optional[dict[str, t.Any]] = None
     context_config: t.Any = None
     hook_ctx: t.Any = None
+
+
+class TableReferences(t.NamedTuple):
+    """Table references extracted from hook SQL."""
+
+    parts: t.List[t.List[str]]
+    has_unparsed: bool = False
 
 
 @dataclass
@@ -152,10 +157,7 @@ class Hooks:
                 rendered_sqls.append(rendered_sql)
                 self.execute_hook(hook, rendered_sql)
 
-            references_target_table = any(
-                self.hook_references_target_table(node, rendered_sql)
-                for rendered_sql in rendered_sqls
-            )
+            references_target_table = self.hooks_reference_target_table(node, rendered_sqls)
 
             self._adapter_ext.commit_if_open()
             self._adapter_ext.adapter.post_model_hook(context_config, hook_ctx)
@@ -338,8 +340,13 @@ class Hooks:
         return next(iter(matches)) if len(matches) == 1 else None
 
     def _matched_unique_ids(self, sql: str) -> t.Set[str]:
-        refs = self._referenced_table_parts(sql) or []
-        matched = (self._match_tracked_node(parts) for parts in refs)
+        if not self._on_run_end_targets:
+            return set()
+        refs = self._extract_table_references([sql])
+        if refs.has_unparsed:
+            # Can't tell what the statement writes; assume it may write any tracked table
+            return {uid for _, uid in self._on_run_end_targets}
+        matched = (self._match_tracked_node(parts) for parts in refs.parts)
         return {uid for uid in matched if uid is not None}
 
     def before_on_run_end_statement(self, sql: str) -> t.Set[str]:
@@ -397,31 +404,33 @@ class Hooks:
         self._on_run_end_baseline = {}
         self._on_run_end_succeeded = set()
 
-    def _referenced_table_parts(self, rendered_sql: str) -> t.Optional[t.List[t.List[str]]]:
-        """Parse hook SQL once and return the normalized table references.
+    def _extract_table_references(self, sqls: t.List[str]) -> TableReferences:
+        """Return the normalized table references across all SQLs.
 
-        Args:
-            rendered_sql: The hook SQL after Jinja rendering
-
-        Returns None if the SQL can't be parsed.
+        References from SQLs that parsed are kept even if others failed (`has_unparsed`).
+        If the RPC fails, there are no references and `has_unparsed` is True.
         """
-        dialect = self._node_resolution.dialect
         try:
-            statements = sqlglot.parse(rendered_sql, dialect=dialect)
+            response = self._query_cache_client.extract_table_references(
+                sql_analysis_service_models.ExtractTableReferencesRequest(
+                    dialect=self._node_resolution.dialect, sqls=sqls
+                )
+            )
         except Exception as e:
-            events.fire_debug_event("Could not check hook for table reference: {}", str(e))
-            return None
-
-        refs: t.List[t.List[str]] = []
-        for statement in statements:
-            if statement is None:
-                continue
-            for table in statement.find_all(exp.Table):
-                normalized = normalize_identifiers(table.copy(), dialect=dialect)
-                parts = [part.name for part in normalized.parts]
-                if parts:
-                    refs.append(parts)
-        return refs
+            events.fire_debug_event("Could not extract table references from hooks: {}", str(e))
+            return TableReferences(parts=[], has_unparsed=True)
+        has_unparsed = not all(result.parsed for result in response.results)
+        if has_unparsed:
+            events.fire_warn_event("Some hook SQL could not be parsed; assuming it may write.")
+        return TableReferences(
+            parts=[
+                ref.parts
+                for result in response.results
+                if result.parsed
+                for ref in result.references
+            ],
+            has_unparsed=has_unparsed,
+        )
 
     def _refs_match_node(
         self,
@@ -446,24 +455,24 @@ class Hooks:
         """Check if `parts` is a suffix of the resolved `target_parts`."""
         return len(parts) <= len(target_parts) and parts == target_parts[-len(parts) :]
 
-    def hook_references_target_table(
+    def hooks_reference_target_table(
         self,
         node: ModelOrSnapshotOrTestOrSeedNode,
-        rendered_sql: str,
+        rendered_sqls: t.List[str],
     ) -> bool:
-        """Check if a rendered hook references the target table.
+        """Check if any rendered hook references the target table.
 
         Args:
             node: The node being executed
-            rendered_sql: The hook SQL after Jinja rendering
+            rendered_sqls: The hook SQLs after Jinja rendering
 
         Returns:
-            True if the hook references the target table, False otherwise
+            True if any hook references the target table, False otherwise
         """
-        if not rendered_sql.strip():
+        if not rendered_sqls:
+            return False
+        if any(not sql.strip() for sql in rendered_sqls):
             # Rendering may have executed writes itself (run_query, statement blocks)
             return True
-        refs = self._referenced_table_parts(rendered_sql)
-        if refs is None:
-            return True
-        return self._refs_match_node(node, refs)
+        refs = self._extract_table_references(rendered_sqls)
+        return self._refs_match_node(node, refs.parts) or refs.has_unparsed

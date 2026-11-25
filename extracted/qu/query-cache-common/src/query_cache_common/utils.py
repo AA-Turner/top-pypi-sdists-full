@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import re
 import time
 import typing as t
 
@@ -15,6 +16,9 @@ if t.TYPE_CHECKING:
     )
     from sqlglot.expressions import (
         Expression as SqlglotExpression,
+    )
+    from sqlglot.expressions import (
+        Table as SqlglotTable,
     )
 
 
@@ -170,6 +174,66 @@ def extract_fqn_parts(fqn: str, dialect: str) -> t.Tuple[str, str, str]:
         raise ValueError(f"Expecting SQLGlot expression for name, got: {name}")
 
     return catalog.sql(dialect=dialect), schema.sql(dialect=dialect), name.sql(dialect=dialect)
+
+
+def normalize_stage_reference(
+    table: SqlglotTable, dialect: str, default_catalog: str, default_schema: t.Optional[str]
+) -> t.Optional[SqlglotTable]:
+    """Normalize a Snowflake named stage reference into the form used as its dependency name.
+
+    sqlglot parses `@db.schema.stage/path (PATTERN => '...')` as a table whose name is the raw
+    stage text. The stage name is qualified with the defaults and normalized like a table name.
+    The path (case-sensitive) and pattern are kept since they scope the files read; other options
+    are dropped. Rendering the result with `.sql(dialect=...)` gives the dependency name, and
+    normalizing that again returns the same name. The location is single quoted only when the
+    path needs it, e.g. `'@"DB"."SCH"."STG"/my folder/'`.
+
+    Returns:
+        The normalized stage reference, or None if `table` is not a named stage reference,
+        e.g. a table, a user stage (`@~`) or a table stage (`@%t`).
+    """
+    from sqlglot import exp
+    from sqlglot.errors import ParseError
+    from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+    from sqlglot.optimizer.qualify_columns import quote_identifiers
+
+    if not isinstance(table.this, (exp.Var, exp.Literal)) or not table.this.name.startswith("@"):
+        return None
+    location = table.this.name[1:]
+    if location.startswith(("~", "%")):
+        return None
+
+    # The stage name ends at the first "/" outside double quotes
+    in_quotes = False
+    name_end = len(location)
+    for i, char in enumerate(location):
+        if char == '"':
+            in_quotes = not in_quotes
+        elif char == "/" and not in_quotes:
+            name_end = i
+            break
+    name, path = location[:name_end], location[name_end:]
+
+    try:
+        stage = exp.to_table(name, dialect=dialect)
+    except ParseError:
+        return None
+    if not stage.name:
+        return None
+    if not stage.db and default_schema:
+        stage.set("db", exp.parse_identifier(default_schema, dialect=dialect))
+    if stage.db and not stage.catalog:
+        stage.set("catalog", exp.parse_identifier(default_catalog, dialect=dialect))
+    stage = quote_identifiers(normalize_identifiers(stage, dialect=dialect), dialect=dialect)
+
+    location = f"@{stage.sql(dialect=dialect)}{path}"
+    # An unquoted location can't contain these, see Snowflake's _parse_location_path in sqlglot
+    needs_quotes = re.search(r"[\s,()']|--|/\*", path)
+    pattern = table.args.get("pattern")
+    return exp.Table(
+        this=exp.Literal.string(location) if needs_quotes else exp.Var(this=location),
+        pattern=pattern.copy() if pattern else None,
+    )
 
 
 def format_as_localtime(dt: datetime.datetime) -> str:

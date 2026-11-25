@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import TypeVar, Generic
 
-from paddle_billing.Entities.Collections.Paginator import Paginator
+from paddle_billing.Entities.Collections.Paginator import Paginator as Paginator
 
 T = TypeVar("T")
 
@@ -41,5 +41,5 @@ class Collection(ABC, Generic[T], Iterator[T]):
     def current(self) -> T:
         return self.items[self._pointer]
 
-    def key(self) -> str:
+    def key(self) -> str | int:
         return getattr(self.items[self._pointer], "id", self._pointer)

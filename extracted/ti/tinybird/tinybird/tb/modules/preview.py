@@ -85,6 +85,7 @@ def run_preview_cloud(
         check=check,
         allow_destructive_operations=True,
         output=output,
+        branch=preview_branch_name,
     )
     click.echo(FeedbackManager.success(message=f"✓ Preview branch '{preview_branch_name}' is live"))
 

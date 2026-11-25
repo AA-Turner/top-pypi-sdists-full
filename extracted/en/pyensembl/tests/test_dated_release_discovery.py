@@ -241,8 +241,10 @@ def test_other_failures_and_unreachable_listings_keep_the_original_error(server)
 
 
 def test_install_reports_an_unpublished_date(server, monkeypatch, capsys):
+    from pyensembl.cli import logging_config
+
     # run() would attach a handler to this test's captured stderr for good.
-    monkeypatch.setattr(shell, "configure_logging", lambda **kwargs: None)
+    monkeypatch.setattr(logging_config, "configure_logging", lambda **kwargs: None)
     monkeypatch.setattr(Genome, "_get_gtf_path", missing_file)
     monkeypatch.setattr("sys.argv", ["pyensembl", "install", "--release", "1900_01"])
     with pytest.raises(SystemExit):
@@ -318,7 +320,7 @@ def test_installed_dated_releases_are_listed(tmp_path, monkeypatch):
     monkeypatch.setenv("PYENSEMBL_CACHE_DIR", str(tmp_path))
     for release in ("2026_04", 116, "2023_03"):
         genome = EnsemblRelease(release)
-        gtf = Path(genome._local_source_path(genome._gtf_path_or_url))
+        gtf = Path(genome.download_cache.local_path(genome.gtf_path_or_url))
         gtf.parent.mkdir(parents=True, exist_ok=True)
         gtf.write_bytes(b"gtf")
     installed = [genome.release for genome in shell.collect_all_installed_ensembl_releases()]

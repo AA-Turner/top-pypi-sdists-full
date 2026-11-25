@@ -448,6 +448,15 @@ def test_joinuri_on_protocol_mismatch(base, join):
     assert UPath(base).joinuri(UPath(join)) == UPath(join)
 
 
+def test_join_windows_path_segment():
+    # pathlib converts windows separators when joining, see python/cpython#103631
+    p = UPath("memory:///a")
+    segment = pathlib.PureWindowsPath("b/*.py")
+    assert p.joinpath(segment).path == "/a/b/*.py"
+    assert (p / segment).path == "/a/b/*.py"
+    assert UPath("memory:///a", segment).path == "/a/b/*.py"
+
+
 def test_upath_expanduser():
     assert UPath("~").expanduser() == UPath(os.path.expanduser("~"))
     assert UPath("~") != UPath("~").expanduser()
@@ -527,6 +536,19 @@ def test_constructor_compatible_protocol_uri(uri, protocol):
     assert p.protocol == protocol
 
 
+def test_protocol_aliases_compatible_after_filesystem_import(monkeypatch):
+    s3fs = pytest.importorskip("s3fs")
+    from fsspec.registry import _registry
+
+    # fsspec registers the imported filesystem class only for the
+    # requested protocol, while the alias still refers to 's3fs.S3FileSystem'
+    monkeypatch.setitem(_registry, "s3", s3fs.S3FileSystem)
+    monkeypatch.delitem(_registry, "s3a", raising=False)
+
+    assert UPath("s3a://bucket/folder", protocol="s3").protocol == "s3"
+    assert UPath("s3://bucket/folder", protocol="s3a").protocol == "s3a"
+
+
 # Protocol to sample URI mapping
 _PROTOCOL_URIS = {
     "s3": "s3://bucket/folder",
@@ -574,3 +596,29 @@ def test_subclass_constructor_incompatible_protocol_uri(uri, protocol):
     cls = get_upath_class(protocol)
     with pytest.raises(TypeError, match=r".*incompatible with"):
         cls(uri)
+
+
+@pytest.mark.parametrize(
+    "pth", ["file:path/to/file.txt", "memory:a/b", "s3:bucket/key"]
+)
+def test_rootless_uri_of_known_protocol_warns(pth):
+    # https://github.com/fsspec/universal_pathlib/issues/142
+    with pytest.warns(UserWarning, match="uri with a relative path"):
+        p = UPath(pth)
+    assert p.protocol == ""
+
+
+@pytest.mark.parametrize(
+    "pth,protocol",
+    [
+        ("unknownprotocol:abc.txt", None),
+        ("data:text/plain,abc", None),
+        ("file:///abs/path", None),
+        ("simplecache::memory://a/b", None),
+        ("file:path/to/file.txt", ""),
+    ],
+)
+def test_rootless_uri_no_warning(pth, protocol):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        UPath(pth, protocol=protocol)

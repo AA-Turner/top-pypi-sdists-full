@@ -28,7 +28,7 @@ async def tag_ls(ctx: Context, tag_name: Optional[str]) -> None:
         the_tag = [tag for tag in response["tags"] if tag["name"] == tag_name]
 
         columns = ["name", "id", "type"]
-        table: list[list] = []
+        table: list[list[str | int]] = []
 
         if len(the_tag) > 0:
             table.extend([resource["name"], resource["id"], resource["type"]] for resource in the_tag[0]["resources"])

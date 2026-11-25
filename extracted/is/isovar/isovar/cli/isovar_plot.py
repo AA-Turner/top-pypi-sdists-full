@@ -16,13 +16,8 @@ from ..default_parameters import (
     PLOT_VIEWS,
 )
 from ..logging import configure_cli_logging
-from ..visualization import (
-    collect_visualization_data,
-    save_variant_figures,
-    timestamped_run_directory,
-)
 from .commands import parser_for_program
-from .output_args import add_log_level_arg
+from .output_args import add_log_level_arg, add_output_dir_arg
 from .rna_args import alignment_file_from_args, read_collector_from_args
 from .translation_args import (
     add_protein_selection_args,
@@ -38,6 +33,9 @@ from .validation import (
     variant_collection_from_args,
 )
 
+# Lazily resolved on first use; kept as a module attribute for test monkeypatching.
+save_variant_figures = None
+
 parser = make_translation_arg_parser(description=(
     "Plot the protein context, read overlap and local transcript models around one mutation. "
     "Writes white-background SVG/PNG figures and evidence JSON into a new UTC-stamped directory."))
@@ -47,8 +45,11 @@ parser.add_argument("--view", choices=PLOT_VIEWS, default=PLOT_VIEW,
                     help="Figure panels (default %(default)s).")
 parser.add_argument("--compare-assembly", action="store_true", default=PLOT_COMPARE_ASSEMBLY,
                     help="Compare assembly on/off with the same collected reads and all other settings unchanged.")
-parser.add_argument("--output-dir", default=PLOT_OUTPUT_DIRECTORY,
-                    help="Parent of new UTC-stamped run directories (default %(default)s).")
+add_output_dir_arg(
+    parser,
+    default=PLOT_OUTPUT_DIRECTORY,
+    help="Parent of new UTC-stamped run directories (default %(default)s).",
+)
 parser.add_argument("--max-rows", type=int, default=PLOT_MAX_ROWS,
                     help="Maximum displayed span/model rows; never limits analysis (default %(default)s).")
 parser.add_argument("--dpi", type=dpi, default=PLOT_DPI, help="PNG resolution (default %(default)s); SVG is vector.")
@@ -86,6 +87,12 @@ def run(args=None, *, prog=None):
     creator_kwargs = protein_sequence_creator_kwargs_from_args(args)
     if args.all_proteins:
         creator_kwargs["max_protein_sequences_per_variant"] = None
+    from ..visualization import collect_visualization_data, timestamped_run_directory
+
+    saver = save_variant_figures
+    if saver is None:
+        from ..visualization import save_variant_figures as saver
+
     data = collect_visualization_data(
         variant, evidence, creator_kwargs=creator_kwargs,
         compare_assembly=args.compare_assembly)
@@ -107,8 +114,8 @@ def run(args=None, *, prog=None):
             {group: asdict(profile) for group, profile in collector.read_end_profile.items()}
             if isinstance(collector.read_end_profile, Mapping) else
             asdict(collector.read_end_profile) if collector.read_end_profile is not None else None))
-    directory = save_variant_figures(data, timestamped_run_directory(args.output_dir),
-                                    view=args.view, max_rows=args.max_rows, dpi=args.dpi)
+    directory = saver(data, timestamped_run_directory(args.output_dir),
+                      view=args.view, max_rows=args.max_rows, dpi=args.dpi)
     if args.all_proteins:
         from ..protein_comparison import save_protein_comparison
         save_protein_comparison([dict(source=args.bam, label=label, visualization=data)],

@@ -21,12 +21,15 @@ it. It provides:
 - ``cancelled`` and ``cancel_calls``: explicit cancellation, for handlers
   declared with ``explicit_cancellation=True``.
 - ``annotate``: time some work (a model request, say) in the journal, as a
-  run that Restate's UI shows; nothing waits for it.
+  run that Restate's UI shows; nothing waits for it, and it keeps nothing
+  alive (``ctx.working`` does).
 - ``hide_entries``: metadata that has Restate's UI hide the journal entries
   of some names (a library's own calls, say), as it hides the database's.
 - ``start`` and ``attach_invocation``: send, keeping the invocation id,
   and wait for that invocation's result; a library runs a workflow this way
   (a send to it again, after a crash, starts nothing: the same run).
+- ``ride_commit`` and ``flush_riders``: a write that rides the next commit of a database instead of committing
+  on its own, for bookkeeping that is stored with the next write (the agents' record of a call that answered).
 - ``ScopeKey`` and ``definition_of``: state a library keeps per attempt, and
   the object an attempt belongs to.
 - ``invoke``, ``SqlHost`` and ``ObjectConfig``: run one attempt of a handler
@@ -46,7 +49,7 @@ from restate.sessions._object import (
 )
 from restate.sessions._schema import Schema, ensure_schemas
 from restate.sessions._scope import ScopeKey
-from restate.sessions._session import ObjectConfig, SqlHost, database, reset
+from restate.sessions._session import ObjectConfig, SqlHost, database, flush_riders, reset, ride_commit
 
 __all__ = [
     "Annotation",
@@ -61,8 +64,10 @@ __all__ = [
     "database",
     "definition_of",
     "ensure_schemas",
+    "flush_riders",
     "hide_entries",
     "invoke",
     "reset",
+    "ride_commit",
     "start",
 ]

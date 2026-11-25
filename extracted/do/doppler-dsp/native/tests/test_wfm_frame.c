@@ -1083,6 +1083,285 @@ test_desc_rx (void)
   return 0;
 }
 
+/* A named field reads back as the integer its bits were given, MOST
+   significant first (docs/design/frame-description.md, "RB. Reading a field
+   back"): built by name, assembled, then every field read from the
+   assembled bits. Rejects an LSB-first pack (the 5-bit 0b10110 would read
+   0b01101), an off-by-one offset (the neighbour's bits leak in), a derived
+   field recomputed instead of read as received (the flipped trailer bit
+   must show), a >64-bit field truncated rather than refused, and a coded
+   frame's description refused instead of read in its frame layout. */
+static int
+test_field_read_back (void)
+{
+  static const uint8_t a_bits[5] = { 1, 0, 1, 1, 0 }; /* 0x16 */
+  wfm_seq_t            a = { 0 }, b = { 0 }, w = { 0 }, data = { 0 };
+  a.kind             = WFM_SEQ_LITERAL;
+  a.bits             = a_bits;
+  a.len              = 5;
+  b.kind             = WFM_SEQ_DOTTED; /* 101 */
+  b.len              = 3;
+  w.kind             = WFM_SEQ_PN; /* 70 bits: past the integer form */
+  w.len              = 70;
+  w.reg_bits         = 7;
+  data.kind          = WFM_SEQ_DATA;
+  data.len           = 16;
+  wfm_frame_desc_t d = { 0 };
+  DP_REQUIRE (dp_wfm_frame_add_field (&d, "a", &a, 1) >= 0);
+  DP_REQUIRE (dp_wfm_frame_add_field (&d, "b", &b, 1) >= 0);
+  DP_REQUIRE (dp_wfm_frame_add_field (&d, "w", &w, 1) >= 0);
+  DP_REQUIRE (dp_wfm_frame_add_field (&d, "data", &data, 1) >= 0);
+  DP_REQUIRE (dp_wfm_frame_add_derived (&d, "crc", 16) >= 0);
+  DP_REQUIRE (dp_wfm_frame_add_stage (&d, WFM_STAGE_CRC16, "a", "crc") >= 0);
+  wfm_frame_desc_layout_t l;
+  DP_REQUIRE (dp_wfm_frame_desc_layout (&d, &l) == 0);
+  static const uint8_t payload[16]
+      = { 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0 }; /* 0xCA1E */
+  uint8_t rx[5 + 3 + 70 + 16 + 16];
+  DP_REQUIRE (l.frame_bits == sizeof rx);
+  DP_REQUIRE (dp_wfm_frame_assemble_data (&d, NULL, payload, rx, sizeof rx)
+              == sizeof rx);
+
+  uint64_t    v   = 0;
+  const char *why = NULL;
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx, "a", &v, &why) == 0
+            && v == 0x16u);
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx, "b", &v, &why) == 0
+            && v == 0x5u);
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx, "data", &v, &why) == 0
+            && v == 0xCA1Eu);
+  /* the trailer as received: the assembled CRC, then a flipped bit shows */
+  uint64_t crc = 0;
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx, "crc", &crc, &why)
+            == 0);
+  DP_CHECK (crc == dp_crc16_ccitt (rx, 5 + 3 + 70 + 16));
+  rx[sizeof rx - 1] ^= 1u;
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx, "crc", &v, &why) == 0
+            && v == (crc ^ 1u));
+  DP_CHECK (dp_wfm_frame_desc_crc_ok (&d, rx) == 0);
+  rx[sizeof rx - 1] ^= 1u;
+
+  /* the 70-bit field: refused as an integer, whole as bits */
+  why = NULL;
+  v   = 7;
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx, "w", &v, &why) == -1
+            && why && strstr (why, "64 bits") && v == 7);
+  uint8_t wb[70];
+  DP_CHECK (
+      dp_wfm_frame_desc_field_bits (&d, rx, sizeof rx, "w", NULL, 0, NULL)
+      == 70);
+  DP_CHECK (dp_wfm_frame_desc_field_bits (&d, rx, sizeof rx, "w", wb, 70, NULL)
+            == 70);
+  DP_CHECK (memcmp (wb, rx + 8, 70) == 0);
+
+  /* refusals, each with its sentence */
+  why = NULL;
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx, "nope", &v, &why) == -1
+            && why);
+  why = NULL;
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx - 1, "a", &v, &why)
+                == -1
+            && why);
+  DP_CHECK (
+      dp_wfm_frame_desc_field_bits (&d, rx, sizeof rx - 1, "a", wb, 70, NULL)
+      == 0);
+  why = NULL;
+  DP_CHECK (dp_wfm_frame_desc_field (&d, rx, sizeof rx, "", &v, &why) == -1
+            && why);
+  /* no received bits: refused, by both forms, in the same words */
+  why = NULL;
+  DP_CHECK (dp_wfm_frame_desc_field (&d, NULL, sizeof rx, "a", &v, &why) == -1
+            && why && strstr (why, "the received bits") != NULL);
+  why = NULL;
+  DP_CHECK (
+      dp_wfm_frame_desc_field_bits (&d, NULL, sizeof rx, "a", wb, 70, &why)
+          == 0
+      && why && strstr (why, "the received bits") != NULL);
+  /* a description its own layout refuses is refused, never read */
+  {
+    wfm_frame_desc_t bad = d;
+    bad.n_fields         = WFM_FRAME_MAX_FIELDS + 1u;
+    why                  = NULL;
+    DP_CHECK (dp_wfm_frame_desc_field (&bad, rx, sizeof rx, "a", &v, &why)
+                  == -1
+              && why && strstr (why, "the description is refused") != NULL);
+  }
+
+  /* A coded frame reads as an uncoded one: its description gains an
+     emitting stage (a rate-1/2 code over the frame), and the read takes the
+     FRAME-layout bits, what a Viterbi hands back and what check() and
+     crc_ok() read, not the coded stream. Rejects a read that refuses a
+     description with an emitting stage, which would refuse the very bits
+     the rest of the API reads. */
+  wfm_frame_desc_t c = d;
+  const int cst      = dp_wfm_frame_add_stage (&c, WFM_STAGE_CONV, "a", "crc");
+  DP_REQUIRE (cst >= 0);
+  c.stage[cst].emit_num = 2u;
+  c.stage[cst].emit_den = 1u;
+  wfm_frame_desc_layout_t cl;
+  DP_REQUIRE (dp_wfm_frame_desc_layout (&c, &cl) == 0);
+  DP_REQUIRE (cl.out_bits == 2u * cl.frame_bits); /* it does emit */
+  why = NULL;
+  DP_CHECK (dp_wfm_frame_desc_field (&c, rx, sizeof rx, "a", &v, &why) == 0
+            && v == 0x16u);
+  DP_CHECK (dp_wfm_frame_desc_field (&c, rx, sizeof rx, "data", &v, &why) == 0
+            && v == 0xCA1Eu);
+  DP_CHECK (dp_wfm_frame_desc_crc_ok (&c, rx) == 1);
+  return 0;
+}
+
+/* The field sizes the layout sums (#3321). A description can reach the
+   layout without add_field (the scene JSON and ccsds_tm/desc.c fill the
+   struct), so the layout is where a wrap is refused, and add_field only
+   refuses a product that has no size_t to hold it.
+
+   Prediction (written before the sabotage run): with the layout's checked
+   adds removed, the two-field repro lays out to a wrapped frame_bits and
+   assembles into a buffer sized from it; under test-asan that is a heap write
+   out of bounds, so the test goes red at the layout's return value (the
+   assertion that it refuses) before assembly. */
+static int
+test_field_bound (void)
+{
+  const size_t    max     = WFM_FIELD_MAX_BITS;
+  const wfm_seq_t one_bit = { .kind = WFM_SEQ_DOTTED, .len = 1 };
+  const wfm_seq_t big     = { .kind = WFM_SEQ_DOTTED, .len = (size_t)1 << 63 };
+  const wfm_seq_t big16
+      = { .kind = WFM_SEQ_DOTTED, .len = ((size_t)1 << 63) + 16u };
+
+  /* The C repro: two fields of 2^63 and 2^63 + 16 bits. Each fits a size_t,
+     so add_field takes both; their sum wraps, so the layout refuses. */
+  {
+    wfm_frame_desc_t d;
+    memset (&d, 0, sizeof d);
+    DP_CHECK_MSG (dp_wfm_frame_add_field (&d, "a", &big, 1u) == 0,
+                  "a 2^63-bit field fits a size_t and is taken");
+    DP_CHECK_MSG (dp_wfm_frame_add_field (&d, "b", &big16, 1u) == 1,
+                  "so is 2^63 + 16 bits");
+    wfm_frame_desc_layout_t l;
+    DP_CHECK_MSG (dp_wfm_frame_desc_layout (&d, &l) == -1,
+                  "their sum wraps size_t: the layout refuses it (#3321)");
+  }
+
+  /* The derived-width repro: a payload, a CRC of 2^64 - 2048 bits covering
+     it. The stage's span sums to a wrap, so the layout refuses it. */
+  {
+    wfm_frame_desc_t d;
+    memset (&d, 0, sizeof d);
+    const wfm_seq_t p = { .kind = WFM_SEQ_DOTTED, .len = 4000 };
+    DP_REQUIRE (dp_wfm_frame_add_field (&d, "payload", &p, 1u) == 0);
+    DP_REQUIRE (
+        dp_wfm_frame_add_derived (&d, "crc", (size_t)18446744073709549568ull)
+        == 1);
+    DP_REQUIRE (dp_wfm_frame_add_stage (&d, WFM_STAGE_CRC16, "payload", "crc")
+                == 0);
+    wfm_frame_desc_layout_t l;
+    DP_CHECK_MSG (dp_wfm_frame_desc_layout (&d, &l) == -1,
+                  "a 2^64 - 2048-bit derived field wraps the frame: refused "
+                  "(#3321)");
+  }
+
+  /* add_field refuses only a product with no size_t to hold it: LEN times
+     REPS past SIZE_MAX. A LEN of SIZE_MAX with one repetition is taken, and
+     so is REPS 0 (one repetition). Two repetitions of it wrap. */
+  {
+    wfm_frame_desc_t d;
+    memset (&d, 0, sizeof d);
+    const wfm_seq_t full = { .kind = WFM_SEQ_DOTTED, .len = SIZE_MAX };
+    DP_CHECK_MSG (dp_wfm_frame_add_field (&d, "full", &full, 0u) == 0,
+                  "LEN = SIZE_MAX, one repetition, is taken");
+    DP_CHECK_MSG (dp_wfm_frame_add_field (&d, "twice", &full, 2u) == -1,
+                  "LEN * REPS past SIZE_MAX is refused at add_field");
+    DP_CHECK_MSG (dp_wfm_frame_add_field (&d, "one", &one_bit, max + 1u) == 1,
+                  "a REPS past the Field text bound is not add_field's to "
+                  "refuse: the grammar bounds text, the layout sums");
+  }
+
+  /* A 300,000-bit literal frame, the size a Frame(payload=np.ones(300000))
+     builds: the layout takes it and assembly fills exactly out_bits. */
+  {
+    const size_t n    = 300000u;
+    uint8_t     *bits = malloc (n);
+    DP_REQUIRE (bits != NULL);
+    for (size_t i = 0; i < n; i++)
+      bits[i] = (uint8_t)(i & 1u);
+    const wfm_seq_t  pay = { .kind = WFM_SEQ_LITERAL, .bits = bits, .len = n };
+    wfm_frame_desc_t d;
+    DP_REQUIRE (dp_wfm_frame_fixed (&d, NULL, 0, NULL, &pay, 0) == 0);
+    wfm_frame_desc_layout_t l;
+    DP_REQUIRE (dp_wfm_frame_desc_layout (&d, &l) == 0);
+    DP_CHECK_MSG (l.frame_bits == n,
+                  "a 300,000-bit frame lays out at 300,000");
+    uint8_t *out = malloc (l.out_bits);
+    DP_REQUIRE (out != NULL);
+    DP_CHECK_MSG (dp_wfm_frame_assemble (&d, NULL, out, l.out_bits)
+                      == l.out_bits,
+                  "and assembles into exactly its own bits");
+    free (out);
+    free (bits);
+  }
+  return 0;
+}
+
+/* The layout's sizes in the two places they were not checked (#3321 follow
+   up, #3328, and the chip count).
+
+   A stage that emits a SHORTER stream than its frame is refused by the
+   layout: assemble forms `out + (out_bits - frame_bits)`, which wraps below
+   `out` when out_bits < frame_bits. The expanding control lays out. The
+   chip count's products and sums are checked, and a count past size_t is
+   refused as 0.
+
+   Prediction (written before the sabotage run): with the shrink check
+   removed, the shrink description lays out and the test below goes red at
+   that refusal; the scene in test_wfm_compose goes red under ASan. */
+static int
+test_shrink_and_chip_counts (void)
+{
+  static const uint8_t bits[8] = { 0, 1, 0, 1, 0, 1, 0, 1 };
+  const wfm_seq_t lit = { .kind = WFM_SEQ_LITERAL, .bits = bits, .len = 8 };
+
+  /* Three literal fields, one conv stage over all of them, emitting 1/2:
+     the stream shrinks to 12 bits. The layout must refuse it. */
+  {
+    wfm_frame_desc_t d;
+    memset (&d, 0, sizeof d);
+    DP_REQUIRE (dp_wfm_frame_add_field (&d, "a", &lit, 1u) == 0);
+    DP_REQUIRE (dp_wfm_frame_add_field (&d, "b", &lit, 1u) == 1);
+    DP_REQUIRE (dp_wfm_frame_add_field (&d, "c", &lit, 1u) == 2);
+    DP_REQUIRE (dp_wfm_frame_add_stage (&d, WFM_STAGE_CONV, "a", "c") == 0);
+    d.stage[0].emit_num = 1;
+    d.stage[0].emit_den = 2;
+    wfm_frame_desc_layout_t l;
+    DP_CHECK_MSG (dp_wfm_frame_desc_layout (&d, &l) == -1,
+                  "an emitting stage that shrinks the frame is refused "
+                  "(#3328)");
+    /* The control: the same description expanding 2/1 lays out. */
+    d.stage[0].emit_num = 2;
+    d.stage[0].emit_den = 1;
+    DP_CHECK_MSG (dp_wfm_frame_desc_layout (&d, &l) == 0 && l.out_bits == 48
+                      && l.frame_bits == 24,
+                  "the expanding control lays out at 48 bits");
+  }
+
+  /* The chip count: a 2^40-bit frame times a code of 2^24 + 1 chips wraps
+     to a small count unless checked. */
+  {
+    wfm_frame_desc_t e;
+    memset (&e, 0, sizeof e);
+    const wfm_seq_t big = { .kind = WFM_SEQ_DOTTED, .len = (size_t)1 << 40 };
+    DP_REQUIRE (dp_wfm_frame_add_field (&e, "x", &big, 1u) == 0);
+    DP_CHECK_MSG (dp_wfm_dsss_desc_nchips (&e, 3, 2, 2) != 0,
+                  "a count that fits is returned");
+    DP_CHECK_MSG (dp_wfm_dsss_desc_nchips (&e, 3, 2, ((size_t)1 << 24) + 1u)
+                      == 0,
+                  "frame bits times the code wrap: refused as 0");
+    DP_CHECK_MSG (dp_wfm_dsss_desc_nchips (&e, (size_t)1 << 63, 2, 2) == 0,
+                  "the preamble's product wraps: refused as 0");
+  }
+  return 0;
+}
+
 int
 main (void)
 {
@@ -2254,6 +2533,12 @@ main (void)
   if (test_frame_fixed_claims ())
     return 1;
   if (test_desc_rx ())
+    return 1;
+  if (test_field_read_back ())
+    return 1;
+  if (test_field_bound ())
+    return 1;
+  if (test_shrink_and_chip_counts ())
     return 1;
   DP_TEST_END ("wfm_frame");
 }

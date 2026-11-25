@@ -1,6 +1,6 @@
 [project]
 name = "kicad-python"
-version = "0.8.0"
+version = "0.9.0"
 description = "KiCad API Python Bindings"
 authors = [
     { name = "The KiCad Development Team" },
@@ -15,13 +15,14 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "protobuf >=5.29, <6",
+    "protobuf >=5.29.6, <6",
     "pynng >=0.9.0, <0.10.0",
     "jsonschema >=4.23.0, <5",
     # 3.10: TypeAlias (mypy-protobuf generated code)
     # 3.11: Self
     # 3.13: @deprecated
     "typing_extensions >=4.13.2 ; python_version < '3.13'",
+    "zstandard (>=0.25.0,<0.26.0)",
 ]
 
 [project.scripts]
@@ -48,7 +49,7 @@ python = "<4.0,>=3.9"
 
 [tool.poetry.group.dev.dependencies]
 nox = "^2025.2.9"
-ruff = "^0.9"
+ruff = "^0.16"
 protoletariat = "^3.3"
 mypy-protobuf = "^3.6"
 mypy = "^1.14.0"
@@ -75,17 +76,30 @@ script = "build.py"
 
 [tool.ruff]
 exclude = [
-    "kipy/proto"
+    "kipy/proto",
+    "kicad"
 ]
+line-length = 99
 
 [tool.mypy]
+python_version = 3.9
 exclude = [
     "kipy/proto"
 ]
 
 [[tool.mypy.overrides]]
+module = "kipy.proto.*"
+ignore_errors = true
+follow_imports = "silent"
+
+[[tool.mypy.overrides]]
 module = "pynng"
 ignore_missing_imports = true
+
+# Can remove once minimum Python version is higher than 3.9
+[[tool.mypy.overrides]]
+module = "jsonschema"
+follow_untyped_imports = true
 
 [tool.pytest.ini_options]
 testpaths = [

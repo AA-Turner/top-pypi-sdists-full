@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "common/exception/internal.h"
 #include "common/exception/io.h"
 #include "common/exception/runtime.h"
 #include "common/file_system/virtual_file_system.h"
@@ -104,12 +105,91 @@ void ShadowFile::publishShadowPage(file_idx_t originalFile, page_idx_t originalP
     hasShadowPages.store(true, std::memory_order_release);
 }
 
-ShadowFile::ShadowSavepoint ShadowFile::createSavepoint() const {
+ShadowFile::ShadowSavepoint ShadowFile::createSavepoint() {
+    // One savepoint at a time (see activeSavepoint): the previous one must have been released
+    // or rolled back. Taking a second one would discard the first group's saved pages, so it
+    // is refused in release builds too, like a mismatched rollbackToSavepoint.
+    if (activeSavepoint.has_value()) {
+        throw InternalException(
+            std::format("Cannot take a shadow savepoint while savepoint {} is still active.",
+                *activeSavepoint));
+    }
+    savedPagesForSavepoint.clear();
     std::shared_lock lck{mtx};
-    return shadowPageRecords.size();
+    activeSavepoint = shadowPageRecords.size();
+    return *activeSavepoint;
+}
+
+void ShadowFile::releaseSavepoint() {
+    activeSavepoint.reset();
+    savedPagesForSavepoint.clear();
+}
+
+void ShadowFile::preservePageForSavepoint(page_idx_t shadowPageIdx, const uint8_t* frame) {
+    // Shadow page i + 1 holds shadowPageRecords[i] (page 0 is the header), so the pages that
+    // existed when the savepoint was taken are 1..savepoint.
+    if (!activeSavepoint.has_value() || shadowPageIdx == 0 || shadowPageIdx > *activeSavepoint ||
+        savedPagesForSavepoint.contains(shadowPageIdx)) {
+        return;
+    }
+    auto saved = std::make_unique<uint8_t[]>(LBUG_PAGE_SIZE);
+    memcpy(saved.get(), frame, LBUG_PAGE_SIZE);
+    savedPagesForSavepoint.emplace(shadowPageIdx, std::move(saved));
 }
 
 void ShadowFile::rollbackToSavepoint(ShadowSavepoint savepoint) {
+    // A release build must not roll back to a stale or foreign savepoint either: that would
+    // drop shadow pages of groups that completed.
+    if (activeSavepoint != savepoint) {
+        throw InternalException(std::format(
+            "Cannot roll back to shadow savepoint {}: the active savepoint is {}.", savepoint,
+            activeSavepoint.has_value() ? std::to_string(*activeSavepoint) : "none"));
+    }
+    // Undo in-place rewrites of shadow pages that predate the savepoint before dropping the newer
+    // ones (follow-up to LadybugDB/ladybug#1051). Without this, a group rolled back over a
+    // shadow page it rewrote would leave the new bytes under the restored chunk metadata. Pinning
+    // locks the page, so concurrent optimistic readers retry and see the restored contents. mtx
+    // is not held here (see mtx).
+    // Best effort: a failed restore must not skip the others, the release or the truncation
+    // below. The first error is rethrown after the savepoint is fully unwound.
+    std::exception_ptr restoreError;
+    for (const auto& [shadowPageIdx, saved] : savedPagesForSavepoint) {
+        try {
+            auto* frame = shadowingFH->pinPage(shadowPageIdx, PageReadPolicy::READ_PAGE);
+            memcpy(frame, saved.get(), LBUG_PAGE_SIZE);
+            shadowingFH->setLockedPageDirty(shadowPageIdx);
+            shadowingFH->unpinPage(shadowPageIdx);
+        } catch (...) {
+            if (!restoreError) {
+                restoreError = std::current_exception();
+            }
+        }
+    }
+    releaseSavepoint();
+    try {
+        truncateToSavepoint(savepoint);
+    } catch (const std::exception& e) {
+        // The shadow file may still list pages the failed group created.
+        recordSavepointRollbackFailure(e.what());
+        throw;
+    } catch (...) {
+        recordSavepointRollbackFailure("unknown exception");
+        throw;
+    }
+    if (restoreError) {
+        try {
+            std::rethrow_exception(restoreError);
+        } catch (const std::exception& e) {
+            recordSavepointRollbackFailure(e.what());
+            throw;
+        } catch (...) {
+            recordSavepointRollbackFailure("unknown exception");
+            throw;
+        }
+    }
+}
+
+void ShadowFile::truncateToSavepoint(ShadowSavepoint savepoint) {
     std::unique_lock lck{mtx};
     DASSERT(savepoint <= shadowPageRecords.size());
     if (savepoint == shadowPageRecords.size()) {
@@ -167,21 +247,95 @@ bool ShadowFile::readShadowVersionIfExists(file_idx_t originalFile, page_idx_t o
     return true;
 }
 
-void ShadowFile::applyShadowPages(StorageManager& storageManager, ClientContext& context) const {
+namespace {
+// The shadow file whose paired-read scope this thread currently holds (see PairedReadScope).
+thread_local const ShadowFile* pairedReadScopeOnThisThread = nullptr;
+// True while this thread runs applyShadowPages()'s publication step.
+thread_local bool publishingOnThisThread = false;
+} // namespace
+
+void ShadowFile::checkNotPublishingOnThisThread() {
+    if (publishingOnThisThread) {
+        throw InternalException(
+            "A primary-key lookup ran while publishing a checkpoint's index state. Publication "
+            "must not look up keys: it would read half-published index state.");
+    }
+}
+
+ShadowFile::PairedReadScope::PairedReadScope(const ShadowFile* shadowFile)
+    : previous{pairedReadScopeOnThisThread} {
+    if (shadowFile == nullptr || shadowFile == pairedReadScopeOnThisThread) {
+        return;
+    }
+    lock = shadowFile->lockForPairedRead();
+    pairedReadScopeOnThisThread = shadowFile;
+    owns = true;
+}
+
+ShadowFile::PairedReadScope::~PairedReadScope() {
+    if (owns) {
+        pairedReadScopeOnThisThread = previous;
+    }
+}
+
+std::shared_lock<std::shared_mutex> ShadowFile::lockForPairedRead() const {
+    if (applyPending.load(std::memory_order_acquire)) {
+        // Queue behind the pending apply so it is not starved by a stream of readers.
+        std::lock_guard gate{applyGateMtx};
+    }
+    std::shared_lock lock{applyMtx};
+    if (applyFailed) {
+        throw RuntimeException("Primary key index is unavailable after a checkpoint failed while "
+                               "applying its pages; reopen the database to recover.");
+    }
+    return lock;
+}
+
+void ShadowFile::applyShadowPages(StorageManager& storageManager, ClientContext& context,
+    const std::function<void()>& publish) const {
     const auto pageBuffer = std::make_unique<uint8_t[]>(LBUG_PAGE_SIZE);
     page_idx_t shadowPageIdx = 1; // Skip header page.
     auto dataFH = storageManager.getDataFH();
     auto dataFileInfo = dataFH->getFileInfo();
     DASSERT(shadowingFH);
-    for (const auto& record : shadowPageRecords) {
-        shadowingFH->readPageFromDisk(pageBuffer.get(), shadowPageIdx++);
-        dataFileInfo->writeFile(pageBuffer.get(), LBUG_PAGE_SIZE,
-            record.originalPageIdx * LBUG_PAGE_SIZE);
-        // Acquire page state lock before updating the in-memory frame. This ensures concurrent
-        // optimistic readers will detect the version change and retry, seeing the new page data.
-        MemoryManager::Get(context)->getBufferManager()->updateFrameIfPageIsInFrame(
-            record.originalFileIdx, pageBuffer.get(), record.originalPageIdx);
+    {
+        std::lock_guard gate{applyGateMtx};
+        applyPending.store(true, std::memory_order_release);
+        struct ClearPending {
+            std::atomic<bool>& flag;
+            ~ClearPending() { flag.store(false, std::memory_order_release); }
+        } clearPending{applyPending};
+        // Paired readers hold applyMtx shared from header read to slot read, so new slot pages
+        // and the headers that address them become visible to them in one step (#1052).
+        std::unique_lock exclusive{applyMtx};
+        try {
+            for (const auto& record : shadowPageRecords) {
+                shadowingFH->readPageFromDisk(pageBuffer.get(), shadowPageIdx++);
+                dataFileInfo->writeFile(pageBuffer.get(), LBUG_PAGE_SIZE,
+                    record.originalPageIdx * LBUG_PAGE_SIZE);
+                // Acquire page state lock before updating the in-memory frame. This ensures
+                // concurrent optimistic readers will detect the version change and retry,
+                // seeing the new page data.
+                MemoryManager::Get(context)->getBufferManager()->updateFrameIfPageIsInFrame(
+                    record.originalFileIdx, pageBuffer.get(), record.originalPageIdx);
+            }
+            if (publish) {
+                publishingOnThisThread = true;
+                struct ClearPublishing {
+                    ~ClearPublishing() { publishingOnThisThread = false; }
+                } clearPublishing;
+                publish();
+            }
+        } catch (...) {
+            // The commit record is durable, so this is not rolled back (the WAL is poisoned
+            // instead). Readers must not pair the remaining in-memory headers with a partially
+            // applied data file.
+            applyFailed = true;
+            throw;
+        }
     }
+    // Readers see written pages before they are durable; recovery replays the shadow file if
+    // the sync does not complete, so it need not block paired readers.
     dataFileInfo->syncFile();
 }
 
@@ -407,6 +561,8 @@ void ShadowFile::flushAll(const uuid& ownerDatabaseID) const {
 
 void ShadowFile::clear(BufferManager& bm, bool syncParentDirectory) {
     DASSERT(shadowingFH);
+    // A checkpoint abandoned mid-group must not leave a savepoint armed over the next one.
+    releaseSavepoint();
     // Concurrent readers may be reading shadow pages (see readShadowVersionIfExists).
     std::unique_lock lck{mtx};
     // Evict pages, truncate to zero pages (which also truncates the on-disk file), then unlink
@@ -419,6 +575,11 @@ void ShadowFile::clear(BufferManager& bm, bool syncParentDirectory) {
     shadowPagesMap.clear();
     shadowPageRecords.clear();
     hasShadowPages.store(false, std::memory_order_release);
+    // An earlier clear() already truncated, unlinked and closed the file, and no checkpoint has
+    // reopened it since: a checkpoint that fails before reaching this file rolls back over it.
+    if (shadowingFH->getFileInfo() == nullptr) {
+        return;
+    }
     shadowingFH->resetToZeroPagesAndPageCapacity();
     shadowingFH->resetFileInfo();
     vfs->removeFileIfExists(shadowFilePath);
@@ -428,6 +589,7 @@ void ShadowFile::clear(BufferManager& bm, bool syncParentDirectory) {
 }
 
 void ShadowFile::reset() {
+    releaseSavepoint();
     // Keep the shadowing FileHandle (and its VM frame groups) alive across checkpoints:
     // each FileHandle allocates VMRegion frame groups that count against max_db_size and
     // are never reclaimed, so orphaning the handle here exhausted max_db_size after a

@@ -67,7 +67,8 @@ def _make_real_session(tmp_path: Path) -> tuple[FragmentWriterSession, str]:
     dataset = tbl.to_lance()
 
     ckp_uri = str(URL(str(tmp_path)) / "ckp")
-    store = CheckpointStore.from_uri(ckp_uri)
+    # Synthetic, non-fragment-shaped keys need the flat store.
+    store = CheckpointStore.from_uri(ckp_uri, layout="flat")
     store["ckptA_range-0-8"] = _out_batch(0, 8, 100)
     store["ckptB_range-8-16"] = _out_batch(8, 16, 100)
 
@@ -78,6 +79,7 @@ def _make_real_session(tmp_path: Path) -> tuple[FragmentWriterSession, str]:
         checkpoint_store=store,
         where=None,
         read_version=dataset.version,
+        checkpoint_layout="flat",
     )
     sess.ingest_task(0, "ckptA_range-0-8", 8)
     sess.ingest_task(8, "ckptB_range-8-16", 8)

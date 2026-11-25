@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import click
 import pyperclip
@@ -130,7 +130,7 @@ def token_copy(ctx: Context, token_id: str) -> None:
     click.echo(FeedbackManager.success_copy_token(token=token_id))
 
 
-def parse_ttl(ctx, param, value):
+def parse_ttl(ctx: Context, param: click.Parameter, value: Optional[str]) -> Optional[timedelta]:
     if value is None:
         return None
     try:
@@ -140,7 +140,7 @@ def parse_ttl(ctx, param, value):
         raise click.BadParameter(f"Invalid time to live format: {value}")
 
 
-def parse_fixed_params(fixed_params_list):
+def parse_fixed_params(fixed_params_list: Iterable[str]) -> List[Dict[str, str]]:
     parsed_params = []
     for fixed_param in fixed_params_list:
         param_dict = {}
@@ -195,7 +195,15 @@ def create(ctx: Context) -> None:
     help="SQL filter to apply when reading a datasource (only applicable for DATASOURCES:READ scope)",
 )
 @click.pass_context
-def create_jwt_token(ctx: Context, name: str, ttl: timedelta, scope, resource, fixed_params, filter) -> None:
+def create_jwt_token(
+    ctx: Context,
+    name: str,
+    ttl: timedelta,
+    scope: Tuple[str, ...],
+    resource: Tuple[str, ...],
+    fixed_params: Tuple[str, ...],
+    filter: Tuple[str, ...],
+) -> None:
     """Create a JWT token with a TTL specify."""
 
     obj: Dict[str, Any] = ctx.ensure_object(dict)
@@ -227,16 +235,20 @@ def create_jwt_token(ctx: Context, name: str, ttl: timedelta, scope, resource, f
         filters_list[i] = f
 
     scopes = []
-    for sc, res, fparams, filter in zip(scope, resource, fixed_params_list, filters_list):
-        scope_data = {
+    for sc, res, fparams, scope_filter in zip(scope, resource, fixed_params_list, filters_list):
+        scope_data: Dict[str, Any] = {
             "type": sc,
             "resource": res,
         }
 
-        if sc == "PIPES:READ" and fparams:
+        if fparams:
+            if sc != "PIPES:READ":
+                raise CLITokenException(FeedbackManager.error_jwt_fixed_params_scope_mismatch(scope=sc, resource=res))
             scope_data["fixed_params"] = fparams
-        elif sc == "DATASOURCES:READ" and filter:
-            scope_data["filter"] = filter
+        if scope_filter:
+            if sc != "DATASOURCES:READ":
+                raise CLITokenException(FeedbackManager.error_jwt_filter_scope_mismatch(scope=sc, resource=res))
+            scope_data["filter"] = scope_filter
 
         scopes.append(scope_data)
 
@@ -266,7 +278,7 @@ valid_scopes = [
 
 # As we are passing dynamic options to the command, we need to create a custom class to handle the help message
 class DynamicOptionsCommand(click.Command):
-    def get_help(self, ctx):
+    def get_help(self, ctx: Context) -> str:
         # Usage
         usage = "Usage: tb token create static [OPTIONS] NAME\n\n"
         dynamic_options_help = usage
@@ -288,7 +300,7 @@ class DynamicOptionsCommand(click.Command):
 )
 @click.argument("name")
 @click.pass_context
-def create_static_token(ctx, name: str):
+def create_static_token(ctx: Context, name: str) -> None:
     """Create a Static Token."""
     obj: Dict[str, Any] = ctx.ensure_object(dict)
     client: TinyB = obj["client"]

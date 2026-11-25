@@ -589,8 +589,8 @@ class TestUDTFCheckpointResume:
         view = db.create_udtf_view("ckp_view", query, double_vals)
         view.refresh(_admission_check=False)
 
-        # Open checkpoint store and verify keys
-        ckp_store = view.get_reference().open_checkpoint_store()
+        # UDTF checkpoints always live in the flat store.
+        ckp_store = view.get_reference().open_checkpoint_store(layout="flat")
         src_version = source_table.version
         top_prefix = format_udtf_checkpoint_prefix(
             udtf_name=double_vals.name,
@@ -675,8 +675,8 @@ class TestUDTFCheckpointResume:
         result = view.to_arrow()
         assert result.num_rows == 2
 
-        # Verify fragment checkpoint keys exist for both partitions
-        ckp_store = view.get_reference().open_checkpoint_store()
+        # Verify fragment checkpoint keys exist for both partitions (flat store)
+        ckp_store = view.get_reference().open_checkpoint_store(layout="flat")
         src_version = source_table.version
         top_prefix = format_udtf_checkpoint_prefix(
             udtf_name=sum_groups.name,

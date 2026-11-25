@@ -3,8 +3,9 @@ __docformat__ = "reStructuredText"
 import math
 import platform
 import weakref
-from collections.abc import KeysView
-from typing import TYPE_CHECKING, Any, Callable, Hashable, Optional, Union
+from collections.abc import Hashable, KeysView
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from pymunk.constraints import Constraint
 from pymunk.shape_filter import ShapeFilter
@@ -15,8 +16,7 @@ from ._callbacks import *
 from ._chipmunk_cffi import ffi, lib
 from ._collision_handler import CollisionHandler, _CollisionCallback
 from ._pickle import PickleMixin, _State
-from ._util import _dead_ref
-from .arbiter import Arbiter, _arbiter_from_dict, _arbiter_to_dict
+from .arbiter import _arbiter_from_dict, _arbiter_to_dict
 from .body import Body
 from .query_info import PointQueryInfo, SegmentQueryInfo, ShapeQueryInfo
 from .shapes import Shape
@@ -28,7 +28,38 @@ if TYPE_CHECKING:
 _AddableObjects = Union[Body, Shape, Constraint]
 
 
-class Space(PickleMixin, object):
+class SolverMode(Enum):
+    """Solver selection policy used by :class:`Space`.
+
+    See property Space.solver_mode for additional details.
+    """
+
+    BASELINE = 1
+    """The original solver.
+
+    As of Pymunk 7.4 this is the default. However, a future version of Pymunk
+    will likely switch to AUTO as the default choice, when it has shown to
+    work reliably.
+    """
+
+    AUTO = 2
+    """Auto will try to use an accelerated solver if available.
+
+    The actual solver depends on the build and runtime: AVX2 when available,
+    otherwise Wasm SIMD when available, otherwise the original default solver.
+    Pyodide wheels require standard WebAssembly SIMD at module load time, even
+    when BASELINE is selected. No application-specific loader is needed.
+
+    Accelerated solvers can result in slight different simulation result, since
+    contacts are processed in different order compared to the default solver.
+
+    In some cases the chosen solver by AUTO mode might be slower than the
+    default one. To prevent this, benchmark your particular setup with both
+    solver modes.
+    """
+
+
+class Space(PickleMixin):
     """Spaces are the basic unit of simulation. You add rigid bodies, shapes
     and joints to it and then step them all forward together through time.
 
@@ -118,9 +149,9 @@ class Space(PickleMixin, object):
 
         self._space = ffi.gc(cp_space, spacefree)
 
-        self._handlers: dict[Any, CollisionHandler] = (
-            {}
-        )  # To prevent the gc to collect the callbacks.
+        self._handlers: dict[
+            Any, CollisionHandler
+        ] = {}  # To prevent the gc to collect the callbacks.
 
         self._post_step_callbacks: dict[Any, Callable[["Space"], None]] = {}
         self._removed_shapes: dict[Shape, None] = {}
@@ -133,8 +164,9 @@ class Space(PickleMixin, object):
         self._locked = False
 
         self._add_later: set[_AddableObjects] = set()
-        self._remove_later: dict[_AddableObjects, None] = dict()
+        self._remove_later: dict[_AddableObjects, None] = {}
         self._bodies_to_check: set[Body] = set()
+        self._solver_mode: SolverMode = SolverMode.BASELINE
 
     @property
     def shapes(self) -> KeysView[Shape]:
@@ -421,13 +453,13 @@ class Space(PickleMixin, object):
     def _add_shape(self, shape: "Shape") -> None:
         """Adds a shape to the space"""
         assert shape not in self._shapes, "Shape already added to space."
-        assert (
-            shape.space == None
-        ), "Shape already added to another space. A shape can only be in one space at a time."
+        assert shape.space == None, (
+            "Shape already added to another space. A shape can only be in one space at a time."
+        )
         assert shape.body != None, "The shape's body is not set."
-        assert (
-            shape.body.space == self
-        ), "The shape's body must be added to the space before (or at the same time) as the shape."
+        assert shape.body.space == self, (
+            "The shape's body must be added to the space before (or at the same time) as the shape."
+        )
 
         shape._space = weakref.ref(self)
         self._shapes[shape] = None
@@ -459,7 +491,7 @@ class Space(PickleMixin, object):
         """Removes a shape from the space"""
         assert shape in self._shapes, "shape not in space, already removed?"
         self._removed_shapes[shape] = None
-        shape._space = _dead_ref
+        shape._space = None
         # During GC at program exit sometimes the shape might already be removed. Then skip this step.
         if lib.cpSpaceContainsShape(self._space, shape._shape):
             lib.cpSpaceRemoveShape(self._space, shape._shape)
@@ -468,7 +500,7 @@ class Space(PickleMixin, object):
     def _remove_body(self, body: "Body") -> None:
         """Removes a body from the space"""
         assert body in self._bodies, "body not in space, already removed?"
-        body._space = _dead_ref
+        body._space = None
         if body in self._bodies_to_check:
             self._bodies_to_check.remove(body)
         # During GC at program exit sometimes the shape might already be removed. Then skip this step.
@@ -478,9 +510,9 @@ class Space(PickleMixin, object):
 
     def _remove_constraint(self, constraint: "Constraint") -> None:
         """Removes a constraint from the space"""
-        assert (
-            constraint in self._constraints
-        ), "constraint not in space, already removed?"
+        assert constraint in self._constraints, (
+            "constraint not in space, already removed?"
+        )
         # print("remove", constraint, constraint._constraint, self._constraints)
         # During GC at program exit sometimes the constraint might already be removed. Then skip this steip.
         if lib.cpSpaceContainsConstraint(self._space, constraint._constraint):
@@ -502,6 +534,44 @@ class Space(PickleMixin, object):
         space. You only need to call this if you move one of the static shapes.
         """
         lib.cpSpaceReindexStatic(self._space)
+
+    @property
+    def solver_mode(self) -> SolverMode:
+        """Contact solver selection policy.
+
+        As of Pymunk 7.4.0 it defaults to :attr:`SolverMode.BASELINE`.
+        However, expect a later version to change deafult to
+        :attr:`SolverMode.AUTO`.
+
+        See :class:`SolverMode` for details on what the available options are
+        and their behaviour, and performance considerations.
+
+        The mode can only be changed between simulation steps while the Space
+        is unlocked and when the Space is not in threaded mode. However, there
+        is some performance overhead to switch solver, it is not advicable to
+        change too frequently.
+        """
+        return self._solver_mode
+
+    @solver_mode.setter
+    def solver_mode(self, mode: SolverMode) -> None:
+        assert not self._locked, "Solver mode can only be changed on unlocked Spaces."
+        assert not self.threaded, "Solver mode can not be changed when using threading."
+
+        solver = lib.CP_CONTACT_SOLVER_BASELINE
+        if mode == SolverMode.AUTO:
+            for accelerated in (
+                lib.CP_CONTACT_SOLVER_AVX2,
+                lib.CP_CONTACT_SOLVER_WASM_SIMD,
+                lib.CP_CONTACT_SOLVER_NEON,
+            ):
+                if lib.cpContactSolverIsAvailable(accelerated):
+                    solver = accelerated
+                    break
+        if not lib.cpSpaceSetContactSolver(self._space, solver):
+            raise RuntimeError("Could not change the contact solver")
+
+        self._solver_mode = mode
 
     @property
     def threads(self) -> int:
@@ -581,7 +651,9 @@ class Space(PickleMixin, object):
         for b in self._bodies_to_check:
             assert b.body_type != Body.DYNAMIC or (
                 b.mass > 0 and b.mass < math.inf and b.moment > 0
-            ), f"Dynamic bodies must have a mass > 0 and < inf and moment > 0. {b} has mass {b.mass}, moment {b.moment}."
+            ), (
+                f"Dynamic bodies must have a mass > 0 and < inf and moment > 0. {b} has mass {b.mass}, moment {b.moment}."
+            )
         self._bodies_to_check.clear()
 
         try:
@@ -665,9 +737,9 @@ class Space(PickleMixin, object):
         # key = min(collision_type_a, collision_type_b), max(
         #     collision_type_a, collision_type_b
         # )
-        assert (
-            collision_type_a != None or collision_type_b == None
-        ), "collision_type_a can not be None if collision_type_b is not None. Please swap them."
+        assert collision_type_a != None or collision_type_b == None, (
+            "collision_type_a can not be None if collision_type_b is not None. Please swap them."
+        )
 
         key = collision_type_a, collision_type_b
         if key not in self._handlers:
@@ -1056,6 +1128,7 @@ class Space(PickleMixin, object):
         d["special"].append(
             ("arbiters", [_arbiter_to_dict(_arb, self) for _arb in _arbs])
         )
+        d["special"].append(("solver_mode", self.solver_mode))
         return d
 
     def __setstate__(self, state: _State) -> None:
@@ -1064,13 +1137,13 @@ class Space(PickleMixin, object):
         This method allows the usage of the :mod:`copy` and :mod:`pickle`
         modules with this class.
         """
-        super(Space, self).__setstate__(state)
+        super().__setstate__(state)
 
         for k, v in state["special"]:
             if k == "pymunk_version":
-                assert (
-                    _version.version == v
-                ), f"Pymunk version {v} of pickled object does not match current Pymunk version {_version.version}"
+                assert _version.version == v, (
+                    f"Pymunk version {v} of pickled object does not match current Pymunk version {_version.version}"
+                )
             elif k == "bodies":
                 self.add(*v)
             elif k == "_static_body":
@@ -1142,3 +1215,6 @@ class Space(PickleMixin, object):
                     # lib.cpSpaceTest(self._space)
                     _arbiter = _arbiter_from_dict(d, self)
                     lib.cpSpaceAddCachedArbiter(self._space, _arbiter)
+            elif k == "solver_mode":
+                if self.solver_mode != v:
+                    self.solver_mode = v

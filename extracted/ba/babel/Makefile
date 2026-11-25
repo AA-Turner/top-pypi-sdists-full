@@ -1,5 +1,5 @@
 test: import-cldr
-	python ${PYTHON_TEST_FLAGS} -m pytest ${PYTEST_FLAGS}
+	python -X utf8 ${PYTHON_TEST_FLAGS} -m pytest ${PYTEST_FLAGS}
 
 clean: clean-cldr clean-pyc
 
@@ -20,4 +20,7 @@ develop:
 tox-test:
 	tox
 
-.PHONY: test develop tox-test clean-pyc clean-cldr import-cldr clean standalone-test
+update-gha:
+	uvx gha-tools@latest autoupdate --pin all -s specific --first-party-version-strategy=major --write .github/workflows/
+
+.PHONY: test develop tox-test clean-pyc clean-cldr import-cldr clean update-gha

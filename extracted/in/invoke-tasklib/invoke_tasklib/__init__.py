@@ -2,7 +2,9 @@ r"""Reusable Invoke tasks shared across Python projects.
 
 Typical usage in a consuming project's ``tasks.py``::
 
-    from invoke_tasklib import ns
+    from invoke_tasklib import make_ns
+
+    ns = make_ns()
 
 and an ``invoke.yaml`` at the project root::
 
@@ -10,15 +12,20 @@ and an ``invoke.yaml`` at the project root::
       package:
         name: my_package
 
-To compose a custom subset of tasks instead of using the default
-``ns``, import individual task modules:
+To compose a custom subset of tasks, use the ``exclude`` and
+``include`` options of ``make_ns``, or import individual task modules
+(the module of the ``test`` tasks is ``testing``, so its collection
+needs the name ``test`` to keep the task names: each task module has
+it in its ``NAMESPACE`` constant):
 
 ```pycon
 >>> from invoke.collection import Collection
->>> from invoke_tasklib import lint, test
+>>> from invoke_tasklib import lint, testing
+>>> test = Collection.from_module(testing, name=testing.NAMESPACE)
 >>> ns = Collection(lint, test)
 >>> sorted(ns.task_names)
-['lint.check-python', 'lint.fix-python', 'test.all', 'test.benchmark',
+['lint.check-python', 'lint.check-spelling', 'lint.fix-python',
+ 'lint.pre-commit', 'test.all', 'test.benchmark',
  'test.coverage-report', 'test.doctest', 'test.doctest-markdown',
  'test.doctest-src', 'test.functional', 'test.integration', 'test.unit']
 
@@ -27,45 +34,215 @@ To compose a custom subset of tasks instead of using the default
 
 from __future__ import annotations
 
+import importlib.metadata
+import sys
+import warnings
+from typing import TYPE_CHECKING
+
 from invoke.collection import Collection
-from invoke.tasks import Task
 
 from invoke_tasklib import (
+    check,
     clean,
     doc,
     env,
-    format,  # noqa: A004
+    fix,
+    formatting,
     imports,
     lint,
     release,
     security,
-    test,
-    types,
+    show,
+    testing,
+    typecheck,
 )
+from invoke_tasklib.config import default_config
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 __all__ = [
+    "__version__",
+    "check",
     "clean",
     "doc",
     "env",
-    "format",
+    "fix",
+    "formatting",
     "imports",
     "lint",
-    "ns",
+    "make_ns",
     "release",
     "security",
-    "test",
-    "types",
+    "show",
+    "testing",
+    "typecheck",
 ]
 
-ns: Collection = Collection()
-ns.add_collection(Collection.from_module(format), name="format")
-ns.add_collection(Collection.from_module(lint), name="lint")
-ns.add_collection(Collection.from_module(imports), name="imports")
-ns.add_collection(Collection.from_module(types), name="types")
-ns.add_collection(Collection.from_module(test), name="test")
-ns.add_collection(Collection.from_module(env), name="env")
-ns.add_collection(Collection.from_module(release), name="release")
-ns.add_collection(Collection.from_module(doc), name="doc")
-ns.add_collection(Collection.from_module(security), name="security")
-ns.add_task(clean.all, name="clean")  # ty: ignore[invalid-argument-type]
-ns.add_task(Task(clean.pycache, name="clean-pycache"))
+
+def _installed_version(distribution: str = "invoke-tasklib") -> str:
+    r"""Return the version of an installed distribution.
+
+    Args:
+        distribution: The name of the distribution.
+
+    Returns:
+        The version, or ``"0+unknown"`` if the distribution is not
+        installed (for example when running from a source checkout).
+
+    Example usage:
+
+    ```pycon
+    >>> from invoke_tasklib import _installed_version
+    >>> _installed_version("no-such-distribution")
+    '0+unknown'
+
+    ```
+    """
+    try:
+        return importlib.metadata.version(distribution)
+    except importlib.metadata.PackageNotFoundError:
+        return "0+unknown"
+
+
+__version__ = _installed_version()
+r"""The version of the installed ``invoke-tasklib`` distribution."""
+
+_MODULES = {
+    module.NAMESPACE: module
+    for module in (
+        formatting,
+        lint,
+        imports,
+        typecheck,
+        testing,
+        env,
+        release,
+        doc,
+        security,
+        clean,
+        check,
+        fix,
+        show,
+    )
+}
+r"""The task modules of the default collection, by namespace name (the
+``NAMESPACE`` of each module)."""
+
+
+def _matches(name: str, patterns: Iterable[str]) -> bool:
+    r"""Check whether a task or a namespace is selected by patterns.
+
+    Args:
+        name: The dotted name of a task (``"release.publish"``) or of a
+            namespace (``"release"``).
+        patterns: Names of namespaces or tasks. A pattern matches the
+            name that is equal to it or that is inside it.
+
+    Returns:
+        ``True`` if a pattern matches the name.
+
+    Example usage:
+
+    ```pycon
+    >>> from invoke_tasklib import _matches
+    >>> _matches("release.publish", ["release"])
+    True
+    >>> _matches("release.publish", ["release.build"])
+    False
+
+    ```
+    """
+    return any(name == p or name.startswith(f"{p}.") for p in patterns)
+
+
+def _warn_if_unsupported_platform() -> None:
+    r"""Warn that Windows is not supported.
+
+    The tasks rely on a POSIX shell for the quoting of the commands,
+    so on Windows they fail with an error that does not name the
+    cause.
+
+    Example usage:
+
+    ```pycon
+    >>> from invoke_tasklib import _warn_if_unsupported_platform
+    >>> _warn_if_unsupported_platform()
+
+    ```
+    """
+    if sys.platform == "win32":
+        msg = "invoke-tasklib does not support Windows: the tasks need a POSIX shell"
+        warnings.warn(msg, RuntimeWarning, stacklevel=3)
+
+
+def make_ns(
+    *,
+    exclude: str | Iterable[str] = (),
+    include: str | Iterable[str] | None = None,
+) -> Collection:
+    r"""Build a new collection of the tasks, optionally restricted.
+
+    Each call returns a new collection, so a project can add its own
+    tasks to it or remove some without any effect on other importers.
+
+    Args:
+        exclude: Names of the namespaces (``"doc"``) or of the tasks
+            (``"release.publish"``) to leave out. A single string is one
+            name.
+        include: Names of the namespaces or of the tasks to keep. If
+            ``None``, all the tasks are kept. ``exclude`` is applied
+            to what ``include`` keeps. A single string is one name.
+
+    Returns:
+        A new collection. The defaults of the ``tasklib`` config are
+        registered on it, so that they can be overridden with the
+        ``INVOKE_TASKLIB_<SECTION>_<KEY>`` environment variables (for
+        example ``INVOKE_TASKLIB_PATHS_SRC``).
+
+    Raises:
+        ValueError: If a name of ``exclude`` or ``include`` is not a
+            namespace or a task, which is usually a typo.
+
+    Warns:
+        RuntimeWarning: On Windows, which is not supported (the tasks
+            need a POSIX shell).
+
+    Example usage:
+
+    ```pycon
+    >>> from invoke_tasklib import make_ns
+    >>> ns = make_ns(include=["lint.check-python", "test.unit"])
+    >>> sorted(ns.task_names)
+    ['lint.check-python', 'test.unit']
+
+    ```
+    """
+    _warn_if_unsupported_platform()
+    exclude = (exclude,) if isinstance(exclude, str) else tuple(exclude)
+    if isinstance(include, str):
+        include = (include,)
+    include = None if include is None else tuple(include)
+    modules = {
+        namespace: Collection.from_module(module, name=namespace)
+        for namespace, module in _MODULES.items()
+    }
+    known = set(modules) | {f"{n}.{t}" for n, sub in modules.items() for t in sub.tasks}
+    unknown = sorted((set(exclude) | set(include or ())) - known)
+    if unknown:
+        msg = f"Unknown task or namespace {unknown}. Valid names: {sorted(known)}"
+        raise ValueError(msg)
+    ns = Collection()
+    for namespace, sub in modules.items():
+        selected = Collection(namespace)
+        for task_name, task in sub.tasks.items():
+            path = f"{namespace}.{task_name}"
+            if include is not None and not _matches(path, include):
+                continue
+            if _matches(path, exclude):
+                continue
+            selected.add_task(task, name=task_name, default=sub.default == task_name)
+        if selected.tasks:
+            ns.add_collection(selected)
+    ns.configure({"tasklib": default_config()})
+    return ns

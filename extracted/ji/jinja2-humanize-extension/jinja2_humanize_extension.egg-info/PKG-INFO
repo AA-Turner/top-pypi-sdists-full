@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
-Name: jinja2-humanize-extension
-Version: 0.4.0
+Metadata-Version: 2.4
+Name: jinja2_humanize_extension
+Version: 0.4.1
 Summary: a jinja2 extension to use humanize library inside jinja2 templates
 Home-page: https://github.com/metwork-framework/jinja2_humanize_extension
 Author: Fabien MARTY, Jean-Baptiste VESLIN
@@ -14,6 +14,20 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: jinja2
+Requires-Dist: humanize>=3.14.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # jinja2_humanize_extension
 
@@ -21,9 +35,7 @@ License-File: LICENSE
 
 **Status (master branch)**
 
-
-
-[![GitHub CI](https://github.com/metwork-framework/jinja2_humanize_extension/workflows/CI/badge.svg?branch=master)](https://github.com/metwork-framework/jinja2_humanize_extension/actions?query=workflow%3ACI+branch%3Amaster)
+[![GitHub CI](https://github.com/metwork-framework/jinja2_humanize_extension/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/metwork-framework/jinja2_humanize_extension/actions?query=workflow%3ACI+branch%3Amaster)
 [![Maintenance](https://raw.githubusercontent.com/metwork-framework/resources/master/badges/maintained.svg)](https://github.com/metwork-framework/resources/blob/master/badges/maintained.svg)
 
 

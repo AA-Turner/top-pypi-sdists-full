@@ -292,43 +292,15 @@ def _python_file_imports_symbol_from_definition(
     definition_path: str,
     repo_root: Path | str | None = None,
 ) -> bool:
-    try:
-        tree = _self._cached_ast_parse(source)
-    except SyntaxError:
-        return False
+    from tensor_grep.cli.repo_map_fast_cache import python_file_imports_symbol_fast
 
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            if any(
-                _self._module_path_matches_definition(alias.name, definition_path)
-                for alias in node.names
-            ):
-                return True
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                if not _self._module_path_matches_definition(node.module, definition_path):
-                    continue
-                if any(
-                    alias.name in {"*", symbol} or alias.asname == symbol for alias in node.names
-                ):
-                    return True
-            elif node.level:
-                # `from . import helpers` / `from .. import helpers` -- no dotted `node.module`
-                # text, only relative dots plus the imported name(s). This bare form BINDS THE
-                # SUBMODULE ITSELF (like `ast.Import`, not a `from X import symbol` name
-                # binding), so match on module path alone -- mirrors #460's fix for the forward
-                # `_python_imports_and_symbols`/`_python_imports_with_lines` extractors (the `tg
-                # imports`/`tg importers` primitive), applied here to the callers/blast-radius
-                # consumer path, which was still silently dropping this shape (audit #81 #3): the
-                # old `if not node.module: continue` guard skipped every bare relative import, so
-                # a sibling `from . import helpers` consumer was invisible to `tg callers`/`tg
-                # blast-radius` even though `tg importers` already found it.
-                if any(
-                    _self._module_path_matches_definition(alias.name, definition_path)
-                    for alias in node.names
-                ):
-                    return True
-    return False
+    return python_file_imports_symbol_fast(
+        source,
+        symbol,
+        definition_path,
+        _self._module_path_matches_definition,
+        _self._cached_ast_parse,
+    )
 
 
 def _python_import_update_target(
@@ -1036,6 +1008,16 @@ def _python_candidate_roots(importer_path: Path, repo_root: Path | str | None) -
 
 
 def _python_module_candidates(
+    importer_path: Path,
+    module_name: str,
+    repo_root: Path | str | None = None,
+    *,
+    level: int = 0,
+) -> dict[str, Any]:
+    return _compute_python_module_candidates(importer_path, module_name, repo_root, level=level)
+
+
+def _compute_python_module_candidates(
     importer_path: Path,
     module_name: str,
     repo_root: Path | str | None = None,

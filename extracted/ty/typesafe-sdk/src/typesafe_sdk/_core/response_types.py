@@ -7,11 +7,11 @@ kinds a future API adds without failing the whole response.
 """
 
 from functools import cached_property
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, Self, TypeAlias
 
 import httpx2
 from pydantic import ConfigDict, Field, ValidationError
-from typing_extensions import Self, override
+from typing_extensions import override
 
 from typesafe_sdk._core.json import deserialize, serialize
 from typesafe_sdk._core.logging import logger

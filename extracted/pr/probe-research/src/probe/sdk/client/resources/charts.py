@@ -174,6 +174,19 @@ def _is_own_row(row: dict, anchor: dict[str, str], key: str) -> bool:
     return row.get("metric_key") == key and all(str(row.get(field)) == value for field, value in anchor.items())
 
 
+def to_key_metrics(items: Sequence[str], kind: str = "model") -> list[dict[str, str]]:
+    """A script's pinned metrics (``probe.init(key_metrics=...)``, T32): ``[kind:]key`` each, deduped in order, 1 to
+    12. Refused here, before any request, so a typo opens nothing."""
+    if isinstance(items, str):
+        raise errors.ValidationError("key_metrics is a list of metric names, e.g. ['train/loss', 'eval/loss']")
+    pairs = list({tuple(_to_metric_pair(item, kind).items()): None for item in items})
+    if not pairs:
+        raise errors.ValidationError("key_metrics names no metric: pass the names your script logs")
+    if len(pairs) > MAX_KEY_METRICS:
+        raise errors.ValidationError(f"a run type has at most {MAX_KEY_METRICS} key metrics")
+    return [dict(pair) for pair in pairs]
+
+
 def _to_metric_pair(item: str, default_kind: str) -> dict[str, str]:
     kind, sep, key = str(item).partition(":")
     if not sep:

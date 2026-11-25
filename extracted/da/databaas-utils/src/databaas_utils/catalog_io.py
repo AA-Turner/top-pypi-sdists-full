@@ -28,6 +28,8 @@ from pyiceberg.io import PY_IO_IMPL, S3_SIGNER, FileIO
 from pyiceberg.io.fsspec import SIGNERS, FsspecFileIO, _s3
 from pyiceberg.typedef import EMPTY_DICT, Properties
 
+from databaas_utils.s3config import CHECKSUMS
+
 STOCK_FILE_IO = "pyiceberg.io.fsspec.FsspecFileIO"
 SIGNING_FILE_IO = "databaas_utils.catalog_io.SigningFileIO"
 
@@ -49,16 +51,14 @@ def private_s3(properties: Properties) -> Any:
     # signer it registers nothing and does not connect.
     unsigned = {k: v for k, v in properties.items() if k != S3_SIGNER}
     options = dict(_s3(unsigned).storage_options)
+    options["config_kwargs"] = {**options.get("config_kwargs", {}), **CHECKSUMS}
     signer_name = properties.get(S3_SIGNER)
     if not signer_name:
         return S3FileSystem(**options, skip_instance_cache=True)
     signer_cls = SIGNERS.get(signer_name)
     if signer_cls is None:
         raise ValueError(f"Signer not available: {signer_name}")
-    options["config_kwargs"] = {
-        **options.get("config_kwargs", {}),
-        "signature_version": UNSIGNED,
-    }
+    options["config_kwargs"]["signature_version"] = UNSIGNED
     fs = S3FileSystem(**options, skip_instance_cache=True)
     fs.s3.meta.events.register_last(
         "before-sign.s3", signer_cls(properties), unique_id=_SIGNER_ID

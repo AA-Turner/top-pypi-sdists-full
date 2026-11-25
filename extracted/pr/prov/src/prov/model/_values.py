@@ -250,13 +250,17 @@ def _xsd_double_text(value: float) -> str:
     return float.__repr__(value)
 
 
-def _xsd_datetime_text(value: datetime.datetime) -> str:
+def _xsd_datetime_text(value: datetime.datetime, *, statement: bool = False) -> str:
     """ISO 8601 text with an xsd:dateTime-legal zone: an offset that is not a
-    whole number of minutes (historical LMT offsets) is normalised to UTC."""
+    whole number of minutes (historical LMT offsets) is normalised to UTC.
+
+    A time of a statement (``statement=True``) is written by ``datetime``'s own
+    ``isoformat``, so a subclass's longer fraction is cut to microseconds, which
+    every reader takes. An attribute value keeps its own ``isoformat`` text."""
     offset = value.utcoffset()
     if offset is not None and (offset.total_seconds() % 60 or offset.microseconds):
-        value = value.astimezone(datetime.UTC)
-    return value.isoformat()
+        value = value.astimezone(datetime.timezone.utc)
+    return datetime.datetime.isoformat(value) if statement else value.isoformat()
 
 
 # How prov spells a Python value, in lookup order: the plain types first
@@ -296,13 +300,13 @@ def python_value_form(value: object) -> tuple[str | None, QualifiedName] | None:
     """The lexical text and XSD datatype prov spells ``value`` with.
 
     The five plain types spell as the writers write them: a ``str`` as given
-    with ``xsd:string``, a ``bool`` as ``true`` or ``false``, an ``int`` as
-    its digits with the datatype of :func:`canonical_xsd_datatype`, a
-    ``float`` in xsd:double form, a ``datetime`` in ISO 8601 form. A type
-    the model stores as a typed ``Literal`` (#482) spells in that datatype's
-    lexical form. ``None`` when the type has no PROV form; the text is
-    ``None`` when the type converts but this value has no lexical form, such
-    as ``Decimal("NaN")``.
+    with ``xsd:string`` (a subclass as its ``str()``), a ``bool`` as
+    ``true`` or ``false``, an ``int`` as its digits with the datatype of
+    :func:`canonical_xsd_datatype`, a ``float`` in xsd:double form, a
+    ``datetime`` in ISO 8601 form. A type the model stores as a typed
+    ``Literal`` (#482) spells in that datatype's lexical form. ``None`` when
+    the type has no PROV form; the text is ``None`` when the type converts
+    but this value has no lexical form, such as ``Decimal("NaN")``.
     """
     for types, datatype, text in _PROV_FORMS:
         if isinstance(value, types):

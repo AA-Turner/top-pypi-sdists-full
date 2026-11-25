@@ -216,16 +216,6 @@ pub struct WorkerConfig {
     #[builder(default = 3)]
     pub max_eager_activity_reservations_per_workflow_task: usize,
 
-    /// If set false (default), shutdown will not finish until all pending evictions have been
-    /// issued and replied to. If set true shutdown will be considered complete when the only
-    /// remaining work is pending evictions.
-    ///
-    /// This flag is useful during tests to avoid needing to deal with lots of uninteresting
-    /// evictions during shutdown. Alternatively, if a lang implementation finds it easy to clean
-    /// up during shutdown, setting this true saves some back-and-forth.
-    #[builder(default = false)]
-    pub ignore_evicts_on_shutdown: bool,
-
     /// Maximum number of next page (or initial) history event listing requests we'll make
     /// concurrently. I don't this it's worth exposing this to users until we encounter a reason.
     #[builder(default = 5)]
@@ -1422,6 +1412,10 @@ impl Worker {
 
     /// Tell the worker that an activity has finished executing. May (and should) be freely called
     /// concurrently.
+    #[allow(
+        clippy::result_large_err,
+        reason = "Keep the existing public error type without introducing boxing for a lint"
+    )]
     #[instrument(skip(self, completion),
                  fields(task_token, status,
                         task_queue=%self.config.task_queue, workflow_id, run_id))]
@@ -1464,6 +1458,7 @@ impl Worker {
     /// It is important to understand that all activations must be responded to. There can only
     /// be one outstanding activation for a particular run of a workflow at any time. If an
     /// activation is not responded to, it will cause that workflow to become stuck forever.
+    /// Workflow tasks without activation jobs are handled internally and do not activate lang.
     ///
     /// See [WorkflowActivation] for more details on the expected behavior of lang w.r.t activation
     /// & job processing.

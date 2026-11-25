@@ -164,6 +164,7 @@ def create_app(
         scheduler = asyncio.create_task(app.state.brief.run_scheduler())
         # What changed in this version and the ones before: read once after an upgrade. Not by
         # the tour's demo, which has no Versions of its own to show.
+        releases.mark_started(app)
         notes = asyncio.create_task(asyncio.sleep(0) if settings.tour else releases.fetch(app))
         background = [
             asyncio.create_task(job)

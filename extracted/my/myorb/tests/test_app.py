@@ -316,6 +316,46 @@ def test_responses_say_the_running_version(make_client: MakeClient):
     assert f'<meta name="myorb-version" content="{__version__}">' in response.text
 
 
+def test_versions_from_the_feed_when_the_api_refuses(make_client: MakeClient):
+    import httpx2
+
+    from myorb import __version__
+
+    feed = f"""<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <updated>2026-11-24T19:20:39Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/x/y/releases/tag/v{__version__}"/>
+    <title>v{__version__}</title>
+    <content type="html">&lt;h2&gt;What&#39;s Changed&lt;/h2&gt;&lt;ul&gt;&lt;li&gt;Show 2 / 35 by
+ &lt;a href=&quot;https://github.com/someone&quot;&gt;@someone&lt;/a&gt; in
+ &lt;a class=&quot;issue-link&quot; href=&quot;https://github.com/x/y/pull/254&quot;&gt;#254&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;</content>
+  </entry>
+</feed>"""
+    calls = []
+    feed_works = [False]
+
+    def github(request: httpx2.Request) -> httpx2.Response:
+        calls.append(request.url.path)
+        if request.url.path.endswith(".atom") and feed_works[0]:
+            return httpx2.Response(200, text=feed)
+        return httpx2.Response(403, json={"message": "API rate limit exceeded"})
+
+    client = make_client(transport=httpx2.MockTransport(github))
+    complete_setup(client)
+    # Neither read: the running version is there all the same, with when it started.
+    page = client.get("/releases").text
+    assert f"v{__version__}</a>" in page and "could not be read" in page and " since " in page
+    asked = len(calls)
+    client.get("/releases")
+    assert len(calls) == asked  # not asked again at once
+    client.app.state.releases_retry = 0
+    feed_works[0] = True
+    page = client.get("/releases").text
+    assert '<a href="https://github.com/x/y/pull/254"' in page and ">Show 2 / 35<" in page
+    assert "could not be read" not in page
+
+
 def test_versions_with_what_changed(make_client: MakeClient):
     import httpx2
 
@@ -360,3 +400,8 @@ def test_versions_with_what_changed(make_client: MakeClient):
     assert len(calls) == 1
     kept = client.app.state.settings.data_dir / "releases.json"
     assert releases.__version__ in kept.read_text()
+    # When it started here: in the header and by the version, kept across restarts.
+    assert " since " in page and "· started here " in page
+    first = releases.started(client.app)[__version__]
+    releases.mark_started(client.app)
+    assert releases.started(client.app)[__version__] == first

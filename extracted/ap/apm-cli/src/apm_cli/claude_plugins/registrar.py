@@ -25,6 +25,10 @@ from apm_cli.core.remediation import (
     kept_note,
 )
 from apm_cli.core.scope import InstallScope, get_deploy_root, is_user_scope
+from apm_cli.native_plugins.claude_marketplaces import (
+    release_project_marketplaces,
+    sync_project_marketplace,
+)
 from apm_cli.native_plugins.layout import (
     NativeLayoutError,
     attributes_enabled,
@@ -304,6 +308,7 @@ def reconcile_native_plugins(
     logger: Any = None,
     dry_run: bool = False,
     rejected: Collection[str] = (),
+    retired_harnesses: Collection[str] = (),
 ) -> dict[str, frozenset[str]]:
     """Converge deployed roots, the catalog and harness settings onto *lockfile*.
 
@@ -314,9 +319,10 @@ def reconcile_native_plugins(
     it, or ``None`` when there was no previous lock. *prepared* holds the
     plugins this run admitted, with the harnesses their targets select;
     *run_targets* names the targets this run evaluated; *rejected* names the
-    plugins it evaluated for Copilot and refused. A harness this run did
+    plugins it evaluated for Copilot and refused; *retired_harnesses* names
+    the harnesses target contraction retired (#4874). A harness this run did
     not evaluate keeps the declarations its settings already hold, as does a
-    locked plugin this run did not admit. Every harness settings file is
+    locked plugin this run did not admit, unless it is retired. Every harness settings file is
     checked before any root is deployed. A failure up to the settings commit
     restores every settings file and replaced root, and removes roots this
     run created; the caller restores the lock. Retirement runs only after the
@@ -360,6 +366,8 @@ def reconcile_native_plugins(
                         legacy.finish(logger)
             else:
                 _keep_legacy(legacy, logger, "no native plugin is locked for it")
+            # No plugin is declared: an entry a failed uninstall left converges now (#5258).
+            release_project_marketplaces(root, user_scope=user_scope, logger=logger)
             return {}
         marketplace, path = scope_binding(
             user_scope=user_scope,
@@ -381,10 +389,16 @@ def reconcile_native_plugins(
             following, lockfile, modules_dir, prepared or {}, prior, root, fingerprint_of, hint
         )
         harnesses = _declared_harnesses(
-            declared, lockfile, prepared or {}, settings_paths, marketplace, run_targets
+            declared,
+            lockfile,
+            prepared or {},
+            settings_paths,
+            marketplace,
+            run_targets,
+            retired_harnesses,
         )
         declarations = _settings_declarations(
-            harnesses, previous, settings_paths, marketplace, path, user_scope
+            harnesses, previous, settings_paths, marketplace, path, user_scope, retired_harnesses
         )
         for harness, target in settings_paths.items():
             _refuse_binding(preview_declaration(target, declarations[harness]), target, marketplace)
@@ -433,6 +447,15 @@ def reconcile_native_plugins(
     if legacy is not None:
         with contextlib.suppress(OSError):
             legacy.finish(logger)
+    # Claude loads a project plugin's skills and hooks in a first session only
+    # from a marketplace its user registry lists (#5176).
+    sync_project_marketplace(
+        marketplace,
+        root,
+        user_scope=user_scope,
+        claude_declared=any(CLAUDE in on for on in harnesses.values()),
+        logger=logger,
+    )
     retiring = sorted(prior_names - set(declared))
     fingerprints = {own.record.name: own.record.fingerprint for own in prior.values()}
     kept = [
@@ -548,8 +571,13 @@ def _settings_declarations(
     marketplace: str,
     path: str,
     user_scope: bool,
+    retired: Collection[str] = (),
 ) -> dict[str, SettingsDeclaration]:
-    """The declaration each harness settings file converges onto."""
+    """The declaration each harness settings file converges onto.
+
+    In a harness target contraction *retired* (#4874), APM owns only the
+    plugins it wrote there, so a user's own enable entry stays.
+    """
     prior = previous or {}
     prior_names = {own.record.name for own in prior.values()}
     prior_bindings = {own.record.binding for own in prior.values()}
@@ -561,13 +589,43 @@ def _settings_declarations(
             marketplace,
             path,
             frozenset(name for name, on in harnesses.items() if harness in on),
-            None if previous is None else frozenset(prior_names),
+            _owned_in(
+                harness,
+                None if previous is None else frozenset(prior_names),
+                prior,
+                retired,
+                user_scope,
+            ),
             next(iter(prior_bindings)) if prior_bindings else None,
             suppressed if harness == COPILOT else frozenset(),
             managed if harness == COPILOT else frozenset(),
+            catalog=frozenset(harnesses),
         )
         for harness in HARNESSES
     }
+
+
+def _owned_in(
+    harness: str,
+    owned: frozenset[str] | None,
+    prior: Mapping[str, NativeOwnership],
+    retired: Collection[str],
+    user_scope: bool,
+) -> frozenset[str] | None:
+    """*owned* narrowed, in a harness target contraction retired, to what APM wrote there.
+
+    That is the plugins APM declared to it (``native_declared``; an older row,
+    its harnesses), plus at project scope Copilot's value for a plugin
+    declared to Claude (#4874), so a user's own enable entry stays.
+    """
+    if owned is None or harness not in retired:
+        return owned
+    kept = set()
+    for own in prior.values():
+        wrote = own.harnesses if own.declared is None else own.declared
+        if harness in wrote or (harness == COPILOT and CLAUDE in wrote and not user_scope):
+            kept.add(own.record.name)
+    return owned & frozenset(kept)
 
 
 def preview_project_root_retirement(record: NativePluginRecord, deploy_root: Path) -> bool | None:
@@ -686,6 +744,7 @@ def plan_native_declarations(
     prepared: Mapping[str, ClaudeNativePlugin] | None,
     deploy_root: Path | None,
     run_targets: Collection[str] | None,
+    retired_harnesses: Collection[str] = (),
 ) -> dict[str, frozenset[str]] | None:
     """The harnesses :func:`reconcile_native_plugins` will declare, read-only.
 
@@ -716,7 +775,13 @@ def plan_native_declarations(
         )
         declared = {own.record.name: (key, own, None) for key, own in following.items()}
         return _declared_harnesses(
-            declared, lockfile, prepared or {}, settings_paths, marketplace, run_targets
+            declared,
+            lockfile,
+            prepared or {},
+            settings_paths,
+            marketplace,
+            run_targets,
+            retired_harnesses,
         )
     except (NativeLayoutError, NativeSettingsError, OSError, ValueError):
         return None
@@ -729,6 +794,7 @@ def _declared_harnesses(
     settings_paths: Mapping[str, Path],
     marketplace: str,
     run_targets: Collection[str] | None,
+    retired: Collection[str] = (),
 ) -> dict[str, frozenset[str]]:
     """Which harness files declare each plugin after this run.
 
@@ -737,7 +803,9 @@ def _declared_harnesses(
     settings already hold, so a run narrowed with --target, an uninstall or a
     prune never retires a harness it did not evaluate; when no settings file
     names it yet, it follows the lock entry's own target subset. A declaration
-    never extends past the harnesses the plugin's format and scope allow.
+    never extends past the harnesses the plugin's format and scope allow, nor
+    to a harness *retired* by target contraction: apm.yml no longer declares
+    it and this run did not target it (#4874).
     """
     observed = _observations(settings_paths, marketplace)
     result: dict[str, frozenset[str]] = {}
@@ -745,8 +813,10 @@ def _declared_harnesses(
         locked = lockfile.dependencies[key]
         allowed = record_harnesses(
             getattr(locked, "package_type", None), own.record.marketplace_path
-        )
-        kept = {harness for harness in HARNESSES if name in observed[harness]}
+        ) - frozenset(retired)
+        kept = {
+            harness for harness in HARNESSES if name in observed[harness] and harness not in retired
+        }
         plan = prepared.get(key)
         if plan is not None:
             # The dependency's own targets: is part of this run's decision, so a

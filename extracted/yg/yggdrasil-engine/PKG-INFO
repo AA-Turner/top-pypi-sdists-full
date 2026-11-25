@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yggdrasil-engine
-Version: 3.0.0
+Version: 3.0.1
 Summary: Engine for evaluating Unleash feature flags
 Author-email: Simon Hornby <liquidwicked64@gmail.com>, Alexandra Szanto <szanto.szandra@gmail.com>
 License-Expression: MIT

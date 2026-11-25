@@ -36,7 +36,7 @@ class TrajectoryEvidenceParam(TypedDict, total=False):
 
 
 class FindingsCreateParams(TypedDict, total=False):
-  bench_id: Required[str]
+  spec_id: Required[str]
   task_id: str | None
   trajectory_id: str | None
   title: Required[str]

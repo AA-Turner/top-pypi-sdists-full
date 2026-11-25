@@ -17,9 +17,9 @@ class SpecsCreateUploadParams(TypedDict, total=False):
   """
   Files to sign upload URLs for, one URL returned per declared path.
   """
-  bench_id: str | None
+  spec_id: str | None
   """
-  Omit to mint a new benchmark. Pass a bench_id returned by an earlier batch to add these files
-  to that benchmark's upload prefix, which is how a file set larger than the per-request limit
-  is uploaded. An already-ingested bench_id is rejected.
+  Omit to mint a new spec. Pass a spec_id returned by an earlier batch to add these files to
+  that spec's upload prefix, which is how a file set larger than the per-request limit is
+  uploaded. An already-ingested spec_id is rejected.
   """

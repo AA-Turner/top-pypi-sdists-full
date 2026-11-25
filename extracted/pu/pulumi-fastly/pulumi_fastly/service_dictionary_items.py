@@ -201,10 +201,6 @@ class ServiceDictionaryItems(pulumi.CustomResource):
             mydict_name = "My Dictionary"
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -247,10 +243,6 @@ class ServiceDictionaryItems(pulumi.CustomResource):
             }
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -290,10 +282,6 @@ class ServiceDictionaryItems(pulumi.CustomResource):
         # Define the standard service that will be used to manage the dictionaries.
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.ocnotexample.com",
-                "comment": "demo",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -347,10 +335,6 @@ class ServiceDictionaryItems(pulumi.CustomResource):
             mydict_name = "My Dictionary"
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             dictionaries=[{
                 "name": mydict_name,
             }])
@@ -453,10 +437,6 @@ class ServiceDictionaryItems(pulumi.CustomResource):
             mydict_name = "My Dictionary"
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -499,10 +479,6 @@ class ServiceDictionaryItems(pulumi.CustomResource):
             }
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -542,10 +518,6 @@ class ServiceDictionaryItems(pulumi.CustomResource):
         # Define the standard service that will be used to manage the dictionaries.
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.ocnotexample.com",
-                "comment": "demo",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -599,10 +571,6 @@ class ServiceDictionaryItems(pulumi.CustomResource):
             mydict_name = "My Dictionary"
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             dictionaries=[{
                 "name": mydict_name,
             }])
@@ -733,6 +701,20 @@ class ServiceDictionaryItems(pulumi.CustomResource):
         __props__.__dict__["manage_items"] = manage_items
         __props__.__dict__["service_id"] = service_id
         return ServiceDictionaryItems(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            dictionary_id: pulumi.Input[Optional[_builtins.str]] = None,
+            items: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            manage_items: pulumi.Input[Optional[_builtins.bool]] = None,
+            service_id: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["dictionaryId"] = dictionary_id
+        __props__["items"] = items
+        __props__["manageItems"] = manage_items
+        __props__["serviceId"] = service_id
+        return pulumi.runtime.exists_resource(None, 'fastly:index/serviceDictionaryItems:ServiceDictionaryItems', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="dictionaryId")

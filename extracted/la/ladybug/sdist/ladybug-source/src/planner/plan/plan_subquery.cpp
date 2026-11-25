@@ -10,23 +10,31 @@
 #include "binder/expression/subquery_expression.h"
 #include "binder/expression_binder.h"
 #include "binder/expression_visitor.h"
+#include "common/enums/extend_direction_util.h"
 #include "common/exception/runtime.h"
 #include "function/aggregate/count.h"
 #include "function/list/vector_list_functions.h"
 #include "main/client_context.h"
+#include "planner/operator/extend/logical_extend.h"
 #include "planner/operator/factorization/flatten_resolver.h"
 #include "planner/operator/logical_accumulate.h"
 #include "planner/operator/logical_aggregate.h"
 #include "planner/operator/logical_distinct.h"
 #include "planner/operator/logical_flatten.h"
 #include "planner/operator/logical_hash_join.h"
+#include "planner/operator/logical_limit.h"
 #include "planner/operator/logical_projection.h"
 #include "planner/operator/logical_unwind.h"
+#include "planner/operator/persistent/logical_delete.h"
+#include "planner/operator/persistent/logical_insert.h"
+#include "planner/operator/persistent/logical_merge.h"
+#include "planner/operator/persistent/logical_set.h"
 #include "planner/operator/scan/logical_expressions_scan.h"
 #include "planner/operator/scan/logical_query_primary_key_lookup.h"
 #include "planner/planner.h"
 #include "storage/storage_manager.h"
 #include "storage/table/node_table.h"
+#include "transaction/transaction.h"
 
 using namespace lbug::binder;
 using namespace lbug::common;
@@ -76,10 +84,9 @@ bool Planner::findCorrelatedPrimaryKeyLookupKey(const QueryGraphCollection& quer
         return false;
     }
     auto tableID = tableIDs[0];
-    auto table = storage::StorageManager::Get(*clientContext)
-                     ->getTable(tableID)
-                     ->ptrCast<storage::NodeTable>();
-    if (table->tryGetPrimaryKeyIndex() == nullptr) {
+    auto* table =
+        storage::StorageManager::tryGetNativeNodeTable(*clientContext, *node->getEntry(0));
+    if (!table || !table->tryGetPrimaryKeyIndex()) {
         return false;
     }
     std::unordered_set<std::string> corrNames;
@@ -144,76 +151,156 @@ bool Planner::tryPlanCorrelatedPrimaryKeyLookup(const QueryGraphCollection& quer
     appendExpressionsScan(corrExprs, rightPlan);
     rightPlan.getLastOperator()->setCardinality(corrExprsCard);
     appendDistinct(corrExprs, rightPlan);
-    appendFlattens(rightPlan.getSchema()->getGroupsPosInScope(), rightPlan);
-    auto properties = getProperties(*node);
-    properties.erase(std::remove_if(properties.begin(), properties.end(),
-                         [](const std::shared_ptr<Expression>& expression) {
-                             return expression->constCast<PropertyExpression>().isInternalID();
-                         }),
-        properties.end());
-    const auto dependentExprs = getDependentExprs(key, *rightPlan.getSchema());
-    DASSERT(!dependentExprs.empty());
-    const auto outputGroupPos = rightPlan.getSchema()->getGroupPos(*dependentExprs[0]);
-    for ([[maybe_unused]] auto& dependentExpr : dependentExprs) {
-        DASSERT(rightPlan.getSchema()->getGroupPos(*dependentExpr) == outputGroupPos);
-    }
-    auto lookup = std::make_shared<LogicalQueryPrimaryKeyLookup>(tableID, node->getInternalID(),
-        properties, key, outputGroupPos, rightPlan.getLastOperator());
-    lookup->computeFactorizedSchema();
-    lookup->setCardinality(rightPlan.getCardinality());
-    rightPlan.setLastOperator(std::move(lookup));
+    appendQueryPrimaryKeyLookup(*node, tableID, std::move(key), rightPlan);
     appendFilters(residualPredicates, rightPlan);
     return true;
 }
 
-bool Planner::tryPlanQueryPrimaryKeyLookup(const QueryGraphCollection& queryGraphCollection,
-    const expression_vector& predicates, LogicalPlan& plan) {
-    if (queryGraphCollection.getNumQueryGraphs() != 1) {
-        return false;
-    }
-    auto queryGraph = queryGraphCollection.getQueryGraph(0);
-    if (queryGraph->getNumQueryNodes() != 1 || queryGraph->getNumQueryRels() != 0) {
-        return false;
-    }
-    auto node = queryGraph->getQueryNode(0);
-    auto tableIDs = node->getTableIDs();
-    if (tableIDs.size() != 1 || plan.getSchema()->isExpressionInScope(*node->getInternalID())) {
-        return false;
-    }
-    auto tableID = tableIDs[0];
-    auto table = storage::StorageManager::Get(*clientContext)
-                     ->getTable(tableID)
-                     ->ptrCast<storage::NodeTable>();
-    if (table->tryGetPrimaryKeyIndex() == nullptr) {
-        return false;
-    }
+template<typename INFO>
+static bool infosWriteTable(const std::vector<INFO>& infos, table_id_t tableID) {
+    return std::any_of(infos.begin(), infos.end(), [&](const INFO& info) {
+        return info.pattern->template constCast<NodeOrRelExpression>().getTableIDsSet().contains(
+            tableID);
+    });
+}
 
-    std::shared_ptr<Expression> key;
-    expression_vector residualPredicates;
-    for (auto& predicate : predicates) {
-        if (predicate->expressionType != ExpressionType::EQUALS) {
-            residualPredicates.push_back(predicate);
+static bool writesTable(const LogicalOperator& op, table_id_t tableID) {
+    switch (op.getOperatorType()) {
+    case LogicalOperatorType::INSERT: {
+        if (infosWriteTable(op.constCast<LogicalInsert>().getInfos(), tableID)) {
+            return true;
+        }
+    } break;
+    case LogicalOperatorType::SET_PROPERTY: {
+        if (infosWriteTable(op.constCast<LogicalSetProperty>().getInfos(), tableID)) {
+            return true;
+        }
+    } break;
+    case LogicalOperatorType::DELETE: {
+        if (infosWriteTable(op.constCast<LogicalDelete>().getInfos(), tableID)) {
+            return true;
+        }
+    } break;
+    case LogicalOperatorType::MERGE: {
+        auto& merge = op.constCast<LogicalMerge>();
+        if (infosWriteTable(merge.getInsertNodeInfos(), tableID) ||
+            infosWriteTable(merge.getOnCreateSetNodeInfos(), tableID) ||
+            infosWriteTable(merge.getOnMatchSetNodeInfos(), tableID)) {
+            return true;
+        }
+    } break;
+    default:
+        break;
+    }
+    for (auto& child : op.getChildren()) {
+        if (writesTable(*child, tableID)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The lookup writes into the group of the key's inputs, so they must all be in one group.
+static bool dependsOnOneGroup(const std::shared_ptr<Expression>& expression, const Schema& schema) {
+    const auto dependentExprs = getDependentExprs(expression, schema);
+    if (dependentExprs.empty()) {
+        return false;
+    }
+    const auto groupPos = schema.getGroupPos(*dependentExprs[0]);
+    for (auto& dependentExpr : dependentExprs) {
+        if (schema.getGroupPos(*dependentExpr) != groupPos) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// The first equality between the node's primary key and an expression of the input rows
+// becomes the lookup key; its predicate is marked as used.
+static std::shared_ptr<Expression> findQueryPrimaryKeyLookupKey(const NodeExpression& node,
+    table_id_t tableID, const expression_vector& predicates, const Schema& schema,
+    std::vector<bool>& usedPredicates) {
+    for (auto i = 0u; i < predicates.size(); ++i) {
+        auto& predicate = predicates[i];
+        if (usedPredicates[i] || predicate->expressionType != ExpressionType::EQUALS) {
             continue;
         }
         auto lhs = predicate->getChild(0);
         auto rhs = predicate->getChild(1);
-        if (isNodePrimaryKey(*rhs, *node, tableID)) {
+        if (isNodePrimaryKey(*rhs, node, tableID)) {
             std::swap(lhs, rhs);
         }
-        if (key == nullptr && isNodePrimaryKey(*lhs, *node, tableID) &&
-            plan.getSchema()->evaluable(*rhs) &&
-            !getDependentExprs(rhs, *plan.getSchema()).empty()) {
-            key = rhs;
-        } else {
-            residualPredicates.push_back(predicate);
+        if (isNodePrimaryKey(*lhs, node, tableID) && schema.evaluable(*rhs) &&
+            dependsOnOneGroup(rhs, schema)) {
+            usedPredicates[i] = true;
+            return rhs;
         }
     }
-    if (key == nullptr) {
+    return nullptr;
+}
+
+// Each disconnected node of the clause, e.g. both nodes of
+// MATCH (a {id: r.src}), (b {id: r.dst}), gets its own lookup. Keys are resolved against the
+// input rows only, so a key that refers to another node of the clause keeps the join plan.
+bool Planner::tryPlanQueryPrimaryKeyLookup(const QueryGraphCollection& queryGraphCollection,
+    const expression_vector& predicates, LogicalPlan& plan) {
+    struct Lookup {
+        std::shared_ptr<NodeExpression> node;
+        table_id_t tableID;
+        std::shared_ptr<Expression> key;
+    };
+    if (queryGraphCollection.getNumQueryGraphs() == 0) {
         return false;
     }
+    std::vector<bool> usedPredicates(predicates.size(), false);
+    std::vector<Lookup> lookups;
+    for (auto i = 0u; i < queryGraphCollection.getNumQueryGraphs(); ++i) {
+        auto queryGraph = queryGraphCollection.getQueryGraph(i);
+        if (queryGraph->getNumQueryNodes() != 1 || queryGraph->getNumQueryRels() != 0) {
+            return false;
+        }
+        auto node = queryGraph->getQueryNode(0);
+        auto tableIDs = node->getTableIDs();
+        if (tableIDs.size() != 1 || plan.getSchema()->isExpressionInScope(*node->getInternalID())) {
+            return false;
+        }
+        auto* table =
+            storage::StorageManager::tryGetNativeNodeTable(*clientContext, *node->getEntry(0));
+        if (!table || !table->tryGetPrimaryKeyIndex()) {
+            return false;
+        }
+        auto key = findQueryPrimaryKeyLookupKey(*node, tableIDs[0], predicates, *plan.getSchema(),
+            usedPredicates);
+        if (key == nullptr) {
+            return false;
+        }
+        lookups.push_back({std::move(node), tableIDs[0], std::move(key)});
+    }
+    // The lookups run in the pipeline of the earlier clauses, so writes to a looked-up table must
+    // finish first or a row misses the writes of later rows. Accumulating only merges groups, so
+    // each key still reads one group.
+    if (std::any_of(lookups.begin(), lookups.end(), [&](const Lookup& lookup) {
+            return writesTable(*plan.getLastOperator(), lookup.tableID);
+        })) {
+        tryAppendAccumulate(plan);
+    }
+    for (auto& lookup : lookups) {
+        appendQueryPrimaryKeyLookup(*lookup.node, lookup.tableID, lookup.key, plan);
+    }
+    expression_vector residualPredicates;
+    for (auto i = 0u; i < predicates.size(); ++i) {
+        if (!usedPredicates[i]) {
+            residualPredicates.push_back(predicates[i]);
+        }
+    }
+    appendFilters(residualPredicates, plan);
+    return true;
+}
 
+void Planner::appendQueryPrimaryKeyLookup(const NodeExpression& node, table_id_t tableID,
+    std::shared_ptr<Expression> key, LogicalPlan& plan) {
     appendFlattens(plan.getSchema()->getGroupsPosInScope(), plan);
-    auto properties = getProperties(*node);
+    auto properties = getProperties(node);
     properties.erase(std::remove_if(properties.begin(), properties.end(),
                          [](const std::shared_ptr<Expression>& expression) {
                              return expression->constCast<PropertyExpression>().isInternalID();
@@ -225,13 +312,11 @@ bool Planner::tryPlanQueryPrimaryKeyLookup(const QueryGraphCollection& queryGrap
     for ([[maybe_unused]] auto& dependentExpr : dependentExprs) {
         DASSERT(plan.getSchema()->getGroupPos(*dependentExpr) == outputGroupPos);
     }
-    auto lookup = std::make_shared<LogicalQueryPrimaryKeyLookup>(tableID, node->getInternalID(),
-        properties, key, outputGroupPos, plan.getLastOperator());
+    auto lookup = std::make_shared<LogicalQueryPrimaryKeyLookup>(tableID, node.getInternalID(),
+        properties, std::move(key), outputGroupPos, plan.getLastOperator());
     lookup->computeFactorizedSchema();
     lookup->setCardinality(plan.getCardinality());
     plan.setLastOperator(std::move(lookup));
-    appendFilters(residualPredicates, plan);
-    return true;
 }
 
 expression_vector Planner::getCorrelatedExprs(const QueryGraphCollection& collection,
@@ -498,6 +583,8 @@ bool isNullFreeOperator(LogicalOperatorType type) {
     case LogicalOperatorType::ATTACH_DATABASE:
     case LogicalOperatorType::COPY_FROM:
     case LogicalOperatorType::COPY_TO:
+    case LogicalOperatorType::CREATE_CONSTRAINT:
+    case LogicalOperatorType::DROP_CONSTRAINT:
     case LogicalOperatorType::CREATE_GRAPH:
     case LogicalOperatorType::CREATE_INDEX:
     case LogicalOperatorType::CREATE_MACRO:
@@ -1009,10 +1096,9 @@ bool Planner::tryPlanPropertySeededChain(const QueryGraphCollection& queryGraphC
     if (!elemPropRef.isPrimaryKey(seedTableID)) {
         return false;
     }
-    auto seedTable = storage::StorageManager::Get(*clientContext)
-                         ->getTable(seedTableID)
-                         ->ptrCast<storage::NodeTable>();
-    if (seedTable->tryGetPrimaryKeyIndex() == nullptr) {
+    auto* seedTable =
+        storage::StorageManager::tryGetNativeNodeTable(*clientContext, *seedNode->getEntry(0));
+    if (!seedTable || !seedTable->tryGetPrimaryKeyIndex()) {
         return false;
     }
     // Anchor: a constant PK equality on another single-table node (at most one), and no
@@ -1330,10 +1416,9 @@ bool Planner::tryPlanScalarSeededChain(const QueryGraphCollection& queryGraphCol
         return false;
     }
     auto seedTableID = seedNode->getTableIDs()[0];
-    auto seedTable = storage::StorageManager::Get(*clientContext)
-                         ->getTable(seedTableID)
-                         ->ptrCast<storage::NodeTable>();
-    if (seedTable->tryGetPrimaryKeyIndex() == nullptr) {
+    auto* seedTable =
+        storage::StorageManager::tryGetNativeNodeTable(*clientContext, *seedNode->getEntry(0));
+    if (!seedTable || !seedTable->tryGetPrimaryKeyIndex()) {
         return false;
     }
     // Every other predicate must be a (possibly deferred) filter: no hidden constructs,
@@ -2020,6 +2105,380 @@ void Planner::planOptionalMatch(const QueryGraphCollection& queryGraphCollection
     }
 }
 
+// Helpers for bound expand (generalized lookup join for adjacency). They mirror the
+// lookup-join credibility analysis in plan_join_order.cpp so the two INLJ paths share
+// one contract: a small flat trusted outer plus a cost comparison. Kept file-local to
+// avoid widening the Planner interface for a single caller; see plan_join_order.cpp:920
+// for why the estimate alone is unreliable on IC5-style outers.
+struct BoundExpandOuterAnalysis {
+    bool trusted = true;
+    double uncertainty = 1.0;
+    uint32_t maxExtendDepth = 0;
+};
+
+static double boundExpandFanoutUncertainty(const binder::RelExpression& rel,
+    common::ExtendDirection direction, const CardinalityEstimator& estimator, bool& ok) {
+    ok = false;
+    const auto dirs = direction == common::ExtendDirection::BOTH ?
+                          std::vector<common::RelDataDirection>{common::RelDataDirection::FWD,
+                              common::RelDataDirection::BWD} :
+                          std::vector<common::RelDataDirection>{
+                              common::ExtendDirectionUtil::getRelDataDirection(direction)};
+    auto worstRatio = 1.0;
+    auto sawStats = false;
+    for (auto tableID : rel.getInnerRelTableIDs()) {
+        for (auto relDir : dirs) {
+            const auto* stats = estimator.getRelDirectionStats(tableID, relDir);
+            if (stats == nullptr || stats->maxDegree == 0) {
+                return 1.0;
+            }
+            sawStats = true;
+            worstRatio = std::max(worstRatio,
+                static_cast<double>(stats->maxDegree) / std::max<double>(stats->avgDegree, 1.0));
+        }
+    }
+    if (!sawStats) {
+        return 1.0;
+    }
+    ok = true;
+    return worstRatio;
+}
+
+static void analyzeBoundExpandOuterPlan(const planner::LogicalOperator* op,
+    const CardinalityEstimator& estimator, uint32_t extendDepth,
+    BoundExpandOuterAnalysis& analysis) {
+    if (!analysis.trusted) {
+        return;
+    }
+    using T = planner::LogicalOperatorType;
+    const auto type = op->getOperatorType();
+    switch (type) {
+    case T::EXTEND:
+    case T::PACKED_EXTEND: {
+        analysis.maxExtendDepth = std::max(analysis.maxExtendDepth, extendDepth + 1);
+        const auto& extend = op->constCast<planner::BaseLogicalExtend>();
+        bool ok = false;
+        const auto factor =
+            boundExpandFanoutUncertainty(*extend.getRel(), extend.getDirection(), estimator, ok);
+        if (!ok) {
+            analysis.trusted = false;
+            return;
+        }
+        analysis.uncertainty *= factor;
+        extendDepth += 1;
+        break;
+    }
+    case T::HASH_JOIN: {
+        if (op->constCast<planner::LogicalHashJoin>().getJoinType() != common::JoinType::INNER) {
+            analysis.trusted = false;
+            return;
+        }
+        break;
+    }
+    case T::UNION_ALL: {
+        auto worst = 1.0;
+        for (auto i = 0u; i < op->getNumChildren(); ++i) {
+            BoundExpandOuterAnalysis branch{true, 1.0, extendDepth};
+            analyzeBoundExpandOuterPlan(op->getChild(i).get(), estimator, extendDepth, branch);
+            if (!branch.trusted) {
+                analysis.trusted = false;
+                return;
+            }
+            worst = std::max(worst, branch.uncertainty);
+            analysis.maxExtendDepth = std::max(analysis.maxExtendDepth, branch.maxExtendDepth);
+        }
+        analysis.uncertainty *= worst;
+        return;
+    }
+    case T::QUERY_PRIMARY_KEY_LOOKUP:
+    case T::SCAN_NODE_TABLE:
+    case T::FILTER:
+    case T::PROJECTION:
+    case T::FLATTEN:
+    case T::ORDER_BY:
+    case T::LIMIT:
+    case T::CROSS_PRODUCT:
+    case T::NODE_LABEL_FILTER:
+        break;
+    default:
+        analysis.trusted = false;
+        return;
+    }
+    for (auto i = 0u; i < op->getNumChildren(); ++i) {
+        analyzeBoundExpandOuterPlan(op->getChild(i).get(), estimator, extendDepth, analysis);
+    }
+}
+
+// A leg predicate can be pushed into the property-attach scan for `target` when it
+// depends only on that target's variable. Parameters and literals carry no variable
+// and are therefore always pushable; Schema::evaluable would reject any predicate
+// mentioning a $parameter, which is exactly the IC9 regression
+// (message.creationDate < $maxDate staying above the join).
+static bool boundExpandPredicateOnlyOnTarget(const std::shared_ptr<binder::Expression>& pred,
+    const binder::NodeExpression& target) {
+    auto collector = binder::DependentVarNameCollector();
+    collector.visit(pred);
+    auto varNames = collector.getVarNames();
+    if (varNames.empty()) {
+        return true;
+    }
+    if (varNames.size() != 1) {
+        return false;
+    }
+    return varNames.contains(target.getUniqueName());
+}
+
+// A literal LIMIT within the lookup cap anywhere in the outer signals a
+// user-constrained driving side, where the per-tuple INLJ shape has proven
+// worthwhile (WITH c LIMIT 1000 MATCH (c)-[...] goes from seconds to milliseconds;
+// IC9 with LIMIT 1 ahead of the 2-hop expansion goes 160ms to 84ms). The LIMIT may
+// sit below a fan-out — e.g. ahead of knows*1..2 whose post-DISTINCT outer is still
+// 3k rows — so it does not prove the outer small; the pre/post-flatten cardinality
+// caps still guard the estimate. It only skips the trust and cost analyses, which a
+// LIMIT-constrained outer typically fails (RECURSIVE_EXTEND and DISTINCT are not on
+// the allowlist) despite winning in practice.
+static bool boundExpandOuterHasLimitWithinCap(const planner::LogicalOperator* op) {
+    if (op->getOperatorType() == planner::LogicalOperatorType::LIMIT) {
+        const auto& limit = op->constCast<planner::LogicalLimit>();
+        if (limit.hasLimitNum() &&
+            limit.getLimitNum()->expressionType == common::ExpressionType::LITERAL) {
+            if (binder::ExpressionUtil::evaluateAsSkipLimit(*limit.getLimitNum()) <=
+                common::PlannerKnobs::LOOKUP_JOIN_MAX_OUTER_CARDINALITY) {
+                return true;
+            }
+        }
+    }
+    for (auto i = 0u; i < op->getNumChildren(); ++i) {
+        if (boundExpandOuterHasLimitWithinCap(op->getChild(i).get())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Whether an outer ORDER BY reaches the new extend along an order-preserving path.
+// An ORDER BY parked under an aggregate or a hash-join build is already unordered,
+// so the extend cannot make it worse; only a preserving path (filter/project/flatten/
+// limit/label-filter/scans/lookups) forces the fallback that keeps late-fetch
+// ordered-node tests stable.
+static bool boundExpandBreaksOuterOrder(const planner::LogicalOperator* op) {
+    using T = planner::LogicalOperatorType;
+    switch (op->getOperatorType()) {
+    case T::AGGREGATE:
+    case T::DISTINCT:
+    case T::HASH_JOIN:
+    case T::CROSS_PRODUCT:
+    case T::UNION_ALL:
+    case T::ACCUMULATE:
+    case T::UNWIND:
+    case T::UNWIND_DEDUPLICATE:
+    case T::INTERSECT:
+    case T::EXTEND:
+    case T::PACKED_EXTEND:
+    case T::RECURSIVE_EXTEND:
+    case T::PATH_PROPERTY_PROBE:
+    case T::COUNT_REL_TABLE:
+    case T::COUNT_EXTEND_CHAIN:
+    case T::COUNT_ANTI_EDGE_CHAIN:
+        return false;
+    default:
+        break;
+    }
+    return true;
+}
+
+static bool boundExpandOuterOrderReaches(const planner::LogicalOperator* op) {
+    if (op->getOperatorType() == planner::LogicalOperatorType::ORDER_BY) {
+        return true;
+    }
+    if (!boundExpandBreaksOuterOrder(op)) {
+        return false;
+    }
+    for (auto i = 0u; i < op->getNumChildren(); ++i) {
+        if (boundExpandOuterOrderReaches(op->getChild(i).get())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Bound expand: single-hop regular MATCH with exactly one bound endpoint, planned as
+// a correlated index-nested-loop over CSR instead of scan + hash join.
+// Generalizes the lookup-join idea (small-outer INLJ) from PK lookups to adjacency
+// probes. Shares its guards so the two paths cannot diverge:
+// - small flat trusted outer (same LOOKUP_JOIN_MAX_OUTER_CARDINALITY cap, checked
+//   before and after flattening, since an unflat outer understates the probe count;
+//   credibility analysis and extend-depth cap as in tryPlanLookupJoin);
+// - cost comparison of the worst-case fan-out against the eliminated scan, skipped
+//   only when the outer carries a literal LIMIT within the cap (a user-constrained
+//   driving side where the INLJ win is largest, even though a deep LIMIT does not
+//   prove the outer small);
+// - flatten before extend kept through the optimizer by the LogicalExtend opt-in flag
+//   (a DISTINCT/AGGREGATE outer is factorized; extending directly from factorized
+//   batches under-parallelizes and misreads batches);
+// - leg predicates pushed into the property-attach scan when they depend only on that
+//   target (covers $parameters, which Schema::evaluable rejects);
+// - null-free outer (hash-join NULL-key-drop vs extend semantics differ).
+bool Planner::tryPlanBoundExpand(const QueryGraphCollection& queryGraphCollection,
+    const expression_vector& predicates, LogicalPlan& leftPlan) {
+    if (!clientContext->getClientConfig()->enablePlanOptimizer) {
+        return false;
+    }
+    if (leftPlan.isEmpty() || leftPlan.hasUpdate() ||
+        queryGraphCollection.getNumQueryGraphs() != 1) {
+        return false;
+    }
+    auto queryGraph = queryGraphCollection.getQueryGraph(0);
+    if (queryGraph->getNumQueryRels() != 1) {
+        return false;
+    }
+    auto rel = queryGraph->getQueryRel(0);
+    if (rel->getRelType() != QueryRelType::NON_RECURSIVE) {
+        return false;
+    }
+    auto srcNode = rel->getSrcNode();
+    auto dstNode = rel->getDstNode();
+    if (*srcNode == *dstNode) {
+        return false;
+    }
+    if (subtreeHasNullSupply(leftPlan.getLastOperator().get())) {
+        return false;
+    }
+    // A correlated extend fans out per outer row and (under parallelism) interleaves
+    // groups, so it does not preserve an outer ORDER BY the way the hash-join path
+    // does for the late-fetch ordered-node tests. Fall back only when the ORDER BY
+    // reaches the extend along an order-preserving path; an ORDER BY parked under an
+    // aggregate or hash-join build is already unordered.
+    if (boundExpandOuterOrderReaches(leftPlan.getLastOperator().get())) {
+        return false;
+    }
+    const bool srcBound = leftPlan.getSchema()->isExpressionInScope(*srcNode->getInternalID());
+    const bool dstBound = leftPlan.getSchema()->isExpressionInScope(*dstNode->getInternalID());
+    if (srcBound == dstBound) {
+        return false;
+    }
+    // Every predicate must be evaluable inside the leg. Anything reaching into the
+    // outer plan falls back to regular planning.
+    for (auto& pred : predicates) {
+        if (!getDependentExprs(pred, *leftPlan.getSchema()).empty()) {
+            return false;
+        }
+    }
+    // Same small-outer cap as lookup joins (INLJ precedent): per-tuple probes only pay
+    // off for small outers, and a small outer also bounds the thread fan-out loss.
+    if (leftPlan.getCardinality() > common::PlannerKnobs::LOOKUP_JOIN_MAX_OUTER_CARDINALITY) {
+        return false;
+    }
+    auto boundNode = srcBound ? srcNode : dstNode;
+    auto nbrNode = srcBound ? dstNode : srcNode;
+    auto dir = chainExtendDirection(*rel, *boundNode);
+    // Work on a copy so a late fallback leaves leftPlan (and its flattened
+    // estimate for planRegularMatch) untouched, as tryPlanLookupJoin does.
+    auto workingPlan = leftPlan.copy();
+    cardinalityEstimator.init(*queryGraph);
+    appendFlattens(workingPlan.getSchema()->getGroupsPosInScope(), workingPlan);
+    if (workingPlan.getCardinality() > common::PlannerKnobs::LOOKUP_JOIN_MAX_OUTER_CARDINALITY) {
+        return false;
+    }
+    const auto numProbes = workingPlan.getCardinality();
+    // Credibility + cost: the outer estimate alone is unreliable on skewed multi-hop
+    // shapes (see plan_join_order.cpp:920), so require a trusted outer and a
+    // worst-case fan-out that still beats the eliminated scan. A literal LIMIT within
+    // the cap anywhere in the outer skips both checks as a user-constrained-driving-side
+    // heuristic (see boundExpandOuterHasLimitWithinCap); the pre/post-flatten caps above
+    // still guard the estimate.
+    if (!boundExpandOuterHasLimitWithinCap(workingPlan.getLastOperator().get())) {
+        BoundExpandOuterAnalysis analysis;
+        analyzeBoundExpandOuterPlan(workingPlan.getLastOperator().get(), cardinalityEstimator, 0,
+            analysis);
+        if (!analysis.trusted ||
+            analysis.maxExtendDepth > common::PlannerKnobs::LOOKUP_JOIN_MAX_OUTER_EXTEND_DEPTH) {
+            return false;
+        }
+        auto* transaction = transaction::Transaction::Get(*clientContext);
+        const auto extensionRate =
+            cardinalityEstimator.getExtensionRate(*rel, *boundNode, dir, transaction);
+        bool legOk = false;
+        const auto legUncertainty =
+            boundExpandFanoutUncertainty(*rel, dir, cardinalityEstimator, legOk);
+        if (!legOk) {
+            return false;
+        }
+        double innerCard = 0;
+        for (auto tableID : nbrNode->getTableIDs()) {
+            const auto* stats = cardinalityEstimator.getTableStats(tableID);
+            if (stats == nullptr || !stats->storageStats.has_value()) {
+                return false;
+            }
+            innerCard += static_cast<double>(stats->storageStats.value().getTableCard());
+        }
+        if (innerCard < 1.0) {
+            return false;
+        }
+        const auto worstOutput =
+            static_cast<double>(numProbes) * analysis.uncertainty * extensionRate * legUncertainty;
+        if (!(worstOutput < innerCard)) {
+            return false;
+        }
+    }
+    appendExtend(boundNode, nbrNode, rel, dir, getProperties(*rel), workingPlan);
+    // Keep the pre-extend FLATTEN through Remove/Factorization rewriters (opt-in).
+    for (auto* op = workingPlan.getLastOperator().get(); op != nullptr;) {
+        if (op->getOperatorType() == planner::LogicalOperatorType::EXTEND) {
+            op->ptrCast<planner::LogicalExtend>()->setRequireBoundFlatten(true);
+            break;
+        }
+        if (op->getNumChildren() != 1) {
+            break;
+        }
+        // The attach label filter (if any) sits above the extend; anything deeper is
+        // the outer plan, which must not be flagged.
+        if (op->getOperatorType() != planner::LogicalOperatorType::NODE_LABEL_FILTER) {
+            break;
+        }
+        op = op->getChild(0).get();
+    }
+    // The extend binds internal IDs only; attach missing node properties the same way
+    // chained extends do (scan + inner join). Push leg predicates that depend only on
+    // one attach target into that build side before the join so a selective neighbour
+    // predicate (e.g. IC9's message.creationDate < $maxDate, parameterized) filters
+    // the build instead of filtering after it.
+    std::unordered_set<const Expression*> pushedRaw;
+    for (const auto& target : {nbrNode, boundNode}) {
+        expression_vector missing;
+        for (auto& prop : getProperties(*target)) {
+            if (!workingPlan.getSchema()->isExpressionInScope(*prop)) {
+                missing.push_back(prop);
+            }
+        }
+        if (missing.empty()) {
+            continue;
+        }
+        LogicalPlan propsPlan;
+        appendScanNodeTable(target->getInternalID(), target->getTableIDs(), missing, propsPlan,
+            target.get());
+        for (auto& pred : predicates) {
+            if (pushedRaw.contains(pred.get())) {
+                continue;
+            }
+            if (boundExpandPredicateOnlyOnTarget(pred, *target)) {
+                appendFilter(pred, propsPlan);
+                pushedRaw.insert(pred.get());
+            }
+        }
+        appendHashJoin(expression_vector{target->getInternalID()}, common::JoinType::INNER,
+            workingPlan, propsPlan, workingPlan);
+    }
+    for (auto& pred : predicates) {
+        if (pushedRaw.contains(pred.get())) {
+            continue;
+        }
+        appendFilter(pred, workingPlan);
+    }
+    leftPlan = std::move(workingPlan);
+    return true;
+}
+
 void Planner::planRegularMatch(const QueryGraphCollection& queryGraphCollection,
     const expression_vector& predicates, LogicalPlan& leftPlan,
     std::shared_ptr<BoundJoinHintNode> hint) {
@@ -2035,6 +2494,13 @@ void Planner::planRegularMatch(const QueryGraphCollection& queryGraphCollection,
     }
     // Scalar-seeded chain for correlated PK equalities (e.g. Q6's t.ID = knownTagId).
     if (tryPlanScalarSeededChain(queryGraphCollection, predicates, leftPlan)) {
+        return;
+    }
+    // Bound expand (generalized lookup join for adjacency): single-hop leg with one
+    // bound end as correlated CSR extend. Same small-outer INLJ contract as PK
+    // lookups; falls back to scan + hash join otherwise (e.g. IC5's 3k-row outer
+    // after #1618).
+    if (hint == nullptr && tryPlanBoundExpand(queryGraphCollection, predicates, leftPlan)) {
         return;
     }
     expression_vector predicatesToPushDown, predicatesToPullUp;

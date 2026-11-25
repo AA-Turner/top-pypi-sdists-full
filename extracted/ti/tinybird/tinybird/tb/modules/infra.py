@@ -771,7 +771,7 @@ def infra_update(ctx: click.Context, infra_name: str, name: str, host: str):
             click.echo(FeedbackManager.error(message=f"✗ Error: {str(e)}"))
 
 
-def format_terraform_output(output, command_name="Terraform"):
+def format_terraform_output(output: str, command_name: str = "Terraform") -> str:
     """Format Terraform command output with colors and styling.
 
     Args:
@@ -812,7 +812,7 @@ def format_terraform_output(output, command_name="Terraform"):
     return "\n".join(formatted_lines)
 
 
-def format_terraform_error(error_output, command_name="Terraform"):
+def format_terraform_error(error_output: str, command_name: str = "Terraform") -> str:
     """Format Terraform command error output with colors and styling.
 
     Args:

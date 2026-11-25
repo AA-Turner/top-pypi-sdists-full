@@ -2,9 +2,9 @@ import json
 from requests import Response
 from typing import cast, Any
 
-from paddle_billing.Entities.Shared import Pagination
+from paddle_billing.Entities.Shared import Pagination as Pagination
 
-from paddle_billing.Exceptions.ApiError import ApiError
+from paddle_billing.Exceptions.ApiError import ApiError as ApiError
 
 
 class ResponseParser:
@@ -28,10 +28,10 @@ class ResponseParser:
         return self.body.get("data", []) if self.body else []
 
     def get_list(self) -> list[Any]:
-        return self.get_data()
+        return cast(list[Any], self.get_data())
 
     def get_dict(self) -> dict[str, Any]:
-        return self.get_data()
+        return cast(dict[str, Any], self.get_data())
 
     def get_error(self) -> ApiError | None:
         return self.error

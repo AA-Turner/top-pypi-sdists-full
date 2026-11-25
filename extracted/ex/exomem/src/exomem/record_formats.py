@@ -2813,8 +2813,15 @@ def query_collection(
     project_child_value: Callable[[Any, collections.RecordPresentationColumn], Any] | None = None,
     late_link_projection: bool = False,
     stage_store_projection: bool = False,
+    readable: collections.CollectionManifest | None = None,
 ) -> RecordQueryResult:
     """Query a fresh canonical adapter snapshot with a snapshot-bound cursor.
+
+    `readable` is `manifest` after the caller's field plan. A query that names a column or a
+    child table may name only one of `readable`, so a withheld one refuses as an undeclared
+    one does. A saved view's names are the manifest author's, not the caller's, so they are
+    checked against `manifest`. Rows carry only what the caller may read, so `readable` also
+    shapes their child tables.
 
     `late_link_projection` is an internal-only opt-in from a trusted caller
     (never a value a public tool's request parameters can reach -- no tool
@@ -2865,9 +2872,10 @@ def query_collection(
             "definition": saved_view.definition,
             "identity": saved_view.identity,
         }
-    selected_child = _resolve_child_selector(manifest, expand_children, expand_child)
+    checked = readable if readable is not None and view is None else manifest
+    selected_child = _resolve_child_selector(checked, expand_children, expand_child)
     _validate_query_projection_fields(
-        manifest,
+        checked,
         selected_child=selected_child,
         filters=filters,
         columns=columns,
@@ -2950,7 +2958,9 @@ def query_collection(
             records=tuple(
                 replace(
                     record,
-                    values=_safe_presentation_values(record.values, manifest, project_child_value),
+                    values=_safe_presentation_values(
+                        record.values, manifest if readable is None else readable, project_child_value
+                    ),
                 )
                 for record in parsed.records
             ),
@@ -3638,6 +3648,7 @@ def _resolve_child_selector(
             if (
                 isinstance(descriptor, Mapping)
                 and descriptor.get("container_field") == expand_child
+                and expand_child in manifest.schema.fields
             ):
                 return expand_child
         raise collections.CollectionError(
@@ -3660,10 +3671,28 @@ def _resolve_child_selector(
         return tables[0].field
     if manifest.storage.strategy == "markdown-log":
         descriptor = manifest.storage.descriptor.get("child_rows")
-        if isinstance(descriptor, Mapping) and type(descriptor.get("container_field")) is str:
-            return descriptor["container_field"]
+        container = descriptor.get("container_field") if isinstance(descriptor, Mapping) else None
+        # The container is a schema field, so a field plan that withholds it leaves no eligible child.
+        if type(container) is str and container in manifest.schema.fields:
+            return container
     raise collections.CollectionError(
         "INVALID_RECORD_QUERY", "expand_children has no eligible child field"
+    )
+
+
+def query_columns(manifest: collections.CollectionManifest) -> list[str]:
+    """The top-level columns a query on this manifest may name: its fields and system columns."""
+    profile = profile_for(manifest.semantic_profile)
+    return sorted(
+        set(manifest.schema.fields)
+        | {
+            "collection_id",
+            profile.item_id_property,
+            "item_version",
+            "inferred",
+            "ambiguous",
+            "parent_record_id",
+        }
     )
 
 
@@ -3678,17 +3707,8 @@ def _validate_query_projection_fields(
     date_column: str | None,
 ) -> None:
     """Refuse undeclared fields before canonical rows enter query machinery."""
-    profile = profile_for(manifest.semantic_profile)
     allowed = collections._saved_view_selected_fields(
-        set(manifest.schema.fields)
-        | {
-            "collection_id",
-            profile.item_id_property,
-            "item_version",
-            "inferred",
-            "ambiguous",
-            "parent_record_id",
-        },
+        set(query_columns(manifest)),
         collections._saved_view_child_shapes(manifest.storage, manifest.child_tables),
         selected_child,
     )
@@ -3707,8 +3727,10 @@ def _validate_query_projection_fields(
         if raw is None:
             continue
         if type(raw) is not str or not raw or raw.split(".", 1)[0] not in allowed:
+            shown = raw if type(raw) is str else type(raw).__name__
             raise collections.CollectionError(
-                "INVALID_RECORD_QUERY_FIELD", "query field is not available in the safe projection"
+                "INVALID_RECORD_QUERY_FIELD",
+                f"query field {shown[:64]!r} is not available in the safe projection",
             )
 
 

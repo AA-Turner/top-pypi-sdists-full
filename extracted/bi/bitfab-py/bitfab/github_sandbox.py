@@ -16,7 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -49,6 +49,7 @@ DIFF_ACCEPT = "application/vnd.github.diff"
 DIFF_TYPE = "text/plain; charset=utf-8"
 WHOLE_PER_PAGE = 100
 WHOLE_MAX_PAGES = 30
+MAX_SAVED_ANSWER_BYTES = 4 * 1024 * 1024
 READ_REAL_WRITE_FAKE = "read-real-write-fake"
 READ_WHOLE_OBJECT = "test-read-whole-object"
 GITHUB_MODES = (READ_REAL_WRITE_FAKE, READ_WHOLE_OBJECT)
@@ -83,6 +84,7 @@ class Upstream:
     reader: Reader
     cache_dir: Path
     whole_objects: bool = False
+    cached: bool = True
 
 
 @dataclass(frozen=True)
@@ -299,6 +301,54 @@ def url_reader(token: str | None) -> Reader:
     return read
 
 
+def read_answer_key(path: str, accept: str) -> str:
+    return f"{accept} {path}"
+
+
+def saved_read_answer(
+    status: int, headers: dict[str, str], body: bytes
+) -> dict[str, Any]:
+    kept = {"status": status, "headers": _kept_headers(headers)}
+    try:
+        return {**kept, "text": body.decode("utf-8")}
+    except UnicodeDecodeError:
+        return {**kept, "base64": base64.b64encode(body).decode("ascii")}
+
+
+def recording_reader(reader: Reader, answers: dict[str, Any]) -> Reader:
+    def read(path: str, accept: str) -> tuple[int, dict[str, str], bytes]:
+        status, headers, body = reader(path, accept)
+        if status in (200, 404) and len(body) <= MAX_SAVED_ANSWER_BYTES:
+            answers[read_answer_key(path, accept)] = saved_read_answer(
+                status, headers, body
+            )
+        return status, headers, body
+
+    return read
+
+
+def stored_reader(state: dict[str, Any]) -> Reader:
+    def read(path: str, accept: str) -> tuple[int, dict[str, str], bytes]:
+        saved = (state.get("readAnswers") or {}).get(read_answer_key(path, accept))
+        if not isinstance(saved, dict):
+            missed = state.setdefault("notRecorded", [])
+            if path not in missed:
+                missed.append(path)
+            message = (
+                f"Not Found: the GitHub sandbox store holds no copy of GET {path}, "
+                f'and in mode="{READ_WHOLE_OBJECT}" a replay never reads from GitHub.'
+            )
+            body = {"message": message, "documentation_url": DOCS_URL, "status": "404"}
+            return 404, {"Content-Type": JSON_TYPE}, json.dumps(body).encode()
+        if "base64" in saved:
+            body_bytes = base64.b64decode(saved["base64"])
+        else:
+            body_bytes = str(saved.get("text") or "").encode("utf-8")
+        return int(saved["status"]), dict(saved.get("headers") or {}), body_bytes
+
+    return read
+
+
 def empty_writes() -> dict[str, Any]:
     return {
         "blobs": {},
@@ -345,6 +395,7 @@ def state_from_snapshot(snapshot: Any) -> dict[str, Any]:
         "repos": repos,
         "writes": {**empty_writes(), **(given.get("writes") or {})},
         "wholePulls": dict(given.get("wholePulls") or {}),
+        "readAnswers": dict(given.get("readAnswers") or {}),
         "served": {"trees": {}, "blobs": {}, **(given.get("served") or {})},
         "resolvedHeads": dict(given.get("resolvedHeads") or {}),
         "notes": notes,
@@ -415,6 +466,7 @@ def _fetch(
     key = hashlib.sha256(f"{accept} {path}".encode()).hexdigest()
     meta_file = folder / f"{key}.json"
     body_file = folder / f"{key}.body"
+    keep = keep and upstream.cached
     if keep and meta_file.exists() and body_file.exists():
         meta = json.loads(meta_file.read_text())
         return meta["status"], meta["headers"], body_file.read_bytes(), "cache"
@@ -553,7 +605,7 @@ def _resolve(
 def _ancestor_verdict(upstream: Upstream, repo: str, sha: str, head: str) -> str | None:
     folder = _repo_dir(upstream, repo) / "ancestry"
     verdict_file = folder / f"{sha}...{head}"
-    if verdict_file.exists():
+    if upstream.cached and verdict_file.exists():
         return verdict_file.read_text().strip() or None
     status, _, body = upstream.reader(
         f"/repos/{repo}/compare/{sha}...{head}?per_page=1", JSON_ACCEPT
@@ -569,8 +621,9 @@ def _ancestor_verdict(upstream: Upstream, repo: str, sha: str, head: str) -> str
         full = ""
     else:
         return None
-    folder.mkdir(parents=True, exist_ok=True)
-    verdict_file.write_text(full)
+    if upstream.cached:
+        folder.mkdir(parents=True, exist_ok=True)
+        verdict_file.write_text(full)
     return full or None
 
 
@@ -1128,7 +1181,7 @@ def _download_archive(
     folder = _repo_dir(req.upstream, req.name) / "archives"
     target = folder / f"{sha}.{ARCHIVE_SUFFIXES[kind]}"
     with _archive_lock:
-        if target.exists():
+        if req.upstream.cached and target.exists():
             return target, None, "cache"
         status, headers, body = req.upstream.reader(f"{req.base}/{kind}/{sha}", "*/*")
         if status != 200:
@@ -1425,12 +1478,29 @@ def _read_pull_part(req: PullSource, part: PullPart, number: str, head_sha: str)
     return _decoded(raw)
 
 
+def read_whole_issue(req: PullSource, number: str) -> Any:
+    status, _, raw, _ = _fetch(
+        req.upstream, req.name, f"{req.base}/issues/{number}", keep=False
+    )
+    if status == 404:
+        return None
+    if status != 200:
+        raise RuntimeError(f"GitHub answered {status} for issue {number}.")
+    parts: dict[str, Any] = {"issue": _decoded(raw)}
+    for part in PULL_PARTS:
+        if part.name == "comments":
+            found = _read_pull_part(req, part, number, "")
+            if found is not MISSING:
+                parts[part.name] = found
+    return {"readAt": now_iso(), "headSha": "", "parts": parts}
+
+
 def read_whole_pull(req: PullSource, number: str) -> Any:
     status, _, raw, _ = _fetch(
         req.upstream, req.name, f"{req.base}/pulls/{number}", keep=False
     )
     if status == 404:
-        return None
+        return read_whole_issue(req, number)
     if status != 200:
         raise RuntimeError(f"GitHub answered {status} for pull request {number}.")
     pull = _decoded(raw)
@@ -2318,16 +2388,14 @@ def _safe_extract(archive: Path, target: Path) -> Path:
     return roots[0]
 
 
-def _extracted(req: GitHubRequest, sha: str) -> Path:
+def _extracted(req: GitHubRequest, sha: str) -> Path | dict[str, Any]:
     archive, failed, _ = _download_archive(req, sha, "tarball")
     if archive is None:
-        raise RuntimeError(
-            f"GitHub answered {(failed or {}).get('status')} for the archive of {sha}"
-        )
+        return failed or _not_found("search-over-commit")
     target = _repo_dir(req.upstream, req.name) / "trees" / sha
     marker = target / ".complete"
     with _archive_lock:
-        if marker.exists():
+        if req.upstream.cached and marker.exists():
             return target / marker.read_text().strip()
         if target.exists():
             shutil.rmtree(target)
@@ -2402,6 +2470,8 @@ def _search_code(
     req = GitHubRequest(state, upstream, repo, "GET", query, None)
     sha = repo["branches"][repo["defaultBranch"]]
     root = _extracted(req, sha)
+    if isinstance(root, dict):
+        return root
     items = []
     for file_path in _files_under(root):
         rel = file_path.relative_to(root).as_posix()
@@ -2537,9 +2607,16 @@ def github_accessed_object(call: MockOverrideCtx) -> str | None:
     return path if isinstance(path, str) and path else None
 
 
+def replay_upstream(state: dict[str, Any], upstream: Upstream) -> Upstream:
+    if not upstream.whole_objects:
+        return upstream
+    return replace(upstream, reader=stored_reader(state), cached=False)
+
+
 def answer_github_call(
     state: dict[str, Any], call: MockOverrideCtx, upstream: Upstream
 ) -> dict[str, Any]:
+    upstream = replay_upstream(state, upstream)
     try:
         return answer_github_request(state, upstream, dict(call.kwargs))
     except Exception as error:
@@ -2598,14 +2675,20 @@ def github_sandbox(
         mode: ``"read-real-write-fake"`` (default) reads pull requests,
             issues, comments, reviews, statuses and check runs from GitHub on
             every read, leaving out those created after the original trace
-            started. ``"test-read-whole-object"`` answers every read of a
-            pull request in the state saved for the trace (the original run
-            saves each pull request it reads whole when it records with
-            ``Bitfab(integrations={"github": "test-read-whole-object"})``)
-            from that state, without reaching GitHub, including parts the
-            original run never read; a pull request the state does not hold
-            is read as in ``"read-real-write-fake"``. Writes stay in the sandbox in
-            both modes. The test mode may change or be removed.
+            started. ``"test-read-whole-object"`` never reaches GitHub and
+            answers every read from the state saved for the trace: when the
+            original run records with
+            ``Bitfab(integrations={"github": "test-read-whole-object"})``, it
+            saves each pull request or issue it reads whole (comments,
+            reviews, files, commits, statuses and check runs too) and the
+            answers behind every other read, such as files, trees and
+            commits. A read the saved state has no copy of, such as another
+            pull request, a list with other filters, or a file the original
+            run never opened, answers 404 Not Found and is listed as
+            ``notRecorded`` in the state on the replay trace. Archives and
+            code search are never saved, so they answer 404 in this mode.
+            Writes stay in the sandbox in both modes. The test mode may
+            change or be removed.
 
     Raises:
         ValueError: When ``mode`` is not one of the sandbox's modes.

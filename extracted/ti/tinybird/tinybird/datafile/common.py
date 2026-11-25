@@ -12,13 +12,12 @@ import shlex
 import string
 import textwrap
 import traceback
-from collections import namedtuple
 from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
 from pathlib import Path
 from string import Template
-from typing import Any, Callable, Dict, Iterable, List, Literal, NamedTuple, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Literal, NamedTuple, Optional, Tuple, TypeVar, cast
 
 import click
 from croniter import croniter
@@ -35,6 +34,8 @@ from tinybird.utils.bools import parse_optional_bool
 # from tinybird.sql import parse_indexes_structure, parse_table_structure, schema_to_sql_columns
 
 # Pre-compiled regex patterns
+T = TypeVar("T")
+
 _PATTERN_INDEX_ENTRY = re.compile(
     r"(\w+)\s+([\w\s*\[\]\*\(\),\'\"-><.]+)\s+TYPE\s+(\w+)(?:\(([\w\s*.,]+)\))?(?:\s+GRANULARITY\s+(\d+))?"
 )
@@ -137,8 +138,6 @@ VISIBLE_PIPE_NODE_TYPES = {
 class DataFileExtensions:
     PIPE = ".pipe"
     DATASOURCE = ".datasource"
-    INCL = ".incl"
-    CONNECTION = ".connection"
 
 
 class CopyModes:
@@ -148,7 +147,7 @@ class CopyModes:
     valid_modes = (APPEND, REPLACE)
 
     @staticmethod
-    def is_valid(node_mode):
+    def is_valid(node_mode: str) -> bool:
         return node_mode.lower() in CopyModes.valid_modes
 
 
@@ -178,7 +177,6 @@ class PipeParameters(Parameters):
 class CopyParameters(Parameters):
     TARGET_DATASOURCE = "target_datasource"
     COPY_SCHEDULE = "copy_schedule"
-    COPY_MODE = "copy_mode"
     COPY_MODE_ALIAS = "mode"  # we need this because bot MODE and COPY_MODE go to `mode` variable inside the node
     ON_DEMAND_COMPUTE = "on_demand_compute"
     MANDATORY_ATTRIBUTES = PipeParameters.MANDATORY_ATTRIBUTES.union({TARGET_DATASOURCE})
@@ -197,7 +195,6 @@ class SinkParameters(Parameters):
     KAFKA_MANDATORY_ATTRIBUTES = PipeParameters.MANDATORY_ATTRIBUTES.union(
         {"export_connection_name", "export_kafka_topic", "export_schedule"}
     )
-    KAFKA_ACCEPTED_ATTRIBUTES = PipeParameters.ACCEPTED_ATTRIBUTES.union(KAFKA_MANDATORY_ATTRIBUTES)
 
     # For S3/GCS sinks
     BLOB_MANDATORY_ATTRIBUTES = PipeParameters.MANDATORY_ATTRIBUTES.union(
@@ -383,12 +380,6 @@ class Datafile:
         self.warnings: List[str] = []
         self.filtering_tags: Optional[List[str]] = None
         self.kind: Optional[DatafileKind] = None
-
-    def is_equal(self, other):
-        if len(self.nodes) != len(other.nodes):
-            return False
-
-        return all(self.nodes[i] == other.nodes[i] for i, _ in enumerate(self.nodes))
 
     def set_kind(self, kind: DatafileKind):
         self.kind = kind
@@ -655,7 +646,8 @@ class Datafile:
         engine_args = engine_info.get("args", [])
         for arg_name, arg_value in engine_args:
             if arg_name == "ver":
-                return arg_value
+                ver_column: str = arg_value
+                return ver_column
 
         return None
 
@@ -814,18 +806,6 @@ class TableIndex:
     def to_sql(self):
         return f"INDEX {self.to_datafile()}"
 
-    def add_index_sql(self):
-        return f"ADD {self.to_sql()}"
-
-    def drop_index_sql(self):
-        return f"DROP INDEX IF EXISTS {self.name}"
-
-    def materialize_index_sql(self):
-        return f"MATERIALIZE INDEX IF EXISTS {self.name}"
-
-    def clear_index_sql(self):
-        return f"CLEAR INDEX IF EXISTS {self.name}"
-
 
 def parse_indexes_structure(indexes: Optional[List[str]]) -> List[TableIndex]:
     """
@@ -977,7 +957,10 @@ def clean_comments_rstrip_keep_empty_lines(schema_to_clean: Optional[str]) -> st
     return cleaned_schema.rstrip()
 
 
-SyntaxExpr = namedtuple("SyntaxExpr", ["name", "regex"])
+class SyntaxExpr(NamedTuple):
+    name: str
+    regex: re.Pattern[str]
+
 
 NULL = SyntaxExpr("NULL", re.compile(r"\s+NULL([^a-z0-9_]|$)", re.IGNORECASE))
 NOTNULL = SyntaxExpr("NOTNULL", re.compile(r"\s+NOT\s+NULL([^a-z0-9_]|$)", re.IGNORECASE))
@@ -1196,10 +1179,9 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
     jsonpath: str = ""
     last: Optional[SyntaxExpr] = None
     col_start: Tuple[int, int] = (0, 0)  # (0, 0) means not set. It's not a valid line/pos as they start at 1
-    col_end: Tuple[int, int] = (0, 0)  # (0, 0) means not set. It's not a valid line/pos as they start at 1
 
-    def add_column(found: str) -> None:
-        nonlocal name, _type, default, codec, jsonpath, col_start, col_end
+    def add_column(found: str) -> None:  # noqa: ARG001
+        nonlocal name, _type, default, codec, jsonpath, col_start
         lineno, pos = col_start
         default = "" if not default else f"DEFAULT {default}"
         codec = "" if not codec else f"CODEC{codec}"
@@ -1217,7 +1199,6 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
                 "default_value": default,
                 "jsonpath": jsonpath,
                 # "col_start": col_start,
-                # "col_end": col_end,
             }
         )
         name = ""
@@ -1380,7 +1361,6 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
         elif found == COMMA:
             advance(",")
             valid_next = []
-            col_end = (line, pos)
             add_column("COMMA")
         elif found == NEW_LINE:
             i += 1
@@ -1396,7 +1376,6 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
                 )
             )
         last = found
-    col_end = (line, i + 1)
     # Only add the last column if we've parsed something. This allows for a trailing comma after the last column.
     if name:
         add_column("EOF")
@@ -1649,13 +1628,15 @@ def parse(
         doc.set_kind(kind)
     doc.raw = list(StringIO(s, newline=None))
 
-    parser_state = namedtuple(
-        "parser_state", ["multiline", "current_node", "command", "multiline_string", "is_sql", "start_lineno"]
-    )
+    class parser_state(NamedTuple):
+        multiline: bool
+        current_node: Any  # False until a node dict is assigned
+        command: str
+        start_lineno: int
 
     parser_state.multiline = False
     parser_state.current_node = False
-    parser_state.start_lineno = None
+    parser_state.start_lineno = 0
 
     def multiline_not_supported(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
@@ -1676,7 +1657,7 @@ def parse(
     def deprecated(severity: Literal["error", "warning"]) -> Callable[..., Any]:
         def inner(func: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(func)
-            def raise_deprecation_error(*args: Any, **kwargs: Any) -> Any:
+            def raise_deprecation_error(*args: Any, **kwargs: Any) -> Any:  # noqa: ARG001
                 raise DatafileSyntaxError(
                     f"{kwargs['cmd'].upper()} has been deprecated",
                     lineno=kwargs["lineno"],
@@ -1684,7 +1665,7 @@ def parse(
                 )
 
             @functools.wraps(func)
-            def add_deprecation_warning(*args: Any, **kwargs: Any) -> Any:
+            def add_deprecation_warning(*args: Any, **kwargs: Any) -> Any:  # noqa: ARG001
                 warnings.append(
                     DatafileParseWarning(
                         message=f"{kwargs['cmd'].upper()} has been deprecated and will be ignored.",
@@ -1702,7 +1683,7 @@ def parse(
     def not_supported_yet(extra_message: str = "") -> Callable[..., Any]:
         def inner(func: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(func)
-            def raise_not_supported_yet_error(*args: Any, **kwargs: Any) -> Any:
+            def raise_not_supported_yet_error(*args: Any, **kwargs: Any) -> Any:  # noqa: ARG001
                 extra_message_bit = f". {extra_message}" if extra_message else ""
                 raise DatafileSyntaxError(
                     f"{kwargs['cmd']} is not supported yet{extra_message_bit}",
@@ -1714,14 +1695,14 @@ def parse(
 
         return inner
 
-    def assign(attr):
+    def assign(attr: str) -> Callable[..., None]:
         @multiline_not_supported
-        def _fn(x, **kwargs):
+        def _fn(x: str, **kwargs: Any) -> None:  # noqa: ARG001
             setattr(doc, attr, _unquote(x))
 
         return _fn
 
-    def schema(*args, **kwargs):
+    def schema(*args: str, **kwargs: Any) -> None:
         s = _unquote("".join(args))
         try:
             sh = parse_table_structure(s)
@@ -1734,7 +1715,7 @@ def parse(
         parser_state.current_node["schema"] = ",".join(schema_to_sql_columns(sh))
         parser_state.current_node["columns"] = sh
 
-    def indexes(*args, **kwargs):
+    def indexes(*args: str, **kwargs: Any) -> None:
         s = _unquote("".join(args))
         if not s:
             return
@@ -1770,7 +1751,7 @@ def parse(
 
     def assign_var_json(v: str) -> Callable[[VarArg(str), KwArg(Any)], None]:
         @multiline_not_supported
-        def _f(*args: str, **kwargs: Any):
+        def _f(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
             s = _unquote((" ".join(args)).strip())
             tmp = eval_var(s, skip=skip_eval)
             # When skip_eval is True and the value contains an unrendered template,
@@ -1783,28 +1764,28 @@ def parse(
 
         return _f
 
-    def kafka_key_avro_deserialization_deprecated(*args: str, **kwargs: Any):
+    def kafka_key_avro_deserialization_deprecated(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         raise DatafileSyntaxError(
             f'{kwargs["cmd"].upper()} has been deprecated. Use "KAFKA_KEY_FORMAT avro" in the corresponding .datasource file instead',
             lineno=kwargs["lineno"],
             pos=1,
         )
 
-    def kafka_target_partitions_deprecated(*args: str, **kwargs: Any):
+    def kafka_target_partitions_deprecated(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         warnings.append(
             DatafileParseWarning(
                 message=f"{kwargs['cmd'].upper()} has been deprecated and will be ignored.",
             )
         )
 
-    def import_external_datasource_deprecated(*args: str, **kwargs: Any):
+    def import_external_datasource_deprecated(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         warnings.append(
             DatafileParseWarning(
                 message=f"{kwargs['cmd'].upper()} has been deprecated and will be ignored.",
             )
         )
 
-    def import_service_deprecated(*args: str, **kwargs: Any):
+    def import_service_deprecated(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         warnings.append(
             DatafileParseWarning(
                 message=(
@@ -1814,7 +1795,7 @@ def parse(
             )
         )
 
-    def import_strategy_deprecated(*args: str, **kwargs: Any):
+    def import_strategy_deprecated(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         raise DatafileSyntaxError(
             (
                 f"{kwargs['cmd'].upper()} has been deprecated. The built-in default is 'append'. "
@@ -1824,14 +1805,14 @@ def parse(
             pos=1,
         )
 
-    def kafka_store_binary_headers_deprecated(*args: str, **kwargs: Any):
+    def kafka_store_binary_headers_deprecated(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         raise DatafileSyntaxError(
             f"{kwargs['cmd'].upper()} has been deprecated. When KAFKA_STORE_HEADERS is True, __headers is always of type Map(String, String)",
             lineno=kwargs["lineno"],
             pos=1,
         )
 
-    def export_service(*args: str, **kwargs: Any):
+    def export_service(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         warnings.append(
             DatafileParseWarning(
                 message=(
@@ -1846,18 +1827,18 @@ def parse(
         pass  # Deprecated
 
     @multiline_not_supported
-    def node(*args: str, **kwargs: Any) -> None:
+    def node(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         node = {"name": eval_var(_unquote(args[0]))}
         doc.nodes.append(node)
         parser_state.current_node = node
 
     @multiline_not_supported
-    def scope(*args: str, **kwargs: Any) -> None:
+    def scope(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         scope = {"name": eval_var(_unquote(args[0]))}
         doc.nodes.append(scope)
         parser_state.current_node = scope
 
-    def description(*args: str, **kwargs: Any) -> None:
+    def description(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         description = (" ".join(args)).strip()
 
         if parser_state.current_node:
@@ -1867,13 +1848,13 @@ def parse(
         else:
             doc.description = description
 
-    def kafka_ssl_ca_pem(*args: str, **kwargs: Any) -> None:
+    def kafka_ssl_ca_pem(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         kafka_ssl_ca_pem = ("\n".join(args)).strip()
         parser_state.current_node["kafka_ssl_ca_pem"] = kafka_ssl_ca_pem
 
-    def sql(var_name: str, **kwargs: Any) -> Callable[[str, KwArg(Any)], None]:
+    def sql(var_name: str, **kwargs: Any) -> Callable[[str, KwArg(Any)], None]:  # noqa: ARG001
         # TODO(eclbg): We shouldn't allow SQL in datasource files
-        def _f(sql: str, *args: Any, **kwargs: Any) -> None:
+        def _f(sql: str, *args: Any, **kwargs: Any) -> None:  # noqa: ARG001
             if not parser_state.multiline:
                 raise DatafileSyntaxError(
                     "SQL must be multiline",
@@ -2016,13 +1997,13 @@ def parse(
         if "engine" not in parser_state.current_node:
             parser_state.current_node["engine"] = {"type": None, "args": []}
 
-    def set_engine(*args: str, **kwargs: Any) -> None:
+    def set_engine(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
         __init_engine("ENGINE")
         engine_type = _unquote((" ".join(args)).strip())
         parser_state.current_node["engine"]["type"] = eval_var(engine_type, skip=skip_eval)
 
     def add_engine_var(v: str) -> Callable[[VarArg(str), KwArg(Any)], None]:
-        def _f(*args: str, **kwargs: Any):
+        def _f(*args: str, **kwargs: Any) -> None:  # noqa: ARG001
             __init_engine(f"ENGINE_{v}".upper())
             engine_arg = eval_var(_unquote((" ".join(args)).strip()), skip=skip_eval)
             if v.lower() == "ttl" and not engine_arg:
@@ -2167,6 +2148,7 @@ def parse(
 
     cmds = cmds_per_datafile_kind[kind]
 
+    multiline_lines: List[str] = []
     lineno = 1
     try:
         while lineno <= len(lines):
@@ -2189,7 +2171,7 @@ def parse(
                 cmd, args = lexer[0], lexer[1:]
                 if parser_state.multiline and cmd.lower() in cmds and not line.startswith((" ", "\t")):
                     cmds[parser_state.command](
-                        parser_state.multiline_string,
+                        "".join(multiline_lines),
                         lineno=lineno,
                         replace_includes=replace_includes,
                         cmd=parser_state.command,
@@ -2201,7 +2183,7 @@ def parse(
                         parser_state.multiline = True
                         parser_state.command = cmd.lower()
                         parser_state.start_lineno = lineno
-                        parser_state.multiline_string = ""
+                        multiline_lines.clear()
                     else:
                         if cmd.lower() == "settings":
                             msg = (
@@ -2227,12 +2209,12 @@ def parse(
                                 pos=0,
                             )
                 else:
-                    parser_state.multiline_string += line
+                    multiline_lines.append(line)
             lineno += 1
         # close final state
         if parser_state.multiline:
             cmds[parser_state.command](
-                parser_state.multiline_string,
+                "".join(multiline_lines),
                 lineno=lineno,
                 replace_includes=replace_includes,
                 cmd=parser_state.command,
@@ -2296,7 +2278,7 @@ class ImportReplacements:
         return None, None
 
     @staticmethod
-    def get_datafile_param_for_linker_param(connector_service: str, linker_param: str) -> Optional[str]:
+    def get_datafile_param_for_linker_param(linker_param: str) -> Optional[str]:
         """Returns the datafile parameter name for a given linter parameter."""
         linker_param = linker_param.lower()
         for datafile_k, linker_k, _ in ImportReplacements._REPLACEMENTS:
@@ -2387,7 +2369,7 @@ class ExportReplacements:
         return None
 
 
-def get_project_filenames(folder: str, with_vendor=False) -> List[str]:
+def get_project_filenames(folder: str, with_vendor: bool = False) -> List[str]:
     folders: List[str] = [
         f"{folder}/*.datasource",
         f"{folder}/datasources/*.datasource",
@@ -2409,17 +2391,11 @@ def get_project_filenames(folder: str, with_vendor=False) -> List[str]:
     return filenames
 
 
-def has_internal_datafiles(folder: str) -> bool:
-    folder = folder or "."
-    filenames = get_project_filenames(folder)
-    return any(f for f in filenames if "spans" in str(f) and "vendor" not in str(f))
-
-
-def peek(iterable):
+def peek(iterable: Iterator[T]) -> Tuple[Optional[T], Iterator[T]]:
     try:
         first = next(iterable)
     except Exception:
-        return None, None
+        return None, iter(())
     return first, itertools.chain([first], iterable)
 
 

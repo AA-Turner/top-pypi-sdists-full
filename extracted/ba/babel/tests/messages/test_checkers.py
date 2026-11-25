@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -19,7 +19,7 @@ from babel import __version__ as VERSION
 from babel.core import Locale, UnknownLocaleError
 from babel.dates import format_datetime
 from babel.messages import Message, checkers
-from babel.messages.catalog import TranslationError
+from babel.messages.catalog import Catalog, TranslationError
 from babel.messages.checkers import _validate_format, python_format
 from babel.messages.plurals import PLURALS
 from babel.messages.pofile import read_po
@@ -145,7 +145,7 @@ def test_3_num_plurals_checkers():
     for _locale in [p for p in PLURALS if PLURALS[p][0] == 3]:
         plural = format_datetime(datetime.now(LOCALTZ), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale=_locale)
         english_name = Locale.parse(_locale).english_name
-        po_file = fr"""\
+        po_file = rf"""\
 # {english_name} translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
@@ -192,7 +192,7 @@ def test_4_num_plurals_checkers():
         date = format_datetime(datetime.now(LOCALTZ), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale=_locale)
         english_name = Locale.parse(_locale).english_name
         plural = PLURALS[_locale][0]
-        po_file = fr"""\
+        po_file = rf"""\
 # {english_name} translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
@@ -240,7 +240,7 @@ def test_5_num_plurals_checkers():
         date = format_datetime(datetime.now(LOCALTZ), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale=_locale)
         english_name = Locale.parse(_locale).english_name
         plural = PLURALS[_locale][0]
-        po_file = fr"""\
+        po_file = rf"""\
 # {english_name} translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
@@ -289,7 +289,7 @@ def test_6_num_plurals_checkers():
         english_name = Locale.parse(_locale).english_name
         date = format_datetime(datetime.now(LOCALTZ), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale=_locale)
         plural = PLURALS[_locale][0]
-        po_file = fr"""\
+        po_file = rf"""\
 # {english_name} translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
@@ -334,65 +334,136 @@ msgstr[4] ""
         checkers.num_plurals(catalog, message)
 
 
-@pytest.mark.parametrize(('msgid', 'msgstr'), [
-    ('foo %s', 'foo'),
-    (('foo %s', 'bar'), ('foo', 'bar')),
-    (('foo', 'bar %s'), ('foo', 'bar')),
-    (('foo %s', 'bar'), ('foo')),
-    (('foo %s', 'bar %d'), ('foo %s', 'bar %d', 'baz')),
-    (('foo %s', 'bar %d'), ('foo %s', 'bar %d', 'baz %d', 'qux')),
-])
+@pytest.mark.parametrize(
+    ('msgid', 'msgstr'),
+    [
+        ('foo %s', 'foo'),
+        (('foo %s', 'bar'), ('foo', 'bar')),
+        (('foo', 'bar %s'), ('foo', 'bar')),
+        (('foo %s', 'bar'), ('foo')),
+        (('foo %s', 'bar %d'), ('foo %s', 'bar %d', 'baz')),
+        (('foo %s', 'bar %d'), ('foo %s', 'bar %d', 'baz %d', 'qux')),
+        (('foo', 'bar %s'), ('foo')),
+    ],
+)
 def test_python_format_invalid(msgid, msgstr):
     msg = Message(msgid, msgstr)
     with pytest.raises(TranslationError):
         python_format(None, msg)
 
 
-@pytest.mark.parametrize(('msgid', 'msgstr'), [
-    ('foo', 'foo'),
-    ('foo', 'foo %s'),
-    ('foo %s', ''),
-    (('foo %s', 'bar %d'), ('foo %s', 'bar %d')),
-    (('foo %s', 'bar %d'), ('foo %s', 'bar %d', 'baz %d')),
-    (('foo', 'bar %s'), ('foo')),
-    (('foo', 'bar %s'), ('', '')),
-    (('foo', 'bar %s'), ('foo', '')),
-    (('foo %s', 'bar %d'), ('foo %s', '')),
-])
+@pytest.mark.parametrize(
+    ('msgid', 'msgstr'),
+    [
+        ('foo', 'foo'),
+        ('foo', 'foo %s'),
+        ('foo %s', ''),
+        (('foo %s', 'bar %d'), ('foo %s', 'bar %d')),
+        (('foo %s', 'bar %d'), ('foo %s', 'bar %d', 'baz %d')),
+        (('foo', 'bar %s'), ('', '')),
+        (('foo', 'bar %s'), ('foo', '')),
+        (('foo %s', 'bar %d'), ('foo %s', '')),
+    ],
+)
 def test_python_format_valid(msgid, msgstr):
     msg = Message(msgid, msgstr)
     python_format(None, msg)
 
 
-@pytest.mark.parametrize(('msgid', 'msgstr', 'error'), [
-    ('%s %(foo)s', '%s %(foo)s', 'format string mixes positional and named placeholders'),
-    ('foo %s', 'foo', 'placeholders are incompatible'),
-    ('%s', '%(foo)s', 'the format strings are of different kinds'),
-    ('%s', '%s %d', 'positional format placeholders are unbalanced'),
-    ('%s', '%d', "incompatible format for placeholder 1: 's' and 'd' are not compatible"),
-    ('%s %s %d', '%s %s %s', "incompatible format for placeholder 3: 'd' and 's' are not compatible"),
-    ('%(foo)s', '%(bar)s', "unknown named placeholder 'bar'"),
-    ('%(foo)s', '%(bar)d', "unknown named placeholder 'bar'"),
-    ('%(foo)s', '%(foo)d', "incompatible format for placeholder 'foo': 'd' and 's' are not compatible"),
-])
+@pytest.mark.parametrize(
+    ('msgid', 'msgstr', 'arguments'),
+    [
+        ('%*s', '%s', (4, 'word')),
+        ('%s', '%*s', ('word',)),
+        ('%.*f', '%.2f', (2, 1.234)),
+        ('%.2f', '%.*f', (1.234,)),
+        ('%*.*f', '%.*f', (8, 2, 1.234)),
+        ('%.*f', '%*.*f', (2, 1.234)),
+        ('%*.*f', '%*f', (8, 2, 1.234)),
+        ('%*f', '%*.*f', (8, 1.234)),
+        ('%s %*s', '%*s %s', ('label', 5, 'value')),
+        ('%*s %s', '%s %*s', (5, 'value', 'label')),
+    ],
+)
+def test_python_format_star_arguments_invalid(msgid, msgstr, arguments):
+    assert isinstance(msgid % arguments, str)
+    with pytest.raises(TypeError):
+        msgstr % arguments
+    with pytest.raises(TranslationError):
+        python_format(None, Message(msgid, msgstr))
+
+
+@pytest.mark.parametrize(
+    ('msgid', 'msgstr', 'arguments'),
+    [
+        ('%*s', '[%*s]', (-6, 'word')),
+        ('%.*f', '%.*G', (2, 1.234)),
+        ('%*.*f', '%*.*F', (8, 2, 1.234)),
+        ('%10.2f', '%12.3f', (1.234,)),
+        ('%s %%*s', '%% %s', ('word',)),
+        ('%(name)10s', '%(name)s', {'name': 'word'}),
+        ('%*s', '%.*s', (4, 'example')),
+    ],
+)
+def test_python_format_star_arguments_valid(msgid, msgstr, arguments):
+    assert isinstance(msgid % arguments, str)
+    assert isinstance(msgstr % arguments, str)
+    python_format(None, Message(msgid, msgstr))
+
+
+def test_python_format_star_plural_catalog_check():
+    catalog = Catalog(locale='en')
+    message = catalog.add(('%*s', '%*s'), ('%*s', '%s'))
+    errors = list(catalog.check())
+    assert len(errors) == 1
+    assert errors[0][0] is message
+    assert len(errors[0][1]) == 1
+    assert isinstance(errors[0][1][0], TranslationError)
+
+
+@pytest.mark.parametrize(
+    ('msgid', 'msgstr', 'error'),
+    [
+        ('%s %(foo)s', '%s %(foo)s', 'format string mixes positional and named placeholders'),
+        ('foo %s', 'foo', 'placeholders are incompatible'),
+        ('%s', '%(foo)s', 'the format strings are of different kinds'),
+        ('%s', '%s %d', 'positional format placeholders are unbalanced'),
+        ('%s', '%d', "incompatible format for placeholder 1: 's' and 'd' are not compatible"),
+        (
+            '%s %s %d',
+            '%s %s %s',
+            "incompatible format for placeholder 3: 'd' and 's' are not compatible",
+        ),
+        ('%(foo)s', '%(bar)s', "unknown named placeholder 'bar'"),
+        ('%(foo)s', '%(bar)d', "unknown named placeholder 'bar'"),
+        (
+            '%(foo)s',
+            '%(foo)d',
+            "incompatible format for placeholder 'foo': 'd' and 's' are not compatible",
+        ),
+    ],
+)
 def test__validate_format_invalid(msgid, msgstr, error):
     with pytest.raises(TranslationError, match=error):
         _validate_format(msgid, msgstr)
 
 
-@pytest.mark.parametrize(('msgid', 'msgstr'), [
-    ('foo', 'foo'),
-    ('foo', 'foo %s'),
-    ('%s foo', 'foo %s'),
-    ('%i', '%d'),
-    ('%d', '%u'),
-    ('%x', '%X'),
-    ('%f', '%F'),
-    ('%F', '%g'),
-    ('%g', '%G'),
-    ('%(foo)s', 'foo'),
-    ('%(foo)s', '%(foo)s %(foo)s'),
-    ('%(bar)s foo %(n)d', '%(n)d foo %(bar)s'),
-])
+@pytest.mark.parametrize(
+    ('msgid', 'msgstr'),
+    [
+        ('foo', 'foo'),
+        ('foo', 'foo %s'),
+        ('%s foo', 'foo %s'),
+        ('%i', '%d'),
+        ('%d', '%u'),
+        ('%x', '%X'),
+        ('%f', '%F'),
+        ('%F', '%g'),
+        ('%g', '%G'),
+        ('%(foo)s', 'foo'),
+        ('%(foo)s', '%(foo)s %(foo)s'),
+        ('%(bar)s foo %(n)d', '%(n)d foo %(bar)s'),
+    ],
+)
 def test__validate_format_valid(msgid, msgstr):
     _validate_format(msgid, msgstr)

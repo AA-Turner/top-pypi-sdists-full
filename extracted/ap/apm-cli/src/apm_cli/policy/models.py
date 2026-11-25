@@ -6,7 +6,7 @@ baseline checks (``ci_checks``) and policy checks (``policy_checks``).
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -37,6 +37,7 @@ _CHECK_ARTIFACT_MAP: dict[str, str] = {
     "mcp-denylist": "apm.yml",
     "mcp-transport": "apm.yml",
     "mcp-self-defined": "apm.yml",
+    "mcp-trust-transitive": "apm.yml",
     "compilation-target": "apm.yml",
     "compilation-strategy": "apm.yml",
     "source-attribution": "apm.yml",
@@ -101,6 +102,24 @@ class LocalBundleSubjects:
     packages: tuple[DependencyReference, ...]
 
 
+# Checks whose violation names an org policy field rather than a dependency
+# (#4826): the field a violation line cites, and the edit that clears it.
+POLICY_FIELD_FIXES: dict[str, tuple[str, str]] = {
+    "scripts-policy": (
+        "manifest.scripts: deny",
+        "Remove the scripts: block from apm.yml, or ask your policy admin to allow scripts.",
+    ),
+    "unmanaged-files": (
+        "unmanaged_files.action: deny",
+        "Move or delete each listed file, or ask your policy admin to exclude it.",
+    ),
+    "transitive-depth": (
+        "dependencies.max_depth",
+        "Reduce the dependency nesting, or ask your policy admin to raise dependencies.max_depth.",
+    ),
+}
+
+
 @dataclass
 class CheckResult:
     """Result of a single CI check."""
@@ -120,6 +139,10 @@ class CheckResult:
     # Structured advice that clears this failure, first one primary; serialized
     # by ``apm audit --format json`` as ``remediation`` and ``remediations``.
     remediations: tuple[Remediation, ...] = ()
+    # One rendered catalog sentence that clears this failure, for checks whose
+    # ``message`` does not already carry its remedy: text output prints it after
+    # the details and SARIF appends it once, to the check's last result (#4570).
+    next_step: str = ""
 
     def violation_subjects(self) -> tuple[PolicySubject, ...]:
         """Return one :class:`PolicySubject` per violation to report.
@@ -130,12 +153,20 @@ class CheckResult:
         yields one entry keyed by the check name (its category) with no
         apm.yml edit suggested.
         """
+        field_fix = POLICY_FIELD_FIXES.get(self.name)
         if self.subjects:
-            return self.subjects
+            if field_fix is None:
+                return self.subjects
+            return tuple(
+                replace(s, reason=f"{s.reason} ({field_fix[0]}). {field_fix[1]}")
+                for s in self.subjects
+            )
         reason = self.message
         if self.details:
             reason = f"{self.message}: {', '.join(self.details[:5])}"
-        return (PolicySubject(ref=self.name, reason=reason, remedy=None),)
+        if field_fix is None:
+            return (PolicySubject(ref=self.name, reason=reason, remedy=None),)
+        return (PolicySubject(ref=field_fix[0], reason=f"{reason}. {field_fix[1]}", remedy=None),)
 
 
 @dataclass
@@ -214,14 +245,21 @@ class CIAuditResult:
                     {**finding_to_sarif(finding), "ruleId": check.name}
                     for finding in check.content_findings
                 )
-                for detail in check.details or [check.message]:
-                    if detail in content_details:
-                        continue
+                details = [
+                    detail
+                    for detail in check.details or [check.message]
+                    if detail not in content_details
+                ]
+                for index, detail in enumerate(details):
+                    # The remedy names every selector: emit it once per check, on
+                    # the last result, so the report grows linearly (#4570).
+                    last = index == len(details) - 1
+                    text = f"{detail}. {check.next_step}" if check.next_step and last else detail
                     results.append(
                         {
                             "ruleId": check.name,
                             "level": "error",
-                            "message": {"text": detail},
+                            "message": {"text": text},
                             "locations": [
                                 {
                                     "physicalLocation": {

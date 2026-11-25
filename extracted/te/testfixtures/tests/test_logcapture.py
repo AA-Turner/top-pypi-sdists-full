@@ -1,6 +1,6 @@
 import atexit
 import logging
-from logging import getLogger, INFO, WARNING, ERROR, Filter, shutdown
+from logging import getLogger, INFO, WARNING, ERROR, Filter, Logger, shutdown
 from textwrap import dedent
 from unittest import TestCase
 
@@ -34,6 +34,10 @@ class LevellessSource:
         self.collector(Entry(raw=actual, actual=actual, level=None))
 
 
+def preserve_level(case: TestCase, logger: Logger) -> None:
+    case.addCleanup(logger.setLevel, logger.level)
+
+
 class TestLogCapture(TestCase):
 
     def test_simple(self):
@@ -52,7 +56,10 @@ class TestLogCapture(TestCase):
             log_capture.ensure_checked()
 
     def test_simple_strict_re_defaulted(self):
-        with Replace('testfixtures.LogCapture.default_ensure_checks_above', ERROR):
+        with Replace(
+            LogCapture.default_ensure_checks_above, ERROR,
+            container=LogCapture, name='default_ensure_checks_above',
+        ):
             LogCapture.default_ensure_checks_above = ERROR
             log_capture = LogCapture()
             root.error('during')
@@ -97,6 +104,22 @@ class TestLogCapture(TestCase):
         assert ("root", "ERROR", "during") in log_capture
         assert ("root", "INFO", "during") not in log_capture
         log_capture.ensure_checked()
+
+    def test_ensure_checks_above_notset_overrides_default(self):
+        with Replace(
+            LogCapture.default_ensure_checks_above, ERROR,
+            container=LogCapture, name='default_ensure_checks_above',
+        ):
+            with LogCapture(ensure_checks_above=logging.NOTSET):
+                root.error('during')
+
+    def test_default_ensure_checks_above_notset(self):
+        with Replace(
+            LogCapture.default_ensure_checks_above, logging.NOTSET,
+            container=LogCapture, name='default_ensure_checks_above',
+        ):
+            with LogCapture():
+                root.error('during')
 
     def test_simple_strict_asserted_by_mark_all_checked(self):
         log_capture = LogCapture(ensure_checks_above=ERROR)
@@ -147,6 +170,22 @@ class TestLogCapture(TestCase):
             "CRITICAL at critical"
         )
 
+    def test_minimum_level_child_logger_sets_lower_level(self):
+        preserve_level(self, one)
+        with LogCapture(level=logging.WARNING) as log:
+            one.setLevel(logging.INFO)
+            one.info('at info')
+            one.error('at error')
+        log.check(('one', 'ERROR', 'at error'))
+
+    def test_minimum_level_logging_source_child_logger_sets_lower_level(self):
+        preserve_level(self, one)
+        with LogCapture(LoggingSource(level=logging.WARNING)) as log:
+            one.setLevel(logging.INFO)
+            one.info('at info')
+            one.error('at error')
+        log.check(('ERROR', 'at error'))
+
     def test_multiple_loggers(self):
         l = LogCapture(('one.child','two'))
         root.info('1')
@@ -184,10 +223,11 @@ class TestLogCapture(TestCase):
         before_root = root.handlers[:]
         before_child = child.handlers[:]
 
-        # Lets also record the levels for the loggers:
+        # Lets also make sure the levels for the loggers are restored
+        # after the test:
 
-        old_root_level=root.level
-        old_child_level=child.level
+        preserve_level(self, root)
+        preserve_level(self, child)
 
         # Also record the filters:
 
@@ -196,40 +236,36 @@ class TestLogCapture(TestCase):
 
         # Now the test:
 
-        try:
-            root.setLevel(49)
-            child.setLevel(69)
-            l1 = LogCapture()
-            l2 = LogCapture('child')
-            root = getLogger()
-            root.info('1')
-            child = getLogger('child')
-            assert root.level == 1
-            assert child.level == 1
+        root.setLevel(49)
+        child.setLevel(69)
+        l1 = LogCapture()
+        l2 = LogCapture('child')
+        root = getLogger()
+        root.info('1')
+        child = getLogger('child')
+        assert root.level == 1
+        assert child.level == 1
 
-            assert root.filters == []
-            assert child.filters == []
+        assert root.filters == []
+        assert child.filters == []
 
-            child.info('2')
-            assert str(l1) == (
-                "root INFO 1\n"
-                "child INFO 2"
-            )
-            assert str(l2) == (
-                "child INFO 2"
-            )
+        child.info('2')
+        assert str(l1) == (
+            "root INFO 1\n"
+            "child INFO 2"
+        )
+        assert str(l2) == (
+            "child INFO 2"
+        )
 
-            # Add a dummy filter to the child,
-            # which should be removed by `uninstall`.
-            child.addFilter(DummyFilter())
+        # Add a dummy filter to the child,
+        # which should be removed by `uninstall`.
+        child.addFilter(DummyFilter())
 
-            l2.uninstall()
-            l1.uninstall()
-            assert root.level == 49
-            assert child.level == 69
-        finally:
-           root.setLevel(old_root_level)
-           child.setLevel(old_child_level)
+        l2.uninstall()
+        l1.uninstall()
+        assert root.level == 49
+        assert child.level == 69
 
         # Now we check the handlers are as they were before
         # the test:
@@ -290,18 +326,15 @@ class TestLogCapture(TestCase):
         # There's no problem with uninstalling a LogCapture
         # more than once:
 
-        old_level = root.level
-        try:
-           root.setLevel(49)
-           l = LogCapture()
-           assert root.level == 1
-           l.uninstall()
-           assert root.level == 49
-           root.setLevel(69)
-           l.uninstall()
-           assert root.level == 69
-        finally:
-           root.setLevel(old_level)
+        preserve_level(self, root)
+        root.setLevel(49)
+        l = LogCapture()
+        assert root.level == 1
+        l.uninstall()
+        assert root.level == 49
+        root.setLevel(69)
+        l.uninstall()
+        assert root.level == 69
 
         # And even when loggers have been uninstalled, there's
         # no problem having uninstall_all as a backstop:

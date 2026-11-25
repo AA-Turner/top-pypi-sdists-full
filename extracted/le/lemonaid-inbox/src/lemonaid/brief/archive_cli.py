@@ -1,21 +1,13 @@
 import argparse
-import os
 import sqlite3
-import subprocess
 import sys
 import time
 from pathlib import Path
 
-from ..audit import actor
-from ..config import load_config
 from ..inbox import db
-from ..log import LOG_PATH, get_logger
-from ..watch import reconcile, registry
 from . import archive, identity, lemon, store
 
-_log = get_logger("brief.archive_cli")
-_DAILY_SECONDS = 24 * 60 * 60
-COMMANDS = frozenset({"archive", "revive"})  # `brief` subcommands that start no daily sweep
+_CHANNEL = "lemonaid:brief-sweep"
 
 
 def _brief(conn, target: str) -> Path:
@@ -32,9 +24,25 @@ def _brief(conn, target: str) -> Path:
     return path
 
 
-def _sweep(days: float, dry_run: bool) -> int:
+def _too_many(conn: sqlite3.Connection, found: int, days: float, most: int) -> int:
+    """Say in the inbox that the sweep moved nothing, since more than *most* looked idle."""
+    line = (
+        f"The brief sweep found {found} briefs unused for {days:g}+ days, more than the {most} "
+        "it may move at once (`[brief] archive_sweep_max`), so it moved none. "
+        f"`lemonaid brief archive --idle-days {days:g} --dry-run` lists them, and the same "
+        "command without --dry-run moves them."
+    )
+    print(line, file=sys.stderr)
+    db.add(conn, _CHANNEL, line, name="brief sweep")
+    return 1
+
+
+def _sweep(days: float, dry_run: bool, most: int) -> int:
     with db.connect() as conn:
         found = archive.idle(conn, days, time.time())
+        if most and len(found) > most and not dry_run:
+            return _too_many(conn, len(found), days, most)
+
         failed = 0
         for item in found:
             used = time.strftime("%Y-%m-%d", time.localtime(item.last)) if item.last else "never"
@@ -60,7 +68,7 @@ def _cmd_archive(args: argparse.Namespace) -> None:
         sys.exit(2)
 
     if args.idle_days is not None:
-        sys.exit(_sweep(args.idle_days, args.dry_run))
+        sys.exit(_sweep(args.idle_days, args.dry_run, args.most))
 
     with db.connect() as conn:
         try:
@@ -85,40 +93,6 @@ def _cmd_revive(args: argparse.Namespace) -> None:
             sys.exit(1)
 
 
-def _stamp() -> Path:
-    return registry.root() / "brief-archive-sweep"
-
-
-def daily() -> None:
-    """Start a background sweep under `[brief] archive_idle_days`, at most once a day."""
-    days = load_config().brief.archive_idle_days
-    try:
-        if not days or time.time() - _stamp().stat().st_mtime < _DAILY_SECONDS:
-            return
-    except FileNotFoundError:
-        pass
-    if reconcile.editable_install():
-        return
-
-    _stamp().parent.mkdir(parents=True, exist_ok=True)
-    _stamp().touch()
-    try:
-        with LOG_PATH.open("a") as log:
-            subprocess.Popen(
-                [sys.executable, "-m", "lemonaid", "brief", "archive", "--idle-days", str(days)],
-                env={
-                    **{k: v for k, v in os.environ.items() if k != "CODEX_THREAD_ID"},
-                    actor.ACTOR_ENV: "idle sweep",
-                },
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=log,
-                start_new_session=True,
-            )
-    except OSError as error:
-        _log.warning("could not start the brief archive sweep: %s", error)
-
-
 def add_parsers(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "archive",
@@ -127,6 +101,13 @@ def add_parsers(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("target", nargs="?", help="A Lemon-ID, or a brief's name or path")
     parser.add_argument(
         "--idle-days", type=float, help="Archive every brief nobody has used for this many days"
+    )
+    parser.add_argument(
+        "--max",
+        type=int,
+        default=0,
+        dest="most",
+        help="With --idle-days, move nothing when more briefs than this are idle (0: no limit)",
     )
     parser.add_argument("--dry-run", action="store_true", help="List what would move")
     parser.set_defaults(func=_cmd_archive)

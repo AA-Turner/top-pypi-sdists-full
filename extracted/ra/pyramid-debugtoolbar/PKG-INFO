@@ -1,40 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyramid_debugtoolbar
-Version: 4.12.1
+Version: 4.13
 Summary: A package which provides an interactive HTML debugger for Pyramid application development
-Home-page: https://docs.pylonsproject.org/projects/pyramid-debugtoolbar/en/latest/
-Author: Chris McDonough, Michael Merickel, Casey Duncan, Blaise Laflamme
-Author-email: pylons-discuss@googlegroups.com
-License: BSD
-Keywords: wsgi,pylons,pyramid,transaction
+Author-email: "Chris McDonough, Michael Merickel, Casey Duncan, Blaise Laflamme" <pylons-discuss@googlegroups.com>
+License-Expression: BSD-3-Clause AND MIT
+Project-URL: Changelog, https://docs.pylonsproject.org/projects/pyramid_debugtoolbar/en/latest/changes.html
+Project-URL: Documentation, https://docs.pylonsproject.org/projects/pyramid_debugtoolbar/en/latest/
+Project-URL: Homepage, https://github.com/Pylons/pyramid_debugtoolbar
+Project-URL: Issue Tracker, https://github.com/Pylons/pyramid_debugtoolbar/issues
+Keywords: pylons,pyramid,transaction,wsgi
+Classifier: Framework :: Pyramid
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Framework :: Pyramid
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
-Classifier: License :: Repoze Public License
-Requires-Python: >=3.7
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Requires-Dist: Pygments
 Requires-Dist: pyramid>=1.4
 Requires-Dist: pyramid_mako>=0.3.1
-Requires-Dist: Pygments
-Requires-Dist: importlib-metadata; python_version < "3.8"
-Provides-Extra: testing
-Requires-Dist: WebTest; extra == "testing"
-Requires-Dist: pytest; extra == "testing"
-Requires-Dist: pytest-cov; extra == "testing"
-Requires-Dist: sqlalchemy; extra == "testing"
-Requires-Dist: webob; extra == "testing"
-Provides-Extra: docs
-Requires-Dist: Sphinx>=1.7.5; extra == "docs"
-Requires-Dist: pylons-sphinx-themes>=0.3; extra == "docs"
+Dynamic: license-file
 
 pyramid_debugtoolbar
 ====================
@@ -53,7 +46,7 @@ Documentation
 
 The documentation of the current stable release of ``pyramid_debugtoolbar`` is
 available at
-https://docs.pylonsproject.org/projects/pyramid-debugtoolbar/en/latest/.
+https://docs.pylonsproject.org/projects/pyramid_debugtoolbar/en/latest/.
 
 
 Demonstration
@@ -118,7 +111,7 @@ then run the tests.
 .. code-block:: bash
 
     $ python3 -m venv env
-    $ env/bin/pip install -e ".[testing]"
+    $ env/bin/pip install -e . --group testing
     $ env/bin/py.test
 
 
@@ -136,9 +129,28 @@ the docs, then build them.
 
 .. code-block:: bash
 
-    $ env/bin/pip install -e ".[docs]"
+    $ env/bin/pip install -e . --group docs
     $ cd docs
     $ make clean html SPHINXBUILD=../env/bin/sphinx-build
+
+4.13 (2026-11-24)
+-----------------
+
+- Drop support for Python 3.7, 3.8, 3.9, and 3.10.
+
+- Add support for Python 3.13, 3.14, and 3.15.
+
+- Switch packaging metadata from ``setup.cfg`` to ``pyproject.toml`` and use
+  an SPDX license expression. The ``testing`` and ``docs`` extras are replaced
+  by dependency groups.
+
+- Fix a crash when rendering a traceback with a ``__traceback_info__`` local
+  that is not ``bytes``, such as a ``str``, ``dict``, or ``int``. This was a
+  regression in 4.10.
+  See https://github.com/Pylons/pyramid_debugtoolbar/pull/392
+
+- Escape double quotes in ``__traceback_info__`` when rendering it into the
+  frame's ``title`` attribute.
 
 4.12.1 (2024-02-04)
 -------------------

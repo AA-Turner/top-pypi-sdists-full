@@ -1,0 +1,1 @@
+import{r as e}from"./button-BPHWLqzx.js";import{o as t}from"./vendor-codemirror-BXwWnOp4.js";var n=t(),r=({alt:e,logoUrl:t,size:r=`sm`})=>(0,n.jsx)(`img`,{alt:e,src:t??void 0,className:i({size:r})}),i=e(`border border-border bg-muted rounded`,{variants:{size:{sm:`size-8`,lg:`size-14`}}});export{r as t};

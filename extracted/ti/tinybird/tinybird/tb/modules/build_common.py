@@ -437,7 +437,7 @@ def append_project_fixtures(
 ) -> None:
     ds_name = ""
     try:
-        for filename in project_files:
+        for filename in sorted(project_files, key=lambda f: Path(f).stem):
             if not filename.endswith(".datasource"):
                 continue
 

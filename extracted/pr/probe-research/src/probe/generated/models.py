@@ -137,6 +137,7 @@ from .enums import (  # noqa: F401 - re-exported
     HierarchyEntityKind,
     HintReason,
     IdentityStrength,
+    IdleActionKind,
     Outcome,
     IndexCorpus,
     InheritedKind,
@@ -148,9 +149,11 @@ from .enums import (  # noqa: F401 - re-exported
     KeyDropFailure,
     KeyDropOutcome,
     KeyDropStatus,
+    KeyMetricsRunType,
     KeyReadsAs,
     SourceReadContractEnum,
     ExitStatus,
+    LeftInPlaceKind,
     LineageEntityType,
     LineageRelation,
     LintRule,
@@ -160,6 +163,8 @@ from .enums import (  # noqa: F401 - re-exported
     LogSource,
     LogSourceKind,
     LossRole,
+    MachineSource,
+    MachineStatus,
     MaskEvidence,
     MatchRule,
     MatchSource,
@@ -214,6 +219,7 @@ from .enums import (  # noqa: F401 - re-exported
     PinAnchorKind,
     PinKind,
     PingEvent,
+    PodCredential,
     PointBy,
     PointsCheck,
     PointsStore,
@@ -263,6 +269,7 @@ from .enums import (  # noqa: F401 - re-exported
     CompareMode,
     Phase,
     Fn3,
+    SchedulerKind,
     Scope,
     ScorerKind,
     SearchEntityType,
@@ -303,6 +310,7 @@ from .enums import (  # noqa: F401 - re-exported
     TurnsSource,
     Fn5,
     UpdateLevel,
+    SourceReadContract2Enum,
     Via,
     VisualsState,
     WandbSourceState,
@@ -947,7 +955,11 @@ class CanvasSessionStep(BaseModel):
 
 class CanvasTotals(BaseModel):
     experiments: int = Field(..., title='Experiments')
-    live_runs: int = Field(..., title='Live Runs')
+    live_runs: int = Field(
+        ...,
+        description='Live runs on the board: running and reporting within the live window; a paused run is not counted.',
+        title='Live Runs',
+    )
     project_trees: int = Field(..., title='Project Trees')
     projects: int = Field(..., title='Projects')
     runs: int = Field(..., title='Runs')
@@ -1465,19 +1477,6 @@ class CompositionPartIn(BaseModel):
     target: str = Field(..., max_length=2048, min_length=1, title='Target')
 
 
-class ComputeClusterOut(BaseModel):
-    active_node_count: int = Field(..., title='Active Node Count')
-    cluster_key: str = Field(..., title='Cluster Key')
-    first_seen_at: AwareDatetime = Field(..., title='First Seen At')
-    gpu_count: int = Field(..., title='Gpu Count')
-    id: UUID = Field(..., title='Id')
-    kind: ClusterKind
-    last_seen_at: AwareDatetime = Field(..., title='Last Seen At')
-    name: str | None = Field(..., title='Name')
-    node_count: int = Field(..., title='Node Count')
-    provider: str | None = Field(..., title='Provider')
-
-
 class ComputeDirectivesIn(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -1503,12 +1502,16 @@ class ComputeStintOut(BaseModel):
     gpu_utilization_percent: float | None = Field(None, title='Gpu Utilization Percent')
     hostname: str | None = Field(..., title='Hostname')
     id: int = Field(..., title='Id')
+    last_saved_at: AwareDatetime | None = Field(None, title='Last Saved At')
+    last_saved_seconds_ago: int | None = Field(None, title='Last Saved Seconds Ago')
     node_activity: dict[str, Any] | None = Field(None, title='Node Activity')
     node_reported_at: AwareDatetime | None = Field(None, title='Node Reported At')
     pid: int | None = Field(..., title='Pid')
     pod_uid: str | None = Field(..., title='Pod Uid')
     proc_start_ticks: int | None = Field(..., title='Proc Start Ticks')
+    run_id: UUID | None = Field(None, title='Run Id')
     run_name: str | None = Field(..., title='Run Name')
+    skypilot_job_id: str | None = Field(None, title='Skypilot Job Id')
     slurm_job_id: str | None = Field(..., title='Slurm Job Id')
     started_at: AwareDatetime = Field(..., title='Started At')
 
@@ -2194,6 +2197,7 @@ class EnrollmentTokenCreate(BaseModel):
     labels: dict[str, str] | None = Field(None, max_length=32, title='Labels')
     max_nodes: MaxNodes | None = Field(None, title='Max Nodes')
     name: str = Field(..., max_length=128, min_length=1, title='Name')
+    runs_submit_key_id: UUID | None = Field(None, title='Runs Submit Key Id')
 
 
 class EnrollmentTokenCreated(BaseModel):
@@ -2603,7 +2607,7 @@ class ExperimentValueOut(BaseModel):
 
     live: bool = Field(
         ...,
-        description='That run is live (running and reporting in the live window), so the value can still move.',
+        description='That run is live (running and reporting in the live window; a paused run is not), so the value can still move.',
         title='Live',
     )
     run_id: UUID = Field(
@@ -2760,6 +2764,10 @@ class GapOut(BaseModel):
     pct: float | None = Field(
         ..., description='% of the reference value; null when it is 0.', title='Pct'
     )
+
+
+class GatedSkillsOut(BaseModel):
+    skills: list[str] = Field(..., title='Skills')
 
 
 class FirstToken(RootModel[int]):
@@ -3041,6 +3049,34 @@ class HostedUploadsOut(BaseModel):
     deferred: int | None = Field(0, title='Deferred')
     have: list[str] = Field(..., title='Have')
     uploads: list[HostedUpload] = Field(..., title='Uploads')
+
+
+class IdleActionOut(BaseModel):
+    """
+    The team's choice. `email` mails only teams inside the rollout until the wording is signed off.
+    """
+
+    action: IdleActionKind
+
+
+class IdleScanAck(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    alert_id: int = Field(..., title='Alert Id')
+    at_risk: bool = Field(..., title='At Risk')
+
+
+class IdleScanRequest(BaseModel):
+    """
+    The ack asks the node to run `probe-node spindown-scan` once (read-only) and attach the result to this
+    idle alert. Sent once, on the ack of the report that fired the alert; an older daemon ignores it.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    alert_id: int = Field(..., ge=1, title='Alert Id')
 
 
 class ImportAgentSettingsOut(BaseModel):
@@ -3406,6 +3442,11 @@ class LeaderChangeOut(BaseModel):
     value: float = Field(..., title='Value')
 
 
+class LeftInPlaceOut(BaseModel):
+    kind: LeftInPlaceKind
+    message: str = Field(..., title='Message')
+
+
 class LineOut(BaseModel):
     """
     One line of work (`BranchOut.line`).
@@ -3488,6 +3529,29 @@ class LinkedSessionsOut(BaseModel):
     next_after: str | None = Field(None, title='Next After')
     session_total: int | None = Field(0, title='Session Total')
     sessions: list[AgentSessionOut] | None = Field(None, title='Sessions')
+
+
+class GpuCount(RootModel[int]):
+    root: int = Field(..., ge=0, le=1024, title='Gpu Count')
+
+
+class GpuModel(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Gpu Model')
+
+
+class ListedMachine(BaseModel):
+    """
+    One machine as its scheduler lists it (a Kubernetes node, a Slurm node): a machine Probe expects
+    before probe-node reports from it. Spot and burst machines are never listed.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    gpu_count: GpuCount | None = Field(None, title='Gpu Count')
+    gpu_model: GpuModel | None = Field(None, title='Gpu Model')
+    instance_id: InstanceId | None = Field(None, title='Instance Id')
+    name: str = Field(..., max_length=253, min_length=1, title='Name')
 
 
 class LiveCounts(BaseModel):
@@ -3636,6 +3700,15 @@ class LogStreamOut(BaseModel):
     source: LogSourceKind
     stream: str = Field(..., title='Stream')
     updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class MachineListAck(BaseModel):
+    """
+    What one machine-list page did: machines saved, and expected machines it marked gone.
+    """
+
+    gone: int = Field(..., title='Gone')
+    listed: int = Field(..., title='Listed')
 
 
 class Member(BaseModel):
@@ -3959,6 +4032,29 @@ class NodeInventory(BaseModel):
 class NodeSeriesPoint(BaseModel):
     at: AwareDatetime = Field(..., title='At')
     value: float = Field(..., title='Value')
+
+
+class NodeUninstalledAck(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    node_state: NodeState
+
+
+class Error(RootModel[str]):
+    root: str = Field(..., max_length=1024, title='Error')
+
+
+class NodeUninstalledIn(BaseModel):
+    """
+    `POST /v1/nodes/{node_id}/uninstalled`: the node removed Probe and is about to stop. `error` names what
+    it could not remove (the rest is gone); its credential is revoked either way.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    error: Error | None = Field(None, title='Error')
 
 
 class NoteVersionOut(BaseModel):
@@ -6280,7 +6376,10 @@ class QueueReportAck(BaseModel):
         extra='forbid',
     )
     canceled: int = Field(..., title='Canceled')
+    failed: int | None = Field(0, title='Failed')
     linked: int = Field(..., title='Linked')
+    machines_gone: int | None = Field(0, title='Machines Gone')
+    machines_listed: int | None = Field(0, title='Machines Listed')
     pending: int = Field(..., title='Pending')
     skipped: int | None = Field(0, title='Skipped')
 
@@ -7295,6 +7394,41 @@ class Version2(RootModel[str]):
     root: str = Field(..., max_length=256, title='Version')
 
 
+class ScriptKeyMetricIn(BaseModel):
+    """
+    One pinned metric as a script names it: an exact `{kind, key}` (K7: a key may hold a colon).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    key: str = Field(..., min_length=1, title='Key')
+    kind: str = Field(..., min_length=1, title='Kind')
+
+
+class ScriptKeyMetricsIn(BaseModel):
+    """
+    The list alone, never a layout (K7): 1-12 metrics, no pair twice.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    key_metrics: list[ScriptKeyMetricIn] = Field(
+        ..., max_length=12, min_length=1, title='Key Metrics'
+    )
+
+
+class ScriptKeyMetricsOut(BaseModel):
+    """
+    `applied`: the project's list for `run_type` is now this script's (false: a person's list or a later run's
+    script list stands).
+    """
+
+    applied: bool = Field(..., title='Applied')
+    run_type: KeyMetricsRunType
+
+
 class SealBundle(BaseModel):
     """
     A bundle the seal promises; capture checks its sha256 against stored artifacts.
@@ -8245,6 +8379,19 @@ class SubNoteWriteOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
+class SubmittedJobIn(BaseModel):
+    """
+    `POST /v1/runs/{run_id}/queue-jobs`, by a SkyPilot API server's `runs:submit` key (its plugin's
+    `managed_job_submitted` hook, T4): the queue job id a run's job was given, recorded waiting.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    job_id: str = Field(..., max_length=128, min_length=1, title='Job Id')
+    scheduler: SchedulerKind
+
+
 class Html(RootModel[str]):
     root: str = Field(..., max_length=504000, title='Html')
 
@@ -8930,10 +9077,6 @@ class TrialPatch(BaseModel):
     name: Name20 | None = Field(None, title='Name')
 
 
-class Error(RootModel[str]):
-    root: str = Field(..., max_length=1024, title='Error')
-
-
 class TurnToolCall(BaseModel):
     """
     One tool call's stats: what ran, whether it worked, how long it took.
@@ -8953,6 +9096,45 @@ class TurnUsage(BaseModel):
 
     prompt_tokens: PromptTokens | None = Field(None, title='Prompt Tokens')
     response_tokens: ResponseTokens | None = Field(None, title='Response Tokens')
+
+
+class UninstallIn(BaseModel):
+    """
+    Body of `POST /v1/compute/clusters/{id}/uninstall` and `POST /v1/compute/nodes/{id}/uninstall`.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    include_skypilot: bool | None = Field(False, title='Include Skypilot')
+
+
+class UninstallNodeOut(BaseModel):
+    hostname: str | None = Field(..., title='Hostname')
+    id: UUID = Field(..., title='Id')
+    install_mode: InstallMode
+    state: NodeState
+
+
+class UninstallOrder(BaseModel):
+    """
+    What an admin's uninstall asks beyond removing probe-node itself. Sent with `node_state = uninstalling`;
+    the daemon runs its own fixed uninstall code, never a command from the server.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    include_skypilot: bool | None = Field(False, title='Include Skypilot')
+    whole_cluster: bool | None = Field(False, title='Whole Cluster')
+
+
+class UninstallOut(BaseModel):
+    enrollment_tokens_revoked: int = Field(..., title='Enrollment Tokens Revoked')
+    left_in_place: list[LeftInPlaceOut] = Field(..., title='Left In Place')
+    ordered: list[UninstallNodeOut] = Field(..., title='Ordered')
+    retired: list[UninstallNodeOut] = Field(..., title='Retired')
+    runs_submit_keys_revoked: int | None = Field(0, title='Runs Submit Keys Revoked')
 
 
 class UnresolvedReference(BaseModel):
@@ -9211,6 +9393,39 @@ class ValidationError(BaseModel):
     type: str = Field(..., title='Error Type')
 
 
+class ValueAtStepItem(BaseModel):
+    """
+    One series of one run and the step to read its value at.
+    """
+
+    dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
+    key: str = Field(..., title='Key')
+    kind: str = Field(..., title='Kind')
+    run_id: UUID = Field(..., title='Run Id')
+    step: int = Field(
+        ..., ge=-9223372036854776000, lt=9223372036854776000, title='Step'
+    )
+
+
+class ValueAtStepOut(BaseModel):
+    """
+    One item's answer, in request order. `value` and `value_step` are the last finite point logged at or
+    before `step` (only the series' unlabeled, stepped points count: a labeled sample or a stepless point
+    never does); both None when there is none. `error`: the store could not tell (a W&B read, or a NaN tail
+    longer than the read walks back); `value` is then None, never a guess.
+    """
+
+    dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
+    error: SourceReadErrorOut | None = None
+    key: str = Field(..., title='Key')
+    kind: str = Field(..., title='Kind')
+    run_id: UUID = Field(..., title='Run Id')
+    source: MetricDataSource | None = 'probe'
+    step: int = Field(..., title='Step')
+    value: float | None = Field(None, title='Value')
+    value_step: int | None = Field(None, title='Value Step')
+
+
 class ValueOut(BaseModel):
     """
     A value and the run it comes from.
@@ -9219,11 +9434,32 @@ class ValueOut(BaseModel):
     experiment: UUID = Field(..., title='Experiment')
     live: bool = Field(
         ...,
-        description='That run is live (running and reporting in the live window): the value can still move.',
+        description='That run is live (running and reporting in the live window; a paused run is not): the value can still move.',
         title='Live',
     )
     run: UUID = Field(..., title='Run')
     value: float = Field(..., title='Value')
+
+
+class SourceReadContract2(RootModel[SourceReadContract2Enum | None]):
+    root: SourceReadContract2Enum | None = Field(None, title='Source Read Contract')
+
+
+class ValuesAtStepRequest(BaseModel):
+    """
+    Each item's last finite value at or before its step, in one bounded read.
+    """
+
+    items: list[ValueAtStepItem] = Field(
+        ..., max_length=50, min_length=1, title='Items'
+    )
+    source_read_contract: SourceReadContract2 | None = Field(
+        None, title='Source Read Contract'
+    )
+
+
+class ValuesAtStepResult(BaseModel):
+    values: list[ValueAtStepOut] = Field(..., title='Values')
 
 
 class VersionPair(BaseModel):
@@ -9978,9 +10214,16 @@ class CanvasExperiment(BaseModel):
     blurb: str | None = Field(None, title='Blurb')
     created_at: AwareDatetime = Field(..., title='Created At')
     id: UUID = Field(..., title='Id')
-    live_run_count: int | None = Field(0, title='Live Run Count')
+    live_run_count: int | None = Field(
+        0,
+        description="The experiment's live runs: running and reporting within the live window; a paused run is not counted.",
+        title='Live Run Count',
+    )
     live_runs: list[CanvasLiveRun] | None = Field(
-        [], title='Live Runs', validate_default=True
+        [],
+        description='A bounded sample of those live runs (running and reporting within the live window; a paused run is not counted); `live_run_count` is the full count.',
+        title='Live Runs',
+        validate_default=True,
     )
     name: str = Field(..., title='Name')
     origin_session_id: str | None = Field(None, title='Origin Session Id')
@@ -10065,7 +10308,11 @@ class CanvasProject(BaseModel):
     direct_run_count: int | None = Field(0, title='Direct Run Count')
     id: UUID = Field(..., title='Id')
     kind: str = Field(..., title='Kind')
-    live_run_count: int | None = Field(0, title='Live Run Count')
+    live_run_count: int | None = Field(
+        0,
+        description="Every live run under the project, its own and each experiment's, on the board or not: running and reporting within the live window; a paused run is not counted.",
+        title='Live Run Count',
+    )
     name: str = Field(..., title='Name')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
     preview: CanvasPreview | None = None
@@ -10524,14 +10771,17 @@ class DecisionFiltersOut(BaseModel):
 
 class DecisionTarget(BaseModel):
     """
-    A target as served: its current name, its Lineage status tone and label, and a detail.
+    A target as served: its current name, its Lineage status tone and label, a detail, and (for an
+    experiment) its run counts.
     """
 
     detail: str | None = Field(..., title='Detail')
     effect: DecisionEffect
     id: UUID = Field(..., title='Id')
+    live_run_count: int | None = Field(0, title='Live Run Count')
     name: str = Field(..., title='Name')
     status: str = Field(..., title='Status')
+    status_counts: dict[str, int] | None = Field(None, title='Status Counts')
     status_label: str = Field(..., title='Status Label')
     type: DecisionTargetType
 
@@ -10958,6 +11208,28 @@ class ExactSection(BaseModel):
     results: list[ExactHit] | None = Field(None, title='Results')
 
 
+class ExpectedMachineOut(BaseModel):
+    """
+    A machine Probe expects in a cluster, and whether its node reports (`status`: reporting,
+    never_reported, stopped, gone).
+    """
+
+    cluster_id: UUID = Field(..., title='Cluster Id')
+    first_seen_at: AwareDatetime = Field(..., title='First Seen At')
+    gone_at: AwareDatetime | None = Field(..., title='Gone At')
+    gpu_count: int | None = Field(..., title='Gpu Count')
+    gpu_model: str | None = Field(..., title='Gpu Model')
+    id: UUID = Field(..., title='Id')
+    instance_id: str | None = Field(..., title='Instance Id')
+    last_report_at: AwareDatetime | None = Field(..., title='Last Report At')
+    last_seen_at: AwareDatetime = Field(..., title='Last Seen At')
+    name: str = Field(..., title='Name')
+    node_id: UUID | None = Field(..., title='Node Id')
+    node_state: NodeState | None
+    source: MachineSource
+    status: MachineStatus
+
+
 class ExperimentCodeWindow(BaseModel):
     """
     Per repository: the stored commit window between the experiment's
@@ -11158,7 +11430,11 @@ class ExperimentInheritedOut(BaseModel):
 
 
 class ExperimentNode(BaseModel):
-    active_run_count: int | None = Field(0, title='Active Run Count')
+    active_run_count: int | None = Field(
+        0,
+        description="The experiment's live runs: running and reporting within the live window; a paused run is not counted.",
+        title='Active Run Count',
+    )
     created_at: AwareDatetime = Field(..., title='Created At')
     description: str | None = Field(None, title='Description')
     description_truncated: bool | None = Field(None, title='Description Truncated')
@@ -11549,6 +11825,13 @@ class HintsOut(BaseModel):
     z: float | None = Field(None, title='Z')
 
 
+class IdleActionIn(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    action: IdleActionKind
+
+
 class IngestRun(BaseModel):
     config: dict[str, Any] | None = Field(None, title='Config')
     ended_at: AwareDatetime | None = Field(None, title='Ended At')
@@ -11812,6 +12095,23 @@ class LiveTurnList(BaseModel):
     turns: list[LiveTurnOut] | None = Field(None, title='Turns')
 
 
+class MachineList(BaseModel):
+    """
+    One page of a scheduler's whole machine list (T7). The pages of one listing share `listing_id`; once
+    every page has landed, the cluster's machines the listing did not name are marked gone (never deleted).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    cluster: ClusterEvidence | None = None
+    listing_id: str = Field(..., max_length=64, min_length=1, title='Listing Id')
+    machines: list[ListedMachine] | None = Field(None, max_length=100, title='Machines')
+    page: int = Field(..., ge=0, title='Page')
+    page_count: int = Field(..., ge=1, le=100, title='Page Count')
+    total: int = Field(..., ge=0, le=10000, title='Total')
+
+
 class Message(BaseModel):
     content: str | None = Field('', title='Content')
     is_trainable: bool | None = Field(False, title='Is Trainable')
@@ -11973,9 +12273,11 @@ class NodeReportAck(BaseModel):
         extra='forbid',
     )
     accepted_seq: int = Field(..., title='Accepted Seq')
+    idle_scan: IdleScanRequest | None = None
     min_daemon_version: str = Field(..., title='Min Daemon Version')
     node_state: NodeState
     server_time: AwareDatetime = Field(..., title='Server Time')
+    uninstall: UninstallOrder | None = None
 
 
 class NodeSeriesOut(BaseModel):
@@ -12356,7 +12658,11 @@ class ProjectExperimentListOut(BaseModel):
 
 
 class ProjectNode(BaseModel):
-    active_run_count: int | None = Field(0, title='Active Run Count')
+    active_run_count: int | None = Field(
+        0,
+        description='Every live run in the project, experiment-attached and project-direct (0054): running and reporting within the live window; a paused run is not counted.',
+        title='Active Run Count',
+    )
     code_source_count: int | None = Field(0, title='Code Source Count')
     contributor_count: int | None = Field(None, title='Contributor Count')
     created_at: AwareDatetime = Field(..., title='Created At')
@@ -12856,6 +13162,7 @@ class RunDetailOut(BaseModel):
     )
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    pod_credential: PodCredential | None = None
     project_id: UUID = Field(..., title='Project Id')
     run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
@@ -12917,6 +13224,7 @@ class RunGpuStintOut(BaseModel):
     node: StintNode
     peak_gpu_memory_bytes: int | None = Field(..., title='Peak Gpu Memory Bytes')
     pid: int | None = Field(..., title='Pid')
+    rate_source: str | None = Field(None, title='Rate Source')
     rate_usd_per_gpu_hour: float | None = Field(..., title='Rate Usd Per Gpu Hour')
     started_at: AwareDatetime = Field(..., title='Started At')
     stint_id: int = Field(..., title='Stint Id')
@@ -12995,6 +13303,7 @@ class RunLineageNodeOut(BaseModel):
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     parent_run_ids: list[UUID] | None = Field(None, title='Parent Run Ids')
+    pod_credential: PodCredential | None = None
     project_id: UUID = Field(..., title='Project Id')
     run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
@@ -13131,6 +13440,7 @@ class RunListRowOut(BaseModel):
     )
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    pod_credential: PodCredential | None = None
     project_id: UUID = Field(..., title='Project Id')
     run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
@@ -14462,6 +14772,26 @@ class CompareColumn(BaseModel):
     version: int | None = Field(None, title='Version')
 
 
+class ComputeClusterOut(BaseModel):
+    active_node_count: int = Field(..., title='Active Node Count')
+    cluster_key: str = Field(..., title='Cluster Key')
+    expected_gpu_count: int | None = Field(0, title='Expected Gpu Count')
+    expected_machine_count: int | None = Field(0, title='Expected Machine Count')
+    first_seen_at: AwareDatetime = Field(..., title='First Seen At')
+    gpu_count: int = Field(..., title='Gpu Count')
+    id: UUID = Field(..., title='Id')
+    kind: ClusterKind
+    last_seen_at: AwareDatetime = Field(..., title='Last Seen At')
+    name: str | None = Field(..., title='Name')
+    node_count: int = Field(..., title='Node Count')
+    provider: str | None = Field(..., title='Provider')
+    reporting_gpu_count: int | None = Field(0, title='Reporting Gpu Count')
+    reporting_machine_count: int | None = Field(0, title='Reporting Machine Count')
+    silent_machines: list[ExpectedMachineOut] | None = Field(
+        None, title='Silent Machines'
+    )
+
+
 class Decision(BaseModel):
     also_follows: list[UUID] = Field(..., title='Also Follows')
     decided_at: AwareDatetime = Field(..., title='Decided At')
@@ -15550,6 +15880,7 @@ class RunPageDetailOut(BaseModel):
     origin_session: RunOriginSessionOut | None = None
     parent_relation: ParentRelation | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    pod_credential: PodCredential | None = None
     project_id: UUID = Field(..., title='Project Id')
     repo: str | None = Field(None, title='Repo')
     run_type: RunType | None = 'general'

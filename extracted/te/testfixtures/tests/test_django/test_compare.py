@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth.models import User
 from testfixtures import OutputCapture, Replacer
 from testfixtures.comparing import registry
-from .models import SampleModel
+from .models import SampleModel, IdenticalModel
 from tests.test_django.manage import main
 
 from tests.test_compare import CompareHelper
@@ -22,11 +22,21 @@ class CompareTests(CompareHelper, TestCase):
             message=(
                 'SampleModel not as expected:\n'
                 '\n'
-                'same:\n'
+                'attributes same:\n'
                 "['value']\n"
                 '\n'
-                'values differ:\n'
+                'attributes differ:\n'
                 "'id': 1 != 2"
+            )
+        )
+
+    def test_different_model_same_fields(self):
+        self.check_raises(
+            SampleModel(id=1), IdenticalModel(id=1),
+            message=(
+                'not equal:\n'
+                '<SampleModel: SampleModel object (1)>\n'
+                '<IdenticalModel: IdenticalModel object (1)>'
             )
         )
 
@@ -42,10 +52,10 @@ class CompareTests(CompareHelper, TestCase):
             message=(
                 'SampleModel not as expected:\n'
                 '\n'
-                'same:\n'
+                'attributes same:\n'
                 "['created', 'id', 'value']\n"
                 '\n'
-                'values differ:\n'
+                'attributes differ:\n'
                 "'not_editable': 1 != 2"
             ),
             non_editable_fields=True
@@ -62,7 +72,7 @@ class CompareTests(CompareHelper, TestCase):
             message=(
                 'SampleModel not as expected:\n'
                 '\n'
-                'values differ:\n'
+                'attributes differ:\n'
                 "'id': 3 != 4\n"
                 "'value': 1 != 2"
             )

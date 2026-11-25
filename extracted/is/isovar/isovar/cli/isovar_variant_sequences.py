@@ -14,8 +14,6 @@
 Export the cDNA sequences assembled from reads supporting each variant.
 """
 
-from ..dataframe_helpers import variant_sequences_generator_to_dataframe
-from ..variant_sequence_creator import VariantSequenceCreator
 from .commands import run_dataframe_command
 from .output_args import add_output_args
 from .rna_args import read_evidence_generator_from_args
@@ -23,16 +21,31 @@ from .variant_sequences_args import make_variant_sequences_arg_parser
 
 parser = add_output_args(
     make_variant_sequences_arg_parser(add_sequence_length_arg=True, description=__doc__),
-    filename="isovar-variant-sequences-results.csv",
-    description="CSV of assembled cDNA sequences")
+    filename="isovar-variant-sequences.csv",
+    description="Output table of assembled cDNA sequences")
 
 
 def variant_sequences_generator_from_args(args):
     """
     Use parsed commandline arguments to load variants and RNA reads and
     generate a sequence of (Variant, list of VariantSequence) pairs.
+
+    When ``--variant-sequence-length`` is omitted, uses the protein pipeline's
+    context-length ladder so assembled cDNA candidates agree with
+    ``translations`` and ``protein-sequences``.
     """
     read_evidence_generator = read_evidence_generator_from_args(args)
+    if args.variant_sequence_length is None:
+        from ..protein_sequence_creator import ProteinSequenceCreator
+
+        protein_sequence_creator = ProteinSequenceCreator(
+            min_variant_sequence_coverage=args.min_variant_sequence_coverage,
+            variant_sequence_assembly=args.variant_sequence_assembly)
+        return protein_sequence_creator.variant_sequences_from_read_evidence_generator(
+            read_evidence_generator)
+
+    from ..variant_sequence_creator import VariantSequenceCreator
+
     variant_sequence_creator = VariantSequenceCreator(
         min_variant_sequence_coverage=args.min_variant_sequence_coverage,
         preferred_sequence_length=args.variant_sequence_length,
@@ -41,6 +54,8 @@ def variant_sequences_generator_from_args(args):
 
 
 def variant_sequences_dataframe_from_args(args):
+    from ..dataframe_helpers import variant_sequences_generator_to_dataframe
+
     return variant_sequences_generator_to_dataframe(variant_sequences_generator_from_args(args))
 
 

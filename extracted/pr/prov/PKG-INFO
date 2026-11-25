@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prov
-Version: 3.3.0
+Version: 3.3.1
 Summary: A library for W3C Provenance Data Model supporting PROV-N, PROV-JSON, PROV-XML, PROV-O (RDF) and PROV-JSONLD
 Author-email: Trung Dong Huynh <trungdong@donggiang.com>
 License-Expression: MIT
@@ -17,6 +17,7 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -28,11 +29,11 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: System :: Logging
-Requires-Python: >=3.11
+Requires-Python: >=3.10.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: rdf
-Requires-Dist: rdflib<8,>=7.0.0; extra == "rdf"
+Requires-Dist: rdflib<8,>=7.1.1; extra == "rdf"
 Provides-Extra: xml
 Requires-Dist: lxml>=3.3.5; extra == "xml"
 Provides-Extra: dot
@@ -60,7 +61,7 @@ Dynamic: license-file
 
 A Python implementation of the [W3C PROV Data Model](https://www.w3.org/TR/prov-dm/), with
 import and export in PROV-N, PROV-JSON, PROV-JSONLD, PROV-XML and PROV-O (RDF). It is
-MIT-licensed, needs Python 3.11 or later, and is documented at <https://prov.readthedocs.io/>.
+MIT-licensed, needs Python 3.10.7 or later, and is documented at <https://prov.readthedocs.io/>.
 
 ## Install
 

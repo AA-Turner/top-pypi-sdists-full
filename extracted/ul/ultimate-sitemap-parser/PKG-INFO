@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultimate-sitemap-parser
-Version: 1.8.1
+Version: 1.8.2
 Summary: A performant library for parsing and crawling sitemaps
 Keywords: sitemap,crawler,indexing,xml,rss,atom,google news
 Author: Linas Valiukas, Hal Roberts, Freddy Heppell
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: python-dateutil>=2.7,<3.0.0
+Requires-Dist: python-dateutil>=2.7,<5.0.0
 Requires-Dist: requests>=2.2.1,<3.0.0
 Maintainer: Freddy Heppell
 Maintainer-email: Freddy Heppell <f.heppell@sheffield.ac.uk>

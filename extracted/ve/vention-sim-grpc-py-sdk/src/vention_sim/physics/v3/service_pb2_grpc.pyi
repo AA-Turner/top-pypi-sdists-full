@@ -10,6 +10,7 @@ from vention_sim.physics.v1 import requests_pb2 as _requests_pb2_1
 from vention_sim.physics.v1 import responses_pb2 as _responses_pb2
 from vention_sim.physics.v2 import requests_pb2 as _requests_pb2_2
 from vention_sim.physics.v3 import requests_pb2 as _requests_pb2
+from vention_sim.physics.v3 import responses_pb2 as _responses_pb2_1
 import abc as _abc_1
 import grpc as _grpc
 import sys
@@ -48,6 +49,10 @@ class PhysicsEngineServiceStub:
     RigidBodySetPoseAndRemoveBuoyancy: _grpc.UnaryUnaryMultiCallable[_requests_pb2_1.RigidBodySetPoseAndRemoveBuoyancyRequest, _empty_pb2.Empty]
     SetIOInput: _grpc.UnaryUnaryMultiCallable[_requests_pb2_2.SetIOInputRequest, _empty_pb2.Empty]
     """IO Module RPCs"""
+    GetHomePositions: _grpc.UnaryUnaryMultiCallable[_requests_pb2.GetHomePositionsRequest, _responses_pb2_1.GetHomePositionsResponse]
+    """Motor driver RPCs
+    Home positions persist between simulation runs.
+    """
 
 @_typing.type_check_only
 class PhysicsEngineServiceAsyncStub(PhysicsEngineServiceStub):
@@ -65,6 +70,10 @@ class PhysicsEngineServiceAsyncStub(PhysicsEngineServiceStub):
     RigidBodySetPoseAndRemoveBuoyancy: _aio.UnaryUnaryMultiCallable[_requests_pb2_1.RigidBodySetPoseAndRemoveBuoyancyRequest, _empty_pb2.Empty]  # type: ignore[assignment]
     SetIOInput: _aio.UnaryUnaryMultiCallable[_requests_pb2_2.SetIOInputRequest, _empty_pb2.Empty]  # type: ignore[assignment]
     """IO Module RPCs"""
+    GetHomePositions: _aio.UnaryUnaryMultiCallable[_requests_pb2.GetHomePositionsRequest, _responses_pb2_1.GetHomePositionsResponse]  # type: ignore[assignment]
+    """Motor driver RPCs
+    Home positions persist between simulation runs.
+    """
 
 class PhysicsEngineServiceServicer(metaclass=_abc_1.ABCMeta):
     """*
@@ -127,5 +136,15 @@ class PhysicsEngineServiceServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_empty_pb2.Empty, _abc.Awaitable[_empty_pb2.Empty]]:
         """IO Module RPCs"""
+
+    @_abc_1.abstractmethod
+    def GetHomePositions(
+        self,
+        request: _requests_pb2.GetHomePositionsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_responses_pb2_1.GetHomePositionsResponse, _abc.Awaitable[_responses_pb2_1.GetHomePositionsResponse]]:
+        """Motor driver RPCs
+        Home positions persist between simulation runs.
+        """
 
 def add_PhysicsEngineServiceServicer_to_server(servicer: PhysicsEngineServiceServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

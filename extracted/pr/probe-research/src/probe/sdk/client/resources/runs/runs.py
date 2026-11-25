@@ -7,7 +7,7 @@ import builtins
 import os
 import sys
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -36,6 +36,7 @@ from .....generated.models import (
 )
 from ....delivery.transport.transport import Page
 from ...resource import Resource
+from ..charts import to_key_metrics
 
 from .... import errors
 from ....delivery.transport.deadlines import pause_patience, without_patience
@@ -168,6 +169,7 @@ class RunsMixin:
         started_at: str | datetime | None = None,
         run_type: str | None = None,
         total_steps: int | None = None,
+        key_metrics: Sequence[str] | None = None,
         **run_kw,
     ) -> Run:
         """Open a run — full resolution/creation/``on_conflict`` semantics in
@@ -180,7 +182,9 @@ class RunsMixin:
         ``run.set_status(status, ended_at=...)``. ``run_type`` says what the run is: ``"sft"`` for supervised
         fine-tuning, ``"rl"`` for RL training or an agent eval (RL tabs and Trials), ``"general"`` for anything else;
         omitted, the run reads ``general`` until RL data marks it. ``total_steps`` is the step the run is set to end
-        at (its progress reads ``current/total``); a trainer integration fills it when it knows its own count. ``hw=True`` (or ``PROBE_HW=1``) also
+        at (its progress reads ``current/total``); a trainer integration fills it when it knows its own count. ``key_metrics``
+        (``[kind:]key`` names, at most 12) pins those metrics for this run type in the project unless a person saved
+        its list; it needs ``run_type`` (else one warning and nothing is pinned). ``hw=True`` (or ``PROBE_HW=1``) also
         starts the opt-in hardware collector when this process is the
         node-local leader. Best-effort by contract: a broken collector never
         touches the run (agent/src/probe/sdk/hardware/DESIGN.md). ``snapshot``
@@ -240,6 +244,7 @@ class RunsMixin:
             run_kw["run_type"] = to_run_type(run_type)
         if total_steps is not None:
             run_kw["total_steps"] = to_total_steps(total_steps)
+        pinned = to_key_metrics(key_metrics) if key_metrics is not None else None
         if ignore is not None:
             # Checked before the run exists, so a bad value opens nothing.
             from ....recording_rules import recording_rules as _ignore
@@ -266,6 +271,8 @@ class RunsMixin:
             **({"started_at": started_at} if started_at is not None else {}),
             **run_kw,
         )
+        if pinned is not None:
+            handle._send_key_metrics(pinned, run_type=run_kw.get("run_type"))
         from probe.sdk.hardware import wiring as hw_integration
 
         # The run is open. What follows is best-effort capture, never part of

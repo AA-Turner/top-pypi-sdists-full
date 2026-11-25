@@ -18,7 +18,23 @@ from enum import Enum
 from functools import wraps
 from os import chmod, getcwd, getenv
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Set, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    ParamSpec,
+    Set,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 from urllib.parse import urlparse
 
 import aiofiles
@@ -27,6 +43,7 @@ import click.formatting
 import humanfriendly
 import humanfriendly.tables
 import pyperclip
+from asgiref.sync import async_to_sync
 from click import Context
 from click._termui_impl import ProgressBar
 from humanfriendly.tables import format_pretty_table
@@ -51,7 +68,6 @@ from tinybird.config import (
 )
 from tinybird.feedback_manager import FeedbackManager, warning_message
 from tinybird.git_settings import DEFAULT_TINYENV_FILE
-from tinybird.syncasync import async_to_sync
 from tinybird.tb_cli_modules.cicd import APPEND_FIXTURES_SH, DEFAULT_REQUIREMENTS_FILE, EXEC_TEST_SH
 from tinybird.tb_cli_modules.config import CLIConfig
 from tinybird.tb_cli_modules.exceptions import (
@@ -84,18 +100,22 @@ def obfuscate_token(value: Optional[str]) -> Optional[str]:
     return f"{value[:4]}...{value[-8:]}"
 
 
-def coro(f):
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def coro(f: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
     @wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         return asyncio.run(f(*args, **kwargs))
 
     return wrapper
 
 
-async def gather_with_concurrency(n, *tasks):
+async def gather_with_concurrency(n: int, *tasks: Awaitable[T]) -> List[T]:
     semaphore = asyncio.Semaphore(n)
 
-    async def sem_task(task):
+    async def sem_task(task: Awaitable[T]) -> T:
         async with semaphore:
             return await task
 
@@ -164,7 +184,7 @@ async def get_current_workspace(config: CLIConfig) -> Optional[Dict[str, Any]]:
     return _get_current_workspace_common(workspaces, config["id"])
 
 
-def get_workspace_member_email(workspace, member_id) -> str:
+def get_workspace_member_email(workspace: Dict[str, Any], member_id: str) -> str:
     return next((member["email"] for member in workspace["members"] if member["id"] == member_id), "-")
 
 
@@ -188,14 +208,16 @@ async def get_current_workspace_branches(config: CLIConfig) -> List[Dict[str, An
 
 
 class AliasedGroup(click.Group):
-    def get_command(self, ctx, cmd_name):
+    def get_command(self, ctx: Context, cmd_name: str) -> Optional[click.Command]:
         # Step one: built-in commands as normal
         cm = click.Group.get_command(self, ctx, cmd_name)
         if cm is not None:
             return cm
         return None
 
-    def resolve_command(self, ctx, args):
+    def resolve_command(
+        self, ctx: Context, args: List[str]
+    ) -> Tuple[Optional[str], Optional[click.Command], List[str]]:
         # always return the command's name, not the alias
         _, cmd, args = super().resolve_command(ctx, args)
         return cmd.name, cmd, args  # type: ignore[union-attr]
@@ -222,7 +244,7 @@ variable to '1' or 'true'."""
         )
         formatter.write_paragraph()
 
-    def __call__(self, *args, **kwargs) -> None:
+    def __call__(self, *args: Any, **kwargs: Any) -> None:
         error_msg: Optional[str] = None
         error_event: str = "error"
 
@@ -432,7 +454,7 @@ def _compare_region_host(region_name_or_host: str, region: Dict[str, Any]) -> bo
     return region["api_host"] == region_name_or_host
 
 
-def ask_for_region_interactively(regions):
+def ask_for_region_interactively(regions: List[Region]) -> Optional[Region]:
     region_index = -1
 
     while region_index == -1:
@@ -457,12 +479,10 @@ def ask_for_region_interactively(regions):
     return None
 
 
-def get_region_info(ctx, region=None):
+def get_region_info(config: CLIConfig, region: Optional[Region] = None) -> Tuple[str, str, str]:
     name = region["name"] if region else "default"
-    api_host = format_host(
-        region["api_host"] if region else ctx.obj["config"].get("host", DEFAULT_API_HOST), subdomain="api"
-    )
-    ui_host = format_host(region["host"] if region else ctx.obj["config"].get("host", DEFAULT_UI_HOST), subdomain="ui")
+    api_host = format_host(region["api_host"] if region else config.get("host", DEFAULT_API_HOST), subdomain="api")
+    ui_host = format_host(region["host"] if region else config.get("host", DEFAULT_UI_HOST), subdomain="ui")
     return name, api_host, ui_host
 
 
@@ -587,7 +607,7 @@ async def ask_for_starterkit_interactively(ctx: Context) -> Optional[str]:
     return starterkit[sk_index - 1]["friendly_name"]
 
 
-async def fork_workspace(client: TinyB, user_client: TinyB, created_workspace):
+async def fork_workspace(client: TinyB, user_client: TinyB, created_workspace: Dict[str, Any]) -> None:
     config = CLIConfig.get_project_config()
 
     datasources = await client.datasources()
@@ -740,7 +760,9 @@ async def create_workspace_branch(
         raise CLIException(FeedbackManager.error_exception(error=str(e)))
 
 
-async def print_data_branch_summary(client, job_id, response=None):
+async def print_data_branch_summary(
+    client: TinyB, job_id: Optional[str], response: Optional[Dict[str, Any]] = None
+) -> None:
     response = await client.job(job_id) if job_id else response or {"partitions": []}
     columns = ["Data Source", "Partition", "Status", "Error"]
     table: list[list] = []
@@ -752,7 +774,9 @@ async def print_data_branch_summary(client, job_id, response=None):
     echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
 
 
-async def print_branch_regression_tests_summary(client, job_id, host, response=None):
+async def print_branch_regression_tests_summary(
+    client: TinyB, job_id: Optional[str], response: Optional[Dict[str, Any]] = None
+) -> None:
     def format_metric(metric: Union[str, float], is_percentage: bool = False) -> str:
         if isinstance(metric, float):
             if is_percentage:
@@ -762,19 +786,19 @@ async def print_branch_regression_tests_summary(client, job_id, host, response=N
 
     failed = False
     response = await client.job(job_id) if job_id else response or {"progress": []}
-    output = "\n"
+    output_parts = ["\n"]
     for step in response["progress"]:
         run = step["run"]
         if run["output"]:
             # If the output contains an alert emoji, it means that it should be ou
-            output += (
+            output_parts.append(
                 warning_message(run["output"])()
                 if isinstance(run["output"], str) and "🚨" in run["output"]
                 else "".join(run["output"])
             )
         if not run["was_successfull"]:
             failed = True
-    click.echo(output)
+    click.echo("".join(output_parts))
 
     if failed:
         click.echo("")
@@ -879,7 +903,7 @@ class PlanName(Enum):
     ENTERPRISE = "Enterprise"
 
 
-def _get_workspace_plan_name(plan):
+def _get_workspace_plan_name(plan: str) -> str:
     """
     >>> _get_workspace_plan_name("dev")
     'Build'
@@ -963,15 +987,15 @@ def get_format_from_filename_or_url(filename_or_url: str) -> str:
 async def push_data(
     ctx: Context,
     datasource_name: str,
-    url,
+    url: Union[str, Tuple[str, ...]],
     mode: str = "append",
     sql_condition: Optional[str] = None,
-    replace_options=None,
+    replace_options: Optional[Set[str]] = None,
     concurrency: int = 1,
     wait: bool = True,
 ) -> Optional[list[str]]:
-    if url and type(url) is tuple:
-        url = url[0]
+    if isinstance(url, tuple):
+        url = url[0] if url else ""
     client: TinyB = ctx.obj["client"]
 
     if not url:
@@ -1041,7 +1065,7 @@ async def push_data(
     return None
 
 
-async def sync_data(ctx, datasource_name: str, yes: bool):
+async def sync_data(ctx: Context, datasource_name: str, yes: bool) -> None:
     client: TinyB = ctx.obj["client"]
     datasource = await client.get_datasource(datasource_name)
 
@@ -1062,7 +1086,7 @@ async def sync_data(ctx, datasource_name: str, yes: bool):
 
 
 # eval "$(_TB_COMPLETE=source_bash tb)"
-def autocomplete_topics(ctx: Context, args, incomplete):
+def autocomplete_topics(ctx: Context, args: List[str], incomplete: str) -> List[str]:
     try:
         config = async_to_sync(get_config)(None, None)
         ctx.ensure_object(dict)["config"] = config
@@ -1073,33 +1097,33 @@ def autocomplete_topics(ctx: Context, args, incomplete):
         return []
 
 
-def validate_datasource_name(name):
+def validate_datasource_name(name: object) -> None:
     if not isinstance(name, str) or name == "":
         raise CLIException(FeedbackManager.error_datasource_name())
 
 
-def validate_kafka_topic(topic):
+def validate_kafka_topic(topic: object) -> None:
     if not isinstance(topic, str):
         raise CLIException(FeedbackManager.error_kafka_topic())
 
 
-def validate_kafka_group(group):
+def validate_kafka_group(group: object) -> None:
     if not isinstance(group, str):
         raise CLIException(FeedbackManager.error_kafka_group())
 
 
-def validate_kafka_auto_offset_reset(auto_offset_reset):
+def validate_kafka_auto_offset_reset(auto_offset_reset: object) -> None:
     valid_values = {"latest", "earliest", "none"}
     if auto_offset_reset not in valid_values:
         raise CLIException(FeedbackManager.error_kafka_auto_offset_reset())
 
 
-def validate_kafka_schema_registry_url(schema_registry_url):
+def validate_kafka_schema_registry_url(schema_registry_url: str) -> None:
     if not is_url_valid(schema_registry_url):
         raise CLIException(FeedbackManager.error_kafka_registry())
 
 
-def is_url_valid(url):
+def is_url_valid(url: str) -> bool:
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
@@ -1107,7 +1131,7 @@ def is_url_valid(url):
         return False
 
 
-def validate_kafka_bootstrap_servers(bootstrap_servers):
+def validate_kafka_bootstrap_servers(bootstrap_servers: object) -> None:
     if not isinstance(bootstrap_servers, str):
         raise CLIException(FeedbackManager.error_kafka_bootstrap_server())
 
@@ -1131,27 +1155,27 @@ def validate_kafka_bootstrap_servers(bootstrap_servers):
                 raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn())
 
 
-def validate_kafka_key(s):
+def validate_kafka_key(s: object) -> None:
     if not isinstance(s, str):
         raise CLIException("Key format is not correct, it should be a string")
 
 
-def validate_kafka_secret(s):
+def validate_kafka_secret(s: object) -> None:
     if not isinstance(s, str):
         raise CLIException("Password format is not correct, it should be a string")
 
 
-def validate_string_connector_param(param, s):
+def validate_string_connector_param(param: str, s: object) -> None:
     if not isinstance(s, str):
         raise CLIConnectionException(param + " format is not correct, it should be a string")
 
 
-async def validate_connection_name(client, connection_name, service):
+async def validate_connection_name(client: TinyB, connection_name: str, service: str) -> None:
     if await client.get_connector(connection_name, service) is not None:
         raise CLIConnectionException(FeedbackManager.error_connection_already_exists(name=connection_name, cli="tb"))
 
 
-def _get_setting_value(connection, setting, sensitive_settings):
+def _get_setting_value(connection: Dict[str, Any], setting: str, sensitive_settings: List[str]) -> Any:
     if setting in sensitive_settings:
         return "*****"
     return connection.get(setting, "")
@@ -1575,7 +1599,7 @@ async def wait_job_no_ui(
     status_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Dict[str, Any]:
     try:
-        result = await asyncio.wait_for(tb_client.wait_for_job(job_id, status_callback=status_callback), None)
+        result = await tb_client.wait_for_job(job_id, status_callback=status_callback)
         if result["status"] != "done":
             raise JobException(result.get("error"))
         return result
@@ -1666,7 +1690,9 @@ def is_major_semver(new_version: Version, current_version: Version) -> bool:
     return new_version.major != current_version.major
 
 
-async def print_release_summary(config: CLIConfig, semver: Optional[str], info: bool = False, dry_run=False):
+async def print_release_summary(
+    config: CLIConfig, semver: Optional[str], info: bool = False, dry_run: bool = False
+) -> None:
     if not semver:
         click.echo(FeedbackManager.info_release_no_rollback())
         return
@@ -1714,8 +1740,8 @@ async def get_oldest_rollback(config: CLIConfig, client: TinyB) -> Optional[str]
 
 
 async def remove_release(
-    dry_run: bool, config: CLIConfig, semver: Optional[str], client: TinyB, force: bool, show_print=True
-):
+    dry_run: bool, config: CLIConfig, semver: Optional[str], client: TinyB, force: bool, show_print: bool = True
+) -> None:
     if semver == OLDEST_ROLLBACK:
         semver = await get_oldest_rollback(config, client)
     if show_print:
@@ -1878,7 +1904,9 @@ class DataConnectorType(str, Enum):
         return self.value
 
 
-async def create_aws_iamrole_connection(client: TinyB, service: str, connection_name, role_arn, region) -> None:
+async def create_aws_iamrole_connection(
+    client: TinyB, service: str, connection_name: str, role_arn: str, region: str
+) -> None:
     conn_file_name = f"{connection_name}.connection"
     conn_file_path = Path(getcwd(), conn_file_name)
 

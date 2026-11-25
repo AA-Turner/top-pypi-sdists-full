@@ -85,12 +85,12 @@ class Specs(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[BenchmarkListItem]:
-    """List benchmarks newest first; `search` matches the name or benchmark ID.
+    """List specs newest first; `search` matches the name or spec ID.
 
     Args:
-      include_holodeck: Include Holodeck benchmarks in the library.
+      include_holodeck: Include Holodeck specs in the library.
 
-      latest_only: Return only the latest version of each agent's benchmark name.
+      latest_only: Return only the latest version of each project's spec name.
 
       extra_headers: Send extra headers
 
@@ -124,14 +124,14 @@ class Specs(APIResource):
 
   def retrieve(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkListItem:
-    """Get Benchmark
+    """Get Spec
 
     Args:
       extra_headers: Send extra headers
@@ -142,12 +142,12 @@ class Specs(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._get(
       path_template(
-        "/api/v1/specs/{bench_id}",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}",
+        spec_id=spec_id,
       ),
       cast_to=BenchmarkListItem,
       options=make_request_options(
@@ -160,7 +160,7 @@ class Specs(APIResource):
 
   def update(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     name: str | None | Omit = omit,
     description: str | None | Omit = omit,
@@ -169,7 +169,7 @@ class Specs(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> dict[str, str]:
-    """Update Benchmark
+    """Update Spec
 
     Args:
       extra_headers: Send extra headers
@@ -180,12 +180,12 @@ class Specs(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._patch(
       path_template(
-        "/api/v1/specs/{bench_id}",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}",
+        spec_id=spec_id,
       ),
       cast_to=dict[str, str],
       body=maybe_transform(
@@ -205,14 +205,14 @@ class Specs(APIResource):
 
   def delete(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeleteBenchmarkResponse:
-    """Delete this benchmark version.
+    """Delete this spec version.
 
     Args:
       extra_headers: Send extra headers
@@ -223,12 +223,12 @@ class Specs(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._delete(
       path_template(
-        "/api/v1/specs/{bench_id}",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}",
+        spec_id=spec_id,
       ),
       cast_to=DeleteBenchmarkResponse,
       options=make_request_options(
@@ -243,23 +243,23 @@ class Specs(APIResource):
     self,
     *,
     files: Iterable[BenchmarkUploadFileParam],
-    bench_id: str | None | Omit = omit,
+    spec_id: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CreateBenchmarkUploadResponse:
-    """Allocate signed GCS PUT URLs for one batch of benchmark artifacts. Omit bench_id to mint
-    a new benchmark; pass the returned bench_id on later calls to add more files to the same
-    benchmark, which is how a file set over the per-request limit is uploaded. No rows are
+    """Allocate signed GCS PUT URLs for one batch of spec artifacts. Omit spec_id to mint a new
+    spec; pass the returned bench_id as spec_id on later calls to add more files to the same
+    spec, which is how a file set over the per-request limit is uploaded. No rows are
     written until the ingest call.
 
     Args:
       files: Files to sign upload URLs for, one URL returned per declared path.
 
-      bench_id: Omit to mint a new benchmark. Pass a bench_id returned by an earlier batch to add
-        these files to that benchmark's upload prefix, which is how a file set larger than
-        the per-request limit is uploaded. An already-ingested bench_id is rejected.
+      spec_id: Omit to mint a new spec. Pass a spec_id returned by an earlier batch to add these
+        files to that spec's upload prefix, which is how a file set larger than the
+        per-request limit is uploaded. An already-ingested spec_id is rejected.
 
       extra_headers: Send extra headers
 
@@ -275,7 +275,7 @@ class Specs(APIResource):
       body=maybe_transform(
         {
           "files": files,
-          "bench_id": bench_id,
+          "spec_id": spec_id,
         },
         SpecsCreateUploadParams,
       ),
@@ -289,28 +289,28 @@ class Specs(APIResource):
 
   def register(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     manifest: BenchmarkSpec,
-    agent_id: str | None | Omit = omit,
-    agent_name: str | None | Omit = omit,
-    bench_type: Literal["benchmark", "holodeck_benchmark"] | Omit = omit,
+    project_id: str | None | Omit = omit,
+    project_name: str | None | Omit = omit,
+    spec_type: Literal["benchmark", "holodeck_benchmark"] | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> IngestBenchmarkResponse:
-    """Validate a benchmark manifest for a bench_id allocated by createBenchmarkUpload, persist
-    it canonically, and write the bench, task, and runtime rows.
+    """Validate a spec manifest for a spec_id allocated by createBenchmarkUpload, persist it
+    canonically, and write the bench, task, and runtime rows.
 
     Args:
-      agent_id: The benchmark's agent ID. Provide agent_id or agent_name for both new benchmarks
-        and appends.
+      project_id: The spec's project ID. Provide project_id or project_name for both new specs and
+        appends.
 
-      agent_name: The benchmark's agent name. Provide agent_id or agent_name for both new benchmarks
-        and appends.
+      project_name: The spec's project name. Provide project_id or project_name for both new specs and
+        appends.
 
-      bench_type: The kind of benchmark push: a real benchmark or a holodeck draft.
+      spec_type: The kind of benchmark push: a real benchmark or a holodeck draft.
 
       extra_headers: Send extra headers
 
@@ -320,21 +320,21 @@ class Specs(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._post(
       path_template(
-        "/api/v1/specs/{bench_id}/ingest",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/ingest",
+        spec_id=spec_id,
       ),
       cast_to=IngestBenchmarkResponse,
       body=maybe_transform(manifest, BenchmarkSpecParams),
       options=make_request_options(
         params=maybe_transform(
           {
-            "agent_id": agent_id,
-            "agent_name": agent_name,
-            "bench_type": bench_type,
+            "project_id": project_id,
+            "project_name": project_name,
+            "spec_type": spec_type,
           }
         ),
         extra_headers=extra_headers,
@@ -357,7 +357,7 @@ class Specs(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[BenchmarkRuntime]:
-    """List the caller's organization-scoped benchmark runtimes.
+    """List the caller's organization-scoped spec runtimes.
 
     Args:
       extra_headers: Send extra headers
@@ -390,7 +390,7 @@ class Specs(APIResource):
 
   def retrieve_readiness(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     refresh: bool | Omit = omit,
     extra_headers: Headers | None = None,
@@ -398,9 +398,9 @@ class Specs(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkReadiness:
-    """Return whether a benchmark is ready to launch. A benchmark is ready when it is fully
-    ingested, all required organization secrets are available, and all task environments are
-    built. When it is not ready, the response identifies the remaining blockers.
+    """Return whether a spec is ready to launch. A spec is ready when it is fully ingested, all
+    required organization secrets are available, and all task environments are built. When
+    it is not ready, the response identifies the remaining blockers.
 
     Args:
       refresh: Check in-flight task environment builds with their provider and store the result
@@ -415,12 +415,12 @@ class Specs(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._get(
       path_template(
-        "/api/v1/specs/{bench_id}/readiness",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/readiness",
+        spec_id=spec_id,
       ),
       cast_to=BenchmarkReadiness,
       options=make_request_options(

@@ -414,8 +414,10 @@ def _check_and_notify_updates():
 
         if latest_version:
             # Display yellow warning with update command
+            from ..update_notice import NEW_VERSION_NOTICE
+
             _rich_warning(
-                f"A new version of APM is available: {latest_version} (current: {current_version})",
+                f"{NEW_VERSION_NOTICE}{latest_version} (current: {current_version})",
                 symbol="warning",
             )
 
@@ -549,12 +551,34 @@ def _find_apm_yml(start: Path | None = None) -> Path | None:
     found, whichever comes first. Returns the absolute path to the
     ``apm.yml`` file when found; ``None`` when no project root is
     discoverable from ``start`` upward.
+
+    An ancestor ``apm.yml`` another user owns is never adopted (git's
+    ``safe.directory`` class): ``/tmp/work`` must not run another
+    user's ``/tmp/apm.yml``. It is skipped with a warning naming it, and the
+    walk continues. Windows ownership (SIDs) is not checked.
     """
+    import stat
+
     cwd = (start or Path.cwd()).resolve()
+    geteuid = getattr(os, "geteuid", None)
     for candidate in (cwd, *cwd.parents):
         manifest = manifest_file(candidate)
-        if manifest.is_file():
-            return manifest
+        try:
+            info = manifest.lstat()
+            if stat.S_ISLNK(info.st_mode) and not manifest.is_file():
+                continue
+        except OSError:
+            continue
+        if not stat.S_ISLNK(info.st_mode) and not stat.S_ISREG(info.st_mode):
+            continue
+        if candidate != cwd and geteuid is not None and info.st_uid != geteuid():
+            _rich_warning(
+                f"Skipping {manifest}: owned by uid {info.st_uid}, not you, so APM does "
+                "not use it as this project's apm.yml.",
+                symbol="warning",
+            )
+            continue
+        return manifest
     return None
 
 

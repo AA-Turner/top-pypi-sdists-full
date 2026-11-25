@@ -5,7 +5,7 @@ on:
     inputs:
       csp:
         type: string
-        default: gcp
+        default: azure
       python_version:
         type: string
         default: "3.10"
@@ -61,35 +61,6 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
-      - name: Set up Cloud SDK
-        if: ${{ inputs.csp == 'gcp' }}
-        uses: google-github-actions/setup-gcloud@v2
-      - uses: google-github-actions/auth@v2
-        if: ${{ inputs.csp == 'gcp' }}
-        with:
-          credentials_json: ${{ secrets.GCP_GENEVA_CLIENT_SA_KEY }}
-      # Configure kubectl with a non-expiring static token for the
-      # geneva-service-account in the lancedb GKE cluster.
-      - name: Configure kubectl with static token (GCP)
-        if: ${{ inputs.csp == 'gcp' }}
-        run: |
-          CLUSTER_ENDPOINT=$(gcloud container clusters describe lancedb \
-            --region=us-central1 \
-            --project=lancedb-dev-enterprise-1 \
-            --format='value(endpoint)')
-          echo "${{ secrets.GKE_CA_CERT }}" | base64 --decode > /tmp/gke-ca.crt
-          kubectl config set-cluster lancedb \
-            --server=https://${CLUSTER_ENDPOINT} \
-            --certificate-authority=/tmp/gke-ca.crt \
-            --embed-certs=true
-          kubectl config set-credentials gha-sa \
-            --token=${{ secrets.GKE_STATIC_TOKEN }}
-          kubectl config set-context default \
-            --cluster=lancedb \
-            --user=gha-sa \
-            --namespace=lancedb
-          kubectl config use-context default
-          rm /tmp/gke-ca.crt
       - name: Configure AWS Credentials
         if: ${{ inputs.csp == 'aws' }}
         uses: aws-actions/configure-aws-credentials@v4
@@ -232,11 +203,6 @@ jobs:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::054483968661:role/github_actions_role
           role-duration-seconds: 43200
-      - name: Refresh GCP Credentials for Cleanup
-        if: ${{ always() && inputs.csp == 'gcp' }}
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_GENEVA_CLIENT_SA_KEY }}
       - name: Refresh kubeconfig (AWS)
         if: ${{ always() && inputs.csp == 'aws' }}
         run: |

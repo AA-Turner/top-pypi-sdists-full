@@ -18,6 +18,7 @@ from typing import Any
 from databaas_utils.dags.layout import PREFIX_PATTERN
 from databaas_utils.errors import ConfigurationError, LakehouseError
 from databaas_utils.profiles import DEFAULT_REGION
+from databaas_utils.s3config import CHECKSUMS
 
 ACCESS_KEY_VAR = "AWS_ACCESS_KEY_ID"
 SECRET_KEY_VAR = "AWS_SECRET_ACCESS_KEY"
@@ -164,6 +165,7 @@ class DagBucket:
         """
         try:
             import boto3
+            from botocore.config import Config
         except ImportError as exc:
             raise ConfigurationError(
                 "deploying DAGs needs boto3 — install databaas-utils[deploy]"
@@ -175,6 +177,7 @@ class DagBucket:
             aws_access_key_id=self.access_key_id,
             aws_secret_access_key=self.secret_access_key,
             aws_session_token=self.session_token or None,
+            config=Config(**CHECKSUMS),
         )
 
 

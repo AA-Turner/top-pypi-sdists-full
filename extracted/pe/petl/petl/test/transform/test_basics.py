@@ -272,14 +272,13 @@ def test_cat_dupfields():
               (2,),
               (3, 'B', True))
 
-    # these cases are pathological, including to confirm expected behaviour,
-    # but user needs to rename fields to get something sensible
-
+    # duplicate field names are matched positionally, in order, so the
+    # second 'foo' column keeps its own values (see issue #561)
     actual = cat(table1)
     expect = (('foo', 'foo'),
-              (1, 1),
-              (2, 2),
-              (3, 3))
+              (1, 'A'),
+              (2, None),
+              (3, 'B'))
     ieq(expect, actual)
 
     table2 = (('foo', 'foo', 'bar'),
@@ -287,11 +286,31 @@ def test_cat_dupfields():
               (5, 'D', False))
     actual = cat(table1, table2)
     expect = (('foo', 'foo', 'bar'),
-              (1, 1, None),
-              (2, 2, None),
-              (3, 3, None),
-              (4, 4, True),
-              (5, 5, False))
+              (1, 'A', None),
+              (2, None, None),
+              (3, 'B', None),
+              (4, 'C', True),
+              (5, 'D', False))
+    ieq(expect, actual)
+
+
+def test_cat_duplicate_columns_issue561():
+    # concatenating two tables with non-unique column names must not copy
+    # the first duplicate column's values into the later ones
+    table1 = (('foo', 'header2', 'foo', 'bar'),
+              ('1', '2', '3', '4'),
+              ('5', '6', '7'),
+              ('', '8', '9', '10'))
+    table2 = (('foo', 'header2', 'foo', 'bar'),
+              ('0', '2', '0', '0'),
+              ('1', '1', '0'))
+    actual = cat(table1, table2)
+    expect = (('foo', 'header2', 'foo', 'bar'),
+              ('1', '2', '3', '4'),
+              ('5', '6', '7', None),
+              ('', '8', '9', '10'),
+              ('0', '2', '0', '0'),
+              ('1', '1', '0', None))
     ieq(expect, actual)
 
 
@@ -969,3 +988,23 @@ def test_movefield_iterable_header():
     actual = movefield(table1, 'bar', 0)
     ieq(expect, actual)
     ieq(expect, actual)
+
+
+def test_addcolumn_accepts_iterable_header():
+    source = [iter(['id', 'amount']), ['a', 2]]
+    result = addcolumn(source, 'region', ['east'], index=0)
+    ieq([('region', 'id', 'amount'), ('east', 'a', 2)], result)
+
+
+def test_addcolumn_preserves_row_equal_to_missing():
+    missing = ('a', 2)
+    source = [('id', 'amount'), ['a', 2]]
+    result = addcolumn(source, 'region', ['east', 'west'], missing=missing)
+    ieq([('id', 'amount', 'region'), ('a', 2, 'east'), (missing, missing, 'west')], result)
+
+
+def test_addcolumn_keeps_values_in_their_header_column():
+    source = [('id', 'amount'), ('a',), ('b', 42), ('c', 30, 'extra')]
+    result = addcolumn(source, 'region', ['east', 'west', 'north'], missing='NA')
+    ieq([('id', 'amount', 'region'), ('a', 'NA', 'east'),
+         ('b', 42, 'west'), ('c', 30, 'north')], result)

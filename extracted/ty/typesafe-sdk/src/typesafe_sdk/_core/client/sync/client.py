@@ -4,10 +4,9 @@ from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
 from functools import cached_property
 from types import TracebackType
-from typing import Literal, overload
+from typing import Literal, Self, overload
 
 import httpx2
-from typing_extensions import Self
 
 from typesafe_sdk._core.assets import Asset, resolve_assets
 from typesafe_sdk._core.attached import AttachedAssets

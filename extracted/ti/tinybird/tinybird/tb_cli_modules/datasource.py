@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import click
 import humanfriendly
@@ -42,7 +42,7 @@ from tinybird.tb_cli_modules.exceptions import CLIDatasourceException
 
 @cli.group()
 @click.pass_context
-def datasource(ctx):
+def datasource(ctx: Context) -> None:
     """Data Sources commands"""
 
 
@@ -95,7 +95,7 @@ async def datasource_ls(ctx: Context, match: Optional[str], format_: str):
                 shared_from,
                 name,
                 humanfriendly.format_number(stats.get("row_count")) if stats.get("row_count", None) else "-",
-                humanfriendly.format_size(int(stats.get("bytes"))) if stats.get("bytes", None) else "-",  # type: ignore
+                humanfriendly.format_size(int(stats.get("bytes"))) if stats.get("bytes", None) else "-",  # type: ignore[arg-type]
                 t["created_at"][:-7],
                 t["updated_at"][:-7],
                 t.get("service", ""),
@@ -136,7 +136,7 @@ async def datasource_ls(ctx: Context, match: Optional[str], format_: str):
 )
 @click.option(
     "--ignore-empty",
-    help="Wheter or not to ignore empty results from the connector",
+    help="Whether or not to ignore empty results from the connector",
     is_flag=True,
     default=False,
     hidden=True,
@@ -152,13 +152,13 @@ async def datasource_ls(ctx: Context, match: Optional[str], format_: str):
 async def datasource_append(
     ctx: Context,
     datasource_name: str,
-    url,
-    sql: Optional[str],
-    incremental: Optional[str],
-    ignore_empty: bool,
+    url: Tuple[str, ...],
+    sql: Optional[str],  # noqa: ARG001
+    incremental: Optional[str],  # noqa: ARG001
+    ignore_empty: bool,  # noqa: ARG001
     concurrency: int,
     wait: bool,
-):
+) -> None:
     """
     Appends data to an existing Data Source from URL, local file  or a connector
 
@@ -188,13 +188,13 @@ async def datasource_append(
 @click.pass_context
 @coro
 async def datasource_replace(
-    ctx,
-    datasource_name,
-    url,
-    sql_condition,
-    skip_incompatible_partition_key,
+    ctx: Context,
+    datasource_name: str,
+    url: Tuple[str, ...],
+    sql_condition: Optional[str],
+    skip_incompatible_partition_key: bool,
     wait: bool,
-):
+) -> None:
     """
     Replaces the data in a data source from a URL, local file or a connector
 
@@ -227,11 +227,11 @@ async def datasource_replace(
 @click.argument("url_or_file")
 @click.pass_context
 @coro
-async def datasource_analyze(ctx, url_or_file):
+async def datasource_analyze(ctx: Context, url_or_file: str) -> None:
     """Analyze a URL or a file before creating a new data source"""
     client = ctx.obj["client"]
 
-    def _table(title, columns, data):
+    def _table(title: str, columns: Sequence[str], data: Iterable[Sequence[Any]]) -> None:
         row_format = "{:<25}" * len(columns)
         click.echo(FeedbackManager.info_datasource_title(title=title))
         click.echo(FeedbackManager.info_datasource_row(row=row_format.format(*columns)))
@@ -335,7 +335,7 @@ async def datasource_delete(ctx: Context, datasource_name: str, yes: bool):
 )
 @click.pass_context
 @coro
-async def datasource_truncate(ctx, datasource_name, yes, cascade):
+async def datasource_truncate(ctx: Context, datasource_name: str, yes: bool, cascade: bool) -> None:
     """Truncate a data source"""
 
     semver: str = ctx.ensure_object(dict)["config"]["semver"]
@@ -420,8 +420,16 @@ async def datasource_truncate(ctx, datasource_name, yes, cascade):
 @click.pass_context
 @coro
 async def datasource_delete_rows(
-    ctx, datasource_name, sql_condition, yes, wait, dry_run, lightweight, partition, projection_mode
-):
+    ctx: Context,
+    datasource_name: str,
+    sql_condition: str,
+    yes: bool,
+    wait: bool,
+    dry_run: bool,
+    lightweight: bool,
+    partition: Optional[str],
+    projection_mode: Optional[str],
+) -> None:
     """
     Delete rows from a datasource
 
@@ -500,7 +508,7 @@ async def datasource_delete_rows(
                 # TODO: Use click.echo instead of print and see if the behavior is the same
                 print(f"\n{progress_str}", end="")  # noqa: T201
 
-                def progress_line(n):
+                def progress_line(n: int) -> None:
                     print(f"\r{progress_str} {progress_symbols[n % len(progress_symbols)]}", end="")  # noqa: T201
 
                 i = 0
@@ -540,7 +548,7 @@ async def datasource_delete_rows(
 @click.option("--force", is_flag=True, default=False, help="Override existing files")
 @click.pass_context
 @coro
-async def generate_datasource(ctx: Context, filenames, force: bool):
+async def generate_datasource(ctx: Context, filenames: Tuple[str, ...], force: bool) -> None:
     """Generate a data source file based on a sample CSV file from local disk or url"""
     client: TinyB = ctx.ensure_object(dict)["client"]
 
@@ -566,7 +574,14 @@ async def generate_datasource(ctx: Context, filenames, force: bool):
 @click.pass_context
 @coro
 # Example usage: tb datasource connect 776824da-ac64-4de4-b8b8-b909f69d5ed5 new_ds --topic a --group b --auto-offset-reset latest
-async def datasource_connect(ctx, connection, datasource_name, topic, group, auto_offset_reset):
+async def datasource_connect(
+    ctx: Context,
+    connection: str,
+    datasource_name: str,
+    topic: Optional[str],
+    group: Optional[str],
+    auto_offset_reset: Optional[str],
+) -> None:
     """Create a new datasource from an existing connection"""
 
     validate_datasource_name(datasource_name)
@@ -579,9 +594,12 @@ async def datasource_connect(ctx, connection, datasource_name, topic, group, aut
 
     service: str = connector.get("service", "")
     if service == "kafka":
-        topic and validate_kafka_topic(topic)
-        group and validate_kafka_group(group)
-        auto_offset_reset and validate_kafka_auto_offset_reset(auto_offset_reset)
+        if topic:
+            validate_kafka_topic(topic)
+        if group:
+            validate_kafka_group(group)
+        if auto_offset_reset:
+            validate_kafka_auto_offset_reset(auto_offset_reset)
 
         if not topic:
             try:
@@ -757,7 +775,7 @@ async def datasource_unshare(ctx: Context, datasource_name: str, workspace_name_
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
 @click.pass_context
 @coro
-async def datasource_sync(ctx, datasource_name: str, yes: bool):
+async def datasource_sync(ctx: Context, datasource_name: str, yes: bool) -> None:
     """Sync from connector defined in .datasource file"""
 
     try:
@@ -774,7 +792,7 @@ async def datasource_sync(ctx, datasource_name: str, yes: bool):
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
 @click.pass_context
 @coro
-async def datasource_exchange(ctx, datasource_a: str, datasource_b: str, yes: bool):
+async def datasource_exchange(ctx: Context, datasource_a: str, datasource_b: str, yes: bool) -> None:
     """Exchange two data sources"""
 
     client = ctx.obj["client"]

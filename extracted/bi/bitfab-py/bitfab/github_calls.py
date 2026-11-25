@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import threading
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
@@ -25,11 +26,14 @@ from bitfab.github_sandbox import (
     REF_READ_TIMEOUT_SECONDS,
     TOKEN_ENV,
     PullSource,
+    answer_github_request,
     make_upstream,
     pull_target,
     read_pull_at_head,
     read_whole_pull,
     record_github_refs,
+    recording_reader,
+    state_from_snapshot,
 )
 from bitfab.integration_fixture import (
     extract_integration_fixtures,
@@ -48,6 +52,8 @@ MAX_REMEMBERED_TRACES = 10_000
 ANY_ACCEPT = "*/*"
 PULL_HEAD = "pullHead"
 WHOLE_PULL = "pull"
+WHOLE_READ = "read"
+ARCHIVE_PATH = re.compile(r"^/(?:tarball|zipball)(?:/|$)")
 REPO_PREFIX = re.compile(r"^/repos/(?P<owner>[^/]+)/(?P<name>[^/]+)(?P<rest>/.*)?$")
 REPO_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("GET", r"", "github.repos.get"),
@@ -306,7 +312,62 @@ def _read_whole_pull_for(params: dict[str, Any], request: Any) -> Any:
     return repo, number, read_whole_pull(source, number)
 
 
-def save_whole_pull(params: dict[str, Any], request: Any) -> None:
+def _save_recorded(root: dict[str, Any], change: Any) -> None:
+    trace_id = str(root.get("traceId"))
+    with _lock:
+        if (
+            trace_id not in _recorded_states
+            and len(_recorded_states) >= MAX_REMEMBERED_TRACES
+        ):
+            _recorded_states.clear()
+        state = _recorded_states.setdefault(
+            trace_id, {"wholePulls": {}, "readAnswers": {}}
+        )
+        change(state)
+        snapshot = (extract_integration_fixtures(root) or {}).get(SNAPSHOT_FIXTURE)
+        saved = {**(snapshot if isinstance(snapshot, dict) else {}), **state}
+    service_calls.save_recorded_sandbox_state(
+        INTEGRATION, GITHUB_SANDBOX_NAME, trace_id, json.loads(json.dumps(saved))
+    )
+
+
+def _recorded_pulls(root: dict[str, Any]) -> dict[str, Any]:
+    with _lock:
+        held = _recorded_states.get(str(root.get("traceId"))) or {}
+        return json.loads(json.dumps(held.get("wholePulls") or {}))
+
+
+def _answers_for_read(
+    params: dict[str, Any], request: Any, root: dict[str, Any]
+) -> dict[str, Any] | None:
+    found = REPO_PREFIX.match(str(params.get("path") or ""))
+    if params.get("method") != "GET" or found is None:
+        return None
+    if ARCHIVE_PATH.match(found.group("rest") or ""):
+        return None
+    query = json.dumps(params.get("query") or {}, sort_keys=True)
+    key = f"{params.get('accept') or ANY_ACCEPT} {params['path']} {query}"
+    if not whole_objects.claim(WHOLE_READ, key):
+        return None
+    snapshot = (extract_integration_fixtures(root) or {}).get(SNAPSHOT_FIXTURE)
+    state = state_from_snapshot(
+        {
+            **(snapshot if isinstance(snapshot, dict) else {}),
+            "wholePulls": _recorded_pulls(root),
+        }
+    )
+    answers: dict[str, Any] = {}
+    upstream = make_upstream(
+        request_token(request) or os.environ.get(TOKEN_ENV), None, None, True
+    )
+    reading = replace(
+        upstream, reader=recording_reader(upstream.reader, answers), cached=False
+    )
+    answer_github_request(state, reading, params)
+    return answers
+
+
+def save_whole_reads(params: dict[str, Any], request: Any) -> None:
     with contextlib.suppress(Exception):
         client = sys.modules.get("bitfab.client")
         root = client._trace_root_span_context() if client is not None else None
@@ -316,23 +377,17 @@ def save_whole_pull(params: dict[str, Any], request: Any) -> None:
         ):
             return
         read = _read_whole_pull_for(params, request)
-        if read is None:
-            return
-        repo, number, pull = read
-        trace_id = str(root.get("traceId"))
-        with _lock:
-            if (
-                trace_id not in _recorded_states
-                and len(_recorded_states) >= MAX_REMEMBERED_TRACES
-            ):
-                _recorded_states.clear()
-            state = _recorded_states.setdefault(trace_id, {"wholePulls": {}})
-            state["wholePulls"].setdefault(repo, {})[number] = pull
-            snapshot = (extract_integration_fixtures(root) or {}).get(SNAPSHOT_FIXTURE)
-            saved = {**(snapshot if isinstance(snapshot, dict) else {}), **state}
-        service_calls.save_recorded_sandbox_state(
-            INTEGRATION, GITHUB_SANDBOX_NAME, trace_id, json.loads(json.dumps(saved))
-        )
+        if read is not None:
+            repo, number, pull = read
+            _save_recorded(
+                root,
+                lambda state: (
+                    state["wholePulls"].setdefault(repo, {}).update({number: pull})
+                ),
+            )
+        answers = _answers_for_read(params, request, root)
+        if answers:
+            _save_recorded(root, lambda state: state["readAnswers"].update(answers))
 
 
 def _patched_send(original: Any) -> Any:
@@ -345,7 +400,7 @@ def _patched_send(original: Any) -> Any:
             return original(self, request, **kwargs)
         params = request_params(request)
         capture_snapshot(params["repo"], request)
-        save_whole_pull(params, request)
+        save_whole_reads(params, request)
         held: list[Any] = []
 
         def send_to_github() -> dict[str, Any]:

@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkhome_assistant_frontend=self.rspackChunkhome_assistant_frontend||[]).push([[2178],{18873(r,e,s){s.r(e);var t=s(83316),o=s(63560),a=s(10765);class n extends o.WF{render(){return o.qy`<hr/>`}}n.styles=o.AH`:host{display:block}hr{border:none;border-top:1px solid var(--ha-color-border-neutral-quiet);margin:0}`,(0,t._)([(0,a.MZ)({attribute:!1})],n.prototype,"schema",void 0),n=(0,t._)([(0,a.EM)("ha-form-divider")],n),s.d(e,{HaFormDivider:()=>n})}}]);
+//# sourceMappingURL=2178.de8ce846f5ebd127.js.map

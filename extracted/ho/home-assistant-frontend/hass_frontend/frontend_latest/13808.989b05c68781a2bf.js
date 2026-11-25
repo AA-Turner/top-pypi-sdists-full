@@ -1,0 +1,2 @@
+export const __rspack_esm_ids=[13808];export const __webpack_modules__={6227(e,t,a){a.r(t);var s=a(83316),r=a(63560),n=a(98933);class i extends r.mN{static async generate(e){return{views:[{strategy:e}]}}static async getConfigElement(){return await Promise.all([a.e(63082),a.e(58756)]).then(a.bind(a,26242)),document.createElement("hui-original-states-dashboard-strategy-editor")}}i.registryDependencies=[],i=(0,s._)([(0,n.EM)("original-states-dashboard-strategy")],i),a.d(t,{OriginalStatesDashboardStrategy:()=>i})}};
+//# sourceMappingURL=13808.989b05c68781a2bf.js.map

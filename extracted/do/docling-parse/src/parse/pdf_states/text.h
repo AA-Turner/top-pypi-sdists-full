@@ -112,8 +112,8 @@ namespace pdflib
     // show-string, so operator= does not copy it.
     std::vector<type3_procedure> pending_type3_procedures;
 
-    static int block_count;
-    static int instr_count;
+    static thread_local int block_count;
+    static thread_local int instr_count;
 
     const decode_config& config;
     const pdf_state<GRPH>& grph_state;
@@ -155,8 +155,8 @@ namespace pdflib
     double vertical_displacement  = 0.0;
   };
 
-  int pdf_state<TEXT>::block_count = 0;
-  int pdf_state<TEXT>::instr_count = 0;
+  thread_local int pdf_state<TEXT>::block_count = 0;
+  thread_local int pdf_state<TEXT>::instr_count = 0;
 
   pdf_state<TEXT>::pdf_state(const decode_config& config_,
                              const pdf_state<GRPH>& grph_state_,
@@ -898,6 +898,21 @@ namespace pdflib
         nominal_top_x - cell.text_origin_x,
         nominal_top_y - cell.text_origin_y);
 
+      // Character spacing is added after every glyph (ISO 32000-1, 9.3.2),
+      // in the same direction the cursor moves after this one.
+      if(cell.has_text_placement and char_spacing != 0.0)
+        {
+          double spaced_end_x = 0.0;
+          double spaced_end_y = 0.0;
+          map_text_point(
+            placement_end_x + (vertical_mode ? 0.0 : char_spacing * h_scaling),
+            placement_end_y + (vertical_mode ? -char_spacing : 0.0),
+            spaced_end_x, spaced_end_y);
+          cell.text_char_spacing =
+            (spaced_end_x - cell.text_advance_x) * cell.writing_axis_x +
+            (spaced_end_y - cell.text_advance_y) * cell.writing_axis_y;
+        }
+
       // LOG_S(INFO) << "base_x0_old: " << base[0] << ", base_y0_old: " << base[1];
       // LOG_S(INFO) << "base_x0_new: " << d_base_x << ", base_y0_new: " << d_base_y;
       
@@ -911,6 +926,7 @@ namespace pdflib
 
       {
 	cell.text = text;
+        cell.source_glyph_code = glyph_code;
 	cell.text_is_suppressed_glyph = text_is_suppressed_glyph;
 	cell.is_pdf_word_space = is_pdf_word_space;
 	cell.rendering_mode = rendering_mode;

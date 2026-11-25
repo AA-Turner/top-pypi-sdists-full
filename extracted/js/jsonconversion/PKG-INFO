@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: jsonconversion
-Version: 2.0.0
+Version: 2.0.1
 Summary: This python module helps converting arbitrary Python objects into JSON strings and back.
 Keywords: json,conversion,serialization
 Author-Email: Franz Steinmetz <franz.steinmetz@dlr.de>, Johannes Ernst <j.ernst@dlr.de>

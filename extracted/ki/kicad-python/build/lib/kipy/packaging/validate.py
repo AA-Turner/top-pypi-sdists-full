@@ -18,17 +18,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from __future__ import annotations
+
 import json
-from importlib.resources import files
-from pathlib import Path
 import re
 import tempfile
-from typing import Any
 import zipfile
+from importlib.resources import files
+from pathlib import Path
+from typing import Any
+
 from jsonschema import Draft7Validator
 
-from kipy.packaging.types import ValidationReport, ValidationMessage
-
+from kipy.packaging.types import ValidationMessage, ValidationReport
 
 _PLUGIN_SCHEMA = "api.v1.schema.json"
 _PCM_SCHEMAS = ("pcm.v2.schema.json", "pcm.v1.schema.json")
@@ -49,7 +51,9 @@ def validate_plugin(source_dir: str | Path) -> ValidationReport:
     plugin_path = root / "plugin.json"
 
     if not plugin_path.exists():
-        report.add_error("plugin.json does not exist. This tool can only validate IPC API plugins.")
+        report.add_error(
+            "plugin.json does not exist. This tool can only validate IPC API plugins."
+        )
         return report
 
     plugin = _load_plugin_json(plugin_path, report)
@@ -94,22 +98,22 @@ def validate(path: str | Path) -> ValidationReport:
 
                     archive.extractall(extract_root)
             except zipfile.BadZipFile as ex:
-                report.add_error(f"invalid zip archive: {str(ex)}")
+                report.add_error(f"invalid zip archive: {ex!s}")
                 return report
             except OSError as ex:
-                report.add_error(f"failed to extract zip archive: {str(ex)}")
+                report.add_error(f"failed to extract zip archive: {ex!s}")
                 return report
 
             _validate_pcm_package_data(extract_root, report)
             return report
 
     if candidate.is_dir() and (candidate / "metadata.json").exists():
-
         report.add_info("Found metadata.json; validating as PCM package")
         _validate_pcm_package_data(candidate, report)
         return report
 
     return validate_plugin(candidate)
+
 
 def _load_plugin_json(
     plugin_path: Path,
@@ -122,10 +126,10 @@ def _load_plugin_json(
     try:
         data = json.loads(plugin_path.read_text(encoding="utf-8"))
     except OSError as ex:
-        report.add_error(f"failed to read plugin.json: {str(ex)}", path="plugin.json")
+        report.add_error(f"failed to read plugin.json: {ex!s}", path="plugin.json")
         return None
     except json.JSONDecodeError as ex:
-        report.add_error(f"invalid JSON: {str(ex)}", path="plugin.json")
+        report.add_error(f"invalid JSON: {ex!s}", path="plugin.json")
         return None
 
     if not isinstance(data, dict):
@@ -149,7 +153,7 @@ def _validate_requirements(root: Path, report: ValidationReport):
         lines = requirements_path.read_text(encoding="utf-8").splitlines()
     except OSError as ex:
         report.add_error(
-            f"failed to read requirements.txt: {str(ex)}",
+            f"failed to read requirements.txt: {ex!s}",
             path="requirements.txt",
         )
         return
@@ -172,14 +176,12 @@ def _validate_plugin_schema(plugin: dict[str, Any], report: ValidationReport):
 
     try:
         schema_text = (
-            files("kipy.packaging.schemas")
-            .joinpath(_PLUGIN_SCHEMA)
-            .read_text(encoding="utf-8")
+            files("kipy.packaging.schemas").joinpath(_PLUGIN_SCHEMA).read_text(encoding="utf-8")
         )
         schema = json.loads(schema_text)
-    except Exception as e:
+    except ValueError as e:
         report.add_error(
-            f"failed to read plugin schema file: {str(e)}",
+            f"failed to read plugin schema file: {e!s}",
             path=f"kipy.packaging.schemas:{_PLUGIN_SCHEMA}",
         )
         return
@@ -273,6 +275,7 @@ def _validate_pcm_package_data(root: Path, report: ValidationReport):
             message.path = f"plugins/{message.path}"
         report.add(message)
 
+
 def _validate_pcm_schema(metadata: dict[str, Any], report: ValidationReport) -> bool:
     all_errors: dict[str, list[ValidationMessage]] = {}
 
@@ -283,21 +286,27 @@ def _validate_pcm_schema(metadata: dict[str, Any], report: ValidationReport) -> 
 
     for schema_version in _PCM_SCHEMAS:
         try:
-            schema_text = files("kipy.packaging.schemas").joinpath(schema_version).read_text(encoding="utf-8")
+            schema_text = (
+                files("kipy.packaging.schemas")
+                .joinpath(schema_version)
+                .read_text(encoding="utf-8")
+            )
             schema = json.loads(schema_text)
-        except Exception as ex:
-            report.add_error(f"failed to read schema '{schema_version}': {str(ex)}")
+        except ValueError as ex:
+            report.add_error(f"failed to read schema '{schema_version}': {ex!s}")
             continue
 
         validator = Draft7Validator(schema)
         errors: list[ValidationMessage] = []
 
-        for error in sorted(validator.iter_errors(metadata), key=lambda current: list(current.path)):
+        for error in sorted(
+            validator.iter_errors(metadata), key=lambda current: list(current.path)
+        ):
             errors.append(
                 ValidationMessage(
                     message=f"schema validation error: {error.message}",
                     path=f"metadata.json{_format_schema_error_path(error.path)}",
-                    level="error"
+                    level="error",
                 )
             )
 
@@ -312,6 +321,7 @@ def _validate_pcm_schema(metadata: dict[str, Any], report: ValidationReport) -> 
 
     return False
 
+
 def _load_metadata_json(root: Path, report: ValidationReport) -> dict[str, Any] | None:
     metadata_path = root / "metadata.json"
 
@@ -322,13 +332,14 @@ def _load_metadata_json(root: Path, report: ValidationReport) -> dict[str, Any] 
     try:
         data = json.loads(metadata_path.read_text(encoding="utf-8"))
     except OSError as ex:
-        report.add_error(f"failed to read metadata.json: {str(ex)}")
+        report.add_error(f"failed to read metadata.json: {ex!s}")
         return None
     except json.JSONDecodeError as ex:
-        report.add_error(f"invalid metadata.json: {str(ex)}")
+        report.add_error(f"invalid metadata.json: {ex!s}")
         return None
 
     return data
+
 
 def _validate_file_path(
     root: Path,
@@ -372,6 +383,7 @@ def _format_schema_error_path(path: Any) -> str:
 
 
 _REQUIREMENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*")
+
 
 def _parse_requirement_name(line: str) -> str | None:
     text = line.strip()

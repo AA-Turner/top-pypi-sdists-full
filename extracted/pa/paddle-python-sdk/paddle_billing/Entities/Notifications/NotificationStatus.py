@@ -1,8 +1,12 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class NotificationStatus(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    NotAttempted: "NotificationStatus" = "not_attempted"
-    NeedsRetry: "NotificationStatus" = "needs_retry"
-    Delivered: "NotificationStatus" = "delivered"
-    Failed: "NotificationStatus" = "failed"
+    NotAttempted: "NotificationStatus" = member("not_attempted")
+    NeedsRetry: "NotificationStatus" = member("needs_retry")
+    Delivered: "NotificationStatus" = member("delivered")
+    Failed: "NotificationStatus" = member("failed")

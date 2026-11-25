@@ -3,10 +3,10 @@
 blank_issues_enabled: false
 contact_links:
   - name: Gateway, CLI, or sandbox problem?
-    url: https://github.com/NVIDIA/OpenShell/issues/new/choose
+    url: https://github.com/ai-openshell/openshell/issues/new/choose
     about: >
       This repository is the Python SDK only. Report problems with the
-      OpenShell gateway, CLI, sandboxes, or the gRPC API in NVIDIA/OpenShell.
+      OpenShell gateway, CLI, sandboxes, or the gRPC API in ai-openshell/openshell.
   - name: Security vulnerability?
     url: https://github.com/ai-openshell/sdk-python/blob/main/SECURITY.md
     about: >

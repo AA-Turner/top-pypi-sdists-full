@@ -1,9 +1,11 @@
-from paddle_billing.ResponseParser import ResponseParser
+from requests import Response
 
-from paddle_billing.Entities.Collections import VerificationCollection, Paginator
-from paddle_billing.Entities.Verification import Verification
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
 
-from paddle_billing.Resources.Verifications.Operations import ListVerifications
+from paddle_billing.Entities.Collections import VerificationCollection as VerificationCollection, Paginator as Paginator
+from paddle_billing.Entities.Verification import Verification as Verification
+
+from paddle_billing.Resources.Verifications.Operations import ListVerifications as ListVerifications
 
 from typing import TYPE_CHECKING
 
@@ -14,7 +16,7 @@ if TYPE_CHECKING:
 class VerificationsClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(self, operation: ListVerifications | None = None) -> VerificationCollection:
         if operation is None:

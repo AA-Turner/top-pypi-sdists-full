@@ -191,12 +191,17 @@ async def connection_create_kafka(
     # `--sasl-mechanism` arrives uppercased via the _upper_or_none callback.
     is_oauthbearer = sasl_mechanism == "OAUTHBEARER"
 
-    bootstrap_servers and validate_kafka_bootstrap_servers(bootstrap_servers)
+    if bootstrap_servers:
+        validate_kafka_bootstrap_servers(bootstrap_servers)
     if not is_oauthbearer:
-        key and validate_kafka_key(key)
-        secret and validate_kafka_secret(secret)
-    schema_registry_url and validate_kafka_schema_registry_url(schema_registry_url)
-    auto_offset_reset and validate_kafka_auto_offset_reset(auto_offset_reset)
+        if key:
+            validate_kafka_key(key)
+        if secret:
+            validate_kafka_secret(secret)
+    if schema_registry_url:
+        validate_kafka_schema_registry_url(schema_registry_url)
+    if auto_offset_reset:
+        validate_kafka_auto_offset_reset(auto_offset_reset)
 
     if not bootstrap_servers:
         bootstrap_servers = click.prompt("Kafka Bootstrap Server")
@@ -266,7 +271,7 @@ async def connection_create_kafka(
 )
 @click.pass_context
 @coro
-async def connection_rm(ctx: Context, connection_id_or_name: str, force: bool) -> None:
+async def connection_rm(ctx: Context, connection_id_or_name: str, force: bool) -> None:  # noqa: ARG001
     """Remove a connection."""
 
     obj: Dict[str, Any] = ctx.ensure_object(dict)

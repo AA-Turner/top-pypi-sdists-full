@@ -1,23 +1,31 @@
-from paddle_billing.ResponseParser import ResponseParser
+from requests import Response
 
-from paddle_billing.Entities.Subscription import Subscription
-from paddle_billing.Entities.SubscriptionPreview import SubscriptionPreview
-from paddle_billing.Entities.Transaction import Transaction
-from paddle_billing.Entities.Collections import Paginator, SubscriptionCollection, SubscriptionHistoryCollection
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
 
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
+from paddle_billing.Entities.Subscription import Subscription as Subscription
+from paddle_billing.Entities.SubscriptionPreview import SubscriptionPreview as SubscriptionPreview
+from paddle_billing.Entities.Transaction import Transaction as Transaction
+from paddle_billing.Entities.Collections import (
+    Paginator as Paginator,
+    SubscriptionCollection as SubscriptionCollection,
+    SubscriptionHistoryCollection as SubscriptionHistoryCollection,
+)
+
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
 
 from paddle_billing.Resources.Subscriptions.Operations import (
-    CancelSubscription,
-    CreateOneTimeCharge,
-    SubscriptionIncludes,
-    ListSubscriptionHistory,
-    ListSubscriptions,
-    PauseSubscription,
-    PreviewOneTimeCharge,
-    PreviewUpdateSubscription,
-    ResumeSubscription,
-    UpdateSubscription,
+    CancelSubscription as CancelSubscription,
+    CreateOneTimeCharge as CreateOneTimeCharge,
+    SubscriptionIncludes as SubscriptionIncludes,
+    ListSubscriptionHistory as ListSubscriptionHistory,
+    ListSubscriptions as ListSubscriptions,
+    PauseSubscription as PauseSubscription,
+    PreviewOneTimeCharge as PreviewOneTimeCharge,
+    PreviewUpdateSubscription as PreviewUpdateSubscription,
+    ResumeSubscription as ResumeSubscription,
+    UpdateSubscription as UpdateSubscription,
 )
 
 from typing import TYPE_CHECKING
@@ -29,7 +37,7 @@ if TYPE_CHECKING:
 class SubscriptionsClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(self, operation: ListSubscriptions | None = None) -> SubscriptionCollection:
         if operation is None:

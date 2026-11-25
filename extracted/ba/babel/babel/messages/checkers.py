@@ -58,6 +58,8 @@ def python_format(catalog: Catalog | None, message: Message) -> None:
     if msgstrs[0]:
         _validate_format(msgids[0], msgstrs[0])
     if message.pluralizable:
+        if msgstrs[0] and len(msgstrs) == 1:
+            _validate_format(msgids[1], msgstrs[0])
         for msgstr in msgstrs[1:]:
             if msgstr:
                 _validate_format(msgids[1], msgstr)
@@ -98,6 +100,9 @@ def _validate_format(format: str, alternative: str) -> None:
             name, format, typechar = match.groups()
             if typechar == '%' and name is None:
                 continue
+            if name is None:
+                # A star width or precision consumes an integer argument first.
+                result.extend((None, 'd') for _ in range(format.count('*')))
             result.append((name, str(typechar)))
         return result
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-amazon-ad-api
-Version: 2.1.12
+Version: 2.1.14
 Summary: Python wrapper for the Amazon Advertising API
 Home-page: https://github.com/denisneuf/python-amazon-ad-api
 Author: Daniel Alvaro

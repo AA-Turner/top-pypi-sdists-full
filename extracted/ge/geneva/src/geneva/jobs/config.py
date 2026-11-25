@@ -26,6 +26,9 @@ def _default_plan_filter_count_concurrency() -> int:
     return min((os.cpu_count() or 1) * 4, 64)
 
 
+# Default idle grace before backfill releases an applier (see JobConfig).
+DEFAULT_RELEASE_IDLE_APPLIERS_AFTER_S = 60.0
+
 _U64_MAX = (1 << 64) - 1
 # Rust's ``u64::from_str``: optional leading '+', digits only. Deliberately
 # stricter than ``int()``, which accepts "1_000" and surrounding whitespace --
@@ -128,6 +131,11 @@ def _coerce_bool(value: object) -> bool:
     return bool(value)
 
 
+def _non_negative_float(value: str | float) -> float:
+    """Parse a duration in seconds, treating negative values as 0."""
+    return max(0.0, float(value))
+
+
 @attrs.define
 class JobConfig(ConfigBase):
     """Geneva Job Configurations."""
@@ -160,6 +168,23 @@ class JobConfig(ConfigBase):
     enable_gpu_pipelining: bool = attrs.field(default=False, converter=_coerce_bool)
     pipelining_num_readers: int = attrs.field(default=8, converter=int)
     pipelining_prefetch_depth: int = attrs.field(default=16, converter=int)
+
+    # Release applier actors (and their GPUs) once the job has no more read
+    # tasks to hand out, instead of holding them until the slowest task ends.
+    # Late replacement work (OOM splits, retries, row-skip bisection) starts
+    # actors again, up to the job's concurrency. Opt-in: off by default, so
+    # every applier stays until the job ends; set JOB__RELEASE_IDLE_APPLIERS=true
+    # to release idle ones.
+    release_idle_appliers: bool = attrs.field(default=False, converter=_coerce_bool)
+    # Seconds an applier must stay idle before release_idle_appliers frees it,
+    # so late work that arrives sooner (a retry, an OOM split) runs on a warm
+    # applier instead of starting a new one. Appliers still starting up are
+    # released as soon as no work is left. The driver checks once per poll
+    # (30s), so an applier goes at most that long after its grace ends. Env
+    # var: JOB__RELEASE_IDLE_APPLIERS_AFTER_S; 0 (or less) releases at once.
+    release_idle_appliers_after_s: float = attrs.field(
+        default=DEFAULT_RELEASE_IDLE_APPLIERS_AFTER_S, converter=_non_negative_float
+    )
 
     # --- Applier default memory sizing ---
     # Knobs for the white-box per-actor RAM floor estimate_applier_memory
@@ -250,10 +275,11 @@ class JobConfig(ConfigBase):
     )
 
     # Experimental (leading underscore = API may change). Thread-pool size
-    # for parallelizing per-fragment `count_rows(filter=where)` calls in
-    # ``plan_read``. The default (4× CPU, capped at 64) keeps the driver
-    # planning phase from serializing on S3 round-trips when there are
-    # tens of thousands of fragments. Set to 1 to force serial behavior.
+    # for parallelizing per-fragment `count_rows(filter=where)` calls (and
+    # deferred carry-forward matched-window scans) in ``plan_read``. The
+    # default (4× CPU, capped at 64) keeps the driver planning phase from
+    # serializing on S3 round-trips when there are tens of thousands of
+    # fragments. Set to 1 to force serial behavior.
     # Env var: ``JOB___PLAN_FILTER_COUNT_CONCURRENCY``.
     _plan_filter_count_concurrency: int = attrs.field(
         factory=_default_plan_filter_count_concurrency,

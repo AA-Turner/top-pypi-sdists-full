@@ -144,6 +144,13 @@ def test_checkpointing_applier_reports_cnt_udf_computed() -> None:
         result.checkpoint_key in applier.checkpoint_store for result in checkpoints
     )
 
+    replayed, direct_result, cnt_udf_computed = applier.run(read_task)
+    assert direct_result is None
+    assert cnt_udf_computed == 0
+    assert [result.checkpoint_key for result in replayed] == [
+        result.checkpoint_key for result in checkpoints
+    ]
+
 
 def test_empty_read_task_writes_completion_checkpoint() -> None:
     map_task = BackfillUDFTask(udfs={"b": _double})

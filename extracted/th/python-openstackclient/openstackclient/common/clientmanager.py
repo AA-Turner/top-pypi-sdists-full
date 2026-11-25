@@ -16,7 +16,7 @@
 """Manage access to the clients, including authenticating when needed."""
 
 import argparse
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 import importlib
 import logging
 import sys
@@ -29,6 +29,7 @@ from openstack.block_storage import v3 as volume_v3
 from openstack.compute import v2 as compute_v2
 from openstack.image import v2 as image_v2
 from openstack.network import v2 as network_v2
+from openstack.placement import v1 as placement_v1
 from osc_lib.cli import client_config
 from osc_lib import clientmanager
 from osc_lib import shell
@@ -62,6 +63,7 @@ class ClientManager(clientmanager.ClientManager):
     image: image_v2.Proxy
     network: network_v2.Proxy
     object_store: object_store_v1.APIv1
+    placement: placement_v1.Proxy
     share: Any
     volume: volume_v2.Proxy | volume_v3.Proxy
 
@@ -169,8 +171,7 @@ class ClientManager(clientmanager.ClientManager):
             is not False
         )
 
-    # TODO(stephenfin): Drop volume_client argument in OSC 8.0 or later.
-    def is_volume_endpoint_enabled(self, volume_client: Any = None) -> bool:
+    def is_volume_endpoint_enabled(self) -> bool:
         """Check if volume endpoint is enabled"""
         # We check against the service type and all aliases defined by the
         # Service Types Authority
@@ -226,8 +227,10 @@ def _on_load_failure_callback(
     )
 
 
-def get_plugin_modules(group: str) -> list[Any]:
-    """Find plugin entry points"""
+def get_plugin_modules(
+    group: str, *, ignored_api_names: Collection[str] = ()
+) -> list[Any]:
+    """Find plugin entry points, skipping superseded service plugins."""
     mod_list = []
     mgr: stevedore.ExtensionManager[PluginModule]
     mgr = stevedore.ExtensionManager(
@@ -244,6 +247,14 @@ def get_plugin_modules(group: str) -> list[Any]:
             sys.stderr.write(
                 f"WARNING: Failed to import plugin "
                 f"{ep.module_name}:{ep.name}: {err}.\n"
+            )
+            continue
+
+        if module.API_NAME in ignored_api_names:
+            LOG.debug(
+                'Ignoring plugin %s: API %s is already provided in-tree',
+                module_name,
+                module.API_NAME,
             )
             continue
 
@@ -275,13 +286,11 @@ def build_plugin_option_parser(
 PLUGIN_MODULES = get_plugin_modules(
     'openstack.cli.base',
 )
-# Append list of external plugin modules, skipping any whose API_NAME
-# is already provided by a base module to avoid argparse conflicts
-# (e.g. cyborgclient's accelerator plugin is superseded by the in-tree
-# accelerator module).
-_base_api_names = {mod.API_NAME for mod in PLUGIN_MODULES}
+# Skip superseded external plugins before registering their client factories
+# or adding their options (e.g. cyborgclient).
 PLUGIN_MODULES.extend(
-    mod
-    for mod in get_plugin_modules('openstack.cli.extension')
-    if mod.API_NAME not in _base_api_names
+    get_plugin_modules(
+        'openstack.cli.extension',
+        ignored_api_names={mod.API_NAME for mod in PLUGIN_MODULES},
+    )
 )

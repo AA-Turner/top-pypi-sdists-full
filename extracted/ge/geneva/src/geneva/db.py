@@ -1898,12 +1898,14 @@ class Connection:
         """Get a job record by ID.
 
         Reads from the ``_geneva_jobs`` system table via ``JobStateManager``.
-        Works for both native and remote connections.
+        Works for both native and remote connections. If the job's current
+        driver attempt recorded how it ended but the job's status write was
+        lost, that outcome is returned and saved to the record (GEN-1012).
         """
         results = self._history.get(job_id)
         if not results:
             raise ValueError(f"Job {job_id} not found")
-        return results[0]
+        return self._history.reconcile_attempt_outcome(results[0])
 
     def list_jobs(
         self,

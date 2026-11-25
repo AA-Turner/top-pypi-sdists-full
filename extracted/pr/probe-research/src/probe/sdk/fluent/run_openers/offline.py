@@ -50,9 +50,15 @@ def _init_offline(
             "the run `probe exec` opened, which exists only on the server."
         )
     from ...delivery.offline.offline import open_offline_run
+    from ...client import to_key_metrics
 
     ignore = _normalized_ignore(capture.get("ignore"))
+    key_metrics = kw.pop("key_metrics", None)
+    pinned = to_key_metrics(key_metrics) if key_metrics is not None else None
     run = open_offline_run(kw, sent=sent, fallback=fallback, settings=settings)
+    if pinned is not None:
+        # Journaled after the offline create, so `probe sync` sends it once the run exists (K11).
+        run._send_key_metrics(pinned, run_type=run.data.get("run_type"))
     _bind_new(_Binding(run=run, close_client=run._client), reinit_mode)
     _install_exit_hooks()
     _install_sigterm_flush()

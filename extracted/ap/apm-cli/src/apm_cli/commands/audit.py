@@ -538,6 +538,8 @@ def _render_ci_failures_to_stderr(ci_result: "CIAuditResult") -> None:
         )
         for detail in check.details:
             click.echo(f"    - {printable_ascii_text(detail)}", err=True)
+        if check.next_step:
+            click.echo(f"    {printable_ascii_text(check.next_step)}", err=True)
     summary = ci_result.to_json()["summary"]
     click.echo(
         f"{STATUS_SYMBOLS['cross']} {summary['failed']} of {summary['total']} check(s) failed",
@@ -615,6 +617,8 @@ def _render_ci_results(ci_result: "CIAuditResult") -> None:
                             color="dim",
                             err=not check.warned,
                         )
+                    if check.next_step and not check.passed:
+                        _rich_echo(f"    {printable_ascii_text(check.next_step)}", err=True)
 
             console.print()
             summary = ci_result.to_json()["summary"]
@@ -645,6 +649,8 @@ def _render_ci_results(ci_result: "CIAuditResult") -> None:
         if (check.warned or not check.passed) and check.details:
             for detail in check.details:
                 _rich_echo(f"      - {printable_ascii_text(detail)}", color="dim")
+        if check.next_step and not check.passed:
+            _rich_echo(f"      {printable_ascii_text(check.next_step)}")
 
     _rich_echo("")
     summary = ci_result.to_json()["summary"]
@@ -657,6 +663,38 @@ def _render_ci_results(ci_result: "CIAuditResult") -> None:
 
 
 # -- Mode handlers --------------------------------------------------
+
+
+def _routable_discovery(discover):
+    """Run policy *discover*; a known discovery error becomes a routable result.
+
+    The policy-outcome owner then routes it like any other unusable policy
+    source, so a required policy that cannot be resolved fails closed with a
+    named cause. Any other exception propagates.
+    """
+    from ..policy.outcome_routing import POLICY_DISCOVERY_ERRORS, discovery_failure_result
+
+    try:
+        return discover()
+    except POLICY_DISCOVERY_ERRORS as exc:
+        return discovery_failure_result(exc)
+
+
+def _policy_outcome_cause(fetch_result) -> str:
+    err_text = fetch_result.error or fetch_result.fetch_error or fetch_result.outcome
+    return _audit_outcome_cause(fetch_result.outcome, fetch_result.source, err_text)
+
+
+def _render_policy_block(route, fetch_result, *, prefix: str = "") -> None:
+    """Render the routed block decision for an unresolvable org policy as ``[x]``."""
+    cause = prefix + _policy_outcome_cause(fetch_result)
+    if route.from_fetch_failure_default:
+        click.echo(f"[x] {cause} (policy.fetch_failure_default=block)", err=True)
+    else:
+        click.echo(f"[x] {cause}", err=True)
+        click.echo(f"    Blocked by org policy: {route.block_reason}", err=True)
+    if fetch_result.discovery_hint:
+        click.echo(f"[i] {fetch_result.discovery_hint}", err=True)
 
 
 def _route_ci_policy_outcome(cfg: _AuditConfig, fetch_result, *, auto_discovered: bool):
@@ -678,9 +716,7 @@ def _route_ci_policy_outcome(cfg: _AuditConfig, fetch_result, *, auto_discovered
         fetch_result,
         fetch_failure_default=read_project_fetch_failure_default(cfg.project_root),
     )
-    source = fetch_result.source
-    err_text = fetch_result.error or fetch_result.fetch_error or fetch_result.outcome
-    cause = _audit_outcome_cause(fetch_result.outcome, source, err_text)
+    cause = _policy_outcome_cause(fetch_result)
 
     if route.disabled:
         if auto_discovered:
@@ -691,13 +727,7 @@ def _route_ci_policy_outcome(cfg: _AuditConfig, fetch_result, *, auto_discovered
             )
         fetch_result = None
     elif route.blocks:
-        if route.from_fetch_failure_default:
-            click.echo(f"[x] {cause} (policy.fetch_failure_default=block)", err=True)
-        else:
-            click.echo(f"[x] {cause}", err=True)
-            click.echo(f"    Blocked by org policy: {route.block_reason}", err=True)
-        if fetch_result.discovery_hint:
-            click.echo(f"[i] {fetch_result.discovery_hint}", err=True)
+        _render_policy_block(route, fetch_result)
         sys.exit(1)
     elif route.policy is None:
         if auto_discovered or route.unresolved:
@@ -713,6 +743,19 @@ def _route_ci_policy_outcome(cfg: _AuditConfig, fetch_result, *, auto_discovered
         if auto_discovered or fetch_result.policy is None:
             fetch_result = None
     return fetch_result
+
+
+def _echo_replay_summary(verbose: bool) -> None:
+    """Under --verbose, one line: how many packages the drift replay served from records (#4940)."""
+    from ..install.drift_records import last_replay_summary
+
+    summary = last_replay_summary() if verbose else None
+    if summary is not None:
+        served, live = summary
+        click.echo(
+            f"{STATUS_SYMBOLS['info']} drift replay: {served} package(s) from records, {live} live",
+            err=True,
+        )
 
 
 def _audit_ci_gate(
@@ -742,8 +785,10 @@ def _audit_ci_gate(
 
     # One policy discovery per run, shared by drift replay and policy checks.
     fetch_policy = functools.cache(
-        lambda: discover_policy_with_chain(
-            cfg.project_root, policy_override=policy_source or None, no_cache=no_cache
+        lambda: _routable_discovery(
+            lambda: discover_policy_with_chain(
+                cfg.project_root, policy_override=policy_source or None, no_cache=no_cache
+            )
         )
     )
 
@@ -757,8 +802,13 @@ def _audit_ci_gate(
         # policy outcome itself below.
         return resolve_trust_policy(cfg.project_root, announce=False, fetch_result=fetch_policy())
 
+    # The discovery replay_policy routes; render records bind to it (#4940).
+    replay_fetch = None if no_policy and not policy_source else fetch_policy
     materialization = resolve_ci_audit_materialization(
-        cfg.project_root, verbose=cfg.verbose, policy_provider=replay_policy
+        cfg.project_root,
+        verbose=cfg.verbose,
+        policy_provider=replay_policy,
+        policy_fetch=replay_fetch,
     )
     prepared_replay = materialization.prepared_replay
     prepared_replay_error = materialization.error
@@ -841,6 +891,7 @@ def _audit_ci_gate(
                     prepared_replay.modules_root if prepared_replay is not None else None
                 ),
                 no_policy=no_policy,
+                policy_source=fetch_result.source,
             )
             if policy_obj.enforcement == "block":
                 ci_result.checks.extend(policy_result.checks)
@@ -888,7 +939,9 @@ def _audit_ci_gate(
                         verbose=cfg.verbose,
                         prepared_replay=prepared_replay,
                         policy_provider=replay_policy,
+                        policy_fetch=replay_fetch,
                     )
+                    _echo_replay_summary(cfg.verbose)
                 ci_result.checks.append(drift_check)
     elif no_drift and cfg.output_format == "text":
         # In structured output (json/sarif), --no-drift is implicit from
@@ -1045,28 +1098,41 @@ def _run_external_scanners(
         sys.exit(3)
 
 
-def _resolve_fail_on_drift(project_root: Path) -> bool:
-    """Return True when ``security.audit.fail_on_drift`` is enabled.
+_FAIL_ON_DRIFT_UNRESOLVED = "Org policy could not be resolved; fail_on_drift could not be applied: "
 
-    Respects ``APM_POLICY_DISABLE`` and fails open on any discovery error so a
-    transient policy-resolution failure never converts advisory drift into a
-    hard failure. Discovery is invoked by the caller only when drift was
-    actually detected, keeping the no-drift common path free of extra work.
+
+def _resolve_fail_on_drift(project_root: Path) -> bool:
+    """Return True when drift must gate the exit code of a bare ``apm audit``.
+
+    That is the case when the resolved org policy enables
+    ``security.audit.fail_on_drift``, and also when the project requires an
+    org policy that could not be resolved: the policy-outcome owner decides
+    "required" (``policy.fetch_failure_default: block`` and the always-block
+    outcomes), and this audit then fails closed with an ``[x]`` cause line.
+    An optional policy that could not be resolved keeps drift advisory and
+    prints a ``[!]`` notice. ``APM_POLICY_DISABLE`` skips discovery. Discovery
+    runs only when drift was actually detected, keeping the no-drift common
+    path free of extra work.
     """
-    from ..policy.discovery import policy_disabled_by_env
+    from ..policy.discovery import discover_policy_with_chain, policy_disabled_by_env
+    from ..policy.outcome_routing import classify_project_policy
 
     if policy_disabled_by_env():
         return False
-    try:
-        from ..policy.discovery import discover_policy_with_chain
-
-        fetch_result = discover_policy_with_chain(project_root)
-    except Exception:
+    fetch_result = _routable_discovery(lambda: discover_policy_with_chain(project_root))
+    route = classify_project_policy(project_root, fetch_result=fetch_result)
+    if route.blocks:
+        _render_policy_block(route, fetch_result, prefix=_FAIL_ON_DRIFT_UNRESOLVED)
+        return True
+    if route.policy is None:
+        if route.unresolved:
+            click.echo(
+                f"{STATUS_SYMBOLS['warning']} {_FAIL_ON_DRIFT_UNRESOLVED}"
+                f"{_policy_outcome_cause(fetch_result)}",
+                err=True,
+            )
         return False
-    policy = getattr(fetch_result, "policy", None)
-    if policy is None:
-        return False
-    return bool(policy.security.audit.fail_on_drift)
+    return bool(route.policy.security.audit.fail_on_drift)
 
 
 def _require_installed_package_key(

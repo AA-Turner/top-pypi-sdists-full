@@ -36,6 +36,7 @@ __all__ = [
     "FIX_CONSTRUCTOR_FIELD_ORDERING",
     "FIX_CONSTRUCTOR_FIELD_ORDERING_EARLY",
     "FIX_TAG_OPT_OUT_FIELD_ORDERING",
+    "FLATTEN_CONFLICTING_FINAL_LAYOUTS",
     "FLATTEN_NARROWED_INHERITED_FIELDS",
     "HOOK_BODIES",
     "NAME_MODELS",
@@ -94,10 +95,15 @@ class After(NamedTuple):
 
 
 class Trigger(NamedTuple):
-    """When the fact a pass rewrites is present (``PassSpec.trigger``): its text and the facts it reads."""
+    """When the fact a pass rewrites is present (``PassSpec.trigger``): its text, the facts it reads, and the reason.
+
+    A pass has a trigger only where the exact form, a first statement of its body that returns on an empty source, costs
+    more than the trigger (``kept_because``): the test suite checks the skip only where ``PASS_TRIGGERS`` is on.
+    """
 
     text: str
     reads: frozenset[Fact | RenderFact]
+    kept_because: str
 
 
 @final
@@ -120,17 +126,27 @@ class PassDecl:
     """When the pipeline runs the pass; empty when it always does."""
     trigger: Trigger | None = None
     """When the pass has something to rewrite; None when it may have something wherever it runs."""
+    module: str = ""
+    """The module that defines a decision, as its path below ``src/datamodel_code_generator``."""
+    writer_methods: tuple[str, ...] = ()
+    """The methods of the decision writer (``parser/_phases.py:_DecisionWriter``) a decision writes through, which no
+    other module calls (heki's contracts, ``scripts/build_heki_contracts.py``, which every decision's ``module`` and
+    writes are required for; a public method no decision names is the decision phase's)."""
 
 
 def _facts(*members: Fact | RenderFact) -> frozenset[Fact | RenderFact]:
     return frozenset(members)
 
 
-_SEVERAL_MODULES: Final = Trigger("the output writes more than one module", _facts(RenderFact.MODULE_MEMBERSHIP))
+def _several_modules(kept_because: str) -> Trigger:
+    return Trigger("the output writes more than one module", _facts(RenderFact.MODULE_MEMBERSHIP), kept_because)
+
+
 _ORDERS_CONSTRUCTORS: Final = Trigger(
     "a model orders keyword-only fields (SUPPORTS_KW_ONLY) or restores the fields it inherits "
     "(restore_required_inherited_field_state)",
     _facts(Fact.MODEL_KIND),
+    "the filter of the models that order constructors moves into the body with the constructor ordering rework",
 )
 
 
@@ -221,8 +237,12 @@ SORT_DATA_MODELS = PassDecl(
     Scope.GLOBAL,
     PassKind.PLAN,
     reads=_facts(Fact.BASES, Fact.FIELD_TYPES, RenderFact.MODEL_ORDER),
-    writes=_facts(RenderFact.MODEL_ORDER),
+    writes=_facts(RenderFact.MODEL_ORDER, RenderFact.PLANS),
     summary="Orders models by dependency and lists those that need forward-reference updates.",
+    after=(
+        After("settle_yielding_names", "both write plans; the recursion facts are listed for the named models"),
+        After("name_models", "both write plans; the recursion facts are listed for the named models"),
+    ),
 )
 RECORD_SOURCE_REFERENCE_PATHS = PassDecl(
     "record_source_reference_paths",
@@ -330,6 +350,7 @@ REUSE_MODEL_TREE_SCOPE = PassDecl(
         Fact.NULLABLE,
         RenderFact.MODULE_MEMBERSHIP,
         RenderFact.CLASS_NAMES,
+        RenderFact.PLANS,
     ),
     after=(
         After("apply_forced_invalid_dotted_stdout_repair", "shares the duplicates of the repaired module layout"),
@@ -360,7 +381,7 @@ RESOLVE_CIRCULAR_IMPORTS = PassDecl(
         "Merges modules that import each other, or whose import an earlier attempt found to fail, into _internal "
         "modules."
     ),
-    trigger=_SEVERAL_MODULES,
+    trigger=_several_modules("the exact form builds the module graph for a single module too"),
 )
 CONFIGURE_CODE_FORMATTER = PassDecl(
     "configure_code_formatter",
@@ -444,8 +465,18 @@ OVERRIDE_REQUIRED_FIELD = PassDecl(
     Scope.MODULE,
     PassKind.TRANSFORM,
     reads=_facts(Fact.BASES, Fact.FIELD_SET, Fact.REQUIRED, Fact.DEFAULTS),
-    writes=_facts(Fact.FIELD_SET, Fact.REQUIRED, Fact.DEFAULTS),
+    writes=_facts(Fact.FIELD_SET, Fact.FIELD_NAMES, Fact.FIELD_ALIASES, Fact.REQUIRED, Fact.DEFAULTS),
     summary="Replaces inherited placeholders by copies of the inherited fields.",
+    after=(
+        After(
+            "record_decimal_alias_models",
+            "restoring inherited names swaps names within a model, so the names the Decimal check read stay",
+        ),
+        After(
+            "alias_shadowed_imports",
+            "restoring inherited names swaps names within a model, so the names the import aliases read stay",
+        ),
+    ),
 )
 REPLACE_UNIQUE_LIST_TO_SET = PassDecl(
     "replace_unique_list_to_set",
@@ -498,7 +529,7 @@ REUSE_MODEL = PassDecl(
     Scope.MODULE,
     PassKind.TRANSFORM,
     reads=_facts(*Fact, RenderFact.FIELD_ORDER, RenderFact.PLANS),
-    writes=_facts(Fact.MODELS_EXIST, Fact.BASES, Fact.FIELD_SET, Fact.FIELD_TYPES, Fact.NULLABLE),
+    writes=_facts(Fact.MODELS_EXIST, Fact.BASES, Fact.FIELD_SET, Fact.FIELD_TYPES, Fact.NULLABLE, RenderFact.PLANS),
     after=(
         After("set_reference_default_value_to_field", "compares models with their final defaults"),
         After("extract_inherited_enum", "compares models after inherited enums became models of their own"),
@@ -545,6 +576,7 @@ COLLAPSE_ROOT_MODELS = PassDecl(
         Fact.METADATA,
         RenderFact.CLASS_NAMES,
         RenderFact.MODULE_IMPORTS,
+        RenderFact.PLANS,
     ),
     after=(
         After("reuse_model", "inlines the root models that reuse keeps"),
@@ -660,7 +692,6 @@ TYPE_CONST_NARROWED_VALUES = PassDecl(
     writes=_facts(Fact.FIELD_TYPES, RenderFact.MODULE_IMPORTS),
     after=(After("apply_discriminator_type", "narrows the types that tags wrote"),),
     summary="Types each value by the const that narrows the enum it names.",
-    trigger=Trigger("a const narrows a value to an enum member (_const_narrowed_values)", frozenset()),
 )
 SET_ONE_LITERAL_ON_DEFAULT = PassDecl(
     "set_one_literal_on_default",
@@ -722,7 +753,7 @@ APPLY_FIELD_TYPE_OVERRIDES = PassDecl(
     after=(
         After("remove_overridden_models", "overrides apply to the models kept after model-level overrides (#4958)"),
     ),
-    trigger=Trigger("--type-overrides gives a key", _facts(Fact.TYPE_OVERRIDES)),
+    condition="--type-overrides gives a key",
 )
 TYPE_DICT_KEYS_BY_ROOT_TYPES = PassDecl(
     "type_dict_keys_by_root_types",
@@ -730,7 +761,13 @@ TYPE_DICT_KEYS_BY_ROOT_TYPES = PassDecl(
     Scope.MODULE,
     PassKind.TRANSFORM,
     reads=_facts(Fact.FIELD_TYPES, Fact.CONSTRAINTS, Fact.MODEL_KIND, Fact.METADATA, RenderFact.MODULE_MEMBERSHIP),
-    writes=_facts(Fact.FIELD_TYPES, RenderFact.MODULE_IMPORTS, RenderFact.IMPORT_ALIASES, RenderFact.BACKEND_CONFIG),
+    writes=_facts(
+        Fact.FIELD_TYPES,
+        Fact.CONSTRAINTS,
+        RenderFact.MODULE_IMPORTS,
+        RenderFact.IMPORT_ALIASES,
+        RenderFact.BACKEND_CONFIG,
+    ),
     after=(After("apply_field_type_overrides", "types dict keys after field types are overridden"),),
     summary="Types each dict key that names a root model whose instances cannot be dict keys by its root type.",
 )
@@ -775,7 +812,7 @@ APPLY_BASE_CLASS_TYPE_OVERRIDES = PassDecl(
             "type_dict_keys_by_root_types", "both add module imports; base overrides come after field types are final"
         ),
     ),
-    trigger=Trigger("--type-overrides gives a model-level key", _facts(Fact.TYPE_OVERRIDES)),
+    condition="--type-overrides gives a model-level key",
 )
 
 FOLLOW_HIDING_FIELD_RENAMES = PassDecl(
@@ -1032,6 +1069,48 @@ TAG_FIELDS_OF_TAGGED_BASES = PassDecl(
     ),
     condition="msgspec",
 )
+FLATTEN_CONFLICTING_FINAL_LAYOUTS = PassDecl(
+    "flatten_conflicting_final_layouts",
+    Phase.CROSS_MODULE,
+    Scope.GLOBAL,
+    PassKind.TRANSFORM,
+    reads=_facts(
+        Fact.TYPE_OVERRIDES,
+        Fact.BASES,
+        Fact.FIELD_SET,
+        Fact.FIELD_NAMES,
+        Fact.FIELD_TYPES,
+        Fact.CONTAINERS,
+        Fact.REQUIRED,
+        Fact.NULLABLE,
+        Fact.METADATA,
+        Fact.DISCRIMINATOR_TAGS,
+        RenderFact.MODULE_MEMBERSHIP,
+        RenderFact.MODULE_IMPORTS,
+    ),
+    writes=_facts(
+        Fact.BASES,
+        Fact.FIELD_SET,
+        Fact.FIELD_TYPES,
+        Fact.REQUIRED,
+        Fact.DEFAULTS,
+        RenderFact.FIELD_ORDER,
+        RenderFact.BACKEND_CONFIG,
+        RenderFact.MODULE_IMPORTS,
+        RenderFact.IMPORT_ALIASES,
+    ),
+    after=(
+        After(
+            "tag_fields_of_tagged_bases",
+            "both make models of any module declare the fields of their bases and import what those fields name",
+        ),
+    ),
+    summary=(
+        "Makes a msgspec Struct whose generated bases conflict once every module is processed (the layouts the "
+        "L4 prediction of reuse did not foresee) declare every field of its bases without them, bases first, "
+        "importing the models of other modules that the copied fields name."
+    ),
+)
 FLATTEN_NARROWED_INHERITED_FIELDS = PassDecl(
     "flatten_narrowed_inherited_fields",
     Phase.CROSS_MODULE,
@@ -1063,6 +1142,10 @@ FLATTEN_NARROWED_INHERITED_FIELDS = PassDecl(
             "tag_fields_of_tagged_bases",
             "both make models of any module declare the fields of their bases and import what those fields name",
         ),
+        After(
+            "flatten_conflicting_final_layouts",
+            "both make models of any module declare the fields of their bases and import what those fields name",
+        ),
     ),
     summary=(
         "Makes a TypedDict whose key narrows a key of a generated base, as a type checker holds to the base's type, "
@@ -1085,6 +1168,10 @@ WRITE_ENUM_MEMBER_TAGS_AS_VALUES = PassDecl(
         After(
             "flatten_narrowed_inherited_fields",
             "writes the values of the tags that models copy from their bases with the other fields",
+        ),
+        After(
+            "flatten_conflicting_final_layouts",
+            "writes the values of the tags that structs copy from their bases with the other fields",
         ),
     ),
     summary="Writes the values of the enum members that tag a variant, where the output's Literal holds no member.",
@@ -1114,9 +1201,12 @@ IMPORT_REMOVED_REUSE_CANONICALS = PassDecl(
             "flatten_narrowed_inherited_fields",
             "repairs the imports of every module once the fields models copy from their bases import theirs",
         ),
+        After(
+            "flatten_conflicting_final_layouts",
+            "repairs the imports of every module once the fields structs copy from their bases import theirs",
+        ),
     ),
     removed_by="the step that writes imports from module import plans",
-    trigger=Trigger("reuse removed a duplicate that a model named (_removed_reuse_users)", frozenset()),
 )
 IMPORT_RENAMED_TYPES = PassDecl(
     "import_renamed_types",
@@ -1135,15 +1225,15 @@ IMPORT_RENAMED_TYPES = PassDecl(
             "imports renamed types once the fields models copy from their bases import theirs",
         ),
         After(
+            "flatten_conflicting_final_layouts",
+            "imports renamed types once the fields structs copy from their bases import theirs",
+        ),
+        After(
             "import_removed_reuse_canonicals",
             "imports renamed types next to the canonicals of removed reuse duplicates",
         ),
     ),
     removed_by="the step that writes imports from module import plans",
-    trigger=Trigger(
-        "a field-type rename, or a collapsed-root rename that changed the class name, was recorded",
-        _facts(RenderFact.CLASS_NAMES),
-    ),
 )
 IMPORT_ENUM_MEMBER_LITERAL_CLASSES = PassDecl(
     "import_enum_member_literal_classes",
@@ -1155,6 +1245,8 @@ IMPORT_ENUM_MEMBER_LITERAL_CLASSES = PassDecl(
     trigger=Trigger(
         "--use-enum-values-in-discriminator, or a const narrows a value to an enum member (_const_narrowed_values)",
         frozenset(),
+        "the exact form walks every data type of every model; an index of the literals would be new bookkeeping that "
+        "copied data types miss",
     ),
     after=(
         After("import_renamed_types", "imports literal classes next to the renamed types"),
@@ -1333,7 +1425,6 @@ FIX_TAG_OPT_OUT_FIELD_ORDERING = PassDecl(
     ),
     removed_by="the step that validates a default only against the type it belongs to",
     condition="msgspec",
-    trigger=Trigger("a struct opted out of its tag", frozenset()),
 )
 FINALIZE_RENDERED_NULLABILITY = PassDecl(
     "finalize_rendered_nullability",
@@ -1344,8 +1435,7 @@ FINALIZE_RENDERED_NULLABILITY = PassDecl(
     writes=_facts(Fact.NULLABLE, Fact.FIELD_TYPES),
     summary=(
         "Writes the None each type hint renders, once, after the module bodies set union operators and quotes;"
-        " rendering and import collection write none. Rendering the members' hints writes the import of the Any an"
-        " empty union renders as."
+        " rendering and import collection write none."
     ),
 )
 COLLECT_ALL_MODELS = PassDecl(
@@ -1534,7 +1624,7 @@ MERGE_RUNTIME_EXPRESSION_IMPORTS = PassDecl(
             "both add module imports; runtime expressions come after validator helpers",
         ),
     ),
-    condition="runtime expressions",
+    condition="a pass created a runtime expression (_has_runtime_expressions)",
 )
 REMOVE_UNUSED_IMPORTS = PassDecl(
     "remove_unused_imports",
@@ -1566,7 +1656,7 @@ ALIAS_BUILTIN_SHADOWING_MODULE_IMPORTS = PassDecl(
     writes=_facts(RenderFact.MODULE_IMPORTS, RenderFact.IMPORT_ALIASES, RenderFact.QUOTING),
     after=(After("resolve_module_import_conflicts", "aliases the module imports once their names are final"),),
     summary="Aliases a module import named like a builtin that its module also writes bare, e.g. ``list[str]``.",
-    trigger=_SEVERAL_MODULES,
+    trigger=_several_modules("the exact form walks every named data type of every module"),
 )
 ALIAS_BUILTINS_HIDDEN_BY_SUBMODULES = PassDecl(
     "alias_builtins_hidden_by_submodules",
@@ -1650,7 +1740,7 @@ IMPORT_MODELS_OF_HIDDEN_SUBMODULES = PassDecl(
         "enum member literal through that import, e.g. ``Literal[Kind.book]``, and imports under an alias what the "
         "``__init__`` imports by the name of a submodule that the output loads, e.g. ``Any_aliased``."
     ),
-    trigger=_SEVERAL_MODULES,
+    trigger=_several_modules("its first step is another rewrite, which would have to be a pass of its own"),
 )
 NAME_FINAL_CLASSES_OF_ADDITIONAL_PROPERTIES = PassDecl(
     "name_final_classes_of_additional_properties",
@@ -1806,10 +1896,6 @@ REJECT_ALIAS_CYCLES_WITHOUT_SCHEMA = PassDecl(
         RenderFact.MODULE_MEMBERSHIP,
     ),
     condition="output that Pydantic builds or msgspec decodes",
-    trigger=Trigger(
-        "a module holds a type alias, or deduplication left a root model naming itself (_self_named_root_models)",
-        _facts(Fact.MODEL_KIND, Fact.MODELS_EXIST, RenderFact.MODULE_MEMBERSHIP),
-    ),
 )
 REJECT_LONE_SURROGATES_PYDANTIC_READS = PassDecl(
     "reject_lone_surrogates_pydantic_reads",
@@ -1908,7 +1994,7 @@ RENDER_MODULES = PassDecl(
     reads=_facts(*Fact, *RenderFact),
     writes=_facts(Fact.FIELD_TYPES, RenderFact.IMPORT_ALIASES, RenderFact.UNBOUND_FIELDS),
     summary=(
-        "L7: renders every module; writes the import of the Any an empty union renders as; binds the names that a "
+        "L7: renders every module; binds the names that a "
         "field name hides from the text it renders under aliases (``object_aliased``); seeds a parse again where a "
         "module of a modular output fails to import, or where the names a package binds disagree with the renames of "
         "its submodules."
@@ -1981,6 +2067,7 @@ PASS_DECLS: tuple[PassDecl, ...] = (
     TYPE_USERS_OF_LOOPING_REF_CHAINS_BY_ANY,
     WRITE_PLAIN_ALIASES_FOR_RECURSIVE_MODELS,
     TAG_FIELDS_OF_TAGGED_BASES,
+    FLATTEN_CONFLICTING_FINAL_LAYOUTS,
     FLATTEN_NARROWED_INHERITED_FIELDS,
     WRITE_ENUM_MEMBER_TAGS_AS_VALUES,
     WARN_ENUMS_ADMITTING_OTHER_VALUES,
@@ -2085,6 +2172,8 @@ DECISION_DECLS: Final[dict[str, PassDecl]] = {
         writes=frozenset({Fact.FIELD_TYPES, Fact.NULLABLE}),
         summary="Drops the None a type restates of the model it names when that model holds null itself.",
         condition="--omit-redundant-reference-null",
+        module="parser/_held_null.py",
+        writer_methods=("drop_held_null",),
     ),
     "omit_untaken_union_constraints": PassDecl(
         "omit_untaken_union_constraints",
@@ -2103,6 +2192,8 @@ DECISION_DECLS: Final[dict[str, PassDecl]] = {
             After("merge_msgspec_str_like_union_members", "reads the union members after str-like members merged"),
         ),
         condition="--field-constraints",
+        module="parser/_union_constraints.py",
+        writer_methods=("drop_field_constraints",),
     ),
     "serialize_as_any_for_every_subclass": PassDecl(
         "serialize_as_any_for_every_subclass",
@@ -2117,6 +2208,8 @@ DECISION_DECLS: Final[dict[str, PassDecl]] = {
         ),
         after=(After("omit_held_null", "marks the models whose referencing types the None omission rewrote"),),
         condition="--use-serialize-as-any-for-every-subclass",
+        module="parser/_serialize_as_any.py",
+        writer_methods=("mark_serialized_as_any",),
     ),
     "write_unique_items_as_sets": PassDecl(
         "write_unique_items_as_sets",
@@ -2144,6 +2237,8 @@ DECISION_DECLS: Final[dict[str, PassDecl]] = {
             After("merge_msgspec_str_like_union_members", "reads the item types after str-like union members merged"),
         ),
         condition="--use-unique-items-as-set-by-value",
+        module="parser/_unique_sets.py",
+        writer_methods=("write_sets", "write_additional_properties_sets"),
     ),
     "omit_incomplete_model_defaults": PassDecl(
         "omit_incomplete_model_defaults",
@@ -2179,6 +2274,8 @@ DECISION_DECLS: Final[dict[str, PassDecl]] = {
             ),
         ),
         condition="--omit-incomplete-model-defaults",
+        module="parser/_incomplete_defaults.py",
+        writer_methods=("omit_default",),
     ),
     "merge_msgspec_str_like_union_members": PassDecl(
         "merge_msgspec_str_like_union_members",
@@ -2196,6 +2293,8 @@ DECISION_DECLS: Final[dict[str, PassDecl]] = {
             After("serialize_as_any_for_every_subclass", "writes the field types after the SerializeAsAny marks"),
         ),
         condition="--merge-msgspec-str-like-union-members",
+        module="parser/_str_like_unions.py",
+        writer_methods=("merge_str_like_members",),
     ),
 }
 """The declaration of each decision of the decision registries (``parser/_phases.py``), by the name its spec gives."""

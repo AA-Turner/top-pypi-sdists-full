@@ -28,6 +28,11 @@ plugin carries. Owning the files without refreshing them from the plugin would
 repeat the `POINTER_VERSION` mistake: a file no release can reach goes stale the
 day the wording changes and stays stale forever.
 
+GATED SKILLS (A24, compute-backend-gaps T14) sit in the plugin's `gated-skills/`, which no manifest
+names, so Codex, Cursor, Kimi and pi never read them. One is copied only when the server's per-user
+answer, kept on disk (`get_gated_cache_path`), names it; no answer, an unreadable or stale one, or a skill
+it leaves out means the skill is absent, and a copy of ours already there is pruned.
+
 WE NEVER TOUCH A FOLDER WE CANNOT PROVE IS OURS. `probe`, `track-work` and
 `edit-notes` are generic names in a namespace someone else may already use
 (gstack's own rule, for the same reason). Ours carry a marker file; a foreign
@@ -39,7 +44,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -57,6 +62,15 @@ COLLISION_PREFIX = "probe-"
 #: The plugin folder Claude Code must not scan. Codex and Kimi name it in their
 #: manifests (`"skills": "./agent-skills/"`).
 PLUGIN_SKILLS_DIR = "agent-skills"
+
+#: The plugin folder of skills shown only to the people a server flag lets see them (A24).
+GATED_SKILLS_DIR = "gated-skills"
+#: `GET /v1/me/gated-skills`'s answer, `{"skills": [...], "at": <epoch>}`, under `~/.local/state/probe/`
+#: (never `$XDG_STATE_HOME`: the service starts without it). The CLI writes it at sign-in, the daemon's
+#: poll refreshes it; the hook only reads it.
+GATED_CACHE_NAME = "gated-skills.json"
+#: An answer older than this is no answer: a person whose flag went off loses the skill within it.
+GATED_FRESH_S = 7 * 24 * 3600.0
 
 
 def is_ours(folder: Path) -> bool:
@@ -117,6 +131,76 @@ def slugs(plugin_root: Path) -> tuple[str, ...]:
     CLI and the hook cannot disagree about what a profile contains."""
     src = Path(plugin_root) / PLUGIN_SKILLS_DIR
     return tuple(sorted(p.parent.name for p in src.glob("*/SKILL.md"))) if src.is_dir() else ()
+
+
+def list_gated_slugs(plugin_root: Path) -> tuple[str, ...]:
+    """The gated skills this plugin carries, allowed or not."""
+    src = Path(plugin_root) / GATED_SKILLS_DIR
+    return tuple(sorted(p.parent.name for p in src.glob("*/SKILL.md"))) if src.is_dir() else ()
+
+
+def get_gated_cache_path() -> Path:
+    return Path.home() / ".local" / "state" / "probe" / GATED_CACHE_NAME
+
+
+def load_allowed_gated(path: "Path | None" = None, now: "float | None" = None) -> frozenset:
+    """The gated skills the kept answer allows. Empty on any doubt: no file, an unreadable or malformed
+    one, or one older than GATED_FRESH_S (fail closed)."""
+    import time
+
+    try:
+        kept = json.loads((path or get_gated_cache_path()).read_text(encoding="utf-8"))
+        skills, at = kept["skills"], kept["at"]
+    except (OSError, ValueError, TypeError, KeyError):
+        return frozenset()
+    if not isinstance(skills, list) or isinstance(at, bool) or not isinstance(at, (int, float)):
+        return frozenset()
+    age = (time.time() if now is None else now) - at
+    if not -300.0 <= age < GATED_FRESH_S:
+        return frozenset()
+    return frozenset(s for s in skills if isinstance(s, str) and s and "/" not in s and not s.startswith("."))
+
+
+def save_allowed_gated(skills: "list[str] | tuple[str, ...] | frozenset", path: "Path | None" = None,
+                       now: "float | None" = None) -> None:
+    """Keep the server's answer, atomically (a reader never sees half a file). Raises OSError."""
+    import tempfile
+    import time
+
+    path = path or get_gated_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = json.dumps({"skills": sorted(set(skills)), "at": time.time() if now is None else now}) + "\n"
+    handle, staging = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as out:
+            out.write(body)
+        os.replace(staging, path)
+    except BaseException:
+        with suppress(OSError):
+            os.unlink(staging)
+        raise
+
+
+def clear_allowed_gated(path: "Path | None" = None) -> None:
+    """Forget the kept answer (a sign-in whose answer is unknown must not inherit another's)."""
+    with suppress(OSError):
+        (path or get_gated_cache_path()).unlink()
+
+
+def get_skill_sources(
+    plugin_root: Path,
+    wanted: "tuple[str, ...] | list[str] | None" = None,
+    allowed_gated: "frozenset | set | None" = None,
+) -> dict:
+    """Every skill this plugin's copy should hold now, slug -> its folder in the plugin: `wanted` (default
+    all of `agent-skills/`) plus each gated skill the kept answer allows (`allowed_gated`, default read now)."""
+    root = Path(plugin_root)
+    out = {slug: root / PLUGIN_SKILLS_DIR / slug for slug in (slugs(root) if wanted is None else wanted)}
+    allowed = load_allowed_gated() if allowed_gated is None else allowed_gated
+    for slug in list_gated_slugs(root):
+        if slug in allowed and slug not in out:
+            out[slug] = root / GATED_SKILLS_DIR / slug
+    return out
 
 
 def _write(dst: Path, src: Path, slug: str, plugin: str) -> None:
@@ -209,6 +293,7 @@ def apply(
     plugin_root: Path,
     wanted: "tuple[str, ...] | list[str]",
     still_installed: "Callable[[], bool] | None" = None,
+    allowed_gated: "frozenset | set | None" = None,
 ) -> dict:
     """Make `skills_root` hold EXACTLY `slugs` of ours, from `plugin_root`.
 
@@ -228,13 +313,16 @@ def apply(
     between: a session start on v1 that was held up while the updater installed
     and refreshed v2 then wrote v1's text back over v2's (reproduced). False:
     nothing is written.
+
+    `allowed_gated`: the gated skills to add (`get_skill_sources`); None reads the kept answer now.
     """
     src_root = Path(plugin_root) / PLUGIN_SKILLS_DIR
     if not src_root.is_dir():
         out = _make_report()
         out["notes"].append(f"{Path(plugin_root).name} has no {PLUGIN_SKILLS_DIR}/; left the skills folder alone")
         return out
-    return apply_from(skills_root, src_root, plugin_name(Path(plugin_root)), wanted, still_installed)
+    return _apply_sources(skills_root, get_skill_sources(plugin_root, wanted, allowed_gated),
+                          plugin_name(Path(plugin_root)), still_installed)
 
 
 def _make_report() -> dict:
@@ -250,9 +338,18 @@ def apply_from(
 ) -> dict:
     """`apply`, from a folder of skills (`<src_root>/<slug>/SKILL.md`) named `plugin` in each marker: a
     plugin's `agent-skills/`, or the CLI wheel's own skills for Runs only (no plugin there to copy from)."""
+    return _apply_sources(skills_root, {slug: Path(src_root) / slug for slug in wanted}, plugin, still_installed)
+
+
+def _apply_sources(
+    skills_root: Path,
+    wanted: dict,
+    plugin: str,
+    still_installed: "Callable[[], bool] | None" = None,
+) -> dict:
+    """`apply`'s work for `wanted` (slug -> its source folder): exactly these of ours in `skills_root`."""
     out = _make_report()
     root = Path(skills_root)
-    src_root = Path(src_root)
     with _one_writer(root) as mine:
         if not mine:
             out["notes"].append("another session is installing Probe's skills; left them to it")
@@ -261,8 +358,7 @@ def apply_from(
             out["notes"].append(f"{plugin} is no longer the installed copy; left the skills folder alone")
             return out
         keep = set()
-        for slug in wanted:
-            src = src_root / slug
+        for slug, src in wanted.items():
             if not (src / "SKILL.md").is_file():
                 continue
             dst = root / slug

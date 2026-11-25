@@ -31,7 +31,7 @@ class SourcesSourceBeat(BaseModel):
     busy: Optional[StrictInt] = Field(default=None, description="Busy is how many runs the source is executing.")
     id: Optional[StrictStr] = Field(default=None, description="ID is the source, from the path.")
     providers: Optional[List[SourcesSourceProvider]] = Field(default=None, description="Providers is the state of each provider instance on the source, replacing the last set. State only; at most 32.")
-    sig: Optional[StrictStr] = Field(default=None, description="Sig is the ed25519 signature by the device key over the beat, unpadded base64url. The signed message is `hanzo-source-heartbeat/1`, then one line each (LF terminated) for id, at, version, zap, busy, and per provider in order `provider,instance,kind,state,plan`.")
+    sig: Optional[StrictStr] = Field(default=None, description="Sig is the ed25519 signature by the device key over the beat, unpadded base64url. The signed message is `hanzo-source-heartbeat/1`, then one line each (LF terminated) for id, at, version, zap, busy, and per provider in order `provider,instance,kind,state,plan,shared` (shared as `true` or `false`).")
     version: Optional[StrictStr] = Field(default=None, description="Version is the Dev app version now.")
     zap: Optional[StrictStr] = Field(default=None, description="Zap is the source's reachable ZAP endpoint now. Empty clears it.")
     __properties: ClassVar[List[str]] = ["at", "busy", "id", "providers", "sig", "version", "zap"]

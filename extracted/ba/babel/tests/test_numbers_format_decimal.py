@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -27,8 +27,8 @@ def test_patterns():
 
 
 def test_subpatterns():
-    assert numbers.format_decimal((- 12345), '#,##0.##;-#', locale='en_US') == '-12,345'
-    assert numbers.format_decimal((- 12345), '#,##0.##;(#)', locale='en_US') == '(12,345)'
+    assert numbers.format_decimal(-12345, '#,##0.##;-#', locale='en_US') == '-12,345'
+    assert numbers.format_decimal(-12345, '#,##0.##;(#)', locale='en_US') == '(12,345)'
 
 
 def test_default_rounding():
@@ -166,12 +166,26 @@ def test_compact():
     assert numbers.format_compact_decimal(21000000, locale='mk', format_type='long') == '21 милион'
     assert numbers.format_compact_decimal(21345, locale="gv", format_type="short") == '21K'
     assert numbers.format_compact_decimal(1000, locale='it', format_type='long') == 'mille'
-    assert numbers.format_compact_decimal(1234, locale='it', format_type='long') == '1 mila'
+    assert numbers.format_compact_decimal(1234, locale='it', format_type='long') == 'mille'
     assert numbers.format_compact_decimal(1000, locale='fr', format_type='long') == 'mille'
-    assert numbers.format_compact_decimal(1234, locale='fr', format_type='long') == '1 millier'
+    assert numbers.format_compact_decimal(1234, locale='fr', format_type='long') == 'mille'
     assert numbers.format_compact_decimal(
         12345, format_type="short", locale='ar_EG', fraction_digits=2, numbering_system='default',
     ) == '12٫34\xa0ألف'
     assert numbers.format_compact_decimal(
         12345, format_type="short", locale='ar_EG', fraction_digits=2, numbering_system='latn',
     ) == '12.34\xa0ألف'
+
+
+def test_compact_rounding_carries_to_next_magnitude():
+    # Rounding can carry the value up into the next magnitude. The pattern has
+    # to be chosen from the rounded value, otherwise 999999 renders as the
+    # nonsensical "1000K" instead of "1M".
+    assert numbers.format_compact_decimal(999999, locale='en_US', format_type="short") == '1M'
+    assert numbers.format_compact_decimal(999999999, locale='en_US', format_type="short") == '1B'
+    assert numbers.format_compact_decimal(999999999999, locale='en_US', format_type="short") == '1T'
+    assert numbers.format_compact_decimal(-999999, locale='en_US', format_type="short") == '-1M'
+    assert numbers.format_compact_decimal(999999, locale='en_US', format_type="long") == '1 million'
+    # Values that do not carry over are unaffected.
+    assert numbers.format_compact_decimal(999499, locale='en_US', format_type="short") == '999K'
+    assert numbers.format_compact_decimal(999949, locale='en_US', format_type="short", fraction_digits=1) == '999.9K'

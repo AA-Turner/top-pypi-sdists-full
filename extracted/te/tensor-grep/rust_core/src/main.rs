@@ -688,8 +688,12 @@ pub struct AuditVerifyArgs {
 #[derive(Args, Debug, Clone)]
 pub struct ClassifyArgs {
     /// Output format
-    #[arg(long = "format", default_value = "json")]
-    pub format: String,
+    #[arg(long = "format")]
+    pub format: Option<String>,
+
+    /// Emit JSON output
+    #[arg(long = "json")]
+    pub json: bool,
 
     /// Maximum input lines to emit in JSON output (0 disables the cap)
     #[arg(long = "max-lines", default_value_t = 500)]
@@ -5179,6 +5183,13 @@ mod tests {
 
         assert!(parse_default_search_frontdoor_args(&raw_args).is_none());
         assert_eq!(search_format_python_passthrough_args(&raw_args), None);
+    }
+
+    #[test]
+    fn classify_args_accepts_json_flag() {
+        let cli =
+            CommandCli::try_parse_from(["tg", "classify", "--json", "--text", "OOM"]).unwrap();
+        assert!(matches!(cli.command, Commands::Classify(a) if a.json && a.format.is_none()));
     }
 
     #[test]
@@ -14001,10 +14012,14 @@ fn handle_classify_command(args: ClassifyArgs) -> anyhow::Result<()> {
     if args.text.is_some() && args.file_path.is_some() {
         anyhow::bail!("tg classify --text cannot be combined with a file path argument");
     }
-
+    if args.json && args.format.as_deref().is_some_and(|fmt| fmt != "json") {
+        eprintln!("Error: tg classify --json cannot be combined with --format");
+        std::process::exit(2);
+    }
+    let format = args.format.unwrap_or_else(|| "json".to_string());
     let sidecar_args = vec![
         "--format".to_string(),
-        args.format,
+        format,
         "--max-lines".to_string(),
         args.max_lines.to_string(),
     ];
@@ -14035,6 +14050,7 @@ fn handle_classify_command(args: ClassifyArgs) -> anyhow::Result<()> {
         );
     }
     let mut full_args = sidecar_args;
+    full_args.push("--".to_string());
     full_args.push(file_path);
     handle_sidecar_command("classify", full_args, None)
 }

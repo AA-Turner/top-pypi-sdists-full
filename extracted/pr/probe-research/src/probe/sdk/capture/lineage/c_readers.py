@@ -429,15 +429,16 @@ class _Finder:
         return spec
 
 
-def install(note_read, note_write, truncated=lambda: None, active=lambda: True) -> None:
+def install(note_read, note_write, truncated=lambda: None, active=lambda: True, extra=None) -> None:
     """Wrap the readers above for one recorder: those already imported now,
     the rest as they are imported. ``note_read(path, frame)`` /
     ``note_write(path, frame)`` get a local path and the caller's frame;
     ``truncated()`` says a dataset's file list was cut; ``active()`` whether
-    anything records now. Never raises."""
+    anything records now. ``extra``: more module name -> patch, installed by
+    the same finder (`object_store`'s hooks). Never raises."""
     try:
         patcher = _Patcher(note_read, note_write, truncated, active)
-        patches = patcher.patches()
+        patches = {**patcher.patches(), **(extra or {})}
         sys.meta_path.insert(0, _Finder(patches))
         for name, patch in patches.items():
             module = sys.modules.get(name)

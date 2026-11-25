@@ -391,23 +391,41 @@ def test_create_agent_toolkit_accepts_snake_case_policy_keys(monkeypatch):
     assert recorded['tools'] == {'enforce_change_mode': 'tracked', 'allow_direct_actions': []}
 
 
-def test_core_preset_encodes_policy_as_csv_payload():
-    from superdoc.presets.core import _apply_policy_payload
+def test_core_preset_sends_policy_lists_as_csv_flags(monkeypatch, tmp_path):
+    import json
 
-    payload = _apply_policy_payload(
-        {'preset': 'core'},
-        exclude_actions=['add_hyperlink'],
-        enforce_change_mode='tracked',
-        allow_direct_actions=['add_comments', 'insert_page_break'],
-    )
-    assert payload == {
-        'preset': 'core',
-        'excludeActions': 'add_hyperlink',
-        'enforceChangeMode': 'tracked',
-        'allowDirectActions': 'add_comments,insert_page_break',
-    }
-    assert _apply_policy_payload({'preset': 'core'}) == {'preset': 'core'}
-    assert _apply_policy_payload({}, allow_direct_actions=[]) == {'allowDirectActions': ''}
+    from test_transport import _cleanup_wrapper, _mock_cli_bin
+
+    request_log = tmp_path / 'requests.jsonl'
+    cli = _mock_cli_bin({
+        'handshake': 'ok',
+        'request_log': str(request_log),
+        'responses': [{'data': {'tools': [], 'prompt': 'PROMPT'}}],
+    })
+    monkeypatch.setenv('SUPERDOC_CLI_BIN', cli)
+    core = get_preset('core')
+    try:
+        core.get_tools(
+            'generic',
+            exclude_actions=['add_hyperlink'],
+            enforce_change_mode='tracked',
+            allow_direct_actions=['add_comments', 'insert_page_break'],
+        )
+        core.get_system_prompt()
+        core.get_system_prompt(allow_direct_actions=[])
+    finally:
+        _cleanup_wrapper(cli)
+
+    argv = [json.loads(line)['params']['argv'] for line in request_log.read_text().splitlines()]
+    assert argv == [
+        [
+            'preset', 'get-tools', '--provider', 'generic', '--preset', 'core', '--cache', 'false',
+            '--excludeActions', 'add_hyperlink', '--enforceChangeMode', 'tracked',
+            '--allowDirectActions', 'add_comments,insert_page_break', '--output', 'json',
+        ],
+        ['preset', 'get-system-prompt', '--preset', 'core', '--output', 'json'],
+        ['preset', 'get-system-prompt', '--preset', 'core', '--allowDirectActions', '', '--output', 'json'],
+    ]
 
 
 def test_legacy_preset_ignores_policy_kwargs():

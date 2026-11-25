@@ -36,7 +36,7 @@ class WorkspaceMemberCommandContext:
     workspace: Dict[str, Any]
 
 
-async def get_command_context(ctx: click.Context) -> WorkspaceMemberCommandContext:
+async def get_command_context() -> WorkspaceMemberCommandContext:
     config = CLIConfig.get_project_config()
     client = config.get_client()
     host = config.get_host() or CLIConfig.DEFAULTS["host"]
@@ -71,7 +71,7 @@ async def add_members_to_workspace(
 ) -> None:
     """Adds members to the current Workspace."""
 
-    cmd_ctx = await get_command_context(ctx)
+    cmd_ctx = await get_command_context()
 
     requested_users = [u.strip() for u in members_emails.split(",")]
     users_to_add = [u for u in requested_users if u not in get_workspace_users(cmd_ctx)]
@@ -102,10 +102,10 @@ async def add_members_to_workspace(
 @members.command(name="ls", short_help="List members in the current Workspace")
 @click.pass_context
 @coro
-async def list_members_in_workspace(ctx: Context) -> None:
+async def list_members_in_workspace(_ctx: Context) -> None:
     """List members in the current Workspace."""
 
-    cmd_ctx = await get_command_context(ctx)
+    cmd_ctx = await get_command_context()
     users = tuple([u] for u in get_workspace_users(cmd_ctx))
 
     echo_safe_humanfriendly_tables_format_smart_table(users, column_names=["email"])
@@ -119,7 +119,7 @@ async def list_members_in_workspace(ctx: Context) -> None:
 async def remove_members_from_workspace(ctx: Context, members_emails: str, user_token: Optional[str]) -> None:
     """Removes members from the current Workspace."""
 
-    cmd_ctx = await get_command_context(ctx)
+    cmd_ctx = await get_command_context()
 
     requested_users = [u.strip() for u in members_emails.split(",")]
     workspace_users = get_workspace_users(cmd_ctx)
@@ -169,7 +169,7 @@ async def remove_members_from_workspace(ctx: Context, members_emails: str, user_
 async def set_workspace_member_role(ctx: Context, role: str, members_emails: str, user_token: Optional[str]) -> None:
     """Sets the role for existing workspace members."""
 
-    cmd_ctx = await get_command_context(ctx)
+    cmd_ctx = await get_command_context()
 
     requested_users = [u.strip() for u in members_emails.split(",")]
     workspace_users = get_workspace_users(cmd_ctx)

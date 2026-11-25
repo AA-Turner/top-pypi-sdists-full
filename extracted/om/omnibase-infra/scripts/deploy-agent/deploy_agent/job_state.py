@@ -232,24 +232,11 @@ def describe_interruption(job: JobState) -> str:
     2026-09-17T22:10:00Z). ``recover_crashed_jobs`` read ``job.current_phase``,
     and that field does not mean what the error string claimed it did.
 
-    ``update_phase`` writes ``current_phase`` on EVERY update, including the
-    ``SUCCESS`` one at the end of a phase. So between two phases — after
-    ``git`` succeeds and before ``compose_gen`` starts — ``current_phase`` still
-    reads ``git``, and a process killed in that gap recorded "interrupted during
-    phase git" about a phase that had COMPLETED. That sends the reader at the
-    wrong step: the evidence says the git pull was the thing that died, when in
-    fact nothing was running and the next phase had not begun.
-
-    ``phase_results`` already carries the fact the string needs, because exactly
-    one phase is ``IN_PROGRESS`` at a time and none is between phases. Three
-    distinct answers, kept distinct because they take three different next
-    steps:
-
-    * a phase IS in progress — that phase was running, and it is where to look;
-    * no phase is in progress but some have succeeded — the job died in the gap
-      BETWEEN phases, and the last completed one bounds how far it got;
-    * nothing has succeeded either — the job was accepted and died before its
-      first phase started, which points at startup rather than at any phase.
+    ``update_phase`` writes ``current_phase`` on EVERY update, the ``SUCCESS`` one too, so a
+    process killed between phases recorded the phase that had COMPLETED. ``phase_results``
+    carries the fact: exactly one phase is ``IN_PROGRESS``, and none is between phases.
+    Three answers: a phase is in progress (look there); none, but some succeeded (died
+    between phases); nothing succeeded (died at startup).
 
     Call this BEFORE ``reconcile_terminal_phase_results``, which settles every
     ``IN_PROGRESS`` phase to ``FAILED`` and so erases the distinction this reads.
@@ -341,12 +328,9 @@ class JobStore:
         *,
         lineage: ModelLineageDecision,
     ) -> JobState:
-        """Write the terminal record of a command the running build already carries.
+        """Write, in one atomic write, the terminal record of a command the running build carries (OMN-19270).
 
-        OMN-19270. Born terminal in one atomic write, for the reason
-        ``record_superseded`` gives. The event owed for it is published by the
-        consumer's rejection hook at once, and ``result_publish_pending`` keeps
-        the agent's retry loop paying that debt if the broker was away.
+        ``result_publish_pending`` keeps the retry loop paying the owed event.
         """
         if lineage.running_ref is None:
             msg = "a supersession by the running build must name the running ref"
@@ -378,21 +362,33 @@ class JobStore:
         *,
         superseded_by_sha: str,
         superseded_by_correlation_id: UUID,
+        by_containment: bool = True,
     ) -> JobState:
-        """Write a command's terminal record without ever running it (OMN-18143).
-
-        Born terminal, in one atomic write. There is deliberately no
-        accept-then-complete pair: a crash between the two would leave an
-        ``accepted`` record for a command nothing is going to execute, and
-        ``has_active_job`` would then refuse every command behind it until
-        ``recover_crashed_jobs`` reclassified it as a FAILURE -- turning a
-        supersession into exactly the lane-failure claim this status exists to
-        avoid making.
-
-        ``result_publish_pending`` is set: the terminal event owed to the bus
-        for this command is the one AC6 asks for, and the agent's existing
-        retry loop is what makes it survive a broker that is briefly away.
-        """
+        # Write a command's terminal record without ever running it (OMN-18143).
+        #
+        # Born terminal, in one atomic write. There is deliberately no
+        # accept-then-complete pair: a crash between the two would leave an
+        # ``accepted`` record for a command nothing is going to execute, and
+        # ``has_active_job`` would then refuse every command behind it until
+        # ``recover_crashed_jobs`` reclassified it as a FAILURE -- turning a
+        # supersession into exactly the lane-failure claim this status exists to
+        # avoid making.
+        #
+        # ``result_publish_pending`` is set: the terminal event owed to the bus
+        # for this command is the one AC6 asks for, and the agent's existing
+        # retry loop is what makes it survive a broker that is briefly away.
+        # OMN-26637. Exactly one reason, and it is true: containment is claimed
+        # only when ancestry proved it.
+        reason = (
+            f"superseded by {superseded_by_correlation_id} at "
+            f"{superseded_by_sha}, which contains this command's ref and "
+            "was already queued when the agent reached this one"
+            if by_containment
+            else f"superseded by {superseded_by_correlation_id} at "
+            f"{superseded_by_sha}, a newer request for this lane that was "
+            "accepted while this one was queued; the lane cancels every older "
+            "queued request whatever its git ancestry"
+        )
         now = datetime.now(UTC)
         job = JobState(
             correlation_id=correlation_id,
@@ -407,11 +403,7 @@ class JobStore:
             # run" is a fact on the record, not a gap in it.
             phase_results=reconcile_terminal_phase_results({}),
             result_publish_pending=True,
-            errors=[
-                f"superseded by {superseded_by_correlation_id} at "
-                f"{superseded_by_sha}, which contains this command's ref and "
-                "was already queued when the agent reached this one"
-            ],
+            errors=[reason],
         )
         self._save(job)
         return job
@@ -449,6 +441,19 @@ class JobStore:
         ]
         return max(done)[1] if done else None
 
+    def newest_successful_build_ref(self, lane: str) -> str | None:
+        """The ref the lane's newest successful job built, or ``None`` (OMN-26316)."""
+        done = [
+            j
+            for j in self._jobs()
+            if j.command.get("runtime_lane") == lane
+            and j.status == "success"
+            and j.completed_at
+        ]
+        newest = max(done, key=lambda j: j.completed_at or j.accepted_at, default=None)
+        built = newest.lineage.build_ref if newest and newest.lineage else None
+        return built or (newest.command.get("git_ref") if newest else None)
+
     def load(self, correlation_id: UUID) -> JobState | None:
         path = self._job_path(correlation_id)
         if not path.exists():
@@ -460,15 +465,10 @@ class JobStore:
         return next((job for job in self._jobs() if job.status in active), None)
 
     def job_covering(self, moment: datetime) -> JobState | None:
-        """The one job that was running at ``moment``, or ``None``.
+        """The one job running at ``moment`` (OMN-19270), or ``None`` when zero or several match.
 
-        OMN-19270. The lineage fence passes the running image's ``build_time``
-        here, to find the job that produced that image: the one whose
-        accept-to-complete window contains the moment the image was built.
-        Jobs run one at a time, so a match is unique. Zero matches (an image
-        built outside this agent) or several (a record this scan cannot trust)
-        are ``None``, and the fence then treats the running build's origin as
-        unknown. A superseded record never ran, so it never matches.
+        The lineage fence finds the job that produced an image by its ``build_time``.
+        A superseded record never ran, so it never matches.
         """
         matches: list[JobState] = []
         for path in self.state_dir.glob("*.json"):

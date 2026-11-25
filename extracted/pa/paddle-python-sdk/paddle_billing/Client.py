@@ -1,53 +1,69 @@
 from json import dumps as json_dumps
+from re import compile as re_compile
 from logging import Logger, getLogger
 from requests import Response, RequestException, Session
 from requests.adapters import HTTPAdapter
 from typing import Any
 from urllib3.util.retry import Retry
 from urllib.parse import urljoin, urlencode
-from uuid import uuid4
-from paddle_billing.Json import PayloadEncoder
+from uuid import UUID, uuid4
+from paddle_billing.Json import PayloadEncoder as PayloadEncoder
 
-from paddle_billing.Operation import Operation
-from paddle_billing.HasParameters import HasParameters
-from paddle_billing.Options import Options
-from paddle_billing.ResponseParser import ResponseParser
+from paddle_billing.Operation import Operation as Operation
+from paddle_billing.HasParameters import HasParameters as HasParameters
+from paddle_billing.Options import Options as Options
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
 
-from paddle_billing.Logger.NullHandler import NullHandler
+from paddle_billing.Logger.NullHandler import NullHandler as NullHandler
 
-from paddle_billing.Resources.Account.AccountClient import AccountClient
-from paddle_billing.Resources.Addresses.AddressesClient import AddressesClient
-from paddle_billing.Resources.Adjustments.AdjustmentsClient import AdjustmentsClient
-from paddle_billing.Resources.APIRoot.APIRootClient import APIRootClient
-from paddle_billing.Resources.Businesses.BusinessesClient import BusinessesClient
-from paddle_billing.Resources.CheckoutDomains.CheckoutDomainsClient import CheckoutDomainsClient
-from paddle_billing.Resources.ClientTokens.ClientTokensClient import ClientTokensClient
-from paddle_billing.Resources.Countries.CountriesClient import CountriesClient
-from paddle_billing.Resources.Currencies.CurrenciesClient import CurrenciesClient
-from paddle_billing.Resources.Customers.CustomersClient import CustomersClient
-from paddle_billing.Resources.CustomerPortalSessions.CustomerPortalSessionsClient import CustomerPortalSessionsClient
-from paddle_billing.Resources.DiscountGroups.DiscountGroupsClient import DiscountGroupsClient
-from paddle_billing.Resources.Discounts.DiscountsClient import DiscountsClient
-from paddle_billing.Resources.Events.EventsClient import EventsClient
-from paddle_billing.Resources.EventTypes.EventTypesClient import EventTypesClient
-from paddle_billing.Resources.IPAddresses.IPAddressesClient import IPAddressesClient
-from paddle_billing.Resources.Notifications.NotificationsClient import NotificationsClient
-from paddle_billing.Resources.NotificationLogs.NotificationLogsClient import NotificationLogsClient
-from paddle_billing.Resources.NotificationSettings.NotificationSettingsClient import NotificationSettingsClient
-from paddle_billing.Resources.PaymentMethods.PaymentMethodsClient import PaymentMethodsClient
-from paddle_billing.Resources.Prices.PricesClient import PricesClient
-from paddle_billing.Resources.PricingPreviews.PricingPreviewsClient import PricingPreviewsClient
-from paddle_billing.Resources.Products.ProductsClient import ProductsClient
-from paddle_billing.Resources.Reports.ReportsClient import ReportsClient
-from paddle_billing.Resources.Settings.SettingsClient import SettingsClient
-from paddle_billing.Resources.Simulations.SimulationsClient import SimulationsClient
-from paddle_billing.Resources.SimulationRuns.SimulationRunsClient import SimulationRunsClient
-from paddle_billing.Resources.SimulationRunEvents.SimulationRunEventsClient import SimulationRunEventsClient
-from paddle_billing.Resources.SimulationTypes.SimulationTypesClient import SimulationTypesClient
-from paddle_billing.Resources.Subscriptions.SubscriptionsClient import SubscriptionsClient
-from paddle_billing.Resources.Metrics.MetricsClient import MetricsClient
-from paddle_billing.Resources.Transactions.TransactionsClient import TransactionsClient
-from paddle_billing.Resources.Verifications.VerificationsClient import VerificationsClient
+from paddle_billing.Resources.Account.AccountClient import AccountClient as AccountClient
+from paddle_billing.Resources.Addresses.AddressesClient import AddressesClient as AddressesClient
+from paddle_billing.Resources.Adjustments.AdjustmentsClient import AdjustmentsClient as AdjustmentsClient
+from paddle_billing.Resources.APIRoot.APIRootClient import APIRootClient as APIRootClient
+from paddle_billing.Resources.ApiKeys.ApiKeysClient import ApiKeysClient as ApiKeysClient
+from paddle_billing.Resources.Businesses.BusinessesClient import BusinessesClient as BusinessesClient
+from paddle_billing.Resources.CheckoutDomains.CheckoutDomainsClient import (
+    CheckoutDomainsClient as CheckoutDomainsClient,
+)
+from paddle_billing.Resources.ClientTokens.ClientTokensClient import ClientTokensClient as ClientTokensClient
+from paddle_billing.Resources.Countries.CountriesClient import CountriesClient as CountriesClient
+from paddle_billing.Resources.Currencies.CurrenciesClient import CurrenciesClient as CurrenciesClient
+from paddle_billing.Resources.Customers.CustomersClient import CustomersClient as CustomersClient
+from paddle_billing.Resources.CustomerPortalSessions.CustomerPortalSessionsClient import (
+    CustomerPortalSessionsClient as CustomerPortalSessionsClient,
+)
+from paddle_billing.Resources.DiscountGroups.DiscountGroupsClient import DiscountGroupsClient as DiscountGroupsClient
+from paddle_billing.Resources.Discounts.DiscountsClient import DiscountsClient as DiscountsClient
+from paddle_billing.Resources.Events.EventsClient import EventsClient as EventsClient
+from paddle_billing.Resources.EventTypes.EventTypesClient import EventTypesClient as EventTypesClient
+from paddle_billing.Resources.IPAddresses.IPAddressesClient import IPAddressesClient as IPAddressesClient
+from paddle_billing.Resources.Notifications.NotificationsClient import NotificationsClient as NotificationsClient
+from paddle_billing.Resources.NotificationLogs.NotificationLogsClient import (
+    NotificationLogsClient as NotificationLogsClient,
+)
+from paddle_billing.Resources.NotificationSettings.NotificationSettingsClient import (
+    NotificationSettingsClient as NotificationSettingsClient,
+)
+from paddle_billing.Resources.PaymentMethods.PaymentMethodsClient import PaymentMethodsClient as PaymentMethodsClient
+from paddle_billing.Resources.Prices.PricesClient import PricesClient as PricesClient
+from paddle_billing.Resources.PricingPreviews.PricingPreviewsClient import (
+    PricingPreviewsClient as PricingPreviewsClient,
+)
+from paddle_billing.Resources.Products.ProductsClient import ProductsClient as ProductsClient
+from paddle_billing.Resources.Reports.ReportsClient import ReportsClient as ReportsClient
+from paddle_billing.Resources.Settings.SettingsClient import SettingsClient as SettingsClient
+from paddle_billing.Resources.Simulations.SimulationsClient import SimulationsClient as SimulationsClient
+from paddle_billing.Resources.SimulationRuns.SimulationRunsClient import SimulationRunsClient as SimulationRunsClient
+from paddle_billing.Resources.SimulationRunEvents.SimulationRunEventsClient import (
+    SimulationRunEventsClient as SimulationRunEventsClient,
+)
+from paddle_billing.Resources.SimulationTypes.SimulationTypesClient import (
+    SimulationTypesClient as SimulationTypesClient,
+)
+from paddle_billing.Resources.Subscriptions.SubscriptionsClient import SubscriptionsClient as SubscriptionsClient
+from paddle_billing.Resources.Metrics.MetricsClient import MetricsClient as MetricsClient
+from paddle_billing.Resources.Transactions.TransactionsClient import TransactionsClient as TransactionsClient
+from paddle_billing.Resources.Verifications.VerificationsClient import VerificationsClient as VerificationsClient
 
 
 class Client:
@@ -67,20 +83,21 @@ class Client:
     ):
         self.__api_key = api_key
         self.retry_count = retry_count
-        self.transaction_id = None
+        self.transaction_id: str | UUID | None = None
         self.use_api_version = use_api_version
         self.options = options if options else Options()
         self.log = logger if logger else Client.null_logger()
         self.client = http_client if http_client else self.build_request_session()
         self.timeout = timeout
-        self.payload = None  # Used by pytest
-        self.status_code = None  # Used by pytest
+        self.payload: str | None = None  # Used by pytest
+        self.status_code: int | None = None  # Used by pytest
 
         # Initialize the various clients
         self.account = AccountClient(self)
         self.addresses = AddressesClient(self)
         self.adjustments = AdjustmentsClient(self)
         self.api_root = APIRootClient(self)
+        self.api_keys = ApiKeysClient(self, Client._get_api_key_id(api_key))
         self.businesses = BusinessesClient(self)
         self.checkout_domains = CheckoutDomainsClient(self)
         self.client_tokens = ClientTokensClient(self)
@@ -111,6 +128,15 @@ class Client:
         self.ip_addresses = IPAddressesClient(self)
         self.metrics = MetricsClient(self)
 
+    _API_KEY_ID = re_compile(r"^pdl_\w+?_apikey_([a-z\d]{26})_")
+
+    @staticmethod
+    def _get_api_key_id(api_key: str) -> str | None:
+        """Reads the ID from an API key. Returns None for keys without one, such as legacy API keys, which can't be rotated."""
+        match = Client._API_KEY_ID.match(api_key or "")
+
+        return f"apikey_{match.group(1)}" if match else None
+
     @staticmethod
     def null_logger() -> Logger:
         """
@@ -123,13 +149,17 @@ class Client:
 
         return null_logger
 
-    def logging_hook(self, response, *args, **kwargs):
+    # A rotation's new_key is the full secret, and the API returns it only once.
+    _SECRET_RESPONSE_FIELDS = re_compile(r'("new_key"\s*:\s*)"[^"]*"')
+
+    def logging_hook(self, response: Response, *args: Any, **kwargs: Any) -> None:
         """
-        Requests logs were redirected here and to our custom logger which filters out sensitive data
+        Requests logs were redirected here and to our custom logger, with secrets redacted from response bodies
         """
 
         self.log.info(f"Request: {response.request.method} {response.request.url}")
-        self.log.debug(f"Response: {response.status_code} {response.text}")
+        body = self._SECRET_RESPONSE_FIELDS.sub(r'\1"[REDACTED]"', response.text)
+        self.log.debug(f"Response: {response.status_code} {body}")
 
     @staticmethod
     def serialize_json_payload(payload: dict[str, Any] | Operation) -> str:
@@ -217,16 +247,24 @@ class Client:
                 "Authorization": f"Bearer {self.__api_key}",
                 "Content-Type": "application/json",
                 "Paddle-Version": str(self.use_api_version),
-                "User-Agent": "PaddleSDK/python 1.18.0",
+                "User-Agent": "PaddleSDK/python 1.19.0",
             }
         )
 
-        # Configure retries
-        retries = Retry(total=self.retry_count, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+        # Configure retries. Only urllib3's idempotent methods (GET, PUT, DELETE, etc.) are retried, never POST or PATCH.
+        # 520-524 are Cloudflare origin errors.
+        retries = Retry(
+            total=self.retry_count,
+            backoff_factor=1,
+            # Return the last response once retries run out so the API error (and its Retry-After) is surfaced.
+            raise_on_status=False,
+            status_forcelist=[429, 500, 502, 503, 504, 520, 521, 522, 523, 524],
+        )
         session.mount("https://", HTTPAdapter(max_retries=retries))
 
         # Handle logging
         if self.log:
-            session.hooks["response"] = self.logging_hook
+            # requests accepts a bare callable here; its stubs only allow a list
+            session.hooks["response"] = self.logging_hook  # type: ignore[assignment]
 
         return session

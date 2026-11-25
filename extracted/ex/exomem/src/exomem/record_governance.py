@@ -1599,21 +1599,48 @@ def query_collection(
                 root, manifest, policy=policy, allow_cold_index=not late_link_projection,
                 authorize_path=authorize_path, visible_path=visible_path,
             )
+            # Without a store there is no field plan: a collection released to the caller is read whole.
+            plan = None if writer is None else writer._operation.field_plan(manifest)
+            readable = manifest if plan is None else plan.manifest
             view = kwargs.get("view")
             if view is not None:
-                _authorize_saved_view(root, manifest, view, links)
-            result = record_formats.query_collection(
-                root,
-                manifest,
-                authorize_path=authorize_path,
-                project_values=links,
-                project_child_value=links.project_presentation_value,
-                late_link_projection=late_link_projection,
-                stage_store_projection=writer is not None and not late_link_projection,
-                **kwargs,
-            )
+                _authorize_saved_view(root, manifest, view, links, readable=(
+                    None if plan is None or plan.holds_every_field(manifest) else readable))
+            try:
+                result = record_formats.query_collection(
+                    root,
+                    manifest,
+                    readable=readable,
+                    authorize_path=authorize_path,
+                    project_values=links,
+                    project_child_value=links.project_presentation_value,
+                    late_link_projection=late_link_projection,
+                    stage_store_projection=writer is not None and not late_link_projection,
+                    **kwargs,
+                )
+            except collections.CollectionError as error:
+                if error.code != "INVALID_RECORD_QUERY_FIELD":
+                    raise
+                raise _with_readable_columns(error, readable, kwargs) from error
         egress.emit_boundary_receipt(collector)
         return result
+
+
+def _with_readable_columns(
+    error: collections.CollectionError,
+    readable: collections.CollectionManifest,
+    query: Mapping[str, Any],
+) -> collections.CollectionError:
+    """The refused-field error plus the columns the caller can read, from the caller's own field plan.
+
+    `readable` is the manifest after the caller's field plan, so a withheld field never
+    appears in the list. The refusal's own details stay out: it carries only the reason.
+    A child expansion changes which columns a query may name, so it gets no list.
+    """
+    if query.get("expand_children") or query.get("expand_child") is not None:
+        return collections.CollectionError(error.code, error.reason)
+    names = collections.listed_within(record_formats.query_columns(readable))
+    return collections.CollectionError(error.code, f"{error.reason}; readable columns: {names}")
 
 
 def _authorize_saved_view(
@@ -1621,11 +1648,17 @@ def _authorize_saved_view(
     manifest: collections.CollectionManifest,
     name: object,
     links: _LinkProjector,
+    *,
+    readable: collections.CollectionManifest | None = None,
 ) -> collections.SavedView:
-    """Refuse a saved view if link projection would change its query meaning."""
+    """Refuse a saved view if link projection would change its query meaning.
+
+    Every check reads the author's whole `manifest`. `readable` is given only when the caller's
+    field plan withholds a field, and then hides a view as `collections.resolve_saved_view` describes.
+    """
     if type(name) is not str:
         raise collections.CollectionError("INVALID_SAVED_VIEW", "saved view name is invalid")
-    view = collections.resolve_saved_view(manifest, name)
+    view = collections.resolve_saved_view(manifest, name, readable=readable)
     query = view.definition.get("query")
     if not isinstance(query, Mapping):
         raise collections.CollectionError("INVALID_SAVED_VIEW", "saved view definition is invalid")

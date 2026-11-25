@@ -79,7 +79,7 @@ StorageManager::StorageManager(const std::string& databasePath, bool readOnly, b
 }
 
 StorageManager::~StorageManager() {
-    ExternalTableHookRegistry::unbindStorageManagerTables(this);
+    ColumnarTableHookRegistry::unbindStorageManagerTables(this);
 }
 
 void StorageManager::initDataFileHandle(VirtualFileSystem* vfs, main::ClientContext* context) {
@@ -130,6 +130,32 @@ Table* StorageManager::getTable(table_id_t tableID) {
 bool StorageManager::containsTable(table_id_t tableID) const {
     std::shared_lock lck{mtx};
     return tables.contains(tableID);
+}
+
+NodeTable* StorageManager::tryGetNativeNodeTable(const main::ClientContext& context,
+    const catalog::TableCatalogEntry& entry) {
+    if (entry.getType() != catalog::CatalogEntryType::NODE_TABLE_ENTRY) {
+        return nullptr;
+    }
+    const auto tableID = entry.getTableID();
+    auto transaction = transaction::Transaction::Get(context);
+    auto catalog = catalog::Catalog::Get(context);
+    if (!catalog->containsTable(transaction, tableID) ||
+        catalog->getTableCatalogEntry(transaction, tableID) != &entry) {
+        return nullptr;
+    }
+    auto& nodeEntry = entry.constCast<catalog::NodeTableCatalogEntry>();
+    if (nodeEntry.isPartitioned() || nodeEntry.isPartitionChild() ||
+        nodeEntry.getScanFunction().has_value() || nodeEntry.getReferencedEntry() != nullptr ||
+        !nodeEntry.getForeignDatabaseName().empty() || !nodeEntry.getStorage().empty() ||
+        nodeEntry.getStorageFormat() != StorageFormat::NONE) {
+        return nullptr;
+    }
+    auto storageManager = Get(context);
+    if (!storageManager->containsTable(tableID)) {
+        return nullptr;
+    }
+    return dynamic_cast<NodeTable*>(storageManager->getTable(tableID));
 }
 
 std::optional<PlannerTableStats> StorageManager::getCachedPlannerTableStats(
@@ -207,22 +233,24 @@ void StorageManager::createNodeTable(NodeTableCatalogEntry* entry, main::ClientC
             // Create icebug-disk-backed node table
             tables[entry->getTableID()] =
                 std::make_unique<IceDiskNodeTable>(this, entry, &memoryManager, context);
-        } else if (auto hooks =
-                       ExternalTableHookRegistry::getFormatHooks(entry->getStorageFormat())) {
-            // Create extension-backed node table (e.g. lance). The extension must be
+        } else if (auto hooks = ColumnarTableHookRegistry::getFormatHooks(entry->getStorageFormat(),
+                       entry->getStorageFormatName())) {
+            // Create extension-backed columnar node table. The extension must be
             // loaded before the table is created.
             if (!hooks->createNodeTable) {
                 throw common::RuntimeException(
                     "Loaded extension does not provide node table storage for format: " +
-                    StorageFormatUtils::toString(entry->getStorageFormat()));
+                    StorageFormatUtils::displayName(entry->getStorageFormat(),
+                        entry->getStorageFormatName()));
             }
             tables[entry->getTableID()] =
                 hooks->createNodeTable(this, entry, &memoryManager, context);
-            ExternalTableHookRegistry::bindTableHooks(this, entry->getTableID(), hooks);
+            ColumnarTableHookRegistry::bindTableHooks(this, entry->getTableID(), hooks);
         } else {
             throw common::RuntimeException(
                 "Unsupported storage format option for node table: " +
-                StorageFormatUtils::toString(entry->getStorageFormat()) +
+                StorageFormatUtils::displayName(entry->getStorageFormat(),
+                    entry->getStorageFormatName()) +
                 ". If this format is provided by a Ladybug extension, load the extension "
                 "and try again.");
         }
@@ -270,22 +298,24 @@ void StorageManager::addRelTable(RelGroupCatalogEntry* entry, const RelTableCata
             // Create icebug-disk-backed rel table
             tables[info.oid] = std::make_unique<IceDiskRelTable>(entry, info.nodePair.srcTableID,
                 info.nodePair.dstTableID, this, &memoryManager, context);
-        } else if (auto hooks =
-                       ExternalTableHookRegistry::getFormatHooks(entry->getStorageFormat())) {
-            // Create extension-backed rel table (e.g. lance). The extension must be
+        } else if (auto hooks = ColumnarTableHookRegistry::getFormatHooks(entry->getStorageFormat(),
+                       entry->getStorageFormatName())) {
+            // Create extension-backed columnar rel table. The extension must be
             // loaded before the table is created.
             if (!hooks->createRelTable) {
                 throw common::RuntimeException(
                     "Loaded extension does not provide rel table storage for format: " +
-                    StorageFormatUtils::toString(entry->getStorageFormat()));
+                    StorageFormatUtils::displayName(entry->getStorageFormat(),
+                        entry->getStorageFormatName()));
             }
             tables[info.oid] = hooks->createRelTable(entry, info.nodePair.srcTableID,
                 info.nodePair.dstTableID, this, &memoryManager, context);
-            ExternalTableHookRegistry::bindTableHooks(this, info.oid, hooks);
+            ColumnarTableHookRegistry::bindTableHooks(this, info.oid, hooks);
         } else {
             throw common::RuntimeException(
                 "Unsupported storage format option for rel table: " +
-                StorageFormatUtils::toString(entry->getStorageFormat()) +
+                StorageFormatUtils::displayName(entry->getStorageFormat(),
+                    entry->getStorageFormatName()) +
                 ". If this format is provided by a Ladybug extension, load the extension "
                 "and try again.");
         }
@@ -422,7 +452,7 @@ void StorageManager::reclaimDroppedTables(const Catalog& catalog) {
     }
     for (auto tableID : droppedTables) {
         tables.erase(tableID);
-        ExternalTableHookRegistry::unbindTableHooks(this, tableID);
+        ColumnarTableHookRegistry::unbindTableHooks(this, tableID);
         clearCachedPlannerTableStats(tableID);
     }
 }
@@ -552,11 +582,42 @@ std::unordered_map<table_id_t, uint64_t> StorageManager::captureChangeEpochs() c
     return epochs;
 }
 
+bool StorageManager::vacuumInMemoryUpdates(transaction_t horizon) {
+    std::shared_lock lck{mtx};
+    bool didWork = false;
+    for (const auto& [id, table] : tables) {
+        if (table->vacuumInMemoryUpdates(horizon)) {
+            didWork = true;
+        }
+    }
+    return didWork;
+}
+
+void StorageManager::applyShadowPagesAndPublish(main::ClientContext& context) {
+    // Collect the tables first so applyMtx (held while publishing) never nests inside mtx.
+    std::vector<Table*> tablesToPublish;
+    {
+        std::shared_lock lck{mtx};
+        tablesToPublish.reserve(tables.size());
+        for (auto& [id, table] : tables) {
+            tablesToPublish.push_back(table.get());
+        }
+    }
+    // Publishing at finalizeCheckpoint() instead would leave a window in which readers resolve
+    // primary keys through the old index headers over the new slot pages (#1052).
+    shadowFile->applyShadowPages(*this, context, [&]() {
+        for (auto* table : tablesToPublish) {
+            table->finalizeCheckpoint(context);
+        }
+    });
+}
+
 void StorageManager::finalizeCheckpoint(main::ClientContext& context) {
     dataFH->getPageManager()->finalizeCheckpoint();
     // Publish staged per-table state (e.g. PK index read headers) now that the checkpoint
     // committed. Must run post-commit: publishing earlier would expose half-checkpointed
-    // state to a rollback that cannot restore it.
+    // state to a rollback that cannot restore it. Storage managers whose shadow pages went
+    // through applyShadowPagesAndPublish() have already published, so this is a no-op for them.
     std::unique_lock lck{mtx};
     for (auto& [id, table] : tables) {
         table->finalizeCheckpoint(context);
@@ -565,6 +626,14 @@ void StorageManager::finalizeCheckpoint(main::ClientContext& context) {
 
 void StorageManager::rollbackCheckpoint(const Catalog& catalog, main::ClientContext* context) {
     std::unique_lock lck{mtx};
+    // Only node tables are partitioned, so every rel table is in this storage manager's tables.
+    for (const auto entry : catalog.getRelGroupEntries(&DUMMY_CHECKPOINT_TRANSACTION)) {
+        for (auto& info : entry->getRelEntryInfos()) {
+            if (tables.contains(info.oid)) {
+                tables.at(info.oid)->rollbackCheckpoint();
+            }
+        }
+    }
     const auto nodeTableEntries = catalog.getNodeTableEntries(&DUMMY_CHECKPOINT_TRANSACTION);
     for (const auto tableEntry : nodeTableEntries) {
         // Partitioned parents hold no physical storage; only their partition subgraphs do.
@@ -720,6 +789,21 @@ void StorageManager::deserialize(main::ClientContext* context, const Catalog* ca
             // Create icebug-disk-backed node table
             tables[tableID] =
                 std::make_unique<IceDiskNodeTable>(this, tableEntry, &memoryManager, context);
+        } else if (tableEntry->getStorageFormat() == StorageFormat::EXTERNAL) {
+            // Recreate extension-backed columnar node tables (e.g. after a checkpoint or
+            // reopen): the extension must be loaded before recovery. Mirrors createNodeTable.
+            auto hooks = ColumnarTableHookRegistry::getFormatHooks(tableEntry->getStorageFormat(),
+                tableEntry->getStorageFormatName());
+            if (!hooks || !hooks->createNodeTable) {
+                throw common::RuntimeException(
+                    "Unsupported storage format option for node table: " +
+                    StorageFormatUtils::displayName(tableEntry->getStorageFormat(),
+                        tableEntry->getStorageFormatName()) +
+                    ". If this format is provided by a Ladybug extension, load the extension "
+                    "and try again.");
+            }
+            tables[tableID] = hooks->createNodeTable(this, tableEntry, &memoryManager, context);
+            ColumnarTableHookRegistry::bindTableHooks(this, tableID, hooks);
         } else {
             // Create regular node table
             tables[tableID] = std::make_unique<NodeTable>(this, tableEntry, &memoryManager);
@@ -750,6 +834,22 @@ void StorageManager::deserialize(main::ClientContext* context, const Catalog* ca
                 tables[info.oid] =
                     std::make_unique<IceDiskRelTable>(relGroupEntry, info.nodePair.srcTableID,
                         info.nodePair.dstTableID, this, &memoryManager, context);
+            } else if (relGroupEntry->getStorageFormat() == StorageFormat::EXTERNAL) {
+                // Recreate extension-backed columnar rel tables on recovery. Mirrors
+                // addRelTable: the extension must be loaded before recovery.
+                auto hooks = ColumnarTableHookRegistry::getFormatHooks(
+                    relGroupEntry->getStorageFormat(), relGroupEntry->getStorageFormatName());
+                if (!hooks || !hooks->createRelTable) {
+                    throw common::RuntimeException(
+                        "Unsupported storage format option for rel table: " +
+                        StorageFormatUtils::displayName(relGroupEntry->getStorageFormat(),
+                            relGroupEntry->getStorageFormatName()) +
+                        ". If this format is provided by a Ladybug extension, load the extension "
+                        "and try again.");
+                }
+                tables[info.oid] = hooks->createRelTable(relGroupEntry, info.nodePair.srcTableID,
+                    info.nodePair.dstTableID, this, &memoryManager, context);
+                ColumnarTableHookRegistry::bindTableHooks(this, info.oid, hooks);
             } else {
                 // Create regular rel table
                 tables[info.oid] = std::make_unique<RelTable>(relGroupEntry,

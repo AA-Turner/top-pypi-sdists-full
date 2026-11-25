@@ -2,6 +2,7 @@
 
 import glob
 import os
+import re
 import sys
 
 import nox
@@ -16,7 +17,7 @@ nox.options.sessions = "lint", "tests", "type-checking", "type-safety"
 locations = ("upath",)
 running_in_ci = os.environ.get("CI", "") != ""
 
-SUPPORTED_PYTHONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+SUPPORTED_PYTHONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 BASE_PYTHON = SUPPORTED_PYTHONS[-3]
 MIN_PYTHON = SUPPORTED_PYTHONS[0]
 
@@ -49,15 +50,28 @@ def FSSPEC_MIN_VERSION() -> str:
     raise RuntimeError("Could not find fsspec minimum version in pyproject.toml")
 
 
+# the minimum supported fsspec version, roughly one release every six months
+# since, and the latest release
+FSSPEC_TEST_VERSIONS = [
+    FSSPEC_MIN_VERSION,
+    "2024.12.0",
+    "2025.5.1",
+    "2025.12.0",
+    "2026.6.0",
+    "latest",
+]
+
+
+def coverage_file(session: nox.Session) -> str:
+    """Return a coverage data file name unique per platform and session."""
+    name = re.sub(r"[^A-Za-z0-9.]+", "-", session.name).strip("-")
+    return f".coverage.{sys.platform}.{name}"
+
+
 @nox.session(python=SUPPORTED_PYTHONS)
 def tests(session: nox.Session) -> None:
     """Run the test suite."""
-    # workaround in case no aiohttp binary wheels are available
-    if session.python == "3.14":
-        session.env["AIOHTTP_NO_EXTENSIONS"] = "1"
-        session.install(".[tests,dev]", "pydantic>=2.12.0a1")
-    else:
-        session.install(".[tests,dev,dev-third-party]")
+    session.install(".[tests,dev,dev-third-party]")
     session.run("uv", "pip", "freeze", silent=not running_in_ci)
     session.run(
         "pytest",
@@ -66,7 +80,7 @@ def tests(session: nox.Session) -> None:
         "--cov",
         "--cov-config=pyproject.toml",
         *session.posargs,
-        env={"COVERAGE_FILE": f".coverage.{session.python}"},
+        env={"COVERAGE_FILE": coverage_file(session)},
     )
 
 
@@ -81,11 +95,52 @@ def tests_minversion(session: nox.Session) -> None:
         "--cov",
         "--cov-config=pyproject.toml",
         *session.posargs,
-        env={"COVERAGE_FILE": f".coverage.{session.python}"},
+        env={"COVERAGE_FILE": coverage_file(session)},
     )
 
 
 tests_minversion.__doc__ = f"Run the test suite with fsspec=={FSSPEC_MIN_VERSION}."
+
+
+@nox.session(python=BASE_PYTHON, name="tests-fsspec")
+@nox.parametrize("fsspec", FSSPEC_TEST_VERSIONS, ids=FSSPEC_TEST_VERSIONS)
+def tests_fsspec(session: nox.Session, fsspec: str) -> None:
+    """Run the test suite against a specific fsspec version."""
+    # s3fs and gcsfs require a matching fsspec, so uv resolves them accordingly
+    if fsspec == "latest":
+        session.install("--upgrade", "fsspec", ".[tests,dev]")
+    else:
+        session.install(f"fsspec=={fsspec}", ".[tests,dev]")
+    session.run("uv", "pip", "freeze", silent=not running_in_ci)
+    # all sessions run in parallel and would exceed the unauthenticated GitHub
+    # API rate limit, the regular test matrix covers the GitHub filesystem
+    session.run(
+        "pytest",
+        "-m",
+        "not hdfs",
+        "--ignore=upath/tests/implementations/test_github.py",
+        *session.posargs,
+    )
+
+
+@nox.session(python=BASE_PYTHON)
+def coverage(session: nox.Session) -> None:
+    """Combine the coverage data of test sessions and report."""
+    session.install("coverage[toml]")
+    if glob.glob(".coverage.*"):
+        session.run("coverage", "combine")
+    session.run("coverage", "html", "--skip-covered", "--skip-empty")
+    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(summary, "a") as f:
+            session.run(
+                "coverage",
+                "report",
+                "--format=markdown",
+                "--skip-covered",
+                "--skip-empty",
+                stdout=f,
+            )
+    session.run("coverage", "report", *session.posargs)
 
 
 @nox.session
@@ -144,6 +199,18 @@ def type_safety(session):
         "typesafety",
         *session.posargs,
     )
+
+
+@nox.session(name="type-narrowing", python=BASE_PYTHON)
+def type_narrowing(session):
+    """Check UPath constructor type narrowing with mypy, pyright and ty."""
+    # pinned, so that new releases don't break CI unnoticed; bump deliberately
+    session.install("-e", ".[typechecking]", "pyright==1.1.414", "ty==0.0.107")
+    snippets = "typesafety/check_constructors.py"
+    session.run("python", "-m", "mypy", snippets)
+    python = os.path.join(session.bin, "python")
+    session.run("pyright", "--pythonpath", python, snippets)
+    session.run("ty", "check", "--python", python, snippets)
 
 
 @nox.session(name="flavours-upgrade-deps", python=BASE_PYTHON)

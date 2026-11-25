@@ -1,8 +1,10 @@
 #pragma once
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 
 #include "storage/wal/wal_record.h"
 
@@ -37,8 +39,16 @@ public:
         common::VirtualFileSystem* vfs, StorageManager* storageManager = nullptr);
     ~WAL();
 
-    void logCommittedWAL(LocalWAL& localWAL, main::ClientContext* context,
-        uint64_t& commitSequence);
+    // blockStart, if given, receives the WAL offset where the transaction's records begin.
+    void logCommittedWAL(LocalWAL& localWAL, main::ClientContext* context, uint64_t& commitSequence,
+        uint64_t* blockStart = nullptr);
+    // Logs and syncs that the transaction whose records begin at abortedBlockStart was not
+    // applied after its COMMIT record became durable, so recovery skips it. Throws when no WAL
+    // file is open or the offset lies past its end: recovery matches an ABORT only within the
+    // file of its COMMIT.
+    void logAbort(uint64_t abortedBlockStart);
+    // Removes the pinned-checkpoint marker first, so it never vouches for a record whose shadow is
+    // not applied yet.
     void logAndFlushCheckpoint(main::ClientContext* context);
 
     // Renames the active WAL to the frozen checkpoint WAL. Returns false if there is nothing to
@@ -62,6 +72,10 @@ public:
     // source for WAL pin observability alongside getFileSize() (active).
     uint64_t getFrozenWALFileSize();
     bool mayHaveCheckpointRecord();
+    bool isPoisoned();
+    // See StorageUtils::getPinnedCheckpointMarkerPath.
+    void writePinnedCheckpointMarker(main::ClientContext* context);
+    void removePinnedCheckpointMarker(main::ClientContext* context);
     void throwIfPoisoned();
     void poison(const std::string& reason);
 
@@ -73,14 +87,30 @@ private:
     void retireFileNoLock(const std::string& path, const char* walName);
     void throwIfPoisonedNoLock() const;
     void poisonNoLock(const std::string& reason);
+    // Poisons the WAL and throws; call only from a catch block. A failed write can leave the WAL
+    // ending in part of a record, which later appends would follow, so writes are refused until a
+    // restart, whose recovery drops that tail.
+    [[noreturn]] void failNoLock(std::string_view operation);
+    // Every record append and flush goes through here, so none can fail without poisoning the WAL.
+    template<typename Fn>
+    void writeOrFailNoLock(Fn&& write) {
+        try {
+            write();
+        } catch (...) {
+            failNoLock("write");
+        }
+    }
     void waitForDurabilityNoLock(uint64_t commitSequence, std::unique_lock<std::mutex>& lck);
+    void syncAppendedCommitsNoLock(std::unique_lock<std::mutex>& lck);
     void flushAndSyncNoLock();
     void writeHeader(main::ClientContext& context);
+    void removePinnedCheckpointMarkerNoLock(main::ClientContext* context);
 
 private:
     std::mutex mtx;
     std::string walPath;
     std::string checkpointWalPath;
+    std::string pinnedCheckpointMarkerPath;
     bool inMemory;
     [[maybe_unused]] bool readOnly;
     common::VirtualFileSystem* vfs;
@@ -102,6 +132,8 @@ private:
     // these writes can go through the normal writer. We do still need a checksum writer though for
     // writing COMMIT/CHECKPOINT records
     std::unique_ptr<common::Serializer> serializer;
+    // The file writer under serializer (the checksum writer wraps it when checksums are on).
+    std::weak_ptr<common::BufferedFileWriter> fileWriter;
     bool enableChecksums;
 };
 

@@ -1,13 +1,11 @@
 [project]
 name = "trickkiste"
-version = "0.3.7"
+version = "0.3.9"
 description = "Random useful stuff"
 authors = [{name = "Frans Fürst", email = "frans.fuerst+om-office@protonmail.com"}]
 readme = "Readme.md"
 requires-python = ">=3.10.4,<4"
-dependencies = [
-    "python-dateutil>=2.9.0.post0",
-]
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/frans-fuerst/trickkiste"
@@ -26,7 +24,6 @@ dev = [
     "textual>=6.3.0",
 
     # and here come the actual dev-dependencies
-    "types-python-dateutil",
     "ruff",
     "mypy",
     "ty",

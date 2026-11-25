@@ -8,11 +8,15 @@ change the owner accepted, and the behaviour changes the gate has to stop.
 from __future__ import annotations
 
 import contextlib
+import functools
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
-from contextlib import redirect_stderr, redirect_stdout
+import threading
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import asdict, dataclass, field, replace
 from io import StringIO
 from pathlib import Path
@@ -24,6 +28,7 @@ import tomllib
 
 from scripts import behaviour_diff, declared_changes
 from scripts._behaviour_classify import (
+    SIGNATURE_FAILED,
     Allowlist,
     CellEvidence,
     Change,
@@ -44,7 +49,7 @@ from tests.conftest import assert_output
 from tests.units import REFS_HEADER
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Generator
 
 ROOT = Path(__file__).resolve().parents[1]
 SIGNATURE_SCRIPT = ROOT / "scripts" / "_behaviour_signature.py"
@@ -2922,7 +2927,8 @@ class CellsCase:
     which must give the gate's verdict: it fails the harness labels the gate refuses. `shards` runs the gate as that
     many shards, one after another, with the same `--verdicts` file. `shape` names, in words, the rule the case pins or
     the passing shape it keeps. `merged` ends the subject of main's next commit with that pull request, `(#n)`, and
-    `released` the release's, as a squash merge writes it.
+    `released` the release's, as a squash merge writes it. `pushed` are commits before the head, and origin/main
+    points at the head: a push of several pull requests to main.
     """
 
     verdict: str
@@ -2938,6 +2944,7 @@ class CellsCase:
     shards: int = 1
     merged: str = ""
     released: str = ""
+    pushed: tuple[dict[str, str | None], ...] = ()
 
 
 COMMENT_PLAIN = _cells_src(("plain", None, "comment"))
@@ -2960,6 +2967,12 @@ def _landed(*cells: dict[str, object], refs: tuple[str, ...] = ("#2",), extends:
 
 
 OUTPUT_TEXT_OTHER = _record("other-note", "output-text", _cells("other.json"))
+OTHER_REFACTOR = _cells_src(("other", None, "comment"), helper="HELPER = 1\n")
+"""A source change over main's change of `other` that changes no output."""
+LISTING_HARNESS = {f"{CELLS_EXPECTED}/main/jsonschema/listing.txt": "Model\nOther\n"} | _record(
+    "listing-test", "harness", covers=("main/jsonschema/listing.txt",)
+)
+"""A changed listing a `harness` record covers: its proof fails in a src change."""
 CHECKED = _cells_input("checked", type="int", validator=True)
 MEMORY = _cells_input("memory", type="int", memory=True)
 FAILS = _cells_input("fails", type="int", fail="boom")
@@ -3441,6 +3454,88 @@ CELLS_CASES: dict[str, CellsCase] = {
         | _record("listing-test", "harness", covers=("main/jsonschema/listing.txt",)),
         records=True,
     ),
+    "pass: a push to main of a src change, then a test-only change a harness record covers": CellsCase(
+        "pass",
+        "harness, modified listing, in a change without src/ pushed to main after a src change",
+        {f"{CELLS_EXPECTED}/main/jsonschema/listing.txt": "Model\nOther\n"}
+        | _record("listing-test", "harness", covers=("main/jsonschema/listing.txt",)),
+        pushed=(CELLS_REFACTOR,),
+        records=True,
+    ),
+    "fail: a push to main of a test-only change, then a src change a harness record covers": CellsCase(
+        "fail",
+        "harness, modified listing, in a src change pushed to main after a change without src/",
+        CELLS_REFACTOR
+        | {f"{CELLS_EXPECTED}/main/jsonschema/listing.txt": "Model\nOther\n"}
+        | _record("listing-test", "harness", covers=("main/jsonschema/listing.txt",)),
+        pushed=({"docs/notes.md": "notes\n"},),
+        records=True,
+    ),
+    "pass: a push to main of a docs change, then a test-only change a harness record covers": CellsCase(
+        "pass",
+        "harness, modified listing, in a change without src/ pushed to main after a docs change",
+        {f"{CELLS_EXPECTED}/main/jsonschema/listing.txt": "Model\nOther\n"}
+        | _record("listing-test", "harness", covers=("main/jsonschema/listing.txt",)),
+        pushed=({"docs/notes.md": "notes\n"},),
+        records=True,
+    ),
+    "fail: a push to main of a src change a harness record covers, then a test-only change": CellsCase(
+        "fail",
+        "harness, modified listing, in a src change pushed to main before a change without src/",
+        {"docs/notes.md": "notes\n"},
+        pushed=(
+            CELLS_REFACTOR
+            | {f"{CELLS_EXPECTED}/main/jsonschema/listing.txt": "Model\nOther\n"}
+            | _record("listing-test", "harness", covers=("main/jsonschema/listing.txt",)),
+        ),
+        records=True,
+    ),
+    "pass: a push to main of a src change a harness record covers, then its revert": CellsCase(
+        "pass",
+        "harness, modified module the proof holds for, in a src change whose revert follows in the push",
+        pushed=(
+            CELLS_REFACTOR
+            | {PLAIN_MODULE: CELLS_MODULE.format("int  # note")}
+            | _record("plain-test", "harness", covers=("main/jsonschema/plain.py",)),
+        ),
+        head=_cells_src(),
+        records=True,
+    ),
+    "pass: a push to main of a src refactor, its revert, then the cells of a change merged before it": CellsCase(
+        "pass",
+        "records-only change, cells of a merged change, after a src change and its revert in the push",
+        _landed(_cells("other.json")),
+        base=COMMENT_OTHER | OTHER_NOTE_UNNAMED,
+        merged="#2",
+        pushed=(OTHER_REFACTOR, COMMENT_OTHER),
+        records=True,
+    ),
+    "fail: a push to main of a src change a harness proof refuses, its revert, then merged cells": CellsCase(
+        "fail",
+        "harness, modified listing, in a src change of a push whose src/ ends unchanged",
+        _landed(_cells("other.json")),
+        base=COMMENT_OTHER | OTHER_NOTE_UNNAMED,
+        merged="#2",
+        pushed=(OTHER_REFACTOR | LISTING_HARNESS, COMMENT_OTHER),
+        records=True,
+    ),
+    "fail: a push to main of a src change, its revert a harness proof refuses, then merged cells": CellsCase(
+        "fail",
+        "harness, modified listing, in the revert of a push whose src/ ends unchanged",
+        _landed(_cells("other.json")),
+        base=COMMENT_OTHER | OTHER_NOTE_UNNAMED,
+        merged="#2",
+        pushed=(OTHER_REFACTOR, COMMENT_OTHER | LISTING_HARNESS),
+        records=True,
+    ),
+    "fail: a push to main of a src change, its revert, then cells of a pull request not merged": CellsCase(
+        "fail",
+        "records-only change, cells of an unmerged pull request, after a src change and its revert in the push",
+        _landed(_cells("other.json"), refs=("#2", "#3")),
+        base=COMMENT_OTHER | OTHER_NOTE_UNNAMED,
+        merged="#2",
+        pushed=(OTHER_REFACTOR, COMMENT_OTHER),
+    ),
     "fail: a fragment that does not parse": CellsCase(
         "fail",
         "fragment does not parse",
@@ -3605,7 +3700,11 @@ def _cells_project(case: CellsCase, repo: Path) -> dict[str, str]:
     _git("switch", "-q", "main", cwd=repo)
     main = _cells_commit(repo, case.main, "main after the fork")
     _git("switch", "-q", "-c", "pr", "layer", cwd=repo)
+    for number, pushed in enumerate(case.pushed, 1):
+        _cells_commit(repo, pushed, f"pushed {number}")
     _cells_commit(repo, case.head, "head")
+    if case.pushed:
+        _git("update-ref", "refs/remotes/origin/main", "HEAD", cwd=repo)
     orphan = _git("commit-tree", "-m", "another history", f"{release}^{{tree}}", cwd=repo)
     return {"base": base, "main": main, "tag": f"refs/tags/{CELLS_TAG}", "unknown": "4" * 40, "orphan": orphan}
 
@@ -3620,11 +3719,108 @@ def _cells_exit(run: Callable[[], int], log: StringIO) -> int:
         return stopped.code if isinstance(stopped.code, int) else 1
 
 
+SHARED_SCRIPTS = ("__init__.py", "_behaviour_signature.py", "_stored_module.py")
+"""The files of scripts/ the signature and stored-module processes run or import."""
+
+
+def _read(value: object) -> str:
+    """Return an argument of a process by what the process reads: a file it is given by the digest of its bytes."""
+    path = Path(value) if isinstance(value, str | Path) else None
+    read = path is not None and path.is_absolute() and path.is_file()
+    return hashlib.sha256(path.read_bytes()).hexdigest() if read else str(value)
+
+
+@dataclass
+class SharedRuns:
+    """The gate's signature and stored-module processes of the stand-in's runs, each distinct one run once per process.
+
+    `signature` returns what `scripts/_behaviour_signature.py` prints and `stored_side` what `scripts/_stored_module.py`
+    writes (its draws are derandomised and use no database); each reads, in a fresh process, only the interpreter, the
+    files of scripts/ it runs, the files of `tree` (the directory holding the module, package or run it imports), its
+    other arguments (a file by its bytes) and the environment. Every oracle case signs the release's cells of `plain`
+    and `other` again, so calls of one function that agree on all of these share its result. A signature runs in
+    `tree` (`-I` on absolute paths), a stored module from the checkout whose scripts are keyed (`-E -m`), and the
+    environment differs between tests only in `PYTEST_CURRENT_TEST`, which only pytest reads. An empty result (a
+    stopped draw), a failed signature (a timeout, a crash) and a result that names the directory holding `tree` are
+    never shared. A shared stored-module result does not write its output file again: only `stored_side` reads it.
+    """
+
+    results: dict[Callable[..., dict[str, object]], dict[str, str]] = field(default_factory=dict)
+    locks: dict[str, threading.Lock] = field(default_factory=dict)
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def run(
+        self,
+        function: Callable[..., dict[str, object]],
+        call: Callable[[], dict[str, object]],
+        tree: Path,
+        *inputs: object,
+    ) -> dict[str, object]:
+        """Return what `call` (a call of `function`) returns, from the first call of `function` with these inputs."""
+        files = {
+            str(path.relative_to(tree)): hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
+            for path in sorted(tree.rglob("*"))
+        }
+        env = sorted(
+            (name, value)
+            for name, value in os.environ.items()
+            if not name.startswith("DATAMODEL_CODE_GENERATOR") and name != "PYTEST_CURRENT_TEST"
+        )
+        scripts = [_read(behaviour_diff.SIGNATURE_SCRIPT.with_name(name)) for name in SHARED_SCRIPTS]
+        key = hashlib.sha256(json.dumps([files, [str(value) for value in inputs], env, scripts]).encode()).hexdigest()
+        with self.lock:
+            results = self.results.setdefault(function, {})
+            lock = self.locks.setdefault(key, threading.Lock())
+        with lock:
+            text = results.get(key) or json.dumps(call())
+            result = json.loads(text)
+            shared = bool(result) and not result.get(SIGNATURE_FAILED) and str(tree.parent) not in text
+            results.update({key: text} if shared else {})
+        return result
+
+
+SHARED_RUNS = SharedRuns()
+
+
+@contextmanager
+def shared_runs() -> Generator[None, None, None]:
+    """Let the gate runs inside take the signatures and stored-module draws they share from `SHARED_RUNS`.
+
+    It wraps the functions installed when it starts, so a test that replaces one keeps its replacement.
+    """
+    signature, stored = behaviour_diff.signature, behaviour_diff.stored_side
+
+    def shared_signature(
+        gate: behaviour_diff.Gate, target: Path, backend: str, payloads: Path | None, *, targets: bool = False
+    ) -> dict[str, object]:
+        call = functools.partial(signature, gate, target, backend, payloads, targets=targets)
+        given = (gate.signature_python, gate.candidate_python, gate.timeout, target.name, backend, _read(payloads))
+        return SHARED_RUNS.run(signature, call, target.parent, *given, targets)
+
+    def shared_stored(
+        gate: behaviour_diff.Gate, target: Path, backend: str, values: Path | None
+    ) -> behaviour_diff.StoredSide:
+        call = functools.partial(stored, gate, target, backend, values)
+        given = (gate.candidate_python, behaviour_diff.PAYLOAD_DRAW_TIMEOUT, target.name, backend, _read(values))
+        return SHARED_RUNS.run(stored, call, target.parent, *given)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(behaviour_diff, "signature", shared_signature)
+        patch.setattr(behaviour_diff, "stored_side", shared_stored)
+        yield
+
+
 def cells_verdict(case: CellsCase, tmp_path: Path) -> tuple[str, str]:
     """Run the gate (and, for `records`, the records check) as CI runs it and return the verdict and the log.
 
-    The verdict is `split` where the records check and the gate disagree.
+    The verdict is `split` where the records check and the gate disagree. The gate's signatures and stored-module
+    draws are shared with the other cases' runs (`SharedRuns`).
     """
+    with shared_runs():
+        return _cells_verdict(case, tmp_path)
+
+
+def _cells_verdict(case: CellsCase, tmp_path: Path) -> tuple[str, str]:
     repo = tmp_path / "repo"
     against = _cells_project(case, repo)[case.against]
     projects = tmp_path / "projects.json"
@@ -3663,7 +3859,7 @@ def test_guide_runs_the_gate_of_the_release(tmp_path: Path) -> None:
     argv = ["guide", release, "0.2.0", "--candidate", str(repo), "-j", "2"]
     argv += ["--candidate-python", sys.executable, "--cache-dir", str(tmp_path / "cache")]
     argv += ["--projects", str(projects), "--allowlist", str(allowlist)]
-    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+    with shared_runs(), redirect_stdout(StringIO()), redirect_stderr(StringIO()):
         code = behaviour_diff.main([*argv, "--docs", str(page := tmp_path / "page.json")])
     assert_output(f"exit={code}\n{page.read_text(encoding='utf-8').replace(release, 'RELEASE')}")
 
@@ -4082,6 +4278,16 @@ NO_BEHAVIOUR = CellEvidence("no-behaviour", model_files=True, rule_b=True, paylo
 TYPE_LINE = "[type] Model:a: int -> float"
 DECIDED = _judged("decided-change", _lines("tests/data/**", aspects=("type",), match="int -> float"))
 OUTPUT, EXIT, WARNINGS, MESSAGES = CellKind.OUTPUT, CellKind.EXIT, CellKind.WARNINGS, CellKind.MESSAGES
+GAP_NOTICE = _judged("notice", _lines("tests/data/**", match="gap"))
+TRACK_NOTICE = replace(GAP_NOTICE, id="other-notice", cells=(_lines("tests/data/**", match="track"),))
+GAP_WARNING, TRACK_WARNING = "[warning] added UserWarning: mind the gap", "[warning] added UserWarning: off the track"
+TWO_CHANGES = (GAP_WARNING, TRACK_WARNING, "[message] removed first attempt: off the track", "[message] added gap")
+"""The warning and message lines of two changes of one release on one cell, each declared by its own notice."""
+CRASH_FIXED = CellEvidence(
+    "crash-fix", lines=("[exit] 2 -> 0", GAP_WARNING, TRACK_WARNING, "[message] removed handled: Error"), exits=(2, 0)
+)
+REMOVED_FLAG = CellEvidence("violation", lines=("[exit] 0 -> 2",), exits=(0, 2), removed=frozenset({"--old-flag"}))
+OLD_FLAG_API = _judged("api", affects=(("options", ("--old-flag",)),))
 JUDGE_CASES: dict[str, tuple[list[Record], set[CellKind], CellEvidence, behaviour_diff.Cell]] = {
     "no record": ([], {OUTPUT}, NO_BEHAVIOUR, _cell()),
     "no selector covers the cell": (
@@ -4348,14 +4554,127 @@ JUDGE_CASES: dict[str, tuple[list[Record], set[CellKind], CellEvidence, behaviou
     ),
     "a record without a category": ([_judged(None)], {OUTPUT}, NO_BEHAVIOUR, _cell()),
     "a harness record": ([_judged("harness")], {OUTPUT}, NO_BEHAVIOUR, _cell()),
+    "two notices, each line matched by one": (
+        [GAP_NOTICE, TRACK_NOTICE],
+        {WARNINGS, MESSAGES},
+        CellEvidence("same", lines=TWO_CHANGES),
+        _cell(),
+    ),
+    "two notices and a warning line neither matches": (
+        [GAP_NOTICE, TRACK_NOTICE],
+        {WARNINGS, MESSAGES},
+        CellEvidence("same", lines=(*TWO_CHANGES, "[warning] added UserWarning: other")),
+        _cell(),
+    ),
+    "one notice and the lines of another change it does not declare": (
+        [GAP_NOTICE],
+        {WARNINGS, MESSAGES},
+        CellEvidence("same", lines=TWO_CHANGES),
+        _cell(),
+    ),
+    "a crash-fix on a cell that was no crash, two notices matching every line": (
+        [_judged("crash-fix"), GAP_NOTICE, TRACK_NOTICE],
+        {WARNINGS, MESSAGES},
+        CellEvidence("same", lines=TWO_CHANGES),
+        _cell(),
+    ),
+    "a crash-fix on a cell that was no crash, two notices and a message line neither matches": (
+        [_judged("crash-fix"), GAP_NOTICE, TRACK_NOTICE],
+        {WARNINGS, MESSAGES},
+        CellEvidence("same", lines=(*TWO_CHANGES, "[message] added other")),
+        _cell(),
+    ),
+    "a crash-fix on a cell that was no crash beside a notice, a warning line it does not match": (
+        [_judged("crash-fix"), GAP_NOTICE],
+        {WARNINGS, MESSAGES},
+        CellEvidence("same", lines=("[warning] added UserWarning: other", "[message] added gap")),
+        _cell(),
+    ),
+    "a crash-fix and two notices, each warning matched by one": (
+        [_judged("crash-fix"), GAP_NOTICE, TRACK_NOTICE],
+        {OUTPUT, EXIT, WARNINGS, MESSAGES},
+        CRASH_FIXED,
+        _cell(),
+    ),
+    "a crash-fix and a notice that matches the warnings only": (
+        [_judged("crash-fix"), _judged("notice", _lines("tests/data/**", match="UserWarning"))],
+        {OUTPUT, EXIT, WARNINGS, MESSAGES},
+        CRASH_FIXED,
+        _cell(),
+    ),
+    "a crash-fix and two notices when a signature could not be taken": (
+        [_judged("crash-fix"), GAP_NOTICE, TRACK_NOTICE],
+        {OUTPUT, EXIT, WARNINGS, MESSAGES},
+        replace(CRASH_FIXED, signature_failed=True),
+        _cell(),
+    ),
+    "api beside a crash-fix on a cell that now fails": (
+        [OLD_FLAG_API, _judged("crash-fix")],
+        {EXIT, MESSAGES},
+        REMOVED_FLAG,
+        _cell(options=("--old-flag",)),
+    ),
+    "api beside a decision that selects none of the lines": (
+        [OLD_FLAG_API, DECIDED],
+        {EXIT, MESSAGES},
+        REMOVED_FLAG,
+        _cell(options=("--old-flag",)),
+    ),
+    "output-text beside a crash-fix on a cell that was no crash": (
+        [_judged("output-text"), _judged("crash-fix")],
+        {OUTPUT},
+        NO_BEHAVIOUR,
+        _cell(),
+    ),
+    "output-text and a notice beside an experimental record whose companion differs": (
+        [
+            _judged("experimental", affects=(("experimental", ("cli-option.generate-client",)),)),
+            _judged("output-text"),
+            GAP_NOTICE,
+        ],
+        {OUTPUT, WARNINGS},
+        replace(NO_BEHAVIOUR, companion_equal=False, lines=(GAP_WARNING,)),
+        _cell(options=("--generate-client",)),
+    ),
+    "output-text and two notices, one matching no line": (
+        [_judged("output-text"), GAP_NOTICE, TRACK_NOTICE],
+        {OUTPUT, WARNINGS},
+        replace(NO_BEHAVIOUR, lines=(GAP_WARNING,)),
+        _cell(),
+    ),
+    "a decision that selects no line beside a notice, on output that shows in no line": (
+        [DECIDED, GAP_NOTICE],
+        {OUTPUT, WARNINGS},
+        CellEvidence("violation", lines=(GAP_WARNING,)),
+        _cell(),
+    ),
+    "a notice and a signature line while the output is equal": (
+        [GAP_NOTICE],
+        {WARNINGS},
+        CellEvidence("same", lines=(TYPE_LINE, GAP_WARNING)),
+        _cell(),
+    ),
+    "output-text and a decision on a no-behaviour cell": (
+        [_judged("output-text"), DECIDED],
+        {OUTPUT},
+        NO_BEHAVIOUR,
+        _cell(),
+    ),
+    "a decision that selects the exit line beside a notice, on output that shows in no line": (
+        [_judged("default-fix", _lines("tests/data/**", aspects=("exit",))), GAP_NOTICE],
+        {OUTPUT, EXIT, WARNINGS},
+        CellEvidence("violation", lines=("[exit] 0 -> 1", GAP_WARNING), exits=(0, 1)),
+        _cell(),
+    ),
 }
 
 
 @pytest.mark.parametrize("case", sorted(JUDGE_CASES))
 def test_judge(case: str) -> None:
-    """A differing cell passes when the records that cover it admit each kind of its difference with their evidence.
+    """A differing cell passes when the records that cover it admit each kind of its difference and explain it together.
 
-    A decision's, an experimental or a crash-fix record's holding evidence covers the kinds it admits alone.
+    Decisions and notices explain the lines their selectors select, the other categories the kinds they admit, where
+    their evidence holds; a record whose evidence fails is no failure where the others explain all it admits.
     """
     records, found, evidence, cell = JUDGE_CASES[case]
     verdict = judge(cell, frozenset(found), records, evidence)

@@ -26,6 +26,7 @@ import pytest
 
 from geneva import connect
 from geneva.db import Connection
+from geneva.debug.error_store import ErrorRecord, ErrorStore
 
 
 @pytest.fixture
@@ -54,3 +55,38 @@ def test_get_job_no_limit_query_does_not_overflow(pushdown_db: Connection) -> No
     # surface as a clean ValueError, not an OverflowError from the binding.
     with pytest.raises(ValueError, match="not found"):
         pushdown_db.get_job("does-not-exist")
+
+
+def test_list_jobs_reads_past_rest_pushdown_limit(rest_pushdown_db: Connection) -> None:
+    history = rest_pushdown_db._history
+    pending = {history.launch("t", "b").job_id for _ in range(12)}
+    history.launch("other", "b")
+
+    assert {
+        job.job_id for job in rest_pushdown_db.list_jobs("t", status="PENDING")
+    } == pending
+
+
+def test_errors_read_past_rest_pushdown_limit(rest_pushdown_db: Connection) -> None:
+    table = rest_pushdown_db.create_table("t", pa.table({"a": list(range(12))}))
+    ErrorStore(rest_pushdown_db).log_errors(
+        [
+            ErrorRecord(
+                error_type="ValueError",
+                error_message="bad row",
+                error_trace="",
+                job_id="j",
+                table_uri=table.uri,
+                table_name="t",
+                column_name="a",
+                udf_name="f",
+                udf_version="1",
+                batch_index=index,
+                row_address=index,
+            )
+            for index in range(12)
+        ]
+    )
+
+    assert len(table.get_errors(job_id="j")) == 12
+    assert set(table.get_failed_row_addresses("j", "a")) == set(range(12))

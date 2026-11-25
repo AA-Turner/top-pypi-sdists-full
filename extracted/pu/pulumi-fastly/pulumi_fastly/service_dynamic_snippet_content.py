@@ -189,10 +189,6 @@ class ServiceDynamicSnippetContent(pulumi.CustomResource):
 
         myservice = fastly.ServiceVcl("myservice",
             name="snippet_test",
-            domains=[{
-                "name": "snippet.fastlytestdomain.com",
-                "comment": "snippet test",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -227,10 +223,6 @@ class ServiceDynamicSnippetContent(pulumi.CustomResource):
 
         myservice = fastly.ServiceVcl("myservice",
             name="snippet_test",
-            domains=[{
-                "name": "snippet.fastlytestdomain.com",
-                "comment": "snippet test",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -298,10 +290,6 @@ class ServiceDynamicSnippetContent(pulumi.CustomResource):
 
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             dynamicsnippets=[{
                 "name": "My Dynamic Snippet",
                 "type": "recv",
@@ -391,10 +379,6 @@ class ServiceDynamicSnippetContent(pulumi.CustomResource):
 
         myservice = fastly.ServiceVcl("myservice",
             name="snippet_test",
-            domains=[{
-                "name": "snippet.fastlytestdomain.com",
-                "comment": "snippet test",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -429,10 +413,6 @@ class ServiceDynamicSnippetContent(pulumi.CustomResource):
 
         myservice = fastly.ServiceVcl("myservice",
             name="snippet_test",
-            domains=[{
-                "name": "snippet.fastlytestdomain.com",
-                "comment": "snippet test",
-            }],
             backends=[{
                 "address": "http-me.fastly.dev",
                 "name": "Glitch Test Site",
@@ -500,10 +480,6 @@ class ServiceDynamicSnippetContent(pulumi.CustomResource):
 
         myservice = fastly.ServiceVcl("myservice",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             dynamicsnippets=[{
                 "name": "My Dynamic Snippet",
                 "type": "recv",
@@ -634,6 +610,20 @@ class ServiceDynamicSnippetContent(pulumi.CustomResource):
         __props__.__dict__["service_id"] = service_id
         __props__.__dict__["snippet_id"] = snippet_id
         return ServiceDynamicSnippetContent(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            content: pulumi.Input[Optional[_builtins.str]] = None,
+            manage_snippets: pulumi.Input[Optional[_builtins.bool]] = None,
+            service_id: pulumi.Input[Optional[_builtins.str]] = None,
+            snippet_id: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["content"] = content
+        __props__["manageSnippets"] = manage_snippets
+        __props__["serviceId"] = service_id
+        __props__["snippetId"] = snippet_id
+        return pulumi.runtime.exists_resource(None, 'fastly:index/serviceDynamicSnippetContent:ServiceDynamicSnippetContent', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter

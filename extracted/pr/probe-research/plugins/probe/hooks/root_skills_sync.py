@@ -42,6 +42,9 @@ the version folder its cache holds now, and reads a `$skill`'s file when it is
 invoked (verified with codex-cli 0.163.0: after `codex plugin add` replaced
 1.0.0 with 1.0.1, the next turn listed and injected 1.0.1's SKILL.md).
 
+A gated skill (`gated-skills/`, A24) is copied only while the answer the CLI keeps on disk allows it, and
+pruned otherwise; this hook never asks Probe (`_root_skills_core.py`).
+
 Silent and fail-open by contract, like every other SessionStart step: a skill
 that could not be copied must never stop a session from starting, and a Skill
 call is refused only when this call made its copy current.
@@ -274,18 +277,22 @@ def skill_call(payload: dict, sleep=time.sleep) -> "str | None":
     wanted = core.slugs(plugin_root)
     if not wanted:
         return None
-    slug = _source_slug(name, wanted)
-    if slug is not None and core.is_current(plugin_root / core.PLUGIN_SKILLS_DIR / slug, dst):
+    # A gated skill counts only while the kept answer allows it (A24): else its copy is pruned.
+    allowed_gated = core.load_allowed_gated()
+    held = core.get_skill_sources(plugin_root, wanted, allowed_gated)
+    slug = _source_slug(name, tuple(held))
+    if slug is not None and core.is_current(held[slug], dst):
         return None
     dispatcher = _dispatcher()
     if not _installed_alone(dispatcher, plugin_root):
         return None
     # Asked again inside the copy lock: an update can land between here and there.
-    core.apply(root, plugin_root, wanted, still_installed=lambda: _installed_alone(dispatcher, plugin_root))
+    core.apply(root, plugin_root, wanted, still_installed=lambda: _installed_alone(dispatcher, plugin_root),
+               allowed_gated=allowed_gated)
     if slug is None:
         made_current = not (dst.exists() or dst.is_symlink())
     else:
-        made_current = core.is_current(plugin_root / core.PLUGIN_SKILLS_DIR / slug, dst)
+        made_current = core.is_current(held[slug], dst)
     if not made_current:
         # Another session holds the sync, or the write failed: let the call run
         # on whatever is loaded rather than refuse it with nothing fixed.

@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt::{self, Display, Formatter};
 use std::ops::{Bound, Deref};
+use std::slice;
 use std::str::FromStr;
 
 use arcstr::ArcStr;
@@ -744,29 +745,6 @@ impl Default for MarkerTree {
     }
 }
 
-impl<'de> Deserialize<'de> for MarkerTree {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct Visitor;
-
-        impl de::Visitor<'_> for Visitor {
-            type Value = MarkerTree;
-
-            fn expecting(&self, f: &mut Formatter) -> fmt::Result {
-                f.write_str("a string")
-            }
-
-            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
-                MarkerTree::from_str(v).map_err(de::Error::custom)
-            }
-        }
-
-        deserializer.deserialize_str(Visitor)
-    }
-}
-
 impl FromStr for MarkerTree {
     type Err = Pep508Error;
 
@@ -781,6 +759,39 @@ impl MarkerTree {
         let mut interner = INTERNER.lock();
         let value = operation(&mut interner);
         Self(interner.canonicalize(value))
+    }
+
+    /// Deserialize a dependency marker.
+    pub fn deserialize_dependency<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self, D::Error> {
+        Self::from_str(&String::deserialize(deserializer)?).map_err(de::Error::custom)
+    }
+
+    /// Parse an environment selector.
+    pub fn parse_environment(input: &str) -> Result<Self, Pep508Error> {
+        Self::from_str(input)
+    }
+
+    /// Deserialize an environment selector.
+    pub fn deserialize_environment<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self, D::Error> {
+        Self::parse_environment(&String::deserialize(deserializer)?).map_err(de::Error::custom)
+    }
+
+    /// Deserialize a list of environment selectors.
+    pub fn deserialize_environment_list<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Vec<Self>, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(transparent)]
+        struct EnvironmentMarker(
+            #[serde(deserialize_with = "MarkerTree::deserialize_environment")] MarkerTree,
+        );
+
+        Vec::<EnvironmentMarker>::deserialize(deserializer)
+            .map(|markers| markers.into_iter().map(|marker| marker.0).collect())
     }
 
     /// An empty marker that always evaluates to `true`.
@@ -1370,6 +1381,26 @@ impl MarkerTree {
         self.simplify_not_extras_with_impl(&is_extra)
     }
 
+    /// Specialize a dependency marker for the base package or one of its extras.
+    ///
+    /// Dependencies already active for the base package are omitted from the extra.
+    ///
+    /// For `foo; sys_platform == 'win32' or extra == 'feature'`, the base package
+    /// (`extra` is `None`) gets `foo; sys_platform == 'win32'`. The `feature` extra
+    /// gets `foo; sys_platform != 'win32'` because it already gets `foo` from the
+    /// base package on Windows.
+    #[must_use]
+    pub fn for_dependency_extra(self, extra: Option<&ExtraName>) -> Self {
+        let production = self.simplify_not_extras_with(|_| true);
+        match extra {
+            None => production,
+            Some(extra) => self
+                .simplify_extras(slice::from_ref(extra))
+                .simplify_not_extras_with(|candidate| candidate != extra)
+                .and(production.negate()),
+        }
+    }
+
     /// Returns a new `MarkerTree` where all `extra` expressions are removed.
     ///
     /// If the marker only consisted of `extra` expressions, then a marker that
@@ -1387,10 +1418,10 @@ impl MarkerTree {
     /// when this marker contains an `extra` expression.
     #[must_use]
     pub fn resolve_extras(self, known_extras: impl IntoIterator<Item = (ExtraName, Self)>) -> Self {
-        if self.is_true() || self.is_false() {
-            return self;
-        }
-        if !INTERNER.shared.contains_extras(self.0) {
+        if !INTERNER
+            .shared
+            .contains_variable(self.0, |variable| matches!(variable, Variable::Extra(_)))
+        {
             return self;
         }
         let known_extras: FxHashMap<_, _> = known_extras
@@ -1414,7 +1445,10 @@ impl MarkerTree {
         self,
         known_extras: impl IntoIterator<Item = (ExtraName, (Self, Self))>,
     ) -> (Self, Self) {
-        if self.is_true() || self.is_false() || !INTERNER.shared.contains_extras(self.0) {
+        if !INTERNER
+            .shared
+            .contains_variable(self.0, |variable| matches!(variable, Variable::Extra(_)))
+        {
             return (self, self);
         }
 
@@ -4002,7 +4036,9 @@ mod test {
         let serialized = serde_json::to_string(&MarkerTree::FALSE.contents())?;
         assert_snapshot!(serialized, @r#""python_version < '0'""#);
         assert_eq!(
-            serde_json::from_str::<MarkerTree>(&serialized)?,
+            MarkerTree::deserialize_dependency(&mut serde_json::Deserializer::from_str(
+                &serialized,
+            ))?,
             MarkerTree::FALSE,
         );
         Ok(())

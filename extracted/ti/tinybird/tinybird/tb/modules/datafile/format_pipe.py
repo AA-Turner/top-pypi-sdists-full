@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from tinybird.datafile.common import (
     ON_DEMAND,
@@ -134,9 +134,9 @@ def format_node(
     file_parts.append(f"NODE {node['name'].strip()}")
     file_parts.append(DATAFILE_NEW_LINE)
 
-    from collections import namedtuple
+    class Doc(NamedTuple):
+        description: str
 
-    Doc = namedtuple("Doc", ["description"])
     format_description(file_parts, Doc(node.get("description", "")))
     format_node_sql(
         file_parts,

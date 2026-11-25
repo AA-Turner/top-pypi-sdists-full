@@ -16,7 +16,6 @@ from hanzoai.cloud.api.base_api import BaseApi
 from hanzoai.cloud.api.benchmark_api import BenchmarkApi
 from hanzoai.cloud.api.billing_api import BillingApi
 from hanzoai.cloud.api.blueprint_api import BlueprintApi
-from hanzoai.cloud.api.books_api import BooksApi
 from hanzoai.cloud.api.bot_api import BotApi
 from hanzoai.cloud.api.campaign_api import CampaignApi
 from hanzoai.cloud.api.captable_api import CaptableApi
@@ -30,6 +29,7 @@ from hanzoai.cloud.api.compliance_api import ComplianceApi
 from hanzoai.cloud.api.compute_api import ComputeApi
 from hanzoai.cloud.api.content_api import ContentApi
 from hanzoai.cloud.api.crawl_api import CrawlApi
+from hanzoai.cloud.api.cyber_api import CyberApi
 from hanzoai.cloud.api.dataroom_api import DataroomApi
 from hanzoai.cloud.api.dataset_api import DatasetApi
 from hanzoai.cloud.api.deploy_api import DeployApi
@@ -46,6 +46,7 @@ from hanzoai.cloud.api.event_api import EventApi
 from hanzoai.cloud.api.exec_api import ExecApi
 from hanzoai.cloud.api.experiment_api import ExperimentApi
 from hanzoai.cloud.api.explorer_api import ExplorerApi
+from hanzoai.cloud.api.finance_api import FinanceApi
 from hanzoai.cloud.api.flag_api import FlagApi
 from hanzoai.cloud.api.flow_api import FlowApi
 from hanzoai.cloud.api.form_api import FormApi
@@ -69,6 +70,7 @@ from hanzoai.cloud.api.library_api import LibraryApi
 from hanzoai.cloud.api.licensing_api import LicensingApi
 from hanzoai.cloud.api.link_api import LinkApi
 from hanzoai.cloud.api.lsp_api import LspApi
+from hanzoai.cloud.api.machines_api import MachinesApi
 from hanzoai.cloud.api.market_api import MarketApi
 from hanzoai.cloud.api.marketing_api import MarketingApi
 from hanzoai.cloud.api.marketplace_api import MarketplaceApi
@@ -96,6 +98,7 @@ from hanzoai.cloud.api.pubsub_api import PubsubApi
 from hanzoai.cloud.api.reference_api import ReferenceApi
 from hanzoai.cloud.api.referral_api import ReferralApi
 from hanzoai.cloud.api.registry_api import RegistryApi
+from hanzoai.cloud.api.research_api import ResearchApi
 from hanzoai.cloud.api.reward_api import RewardApi
 from hanzoai.cloud.api.risk_api import RiskApi
 from hanzoai.cloud.api.s3_api import S3Api

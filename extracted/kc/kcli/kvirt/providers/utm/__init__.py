@@ -8,6 +8,7 @@ import json
 import os
 import plistlib
 import re
+import shlex
 import subprocess
 from shutil import which, copy2
 from tempfile import TemporaryDirectory
@@ -21,6 +22,7 @@ UTM_POOL_DIR = os.path.expanduser('~/.kcli/utm/pool')
 UTM_IMAGES_DIR = os.path.expanduser('~/.kcli/utm/images')
 UTM_DOCUMENTS_DIR = os.path.expanduser('~/Library/Containers/com.utmapp.UTM/Data/Documents')
 UTM_GALLERY_URL = 'https://mac.getutm.app/gallery/'
+UTM_APPLE_SHARING_MIN_VERSION = (5, 0, 4)
 
 
 def _osascript(script):
@@ -70,10 +72,14 @@ def _find_vm_disk_files(vm_name):
 
 
 class Kutm(object):
-    def __init__(self, debug=False, backend='qemu'):
+    def __init__(self, debug=False, backend='qemu', ssh_port=22, ssh_user=None, ssh_insecure=True):
         self.conn = None
         self.debug = debug
         self.backend = backend.lower()
+        self.ssh_port = int(ssh_port)
+        self.ssh_user = ssh_user
+        self.ssh_insecure = ssh_insecure
+        self.ssh_identityfile = None
         if self.backend not in ('qemu', 'apple'):
             error(f"Unsupported UTM backend {backend}. Choose qemu or apple")
             return
@@ -83,7 +89,7 @@ class Kutm(object):
         os.makedirs(UTM_POOL_DIR, exist_ok=True)
         os.makedirs(UTM_IMAGES_DIR, exist_ok=True)
         try:
-            _osascript('tell application "UTM" to get UTM version')
+            self.utm_version = _osascript('tell application "UTM" to get UTM version')
             self.conn = 'utm'
         except Exception as e:
             error(f"Could not connect to UTM. Make sure UTM is running: {e}")
@@ -248,6 +254,15 @@ end tell'''
         backend = overrides.get('backend', self.backend).lower()
         if backend not in ('qemu', 'apple'):
             return {'result': 'failure', 'reason': f"Unsupported UTM backend {backend}. Choose qemu or apple"}
+        if backend == 'apple' and sharedfolders:
+            version = getattr(self, 'utm_version', '')
+            match = re.match(r'^(\d+)\.(\d+)\.(\d+)(?:$|\D)', version)
+            if match is None or tuple(map(int, match.groups())) < UTM_APPLE_SHARING_MIN_VERSION:
+                return {'result': 'failure', 'reason':
+                        f"Apple shared folders require UTM 5.0.4 or newer containing the shared-directory "
+                        f"scripting fix f2c3ecae (installed: {version or 'unknown'}). UTM 4.7.5 cannot grant "
+                        "folder access through scripting. Use a UTM build containing the fix: "
+                        "https://github.com/utmapp/UTM/commit/f2c3ecaedcda5fe4d2745234cfccc8abbedc9c38"}
         if backend == 'apple' and (tpm or not overrides.get('uefi', True)):
             return {'result': 'failure', 'reason': "The Apple backend requires UEFI and does not support TPM"}
         uefi = overrides.get('uefi', True)
@@ -338,6 +353,8 @@ end tell'''
         vm_metadata = {'plan': plan, 'profile': profile, 'image': image or '', 'user': common.getuser(),
                        'creationdate': common.datetime.now().strftime('%d-%m-%Y %H:%M'), 'domain': domain or '',
                        'tags': tags}
+        if vmuser is not None:
+            vm_metadata['vmuser'] = vmuser
         vm_metadata.update(metadata)
         try:
             self._set_vm_notes(name, vm_metadata)
@@ -353,6 +370,15 @@ end tell'''
                                            vmuser=vmuser)
                 metadata_ci, netdata = userdata, None
             else:
+                if backend == 'apple' and sharedfolders:
+                    # cloud-init's mounts module expects a block device or network
+                    # source and can discard the VirtioFS tag, so use runcmd.
+                    cmds = [
+                        'mkdir -p /mnt/host',
+                        "grep -Eq '^share[[:space:]]+/mnt/host[[:space:]]+virtiofs[[:space:]]' /etc/fstab || "
+                        "echo 'share /mnt/host virtiofs rw,nofail 0 0' >> /etc/fstab",
+                        'mount /mnt/host',
+                    ] + list(cmds)
                 userdata, metadata_ci, netdata = common.cloudinit(name=name, keys=keys, cmds=cmds, nets=nets,
                                                                   gateway=gateway, dns=dns, domain=domain,
                                                                   files=files, enableroot=enableroot,
@@ -365,6 +391,8 @@ end tell'''
                         if interface is not None:
                             interface['match'] = {'macaddress': net['mac']}
                             interface['set-name'] = net['nic']
+                            if interface.get('dhcp4'):
+                                interface['dhcp-identifier'] = 'mac'
                     netdata = yaml.safe_dump(network_config)
             with TemporaryDirectory() as tmpdir:
                 result = common.make_iso(name, tmpdir, userdata, metadata_ci, netdata, openstack=needs_ignition)
@@ -379,13 +407,11 @@ end tell'''
                         warning(f"Could not attach cloud-init ISO to {name}: {e}")
         if sharedfolders:
             try:
-                share_setting = 'set directory share mode of config to virtfs' if backend == 'qemu' else \
-                    'set directory shares of config to {' + ', '.join('{read only:false}' for _ in sharedfolders) + '}'
+                share_config = '{directory share mode:virtfs}' if backend == 'qemu' else \
+                    '{directory shares:{' + ', '.join('{read only:false}' for _ in sharedfolders) + '}}'
                 script = f'''tell application "UTM"
 set vm to virtual machine named "{name}"
-set config to configuration of vm
-{share_setting}
-update configuration of vm with config
+update configuration of vm with {share_config}
 end tell'''
                 _osascript(script)
             except Exception as e:
@@ -633,7 +659,7 @@ end tell'''
         yamlinfo['profile'] = metadata.get('profile', '')
         yamlinfo['image'] = metadata.get('image', '')
         image = yamlinfo['image']
-        yamlinfo['user'] = common.get_user(image) if image else ''
+        yamlinfo['user'] = metadata.get('vmuser') or (common.get_user(image) if image else '')
         yamlinfo['creationdate'] = metadata.get('creationdate', '')
         yamlinfo['domain'] = metadata.get('domain', '')
         yamlinfo['tags'] = metadata.get('tags', [])
@@ -660,9 +686,11 @@ end tell'''
             pass
         if status == 'started':
             try:
-                ip = self.ip(name)
+                ip, ssh_error = self._ip_status(name)
                 if ip:
                     yamlinfo['ip'] = ip
+                elif ssh_error:
+                    yamlinfo['ssh_error'] = ssh_error
             except Exception:
                 pass
         yamlinfo['nets'] = []
@@ -746,18 +774,48 @@ end tell'''
         return yamlinfo
 
     def ip(self, name):
+        return self._ip_status(name)[0]
+
+    def _ip_status(self, name):
         try:
             if self._get_vm_backend(name) == 'apple':
-                return self._dhcp_ip(name)
+                ip = self._dhcp_ip(name)
+                if not ip:
+                    return None, f"No unambiguous DHCP address found for {name}; the guest may still be booting"
+                metadata = self._get_vm_notes(name)
+                user = self.ssh_user or metadata.get('vmuser') or common.get_user(metadata.get('image', ''))
+                reason = self._ssh_error(name, ip, user)
+                if reason:
+                    return None, reason
+                return ip, None
             script = f'''tell application "UTM"
 set vm to virtual machine named "{name}"
 set ipList to query ip of vm
 return item 1 of ipList
 end tell'''
             ip = _osascript(script)
-            return ip if ip else None
-        except Exception:
-            return None
+            return ip if ip else None, None
+        except Exception as e:
+            return None, f"Could not discover an IP for {name}: {e}"
+
+    def _ssh_error(self, name, ip, user):
+        # sshd may answer before cloud-init installs the login keys. Verify a
+        # noninteractive login using the same credentials as kcli ssh.
+        command = shlex.split(common.ssh(name, ip=ip, user=user, cmd='true', vmport=self.ssh_port,
+                                         identityfile=self.ssh_identityfile, insecure=self.ssh_insecure))
+        command[1:1] = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=2', '-o', 'ConnectionAttempts=1',
+                        '-o', 'ControlMaster=no', '-o', 'ControlPath=none']
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=3)
+        except subprocess.TimeoutExpired:
+            return f"SSH login to {user}@{ip}:{self.ssh_port} timed out; the guest may still be booting"
+        except OSError as e:
+            return f"Could not check SSH login for {name}: {e}"
+        if result.returncode:
+            errors = result.stderr.strip().splitlines()
+            reason = errors[-1] if errors else f"SSH exited with status {result.returncode}"
+            return f"SSH login to {user}@{ip}:{self.ssh_port} failed: {reason}"
+        return None
 
     def _dhcp_ip(self, name):
         # The QEMU guest agent is unavailable on Apple's virtualization backend.
@@ -776,15 +834,28 @@ end tell'''
                 leases = f.read()
         except OSError:
             return None
+        hostname_ips = set()
+        has_duid_match = False
         for block in reversed(re.findall(r'\{([^}]+)\}', leases)):
             lease = dict(re.findall(r'^\s*(\w+)=(.*)$', block, re.MULTILINE))
             mac = lease.get('hw_address', '').split(',')[-1].strip().lower()
             mac = ':'.join(part.zfill(2) for part in mac.split(':'))
+            ip = lease.get('ip_address', '').strip()
+            if not ip:
+                continue
+            # A current NIC match takes precedence over every hostname match,
+            # regardless of the order of retained leases in macOS's file.
+            if mac in macs:
+                return ip
             # systemd-networkd may identify itself with an IAID/DUID instead of
             # an Ethernet address. macOS then records its hostname in the lease.
-            duid_match = lease.get('hw_address', '').startswith('ff,') and lease.get('name', '').strip() == name
-            if mac in macs or duid_match:
-                return lease.get('ip_address', '').strip() or None
+            if lease.get('name', '').strip() == name:
+                hostname_ips.add(ip)
+                has_duid_match |= lease.get('hw_address', '').startswith('ff,')
+        # A reused VM name can identify several retained addresses. Without a
+        # matching NIC, there is no reliable way to select the current one.
+        if has_duid_match and len(hostname_ips) == 1:
+            return hostname_ips.pop()
         return None
 
     def volumes(self, iso=False, extended=False):

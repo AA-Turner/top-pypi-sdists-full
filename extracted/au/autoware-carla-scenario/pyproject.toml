@@ -1,6 +1,6 @@
 [project]
 name = "autoware-carla-scenario"
-version = "29.0.11"
+version = "29.3.12"
 description = "CARLA scenario testing framework for Autoware"
 readme = "README.md"
 license = "Apache-2.0"
@@ -85,7 +85,7 @@ hils-setup = [
     "ansible-runner>=2.4",
     "ansible-core>=2.15",
 ]
-pack = ["carla-pack-registry>=0.3.2,<0.4"]
+pack = ["carla-pack-registry>=0.5,<0.6"]
 agent = ["agent-skill-installer>=0.5.0,<0.6"]
 viewer = ["autoware-carla-scenario-rerun[viewer]>=0.3,<0.4"]
 

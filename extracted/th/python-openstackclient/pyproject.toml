@@ -10,20 +10,74 @@ authors = [
 ]
 readme = {file = "README.rst", content-type = "text/x-rst"}
 license = "Apache-2.0"
-dynamic = ["version", "dependencies"]
+dynamic = ["version"]
 requires-python = ">=3.11"
 classifiers = [
-  "Environment :: OpenStack",
-  "Intended Audience :: Information Technology",
-  "Intended Audience :: System Administrators",
-  "Operating System :: POSIX :: Linux",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Typing :: Typed",
+    "Environment :: OpenStack",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+dependencies = [
+    "cryptography>=2.7", # BSD/Apache-2.0
+    "cliff>=4.17.0", # Apache-2.0
+    "iso8601>=0.1.11", # MIT
+    "openstacksdk>=4.24.0", # Apache-2.0
+    "osc-lib>=4.7.0", # Apache-2.0
+    "oslo.i18n>=3.15.3", # Apache-2.0
+    "python-keystoneclient>=3.22.0", # Apache-2.0
+    "python-manilaclient>=6.0.0", # Apache-2.0
+    "requests>=2.27.0", # Apache-2.0
+    "stevedore>=2.0.1", # Apache-2.0
+]
+
+[dependency-groups]
+test = [
+    "coverage!=4.4,>=4.0", # Apache-2.0
+    "fixtures>=3.0.0", # Apache-2.0/BSD
+    "hacking>=8.0.0", # Apache-2.0
+    "requests-mock>=1.2.0", # Apache-2.0
+    "stestr>=1.0.0", # Apache-2.0
+    "testtools>=2.2.0", # MIT
+    "tempest>=17.1.0", # Apache-2.0
+    "osprofiler>=1.4.0", # Apache-2.0
+    "wrapt>=1.7.0", # BSD License
+    "ddt>=1.0.1", # MIT
+]
+doc = [
+    "openstackdocstheme>=2.2.1", # Apache-2.0
+    "reno>=3.1.0", # Apache-2.0
+    "sphinx>=2.0.0,!=2.1.0", # BSD
+    "sphinxcontrib-apidoc>=0.2.0", # BSD
+    "whereto>=0.5.0", # Apache-2.0
+    "aodhclient>=0.9.0", # Apache-2.0
+    "gnocchiclient>=3.3.1", # Apache-2.0
+    "osc-placement>=1.7.0", # Apache-2.0
+    "python-barbicanclient>=4.5.2", # Apache-2.0
+    "python-designateclient>=2.7.0", # Apache-2.0
+    "python-heatclient>=1.10.0", # Apache-2.0
+    "python-ironicclient>=2.3.0", # Apache-2.0
+    "python-ironic-inspector-client>=1.5.0", # Apache-2.0
+    "python-magnumclient>=2.3.0", # Apache-2.0
+    "python-manilaclient>=2.0.0", # Apache-2.0
+    "python-mistralclient!=3.2.0,>=3.1.0", # Apache-2.0
+    "python-neutronclient>=6.7.0", # Apache-2.0
+    "python-octaviaclient>=1.11.0", # Apache-2.0
+    "python-troveclient>=3.1.0", # Apache-2.0
+    "python-watcherclient>=2.5.0", # Apache-2.0
+    "python-zaqarclient>=1.0.0", # Apache-2.0
+    "python-zunclient>=3.6.0", # Apache-2.0
+]
+types = [
+    "mypy",
+    "types-requests",
 ]
 
 [project.urls]
@@ -44,6 +98,7 @@ identity = "openstackclient.identity.client"
 image = "openstackclient.image.client"
 network = "openstackclient.network.client"
 object_store = "openstackclient.object.client"
+placement = "openstackclient.placement.client"
 volume = "openstackclient.volume.client"
 
 [project.entry-points."openstack.common"]
@@ -308,6 +363,7 @@ project_delete = "openstackclient.identity.v3.project:DeleteProject"
 project_list = "openstackclient.identity.v3.project:ListProject"
 project_set = "openstackclient.identity.v3.project:SetProject"
 project_show = "openstackclient.identity.v3.project:ShowProject"
+project_unset = "openstackclient.identity.v3.project:UnsetProject"
 region_create = "openstackclient.identity.v3.region:CreateRegion"
 region_delete = "openstackclient.identity.v3.region:DeleteRegion"
 region_list = "openstackclient.identity.v3.region:ListRegion"
@@ -704,6 +760,13 @@ object_set = "openstackclient.object.v1.object:SetObject"
 object_show = "openstackclient.object.v1.object:ShowObject"
 object_unset = "openstackclient.object.v1.object:UnsetObject"
 
+[project.entry-points."openstack.placement.v1"]
+resource_class_list = "openstackclient.placement.v1.resource_class:ListResourceClass"
+resource_class_create = "openstackclient.placement.v1.resource_class:CreateResourceClass"
+resource_class_set = "openstackclient.placement.v1.resource_class:SetResourceClass"
+resource_class_show = "openstackclient.placement.v1.resource_class:ShowResourceClass"
+resource_class_delete = "openstackclient.placement.v1.resource_class:DeleteResourceClass"
+
 [project.entry-points."openstack.share.v2"]
 share_group_create = "openstackclient.share.v2.share_groups:CreateShareGroup"
 share_group_delete = "openstackclient.share.v2.share_groups:DeleteShareGroup"
@@ -879,6 +942,10 @@ volume_snapshot_list = "openstackclient.volume.v3.volume_snapshot:ListVolumeSnap
 volume_snapshot_set = "openstackclient.volume.v3.volume_snapshot:SetVolumeSnapshot"
 volume_snapshot_show = "openstackclient.volume.v3.volume_snapshot:ShowVolumeSnapshot"
 volume_snapshot_unset = "openstackclient.volume.v3.volume_snapshot:UnsetVolumeSnapshot"
+volume_type_default_set = "openstackclient.volume.v3.default_type:SetDefaultType"
+volume_type_default_unset = "openstackclient.volume.v3.default_type:UnsetDefaultType"
+volume_type_default_list = "openstackclient.volume.v3.default_type:ListDefaultType"
+volume_type_default_show = "openstackclient.volume.v3.default_type:ShowDefaultType"
 volume_type_create = "openstackclient.volume.v3.volume_type:CreateVolumeType"
 volume_type_delete = "openstackclient.volume.v3.volume_type:DeleteVolumeType"
 volume_type_list = "openstackclient.volume.v3.volume_type:ListVolumeType"
@@ -935,7 +1002,7 @@ quote-style = "preserve"
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = ["E4", "E5", "E7", "E9", "F", "G", "RUF", "S", "UP"]
+select = ["E", "F", "G", "LOG", "RUF", "S", "UP", "W"]
 ignore = [
     "S101",  # Asserts are used for type narrowing
     # the following are ignored because they don't provide enough value for the

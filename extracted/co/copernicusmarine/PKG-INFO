@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copernicusmarine
-Version: 2.5.1
+Version: 2.5.2
 Summary: Command line interface and Python API for accessing Copernicus Marine data and related services.
 License-Expression: EUPL-1.2
 License-File: LICENSE.txt
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Provides-Extra: extra
 Requires-Dist: arcosparse (>=0.5.1,<0.6.0)
 Requires-Dist: boto3 (>=1.26)

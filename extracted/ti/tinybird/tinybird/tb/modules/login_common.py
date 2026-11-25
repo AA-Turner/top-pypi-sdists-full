@@ -13,7 +13,7 @@ import urllib.parse
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
 import click
@@ -78,7 +78,7 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
 
         if "code" in query_params:
             code = query_params["code"][0]
-            self.server.auth_callback(code)  # type: ignore
+            self.server.auth_callback(code)  # type: ignore[attr-defined]
             self.send_response(200)
             self.end_headers()
         else:
@@ -86,7 +86,7 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
 
         self.server.shutdown()
 
-    def log_message(self, format, *args):  # noqa: ARG002
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: ARG002
         # Override BaseHTTPRequestHandler.log_message to silence default stderr logging.
         return
 
@@ -97,13 +97,19 @@ AUTH_SERVER_PORT = 49160
 class AuthServer(socketserver.TCPServer):
     allow_reuse_address = True
 
-    def __init__(self, server_address, RequestHandlerClass, auth_callback, auth_host):
+    def __init__(
+        self,
+        server_address: Tuple[str, int],
+        RequestHandlerClass: type[socketserver.BaseRequestHandler],
+        auth_callback: Callable[[str], None],
+        auth_host: str,
+    ) -> None:
         self.auth_callback = auth_callback
         self.auth_host = auth_host
         super().__init__(server_address, RequestHandlerClass)
 
 
-def start_server(auth_callback, auth_host):
+def start_server(auth_callback: Callable[[str], None], auth_host: str) -> None:
     with AuthServer(("", AUTH_SERVER_PORT), AuthHandler, auth_callback, auth_host) as httpd:
         httpd.timeout = 30
         start_time = time.time()
@@ -187,7 +193,7 @@ def login(
         auth_event = threading.Event()
         auth_code: list[str] = []  # Using a list to store the code, as it's mutable
 
-        def auth_callback(code):
+        def auth_callback(code: str) -> None:
             auth_code.append(code)
             auth_event.set()
 

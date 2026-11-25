@@ -448,6 +448,17 @@ bool NodeGroup::hasRetainedHorizon() const {
     return false;
 }
 
+bool NodeGroup::vacuumInMemoryUpdates(transaction_t horizon) {
+    const auto lock = chunkedGroups.lock();
+    bool didWork = false;
+    for (auto& chunkedGroup : chunkedGroups.getAllGroups(lock)) {
+        if (chunkedGroup->vacuumInMemoryUpdates(horizon)) {
+            didWork = true;
+        }
+    }
+    return didWork;
+}
+
 void NodeGroup::addColumn(TableAddColumnState& addColumnState, PageAllocator* pageAllocator,
     ColumnStats* newColumnStats) {
     dataTypes.push_back(addColumnState.propertyDefinition.getType().copy());
@@ -460,14 +471,22 @@ void NodeGroup::addColumn(TableAddColumnState& addColumnState, PageAllocator* pa
 
 void NodeGroup::rollbackInsert(row_idx_t startRow) {
     const auto lock = chunkedGroups.lock();
-    // Version rollback truncates chunked groups, but a startRow of 0 means every
-    // in-memory row is undone. Drop all chunked groups so a later append cannot
-    // stack on stale physical rows while NodeGroup::numRows is already 0.
+    // The collection calls this only for an owned suffix with no concurrent writer.
+    for (auto& group : chunkedGroups.getAllGroups(lock)) {
+        const auto groupStart = group->getStartRowIdx();
+        if (groupStart >= startRow) {
+            group->truncate(0);
+        } else if (groupStart + group->getNumRows() > startRow) {
+            group->truncate(startRow - groupStart);
+        }
+    }
+    nextRowToAppend = startRow;
     if (startRow == 0) {
         chunkedGroups.clear(lock);
         numRows = 0;
         return;
     }
+    // This also removes a chunk starting exactly at startRow, now truncated to zero.
     const auto numEmptyTrailingGroups = chunkedGroups.getNumEmptyTrailingGroups(lock);
     chunkedGroups.removeTrailingGroups(lock, numEmptyTrailingGroups);
     numRows = startRow;
@@ -579,6 +598,133 @@ std::unique_ptr<ChunkedNodeGroup> NodeGroup::checkpointInMemAndOnDisk(MemoryMana
     const UniqLock& lock, NodeGroupCheckpointState& state) const {
     const auto* txn = state.transaction ? state.transaction : &DUMMY_CHECKPOINT_TRANSACTION;
     const auto firstGroup = chunkedGroups.getFirstGroup(lock);
+    // Bounded pure-append path (gh-1678): appends beyond existing data with no
+    // overwrites are flushed per in-mem group (split to the max segment size) and
+    // appended as new ON_DISK segments instead of rewriting the whole last
+    // segment out of place (which needs pool memory proportional to one node
+    // group's data). Only taken when the legacy rewrite would exceed
+    // kCheckpointExactRewriteMaxBytes; smaller appends use the legacy exact path
+    // below (in-place updates through the shadow file, merged segments),
+    // preserving shadow-page and segmentation behavior bit-for-bit.
+    // Originals are only read (never mutated) until every flush succeeds, so a
+    // failed checkpoint leaves everything readable and retryable.
+    bool useBoundedAppend = (state.retentionHorizon == INVALID_TRANSACTION) &&
+                            firstGroup != nullptr &&
+                            firstGroup->getResidencyState() == ResidencyState::ON_DISK;
+    uint64_t appendBytes = 0;
+    if (useBoundedAppend) {
+        const auto& allGroups = chunkedGroups.getAllGroups(lock);
+        if (allGroups.empty() || allGroups[0].get() != firstGroup) {
+            useBoundedAppend = false;
+        } else {
+            for (auto columnID : state.columnIDs) {
+                if (columnID >= firstGroup->getNumColumns() ||
+                    firstGroup->hasAnyUpdates(txn, columnID, 0, firstGroup->getNumRows())) {
+                    useBoundedAppend = false;
+                    break;
+                }
+            }
+        }
+        row_idx_t totalInsertRows = 0;
+        if (useBoundedAppend) {
+            for (size_t gi = 1; gi < allGroups.size() && useBoundedAppend; gi++) {
+                const auto& grp = allGroups[gi];
+                if (grp->getResidencyState() != ResidencyState::IN_MEMORY || grp->hasUpdates() ||
+                    grp->hasDeletions(txn)) {
+                    useBoundedAppend = false;
+                    break;
+                }
+                if (grp->hasVersionInfo() &&
+                    (grp->getNumVisibleRows(txn) != grp->getNumRows() ||
+                        grp->getNumDeletions(txn, 0, grp->getNumRows()) != 0)) {
+                    useBoundedAppend = false;
+                    break;
+                }
+                totalInsertRows += grp->getNumRows();
+                for (auto columnID : state.columnIDs) {
+                    if (columnID >= grp->getNumColumns() ||
+                        grp->getColumnChunk(columnID).getNumValues() != grp->getNumRows()) {
+                        // Dropped-column (or otherwise short) chunks need the legacy
+                        // scan path's null-filling; fall back to the exact path.
+                        useBoundedAppend = false;
+                        break;
+                    }
+                    appendBytes += grp->getColumnChunk(columnID).getEstimatedMemoryUsage();
+                }
+            }
+            if (totalInsertRows == 0) {
+                useBoundedAppend = false;
+            }
+        }
+        if (useBoundedAppend) {
+            for (auto columnID : state.columnIDs) {
+                const auto& segments = firstGroup->getColumnChunk(columnID).getSegments();
+                if (!segments.empty()) {
+                    appendBytes += GetOnDiskSegmentBytes(*segments.back());
+                }
+                if (appendBytes > kCheckpointExactRewriteMaxBytes) {
+                    break;
+                }
+            }
+            if (appendBytes <= kCheckpointExactRewriteMaxBytes) {
+                useBoundedAppend = false;
+            }
+        }
+        if (useBoundedAppend) {
+            const auto& allGroups = chunkedGroups.getAllGroups(lock);
+            std::vector<std::vector<std::unique_ptr<ColumnChunkData>>> flushedPerColumn(
+                state.columnIDs.size());
+            try {
+                // Stream group by group (no merged copy): peak stays O(batch).
+                for (size_t gi = 1; gi < allGroups.size(); gi++) {
+                    const auto& grp = allGroups[gi];
+                    if (grp->getNumRows() == 0) {
+                        continue;
+                    }
+                    for (size_t i = 0; i < state.columnIDs.size(); i++) {
+                        for (const auto* seg :
+                            grp->getColumnChunk(state.columnIDs[i]).getSegments()) {
+                            if (seg->getNumValues() == 0) {
+                                continue;
+                            }
+                            if (seg->shouldSplit()) {
+                                auto pieces = seg->split(true /*targetMaxSize*/);
+                                for (auto& piece : pieces) {
+                                    piece->finalize();
+                                    flushedPerColumn[i].push_back(
+                                        Column::flushChunkData(*piece, state.pageAllocator));
+                                    piece.reset();
+                                }
+                            } else {
+                                flushedPerColumn[i].push_back(
+                                    Column::flushChunkData(*seg, state.pageAllocator));
+                            }
+                        }
+                    }
+                }
+            } catch (...) {
+                for (auto& colVec : flushedPerColumn) {
+                    for (auto& seg : colVec) {
+                        seg->reclaimStorage(state.pageAllocator);
+                    }
+                }
+                throw;
+            }
+            for (size_t i = 0; i < state.columnIDs.size(); i++) {
+                if (!flushedPerColumn[i].empty()) {
+                    firstGroup->getColumnChunk(state.columnIDs[i])
+                        .appendSegments(std::move(flushedPerColumn[i]));
+                }
+            }
+            auto checkpointedChunkedGroup = std::make_unique<ChunkedNodeGroup>(
+                *chunkedGroups.getGroup(lock, 0), state.columnIDs);
+            DASSERT(checkpointedChunkedGroup->getResidencyState() == ResidencyState::ON_DISK);
+            checkpointedChunkedGroup->resetNumRowsFromChunks();
+            checkpointedChunkedGroup->resetVersionAndUpdateInfo();
+            firstGroup->reclaimStorage(state.pageAllocator);
+            return checkpointedChunkedGroup;
+        }
+    }
     const auto numPersistentRows = firstGroup->getNumRows();
     std::vector<const Column*> columnPtrs;
     columnPtrs.reserve(state.columns.size());
@@ -639,6 +785,101 @@ std::unique_ptr<ChunkedNodeGroup> NodeGroup::checkpointInMemOnly(MemoryManager& 
     for (auto& column : state.columns) {
         columnPtrs.push_back(column);
     }
+    // Bounded pure-append path (gh-1678): flush each in-mem group split into
+    // max-size segments and combine them, skipping the scanAllInsertedAndVersions
+    // merged copy (original+merged) and its bit_ceil doubling transient. Only
+    // taken when the inserts exceed kCheckpointExactRewriteMaxBytes; smaller
+    // checkpoints use the legacy exact scan-merge-split-flush below, preserving
+    // segmentation behavior bit-for-bit. Originals are only read, never mutated,
+    // so a failed checkpoint leaves everything readable and retryable.
+    bool useBoundedPath = (state.retentionHorizon == INVALID_TRANSACTION);
+    uint64_t insertBytes = 0;
+    row_idx_t totalInsertRows = 0;
+    if (useBoundedPath) {
+        for (auto& grp : chunkedGroups.getAllGroups(lock)) {
+            if (grp->getResidencyState() != ResidencyState::IN_MEMORY || grp->hasUpdates() ||
+                grp->hasDeletions(txn)) {
+                useBoundedPath = false;
+                break;
+            }
+            if (grp->hasVersionInfo() &&
+                (grp->getNumVisibleRows(txn) != grp->getNumRows() ||
+                    grp->getNumDeletions(txn, 0, grp->getNumRows()) != 0)) {
+                useBoundedPath = false;
+                break;
+            }
+            totalInsertRows += grp->getNumRows();
+            for (auto columnID : state.columnIDs) {
+                if (columnID >= grp->getNumColumns() ||
+                    grp->getColumnChunk(columnID).getNumValues() != grp->getNumRows()) {
+                    // Dropped-column (or otherwise short) chunks need the legacy
+                    // scan path's null-filling; fall back to the exact path.
+                    useBoundedPath = false;
+                    break;
+                }
+                insertBytes += grp->getColumnChunk(columnID).getEstimatedMemoryUsage();
+            }
+            if (!useBoundedPath) {
+                break;
+            }
+        }
+        if (totalInsertRows == 0) {
+            useBoundedPath = false;
+        }
+    }
+    if (useBoundedPath && insertBytes > kCheckpointExactRewriteMaxBytes) {
+        std::vector<std::vector<std::unique_ptr<ColumnChunkData>>> flushedPerColumn(
+            state.columnIDs.size());
+        try {
+            for (size_t i = 0; i < state.columnIDs.size(); i++) {
+                const auto columnID = state.columnIDs[i];
+                for (auto& grp : chunkedGroups.getAllGroups(lock)) {
+                    if (grp->getNumRows() == 0) {
+                        continue;
+                    }
+                    const auto& colChunk = grp->getColumnChunk(columnID);
+                    for (const auto* seg : colChunk.getSegments()) {
+                        if (seg->getNumValues() == 0) {
+                            continue;
+                        }
+                        if (seg->shouldSplit()) {
+                            auto pieces = seg->split(true /*targetMaxSize*/);
+                            for (auto& piece : pieces) {
+                                piece->finalize();
+                                flushedPerColumn[i].push_back(
+                                    Column::flushChunkData(*piece, state.pageAllocator));
+                                piece.reset();
+                            }
+                        } else {
+                            flushedPerColumn[i].push_back(
+                                Column::flushChunkData(*seg, state.pageAllocator));
+                        }
+                    }
+                }
+                DASSERT(!flushedPerColumn[i].empty());
+            }
+        } catch (...) {
+            for (auto& colVec : flushedPerColumn) {
+                for (auto& seg : colVec) {
+                    seg->reclaimStorage(state.pageAllocator);
+                }
+            }
+            throw;
+        }
+        std::vector<std::unique_ptr<ColumnChunk>> flushedChunks;
+        flushedChunks.reserve(state.columnIDs.size());
+        for (auto& colVec : flushedPerColumn) {
+            const auto enableCompression = colVec.front()->isCompressionEnabled();
+            flushedChunks.push_back(
+                std::make_unique<ColumnChunk>(enableCompression, std::move(colVec)));
+        }
+        auto flushedGroup =
+            std::make_unique<ChunkedNodeGroup>(std::move(flushedChunks), 0 /*startRowIdx*/);
+        auto vinfo = std::make_shared<VersionInfo>();
+        vinfo->append(txn->getID(), 0, flushedGroup->getNumRows());
+        flushedGroup->setVersionInfo(std::move(vinfo));
+        return flushedGroup;
+    }
     auto insertChunkedGroup = scanAllInsertedAndVersions<ResidencyState::IN_MEMORY>(memoryManager,
         lock, state.columnIDs, columnPtrs, txn);
     return insertChunkedGroup->flush(txn, state.pageAllocator);
@@ -663,9 +904,14 @@ std::unique_ptr<VersionInfo> NodeGroup::checkpointVersionInfo(const UniqLock& lo
                             checkpointVersionInfo->stampDeleteCommitTS(currRow + i, deleteTS);
                         }
                     }
-                } else if (retain) {
+                }
+                if (retain) {
                     const auto insertTS = chunkedGroup->getInsertCommitTS(i);
+                    // INVALID_TRANSACTION (UINT64_MAX): a row an earlier checkpoint made visible
+                    // to every reader; stamping it would hide it.
                     if (insertTS != INVALID_TRANSACTION && insertTS >= retentionHorizon) {
+                        // Deleted rows too: delete_ marks a fresh vector ALWAYS_INSERTED, and an
+                        // earlier stamp in this vector 0-fills every other slot.
                         checkpointVersionInfo->stampInsertCommitTS(currRow + i, insertTS);
                     }
                 }
@@ -926,6 +1172,22 @@ bool NodeGroup::isVisible(const Transaction* transaction, row_idx_t rowIdxInGrou
     const auto rowIdxInChunkedGroup = rowIdxInGroup - chunkedGroup->getStartRowIdx();
     return !chunkedGroup->isDeleted(transaction, rowIdxInChunkedGroup) &&
            chunkedGroup->isInserted(transaction, rowIdxInChunkedGroup);
+}
+
+row_idx_t NodeGroup::getNumLeadingVisibleRows(const Transaction* transaction) const {
+    const auto lock = chunkedGroups.lock();
+    row_idx_t numVisible = 0;
+    for (const auto& chunkedGroup : chunkedGroups.getAllGroups(lock)) {
+        if (chunkedGroup->getStartRowIdx() != numVisible) {
+            break;
+        }
+        const auto numLeading = chunkedGroup->getNumLeadingVisibleRows(transaction);
+        numVisible += numLeading;
+        if (numLeading < chunkedGroup->getNumRows()) {
+            break;
+        }
+    }
+    return numVisible;
 }
 
 bool NodeGroup::isVisibleNoLock(const Transaction* transaction, row_idx_t rowIdxInGroup) const {

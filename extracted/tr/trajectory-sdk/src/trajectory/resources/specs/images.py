@@ -23,7 +23,7 @@ class Images(APIResource):
 
   def list(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
@@ -45,12 +45,12 @@ class Images(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._get(
       path_template(
-        "/api/v1/specs/{bench_id}/images",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/images",
+        spec_id=spec_id,
       ),
       cast_to=BenchmarkImagesPage,
       options=make_request_options(
@@ -69,7 +69,7 @@ class Images(APIResource):
 
   def build(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
@@ -89,12 +89,12 @@ class Images(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._post(
       path_template(
-        "/api/v1/specs/{bench_id}/images/build",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/images/build",
+        spec_id=spec_id,
       ),
       cast_to=BenchmarkImageBuildResponse,
       options=make_request_options(

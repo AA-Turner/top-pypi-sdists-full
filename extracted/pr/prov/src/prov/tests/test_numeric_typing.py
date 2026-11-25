@@ -1,51 +1,22 @@
-"""Numeric datatype fidelity (3.0): #235 (xsd:long collapse), #249/#251 (PROV-N).
-
-Old behaviour (2.x): Literal("42", XSD_LONG) was collapsed to int 42 at
-assertion time and re-emitted as xsd:int everywhere; PROV-N rendered
-out-of-int32 ints as bare INT_LITERALs and floats as %g xsd:float.
+"""Plain ints and floats keep their size and precision in every format (#244,
+#246, #249, #251, #256).
 """
 
 import json
 
 import pytest
 
-from prov.constants import XSD_INT, XSD_LONG
-from prov.model import Literal, ProvDocument
+from prov.model import XSD_INT, XSD_INTEGER, XSD_LONG, canonical_xsd_datatype
 from prov.tests.conftest import ex_document
 
 INT32_MAX = 2**31 - 1
 INT64_MAX = 2**63 - 1
 
 
-def test_in_range_xsd_long_literal_stays_a_literal() -> None:
-    # #235: the asserted datatype is part of the value; xsd:long for a value
-    # whose canonical datatype is xsd:int must not be collapsed.
-    entity = ex_document().entity("ex:e1", {"ex:attr": Literal("42", XSD_LONG)})
-    ((_, value),) = entity.extra_attributes
-    assert value == Literal("42", XSD_LONG)
-
-
-def test_out_of_int32_xsd_long_literal_collapses_losslessly() -> None:
-    # canonical datatype of 123456789000 IS xsd:long, so collapsing to a
-    # plain int loses nothing: re-serialization asserts xsd:long again.
-    entity = ex_document().entity(
-        "ex:e1", {"ex:attr": Literal("123456789000", XSD_LONG)}
-    )
-    ((_, value),) = entity.extra_attributes
-    assert value == 123456789000
-
-
 def test_plain_int_in_range_unchanged() -> None:
     entity = ex_document().entity("ex:e1", {"ex:attr": 42})
     ((_, value),) = entity.extra_attributes
     assert value == 42 and type(value) is int
-
-
-def test_explicit_xsd_int_literal_in_range_still_collapses() -> None:
-    # collapse remains lossless for xsd:int in range: today's behaviour kept.
-    entity = ex_document().entity("ex:e1", {"ex:attr": Literal("42", XSD_INT)})
-    ((_, value),) = entity.extra_attributes
-    assert value == 42
 
 
 def test_provn_int_magnitude_ladder() -> None:
@@ -70,15 +41,6 @@ def test_provn_float_full_precision_double() -> None:
     assert "xsd:float" not in provn
 
 
-def test_literal_built_with_int_value_equals_json_roundtrip() -> None:
-    document = ex_document()
-    document.entity("ex:e1", {"ex:attr": Literal(42, XSD_LONG)})
-    roundtripped = ProvDocument.deserialize(
-        content=document.serialize(format="json"), format="json"
-    )
-    assert document == roundtripped
-
-
 BOUNDARY_INTS = [
     INT32_MAX,
     INT32_MAX + 1,
@@ -94,6 +56,25 @@ def test_int_boundaries_roundtrip(value, roundtrip) -> None:
     document = ex_document()
     document.entity("ex:e1", {"ex:v": value})
     roundtrip(document)
+
+
+@pytest.mark.parametrize(
+    ("value", "datatype"),
+    [
+        pytest.param(INT32_MAX, XSD_INT, id="int32-max"),
+        pytest.param(INT32_MAX + 1, XSD_LONG, id="past-int32-max"),
+        pytest.param(-(2**31), XSD_INT, id="int32-min"),
+        pytest.param(-(2**31) - 1, XSD_LONG, id="past-int32-min"),
+        pytest.param(INT64_MAX, XSD_LONG, id="int64-max"),
+        pytest.param(INT64_MAX + 1, XSD_INTEGER, id="past-int64-max"),
+        pytest.param(-(2**63), XSD_LONG, id="int64-min"),
+        pytest.param(-(2**63) - 1, XSD_INTEGER, id="past-int64-min"),
+    ],
+)
+def test_xsd_int_and_long_bounds_pick_the_datatype(value, datatype) -> None:
+    # An int at a bound still round-trips equal when typed one size up, so only
+    # its datatype shows a bound that wrongly leaves it out.
+    assert canonical_xsd_datatype(value) == datatype
 
 
 def test_json_dollar_is_always_a_string() -> None:

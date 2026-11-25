@@ -1,11 +1,10 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: trickkiste
-Version: 0.3.7
+Version: 0.3.9
 Summary: Random useful stuff
 Project-URL: Repository, https://github.com/frans-fuerst/trickkiste
 Author-email: Frans Fürst <frans.fuerst+om-office@protonmail.com>
 Requires-Python: <4,>=3.10.4
-Requires-Dist: python-dateutil>=2.9.0.post0
 Description-Content-Type: text/markdown
 
 # trickkiste
@@ -67,6 +66,21 @@ description (some even have a doctest!):
 * `RichLogHandler`: a logging handler for a `textual` widget
 * `LockingRichLog`: locks your log view scroll position until you scroll to the bottom
 * `HeatBar`: a colorful heat bar widget for things like CPU monitoring
+
+### Textual stuff / tui_widgets
+
+* `Splitter`: a one-cell bar, dragging it resizes the widget next to it
+* `collapsible_log`: a log in a `Collapsible` with a `FoldingSplitter` above,
+  shown only while unfolded
+* `StatusBar`: a bottom line with the number of async tasks (all of them,
+  grouped, on hover) and a tool's name and version
+* `copy_text`, `desktop_clipboard`: text to the terminal's (OSC 52) and the
+  desktop's clipboard (wl-copy, xclip or xsel)
+* `AlertingRichLogHandler`, `with_alerts`: warnings and errors in a log pane on
+  a red-ish background, reported to the app as `LogAlert`
+* `clean_line`: a foreign process' output line without control codes
+* `SPINNER`, `scanner`: a spinner and a K.I.T.T. light over a label
+* `ConfirmScreen`: a yes/no dialog
 
 ### std_suppress
 

@@ -364,7 +364,11 @@ class DeclarativeScenario(BaseScenario):
         Registered as pre-tick callbacks rather than as actions: a controller
         is not something the storyboard does, it is a part of the road that
         keeps running underneath it, and registering it as an action would put
-        it in the list an ``action_completed`` condition can name.
+        it in the list an ``action_completed`` condition can name.  Each is
+        also registered as an init callback that shows its phase 0
+        (:meth:`~autoware_carla_scenario.signals.SignalController.prime`), so
+        the wait for the ego and a policy's run-up see the junction the run
+        starts from, frozen; the cycle itself still starts on the first tick.
 
         Cleared first, because the registry outlives a single scenario and a
         controller left over from the previous one would go on driving lights
@@ -378,6 +382,7 @@ class DeclarativeScenario(BaseScenario):
         )
         for controller in controllers:
             register_signal_controller(controller)
+            self.register_init(controller.prime)
             self.register_pre_tick(controller.tick)
         if controllers:
             logger.info(
@@ -789,8 +794,6 @@ class DeclarativeScenario(BaseScenario):
     def _build_npc(self, entity: Entity, world: "object") -> VehicleEntity:
         """Return the :class:`VehicleEntity` for *entity*, snapped to the road:
         a :class:`MotorcycleEntity` for a ``motorcycle``."""
-        from .coordinate.transform import to_opendrive  # noqa: PLC0415
-
         vehicle_type = _vehicle_type(entity, world)
         npc_class = MotorcycleEntity if entity.kind == "motorcycle" else VehicleEntity
         role = self._compiled.role_of(entity.id)
@@ -802,18 +805,17 @@ class DeclarativeScenario(BaseScenario):
                     spawn_location=SpawnTransform(self._parking_transform(entity)),
                     vehicle_type=vehicle_type,
                     initial_speed_kmh=entity.initial_speed_kmh,
-                    spawn_retry_max_count=self.ego_config.spawn_retry_max_count,
+                    # Parked under the map, in its own waiting spot: nothing
+                    # is in the way, and a retry would move it off the spot
+                    # the next one is stacked against.
+                    spawn_retry_max_count=0,
                     spawn_retry_t_step=self.ego_config.spawn_retry_t_step,
                     spawn_retry_z_step=self.ego_config.spawn_retry_z_step,
-                    od_pose=None,
                     ground_projection=self._ground_projection,
                 )
             )
         pose = _spawn_pose(entity)
-        # Snapped as the Lanelet2 pose it was authored as; the OpenDRIVE pose is
-        # carried on to the entity only to enable the spawn retries (which
-        # offset the snapped transform, not this pose).
-        od_pose = to_opendrive(pose)
+        # Snapped as the Lanelet2 pose it was authored as.
         snapped = snap_to_carla_road(
             pose, world, ground_projection=self._ground_projection
         )
@@ -830,11 +832,12 @@ class DeclarativeScenario(BaseScenario):
                 ),
                 vehicle_type=vehicle_type,
                 initial_speed_kmh=entity.initial_speed_kmh,
-                spawn_retry_max_count=self.ego_config.spawn_retry_max_count,
+                # Under the map nothing is in the way, so no retries either.
+                spawn_retry_max_count=(
+                    0 if entity.spawn.hidden else self.ego_config.spawn_retry_max_count
+                ),
                 spawn_retry_t_step=self.ego_config.spawn_retry_t_step,
                 spawn_retry_z_step=self.ego_config.spawn_retry_z_step,
-                # Under the map nothing is in the way, so no retries either.
-                od_pose=None if entity.spawn.hidden else od_pose,
                 ground_projection=self._ground_projection,
             )
         )

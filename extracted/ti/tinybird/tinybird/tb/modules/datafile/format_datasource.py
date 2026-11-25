@@ -113,7 +113,7 @@ def format_indices(file_parts: List[str], node: Dict[str, Any]) -> List[str]:
 def format_data_connector(file_parts: List[str], node: Dict[str, Any]) -> List[str]:
     ll = len(file_parts)
     quotes = "''"
-    [file_parts.append(f"{k.upper()} {v or quotes}{DATAFILE_NEW_LINE}") for k, v in node.items() if "kafka" in k]  # type: ignore
+    [file_parts.append(f"{k.upper()} {v or quotes}{DATAFILE_NEW_LINE}") for k, v in node.items() if "kafka" in k]  # type: ignore[func-returns-value]
     if ll < len(file_parts):
         file_parts.append(DATAFILE_NEW_LINE)
     return file_parts
@@ -121,7 +121,7 @@ def format_data_connector(file_parts: List[str], node: Dict[str, Any]) -> List[s
 
 def format_import_settings(file_parts: List[str], node: Dict[str, Any]) -> List[str]:
     ll = len(file_parts)
-    [file_parts.append(f"{k.upper()} {v}{DATAFILE_NEW_LINE}") for k, v in node.items() if "import_" in k]  # type: ignore
+    [file_parts.append(f"{k.upper()} {v}{DATAFILE_NEW_LINE}") for k, v in node.items() if "import_" in k]  # type: ignore[func-returns-value]
     if ll < len(file_parts):
         file_parts.append(DATAFILE_NEW_LINE)
     return file_parts

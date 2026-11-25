@@ -58,7 +58,6 @@ SEAMS: Final = (
     Seam(f"{_PACKAGE}.parser._pipeline", "Runner", "run_pass", "parse.run_pass"),
     Seam(f"{_PACKAGE}.parser._pipeline", "Runner", "run_decision", "parse.run_decision"),
     Seam(f"{_PACKAGE}.parser.base", "Parser", "_process_single_module", "parse.process_single_module", hook=True),
-    Seam(f"{_PACKAGE}.parser.generation", "GenerationStore", "seal_facts", "parse.seal_facts"),
     Seam(f"{_PACKAGE}.parser.generation", "GenerationStore", "refresh_now", "model_graph.refresh_now"),
     Seam(f"{_PACKAGE}.parser.generation", "GenerationStore", "model_key", "model_graph.model_key"),
     Seam(f"{_PASSES}.modules", None, "collapse_module_root_models", "model_graph.collapse_module_root_models"),
@@ -78,7 +77,6 @@ SEAMS: Final = (
         )
     ),
     Seam(f"{_PASSES}.naming", None, "name_models", "naming.name_models"),
-    Seam(f"{_PACKAGE}.parser._schema_graph", "SchemaGraphBuilder", "schema", "schema_graph.schema"),
     Seam(f"{_PACKAGE}.parser._schema_graph", "SchemaGraphBuilder", "pointer_value", "schema_graph.pointer_value"),
     Seam(
         f"{_PACKAGE}.parser._schema_documents",
@@ -93,18 +91,6 @@ SEAMS: Final = (
         "site_facts_of",
         "schema_graph.site_facts_of",
         holders=(f"{_PACKAGE}.parser.openapi_scope",),
-    ),
-    Seam(f"{_PACKAGE}.parser._phases", "_DecisionWriter", "drop_held_null", "parse.drop_held_null"),
-    Seam(f"{_PACKAGE}.parser._phases", "_DecisionWriter", "drop_field_constraints", "parse.drop_field_constraints"),
-    Seam(f"{_PACKAGE}.parser._phases", "_DecisionWriter", "mark_serialized_as_any", "parse.mark_serialized_as_any"),
-    Seam(f"{_PACKAGE}.parser._phases", "_DecisionWriter", "write_sets", "parse.write_sets"),
-    Seam(f"{_PACKAGE}.parser._phases", "_DecisionWriter", "omit_default", "parse.omit_default"),
-    Seam(f"{_PACKAGE}.parser._phases", "_DecisionWriter", "merge_str_like_members", "parse.merge_str_like_members"),
-    Seam(
-        f"{_PACKAGE}.parser._phases",
-        "_DecisionWriter",
-        "write_additional_properties_sets",
-        "parse.write_additional_properties_sets",
     ),
     Seam(
         f"{_PASSES}._shared",

@@ -25,12 +25,24 @@ preview in ``install_preflight`` or the ``[x]`` / ``[!]`` lines of
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from apm_cli.core.remediation import POLICY_FETCH_FAILURE_BLOCKED
 from apm_cli.install.errors import PolicyViolationError
+from apm_cli.policy.inheritance import PolicyInheritanceError
+
+# A command discovers policy several times (preflight, gate, exec trust, MCP) and
+# reuses each answer, except outcomes a retry in the same command may change.
+RETRY_OUTCOMES = frozenset({"cached_stale", "cache_miss_fetch_fail", "incomplete_chain"})
+
+
+def keep_policy_answer(result: PolicyFetchResult) -> bool:
+    """Reuse a policy answer within one command unless a retry there may change it."""
+    return result.outcome not in RETRY_OUTCOMES
+
 
 if TYPE_CHECKING:  # pragma: no cover - type-checking only
     from apm_cli.policy.discovery import PolicyFetchResult
@@ -427,16 +439,41 @@ def discover_trust_policy(project_root: Path) -> PolicyFetchResult:
     A command that has several trust readers discovers once and hands the
     result to each of them (a local bundle install, for example).
     """
-    from .discovery import PolicyFetchResult, discover_policy_with_chain
+    from .discovery import discover_policy_with_chain
 
     try:
         return discover_policy_with_chain(Path(project_root))
-    except (OSError, ValueError, RuntimeError) as exc:
-        # The exception text can carry transport detail; report its type only.
+    except POLICY_DISCOVERY_ERRORS as exc:
+        return discovery_failure_result(exc)
+
+
+# The errors a policy discovery raises for an unusable policy source; a
+# command that converts them with :func:`discovery_failure_result` lets any
+# other exception propagate instead of skipping enforcement.
+POLICY_DISCOVERY_ERRORS = (OSError, ValueError, RuntimeError, PolicyInheritanceError)
+
+
+def discovery_failure_result(exc: BaseException) -> PolicyFetchResult:
+    """Return the routable result for a policy discovery that raised *exc*.
+
+    A rejected inheritance chain (cycle, cross-host ``extends``, excess depth)
+    is a trust assertion failure and routes as ``incomplete_chain``, which
+    always blocks. Any other error is a fetch failure, so
+    ``policy.fetch_failure_default`` decides whether it blocks.
+    """
+    from .discovery import PolicyFetchResult
+
+    if isinstance(exc, PolicyInheritanceError):
+        # Discovery redacts the refs in these messages.
         return PolicyFetchResult(
-            outcome="cache_miss_fetch_fail",
-            fetch_error=f"policy discovery failed ({type(exc).__name__})",
+            outcome="incomplete_chain",
+            error=f"policy inheritance chain rejected: {exc}",
         )
+    # The exception text can carry transport detail; report its type only.
+    return PolicyFetchResult(
+        outcome="cache_miss_fetch_fail",
+        fetch_error=f"policy discovery failed ({type(exc).__name__})",
+    )
 
 
 def classify_project_policy(
@@ -572,3 +609,45 @@ def _block_on_explicit_source(
             "policy.fetch_failure_default says",
             policy_source=source,
         )
+
+
+# -- Effective-policy fingerprint (#4940) ------------------------------------
+# Install writes it into each package render record; the audit drift replay
+# compares it with the fingerprint of its own discovery. Equal fingerprints mean
+# the same discovery outcome and the same merged effective policy; an outcome
+# whose effective policy is not known for certain has none.
+
+# Outcomes whose effective policy is fully known; each fingerprints distinctly.
+_KNOWN_OUTCOMES = frozenset({"found", "empty", "absent", "no_git_remote", "disabled"})
+_DOMAIN = "apm-effective-policy/v1\0"
+
+
+def effective_policy_fingerprint(fetch: Any | None, *, disabled: bool = False) -> str | None:
+    """The fingerprint of *fetch* (a ``PolicyFetchResult``), or ``None`` when uncertain.
+
+    *disabled* marks a run whose policy gate was turned off: it has its own
+    fingerprint, distinct from every discovery outcome.
+    """
+    if disabled:
+        return _digest("gate:disabled")
+    if fetch is None:
+        return None
+    outcome = getattr(fetch, "outcome", None)
+    if outcome not in _KNOWN_OUTCOMES or getattr(fetch, "cache_stale", False):
+        return None
+    if getattr(fetch, "fetch_error", None) or getattr(fetch, "unavailable_sources", None):
+        # A source that failed to resolve leaves the effective policy uncertain.
+        return None
+    policy = getattr(fetch, "policy", None)
+    if outcome in ("found", "empty"):
+        # A policy served alongside an error is not the effective policy for certain.
+        if policy is None or getattr(fetch, "error", None):
+            return None
+        from .discovery import _serialize_policy
+
+        return _digest("policy:" + _serialize_policy(policy))
+    return _digest("outcome:" + outcome)
+
+
+def _digest(body: str) -> str:
+    return hashlib.sha256((_DOMAIN + body).encode("utf-8")).hexdigest()

@@ -36,7 +36,7 @@ class Projects(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> AgentResponse:
-    """Register an agent for the authenticated organization.
+    """Register a project for the authenticated organization.
 
     Args:
       name: Agent name, unique within the organization. Only letters, digits, spaces, hyphens,
@@ -74,8 +74,8 @@ class Projects(APIResource):
     self,
     *,
     has_deployment: bool | None | Omit = omit,
-    has_benchmarks: bool | None | Omit = omit,
-    agent_id: SequenceNotStr[str] | None | Omit = omit,
+    has_specs: bool | None | Omit = omit,
+    project_id: SequenceNotStr[str] | None | Omit = omit,
     production_model_slug: str | None | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
@@ -87,15 +87,15 @@ class Projects(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> AgentListResponse:
-    """List the authenticated organization's agents, newest first unless `sort` is given
+    """List the authenticated organization's projects, newest first unless `sort` is given
     (created_at, updated_at, name, agent_id or benchmark_count).
 
     Args:
-      has_deployment: Return only agents that do (or do not) own an active deployed model.
+      has_deployment: Return only projects that do (or do not) own an active deployed model.
 
-      has_benchmarks: Return only agents that do (or do not) own a benchmark.
+      has_specs: Return only projects that do (or do not) own a spec.
 
-      agent_id: Return only these agents; repeat for each agent ID.
+      project_id: Return only these projects; repeat for each project ID.
 
       production_model_slug: Filter by exact production model slug.
 
@@ -114,8 +114,8 @@ class Projects(APIResource):
         params=maybe_transform(
           {
             "has_deployment": has_deployment,
-            "has_benchmarks": has_benchmarks,
-            "agent_id": agent_id,
+            "has_specs": has_specs,
+            "project_id": project_id,
             "production_model_slug": production_model_slug,
             "cursor": omit if cursor is None else cursor,
             "limit": limit,
@@ -133,14 +133,14 @@ class Projects(APIResource):
 
   def retrieve(
     self,
-    agent_id: str,
+    project_id: str,
     *,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> AgentResponse:
-    """Retrieve an agent by ID.
+    """Retrieve a project by ID.
 
     Args:
       extra_headers: Send extra headers
@@ -151,12 +151,12 @@ class Projects(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(agent_id, str) and not agent_id:
-      raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
+    if isinstance(project_id, str) and not project_id:
+      raise ValueError(f"Expected a non-empty value for `project_id` but received {project_id!r}")
     return self._get(
       path_template(
-        "/api/v1/projects/{agent_id}",
-        agent_id=agent_id,
+        "/api/v1/projects/{project_id}",
+        project_id=project_id,
       ),
       cast_to=AgentResponse,
       options=make_request_options(
@@ -176,7 +176,7 @@ class Projects(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> AgentResponse:
-    """Retrieve an agent by its exact organization-scoped name.
+    """Retrieve a project by its exact organization-scoped name.
 
     Args:
       extra_headers: Send extra headers
@@ -205,11 +205,11 @@ class Projects(APIResource):
 
   def list_training_runs(
     self,
-    agent_id: str,
+    project_id: str,
     *,
     limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
-    bench_id: str | None | Omit = omit,
+    spec_id: str | None | Omit = omit,
     status: str | None | Omit = omit,
     has_training_execution: bool | None | Omit = omit,
     has_checkpoints: bool | None | Omit = omit,
@@ -218,7 +218,7 @@ class Projects(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[TrainingRunResponse]:
-    """List Agent Training Runs
+    """List Project Training Runs
 
     Args:
       extra_headers: Send extra headers
@@ -229,12 +229,12 @@ class Projects(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(agent_id, str) and not agent_id:
-      raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
+    if isinstance(project_id, str) and not project_id:
+      raise ValueError(f"Expected a non-empty value for `project_id` but received {project_id!r}")
     return self._get(
       path_template(
-        "/api/v1/projects/{agent_id}/training-runs",
-        agent_id=agent_id,
+        "/api/v1/projects/{project_id}/training-runs",
+        project_id=project_id,
       ),
       cast_to=SyncPage[TrainingRunResponse],
       options=make_request_options(
@@ -242,7 +242,7 @@ class Projects(APIResource):
           {
             "limit": limit,
             "cursor": omit if cursor is None else cursor,
-            "bench_id": bench_id,
+            "spec_id": spec_id,
             "status": status,
             "has_training_execution": has_training_execution,
             "has_checkpoints": has_checkpoints,
@@ -257,11 +257,11 @@ class Projects(APIResource):
 
   def list_evaluation_runs(
     self,
-    agent_id: str,
+    project_id: str,
     *,
     limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
-    bench_id: str | None | Omit = omit,
+    spec_id: str | None | Omit = omit,
     status: str | None | Omit = omit,
     training_run_id: str | None | Omit = omit,
     extra_headers: Headers | None = None,
@@ -269,7 +269,7 @@ class Projects(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[EvalRun]:
-    """List Agent Evaluation Runs
+    """List Project Evaluation Runs
 
     Args:
       extra_headers: Send extra headers
@@ -280,12 +280,12 @@ class Projects(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(agent_id, str) and not agent_id:
-      raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
+    if isinstance(project_id, str) and not project_id:
+      raise ValueError(f"Expected a non-empty value for `project_id` but received {project_id!r}")
     return self._get(
       path_template(
-        "/api/v1/projects/{agent_id}/evaluation-runs",
-        agent_id=agent_id,
+        "/api/v1/projects/{project_id}/evaluation-runs",
+        project_id=project_id,
       ),
       cast_to=SyncPage[EvalRun],
       options=make_request_options(
@@ -293,7 +293,7 @@ class Projects(APIResource):
           {
             "limit": limit,
             "cursor": omit if cursor is None else cursor,
-            "bench_id": bench_id,
+            "spec_id": spec_id,
             "status": status,
             "training_run_id": training_run_id,
           }
@@ -307,7 +307,7 @@ class Projects(APIResource):
 
   def update(
     self,
-    agent_id: str,
+    project_id: str,
     *,
     name: str | Omit = omit,
     description: str | None | Omit = omit,
@@ -316,7 +316,7 @@ class Projects(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> AgentResponse:
-    """Update an agent's name or description.
+    """Update a project's name or description.
 
     Args:
       name: New agent name using only letters, digits, spaces, hyphens, underscores, and
@@ -332,12 +332,12 @@ class Projects(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(agent_id, str) and not agent_id:
-      raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
+    if isinstance(project_id, str) and not project_id:
+      raise ValueError(f"Expected a non-empty value for `project_id` but received {project_id!r}")
     return self._patch(
       path_template(
-        "/api/v1/projects/{agent_id}",
-        agent_id=agent_id,
+        "/api/v1/projects/{project_id}",
+        project_id=project_id,
       ),
       cast_to=AgentResponse,
       body=maybe_transform(
@@ -357,15 +357,15 @@ class Projects(APIResource):
 
   def delete(
     self,
-    agent_id: str,
+    project_id: str,
     *,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeleteAgentResponse:
-    """Delete an agent and its benchmarks after all runs and cleanup have finished. The request
-    succeeds if the agent was already deleted.
+    """Delete a project and its specs after all runs and cleanup have finished. The request
+    succeeds if the project was already deleted.
 
     Args:
       extra_headers: Send extra headers
@@ -376,12 +376,12 @@ class Projects(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(agent_id, str) and not agent_id:
-      raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
+    if isinstance(project_id, str) and not project_id:
+      raise ValueError(f"Expected a non-empty value for `project_id` but received {project_id!r}")
     return self._delete(
       path_template(
-        "/api/v1/projects/{agent_id}",
-        agent_id=agent_id,
+        "/api/v1/projects/{project_id}",
+        project_id=project_id,
       ),
       cast_to=DeleteAgentResponse,
       options=make_request_options(

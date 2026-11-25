@@ -1,3 +1,4 @@
+import io
 import os
 import pathlib
 import re
@@ -106,20 +107,15 @@ def release(
         ctx.run("git add pipenv/pipenv.1")
         ctx.run(f'git commit -m "Release v{version}"')
 
-    tag_content = tag_content.replace('"', '\\"')
     if dry_run or pre:
         log(f"Generated tag content: {tag_content}")
-        # draft_rstfile = "CHANGELOG.draft.rst"
-        # markdown_path = pathlib.Path(draft_rstfile).with_suffix(".md")
-        # generate_markdown(ctx, source_rstfile=draft_rstfile)
-        # clean_mdchangelog(ctx, markdown_path.as_posix())
-        # log(f"would generate markdown: {markdown_path.read_text()}")
-        if not dry_run:
-            ctx.run(f'git tag -a v{version} -m "Version v{version}\n\n{tag_content}"')
-    else:
-        # generate_markdown(ctx)
-        # clean_mdchangelog(ctx)
-        ctx.run(f'git tag -a v{version} -m "Version v{version}\n\n{tag_content}"')
+    if not dry_run:
+        # Feed the message via stdin so no shell (POSIX sh or cmd.exe) ever
+        # interprets the changelog's quotes, backticks, dollars or backslashes.
+        ctx.run(
+            f"git tag -a v{version} -F -",
+            in_stream=io.StringIO(f"Version v{version}\n\n{tag_content}"),
+        )
 
 
 def drop_dist_dirs(ctx):

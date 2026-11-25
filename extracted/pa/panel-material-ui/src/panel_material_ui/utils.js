@@ -1,16 +1,27 @@
 import * as React from "react"
+import Badge from "@mui/material/Badge"
 import Icon from "@mui/material/Icon"
-import {grey} from "@mui/material/colors"
+import {blue, grey} from "@mui/material/colors"
 import {createTheme} from "@mui/material/styles"
 import {deepmerge} from "@mui/utils"
+import {elevated_surface, primary_text_color} from "./theme_colors"
+
+// Menus, popovers and dialogs sit at elevation 8 or above; the primary text
+// tint must stay readable on them, not only on the page background.
+const TEXT_SURFACE_ELEVATION = 8
 
 export const int_regex = /^[-+]?\d*$/
-export const float_regex = /^[-+]?(\d*(?:\.\d*)?)$/;
+// Accepts partial input like "-", "." or "1." while typing, and exponent
+// notation like "1e-7" (which String() produces for small and large numbers)
+// once the mantissa has a digit.
+export const float_regex = /^[-+]?(?:\d*(?:\.\d*)?|(?:\d+\.?\d*|\.\d+)[eE][-+]?\d+)$/
 
 export class SessionStore {
   constructor() {
     this.shared_var = null
     this._callbacks = []
+    // Whether the value was switched after load, e.g. by the user
+    this.switched = false
   }
 
   set_value(value) {
@@ -82,6 +93,7 @@ export function render_theme_css(theme) {
   return `
     :root, :host {
       --panel-primary-color: ${theme.palette.primary.main};
+      --pmui-dark-link-color: ${dark && theme.palette.primary.text ? theme.palette.primary.text : "initial"};
       --panel-on-primary-color: ${theme.palette.primary.contrastText};
       --panel-secondary-color: ${theme.palette.default.dark};
       --panel-on-secondary-color: ${theme.palette.text.secondary};
@@ -710,7 +722,7 @@ function has_custom_theme(custom_theme, ...names) {
 function themed_stylesheets(model, key, stylesheet) {
   const marker = `/* ${key} */`
   const next = `${marker}\n${stylesheet}`
-  return [...model.stylesheets.filter(s => !s.includes(marker)), next]
+  return [...model.stylesheets.filter(s => !(typeof s === "string" && s.includes(marker))), next]
 }
 
 function alpha(theme, channel, value) {
@@ -868,13 +880,13 @@ function apply_bokeh_theme(model, theme, dark, font_family, custom_theme=[], sta
     const stylesheet = `.bk-right.bk-active, .bk-above.bk-active {
       --highlight-color: ${theme.palette.primary.main} !important;
     }`
-    model_props.stylesheets = [...model.stylesheets, stylesheet]
+    model_props.stylesheets = themed_stylesheets(model, "pmui-toolbar", stylesheet)
   } else if (model_type.endsWith("Tooltip")) {
-    model.stylesheets = [...model.stylesheets, `
+    model.stylesheets = themed_stylesheets(model, "pmui-tooltip", `
       .bk-tooltip-row-label {
         color: ${theme.palette.primary.main} !important;
-      `
-    ]
+      }`
+    )
   } else if (model_type.endsWith("Terminal")) {
     const view = Bokeh.index.find_one_by_id(model.id)
     const elevation = view ? find_on_parent(view, "elevation") : 0
@@ -904,20 +916,20 @@ function apply_bokeh_theme(model, theme, dark, font_family, custom_theme=[], sta
   } else if (model_type.endsWith("AcePlot")) {
     const view = Bokeh.index.find_one_by_id(model.id)
     model_props.theme = dark ? "github_dark" : "github_light_default"
-    model.stylesheets = [...model.stylesheets, `
+    model.stylesheets = themed_stylesheets(model, "pmui-ace", `
       :host {
         --border-color: rgba(${theme.palette.common.onBackgroundChannel} / 0.23);
       }
-    `]
+    `)
   } else if (model_type.endsWith("DataTabulator")) {
     const view = Bokeh.index.find_one_by_id(model.id)
     const elevation = view ? find_on_parent(view, "elevation") : 0
-    model.stylesheets = [...model.stylesheets, `
+    model.stylesheets = themed_stylesheets(model, "pmui-tabulator", `
       :host {
         --mdc-theme-background: ${elevation_color(elevation, theme, dark)};
         --mdc-theme-surface: ${elevation_color(elevation+1, theme, dark, true)};
       }
-    `]
+    `)
   } else if (model_type.endsWith("VizzuChart")) {
     const view = Bokeh.index.find_one_by_id(model.id)
     const elevation = view ? find_on_parent(view, "elevation") : 0
@@ -953,12 +965,12 @@ function apply_bokeh_theme(model, theme, dark, font_family, custom_theme=[], sta
   } else if (model_type.endsWith("Split")) {
     const view = Bokeh.index.find_one_by_id(model.id)
     const elevation = find_on_parent(view, "elevation")
-    model.stylesheets = [...model.stylesheets, `
+    model.stylesheets = themed_stylesheets(model, "pmui-split", `
       :host {
         --border-color: rgba(${theme.palette.common.onBackgroundChannel} / 0.23);
         --panel-background-color: ${elevation_color(elevation, theme, dark)};
       }
-    `]
+    `)
   } else if (model_type.endsWith("HoverTool")) {
     const view = Bokeh.index.find_one_by_id(model.id)
     if (view) {
@@ -1065,26 +1077,82 @@ export function overlay_container(parent) {
 // createTheme is the costliest part of mounting a component, and every
 // component with the same theme config builds an identical theme, except for
 // the overlay container of its popups, which is patched into a shallow copy.
+// The patched copies are cached per container too, so switching back and
+// forth between themes hands each component the same theme objects.
 const THEMES = new Map()
+const CONTAINER_THEMES = new WeakMap()
 const CONTAINER_COMPONENTS = ["MuiPopover", "MuiPopper", "MuiModal"]
 
 function cached_theme(props, theme_config, dark_theme) {
   const key = JSON.stringify([theme_config, dark_theme])
+  const container = overlay_container(props.view.container)
+  let themes = container == null ? null : CONTAINER_THEMES.get(container)
+  if (themes?.has(key)) {
+    return themes.get(key)
+  }
   let base = THEMES.get(key)
   if (base === undefined) {
-    base = createTheme(render_theme_config({view: {container: null}}, theme_config, dark_theme))
+    try {
+      base = createTheme(render_theme_config({view: {container: null}}, theme_config, dark_theme))
+    } catch (error) {
+      // An invalid theme_config, e.g. a palette color MUI cannot parse,
+      // falls back to the default theme instead of unmounting the component.
+      console.error("panel-material-ui: invalid theme_config, using the default theme", error)
+      base = createTheme(render_theme_config({view: {container: null}}, null, dark_theme))
+    }
     THEMES.set(key, base)
   }
-  const container = overlay_container(props.view.container)
   const components = {...base.components}
   for (const name of CONTAINER_COMPONENTS) {
     const component = components[name] ?? {}
     components[name] = {...component, defaultProps: {...component.defaultProps, container}}
   }
-  return {...base, components}
+  const theme = {...base, components}
+  if (container != null) {
+    if (themes == null) {
+      themes = new Map()
+      CONTAINER_THEMES.set(container, themes)
+    }
+    themes.set(key, theme)
+  }
+  return theme
+}
+
+// In dark mode, primary coloured text (text and outlined buttons, links,
+// typography, selected tabs and toggles, outlined chips, icon buttons, focused
+// input labels and outlines) uses
+// palette.primary.text, a tint of the primary that stays readable on the dark
+// background, while fills keep primary.main.
+const PRIMARY_TEXT = "var(--mui-palette-primary-text)"
+const PRIMARY_TEXT_MUTED = `color-mix(in srgb, ${PRIMARY_TEXT} 70%, transparent)`
+
+const dark_only = (dark_theme, items) => dark_theme ? items : []
+
+// Adds palette.primary.text unless the theme config sets it. It equals
+// primary.main in light mode; in dark mode see primary_text_color.
+function with_primary_text(config, dark_theme) {
+  const palette = config.palette
+  const primary = palette.primary ?? {}
+  if (primary.text != null) {
+    return config
+  }
+  const main = primary.main ?? primary[500]
+  const defaults = dark_theme ? {main: blue[200], light: blue[50], dark: blue[400]} : {main: blue[700], light: blue[400], dark: blue[800]}
+  const resolved = main ?? defaults.main
+  const background = palette.background ?? {}
+  const paper = background.paper ?? "#121212"
+  const text = dark_theme ? primary_text_color(
+    resolved, [background.default ?? "#121212", paper, elevated_surface(paper, TEXT_SURFACE_ELEVATION)]
+  ) : resolved
+  return {...config, palette: {...palette, primary: {...(main == null ? defaults : {}), ...primary, text}}}
 }
 
 export function render_theme_config(props, theme_config, dark_theme) {
+  const config = theme_config == null ? base_theme_config(props, dark_theme) : deepmerge(base_theme_config(props, dark_theme), theme_config)
+  return with_primary_text(config, dark_theme)
+}
+
+function base_theme_config(props, dark_theme) {
   const container = overlay_container(props.view.container)
   const config = {
     cssVariables: {
@@ -1143,9 +1211,14 @@ export function render_theme_config(props, theme_config, dark_theme) {
               {
                 props: {color: "default"},
                 style: {
-                  color: "var(--mui-palette-default-dark)",
+                  // default.dark is a background shade in dark mode, so icons need default.main there
+                  color: `var(--mui-palette-default-${dark_theme ? "main" : "dark"})`,
                 },
               },
+              ...dark_only(dark_theme, [{
+                props: {color: "primary"},
+                style: {color: PRIMARY_TEXT},
+              }]),
             ],
           },
         },
@@ -1187,6 +1260,10 @@ export function render_theme_config(props, theme_config, dark_theme) {
               backgroundColor: "var(--mui-palette-default-light)",
               color: "var(--mui-palette-default-dark)",
             },
+            variants: dark_only(dark_theme, [{
+              props: {color: "primary"},
+              style: {"&.Mui-selected": {color: PRIMARY_TEXT}},
+            }]),
           },
         },
       },
@@ -1205,9 +1282,80 @@ export function render_theme_config(props, theme_config, dark_theme) {
           root: {
             "&.MuiTab-textColorDefault": {
               color: "var(--mui-palette-default-main)"
-            }
+            },
+            ...(dark_theme && {
+              "&.MuiTab-textColorPrimary.Mui-selected": {color: PRIMARY_TEXT},
+            }),
           }
         }
+      },
+      MuiTabs: {
+        styleOverrides: {
+          indicator: {
+            variants: dark_only(dark_theme, [{
+              props: {indicatorColor: "primary"},
+              style: {backgroundColor: PRIMARY_TEXT},
+            }]),
+          },
+        },
+      },
+      MuiTypography: {
+        styleOverrides: {
+          root: {
+            variants: dark_only(dark_theme, [{
+              props: {color: "primary"},
+              style: {color: PRIMARY_TEXT},
+            }]),
+          },
+        },
+      },
+      MuiFormLabel: {
+        styleOverrides: {
+          root: {
+            variants: dark_only(dark_theme, [{
+              props: {color: "primary"},
+              style: {"&.Mui-focused": {color: PRIMARY_TEXT}},
+            }]),
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            variants: dark_only(dark_theme, [{
+              props: {color: "primary"},
+              style: {"&.Mui-focused:not(.Mui-error) .MuiOutlinedInput-notchedOutline": {borderColor: PRIMARY_TEXT}},
+            }]),
+          },
+        },
+      },
+      MuiLink: {
+        styleOverrides: {
+          root: {
+            variants: dark_only(dark_theme, [{
+              props: {color: "primary"},
+              // Link applies its color through sx, which only a more specific selector beats.
+              style: {
+                "&&": {color: PRIMARY_TEXT},
+                "--Link-underlineColor": `color-mix(in srgb, ${PRIMARY_TEXT} 40%, transparent)`,
+              },
+            }]),
+          },
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          root: {
+            variants: dark_only(dark_theme, [{
+              props: {variant: "outlined", color: "primary"},
+              style: {
+                color: PRIMARY_TEXT,
+                "& .MuiChip-deleteIcon": {color: PRIMARY_TEXT_MUTED},
+                "& .MuiChip-deleteIcon:hover": {color: PRIMARY_TEXT},
+              },
+            }]),
+          },
+        },
       },
       MuiButton: {
         styleOverrides: {
@@ -1245,6 +1393,16 @@ export function render_theme_config(props, theme_config, dark_theme) {
                   },
                 },
               },
+              ...dark_only(dark_theme, [
+                {
+                  props: {variant: "text", color: "primary"},
+                  style: {"--variant-textColor": PRIMARY_TEXT},
+                },
+                {
+                  props: {variant: "outlined", color: "primary"},
+                  style: {"--variant-outlinedColor": PRIMARY_TEXT},
+                },
+              ]),
             ],
             textTransform: "none",
           },
@@ -1258,9 +1416,6 @@ export function render_theme_config(props, theme_config, dark_theme) {
         }
       }
     }
-  }
-  if (theme_config != null) {
-    return deepmerge(config, theme_config)
   }
   return config
 }
@@ -1316,7 +1471,7 @@ export const apply_global_css = (model, view, theme) => {
       if (global_style_el) {
         global_style_el.textContent = render_theme_css(theme)
       }
-      const page_style_el = document.querySelector("#page_style")
+      const page_style_el = document.querySelector("#page-style")
       if (page_style_el) {
         page_style_el.textContent = render_page_css(theme)
       }
@@ -1418,7 +1573,8 @@ export const install_theme_hooks = (props) => {
   const inverseClass = `mui-${dark_theme ? "light" : "dark"}`
   props.view.container.className = `${props.view.container.className.replace(inverseClass, "").replace(themeClass, "").trim()} ${themeClass}`.trim()
 
-  const merge_theme_configs = (view) => {
+  const merge_theme_configs = (view, dark) => {
+    const color_scheme = dark ? "dark" : "light"
     let current = view
     let prev = null
     const theme_configs = []
@@ -1429,8 +1585,8 @@ export const install_theme_hooks = (props) => {
         const config = current.model.data.theme_config
         views.push(current)
         if (is_header) {
-          const primary_color = current.model.theme_config?.palette?.primary?.main ?? current.model.theme_config?.[color_scheme]?.palette?.primary?.main
-          let skip = false
+          const primary_color = config?.palette?.primary?.main ?? config?.[color_scheme]?.palette?.primary?.main
+          let skip = current.model.data.header_color === "paper"
           const header_color = primary_color ?? "#0072b5"
           const header_bg = luminance(header_color) < 164 ? "#ffffff" : "#000000"
           if (current.model.data.sx && current.model.data.sx[".MuiAppBar-root"] != null) {
@@ -1441,7 +1597,7 @@ export const install_theme_hooks = (props) => {
             theme_configs.push({
               palette: {
                 default: {main: header_bg},
-                primary: {main: header_bg, contrastText: header_color},
+                primary: {main: header_bg, contrastText: header_color, text: header_bg},
                 background: {
                   default: header_color,
                   paper: header_color
@@ -1452,7 +1608,7 @@ export const install_theme_hooks = (props) => {
           }
         }
         if (config !== null) {
-          theme_configs.push((config.dark && config.light) ? config[dark_ref.current ? "dark" : "light"] : config)
+          theme_configs.push((config.dark && config.light) ? config[color_scheme] : config)
         }
       }
       prev = current
@@ -1462,37 +1618,66 @@ export const install_theme_hooks = (props) => {
     return [merged, views]
   }
 
-  const [theme_config, setThemeConfig] = React.useState(() => merge_theme_configs(props.view, dark_ref.current)[0])
-  const update_views = () => setThemeConfig(merge_theme_configs(props.view)[0])
+  // The theme config is merged during render, so a dark mode switch builds
+  // the theme once, and the theme only changes when the merged config does.
+  const [config_version, setConfigVersion] = React.useState(0)
+  const theme_config = React.useMemo(
+    () => merge_theme_configs(props.view, dark_theme)[0], [dark_theme, config_version]
+  )
+  const theme_key = React.useMemo(
+    () => JSON.stringify([theme_config, dark_theme]), [theme_config, dark_theme]
+  )
+  const theme = React.useMemo(
+    () => cached_theme(props, theme_config, dark_theme), [theme_key]
+  )
 
   React.useEffect(() => {
-    const [_, views] = merge_theme_configs(props.view)
-    const cb = () => update_views()
+    const [_, views] = merge_theme_configs(props.view, dark_ref.current)
+    const cb = () => setConfigVersion(v => v + 1)
+    // A Page's header_color decides whether its header inverts the palette.
+    const watched = (view) => view.model.class_name === "Page" ? ["theme_config", "header_color"] : ["theme_config"]
     for (const view of views) {
-      view.model_proxy.on("theme_config", cb)
+      view.model_proxy.on(watched(view), cb)
     }
     return () => {
       for (const view of views) {
-        view.model_proxy.off("theme_config", cb)
+        view.model_proxy.off(watched(view), cb)
       }
     }
   }, [])
-  React.useEffect(() => update_views(), [dark_theme])
-  const theme = React.useMemo(
-    () => cached_theme(props, theme_config, dark_theme), [dark_theme, theme_config]
-  )
 
-  // Sync local dark_mode with global dark mode
-  const isFirstRender = React.useRef(true)
-  React.useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      if (dark_mode.get_value() != null) {
-        setDarkTheme(dark_mode.get_value())
-        return
-      }
+  // The theme is shared by the whole page. A component publishes its
+  // dark_theme to dark_mode when it was set explicitly, as long as the page
+  // theme was not switched yet, and whenever it changes other than by
+  // following dark_mode. Followers switch locally without syncing, Python
+  // brings their state in line in a single batch. Owners of the session
+  // theme (Page) sync their own switch to Python.
+  const [explicit] = props.model.useState("_dark_theme_explicit")
+  const owner = Boolean(props.view.model.esm_constants?.session_theme_owner)
+  const followed_ref = React.useRef(null)
+  const follow_dark_mode = (dark) => {
+    followed_ref.current = dark
+    if (owner) {
+      setDarkTheme(dark)
+    } else {
+      props.view.model.data.setv({dark_theme: dark}, {sync: false})
     }
-    dark_mode.set_value(dark_theme)
+  }
+  const mounted_ref = React.useRef(false)
+  React.useEffect(() => {
+    if (!mounted_ref.current) {
+      mounted_ref.current = true
+      const value = dark_mode.get_value()
+      if ((explicit && !dark_mode.switched) || value == null) {
+        dark_mode.set_value(dark_theme)
+      } else if (value !== dark_theme) {
+        followed_ref.current = value
+        setDarkTheme(value)
+      }
+    } else if (dark_theme !== followed_ref.current) {
+      dark_mode.switched = true
+      dark_mode.set_value(dark_theme)
+    }
   }, [dark_theme])
 
   React.useEffect(() => {
@@ -1501,7 +1686,7 @@ export const install_theme_hooks = (props) => {
       setDarkTheme(true)
     }
 
-    const cb = (val) => setDarkTheme(val)
+    const cb = (val) => follow_dark_mode(val)
     if (document.documentElement.dataset.themeManaged === "true") {
       dark_mode.subscribe(cb)
       return () => dark_mode.unsubscribe(cb)
@@ -1520,7 +1705,7 @@ export const install_theme_hooks = (props) => {
     if (page == null) {
       return
     }
-    const sync = () => setDarkTheme(page.model.data.dark_theme)
+    const sync = () => follow_dark_mode(page.model.data.dark_theme)
     sync()
     page.model_proxy.on("dark_theme", sync)
     return () => page.model_proxy.off("dark_theme", sync)
@@ -1542,8 +1727,60 @@ export const install_theme_hooks = (props) => {
   return theme
 }
 
+// Panel only wraps components in an error boundary in dev mode, so without
+// one a component that throws while rendering unmounts its React root for
+// good, together with any children rendered into it. The boundary keeps the
+// root alive and retries once the model changes, e.g. when Python replaces
+// the offending value.
+export class ComponentErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = {error: null}
+    this._reset = () => {
+      if (this.state.error != null) {
+        this.setState({error: null})
+      }
+    }
+  }
+
+  static getDerivedStateFromError(error) {
+    return {error}
+  }
+
+  componentDidMount() {
+    this.props.view?.model?.data?.change.connect(this._reset)
+  }
+
+  componentWillUnmount() {
+    this.props.view?.model?.data?.change.disconnect(this._reset)
+  }
+
+  componentDidCatch(error) {
+    const name = this.props.view?.model?.class_name ?? "component"
+    console.error(`panel-material-ui: ${name} failed to render`, error)
+  }
+
+  render() {
+    if (this.state.error != null && this.props.view?.model?.dev) {
+      // In dev mode Panel's own boundary shows the formatted error.
+      throw this.state.error
+    }
+    return this.state.error == null ? this.props.children : null
+  }
+}
+
 export function isNumber(obj) {
   return toString.call(obj) === "[object Number]"
+}
+
+// Panel renders a child model listed more than once a single time, so the
+// rendered children may not line up with the list of child models.
+export function child_model(models, child, index) {
+  const model = models[index]
+  if (model == null || child?.props?.id == null || model.id === child.props.id) {
+    return model
+  }
+  return models.find((m) => m.id === child.props.id)
 }
 
 export function apply_flex(view, direction) {
@@ -1748,8 +1985,8 @@ function validateFileSize(file, maxFileSize, maxTotalFileSize, existingFiles = [
   if (maxTotalFileSize) {
     const maxTotalSizeBytes = typeof maxTotalFileSize === "string" ? parseSizeString(maxTotalFileSize) : maxTotalFileSize
     if (maxTotalSizeBytes) {
-      const existingSize = existingFiles.reduce((sum, f) => sum + f.size, 0)
-      const totalSize = existingSize + file.size
+      const otherSize = existingFiles.reduce((sum, f) => (f === file ? sum : sum + f.size), 0)
+      const totalSize = otherSize + file.size
       if (totalSize > maxTotalSizeBytes) {
         errors.push(`Adding "${file.name}" would exceed maximum total size of ${formatBytes(maxTotalSizeBytes)}`)
       }
@@ -1769,8 +2006,9 @@ export function formatBytes(bytes) {
 }
 
 // Chunked upload function using FileDropper's protocol
-export async function uploadFileChunked(file, model, chunkSize = 10 * 1024 * 1024, setProgress = null, combined_chunks = null) {
-  const total_chunks = Math.ceil(file.size / chunkSize);
+export async function uploadFileChunked(file, model, chunkSize = 10 * 1024 * 1024, setProgress = null, combined_chunks = null, index = null, chunk_offset = 0) {
+  // Empty files are still sent as a single empty chunk
+  const total_chunks = Math.max(1, Math.ceil(file.size / chunkSize))
 
   for (let chunkIndex = 0; chunkIndex < total_chunks; chunkIndex++) {
     const start = chunkIndex * chunkSize;
@@ -1792,11 +2030,12 @@ export async function uploadFileChunked(file, model, chunkSize = 10 * 1024 * 102
       chunk: chunkIndex + 1, // 1-indexed
       data: arrayBuffer,
       name: file.name,
+      index,
       total_chunks,
       mime_type: file.type
     })
     if (setProgress) {
-      setProgress(((chunkIndex+1) / (combined_chunks ?? total_chunks)) * 100)
+      setProgress(((chunk_offset + chunkIndex + 1) / (combined_chunks ?? total_chunks)) * 100)
     }
   }
 }
@@ -1830,14 +2069,16 @@ export async function processFilesChunked(files, model, maxFileSize, maxTotalFil
       if (sizeErrors.length > 0) {
         throw new Error(sizeErrors.join("; "))
       }
-      combined_chunks += Math.ceil(file.size / chunkSize);
+      combined_chunks += Math.max(1, Math.ceil(file.size / chunkSize))
     }
 
     model.send_msg({status: "initializing", type: "status"})
 
     // Upload all files using chunked protocol
-    for (const file of fileArray) {
-      await uploadFileChunked(file, model, chunkSize, setProgress, combined_chunks)
+    let chunk_offset = 0
+    for (const [index, file] of fileArray.entries()) {
+      await uploadFileChunked(file, model, chunkSize, setProgress, combined_chunks, index, chunk_offset)
+      chunk_offset += Math.max(1, Math.ceil(file.size / chunkSize))
     }
 
     model.send_msg({status: "finished", type: "status"})
@@ -1881,6 +2122,81 @@ export function isFileAccepted(file, accept) {
     }
     return false
   })
+}
+
+// While the user is typing, value_input updates coming back from the server
+// may answer an earlier keystroke, so they are only applied once typing has
+// paused for this many milliseconds, or the input loses focus.
+export const TYPING_IDLE_MS = 300
+
+/**
+ * Local draft for a text input bound to value_input/value. Server updates of
+ * value_input are deferred while the user is typing or composing with an IME,
+ * so stale echoes cannot overwrite newer keystrokes or break a composition.
+ *
+ * @returns {{draft: string, commit: Function, inputProps: Object}} the text to
+ * render, a callback that commits the draft to value, and the event handlers
+ * to spread onto the MUI TextField.
+ */
+export function useDraftInput(model) {
+  const [value_input, setValueInput] = model.useState("value_input")
+  const [, setValue] = model.useState("value")
+  const [draft, setDraft] = React.useState(value_input ?? "")
+  const draftRef = React.useRef(draft)
+  const focusedRef = React.useRef(false)
+  const composingRef = React.useRef(false)
+  const lastEditRef = React.useRef(0)
+  const syncTimerRef = React.useRef(null)
+
+  const updateDraft = (text) => {
+    draftRef.current = text
+    setDraft(text)
+  }
+
+  const syncFromModel = () => {
+    clearTimeout(syncTimerRef.current)
+    const remote = model.value_input ?? ""
+    if (remote === draftRef.current) {
+      return
+    }
+    if (!focusedRef.current) {
+      updateDraft(remote)
+    } else if (!composingRef.current) {
+      const idle = Date.now() - lastEditRef.current
+      if (idle >= TYPING_IDLE_MS) {
+        updateDraft(remote)
+      } else {
+        syncTimerRef.current = setTimeout(syncFromModel, TYPING_IDLE_MS - idle)
+      }
+    }
+    // While composing, compositionend re-runs the sync
+  }
+
+  React.useEffect(syncFromModel, [value_input])
+  React.useEffect(() => () => clearTimeout(syncTimerRef.current), [])
+
+  const commit = () => setValue(draftRef.current)
+
+  const inputProps = {
+    onBlur: () => {
+      focusedRef.current = false
+      commit()
+      syncFromModel()
+    },
+    onChange: (event) => {
+      lastEditRef.current = Date.now()
+      updateDraft(event.target.value)
+      setValueInput(event.target.value)
+    },
+    onCompositionEnd: () => {
+      composingRef.current = false
+      lastEditRef.current = Date.now()
+      syncFromModel()
+    },
+    onCompositionStart: () => { composingRef.current = true },
+    onFocus: () => { focusedRef.current = true },
+  }
+  return {draft, commit, inputProps}
 }
 
 /**
@@ -2227,6 +2543,9 @@ export const DENSE_CONTROL_SX = {
     // for every other `denseSx` consumer that lacks this class.
     "& .MuiPickersInputBase-sectionsContainer": {padding: "22px 0"},
     "& .MuiInputLabel-root": {fontSize: "1.1rem"},
+    // The outlined notch is sized by a hidden <legend> at MUI's 0.75em shrink
+    // scale of the input font, so it has to grow with the 1.1rem label above.
+    "& .MuiOutlinedInput-notchedOutline legend": {fontSize: "0.825em"},
     // MUI has no native size="large" Switch variant (it silently falls back
     // to plain, un-dense "medium" geometry), so start from the same coherent
     // 9px-padding geometry used at medium and scale the whole control up.
@@ -2259,8 +2578,9 @@ export const DENSE_CONTROL_SX = {
 // sx) can never reach it. This gives InputLabel its own size-driven sx to
 // apply directly, reusing the same font-size values as DENSE_CONTROL_SX so
 // Select's label matches the sizing intent of every other dense control.
+// "small" needs no entry: <FormControl size="small"> gives InputLabel MUI's
+// native small geometry, matching TextField and Autocomplete.
 const DENSE_INPUT_LABEL_SX = {
-  small: {fontSize: "0.875rem"},
   large: {fontSize: "1.1rem"},
 }
 
@@ -2309,4 +2629,97 @@ export const denseSx = (size, sx) => {
   const base = DENSE_CONTROL_SX[size] || DENSE_CONTROL_SX.medium
   // MUI ignores arrays nested inside an sx array, so callers' sx arrays are spread.
   return sx ? [base, ...(Array.isArray(sx) ? sx : [sx])] : base
+}
+
+// Wraps model.useState for values that change on every pointer move
+// (slider drags, color space drags). The returned value updates locally on
+// every change, while the model is synced at most once per `wait` ms with a
+// trailing update, so the final value always reaches the server. `flush`
+// sends a value immediately and cancels any pending update.
+export function useThrottledModelState(model, name, wait = 50) {
+  const [modelValue, setModelValue] = model.useState(name)
+  const [pending, setPending] = React.useState(undefined)
+  const state = React.useRef({timer: null, last: 0, value: undefined})
+  // Unmounting mid-drag (e.g. a ColorPicker in a closing Popup) still sends
+  // the trailing value. Depending on the Panel version the useState setter
+  // either writes the model synchronously or only syncs from an effect, which
+  // never runs once unmounted, so the model is written to directly.
+  React.useEffect(() => () => {
+    const s = state.current
+    if (s.timer != null) {
+      clearTimeout(s.timer)
+      s.timer = null
+      model[name] = s.value
+    }
+  }, [])
+
+  const flush = React.useCallback((value) => {
+    const s = state.current
+    clearTimeout(s.timer)
+    s.timer = null
+    s.last = Date.now()
+    s.value = undefined
+    setPending(undefined)
+    setModelValue(value)
+  }, [setModelValue])
+
+  const setThrottled = React.useCallback((value) => {
+    const s = state.current
+    s.value = value
+    setPending(() => value)
+    if (s.timer == null) {
+      s.timer = setTimeout(() => flush(s.value), Math.max(0, wait - (Date.now() - s.last)))
+    }
+  }, [flush, wait])
+
+  return [pending === undefined ? modelValue : pending, setThrottled, flush]
+}
+
+function aria_attribute(key) {
+  const name = key.replace(/_/g, "-").toLowerCase()
+  return name.startsWith("aria-") ? name : `aria-${name}`
+}
+
+/**
+ * Collect the ARIA attributes a component declares through its `aria`,
+ * `aria_label` and `aria_expanded` parameters, ready to spread onto an element.
+ *
+ * Keys of `aria` may be given with or without the `aria-` prefix and with
+ * underscores, e.g. `{"haspopup": "dialog", "aria_controls": "panel"}`.
+ * Booleans are written as "true" or "false" and None removes the attribute.
+ */
+export function useAria(model) {
+  const [aria] = model.useState("aria")
+  const [aria_label] = model.useState("aria_label")
+  const [aria_expanded] = model.useState("aria_expanded")
+  return React.useMemo(() => {
+    const props = {}
+    for (const [key, value] of Object.entries(aria || {})) {
+      if (value != null) {
+        props[aria_attribute(key)] = typeof value === "boolean" ? String(value) : value
+      }
+    }
+    if (aria_label) {
+      props["aria-label"] = aria_label
+    }
+    if (aria_expanded != null) {
+      props["aria-expanded"] = String(aria_expanded)
+    }
+    return props
+  }, [aria, aria_label, aria_expanded])
+}
+
+/**
+ * Wrap `child`, usually a button's icon, in a badge showing `badge` unless
+ * it is null, 0 or an empty string.
+ */
+export function render_badge(child, badge, color, max, overlap = "rectangular", sx = null) {
+  if (badge == null || badge === 0 || badge === "") {
+    return child
+  }
+  return (
+    <Badge badgeContent={badge} color={color} max={max} overlap={overlap} sx={{...sx, ".MuiBadge-badge": {pointerEvents: "none"}}}>
+      {child}
+    </Badge>
+  )
 }

@@ -1,3 +1,6 @@
+import re
+import time
+
 import pytest
 
 pytest.importorskip('playwright')
@@ -7,7 +10,18 @@ from panel import config
 from panel.tests.util import serve_component, wait_until
 from playwright.sync_api import expect
 
-from panel_material_ui.widgets import DiscreteSlider, EditableFloatSlider, EditableIntSlider, IntSlider, LinearProgress, RangeSlider, Rating
+from panel_material_ui.layout import Column, Row
+from panel_material_ui.widgets import (
+    DiscreteSlider,
+    EditableFloatSlider,
+    EditableIntRangeSlider,
+    EditableIntSlider,
+    FloatSlider,
+    IntSlider,
+    LinearProgress,
+    RangeSlider,
+    Rating,
+)
 
 pytestmark = pytest.mark.ui
 
@@ -32,6 +46,38 @@ def test_discrete_slider_formatter(page):
     widget.formatter = '%.2f'
     expect(page.locator('.MuiFormLabel-root')).to_have_text('1.23')
     assert widget.value == 1.234
+
+
+def test_discrete_slider_empty_options(page):
+    """An empty slider renders disabled without a thumb until options are set."""
+    widget = DiscreteSlider(label='Forecast', options=[])
+    serve_component(page, widget)
+    label = page.locator('.MuiFormLabel-root')
+    slider = page.locator('.MuiSlider-root')
+    expect(label).to_have_text('Forecast: -')
+    expect(slider).to_have_class(re.compile('Mui-disabled'))
+    expect(page.locator('.MuiSlider-thumb')).to_be_hidden()
+
+    widget.options = ['a', 'b', 'c']
+    expect(label).to_have_text('Forecast: a')
+    expect(slider).not_to_have_class(re.compile('Mui-disabled'))
+    expect(page.locator('.MuiSlider-thumb')).to_be_visible()
+    page.locator('.MuiSlider-thumb input').focus()
+    page.keyboard.press('ArrowRight')
+    wait_until(lambda: widget.value == 'b', page)
+
+    widget.options = []
+    expect(label).to_have_text('Forecast: -')
+    expect(slider).to_have_class(re.compile('Mui-disabled'))
+    assert widget.value is None
+
+
+def test_discrete_slider_single_option(page):
+    widget = DiscreteSlider(label='Forecast', options=['only'])
+    serve_component(page, widget)
+    expect(page.locator('.MuiFormLabel-root')).to_have_text('Forecast: only')
+    expect(page.locator('.MuiSlider-root')).to_have_class(re.compile('Mui-disabled'))
+    assert widget.value == 'only'
 
 
 def test_int_slider(page):
@@ -86,6 +132,15 @@ def test_slider_vertical_orientation(page):
 
     expect(page.locator('.MuiSlider-vertical')).to_have_count(1)
     assert page.locator('.MuiSlider-rail').evaluate("el => el.offsetHeight") == 277
+
+
+def test_vertical_slider_keeps_requested_dimensions(page):
+    widget = FloatSlider(orientation='vertical', width=123, height=321)
+    serve_component(page, widget)
+
+    control = page.locator('.MuiFormControl-root')
+    expect(control).to_have_css('width', '123px')
+    expect(control).to_have_css('height', '321px')
 
 
 @pytest.mark.parametrize('size', ['small', 'medium'])
@@ -161,6 +216,118 @@ def test_rating(page, size):
     assert not any('fullWidth' in warning for warning in warnings)
 
 
+def test_rating_description(page):
+    errors = []
+    page.on('pageerror', lambda e: errors.append(str(e)))
+    serve_component(page, Rating(label='Rate', description='Some help'))
+    expect(page.locator('.MuiRating-root')).to_have_count(1)
+    assert not errors
+
+
+def _count_value_patches(page):
+    frames = []
+    def on_ws(ws):
+        ws.on('framesent', lambda p: frames.append(p) if isinstance(p, str) and '"attr":"value"' in p else None)
+    page.on('websocket', on_ws)
+    return frames
+
+
+@pytest.mark.parametrize('widget_cls,kwargs', [
+    (FloatSlider, dict(start=0, end=1, step=0.001, value=0)),
+    (RangeSlider, dict(start=0, end=1, step=0.001, value=(0, 1))),
+])
+def test_slider_drag_throttles_value_updates(page, widget_cls, kwargs):
+    widget = widget_cls(width=600, **kwargs)
+    frames = _count_value_patches(page)
+    serve_component(page, widget)
+    box = page.locator('.MuiSlider-thumb').first.bounding_box()
+    x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+    page.mouse.move(x, y)
+    page.mouse.down()
+    start = time.perf_counter()
+    for i in range(1, 101):
+        page.mouse.move(x + i * 4, y)
+    elapsed = time.perf_counter() - start
+    page.mouse.up()
+
+    wait_until(lambda: widget.value_throttled == widget.value, page)
+    assert widget.value != kwargs['value']
+    # At most one update per 50 ms window plus leading/trailing/commit updates
+    assert len(frames) <= elapsed / 0.05 + 3
+
+
+def test_range_slider_drag_does_not_echo_value_start_end(page):
+    widget = RangeSlider(width=600, start=0, end=1, step=0.001, value=(0, 1))
+    received = []
+    page.on('websocket', lambda ws: ws.on(
+        'framereceived', lambda p: received.append(p) if isinstance(p, str) and 'value_start' in p else None
+    ))
+    serve_component(page, widget)
+    box = page.locator('.MuiSlider-thumb').first.bounding_box()
+    x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+    page.mouse.move(x, y)
+    page.mouse.down()
+    for i in range(1, 21):
+        page.mouse.move(x + i * 10, y)
+    page.mouse.up()
+    wait_until(lambda: widget.value_start > 0, page)
+    assert widget.value_start == widget.value[0]
+    assert not received
+
+
+def test_editable_int_slider_keyboard_respects_fixed_start(page):
+    widget = EditableIntSlider(value=1, start=0, end=10, fixed_start=0, fixed_end=10)
+    serve_component(page, widget)
+    page.locator('.MuiInputBase-input').first.click()
+    for _ in range(3):
+        page.keyboard.press('ArrowDown')
+    wait_until(lambda: widget.value == 0, page)
+    for _ in range(15):
+        page.keyboard.press('ArrowUp')
+    wait_until(lambda: widget.value == 10, page)
+    assert widget.start == 0
+    assert widget.end == 10
+
+
+def test_editable_float_slider_keyboard_extends_end(page):
+    widget = EditableFloatSlider(value=0.5, start=0, end=1, step=0.5)
+    serve_component(page, widget)
+    page.locator('.MuiInputBase-input').first.click()
+    for _ in range(4):
+        page.keyboard.press('ArrowUp')
+    wait_until(lambda: widget.value == 2.5, page)
+    wait_until(lambda: widget.end == 2.5, page)
+
+
+def test_editable_int_range_slider_keyboard_respects_fixed_bounds(page):
+    widget = EditableIntRangeSlider(value=(1, 9), start=0, end=10, fixed_start=0, fixed_end=10)
+    serve_component(page, widget)
+    page.locator('.MuiInputBase-input').first.click()
+    for _ in range(3):
+        page.keyboard.press('ArrowDown')
+    wait_until(lambda: widget.value == (0, 9), page)
+    page.locator('.MuiInputBase-input').nth(1).click()
+    for _ in range(5):
+        page.keyboard.press('ArrowUp')
+    wait_until(lambda: widget.value == (0, 10), page)
+
+
+@pytest.mark.parametrize('text', ['', 'abc'])
+def test_editable_int_slider_invalid_input_reverts(page, text):
+    widget = EditableIntSlider(value=5, start=0, end=10)
+    serve_component(page, widget)
+    inp = page.locator('.MuiInputBase-input').first
+    inp.click()
+    inp.fill('7')
+    page.keyboard.press('Enter')
+    wait_until(lambda: widget.value == 7, page)
+    # Input keeps DOM focus after Enter, edit again without re-focusing
+    inp.fill(text)
+    page.keyboard.press('Enter')
+    expect(inp).to_have_value('7')
+    assert widget.value == 7
+
+
 # --- EditableIntSlider / EditableFloatSlider throttled tests ---
 
 @pytest.mark.parametrize('widget_cls,initial,new_val,expected', [
@@ -225,3 +392,42 @@ def test_editable_slider_decrement_button_updates_value_throttled(page, widget_c
 
         wait_until(lambda: widget.value_throttled == pytest.approx(expected, abs=1e-9), page)
         assert widget.value == pytest.approx(expected, abs=1e-9)
+
+
+@pytest.mark.parametrize('text,expected', [('1e-3', 0.001), ('2.5E-1', 0.25)])
+def test_editable_float_slider_accepts_exponent_input(page, text, expected):
+    widget = EditableFloatSlider(value=0.5, start=0, end=1, step=0.001)
+    serve_component(page, widget)
+    inp = page.locator('.MuiInputBase-input').first
+    inp.click()
+    inp.fill(text)
+    page.keyboard.press('Enter')
+    wait_until(lambda: widget.value == expected, page)
+
+
+def test_slider_sends_trailing_drag_value_on_unmount(page):
+    slider = FloatSlider(start=0, end=100, value=0, step=1)
+    col = Column(slider, width=400)
+    # A second view keeps the model in the document once col drops its view
+    layout = Row(col, Column(slider, width=400))
+    serve_component(page, layout)
+
+    roots = page.locator('.MuiSlider-root')
+    expect(roots).to_have_count(2)
+    # Let the Row settle its layout before measuring the drag target
+    page.wait_for_timeout(300)
+    box = roots.first.bounding_box()
+    y = box['y'] + box['height'] / 2
+    page.mouse.move(box['x'] + box['width'] * 0.3, y)
+    page.mouse.down()
+    page.mouse.move(box['x'] + box['width'] * 0.4, y, steps=3)
+    wait_until(lambda: slider.value >= 30, page)
+
+    # The last move lands inside the 50 ms throttle window and the view is
+    # unmounted before the trailing update fires.
+    col_id = col._models[list(col._models)[0]][0].ref['id']
+    page.mouse.move(box['x'] + box['width'] * 0.6, y)
+    page.mouse.move(box['x'] + box['width'] * 0.8, y)
+    page.evaluate("(id) => { Bokeh.documents[0].get_model_by_id(id).data.objects = [] }", col_id)
+    page.mouse.up()
+    wait_until(lambda: slider.value >= 75, page)

@@ -40,7 +40,8 @@ class TestDataRetrievalOperation(unittest.TestCase):
                 status = 'pending_load',
                 data = arthur_client.api_bindings.models.data_retrieval_data.DataRetrievalData(
                     content = '', 
-                    data_schema = arthur_client.api_bindings.models.data_schema.data_schema(), )
+                    data_schema = arthur_client.api_bindings.models.data_schema.data_schema(), 
+                    total_count = 56, )
             )
         else:
             return DataRetrievalOperation(

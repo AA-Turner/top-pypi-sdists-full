@@ -3084,6 +3084,7 @@ def delete_env_var(ctx, env_var_name, **kwargs):
 @click.argument("env-name", shell_complete=env_completion)
 @click.argument("env-config-name", default=None)
 @click.argument("env-config-value", default=None)
+@click.option("--org-id", default=None)
 @click.option("--secret", default=True)
 @click.pass_context
 def update_env_var(ctx, env_config_name, env_config_value, **kwargs):

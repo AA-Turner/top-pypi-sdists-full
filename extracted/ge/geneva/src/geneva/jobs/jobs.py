@@ -16,16 +16,24 @@ from lance.file import LanceFileSession
 
 from geneva.db import Connection  # noqa: TC001
 from geneva.jobs.heartbeat import (
+    AttemptOutcome,
     DriverHeartbeat,
     DriverHeartbeatWriter,
     DriverLiveness,
     HeartbeatStore,
+    attempt_outcome_path,
     heartbeat_interval_s,
     heartbeat_lease_s,
     heartbeat_storage_options,
 )
 from geneva.state.manager import BaseManager
-from geneva.utils import current_user, dt_now_utc, escape_sql_string, retry_lance
+from geneva.utils import (
+    UNBOUNDED_QUERY_LIMIT,
+    current_user,
+    dt_now_utc,
+    escape_sql_string,
+    retry_lance,
+)
 
 if TYPE_CHECKING:
     from lancedb.table import LanceTable
@@ -46,6 +54,10 @@ class JobStatus(Enum):
     CANCELLED = "CANCELLED"
 
 
+UNFINISHED_JOB_STATUSES = (JobStatus.PENDING.value, JobStatus.RUNNING.value)
+_UNFINISHED_FILTER = "status IN ({})".format(
+    ", ".join(f"'{status}'" for status in UNFINISHED_JOB_STATUSES)
+)
 _TERMINAL_STATUSES = frozenset(
     {JobStatus.DONE.value, JobStatus.FAILED.value, JobStatus.CANCELLED.value}
 )
@@ -64,6 +76,30 @@ def _job_filter(job_id: str) -> str:
 def _status_value(status: "JobStatus | str | None") -> str | None:
     """Status as stored; records read back from the table hold plain strings."""
     return status.value if isinstance(status, JobStatus) else status
+
+
+def is_final_status(status: "JobStatus | str | None") -> bool:
+    """True for a status a job never leaves: DONE, FAILED or CANCELLED."""
+    return _status_value(status) in _TERMINAL_STATUSES
+
+
+# Final statuses a driver records as its attempt's outcome.
+_ATTEMPT_OUTCOMES = frozenset({JobStatus.DONE.value, JobStatus.FAILED.value})
+_NO_FAILURE_DETAIL = "no details were recorded"
+
+
+def _failed_event(msg: str) -> str:
+    """The event recorded when a job fails with ``msg``."""
+    return f"Job failed: {msg}"
+
+
+def _with_outcome(job: "JobRecord", status: str, detail: str) -> "JobRecord":
+    """``job`` as its final status write would have left it."""
+    if status == JobStatus.FAILED.value:
+        return attrs.evolve(
+            job, status=status, events=[*(job.events or []), _failed_event(detail)]
+        )
+    return attrs.evolve(job, status=status)
 
 
 def _rows_updated(result: object) -> int | None:
@@ -382,7 +418,7 @@ class JobStateManager(BaseManager):
     ) -> None:
         """Record failure, optionally only for the attempt owning ``object_ref``."""
         self._set_terminal(
-            job_id, JobStatus.FAILED, f"Job failed: {msg}", object_ref=object_ref
+            job_id, JobStatus.FAILED, _failed_event(msg), object_ref=object_ref
         )
 
     @retry_lance
@@ -486,12 +522,40 @@ class JobStateManager(BaseManager):
         if status is not None:
             wheres.append(f"status == '{status}'")
 
-        q = self.get_table(True).search()
+        q = self.get_table(True).search().limit(UNBOUNDED_QUERY_LIMIT)
         if wheres:
             q = q.where(" and ".join(wheres))
         jrs = q.select(known_cols).to_arrow().to_pylist()
         # todo: add pagination!
         return [_safe_job_record(jr) for jr in jrs]
+
+    def unfinished_job_ids(self, table_name: str) -> set[str]:
+        """All PENDING/RUNNING job ids for a table."""
+        where = (
+            f"table_name = '{escape_sql_string(table_name)}' AND {_UNFINISHED_FILTER}"
+        )
+        return self._scan_job_column("job_id", where=where)
+
+    @retry_lance
+    def _scan_job_column(self, column: str, *, where: str | None = None) -> set[str]:
+        """Read one column of matching jobs, retaining only distinct values."""
+        q = self.get_table(True).search().select([column]).limit(UNBOUNDED_QUERY_LIMIT)
+        if where:
+            q = q.where(where)
+        values: set[str] = set()
+        rows = 0
+        with q.to_batches() as reader:
+            for batch in reader:
+                rows += batch.num_rows
+                # A truncated holder read must never authorize a resume.
+                if rows >= UNBOUNDED_QUERY_LIMIT:
+                    raise OverflowError(
+                        "Job history query reached the LanceDB row limit"
+                    )
+                values.update(
+                    value for value in batch.column(column).to_pylist() if value
+                )
+        return values
 
     @retry_lance
     def get(self, job_id: str) -> list[JobRecord]:
@@ -562,8 +626,83 @@ class JobStateManager(BaseManager):
             return DriverLiveness.UNKNOWN
         return heartbeat.liveness(now)
 
-    def set_completed(self, job_id: str, status: str = "DONE") -> None:
-        """Mark a job finished with a terminal ``status`` (DONE by default).
+    @retry_lance
+    def record_attempt_outcome(
+        self,
+        job_id: str,
+        attempt: bytes,
+        status: JobStatus,
+        detail: str | None = None,
+    ) -> None:
+        """Record how driver ``attempt`` of the job ended, once its work has
+        finished. Readers apply it if the job's own status write is lost."""
+        outcome = AttemptOutcome(
+            job_id=job_id, status=status.value, detail=detail, written_at=dt_now_utc()
+        )
+        self._heartbeats.write_object(
+            attempt_outcome_path(job_id, attempt), outcome.to_json()
+        )
+
+    @retry_lance
+    def read_attempt_outcome(
+        self, job_id: str, attempt: bytes
+    ) -> AttemptOutcome | None:
+        """How driver ``attempt`` of the job ended, or None if it recorded nothing."""
+        data = self._heartbeats.read_object(attempt_outcome_path(job_id, attempt))
+        if data is None:
+            return None
+        try:
+            return AttemptOutcome.from_json(data)
+        except (ValueError, TypeError, KeyError):
+            _LOG.warning("Ignoring malformed attempt outcome for job %s", job_id)
+            return None
+
+    def reconcile_attempt_outcome(self, job: JobRecord) -> JobRecord:
+        """``job`` with the outcome its current driver attempt recorded, when
+        the job's own status write was lost (GEN-1012).
+
+        Only the outcome recorded under the attempt the row names now is used,
+        and it is saved with a write fenced on that attempt, so an earlier
+        attempt's outcome never finishes a replacement. Best-effort: if saving
+        fails, the record is returned with the outcome while the row still
+        names that attempt. Never raises.
+        """
+        if is_final_status(job.status) or not job.object_ref:
+            return job
+        attempt = base64.b64decode(job.object_ref)
+        try:
+            outcome = self.read_attempt_outcome(job.job_id, attempt)
+        except Exception:
+            _LOG.debug(
+                "Cannot read the attempt outcome of job %s", job.job_id, exc_info=True
+            )
+            return job
+        if outcome is None or outcome.status not in _ATTEMPT_OUTCOMES:
+            return job
+        detail = outcome.detail or _NO_FAILURE_DETAIL
+        try:
+            if outcome.status == JobStatus.DONE.value:
+                self.set_completed(job.job_id, object_ref=attempt)
+            else:
+                self.set_failed(job.job_id, detail, object_ref=attempt)
+        except Exception:
+            _LOG.warning(
+                "Could not save the final status of job %s", job.job_id, exc_info=True
+            )
+        try:
+            rows = self.get(job.job_id)
+        except Exception:
+            rows = []
+        latest = rows[0] if rows else job
+        if is_final_status(latest.status) or latest.object_ref != job.object_ref:
+            return latest
+        return _with_outcome(latest, outcome.status, detail)
+
+    def set_completed(
+        self, job_id: str, status: str = "DONE", *, object_ref: bytes | None = None
+    ) -> None:
+        """Mark a job finished with a terminal ``status`` (DONE by default),
+        optionally only for the attempt owning ``object_ref``.
 
         ``CANCELLED`` is handled by :meth:`set_cancelled`.
         """
@@ -574,5 +713,8 @@ class JobStateManager(BaseManager):
             self.set_cancelled(job_id)
             return
         self._set_terminal(
-            job_id, job_status, f"Job completed with status {job_status.value}"
+            job_id,
+            job_status,
+            f"Job completed with status {job_status.value}",
+            object_ref=object_ref,
         )

@@ -2,9 +2,9 @@ include = ["objects/*.toml", "modules/*.toml"]
 
 [project]
 applied_layout = "mirrored"
-jm_version = "0.135.1"
+jm_version = "0.137.0"
 name = "doppler"
-version = "0.86.0"
+version = "0.87.0"
 build = "cmake"
 # c_prefix (jm#1591, #1545): every C symbol jm derives carries dp_, so two
 # installed jm libraries that share a component name (fir, fft, agc) link
@@ -49,7 +49,7 @@ composer_field_keys = [
   "unit_interval",
 ]
 c_deps = [
-    "hbdecim", "resamp", "wfmcompose", "ccsds_tm", "conv", "rs",
+    "hbdecim", "resamp", "wfmcompose", "ccsds_tm", "ccsds_415", "conv", "rs",
 ]
 # `status_allow` matches PATHS, not findings, so an entry also accepts that
 # file's stale/missing classification -- broader than the reason it was

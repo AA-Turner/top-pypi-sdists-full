@@ -35,6 +35,12 @@ std::shared_ptr<LogicalOperator> GroupKeyPredicatePushDownOptimizer::visitOperat
 std::shared_ptr<LogicalOperator> GroupKeyPredicatePushDownOptimizer::tryRewriteFilter(
     std::shared_ptr<LogicalOperator> op) {
     auto& filter = op->cast<LogicalFilter>();
+    // Below the aggregate a predicate runs on input rows instead of groups. Pushing only some
+    // conjuncts would change which groups a volatile conjunct sees, and the kept conjuncts would
+    // become separate filters that later optimizers may reorder.
+    if (ExpressionVisitor::isVolatile(*filter.getPredicate())) {
+        return op;
+    }
     auto aggregateOp = findAggregateThroughProjections(filter.getChild(0));
     if (aggregateOp == nullptr) {
         return op;
@@ -54,7 +60,7 @@ std::shared_ptr<LogicalOperator> GroupKeyPredicatePushDownOptimizer::tryRewriteF
     expression_vector predicatesToPush;
     expression_vector predicatesToKeep;
     for (auto& predicate : filter.getPredicate()->splitOnAND()) {
-        if (isGroupKeyOnlyPredicate(*predicate, groupKeyNames)) {
+        if (isComposedFromGroupKeys(*predicate, groupKeyNames)) {
             predicatesToPush.push_back(predicate);
         } else {
             predicatesToKeep.push_back(predicate);
@@ -94,11 +100,6 @@ GroupKeyPredicatePushDownOptimizer::findAggregateThroughProjections(
     return current->getOperatorType() == LogicalOperatorType::AGGREGATE ? current : nullptr;
 }
 
-bool GroupKeyPredicatePushDownOptimizer::isGroupKeyOnlyPredicate(const Expression& predicate,
-    const std::unordered_set<std::string>& groupKeyNames) {
-    return !containsRandomFunction(predicate) && isComposedFromGroupKeys(predicate, groupKeyNames);
-}
-
 bool GroupKeyPredicatePushDownOptimizer::isComposedFromGroupKeys(const Expression& expression,
     const std::unordered_set<std::string>& groupKeyNames) {
     // An expression projected by an earlier query part may itself be an aggregate expression, but
@@ -127,18 +128,6 @@ bool GroupKeyPredicatePushDownOptimizer::isComposedFromGroupKeys(const Expressio
         }
     }
     return true;
-}
-
-bool GroupKeyPredicatePushDownOptimizer::containsRandomFunction(const Expression& expression) {
-    if (ExpressionVisitor::isRandom(expression)) {
-        return true;
-    }
-    for (auto& child : ExpressionChildrenCollector::collectChildren(expression)) {
-        if (containsRandomFunction(*child)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 std::shared_ptr<LogicalOperator> GroupKeyPredicatePushDownOptimizer::pushPredicate(

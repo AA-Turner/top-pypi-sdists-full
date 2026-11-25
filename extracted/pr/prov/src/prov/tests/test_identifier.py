@@ -1,9 +1,8 @@
 """Exercises prov.identifier.Namespace edges not otherwise covered by the
-serializer round-trip tests (planning/test-gap-checklist.md, T13), and
-the local parts 3.3.0 rejects (#524)."""
+serializer round-trip tests, and the local parts prov rejects (#524)."""
 
 import re
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
@@ -31,49 +30,49 @@ def test_namespace_rejects_a_blank_or_non_string_uri(uri: Any, message: str) -> 
         Namespace("ex", uri)
 
 
-def test_contains_with_matching_str() -> None:
-    ns = Namespace("ex", "http://example.org/")
-    assert ns.contains("http://example.org/thing")
-
-
-def test_contains_with_matching_identifier() -> None:
-    ns = Namespace("ex", "http://example.org/")
-    assert ns.contains(Identifier("http://example.org/thing"))
-
-
-def test_contains_with_non_matching_uri() -> None:
-    ns = Namespace("ex", "http://example.org/")
-    assert not ns.contains("http://other.org/thing")
-
-
-def test_contains_with_non_str_non_identifier_returns_false() -> None:
-    ns = Namespace("ex", "http://example.org/")
-    assert not ns.contains(cast(Any, 12345))
-
-
-def test_qname_for_contained_str() -> None:
-    ns = Namespace("ex", "http://example.org/")
-    qname = ns.qname("http://example.org/thing")
-    assert str(qname) == "ex:thing"
-
-
-def test_qname_for_contained_identifier() -> None:
-    ns = Namespace("ex", "http://example.org/")
-    qname = ns.qname(Identifier("http://example.org/thing"))
-    assert str(qname) == "ex:thing"
-
-
-def test_qname_for_non_contained_uri_returns_none() -> None:
-    ns = Namespace("ex", "http://example.org/")
-    assert ns.qname("http://other.org/thing") is None
-
-
-def test_qname_for_non_str_non_identifier_returns_none() -> None:
-    ns = Namespace("ex", "http://example.org/")
-    assert ns.qname(cast(Any, 12345)) is None
-
-
 EX = "http://example.org/"
+
+NAMES_IN_EX = [
+    pytest.param("http://example.org/thing", id="str"),
+    pytest.param(Identifier("http://example.org/thing"), id="identifier"),
+]
+NAMES_OUTSIDE_EX = [
+    pytest.param("http://other.org/thing", id="other-uri"),
+    pytest.param(12345, id="non-str-non-identifier"),
+    pytest.param("http://other.org/http://example.org/thing", id="ns-uri-not-at-start"),
+]
+
+
+@pytest.mark.parametrize("argument", NAMES_IN_EX)
+def test_contains_a_matching_name(argument: str | Identifier) -> None:
+    ns = Namespace("ex", EX)
+    assert ns.contains(argument)
+
+
+@pytest.mark.parametrize("argument", NAMES_OUTSIDE_EX)
+def test_does_not_contain_another_name(argument: Any) -> None:
+    ns = Namespace("ex", EX)
+    assert not ns.contains(argument)
+
+
+@pytest.mark.parametrize("argument", NAMES_IN_EX)
+def test_qname_for_contained_name(argument: str | Identifier) -> None:
+    ns = Namespace("ex", EX)
+    qname = ns.qname(argument)
+    assert str(qname) == "ex:thing"
+
+
+@pytest.mark.parametrize("argument", NAMES_OUTSIDE_EX)
+def test_qname_for_another_name_returns_none(argument: Any) -> None:
+    ns = Namespace("ex", EX)
+    assert ns.qname(argument) is None
+
+
+def test_the_namespace_uri_itself_is_in_the_namespace() -> None:
+    ns = Namespace("ex", EX)
+    assert ns.contains(EX)
+    assert str(ns.qname(EX)) == "ex:"
+
 
 UNWRITABLE = [
     pytest.param("a b", id="space"),

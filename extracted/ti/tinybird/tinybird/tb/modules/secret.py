@@ -13,7 +13,7 @@ from tinybird.tb.modules.project import Project
 
 @cli.group()
 @click.pass_context
-def secret(ctx):
+def secret(ctx: click.Context) -> None:
     """Secret commands."""
 
 

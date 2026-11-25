@@ -26,6 +26,7 @@
 Module for testing other cursor methods and attributes with asyncio.
 """
 
+import datetime
 import decimal
 
 import oracledb
@@ -817,18 +818,35 @@ async def test_cursor_1946(async_cursor):
 
 
 async def test_cursor_1947(
-    skip_unless_domains_supported, async_cursor, test_env
+    skip_unless_domains_supported,
+    async_db_object_manager,
+    async_cursor,
+    test_env,
 ):
-    "1947 - fetch table with domain and annotations"
-    await async_cursor.execute("select * from TableWithDomainAndAnnotations")
-    assert await async_cursor.fetchall() == [(1, 25)]
+    "1947 - metadata of table with domain and annotations"
+    domain = await async_db_object_manager.create_domain_async(
+        "test_1947_domain", "number(3, 0) not null"
+    )
+    await async_db_object_manager.create_table_async(
+        "test_1947",
+        """
+        id number(9) not null,
+        age number(3, 0) domain test_1947_domain
+        annotations (
+           Anno_1 'first annotation',
+           Anno_2 'second annotation',
+           Anno_3
+        )
+        """,
+    )
+    await async_cursor.execute("select * from test_1947")
     column_1 = async_cursor.description[0]
     assert column_1.domain_schema is None
     assert column_1.domain_name is None
     assert column_1.annotations is None
     column_2 = async_cursor.description[1]
     assert column_2.domain_schema == test_env.main_user.upper()
-    assert column_2.domain_name == "SIMPLEDOMAIN"
+    assert column_2.domain_name == domain.name.upper()
     expected_annotations = {
         "ANNO_1": "first annotation",
         "ANNO_2": "second annotation",
@@ -958,3 +976,25 @@ async def test_cursor_1956(async_cursor):
     await async_cursor.parse("select to_clob('some_value') from dual")
     fetch_info = async_cursor.description[0]
     assert fetch_info.type is oracledb.DB_TYPE_CLOB
+
+
+async def test_cursor_1957(async_conn):
+    "1957 - test changing type handler for cached statement with LOB column"
+
+    def type_handler(cursor, metadata):
+        if metadata.type_code is oracledb.DB_TYPE_CLOB:
+            return cursor.var(
+                oracledb.DB_TYPE_LONG, arraysize=cursor.arraysize
+            )
+
+    sql = "select to_clob('test_1957'), date '2026-11-18' from dual"
+    for handler in (None, type_handler, None):
+        with async_conn.cursor() as cursor:
+            cursor.outputtypehandler = handler
+            await cursor.execute(sql)
+            clob_value, date_value = await cursor.fetchone()
+            if handler is None:
+                assert isinstance(clob_value, oracledb.AsyncLOB)
+                clob_value = await clob_value.read()
+            assert clob_value == "test_1957"
+            assert date_value == datetime.datetime(2026, 11, 18)

@@ -1,3 +1,4 @@
+import os
 import sys
 from collections import defaultdict
 
@@ -42,6 +43,8 @@ class RipgrepFormatter(OutputFormatter):
 
     def _format_path(self, file_path: str) -> str:
         if self.config.path_separator is None:
+            if os.name == "nt" and "/" in file_path and "\\" in file_path:
+                return file_path.replace("/", "\\")
             return file_path
         separator = self.config.path_separator
         return file_path.replace("\\", separator).replace("/", separator)

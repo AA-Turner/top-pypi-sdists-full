@@ -25,6 +25,10 @@ class RestartedFrom2:
             originally chosen, used to lock branch evaluation.
         nested (Union[Unset, Any]): When set, the worker spawns the child for `step_id` as a `RestartedFlow` against
             `nested.flow_job_id` instead of fresh-launching it.
+        failed_only (Union[Unset, bool]): For a parallel for-loop or branch-all at `step_id`, keep the iterations
+            (branches) that succeeded and rerun only the others.
+        from_failed_step (Union[Unset, bool]): With `failed_only`, resume each failed iteration (branch) at the step
+            where it failed rather than rerunning it from its first step.
     """
 
     flow_job_id: Union[Unset, str] = UNSET
@@ -33,6 +37,8 @@ class RestartedFrom2:
     flow_version: Union[Unset, int] = UNSET
     branch_chosen: Union[Unset, "RestartedFrom2BranchChosen"] = UNSET
     nested: Union[Unset, Any] = UNSET
+    failed_only: Union[Unset, bool] = UNSET
+    from_failed_step: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -45,6 +51,8 @@ class RestartedFrom2:
             branch_chosen = self.branch_chosen.to_dict()
 
         nested = self.nested
+        failed_only = self.failed_only
+        from_failed_step = self.from_failed_step
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -61,6 +69,10 @@ class RestartedFrom2:
             field_dict["branch_chosen"] = branch_chosen
         if nested is not UNSET:
             field_dict["nested"] = nested
+        if failed_only is not UNSET:
+            field_dict["failed_only"] = failed_only
+        if from_failed_step is not UNSET:
+            field_dict["from_failed_step"] = from_failed_step
 
         return field_dict
 
@@ -86,6 +98,10 @@ class RestartedFrom2:
 
         nested = d.pop("nested", UNSET)
 
+        failed_only = d.pop("failed_only", UNSET)
+
+        from_failed_step = d.pop("from_failed_step", UNSET)
+
         restarted_from_2 = cls(
             flow_job_id=flow_job_id,
             step_id=step_id,
@@ -93,6 +109,8 @@ class RestartedFrom2:
             flow_version=flow_version,
             branch_chosen=branch_chosen,
             nested=nested,
+            failed_only=failed_only,
+            from_failed_step=from_failed_step,
         )
 
         restarted_from_2.additional_properties = d

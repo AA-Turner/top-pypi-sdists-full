@@ -19,7 +19,7 @@ from tinybird.tb_cli_modules.common import coro
     "--line-length",
     is_flag=False,
     default=100,
-    help="A number indicating the maximum characters per line in the node SQL, lines will be splitted based on the SQL syntax and the number of characters passed as a parameter",
+    help="A number indicating the maximum characters per line in the node SQL, lines will be split based on the SQL syntax and the number of characters passed as a parameter",
 )
 @click.option("--dry-run", is_flag=True, default=False, help="Don't ask to override the local file")
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation to overwrite the local file")
@@ -33,7 +33,7 @@ from tinybird.tb_cli_modules.common import coro
 @click.pass_context
 @coro
 async def fmt(
-    ctx: Context, filenames: List[str], line_length: int, dry_run: bool, yes: bool, diff: bool, no_color: bool
+    _ctx: Context, filenames: List[str], line_length: int, dry_run: bool, yes: bool, diff: bool, no_color: bool
 ) -> Optional[str]:
     """
     Formats a .datasource, .pipe or .incl file

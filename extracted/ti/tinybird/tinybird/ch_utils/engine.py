@@ -103,10 +103,6 @@ class TableDetails:
         return engine_replicated_to_local(_BACKQUOTED_ENGINE_NAME.sub(r"\1", _engine_full))
 
     @property
-    def original_engine_full(self) -> Optional[str]:
-        return self.details.get("engine_full", None)
-
-    @property
     def name(self) -> str:
         return self.details.get("name", "")
 
@@ -305,10 +301,10 @@ class EngineOption:
         name: str,
         sql: str,
         required: Optional[bool] = None,
-        default_value=None,
+        default_value: Optional[str] = None,
         is_valid: Optional[Callable[[List[Dict[str, Any]], str], Optional[str]]] = None,
         tb_param: Optional[str] = None,
-    ):
+    ) -> None:
         self.name = name
         self.sql = sql
         self.required = required
@@ -322,10 +318,10 @@ class EngineParam:
         self,
         name: str,
         required: Optional[bool] = None,
-        default_value=None,
+        default_value: Optional[str] = None,
         is_valid: Optional[Callable[[List[Dict[str, Any]], str], Optional[str]]] = None,
         tb_param: Optional[str] = None,
-    ):
+    ) -> None:
         self.name = name
         self.required = required
         self.default_value = default_value
@@ -360,7 +356,7 @@ def columns_are_valid(columns: List[Dict[str, Any]], column_names: str) -> str:
     return ", ".join(new_column_names)
 
 
-def sorting_key_is_valid(columns: List[Dict[str, Any]], value: Optional[str]) -> str:
+def sorting_key_is_valid(columns: List[Dict[str, Any]], value: Optional[str]) -> str:  # noqa: ARG001
     INVALID_SORTING_KEYS = ["tuple()"]
 
     if not value:

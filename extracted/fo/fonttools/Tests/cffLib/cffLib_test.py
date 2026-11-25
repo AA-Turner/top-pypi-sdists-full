@@ -286,6 +286,47 @@ class CffLibTest(DataFilesHandler):
 
 
 class CFFToCFF2Test(DataFilesHandler):
+    def test_conversion_without_glyph_names_in_post(self):
+        # With a format 3 post table, the glyph names are only in the CFF
+        # charset. A freshly loaded font has not read its glyph order yet.
+        from fontTools.cffLib.CFFToCFF2 import convertCFFToCFF2
+        from fontTools.fontBuilder import FontBuilder
+        from fontTools.pens.t2CharStringPen import T2CharStringPen
+
+        glyphOrder = [".notdef", "A", "A.alt"]
+        fb = FontBuilder(1000, isTTF=False)
+        fb.setupGlyphOrder(glyphOrder)
+        fb.setupCharacterMap({0x41: "A"})
+        charStrings = {}
+        for i, glyphName in enumerate(glyphOrder):
+            pen = T2CharStringPen(500, None)
+            pen.moveTo((0, 0))
+            pen.lineTo((100 + i * 10, 0))
+            pen.lineTo((0, 100))
+            pen.closePath()
+            charStrings[glyphName] = pen.getCharString()
+        fb.setupCFF("TestCFF", {}, charStrings, {})
+        fb.setupHorizontalMetrics({glyphName: (500, 0) for glyphName in glyphOrder})
+        fb.setupHorizontalHeader()
+        fb.setupNameTable({"familyName": "TestCFF", "styleName": "Regular"})
+        fb.setupOS2()
+        fb.setupPost(keepGlyphNames=False)
+        buf = BytesIO()
+        fb.save(buf)
+        data = buf.getvalue()
+        expected = _drawGlyphs(TTFont(BytesIO(data)))
+        font = TTFont(BytesIO(data))
+
+        convertCFFToCFF2(font)
+        buf = BytesIO()
+        font.save(buf)
+        buf.seek(0)
+        font = TTFont(buf)
+
+        # CFF2 has no glyph names: they come from the post table now.
+        self.assertEqual(font.getGlyphOrder(), [".notdef", "A", "glyph00002"])
+        self.assertEqual(_drawGlyphs(font), expected)
+
     def test_roundtrip_with_local_subrs(self):
         from fontTools.cffLib.CFFToCFF2 import convertCFFToCFF2
         from fontTools.cffLib.CFF2ToCFF import convertCFF2ToCFF
@@ -378,6 +419,39 @@ def _drawGlyphs(font):
     return result
 
 
+@pytest.mark.parametrize("local", [False, True])
+def test_remove_unused_subroutines_sparse_indices(local):
+    from fontTools.cffLib import SubrsIndex
+    from fontTools.misc.psCharStrings import T2CharString
+
+    font = _makeCFF2Font([".notdef"])
+    cff = font["CFF2"].cff
+    top = cff[0]
+    private = top.FDArray[0].Private
+    if local:
+        private.Subrs = SubrsIndex()
+    subrs = private.Subrs if local else cff.GlobalSubrs
+    for i in range(9):
+        subrs.append(
+            T2CharString(
+                program=[i + 1, 0, "rlineto"],
+                private=private,
+                globalSubrs=cff.GlobalSubrs,
+            )
+        )
+    operator = "callsubr" if local else "callgsubr"
+    charstring = top.CharStrings[".notdef"]
+    # Visit old indices 8 then 1; retain them in their original order, 1 then 8.
+    charstring.setProgram([0, 0, "rmoveto", -99, operator, -106, operator])
+    expected = _drawGlyphs(font)
+
+    cff.remove_unused_subroutines()
+
+    assert [subr.program for subr in subrs] == [[2, 0, "rlineto"], [9, 0, "rlineto"]]
+    assert charstring.program == [0, 0, "rmoveto", -106, operator, -107, operator]
+    assert _drawGlyphs(font) == expected
+
+
 def _convertAndReload(font):
     from fontTools.cffLib.CFF2ToCFF import convertCFF2ToCFF
 
@@ -414,6 +488,24 @@ class CFF2ToCFFTest(unittest.TestCase):
         self.assertEqual(topDict.ROS, ("Adobe", "Identity", 0))
         self.assertEqual(len(topDict.FDArray), 2)
         self.assertEqual(font.getGlyphOrder(), [".notdef", "cid00001", "cid00002"])
+        self.assertEqual(_drawGlyphs(font), expected)
+
+    def test_FDSelect_not_yet_loaded(self):
+        # A freshly loaded font reads its FDSelect lazily, which needs the CFF2
+        # glyph order that the conversion drops. Load the font as the
+        # CFF2ToCFF command does.
+        font = _makeCFF2Font([".notdef", "A", "B"], fdSelect=[0, 1, 1])
+        expected = _drawGlyphs(font)
+        buf = BytesIO()
+        font.save(buf)
+        buf.seek(0)
+        font = TTFont(buf, recalcBBoxes=False)
+
+        font = _convertAndReload(font)
+
+        topDict = font["CFF "].cff[0]
+        self.assertEqual(len(topDict.FDArray), 2)
+        self.assertEqual(topDict.FDSelect.gidArray, [0, 1, 1])
         self.assertEqual(_drawGlyphs(font), expected)
 
 

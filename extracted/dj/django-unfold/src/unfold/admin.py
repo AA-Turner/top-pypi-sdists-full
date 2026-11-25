@@ -2,18 +2,20 @@ from functools import update_wrapper
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from django import forms
+from django.contrib import messages
 from django.contrib.admin import ModelAdmin as BaseModelAdmin
 from django.contrib.admin import StackedInline as BaseStackedInline
 from django.contrib.admin import TabularInline as BaseTabularInline
 from django.contrib.admin import display, helpers
 from django.contrib.admin.options import InlineModelAdmin
+from django.contrib.admin.views.main import ERROR_FLAG
 from django.contrib.contenttypes.admin import (
     GenericStackedInline as BaseGenericStackedInline,
 )
 from django.contrib.contenttypes.admin import (
     GenericTabularInline as BaseGenericTabularInline,
 )
-from django.db.models import BLANK_CHOICE_DASH, Model
+from django.db.models import Model
 from django.http import HttpRequest, HttpResponse
 from django.urls import URLPattern, path
 from django.utils.safestring import SafeString, mark_safe
@@ -108,6 +110,9 @@ class ModelAdmin(
         self, request: HttpRequest, extra_context: dict[str, Any] | None = None
     ) -> HttpResponse:
         self.request = request
+
+        if request.GET.get(ERROR_FLAG) == "1":
+            messages.warning(request, _("Invalid filter has been entered."))
 
         if self.ordering_field and self.ordering_field not in self.list_editable:
             list_editable = list(getattr(self, "list_editable", []))
@@ -213,14 +218,6 @@ class ModelAdmin(
             {"model_admin": self},
             name=custom_url[1],
         )
-
-    def get_action_choices(
-        self,
-        request: HttpRequest,
-        default_choices: list[tuple[str, str]] = BLANK_CHOICE_DASH,
-    ) -> list[tuple[str, str]]:
-        default_choices = [("", _("Select action"))]
-        return super().get_action_choices(request, default_choices)
 
     @display(description=mark_safe(checkbox.render("action_toggle_all", 1)))
     def action_checkbox(self, obj: Model) -> SafeString:

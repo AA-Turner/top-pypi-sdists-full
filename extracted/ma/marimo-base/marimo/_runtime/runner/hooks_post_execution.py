@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 import sys
-import traceback as tb
 
 from marimo import _loggers
 from marimo._ast.cell import CellImpl
-from marimo._ast.toplevel import TopLevelExtraction
 from marimo._data._external_storage.get_storage import (
     get_storage_backends_from_variables,
     storage_backend_to_storage_namespace,
@@ -27,7 +25,6 @@ from marimo._messaging.notification import (
     DatasetsNotification,
     DataSourceConnectionsNotification,
     StorageNamespacesNotification,
-    VariableValuesNotification,
 )
 from marimo._messaging.notification_utils import (
     CellNotificationUtils,
@@ -35,16 +32,17 @@ from marimo._messaging.notification_utils import (
 )
 from marimo._messaging.tracebacks import (
     _highlight_traceback,
+    format_exception,
     format_exception_message,
     write_traceback,
 )
-from marimo._messaging.variables import create_variable_value
 from marimo._output import formatting
 from marimo._plugins.ui._core.ui_element import UIElement
 from marimo._runtime.context.types import (
     get_context,
     get_global_context,
 )
+from marimo._runtime.context.utils import get_mode
 from marimo._runtime.control_flow import MarimoInterrupt, MarimoStopError
 from marimo._runtime.runner import cell_runner
 from marimo._runtime.runner.hook_context import PostExecutionHookContext
@@ -119,27 +117,6 @@ def _set_run_result_status(
         )
     else:
         cell.set_run_result_status("success")
-
-
-@kernel_tracer.start_as_current_span("broadcast_variables")
-def _broadcast_variables(
-    cell: CellImpl,
-    ctx: PostExecutionHookContext,
-    run_result: cell_runner.RunResult,
-) -> None:
-    if not ctx.should_broadcast_data:
-        return
-
-    del run_result
-    values = [
-        create_variable_value(
-            name=variable,
-            value=(ctx.glbls.get(variable, None)),
-        )
-        for variable in cell.defs
-    ]
-    if values:
-        broadcast_notification(VariableValuesNotification(variables=values))
 
 
 @kernel_tracer.start_as_current_span("broadcast_datasets")
@@ -364,7 +341,7 @@ def _broadcast_outputs(
         ):
             ctx.exceptions[cell.cell_id] = formatted_output.exception
         if formatted_output.traceback is not None:
-            write_traceback(formatted_output.traceback)
+            write_traceback(formatted_output.traceback, code=cell.code)
 
         CellNotificationUtils.broadcast_output(
             channel=CellChannel.OUTPUT,
@@ -380,6 +357,7 @@ def _broadcast_outputs(
             data=[run_result.output],
             clear_console=True,
             cell_id=cell.cell_id,
+            code=cell.code,
         )
     elif isinstance(run_result.exception, MarimoInterrupt):
         LOGGER.debug("Cell %s was interrupted", cell.cell_id)
@@ -389,12 +367,14 @@ def _broadcast_outputs(
             data=[MarimoInterruptionError()],
             clear_console=False,
             cell_id=cell.cell_id,
+            code=cell.code,
         )
     elif isinstance(run_result.exception, MarimoExceptionRaisedError):
         CellNotificationUtils.broadcast_error(
             data=[run_result.exception],
             clear_console=False,
             cell_id=cell.cell_id,
+            code=cell.code,
         )
     elif isinstance(run_result.exception, MarimoSQLError):
         LOGGER.debug("Cell %s raised a SQL error", cell.cell_id)
@@ -402,6 +382,7 @@ def _broadcast_outputs(
             data=[run_result.exception],
             clear_console=True,
             cell_id=cell.cell_id,
+            code=cell.code,
         )
     elif run_result.exception is not None:
         LOGGER.debug(
@@ -419,20 +400,20 @@ def _broadcast_outputs(
         if not msg:
             msg = f"This cell raised an exception: {exception_type}"
 
-        # Include formatted traceback if enabled in config
         formatted_traceback = None
-        show_tracebacks = False
+        show_tracebacks = get_mode() == "edit"
         if ctx.user_config is not None:
-            show_tracebacks = bool(
-                ctx.user_config["runtime"].get("show_tracebacks", False)
+            show_tracebacks = show_tracebacks or bool(
+                ctx.user_config.runtime.show_tracebacks
             )
 
         if show_tracebacks and (
             isinstance(run_result.exception, BaseException)
             and run_result.exception.__traceback__
         ):
-            tb_lines = tb.format_exception(run_result.exception)
-            formatted_traceback = _highlight_traceback("".join(tb_lines))
+            formatted_traceback = _highlight_traceback(
+                format_exception(run_result.exception)
+            )
 
         CellNotificationUtils.broadcast_error(
             data=[
@@ -445,34 +426,8 @@ def _broadcast_outputs(
             ],
             clear_console=False,
             cell_id=cell.cell_id,
+            code=cell.code,
         )
-
-
-@kernel_tracer.start_as_current_span("render_toplevel_defs")
-def render_toplevel_defs(
-    cell: CellImpl,
-    ctx: PostExecutionHookContext,
-    run_result: cell_runner.RunResult,
-) -> None:
-    del run_result
-    variable = cell.toplevel_variable
-    served = ctx.graph.cells_serving_serialization_hint
-    if variable is not None:
-        extractor = TopLevelExtraction.from_graph(ctx.graph, cell=cell)
-        serialization = list(iter(extractor))[-1]
-        CellNotificationUtils.broadcast_serialization(
-            serialization=serialization,
-            cell_id=cell.cell_id,
-        )
-        served.add(cell.cell_id)
-    elif cell.cell_id in served:
-        # Cell stopped being a top-level definition: clear the prior hint.
-        # Only broadcast on this transition so ordinary cells don't emit an
-        # extra cell-op on every run.
-        CellNotificationUtils.broadcast_serialization_cleared(
-            cell_id=cell.cell_id,
-        )
-        served.discard(cell.cell_id)
 
 
 @kernel_tracer.start_as_current_span("run_pytest")
@@ -554,7 +509,6 @@ POST_EXECUTION_HOOKS: list[PostExecutionHook] = [
     _store_reference_to_output,
     _store_state_reference,
     _issue_exception_side_effect,
-    _broadcast_variables,
     _broadcast_datasets,
     _broadcast_data_source_connection,
     _broadcast_duckdb_datasource,

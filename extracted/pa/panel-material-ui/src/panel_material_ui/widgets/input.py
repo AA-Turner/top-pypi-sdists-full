@@ -13,7 +13,7 @@ import panel as pn
 import param
 from bokeh.models.formatters import NumeralTickFormatter, TickFormatter
 from panel.models.reactive_html import DOMEvent
-from panel.util import edit_readonly, try_datetime64_to_datetime, value_as_date, value_as_datetime
+from panel.util import try_datetime64_to_datetime, value_as_date, value_as_datetime
 from panel.widgets.input import ArrayInput as _PnArrayInput
 from panel.widgets.input import DatetimeInput as _PnDatetimeInput
 from panel.widgets.input import DatetimeRangeInput as _PnDatetimeRangeInput
@@ -21,6 +21,7 @@ from panel.widgets.input import FileInput as _PnFileInput
 from panel.widgets.input import LiteralInput as _PnLiteralInput
 
 from .._param import Date, DateList, Datetime
+from .._utils import edit_readonly_params
 from ..base import COLORS, ColorType, LoadingTransform, ThemedTransform, TooltipTransform
 from ._mime import MIME_TYPES, NoConverter
 from .base import MaterialWidget
@@ -88,7 +89,7 @@ class _TextInputBase(MaterialInputWidget):
 
     @param.depends('value', watch=True, on_init=True)
     def _sync_value_input(self):
-        with edit_readonly(self):
+        with edit_readonly_params(self, 'value_input'):
             self.value_input = self.value
 
 
@@ -321,6 +322,14 @@ class _FileUploadArea(param.Parameterized):
             self._process_chunk(msg)
             return
         elif status == "initializing":
+            self._buffer.clear()
+            self._file_buffer.clear()
+            return
+        elif status == "error":
+            # The frontend aborted the upload (e.g. size validation failed),
+            # discard any partially received files.
+            self._buffer.clear()
+            self._file_buffer.clear()
             return
         elif status == "finished":
             try:
@@ -338,26 +347,29 @@ class _FileUploadArea(param.Parameterized):
         chunk = msg["chunk"]
         total_chunks = msg["total_chunks"]
         mime_type = msg["mime_type"]
+        # Files in a directory upload may share a basename, so key by
+        # the position in the upload batch when the frontend provides it.
+        index = msg.get("index")
+        key = name if index is None else (index, name)
 
         data = msg["data"]
         data = bytes(data)
 
-        if name not in self._file_buffer:
-            self._file_buffer[name] = {
+        if key not in self._file_buffer:
+            self._file_buffer[key] = {
                 "chunks": {},
                 "total_chunks": total_chunks,
                 "mime_type": mime_type,
                 "filename": name
             }
 
-        self._file_buffer[name]["chunks"][chunk] = data
+        self._file_buffer[key]["chunks"][chunk] = data
 
         # Check if all chunks are received for this file
-        if len(self._file_buffer[name]["chunks"]) == total_chunks:
-            # Reassemble the file
-            file_data = b""
-            for i in range(1, total_chunks + 1):  # Chunks are 1-indexed
-                file_data += self._file_buffer[name]["chunks"][i]
+        chunks = self._file_buffer[key]["chunks"]
+        if len(chunks) == total_chunks:
+            # Chunks are 1-indexed
+            file_data = b"".join(chunks[i] for i in range(1, total_chunks + 1))
 
             self._buffer.append({
                 "value": file_data,
@@ -365,7 +377,7 @@ class _FileUploadArea(param.Parameterized):
                 "mime_type": mime_type
             })
 
-            del self._file_buffer[name]
+            del self._file_buffer[key]
 
     def _flush_buffer(self):
         value, mime_type, filename = [], [], []
@@ -911,11 +923,11 @@ class DateRangePicker(MaterialInputWidget):
     def _update_value_params(self):
         if self.value is not None:
             v1, v2 = self.value
-            with edit_readonly(self):
+            with edit_readonly_params(self, 'value_start', 'value_end'):
                 self.value_start = v1
                 self.value_end = v2
         else:
-            with edit_readonly(self):
+            with edit_readonly_params(self, 'value_start', 'value_end'):
                 self.value_start = None
                 self.value_end = None
 
@@ -1452,11 +1464,13 @@ class TimePicker(_TimeCommon):
             time_str = msg['value']
             if time_str and isinstance(time_str, str):
                 time_parts = time_str.split(':')
-                if len(time_parts) >= 2:
-                    hours = int(time_parts[0])
-                    minutes = int(time_parts[1])
+                try:
+                    hours, minutes = int(time_parts[0]), int(time_parts[1])
                     seconds = int(time_parts[2]) if len(time_parts) > 2 else 0
                     msg['value'] = dt_time(hours, minutes, seconds)
+                except (IndexError, ValueError):
+                    # Incomplete or invalid edit from the frontend, keep the current value
+                    del msg['value']
         return msg
 
 

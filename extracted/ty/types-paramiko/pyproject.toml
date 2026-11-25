@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-paramiko"
-version = "5.1.0.20261122"
+version = "5.1.0.20261125"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for paramiko"
@@ -31,7 +31,7 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).
+[`bd8bc72911c6c1dcabd2b61a949371fab09e8010`](https://github.com/python/typeshed/commit/bd8bc72911c6c1dcabd2b61a949371fab09e8010).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

@@ -43,9 +43,11 @@ class LBUG_API NodeTableCatalogEntry final : public TableCatalogEntry {
 public:
     NodeTableCatalogEntry() = default;
     NodeTableCatalogEntry(std::string name, std::string primaryKeyName, std::string storage = "",
-        common::StorageFormat storageFormat = common::StorageFormat::NONE)
+        common::StorageFormat storageFormat = common::StorageFormat::NONE,
+        std::string storageFormatName = "")
         : TableCatalogEntry{entryType_, std::move(name)}, primaryKeyName{std::move(primaryKeyName)},
-          storage{std::move(storage)}, storageFormat{storageFormat} {}
+          storage{std::move(storage)}, storageFormat{storageFormat},
+          storageFormatName{std::move(storageFormatName)} {}
 
     // Constructor for foreign-backed tables
     NodeTableCatalogEntry(std::string name, std::string primaryKeyName,
@@ -73,6 +75,8 @@ public:
     }
     const std::string& getStorage() const { return storage; }
     common::StorageFormat getStorageFormat() const { return storageFormat; }
+    // External format name for StorageFormat::EXTERNAL (e.g. "lance"); empty otherwise.
+    const std::string& getStorageFormatName() const { return storageFormatName; }
     const std::vector<SortedByProperty>& getSortedByProperties() const {
         return sortedByProperties;
     }
@@ -128,17 +132,16 @@ public:
     const std::vector<common::table_id_t>& getChildTableIDs() const { return childTableIDs; }
     common::table_id_t getParentTableID() const { return parentTableID; }
     uint64_t getPartitionIndex() const { return partitionIndex; }
+    bool isPartitionPruningSafe() const { return partitionPruningSafe; }
+    void setPartitionPruningSafe(bool safe) { partitionPruningSafe = safe; }
 
-    // Child-side copy of the parent's encoded LIST key for this partition (empty when the
-    // child is not a dynamically created LIST partition). WAL replay restores the parent's
-    // key -> child map from it so later writes keep routing into the existing partitions.
+    // Child-side copy of the encoded LIST value or RANGE day (empty on unkeyed children).
+    // WAL replay uses it to restore routing into existing partitions.
     const std::string& getListPartitionKey() const { return listPartitionKey; }
     void setListPartitionKey(std::string key) { listPartitionKey = std::move(key); }
 
-    // ---- LIST partitioning ----
-    // A LIST parent keeps one partition per distinct partition-key value. The value -> partition
-    // mapping is persisted as an opaque encoded key (see processor-side encodeListPartitionKey)
-    // so the catalog does not need typed Value serialization.
+    // Dynamic partitions use opaque keys: the partition value for LIST and the calendar day
+    // for daily RANGE. Each key identifies one child in this parent's catalog version.
     std::optional<common::table_id_t> findListPartition(
         const std::string& encodedKey) const; // linear scan; callers cache hot lookups
     void addListPartition(std::string encodedKey, common::table_id_t tableID);
@@ -168,6 +171,7 @@ private:
     uint64_t csrChangeEpoch = 0;
     std::string storage;
     common::StorageFormat storageFormat = common::StorageFormat::NONE;
+    std::string storageFormatName;
     std::optional<function::TableFunction> scanFunction;
     CreateBindDataFunc createBindDataFunc; // Callback to create bind data
     std::string foreignDatabaseName;
@@ -176,11 +180,12 @@ private:
     // Partitioning state. `partitionMethod` is set only on the logical parent. `parentTableID` /
     // `partitionIndex` are set only on child partition subgraphs.
     std::optional<binder::BoundPartitionMethod> partitionMethod;
+    bool partitionPruningSafe = false;
     std::string partitionColumnName;
     common::property_id_t partitionColumnID = common::INVALID_PROPERTY_ID;
     uint64_t numPartitions = 0;
     std::vector<common::table_id_t> childTableIDs;
-    // LIST-only, parent side: encoded partition-key value -> child table id, in creation order.
+    // Parent-side map of encoded keys to child table IDs in creation order.
     std::vector<std::pair<std::string, common::table_id_t>> listPartitionKeys;
     common::table_id_t parentTableID = common::INVALID_TABLE_ID;
     uint64_t partitionIndex = 0;

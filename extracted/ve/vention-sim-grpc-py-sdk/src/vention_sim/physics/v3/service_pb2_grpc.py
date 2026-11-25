@@ -7,6 +7,7 @@ from vention_sim.physics.v1 import requests_pb2 as physics_dot_v1_dot_requests__
 from vention_sim.physics.v1 import responses_pb2 as physics_dot_v1_dot_responses__pb2
 from vention_sim.physics.v2 import requests_pb2 as physics_dot_v2_dot_requests__pb2
 from vention_sim.physics.v3 import requests_pb2 as physics_dot_v3_dot_requests__pb2
+from vention_sim.physics.v3 import responses_pb2 as physics_dot_v3_dot_responses__pb2
 
 
 class PhysicsEngineServiceStub(object):
@@ -59,6 +60,11 @@ class PhysicsEngineServiceStub(object):
                 '/physics.v3.PhysicsEngineService/SetIOInput',
                 request_serializer=physics_dot_v2_dot_requests__pb2.SetIOInputRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.GetHomePositions = channel.unary_unary(
+                '/physics.v3.PhysicsEngineService/GetHomePositions',
+                request_serializer=physics_dot_v3_dot_requests__pb2.GetHomePositionsRequest.SerializeToString,
+                response_deserializer=physics_dot_v3_dot_responses__pb2.GetHomePositionsResponse.FromString,
                 _registered_method=True)
 
 
@@ -116,6 +122,14 @@ class PhysicsEngineServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetHomePositions(self, request, context):
+        """Motor driver RPCs
+        Home positions persist between simulation runs.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PhysicsEngineServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -158,6 +172,11 @@ def add_PhysicsEngineServiceServicer_to_server(servicer, server):
                     servicer.SetIOInput,
                     request_deserializer=physics_dot_v2_dot_requests__pb2.SetIOInputRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'GetHomePositions': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetHomePositions,
+                    request_deserializer=physics_dot_v3_dot_requests__pb2.GetHomePositionsRequest.FromString,
+                    response_serializer=physics_dot_v3_dot_responses__pb2.GetHomePositionsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -378,6 +397,33 @@ class PhysicsEngineService(object):
             '/physics.v3.PhysicsEngineService/SetIOInput',
             physics_dot_v2_dot_requests__pb2.SetIOInputRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetHomePositions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/physics.v3.PhysicsEngineService/GetHomePositions',
+            physics_dot_v3_dot_requests__pb2.GetHomePositionsRequest.SerializeToString,
+            physics_dot_v3_dot_responses__pb2.GetHomePositionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

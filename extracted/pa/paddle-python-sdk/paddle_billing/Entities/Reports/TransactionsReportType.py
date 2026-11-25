@@ -1,8 +1,12 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
-from paddle_billing.Entities.Reports.ReportType import ReportType
+from paddle_billing.Entities.Reports.ReportType import ReportType as ReportType
 
 
 class TransactionsReportType(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    Transactions: "TransactionsReportType" = ReportType.Transactions.value
-    TransactionLineItems: "TransactionsReportType" = ReportType.TransactionLineItems.value
+    Transactions: "TransactionsReportType" = member(ReportType.Transactions.value)
+    TransactionLineItems: "TransactionsReportType" = member(ReportType.TransactionLineItems.value)

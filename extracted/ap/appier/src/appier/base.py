@@ -104,7 +104,7 @@ NAME = "appier"
 """ The name to be used to describe the framework while working
 on its own environment, this is just a descriptive value """
 
-VERSION = "1.46.1"
+VERSION = "1.46.2"
 """ The version of the framework that is currently installed
 this value may be used for debugging/diagnostic purposes """
 
@@ -229,12 +229,18 @@ SLUGIER_REGEX_2 = re.compile(r"[-]+", re.UNICODE)  # @UndefinedVariable
 by the slugier sub system to replace some of its values """
 
 CSS_ABS_REGEX = re.compile(
-    legacy.bytes(r"url\((?!(http:\/\/|https:\/\/|\/\/|\/))([^\)]+)\)")
+    legacy.bytes(
+        r"url\(\s*(?![\"']?(http:\/\/|https:\/\/|\/\/|\/|data:|#|%23))([^\)\s][^\)]*)\)"
+    ),
+    re.IGNORECASE,
 )
 """ The regular expression that is going to be used to capture
 the relative CSS URL values, so that they may be converted into
 absolute ones for proper inlining, note that the regex is defined
-as a negation of the absolute URL values """
+as a negation of the absolute URL values, of the data URI ones and
+of the fragment references (that point to the document), which may
+be quoted, preceded by whitespace or written in any case, and that
+the leading whitespace is left out of the captured URL value """
 
 BODYLESS_METHODS = ("GET", "HEAD", "OPTIONS", "DELETE")
 """ The sequence that defines the complete set of

@@ -99,6 +99,7 @@ from .base_impl cimport (
     BaseSubscrImpl,
     BaseVarImpl,
     BatchLoadManager,
+    EndUserSecurityContextImpl,
     PipelineOpImpl,
     PipelineOpResultImpl,
     PIPELINE_OP_TYPE_CALL_FUNC,
@@ -212,6 +213,7 @@ from .base_impl cimport (
 
 from .base_impl import (
     DB_TYPE_BLOB,
+    DB_TYPE_CHAR,
     DB_TYPE_CLOB,
     DB_TYPE_NCLOB,
     DB_TYPE_BINARY_INTEGER,
@@ -219,6 +221,7 @@ from .base_impl import (
     DB_TYPE_INTERVAL_DS,
     DB_TYPE_NUMBER,
     DB_TYPE_OBJECT,
+    DB_TYPE_VARCHAR,
     DB_TYPE_XMLTYPE,
 )
 
@@ -274,4 +277,3 @@ include "impl/thin/dbobject.pyx"
 include "impl/thin/dbobject_cache.pyx"
 include "impl/thin/lob.pyx"
 include "impl/thin/pool.pyx"
-include "impl/thin/end_user_security_context.pyx"

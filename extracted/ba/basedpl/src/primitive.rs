@@ -162,9 +162,9 @@ impl OperatorKind {
         let (glyph, names, left, right) = match self {
             Each => ("¨", ["diaeresis", "each", ""], Function, None), Commute => ("⍨", ["tilde-diaeresis", "self", "commute"], Any, None),
             Bitwise => ("ᵇ", ["superscript-b", "bitwise", ""], Function, None), Before => ("↣", ["right-tail-arrow", "before", ""], Any, Some(Function)),
-            Unary => ("ᵘ", ["superscript-u", "unary", ""], Function, None),
-            Rank => ("⍤", ["jot-diaeresis", "rank", ""], Function, Some(Any)), Atop => ("∘", ["jot", "atop", ""], Function, Some(Function)),
-            Axis => ("⍠", ["quad-colon", "axis", ""], Function, Some(Any)), Over => ("⍥", ["circle-diaeresis", "over", ""], Function, Some(Function)),
+            Unary => ("ᵘ", ["superscript-u", "unary", ""], Function, None), Rank => ("⍤", ["jot-diaeresis", "rank", ""], Function, Some(Any)),
+            Atop => ("∘", ["jot", "atop", ""], Function, Some(Function)), Axis => ("⍠", ["quad-colon", "axis", ""], Function, Some(Any)),
+            Over => ("⍥", ["circle-diaeresis", "over", ""], Function, Some(Function)),
             After => ("↢", ["left-tail-arrow", "after", ""], Function, Some(Any)),
             Product => (".", ["dot", "determinant", "inner-product"], Function, Some(Function)),
             Outer => ("⊗", ["circle-times", "outer-product", ""], Function, None), Key => ("⌸", ["quad-equal", "key", ""], Function, None),
@@ -856,6 +856,7 @@ fn int_count(n: usize) -> u64 {
 pub(crate) fn depth(right: &Value) -> usize {
     if right.is_atom() { return 0; }
     if let Some(carrier) = right.carrier() { return depth(carrier.template()).max(1); }
+    if right.is_cells() { return 2; }
     1 + match right.as_items() { Items::Values([]) => depth(&right.prototype()), Items::Values(items) => items.iter().map(depth).max().unwrap_or(0), _ => 0 }
 }
 

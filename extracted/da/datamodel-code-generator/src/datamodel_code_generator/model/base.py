@@ -168,8 +168,8 @@ if TYPE_CHECKING:
         RenderInputs,
         RenderReady,
     )
-    from datamodel_code_generator.model._views import FieldView, ModelForm
     from datamodel_code_generator.python_literal import PythonRuntimeExpression
+    from datamodel_code_generator.types import ModelForm
 
 TEMPLATE_DIR: Path = Path(__file__).parents[0] / "template"
 
@@ -195,6 +195,7 @@ _MAX_MISSING_CUSTOM_TEMPLATE_SUBDIRS = 128
 _MAX_CUSTOM_TEMPLATE_SIGNATURES = 128
 _MAX_CUSTOM_TEMPLATE_DEPENDENCIES = 128
 _ORIGINAL_TEMPLATE_LOADER_MARKER = "__datamodel_code_generator_original_template_loader__"
+_COMPILED_PATTERN_KEY = "_compiled_python_pattern"
 _NESTED_MODEL_DEFAULT_FACTORY_ORDER_KEY = "_nested_model_default_factory_order"
 _NESTED_MODEL_DEFAULT_FACTORY_RECURSIVE_KEYS_KEY = "_nested_model_default_factory_recursive_keys"
 _PATH_PARTNER_KEY = "_path_partner_model_key"
@@ -2281,6 +2282,16 @@ class BaseLayoutView(NamedTuple):
     is_opaque: Callable[[DataModel], bool]
 
 
+def _is_instance_field(field: DataModelFieldBase) -> bool:
+    """Return whether a field takes a slot of its struct, unlike the class variable a msgspec tag field becomes."""
+    return not field.is_class_var
+
+
+def _same_model(model: DataModel) -> DataModel:
+    """Return the model itself as the model whose layout it has."""
+    return model
+
+
 def _model_written(field: DataModelFieldBase, *, keeps_none: bool = False) -> ModelWritten:
     """Return the written assignment of a field as the neutral rule reads it: its call, declared factory and default."""
     return ModelWritten(
@@ -2338,7 +2349,12 @@ def _classify_field_assignment(
     return classify_assignment(_assignment_inputs(field, row, written))
 
 
-def _field_source_name(field: FieldView) -> str | None:
+def _model_of_reference(reference: Reference) -> DataModel | None:
+    """Return the model a reference names, as the written output holds it, or None when it names no model."""
+    return source if isinstance(source := reference.source, DataModel) else None
+
+
+def _field_source_name(field: DataModelFieldBase) -> str | None:
     """Return the name the schema gives the field: its original name, else its name."""
     return field.original_name if field.original_name is not None else field.name
 
@@ -3264,7 +3280,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     def imports(self) -> tuple[Import, ...]:
         """Get all imports required by this model and its fields: the fields' kept imports, then the model's own."""
         return chain_as_tuple(
-            (i for f in self.fields for i in field_imports(f)),
+            (i for f in self._class_body_fields() for i in field_imports(f)),
             self._additional_imports,
         )
 
@@ -3536,16 +3552,18 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         """
         return None
 
-    def _write_additional_properties_type(self, data_type: DataType) -> None:
+    def _write_additional_properties_type(
+        self, data_type: DataType, *, reference_classes: set[str] | None = None
+    ) -> None:
         """Write ``data_type`` as the type of the additional properties, with its imports, as the settings render it.
 
-        The classes it names stay those recorded for the additional properties. ``GenerationStore`` runs it
-        (``replace_additional_properties_type``).
+        The classes it names are ``reference_classes``, or stay those recorded for the additional properties.
+        ``GenerationStore`` runs it (``replace_additional_properties_type``).
         """
         self.store_additional_properties_type(
             self.extra_template_data,
             _make_referencing_type_expression(data_type),
-            set(self.additional_properties_reference_classes),
+            set(self.additional_properties_reference_classes) if reference_classes is None else reference_classes,
             imports=tuple(data_type.all_imports),
         )
         self._name_final_classes()
@@ -3786,14 +3804,15 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     @property
     def _custom_template_fields(self) -> Sequence[DataModelFieldBase | _RenderedDataModelField]:
         """Return custom-template fields, allocating proxies only when escaping changes a docstring."""
+        fields = self._class_body_fields()
         if not any(
             field.use_field_description or field.use_field_description_example or field.use_inline_field_description
-            for field in self.fields
+            for field in fields
         ):
-            return self.fields
+            return fields
 
         rendered_fields: list[DataModelFieldBase | _RenderedDataModelField] | None = None
-        for index, field in enumerate(self.fields):
+        for index, field in enumerate(fields):
             if (docstring := field.docstring) is None or (
                 escaped_docstring := escape_docstring(docstring)
             ) == docstring:
@@ -3803,9 +3822,9 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
 
             if rendered_fields is None:
                 rendered_fields = []
-                rendered_fields.extend(self.fields[:index])
+                rendered_fields.extend(fields[:index])
             rendered_fields.append(_RenderedDataModelField(field, escaped_docstring or ""))
-        return self.fields if rendered_fields is None else rendered_fields
+        return fields if rendered_fields is None else rendered_fields
 
     def _template_fields(self, *, use_custom_template: bool) -> Sequence[DataModelFieldBase | _RenderedDataModelField]:
         """Return fields in the representation expected by the selected template, their plans rebuilt if changed."""
@@ -3851,8 +3870,12 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         """Return fields with docstrings prepared for built-in templates."""
         return [
             _RenderedDataModelField(field, self._format_docstring(field.docstring, self.FIELD_DOCSTRING_INDENT))
-            for field in self.fields
+            for field in self._class_body_fields()
         ]
+
+    def _class_body_fields(self) -> list[DataModelFieldBase]:
+        """Return the fields the class body writes: the model's own."""
+        return self.fields
 
 
 def _model_package_class(cls: type) -> bool:

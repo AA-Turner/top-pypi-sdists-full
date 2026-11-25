@@ -434,10 +434,10 @@ Add tags to your constructs. We recommend setting an `env` and `service` tag to 
 
 #### Enable in-tracer App and API Protection
 
-The [Datadog Lambda Library for Python](https://docs.datadoghq.com/account_management/api-app-keys/#api-keys) (version `8.114.0` or later) can run [App and API Protection](https://docs.datadoghq.com/serverless/aws_lambda/installation/dotnet) directly inside the instrumented application, giving the security engine additional context. This complements the in-extension implementation delivered by the [Datadog Lambda Extension](https://docs.datadoghq.com/serverless/datadog_lambda_library/extension/). `appSecMode` selects which implementation runs:
+The [Datadog Lambda Library for Python](https://docs.datadoghq.com/account_management/api-app-keys/#api-keys) (version `8.114.0` or later) and the Java tracer (Java layer version `31` or later with extension version `102` or later) can run [App and API Protection](https://docs.datadoghq.com/serverless/aws_lambda/installation/dotnet) directly inside the instrumented application, giving the security engine additional context. This complements the in-extension implementation delivered by the [Datadog Lambda Extension](https://docs.datadoghq.com/serverless/datadog_lambda_library/extension/). `datadogAppSecMode` selects which implementation runs:
 
-* `on`: with `pythonLayerVersion>=114` on Python functions, App and API Protection runs within the library; other runtimes or manually-supplied libraries fall back to the extension.
-* `tracer`: always use the library implementation (every function must be in Python and use the Python library at version `8.114.0` or newer).
+* `on`: with `pythonLayerVersion>=114` on Python functions, or `javaLayerVersion>=31` and `extensionLayerVersion>=102` on Java functions, App and API Protection runs within the library; other runtimes or manually-supplied libraries fall back to the extension.
+* `tracer`: always use the library implementation (every function must be a Python function on library version `8.114.0` or later, or a Java function using Java layer version `31` or later with extension version `102` or later. This mode doesn't check versions).
 * `extension`: always use the extension implementation, even when a compatible library is detected.
 * `off`: disable App and API Protection entirely.
 
@@ -1131,6 +1131,8 @@ class DatadogAppSecMode(enum.Enum):
     **Warning**: This option forces tracer enablement for cases where the Datadog CDK Constructs
     cannot safely detect that you are using a compatible library. Ensure that you are using the
     Datadog Lambda Library for Python version "8.114.0" or above.
+    For Java, ensure that you are using Java layer version 31 or later and extension version
+    102 or later. TRACER does not check versions; use ON for automatic selection and fallback.
     '''
 
 

@@ -8,7 +8,7 @@ import threading
 import uuid
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, ParamSpec, Tuple, TypeVar
 from urllib.parse import urlencode
 
 import requests
@@ -45,13 +45,17 @@ def is_ci_environment() -> bool:
     return ci_product is not None
 
 
-def silence_errors(f: Callable) -> Callable:
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def silence_errors(f: Callable[P, R]) -> Callable[P, Optional[R]]:
     """Decorator to silence all errors in the decorated
     function.
     """
 
     @functools.wraps(f)
-    def wrapper(*args, **kwargs) -> Any:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> Optional[R]:
         try:
             return f(*args, **kwargs)
         except Exception:

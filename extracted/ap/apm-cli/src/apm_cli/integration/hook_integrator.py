@@ -33,14 +33,18 @@ from apm_cli.core.remediation import HOOK_PATH_ESCAPES_PACKAGE
 from apm_cli.core.scope import InstallScope, manifest_file
 from apm_cli.hook_contract import HOOK_COMMAND_KEYS as _HOOK_COMMAND_KEYS
 from apm_cli.hook_contract import summarize_hook_command, walk_hook_commands
+from apm_cli.integration import config_file_provenance as provenance
 from apm_cli.integration import write_seam
 from apm_cli.integration.base_integrator import BaseIntegrator, IntegrationResult
 from apm_cli.integration.copilot_hook_paths import copilot_hook_target
 from apm_cli.integration.hook_bundle import (
     copy_deployed_hook_bundle,
+    hook_cleanup_root,
     iter_deployable_hook_bundle_files,
 )
 from apm_cli.integration.hook_command_paths import (
+    SCRIPTS_SUBDIR_HOOK_TARGETS,
+    hook_scripts_parent,
     iter_plugin_root_paths,
     iter_relative_script_paths,
     normalize_quoted_plugin_root,
@@ -63,6 +67,7 @@ from apm_cli.integration.hook_native_formats import (
 )
 from apm_cli.integration.hook_ownership import (
     LocalBundleMarkers,
+    canonical_hook_order,
     dependency_hook_source_marker,
     dependency_hook_sources,
     drop_dependency_owned_entries,
@@ -71,6 +76,9 @@ from apm_cli.integration.hook_ownership import (
     local_bundle_hook_source_marker,
     read_hook_object,
     read_merged_hook_config,
+    remove_emptied_hook_file,
+    remove_hook_sidecar,
+    write_hook_sidecar,
 )
 from apm_cli.integration.hook_ownership import (
     extract_apm_source_sidecar as _extract_apm_source_sidecar,
@@ -78,6 +86,7 @@ from apm_cli.integration.hook_ownership import (
 from apm_cli.integration.hook_ownership import (
     reinject_apm_source_from_sidecar as _reinject_apm_source_from_sidecar,
 )
+from apm_cli.integration.hook_ownership import require_hook_event_lists as _hook_lists
 from apm_cli.integration.hook_source_selection import (
     HookSourceSelection,
     _parse_hook_json,
@@ -130,6 +139,7 @@ class HookTargetReconcileStats(TypedDict):
     errors: int
     failed_targets: list[str]
     failed_paths: list[str]
+    deleted_paths: list[str]  # emptied hook files deleted (#4852)
 
 
 @dataclass(frozen=True)
@@ -369,6 +379,7 @@ _MERGE_HOOK_TARGETS: dict[str, _MergeHookConfig] = {
     ),
 }
 
+
 _APM_HOOKS_SIDECAR = "apm-hooks.json"
 
 
@@ -605,11 +616,11 @@ class HookIntegrator(BaseIntegrator):
         command = normalize_quoted_plugin_root(command)
         edits: list[tuple[int, int, str]] = []
 
-        if target == "vscode":
-            scripts_base = f"{root_dir or '.github'}/hooks/scripts/{package_name}"
+        if target in SCRIPTS_SUBDIR_HOOK_TARGETS:
+            default_root = ".github"
         else:
             default_root = f".{target}" if target in _DOT_NAMED_HOOK_ROOTS else ".claude"
-            scripts_base = f"{root_dir or default_root}/hooks/{package_name}"
+        scripts_base = hook_scripts_parent(target, root_dir or default_root) + package_name
 
         def scoped(target_rel: str, quote: str) -> str:
             return self._project_scoped_command_path(
@@ -1332,8 +1343,8 @@ class HookIntegrator(BaseIntegrator):
                 if not isinstance(entries, list) or not entries:
                     continue
                 event_name = event_map.get(raw_event_name, raw_event_name)
-                if event_name not in json_config[container]:
-                    json_config[container][event_name] = []
+                events = (event_name, *sorted(reverse_map.get(event_name, ())))
+                _hook_lists(json_config[container], events, json_path, project_root, user_scope)
                 legacy_content_keys = {
                     self._hook_entry_content_key(entry)
                     for entry in _legacy_hook_entries(entries, config.target_key)
@@ -1490,6 +1501,7 @@ class HookIntegrator(BaseIntegrator):
             scripts_adopted += copy_result.files_adopted
 
         drop_source_entries(json_config[container], owned_markers, keep_events=cleared_events)
+        canonical_hook_order(json_config[container])
         # Shared configs are cleaned by ownership, never file-level deletion.
         write_seam.mkdir(json_path.parent, parents=True, exist_ok=True)
 
@@ -1499,12 +1511,9 @@ class HookIntegrator(BaseIntegrator):
             # Write sidecar
             sidecar_path = target_dir / _APM_HOOKS_SIDECAR
             if sidecar_out:
-                write_seam.atomic_write_text(
-                    sidecar_path,
-                    json.dumps(sidecar_out, indent=2) + "\n",
-                )
+                write_hook_sidecar(sidecar_path, sidecar_out, project_root, user_scope)
             elif sidecar_path.exists():
-                write_seam.unlink(sidecar_path)
+                remove_hook_sidecar(sidecar_path)
 
         # Display only finalized, schema-clean native entries.
         for _label, _path, _hook_file, _file_event_entries in pending_display:
@@ -1519,7 +1528,8 @@ class HookIntegrator(BaseIntegrator):
 
         # Cursor's strict config must not be observable half-written by its watcher.
         rendered = json.dumps(json_config, indent=2) + "\n"
-        changed = self.write_text_if_changed(json_path, rendered, write_seam.atomic_write_text)
+        with provenance.recorded_install_write(json_path, project_root, user_scope):
+            changed = self.write_text_if_changed(json_path, rendered, write_seam.atomic_write_text)
 
         return HookIntegrationResult(
             files_integrated=hooks_integrated if changed else 0,
@@ -1733,6 +1743,7 @@ class HookIntegrator(BaseIntegrator):
             "errors": 0,
             "failed_targets": [],
             "failed_paths": [],
+            "deleted_paths": [],
         }
         for target in excluded_targets:
             config = _MERGE_HOOK_TARGETS.get(target.name)
@@ -1740,7 +1751,7 @@ class HookIntegrator(BaseIntegrator):
                 continue
             target_dir = project_root / target.root_dir
             json_path = target_dir / config.config_filename
-            errors_before = stats["errors"]
+            errors_before, existed = stats["errors"], json_path.exists()
             self._clean_apm_source_from_json(
                 json_path,
                 source_markers,
@@ -1748,7 +1759,11 @@ class HookIntegrator(BaseIntegrator):
                 container=config.event_container_key,
                 sidecar_path=json_path.parent / _APM_HOOKS_SIDECAR,
                 dry_run=dry_run,
+                defaults=config.top_level_defaults,
+                root=hook_cleanup_root(target, project_root),
             )
+            if existed and not dry_run and not json_path.exists():
+                stats["deleted_paths"].append(portable_relpath(json_path, project_root))
             if stats["errors"] != errors_before:
                 stats["failed_targets"].append(target.name)
                 for path in (json_path, json_path.parent / _APM_HOOKS_SIDECAR):
@@ -1764,6 +1779,8 @@ class HookIntegrator(BaseIntegrator):
         container: str,
         sidecar_path: Path,
         dry_run: bool = False,
+        defaults: dict[str, Any] | None = None,
+        root: Path | None = None,
     ) -> None:
         """Remove one package owner while preserving user and sibling entries."""
         if not json_path.exists() and not sidecar_path.exists():
@@ -1829,16 +1846,15 @@ class HookIntegrator(BaseIntegrator):
                 )
                 return
             if native_modified:
-                write_seam.atomic_write_text(json_path, json.dumps(data, indent=2) + "\n")
+                if not remove_emptied_hook_file(json_path, data, defaults or {}, root, stats):
+                    with provenance.recorded_config_write(json_path, skeleton=defaults or {}):
+                        write_seam.atomic_write_text(json_path, json.dumps(data, indent=2) + "\n")
                 stats["files_removed"] += 1
             if native_modified or sidecar_had_source:
                 if sidecar_out:
-                    write_seam.atomic_write_text(
-                        sidecar_path,
-                        json.dumps(sidecar_out, indent=2) + "\n",
-                    )
+                    write_hook_sidecar(sidecar_path, sidecar_out)
                 elif sidecar_path.exists():
-                    write_seam.unlink(sidecar_path)
+                    remove_hook_sidecar(sidecar_path)
                 stats["files_removed"] += 1
         except (json.JSONDecodeError, OSError, TypeError):
             stats["errors"] += 1
@@ -1866,20 +1882,18 @@ class HookIntegrator(BaseIntegrator):
         guard_targets = list(KNOWN_TARGETS.values())
         if targets is not None:
             guard_targets = guard_targets + list(targets)
-        hook_prefixes = [
-            f"{(t.primitives['hooks'].deploy_root or t.root_dir)}/hooks/".replace("\\", "/")
-            for t in guard_targets
-            if t.supports("hooks")
-        ]
-        hook_prefix_tuple = tuple(dict.fromkeys(hook_prefixes))
         if managed_files is not None:
-            from apm_cli.integration.cleanup import remove_synced_files
+            from apm_cli.integration.cleanup import (
+                consent_outcome,
+                managed_hook_prefixes,
+                remove_synced_files,
+            )
 
             # Deletion needs deployment evidence; None keeps every file (#3701).
             cleanup = remove_synced_files(
                 managed_files,
                 project_root,
-                prefixes=hook_prefix_tuple,
+                prefixes=managed_hook_prefixes(targets),
                 dep_key="<uninstall hooks>",
                 targets=guard_targets,
                 evidence=evidence,
@@ -1887,11 +1901,11 @@ class HookIntegrator(BaseIntegrator):
                 allow_final_symlink=True,
             )
             stats["files_removed"] += len(cleanup.deleted)
-            retained = cleanup.retained
+            retained, unsafe = consent_outcome(cleanup, evidence)
             if retained:
                 stats["errors"] += len(retained)
                 stats.setdefault("failed_paths", []).extend(retained)
-            stats.setdefault("unsafe_paths", []).extend(cleanup.skipped_unmanaged)
+            stats.setdefault("unsafe_paths", []).extend(unsafe)
             self.cleanup_empty_parents(cleanup.deleted_targets, stop_at=project_root)
         else:
             hooks_dir = project_root / ".github" / "hooks"
@@ -1916,6 +1930,8 @@ class HookIntegrator(BaseIntegrator):
                     stats,
                     container=config.event_container_key,
                     sidecar_path=json_path.parent / _APM_HOOKS_SIDECAR,
+                    defaults=config.top_level_defaults,
+                    root=hook_cleanup_root(t, project_root),
                 )
 
         return stats
@@ -2032,6 +2048,8 @@ class HookIntegrator(BaseIntegrator):
         stats: dict[str, Any],
         container: str = "hooks",
         sidecar_path: Path | None = None,
+        defaults: dict[str, Any] | None = None,
+        root: Path | None = None,
     ) -> None:
         """Remove externally-owned entries from a native hooks JSON file.
 
@@ -2039,6 +2057,8 @@ class HookIntegrator(BaseIntegrator):
         empty event arrays and the *container* key itself.  *container*
         defaults to ``"hooks"``; Antigravity passes ``"apm"`` (its reserved
         hook-name container) so sibling user hook-names are left intact.
+        The cleaned file replaces *json_path* atomically, so a linked config
+        path becomes a regular file and the link's target is not written.
         """
         if not json_path.exists():
             return
@@ -2048,7 +2068,7 @@ class HookIntegrator(BaseIntegrator):
 
             if container not in data:
                 if sidecar_path is not None and sidecar_path.exists():
-                    write_seam.unlink(sidecar_path)
+                    remove_hook_sidecar(sidecar_path)
                 return
 
             had_sidecar = sidecar_path is not None and sidecar_path.exists()
@@ -2064,15 +2084,16 @@ class HookIntegrator(BaseIntegrator):
             if not data[container]:
                 del data[container]
 
-            if modified:
-                with write_seam.open_for_write(json_path, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2)
-                    f.write("\n")
+            if modified and remove_emptied_hook_file(json_path, data, defaults or {}, root, stats):
+                stats["files_removed"] += 1
+            elif modified:
+                with provenance.recorded_config_write(json_path, skeleton=defaults or {}):
+                    write_seam.atomic_write_text(json_path, json.dumps(data, indent=2) + "\n")
                 stats["files_removed"] += 1
             if kept:
-                write_seam.atomic_write_text(sidecar_path, json.dumps(kept, indent=2) + "\n")
+                write_hook_sidecar(sidecar_path, kept)
             elif had_sidecar:
-                write_seam.unlink(sidecar_path)
+                remove_hook_sidecar(sidecar_path)
         except (json.JSONDecodeError, OSError):
             stats["errors"] += 1
             stats.setdefault("failed_paths", []).append(json_path.as_posix())

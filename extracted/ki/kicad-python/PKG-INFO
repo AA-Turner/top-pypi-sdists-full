@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kicad-python
-Version: 0.8.0
+Version: 0.9.0
 Summary: KiCad API Python Bindings
 License-Expression: MIT
 License-File: LICENSE
@@ -11,9 +11,10 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
 Classifier: Typing :: Typed
 Requires-Dist: jsonschema (>=4.23.0,<5)
-Requires-Dist: protobuf (>=5.29,<6)
+Requires-Dist: protobuf (>=5.29.6,<6)
 Requires-Dist: pynng (>=0.9.0,<0.10.0)
 Requires-Dist: typing_extensions (>=4.13.2) ; python_version < "3.13"
+Requires-Dist: zstandard (>=0.25.0,<0.26.0)
 Project-URL: Documentation, https://docs.kicad.org/kicad-python-main/
 Project-URL: Homepage, https://kicad.org/
 Project-URL: Repository, https://gitlab.com/kicad/code/kicad-python
@@ -102,6 +103,40 @@ environment, and some are KiCad action plugins that can be loaded into the PCB e
 plugins, copy or symlink them into the appropriate plugins path in order for KiCad to find them.
 
 ## Release History
+
+### 0.9.0 (November 24, 2026)
+
+- Add support for `Table`, `TableCell`, and `ReferencePoint` board objects
+- Add support for embedded files (`EmbeddedFile`, `Board.get_embedded_files` and friends)
+- Add `Project.set_net_classes`
+- Add `expand_env_vars` argument to `expand_text_variables`; environment variables can now be
+  expanded in addition to project text variables (opt-in to preserve existing behavior)
+- Add `from_mils` and `to_mils` helpers in `util.units`
+- Add `FootprintAttributes.exempt_from_courtyard_requirement`, `FootprintAttributes.allow_soldermask_bridges` (Salvador E. Tropea)
+- Add `Pad.fab_property`
+- Add more board layer helper constants in `board_layer`
+- Fix missing document specifiers from `begin_commit` / `end_commit`
+- Support relative paths in `Board.save_as`
+- Breaking change: `TeardropType` protobuf enum renamed to `ZoneTeardropType` to match KiCad.
+  The values and meaning of the enum have not changed; existing clients using the old name
+  will continue to work on earlier versions of `kicad-python`.
+- Add `MutableWrapperSequence` and live mutable views for repeated message fields such as
+  `CompoundShape.shapes`, `PolyLine.nodes`, `EmbeddedFiles.files`, and `Table.cells`
+- Add pad and via teardrop settings (`PadTeardropSettings`, `Pad.teardrop`, `Via.teardrop`)
+- Add explicit solder mask overrides to `Track`, `ArcTrack`, and `BoardShape`
+- Add zone corner smoothing and radius, hatch fill, rule area, and per-layer zone settings
+- Add `Via.is_free`, `Group.locked`, and `Group.lib_id`
+- Add `FootprintVariant` and `FootprintInstance.variants`
+- Add design variant management to `Board` (`get_variants`, `add_variant`, `delete_variant`, etc.)
+- Add `BoardText.knockout` and `BoardTextBox.knockout`
+- Add `FootprintInstance.symbol_sheet_name`, `symbol_sheet_filename`, and
+  `symbol_footprint_filters`
+- Add `Pad.locked`, `Pad.symbol_pin`, `Pad.copper_clearance_override`, and `Pad.pad_to_die_delay`
+- Add padstack post-machining, drill capping/filling, and plugging/covering settings
+- Add footprint net tie, jumper, private layer, and anchor properties
+- Make `SolderMaskOverrides.solder_mask_margin` optional; `None` inherits the parent or board
+  design rule margin
+- Clean up various type-checking and other linter issues
 
 ### 0.8.0 (August 30, 2026)
 

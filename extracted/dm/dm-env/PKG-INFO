@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dm-env
-Version: 1.6
+Version: 2.0
 Summary: A Python interface for Reinforcement Learning environments.
 Author: DeepMind
 License: Apache License, Version 2.0
@@ -19,3 +19,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.7
 License-File: LICENSE
+Requires-Dist: absl-py
+Requires-Dist: numpy
+Provides-Extra: test-utils
+Requires-Dist: dm-tree; extra == "test-utils"
+Dynamic: author
+Dynamic: classifier
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

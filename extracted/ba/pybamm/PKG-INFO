@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pybamm
-Version: 26.10.1.1
+Version: 26.11.0.0
 Summary: Python Battery Mathematical Modelling
 Project-URL: Homepage, https://pybamm.org
 Project-URL: Documentation, https://docs.pybamm.org
@@ -44,32 +44,30 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: <3.16,>=3.10
+Requires-Python: <3.16,>=3.11
 Requires-Dist: anytree>=2.8.0
 Requires-Dist: black
 Requires-Dist: numpy>=2.0.0
-Requires-Dist: pandas>=1.5.0
+Requires-Dist: packaging>=24.2
 Requires-Dist: platformdirs
 Requires-Dist: pooch>=1.8.1
 Requires-Dist: posthog
-Requires-Dist: pybammsolvers<0.12.0,>=0.11.0
+Requires-Dist: pybammsolvers<0.14.0,>=0.13.0
 Requires-Dist: pyyaml
 Requires-Dist: scipy!=1.18.0,>=1.11.4
 Requires-Dist: sympy>=1.12
-Requires-Dist: typing-extensions>=4.16.0
-Requires-Dist: xarray>=2022.6.0
 Provides-Extra: all
 Requires-Dist: bpx<1.2.0,>=1.1.1; extra == 'all'
 Requires-Dist: jupyter; extra == 'all'
 Requires-Dist: matplotlib>=3.6.0; extra == 'all'
 Requires-Dist: meshio>=5.3.0; extra == 'all'
+Requires-Dist: pandas>=1.5.0; extra == 'all'
 Requires-Dist: pillow; extra == 'all'
 Requires-Dist: pybtex>=0.25.0; extra == 'all'
 Requires-Dist: scikit-fem>=12.0.2; extra == 'all'
@@ -81,11 +79,12 @@ Provides-Extra: cite
 Requires-Dist: pybtex>=0.25.0; extra == 'cite'
 Provides-Extra: examples
 Requires-Dist: jupyter; extra == 'examples'
+Requires-Dist: pandas>=1.5.0; extra == 'examples'
 Provides-Extra: fem
 Requires-Dist: meshio>=5.3.0; extra == 'fem'
 Requires-Dist: scikit-fem>=12.0.2; extra == 'fem'
 Provides-Extra: jax
-Requires-Dist: jax<0.12.0,>=0.7.0; (python_version >= '3.11' and (sys_platform != 'darwin' or platform_machine != 'x86_64')) and extra == 'jax'
+Requires-Dist: jax<0.12.0,>=0.7.0; (sys_platform != 'darwin' or platform_machine != 'x86_64') and extra == 'jax'
 Provides-Extra: plot
 Requires-Dist: matplotlib>=3.6.0; extra == 'plot'
 Provides-Extra: pydiffsol
@@ -232,7 +231,7 @@ PyBaMM is available as a conda package through the conda-forge channel.
 conda install -c conda-forge pybamm-base
 # for all extra dependencies except jax
 conda install -c conda-forge pybamm
-# optionally install jax >=0.7.0, <0.9.0 on python >=3.11
+# optionally install jax >=0.7.0, <0.9.0
 conda install -c conda-forge "jax>=0.7.0,<0.9.0"
 ```
 

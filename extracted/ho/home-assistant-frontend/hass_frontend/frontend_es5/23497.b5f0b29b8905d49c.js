@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkhome_assistant_frontend=self.rspackChunkhome_assistant_frontend||[]).push([[23497],{43344(e,a,t){t.r(a);var s=t(83316),n=t(63560),r=t(10765);class i extends n.mN{static async generate(e,a){return{type:"panel",title:a.localize("panel.map"),icon:"mdi:map",cards:[{type:"map",auto_fit:!0,show_all:!0}]}}}i.registryDependencies=[],i=(0,s._)([(0,r.EM)("map-view-strategy")],i),t.d(a,{MapViewStrategy:()=>i})}}]);
+//# sourceMappingURL=23497.b5f0b29b8905d49c.js.map

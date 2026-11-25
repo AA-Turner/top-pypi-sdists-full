@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from datetime import timedelta
 import importlib.metadata
 import logging
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch, sentinel
@@ -661,46 +662,55 @@ def test_unexpected_send_success(app, aps, ieee):
     )
 
 
-async def test_join_handler(app, ieee):
+@pytest.mark.parametrize(
+    "status, decision, joins, cleans_up_tclk",
+    [
+        # Only a secured rejoin proves the device holds the network key
+        (
+            t.EmberDeviceUpdate.STANDARD_SECURITY_SECURED_REJOIN,
+            t.EmberJoinDecision.NO_ACTION,
+            True,
+            False,
+        ),
+        # Unsecured joins and rejoins are reported by the device's Device_annce
+        (
+            t.EmberDeviceUpdate.STANDARD_SECURITY_UNSECURED_JOIN,
+            t.EmberJoinDecision.USE_PRECONFIGURED_KEY,
+            False,
+            True,
+        ),
+        (
+            t.EmberDeviceUpdate.STANDARD_SECURITY_UNSECURED_REJOIN,
+            t.EmberJoinDecision.USE_PRECONFIGURED_KEY,
+            False,
+            False,
+        ),
+        (
+            t.EmberDeviceUpdate.STANDARD_SECURITY_UNSECURED_JOIN,
+            t.EmberJoinDecision.DENY_JOIN,
+            False,
+            True,
+        ),
+        (
+            t.EmberDeviceUpdate.STANDARD_SECURITY_UNSECURED_REJOIN,
+            t.EmberJoinDecision.DENY_JOIN,
+            False,
+            False,
+        ),
+    ],
+)
+async def test_join_handler(app, ieee, status, decision, joins, cleans_up_tclk):
     # Calls device.initialize, leaks a task
     app.handle_join = MagicMock()
     app.cleanup_tc_link_key = AsyncMock()
     app.ezsp_callback_handler(
-        "trustCenterJoinHandler",
-        [
-            1,
-            ieee,
-            t.EmberDeviceUpdate.STANDARD_SECURITY_UNSECURED_JOIN,
-            t.EmberJoinDecision.NO_ACTION,
-            sentinel.parent,
-        ],
+        "trustCenterJoinHandler", [1, ieee, status, decision, sentinel.parent]
     )
     await asyncio.sleep(0)
-    assert ieee not in app.devices
-    assert app.handle_join.call_count == 1
-    assert app.handle_join.call_args[0][0] == 1
-    assert app.handle_join.call_args[0][1] == ieee
-    assert app.handle_join.call_args[0][2] is sentinel.parent
-    assert app.cleanup_tc_link_key.await_count == 1
-    assert app.cleanup_tc_link_key.call_args[0][0] is ieee
 
-    # cleanup TCLK, but no join handling
-    app.handle_join.reset_mock()
-    app.cleanup_tc_link_key.reset_mock()
-    app.ezsp_callback_handler(
-        "trustCenterJoinHandler",
-        [
-            1,
-            ieee,
-            t.EmberDeviceUpdate.STANDARD_SECURITY_UNSECURED_JOIN,
-            t.EmberJoinDecision.DENY_JOIN,
-            sentinel.parent,
-        ],
-    )
-    await asyncio.sleep(0)
-    assert app.cleanup_tc_link_key.await_count == 1
-    assert app.cleanup_tc_link_key.call_args[0][0] is ieee
-    assert app.handle_join.call_count == 0
+    assert ieee not in app.devices
+    assert app.handle_join.mock_calls == [call(1, ieee, sentinel.parent)] * joins
+    assert app.cleanup_tc_link_key.mock_calls == [call(ieee)] * cleans_up_tclk
 
 
 def test_leave_handler(app, ieee):
@@ -732,25 +742,223 @@ async def test_permit_ncp(app):
     assert app._ezsp._protocol.permitJoining.mock_calls == [call(60)]
 
 
-async def test_permit_with_link_key(app, ieee):
-    with patch("zigpy.application.ControllerApplication.permit") as permit_mock:
-        await app.permit_with_link_key(
-            ieee,
-            zigpy_t.KeyData.convert("11:22:33:44:55:66:77:88:11:22:33:44:55:66:77:88"),
-            60,
-        )
+POLICY_OPEN = call(
+    policyId=t.EzspPolicyId.TRUST_CENTER_POLICY,
+    decisionId=(
+        t.EzspDecisionBitmask.ALLOW_JOINS
+        | t.EzspDecisionBitmask.ALLOW_UNSECURED_REJOINS
+    ),
+)
+POLICY_INSTALL_CODES_ONLY = call(
+    policyId=t.EzspPolicyId.TRUST_CENTER_POLICY,
+    decisionId=(
+        t.EzspDecisionBitmask.ALLOW_JOINS
+        | t.EzspDecisionBitmask.ALLOW_UNSECURED_REJOINS
+        | t.EzspDecisionBitmask.JOINS_USE_INSTALL_CODE_KEY
+    ),
+)
+POLICY_CLOSED = call(policyId=t.EzspPolicyId.TRUST_CENTER_POLICY, decisionId=0)
 
-    assert permit_mock.await_count == 1
-    assert app._ezsp._protocol.add_transient_link_key.mock_calls == [
-        call(
-            ieee,
-            zigpy_t.KeyData.convert("11:22:33:44:55:66:77:88:11:22:33:44:55:66:77:88"),
-        )
+
+async def test_permit(app):
+    proto = app._ezsp._protocol
+
+    def check_trust_center_ready(*args, **kwargs):
+        # The Trust Center must be ready before the network opens
+        assert proto.add_transient_link_key.mock_calls == [
+            call(ezsp.WILDCARD_EUI64, ezsp.WELL_KNOWN_LINK_KEY)
+        ]
+        assert proto.setPolicy.mock_calls == [POLICY_OPEN]
+
+    with patch(
+        "zigpy.application.ControllerApplication.permit",
+        side_effect=check_trust_center_ready,
+    ) as permit_mock:
+        await app.permit(10)
+
+    assert permit_mock.mock_calls == [call(10, None)]
+    assert proto.clearTransientLinkKeys.mock_calls == [call()]
+
+    with patch("zigpy.application.ControllerApplication.permit") as permit_mock:
+        await app.permit(0)
+
+    assert permit_mock.mock_calls == [call(0, None)]
+    assert proto.clearTransientLinkKeys.mock_calls == [call(), call()]
+    assert proto.setPolicy.mock_calls == [POLICY_OPEN, POLICY_CLOSED]
+
+
+async def test_permit_window_grace(app):
+    loop = asyncio.get_running_loop()
+
+    with patch("zigpy.application.ControllerApplication.permit"):
+        start = loop.time()
+        await app.permit(60)
+        first_close = app._join_window.timer.when() - start
+
+        start = loop.time()
+        await app.permit(30)
+        extended_close = app._join_window.timer.when() - start
+
+    # The window stays open a little longer than the network
+    grace = bellows.zigbee.application.JOIN_WINDOW_GRACE_S
+    assert grace > 0
+    assert 60 + grace <= first_close < 60 + grace + 1
+    assert 30 + grace <= extended_close < 30 + grace + 1
+
+    # An explicit close has no grace
+    with patch("zigpy.application.ControllerApplication.permit"):
+        await app.permit(0)
+
+    assert app._join_window is None
+
+
+@patch("bellows.zigbee.application.JOIN_WINDOW_GRACE_S", 0)
+async def test_permit_window_expires(app):
+    proto = app._ezsp._protocol
+
+    with patch("zigpy.application.ControllerApplication.permit"):
+        await app.permit(0.01)
+        await asyncio.wait([app._join_window.task])
+
+    assert proto.clearTransientLinkKeys.mock_calls == [call(), call()]
+    assert proto.setPolicy.mock_calls == [POLICY_OPEN, POLICY_CLOSED]
+
+    # An expired window is reopened, not extended
+    with patch("zigpy.application.ControllerApplication.permit"):
+        await app.permit(10)
+
+    assert proto.setPolicy.mock_calls == [POLICY_OPEN, POLICY_CLOSED, POLICY_OPEN]
+
+
+@patch("bellows.zigbee.application.JOIN_WINDOW_GRACE_S", 0)
+async def test_permit_extend(app):
+    proto = app._ezsp._protocol
+
+    with patch("zigpy.application.ControllerApplication.permit") as permit_mock:
+        await app.permit(60)
+        window = app._join_window
+        await app.permit(0.01)
+
+    # The open window is extended, joins are never rejected in between
+    assert app._join_window is window
+    assert permit_mock.mock_calls == [call(60, None), call(0.01, None)]
+    assert proto.setPolicy.mock_calls == [POLICY_OPEN]
+
+    # The NCP times out transient keys, so the extension imports them again in place
+    assert proto.clearTransientLinkKeys.mock_calls == [call()]
+    assert proto.add_transient_link_key.mock_calls == [
+        call(ezsp.WILDCARD_EUI64, ezsp.WELL_KNOWN_LINK_KEY),
+        call(ezsp.WILDCARD_EUI64, ezsp.WELL_KNOWN_LINK_KEY),
+    ]
+
+    # The window now closes on the timer of the last call
+    await asyncio.wait([window.task])
+
+    assert proto.clearTransientLinkKeys.mock_calls == [call(), call()]
+    assert proto.setPolicy.mock_calls == [POLICY_OPEN, POLICY_CLOSED]
+
+
+async def test_permit_extend_failure(app):
+    proto = app._ezsp._protocol
+
+    with patch("zigpy.application.ControllerApplication.permit") as permit_mock:
+        await app.permit(60)
+        window = app._join_window
+
+        proto.add_transient_link_key.return_value = t.sl_Status.FAIL
+
+        with pytest.raises(ControllerError):
+            await app.permit(60)
+
+    # The window is closed rather than left open without its keys or a timer
+    assert app._join_window is None
+    assert window.task.done()
+    assert permit_mock.mock_calls == [call(60, None)]
+    assert proto.add_transient_link_key.await_count == 3
+    assert proto.clearTransientLinkKeys.mock_calls == [call(), call(), call()]
+    assert proto.setPolicy.mock_calls == [POLICY_OPEN, POLICY_CLOSED]
+
+
+async def test_permit_switch_link_keys(app, ieee):
+    proto = app._ezsp._protocol
+    key = zigpy_t.KeyData.convert("11:22:33:44:55:66:77:88:11:22:33:44:55:66:77:88")
+
+    with patch("zigpy.application.ControllerApplication.permit"):
+        await app.permit(60)
+        await app.permit_with_link_key(ieee, key, 60)
+        await app.permit_with_link_key(ieee, key, 60)
+
+    # A window with other keys is replaced, one with the same keys is extended
+    assert proto.setPolicy.mock_calls == [
+        POLICY_OPEN,
+        POLICY_CLOSED,
+        POLICY_INSTALL_CODES_ONLY,
+    ]
+
+    # The extension adds the install code key again
+    assert proto.add_transient_link_key.mock_calls == [
+        call(ezsp.WILDCARD_EUI64, ezsp.WELL_KNOWN_LINK_KEY),
+        call(ieee, key),
+        call(ieee, key),
+    ]
+
+    with patch("zigpy.application.ControllerApplication.permit"):
+        await app.permit(60)
+
+    assert proto.setPolicy.mock_calls == [
+        POLICY_OPEN,
+        POLICY_CLOSED,
+        POLICY_INSTALL_CODES_ONLY,
+        POLICY_CLOSED,
+        POLICY_OPEN,
     ]
 
 
+async def test_permit_concurrent(app):
+    proto = app._ezsp._protocol
+
+    async def add_transient_link_key(ieee, key):
+        # Let the other permit call run while this window is opening
+        await asyncio.sleep(0)
+        return t.sl_Status.OK
+
+    proto.add_transient_link_key.side_effect = add_transient_link_key
+
+    with patch("zigpy.application.ControllerApplication.permit") as permit_mock:
+        await asyncio.gather(app.permit(60), app.permit(10))
+
+    # The second call waits for the first window to open and then extends it
+    assert permit_mock.mock_calls == [call(60, None), call(10, None)]
+    assert proto.setPolicy.mock_calls == [POLICY_OPEN]
+
+    with patch("zigpy.application.ControllerApplication.permit"):
+        await app.permit(0)
+
+    assert proto.setPolicy.mock_calls == [POLICY_OPEN, POLICY_CLOSED]
+
+
+async def test_permit_with_link_key(app, ieee):
+    proto = app._ezsp._protocol
+    key = zigpy_t.KeyData.convert("11:22:33:44:55:66:77:88:11:22:33:44:55:66:77:88")
+
+    with patch("zigpy.application.ControllerApplication.permit") as permit_mock:
+        await app.permit_with_link_key(ieee, key, 60)
+
+    assert permit_mock.mock_calls == [call(60)]
+    assert proto.add_transient_link_key.mock_calls == [call(ieee, key)]
+    assert proto.setPolicy.mock_calls == [POLICY_INSTALL_CODES_ONLY]
+
+    # The policy is restored once the window closes
+    with patch("zigpy.application.ControllerApplication.permit"):
+        await app.permit(0)
+
+    assert proto.clearTransientLinkKeys.mock_calls == [call(), call()]
+    assert proto.setPolicy.mock_calls == [POLICY_INSTALL_CODES_ONLY, POLICY_CLOSED]
+
+
 async def test_permit_with_link_key_failure(app, ieee):
-    app._ezsp._protocol.add_transient_link_key.return_value = t.EmberStatus.ERR_FATAL
+    proto = app._ezsp._protocol
+    proto.add_transient_link_key.return_value = t.sl_Status.FAIL
 
     with patch("zigpy.application.ControllerApplication.permit") as permit_mock:
         with pytest.raises(ControllerError):
@@ -762,8 +970,12 @@ async def test_permit_with_link_key_failure(app, ieee):
                 60,
             )
 
-    assert permit_mock.await_count == 0
-    assert app._ezsp._protocol.add_transient_link_key.await_count == 1
+    assert len(permit_mock.mock_calls) == 0
+    assert proto.add_transient_link_key.await_count == 1
+
+    # Joins were never allowed
+    assert proto.clearTransientLinkKeys.mock_calls == [call(), call()]
+    assert proto.setPolicy.mock_calls == [POLICY_CLOSED]
 
 
 @pytest.fixture
@@ -1961,14 +2173,6 @@ async def test_cleanup_tc_link_key(app):
         call(address=sentinel.ieee2, linkKey=True)
     ]
     assert ezsp.eraseKeyTableEntry.mock_calls == [call(index=sentinel.index)]
-
-
-# @patch("zigpy.application.ControllerApplication.permit", new=AsyncMock())
-async def test_permit(app):
-    """Test permit method."""
-    await app.permit(10)
-    await asyncio.sleep(0.1)
-    assert app._ezsp._protocol.add_transient_link_key.await_count == 1
 
 
 @patch("bellows.zigbee.application.MFG_ID_RESET_DELAY", new=0.01)
@@ -3261,3 +3465,196 @@ def test_frame_handler_gp_security_failure(app: ControllerApplication) -> None:
         app.ezsp_callback_handler("gpepIncomingMessageHandler", list(args.values()))
 
     assert len(gp_packet_received.mock_calls) == 0
+
+
+GPD_IEEE = zigpy_t.EUI64.convert("00:11:22:33:44:55:66:77")
+
+
+async def send_gpdf(
+    app: ControllerApplication,
+    target: zgp_t.SrcID | tuple[zigpy_t.EUI64, int] | None = zgp_t.SrcID(0x12345678),
+    *,
+    channel: int = 25,
+    lifetime: timedelta = timedelta(seconds=20),
+) -> None:
+    await app.send_gpdf(
+        target=target,
+        command_id=zgp_t.GPDCommandID(0xFE),
+        payload=b"\x00",
+        channel=channel,
+        lifetime=lifetime,
+    )
+
+
+@pytest.mark.parametrize(
+    ("target", "addr"),
+    [
+        # The NCP reads the second copy of the SrcID
+        (
+            zgp_t.SrcID(0x12345678),
+            t.EmberGpAddress(
+                applicationId=zgp_t.ApplicationID.SrcID,
+                source_id=zgp_t.SrcID(0x12345678),
+                source_id_padding=0x12345678,
+                endpoint=0,
+            ),
+        ),
+        (
+            (GPD_IEEE, 0x01),
+            t.EmberGpAddress(
+                applicationId=zgp_t.ApplicationID.IEEE,
+                gpd_eui64=GPD_IEEE,
+                endpoint=0x01,
+            ),
+        ),
+        # A Maintenance frame is queued for SrcID 0
+        (
+            None,
+            t.EmberGpAddress(
+                applicationId=zgp_t.ApplicationID.SrcID,
+                source_id=zgp_t.SrcID(0x00000000),
+                source_id_padding=0,
+                endpoint=0,
+            ),
+        ),
+    ],
+)
+async def test_send_gpdf(
+    app: ControllerApplication,
+    target: zgp_t.SrcID | tuple[zigpy_t.EUI64, int] | None,
+    addr: t.EmberGpAddress,
+) -> None:
+    """A GPDF is queued in the NCP and sent once the NCP reports it."""
+    app.state.network_info.channel = 25
+    app._ezsp.dGpSend = AsyncMock(return_value=[t.EmberStatus.SUCCESS])
+
+    task = asyncio.create_task(send_gpdf(app, target))
+    await asyncio.sleep(0.01)
+    assert not task.done()
+
+    # The NCP reports neither a status nor the handle
+    app.ezsp_callback_handler("dGpSentHandler", [t.EmberStatus.SUCCESS, 0])
+    await task
+
+    assert app._ezsp.dGpSend.mock_calls == [
+        call(
+            action=True,
+            useCca=False,
+            addr=addr,
+            gpdCommandId=zgp_t.GPDCommandID(0xFE),
+            gpdAsdu=b"\x00",
+            gpepHandle=0,
+            gpTxQueueEntryLifetimeMs=20_000,
+        )
+    ]
+
+
+async def test_send_gpdf_long_lifetime(app: ControllerApplication) -> None:
+    """A lifetime longer than the NCP's field is clamped."""
+    app.state.network_info.channel = 25
+    app._ezsp.dGpSend = AsyncMock(return_value=[t.EmberStatus.SUCCESS])
+
+    task = asyncio.create_task(send_gpdf(app, lifetime=timedelta(minutes=5)))
+    await asyncio.sleep(0.01)
+    app.ezsp_callback_handler("dGpSentHandler", [t.EmberStatus.SUCCESS, 0])
+    await task
+
+    [queue] = app._ezsp.dGpSend.mock_calls
+    assert queue.kwargs["gpTxQueueEntryLifetimeMs"] == 0xFFFF
+
+
+async def test_send_gpdf_one_at_a_time(app: ControllerApplication) -> None:
+    """The NCP queues one GPDF for all GPDs, so a second one waits for the first."""
+    app.state.network_info.channel = 25
+    app._ezsp.dGpSend = AsyncMock(return_value=[t.EmberStatus.SUCCESS])
+
+    first = asyncio.create_task(send_gpdf(app, zgp_t.SrcID(0x00000001)))
+    second = asyncio.create_task(send_gpdf(app, zgp_t.SrcID(0x00000002)))
+    await asyncio.sleep(0.01)
+    assert len(app._ezsp.dGpSend.mock_calls) == 1
+
+    app.ezsp_callback_handler("dGpSentHandler", [t.EmberStatus.SUCCESS, 0])
+    await first
+    await asyncio.sleep(0.01)
+    assert len(app._ezsp.dGpSend.mock_calls) == 2
+    assert not second.done()
+
+    app.ezsp_callback_handler("dGpSentHandler", [t.EmberStatus.SUCCESS, 0])
+    await second
+
+
+async def test_send_gpdf_expired(app: ControllerApplication) -> None:
+    """The NCP never expires a GPDF, so it is removed once its lifetime is up."""
+    app.state.network_info.channel = 25
+    app._ezsp.dGpSend = AsyncMock(return_value=[t.EmberStatus.SUCCESS])
+
+    with pytest.raises(zigpy.exceptions.DeliveryError, match="expired"):
+        await send_gpdf(app, lifetime=timedelta(milliseconds=10))
+
+    [_, removal] = app._ezsp.dGpSend.mock_calls
+    assert removal.kwargs["action"] is False
+    assert removal.kwargs["addr"].source_id == 0x12345678
+
+
+async def test_send_gpdf_sent_while_expiring(app: ControllerApplication) -> None:
+    """A GPDF the NCP no longer holds when it expires is sent shortly after."""
+    app.state.network_info.channel = 25
+    app._ezsp.dGpSend = AsyncMock(
+        side_effect=[
+            [t.EmberStatus.SUCCESS],
+            [t.EmberStatus.ERR_FATAL],
+            [t.EmberStatus.SUCCESS],
+        ]
+    )
+
+    asyncio.get_running_loop().call_later(
+        0.05, app.ezsp_callback_handler, "dGpSentHandler", [t.EmberStatus.SUCCESS, 0]
+    )
+    await send_gpdf(app, lifetime=timedelta(milliseconds=10))
+
+    # The report did not complete the next GPDF
+    task = asyncio.create_task(send_gpdf(app))
+    await asyncio.sleep(0.1)
+    assert not task.done()
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+async def test_send_gpdf_dropped_while_expiring(app: ControllerApplication) -> None:
+    """A GPDF the NCP took from its queue but never reported was dropped."""
+    app.state.network_info.channel = 25
+    app._ezsp.dGpSend = AsyncMock(
+        side_effect=[[t.EmberStatus.SUCCESS], [t.EmberStatus.ERR_FATAL]]
+    )
+
+    with (
+        patch("bellows.zigbee.application.GPDF_SENT_GRACE_S", 0.01),
+        pytest.raises(zigpy.exceptions.DeliveryError, match="dropped"),
+    ):
+        await send_gpdf(app, lifetime=timedelta(milliseconds=10))
+
+
+async def test_send_gpdf_not_queued(app: ControllerApplication) -> None:
+    app.state.network_info.channel = 25
+    app._ezsp.dGpSend = AsyncMock(return_value=[t.EmberStatus.ERR_FATAL])
+
+    with pytest.raises(zigpy.exceptions.DeliveryError, match="Failed to queue"):
+        await send_gpdf(app)
+
+
+async def test_send_gpdf_other_channel(app: ControllerApplication) -> None:
+    """The NCP cannot send a GPDF off the operational channel."""
+    app.state.network_info.channel = 25
+    app._ezsp.dGpSend = AsyncMock()
+
+    with pytest.raises(zigpy.exceptions.DeliveryError, match="channel 15"):
+        await send_gpdf(app, channel=15)
+
+    assert len(app._ezsp.dGpSend.mock_calls) == 0
+
+
+def test_gpdf_sent_without_pending(app: ControllerApplication) -> None:
+    """A GPDF sent after it was given up on is ignored."""
+    app.ezsp_callback_handler("dGpSentHandler", [t.EmberStatus.SUCCESS, 0])

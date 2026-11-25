@@ -1,7 +1,8 @@
 __docformat__ = "reStructuredText"
 
 import weakref
-from typing import TYPE_CHECKING, Optional, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .body import Body
@@ -11,7 +12,6 @@ from ._chipmunk_cffi import ffi
 from ._chipmunk_cffi import lib as cp
 from ._pickle import PickleMixin, _State
 from ._typing_attr import TypingAttrMixing
-from ._util import _dead_ref
 from .bb import BB
 from .contact_point_set import ContactPointSet
 from .query_info import PointQueryInfo, SegmentQueryInfo
@@ -20,7 +20,7 @@ from .transform import Transform
 from .vec2d import Vec2d
 
 
-class Shape(PickleMixin, TypingAttrMixing, object):
+class Shape(PickleMixin, TypingAttrMixing):
     """Base class for all the shapes.
 
     You usually don't want to create instances of this class directly but use
@@ -43,12 +43,12 @@ class Shape(PickleMixin, TypingAttrMixing, object):
     ]
     _pickle_attrs_skip = PickleMixin._pickle_attrs_skip + ["mass", "density"]
 
-    _space: weakref.ref["Space"] = _dead_ref
+    _space: Optional[weakref.ReferenceType["Space"]] = None
 
     def __init__(self, shape: "Shape") -> None:
         self._shape = shape
         assert shape.body != None
-        self._body: weakref.ref["Body"] = weakref.ref(shape.body)
+        self._body: Optional[weakref.ReferenceType["Body"]] = weakref.ref(shape.body)
 
     def _init(self, body: Optional["Body"], _shape: ffi.CData) -> None:
 
@@ -56,7 +56,7 @@ class Shape(PickleMixin, TypingAttrMixing, object):
             self._body = weakref.ref(body)
             body._shapes[self] = None
         else:
-            self._body = _dead_ref
+            self._body = None
 
         def shapefree(cp_shape: ffi.CData) -> None:
             cp_space = cp.cpShapeGetSpace(cp_shape)
@@ -231,7 +231,8 @@ class Shape(PickleMixin, TypingAttrMixing, object):
         The shape only holds a weakref to the Body, meaning it wont prevent it
         from being GCed.
         """
-        return self._body()
+        ref = self._body
+        return None if ref is None else ref()
 
     @body.setter
     def body(self, body: Optional["Body"]) -> None:
@@ -243,7 +244,7 @@ class Shape(PickleMixin, TypingAttrMixing, object):
             body._shapes[self] = None
             self._body = weakref.ref(body)
         else:
-            self._body = _dead_ref
+            self._body = None
 
     def update(self, transform: Transform) -> BB:
         """Update, cache and return the bounding box of a shape with an
@@ -332,7 +333,8 @@ class Shape(PickleMixin, TypingAttrMixing, object):
         """Get the :py:class:`Space` that shape has been added to (or
         None).
         """
-        return self._space()
+        ref = self._space
+        return None if ref is None else ref()
 
     @property
     def _hashid(self) -> int:
@@ -434,6 +436,7 @@ class Segment(Shape):
     """
 
     _pickle_attrs_init = Shape._pickle_attrs_init + ["a", "b", "radius"]
+    _neighbor_tangents: Optional[tuple[Vec2d, Vec2d]] = None
 
     def __init__(
         self,
@@ -520,6 +523,19 @@ class Segment(Shape):
         assert len(prev) == 2
         assert len(next) == 2
         cp.cpSegmentShapeSetNeighbors(self._shape, prev, next)
+        self._neighbor_tangents = (Vec2d(*prev) - self.a, Vec2d(*next) - self.b)
+
+    def __getstate__(self) -> _State:
+        state = super().__getstate__()
+        if self._neighbor_tangents is not None:
+            state["special"].append(("_neighbor_tangents", self._neighbor_tangents))
+        return state
+
+    def __setstate__(self, state: _State) -> None:
+        super().__setstate__(state)
+        for key, value in state["special"]:
+            if key == "_neighbor_tangents":
+                self.set_neighbors(self.a + value[0], self.b + value[1])
 
 
 class Poly(Shape):
@@ -716,7 +732,7 @@ class Poly(Shape):
         This method allows the usage of the :mod:`copy` and :mod:`pickle`
         modules with this class.
         """
-        d = super(Poly, self).__getstate__()
+        d = super().__getstate__()
 
         d["init"].append(("vertices", self.get_vertices()))
         d["init"].append(("transform", None))

@@ -43,75 +43,34 @@ class TestComplianceStructure:
         self.compliance_client = getattr(self.client, "compliance")
 
 
-    def test_get_jobs_exists(self):
-        """Test that get_jobs method exists with correct signature."""
+    def test_upload_job_submission_exists(self):
+        """Test that upload_job_submission method exists with correct signature."""
         # Check method exists
-        method = getattr(ComplianceClient, "get_jobs", None)
-        assert method is not None, f"Method get_jobs does not exist on ComplianceClient"
+        method = getattr(ComplianceClient, "upload_job_submission", None)
+        assert (
+            method is not None
+        ), f"Method upload_job_submission does not exist on ComplianceClient"
         # Check method is callable
-        assert callable(method), f"get_jobs is not callable"
+        assert callable(method), f"upload_job_submission is not callable"
         # Check method signature
         sig = inspect.signature(method)
         params = list(sig.parameters.keys())
         # Should have 'self' as first parameter
-        assert len(params) >= 1, f"get_jobs should have at least 'self' parameter"
+        assert (
+            len(params) >= 1
+        ), f"upload_job_submission should have at least 'self' parameter"
         assert (
             params[0] == "self"
         ), f"First parameter should be 'self', got '{params[0]}'"
         # Check required parameters exist (excluding 'self')
         required_params = [
-            "type",
+            "id",
+            "token",
         ]
         for required_param in required_params:
             assert (
                 required_param in params
-            ), f"Required parameter '{required_param}' missing from get_jobs"
-        # Check optional parameters have defaults (excluding 'self')
-        optional_params = [
-            "status",
-            "compliance_job_fields",
-        ]
-        for optional_param in optional_params:
-            if optional_param in params:
-                param_obj = sig.parameters[optional_param]
-                assert (
-                    param_obj.default is not inspect.Parameter.empty
-                ), f"Optional parameter '{optional_param}' should have a default value"
-
-
-    def test_get_jobs_return_annotation(self):
-        """Test that get_jobs has proper return type annotation."""
-        method = getattr(ComplianceClient, "get_jobs")
-        sig = inspect.signature(method)
-        # Check return annotation exists
-        assert (
-            sig.return_annotation is not inspect.Signature.empty
-        ), f"Method get_jobs should have return type annotation"
-
-
-    def test_create_jobs_exists(self):
-        """Test that create_jobs method exists with correct signature."""
-        # Check method exists
-        method = getattr(ComplianceClient, "create_jobs", None)
-        assert (
-            method is not None
-        ), f"Method create_jobs does not exist on ComplianceClient"
-        # Check method is callable
-        assert callable(method), f"create_jobs is not callable"
-        # Check method signature
-        sig = inspect.signature(method)
-        params = list(sig.parameters.keys())
-        # Should have 'self' as first parameter
-        assert len(params) >= 1, f"create_jobs should have at least 'self' parameter"
-        assert (
-            params[0] == "self"
-        ), f"First parameter should be 'self', got '{params[0]}'"
-        # Check required parameters exist (excluding 'self')
-        required_params = []
-        for required_param in required_params:
-            assert (
-                required_param in params
-            ), f"Required parameter '{required_param}' missing from create_jobs"
+            ), f"Required parameter '{required_param}' missing from upload_job_submission"
         # Check optional parameters have defaults (excluding 'self')
         optional_params = [
             "compliance_job_fields",
@@ -124,14 +83,14 @@ class TestComplianceStructure:
                 ), f"Optional parameter '{optional_param}' should have a default value"
 
 
-    def test_create_jobs_return_annotation(self):
-        """Test that create_jobs has proper return type annotation."""
-        method = getattr(ComplianceClient, "create_jobs")
+    def test_upload_job_submission_return_annotation(self):
+        """Test that upload_job_submission has proper return type annotation."""
+        method = getattr(ComplianceClient, "upload_job_submission")
         sig = inspect.signature(method)
         # Check return annotation exists
         assert (
             sig.return_annotation is not inspect.Signature.empty
-        ), f"Method create_jobs should have return type annotation"
+        ), f"Method upload_job_submission should have return type annotation"
 
 
     def test_get_jobs_by_id_exists(self):
@@ -280,34 +239,75 @@ class TestComplianceStructure:
         ), f"Method download_job_results should have return type annotation"
 
 
-    def test_upload_job_submission_exists(self):
-        """Test that upload_job_submission method exists with correct signature."""
+    def test_get_jobs_exists(self):
+        """Test that get_jobs method exists with correct signature."""
         # Check method exists
-        method = getattr(ComplianceClient, "upload_job_submission", None)
-        assert (
-            method is not None
-        ), f"Method upload_job_submission does not exist on ComplianceClient"
+        method = getattr(ComplianceClient, "get_jobs", None)
+        assert method is not None, f"Method get_jobs does not exist on ComplianceClient"
         # Check method is callable
-        assert callable(method), f"upload_job_submission is not callable"
+        assert callable(method), f"get_jobs is not callable"
         # Check method signature
         sig = inspect.signature(method)
         params = list(sig.parameters.keys())
         # Should have 'self' as first parameter
-        assert (
-            len(params) >= 1
-        ), f"upload_job_submission should have at least 'self' parameter"
+        assert len(params) >= 1, f"get_jobs should have at least 'self' parameter"
         assert (
             params[0] == "self"
         ), f"First parameter should be 'self', got '{params[0]}'"
         # Check required parameters exist (excluding 'self')
         required_params = [
-            "id",
-            "token",
+            "type",
         ]
         for required_param in required_params:
             assert (
                 required_param in params
-            ), f"Required parameter '{required_param}' missing from upload_job_submission"
+            ), f"Required parameter '{required_param}' missing from get_jobs"
+        # Check optional parameters have defaults (excluding 'self')
+        optional_params = [
+            "status",
+            "compliance_job_fields",
+        ]
+        for optional_param in optional_params:
+            if optional_param in params:
+                param_obj = sig.parameters[optional_param]
+                assert (
+                    param_obj.default is not inspect.Parameter.empty
+                ), f"Optional parameter '{optional_param}' should have a default value"
+
+
+    def test_get_jobs_return_annotation(self):
+        """Test that get_jobs has proper return type annotation."""
+        method = getattr(ComplianceClient, "get_jobs")
+        sig = inspect.signature(method)
+        # Check return annotation exists
+        assert (
+            sig.return_annotation is not inspect.Signature.empty
+        ), f"Method get_jobs should have return type annotation"
+
+
+    def test_create_jobs_exists(self):
+        """Test that create_jobs method exists with correct signature."""
+        # Check method exists
+        method = getattr(ComplianceClient, "create_jobs", None)
+        assert (
+            method is not None
+        ), f"Method create_jobs does not exist on ComplianceClient"
+        # Check method is callable
+        assert callable(method), f"create_jobs is not callable"
+        # Check method signature
+        sig = inspect.signature(method)
+        params = list(sig.parameters.keys())
+        # Should have 'self' as first parameter
+        assert len(params) >= 1, f"create_jobs should have at least 'self' parameter"
+        assert (
+            params[0] == "self"
+        ), f"First parameter should be 'self', got '{params[0]}'"
+        # Check required parameters exist (excluding 'self')
+        required_params = []
+        for required_param in required_params:
+            assert (
+                required_param in params
+            ), f"Required parameter '{required_param}' missing from create_jobs"
         # Check optional parameters have defaults (excluding 'self')
         optional_params = [
             "compliance_job_fields",
@@ -320,25 +320,25 @@ class TestComplianceStructure:
                 ), f"Optional parameter '{optional_param}' should have a default value"
 
 
-    def test_upload_job_submission_return_annotation(self):
-        """Test that upload_job_submission has proper return type annotation."""
-        method = getattr(ComplianceClient, "upload_job_submission")
+    def test_create_jobs_return_annotation(self):
+        """Test that create_jobs has proper return type annotation."""
+        method = getattr(ComplianceClient, "create_jobs")
         sig = inspect.signature(method)
         # Check return annotation exists
         assert (
             sig.return_annotation is not inspect.Signature.empty
-        ), f"Method upload_job_submission should have return type annotation"
+        ), f"Method create_jobs should have return type annotation"
 
 
     def test_all_expected_methods_exist(self):
         """Test that all expected methods exist on the client."""
         expected_methods = [
-            "get_jobs",
-            "create_jobs",
+            "upload_job_submission",
             "get_jobs_by_id",
             "delete_jobs_by_id",
             "download_job_results",
-            "upload_job_submission",
+            "get_jobs",
+            "create_jobs",
         ]
         for expected_method in expected_methods:
             assert hasattr(

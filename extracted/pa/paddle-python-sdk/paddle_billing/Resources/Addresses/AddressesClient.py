@@ -1,10 +1,16 @@
-from paddle_billing.ResponseParser import ResponseParser
+from requests import Response
 
-from paddle_billing.Entities.Address import Address
-from paddle_billing.Entities.Collections import Paginator, AddressCollection
-from paddle_billing.Entities.Shared import Status
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
 
-from paddle_billing.Resources.Addresses.Operations import CreateAddress, ListAddresses, UpdateAddress
+from paddle_billing.Entities.Address import Address as Address
+from paddle_billing.Entities.Collections import Paginator as Paginator, AddressCollection as AddressCollection
+from paddle_billing.Entities.Shared import Status as Status
+
+from paddle_billing.Resources.Addresses.Operations import (
+    CreateAddress as CreateAddress,
+    ListAddresses as ListAddresses,
+    UpdateAddress as UpdateAddress,
+)
 
 from typing import TYPE_CHECKING
 
@@ -15,7 +21,7 @@ if TYPE_CHECKING:
 class AddressesClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(self, customer_id: str, operation: ListAddresses | None = None) -> AddressCollection:
         if operation is None:

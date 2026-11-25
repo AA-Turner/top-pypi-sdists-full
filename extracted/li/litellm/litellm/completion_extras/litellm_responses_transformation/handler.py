@@ -14,6 +14,7 @@ from typing import (
 from typing_extensions import ReadOnly, TypedDict
 
 from litellm.responses.stored_system_prompt import awithout_stored_instructions, without_stored_instructions
+from litellm.types.integrations.custom_logger import CHAT_COMPLETION_AGENTIC_SURFACE
 from litellm.types.llms.openai import ResponsesAPIResponse
 
 if TYPE_CHECKING:
@@ -322,6 +323,7 @@ class ResponsesToCompletionBridgeHandler:
         result: Final = await aresponses(
             **request_data,
             aresponses=True,
+            _agentic_loop_api_surface=CHAT_COMPLETION_AGENTIC_SURFACE,
         )
 
         from litellm.types.utils import ModelResponse

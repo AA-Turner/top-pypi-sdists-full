@@ -33,8 +33,9 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import IO, Optional
+from typing import IO
 
+from kipy.errors import ApiError, ConnectionError
 
 _READY_PREFIX = "KiCad API server listening at "
 
@@ -60,7 +61,7 @@ def _version_key(path: Path) -> tuple[int, ...]:
     return tuple(parts)
 
 
-def _find_windows_kicad_cli() -> Optional[str]:
+def _find_windows_kicad_cli() -> str | None:
     roots: list[Path] = []
 
     for env_var in ("ProgramFiles", "ProgramFiles(x86)"):
@@ -86,7 +87,7 @@ def _find_windows_kicad_cli() -> Optional[str]:
     return None
 
 
-def find_kicad_cli(hint: Optional[str] = None) -> str:
+def find_kicad_cli(hint: str | None = None) -> str:
     """Find a kicad-cli executable for the current platform."""
     if hint is not None:
         hinted = Path(hint).expanduser().resolve()
@@ -123,9 +124,7 @@ def find_kicad_cli(hint: Optional[str] = None) -> str:
         if path_match is not None:
             return path_match
 
-    raise FileNotFoundError(
-        "Unable to find kicad-cli. Pass kicad_cli_path=... to KiCad(...)."
-    )
+    raise FileNotFoundError("Unable to find kicad-cli. Pass kicad_cli_path=... to KiCad(...).")
 
 
 class KiCadServer:
@@ -134,20 +133,20 @@ class KiCadServer:
     def __init__(
         self,
         kicad_cli_path: str,
-        file_path: Optional[str] = None,
-        socket_path: Optional[str] = None,
+        file_path: str | None = None,
+        socket_path: str | None = None,
     ):
         self._kicad_cli_path = kicad_cli_path
         self._file_path = file_path
         self._socket_path = socket_path or self._generate_socket_path()
 
-        self._process: Optional[subprocess.Popen[str]] = None
-        self._stdout_lines: "queue.Queue[str]" = queue.Queue()
-        self._stderr_lines: "queue.Queue[str]" = queue.Queue()
-        self._stdout_thread: Optional[threading.Thread] = None
-        self._stderr_thread: Optional[threading.Thread] = None
-        self._ready_line: Optional[str] = None
-        self._last_probe_error: Optional[str] = None
+        self._process: subprocess.Popen[str] | None = None
+        self._stdout_lines: queue.Queue[str] = queue.Queue()
+        self._stderr_lines: queue.Queue[str] = queue.Queue()
+        self._stdout_thread: threading.Thread | None = None
+        self._stderr_thread: threading.Thread | None = None
+        self._ready_line: str | None = None
+        self._last_probe_error: str | None = None
 
     @staticmethod
     def _generate_socket_path() -> str:
@@ -156,7 +155,7 @@ class KiCadServer:
         token = uuid.uuid4().hex[:8]
         return str(temp_root / f"api-{os.getpid()}-{token}.sock")
 
-    def _drain_stream(self, stream: Optional[IO[str]], out_queue: "queue.Queue[str]"):
+    def _drain_stream(self, stream: IO[str] | None, out_queue: queue.Queue[str]):
         if stream is None:
             return
 
@@ -202,6 +201,7 @@ class KiCadServer:
         next_probe = time.monotonic()
 
         from google.protobuf.empty_pb2 import Empty
+
         from kipy.client import KiCadClient
         from kipy.proto.common import commands
 
@@ -217,7 +217,8 @@ class KiCadServer:
 
                 if line.startswith(_READY_PREFIX):
                     self._ready_line = line
-                    self._socket_path = line[len(_READY_PREFIX):].strip()
+                    socket = line[len(_READY_PREFIX) :].strip().removeprefix("ipc://")
+                    self._socket_path = socket
 
             now = time.monotonic()
 
@@ -233,7 +234,7 @@ class KiCadServer:
                     probe.send(commands.Ping(), Empty)
                     probe.close()
                     return self._socket_path
-                except Exception as e:
+                except (ConnectionError, ApiError) as e:
                     self._last_probe_error = str(e)
                     probe.close()
 
@@ -257,17 +258,20 @@ class KiCadServer:
 
         self.stop()
 
-        details = "\n".join([
-            *( ["stdout:", *stdout] if stdout else [] ),
-            *( ["stderr:", *stderr] if stderr else [] ),
-            *( ["last probe error:", self._last_probe_error]
-               if self._last_probe_error is not None else [] ),
-        ])
+        details = "\n".join(
+            [
+                *(["stdout:", *stdout] if stdout else []),
+                *(["stderr:", *stderr] if stderr else []),
+                *(
+                    ["last probe error:", self._last_probe_error]
+                    if self._last_probe_error is not None
+                    else []
+                ),
+            ]
+        )
 
         if details:
-            raise TimeoutError(
-                "Timed out waiting for kicad-cli api-server readiness\n" + details
-            )
+            raise TimeoutError("Timed out waiting for kicad-cli api-server readiness\n" + details)
 
         raise TimeoutError("Timed out waiting for kicad-cli api-server readiness")
 
@@ -295,7 +299,7 @@ class KiCadServer:
 
         self._process = None
 
-        socket = Path(self._socket_path)
+        socket = Path(self._socket_path.removeprefix("ipc://"))
         if socket.exists():
             try:
                 socket.unlink()

@@ -5,14 +5,13 @@ from __future__ import annotations
 
 import copy
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from operator import itemgetter
 from typing import Any
 
 import casadi
 import numpy as np
 import numpy.typing as npt
-import sympy
 from scipy.sparse import issparse, vstack
 
 import pybamm
@@ -29,6 +28,7 @@ class Concatenation(pybamm.Symbol):
     """
 
     __slots__ = ("concatenation_function",)
+    concatenation_function: Callable[..., Any] | None
     _id_excluded_fields = ("concatenation_function",)
 
     # concat_fun is a numpy callable (np.concatenate / vstack), check_domain a
@@ -55,6 +55,7 @@ class Concatenation(pybamm.Symbol):
             )
         if name is None:
             name = "concatenation"
+        domains: dict[str, list[str] | str]
         if check_domain:
             domains = self._combine_children_domains(children)
         else:
@@ -129,8 +130,13 @@ class Concatenation(pybamm.Symbol):
         """See :meth:`Concatenation._concatenation_evaluate()`."""
         if len(children_eval) == 0:
             return np.array([])
-        else:
-            return self.concatenation_function(children_eval)
+        if self.concatenation_function is None:
+            # Like an undiscretised Variable, so evaluate_ignoring_errors returns None
+            raise NotImplementedError(
+                f"{type(self).__name__} has no concatenation function until it is "
+                "discretised"
+            )
+        return self.concatenation_function(children_eval)
 
     def evaluate(
         self,
@@ -187,6 +193,8 @@ class Concatenation(pybamm.Symbol):
 
     def _sympy_operator(self, *children):
         """Apply appropriate SymPy operators."""
+        import sympy
+
         concat_latex = tuple(map(sympy.latex, children))
 
         if self.print_name is not None:
@@ -223,14 +231,14 @@ class NumpyConcatenation(Concatenation):
     __slots__ = ()
 
     def __init__(self, *children: pybamm.Symbol):
-        children = list(children)
         # Turn objects that evaluate to scalars to objects that evaluate to vectors,
         # so that we can concatenate them
-        for i, child in enumerate(children):
-            if child.evaluates_to_number():
-                children[i] = child * pybamm.Vector([1])
+        vector_children = [
+            child * pybamm.Vector([1]) if child.evaluates_to_number() else child
+            for child in children
+        ]
         super().__init__(
-            *children,
+            *vector_children,
             name="numpy_concatenation",
             check_domain=False,
             concat_fun=np.concatenate,
@@ -253,6 +261,12 @@ class NumpyConcatenation(Concatenation):
             t, y, y_dot, inputs, casadi_symbols
         )
         return casadi.vertcat(*converted_children)
+
+    def _to_rust(
+        self, graph: pybamm.rust.ExprGraph, rust_symbols: dict
+    ) -> pybamm.rust.Expr:
+        converted_children = self._children_to_rust(graph, rust_symbols)
+        return graph.concat(converted_children)
 
     def _concatenation_jac(self, children_jacs):
         """See :meth:`pybamm.Concatenation.concatenation_jac()`."""
@@ -430,27 +444,51 @@ class DomainConcatenation(Concatenation):
 
         return vector
 
+    def _ordered_child_pieces(
+        self, children: Sequence[Any], take: Callable[[Any, int, int], Any]
+    ) -> list[Any]:
+        """
+        Cut the converted children into the pieces this concatenation interleaves.
+
+        Parameters
+        ----------
+        children : sequence
+            The converted children, in the order of :attr:`children`.
+        take : callable
+            ``take(child, start, stop)`` returns entries ``start`` to ``stop`` of a
+            converted child.
+
+        Returns
+        -------
+        list
+            The pieces, in the order they appear in the concatenated vector.
+        """
+        pieces = []
+        for i in range(self.secondary_dimensions_npts):
+            row = []
+            for child, slices in zip(children, self._children_slices, strict=True):
+                for child_dom, child_slice in slices.items():
+                    piece = take(child, child_slice[i].start, child_slice[i].stop)
+                    row.append((self._slices[child_dom][i].start, piece))
+            row.sort(key=itemgetter(0))
+            pieces.extend(piece for _, piece in row)
+        return pieces
+
     def _to_casadi(self, t, y, y_dot, inputs, casadi_symbols):
         """See :meth:`pybamm.Symbol._to_casadi()`."""
         converted_children = self._children_to_casadi(
             t, y, y_dot, inputs, casadi_symbols
         )
-        all_child_vectors = []
-        for i in range(self.secondary_dimensions_npts):
-            child_vectors = []
-            for child_var, slices in zip(
-                converted_children, self._children_slices, strict=True
-            ):
-                for child_dom, child_slice in slices.items():
-                    child_vectors.append(
-                        (
-                            self._slices[child_dom][i].start,
-                            child_var[child_slice[i].start : child_slice[i].stop],
-                        )
-                    )
-            child_vectors.sort(key=itemgetter(0))
-            all_child_vectors.extend(v for _, v in child_vectors)
-        return casadi.vertcat(*all_child_vectors)
+        pieces = self._ordered_child_pieces(
+            converted_children, lambda child, start, stop: child[start:stop]
+        )
+        return casadi.vertcat(*pieces)
+
+    def _to_rust(
+        self, graph: pybamm.rust.ExprGraph, rust_symbols: dict
+    ) -> pybamm.rust.Expr:
+        converted_children = self._children_to_rust(graph, rust_symbols)
+        return graph.concat(self._ordered_child_pieces(converted_children, graph.index))
 
     def _concatenation_jac(self, children_jacs):
         """See :meth:`pybamm.Concatenation.concatenation_jac()`."""
@@ -549,6 +587,12 @@ class SparseStack(Concatenation):
         )
         return casadi.vertcat(*converted_children)
 
+    def _to_rust(
+        self, graph: pybamm.rust.ExprGraph, rust_symbols: dict
+    ) -> pybamm.rust.Expr:
+        converted_children = self._children_to_rust(graph, rust_symbols)
+        return graph.concat(converted_children)
+
     def _concatenation_new_copy(self, children, perform_simplifications=True):
         """See :meth:`pybamm.Concatenation._concatenation_new_copy()`."""
         return SparseStack(*children)
@@ -602,6 +646,11 @@ class ConcatenationVariable(Concatenation):
 
         self.print_name = print_name
 
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        # The derivatives are not variables, so they make a plain concatenation
+        return concatenation(*[child.diff(variable) for child in self.children])
+
     bounds = pybamm.expression_tree.legacy_mutation.bounds_property
 
 
@@ -617,7 +666,7 @@ def intersect(s1: str, s2: str):
     # intersect is the longest such intercept
     if len(all_intersects) == 0:
         return ""
-    intersect = max(all_intersects, key=len)
+    intersect: str = max(all_intersects, key=len)
     # remove leading and trailing white space
     return intersect.lstrip().rstrip()
 
@@ -688,22 +737,18 @@ def simplified_domain_concatenation(
     # Create the DomainConcatenation to read domain and child domain
     concat = DomainConcatenation(children, mesh, copy_this=copy_this)
     # Simplify Concatenation of StateVectors to a single StateVector
-    # The sum of the evalation arrays of the StateVectors must be exactly 1
+    # The StateVectors must cover their combined span exactly once
     if all(isinstance(child, pybamm.StateVector) for child in children):
         sv_children: list[pybamm.StateVector] = children  # type: ignore[assignment]
-        longest_eval_array = len(sv_children[-1]._evaluation_array)
-        eval_arrays = {}
-        for child in sv_children:
-            eval_arrays[child] = np.concatenate(
-                [
-                    child.evaluation_array,
-                    np.zeros(longest_eval_array - len(child.evaluation_array)),
-                ]
-            )
         first_start = sv_children[0].y_slices[0].start
         last_stop = sv_children[-1].y_slices[-1].stop
-        if all(
-            sum(array for array in eval_arrays.values())[first_start:last_stop] == 1
+        ranges = sorted(
+            (y_slice.start or 0, y_slice.stop)
+            for child in sv_children
+            for y_slice in child.y_slices
+        )
+        if pybamm.expression_tree.state_vector.ranges_tile(
+            ranges, first_start, last_stop
         ):
             return pybamm.StateVector(
                 slice(first_start, last_stop), domains=concat._domains

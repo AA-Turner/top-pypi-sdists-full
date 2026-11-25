@@ -109,7 +109,7 @@ fn is_modeled_dtype(dtype: &DataType) -> bool {
 // decimal of another scale is rescaled when that loses no digits.
 fn column_value(value: &Scalar, dtype: &DataType) -> Option<Scalar> {
     if value.dtype() == dtype {
-        return (!value.is_null()).then(|| value.clone());
+        return (!value.is_null()).then(|| canonical_float(value));
     }
     #[cfg(feature = "dtype-decimal")]
     if let (AnyValue::Decimal(v, _, old_scale), DataType::Decimal(precision, scale)) =
@@ -126,6 +126,25 @@ fn column_value(value: &Scalar, dtype: &DataType) -> Option<Scalar> {
         });
     }
     None
+}
+
+// A float as the value it compares equal to in every set and order of the model:
+// `-0.0 == 0.0` and NaN equals NaN when filtering, but `Scalar`'s hash and order tell
+// their bit patterns apart (so `is_in([-0.0]) AND is_in([0.0])` looked impossible).
+fn canonical_float(value: &Scalar) -> Scalar {
+    use polars_core::prelude::AnyValue as AV;
+    use polars_utils::float16::pf16;
+
+    let canonical = match value.value() {
+        AV::Float64(v) if v.is_nan() => AV::Float64(f64::NAN),
+        AV::Float64(v) if *v == 0.0 => AV::Float64(0.0),
+        AV::Float32(v) if v.is_nan() => AV::Float32(f32::NAN),
+        AV::Float32(v) if *v == 0.0 => AV::Float32(0.0),
+        AV::Float16(v) if v.is_nan() => AV::Float16(pf16::NAN),
+        AV::Float16(v) if f32::from(*v) == 0.0 => AV::Float16(pf16::from(0.0f32)),
+        _ => return value.clone(),
+    };
+    Scalar::new(value.dtype().clone(), canonical)
 }
 
 // Whether `a == b` on two columns of these dtypes compares their values exactly,
@@ -319,16 +338,13 @@ impl ColumnConstraints {
     }
 
     // Whether a conjunct that stays in the rebuilt chain drops the nulls of this
-    // column. `!is_in` is left out: with `nulls_equal` it keeps nulls.
+    // column.
     fn drops_nulls(&self) -> bool {
         self.lower.is_some()
             || self.upper.is_some()
             || !self.excluded.is_empty()
             || self.allowed.is_some()
-    }
-
-    fn has_value_constraint(&self) -> bool {
-        self.drops_nulls() || !self.disallowed.is_empty()
+            || !self.disallowed.is_empty()
     }
 
     // Records an `is_null` (`Null`) / `is_not_null` (`NonNull`) requirement. The first
@@ -414,11 +430,11 @@ impl ColumnConstraints {
         // requirement (`a.is_null() AND a > 5`). Checked here so it holds regardless
         // of the order the conjuncts arrived in. Soundness rests on every source of a
         // value constraint being null-dropping under K3 (bounds, `!=`, `is_in`,
-        // `!is_in`); the null-*preserving* ops `eq_missing` / `ne_missing`
-        // (`EqValidity` / `NotEqValidity`) must therefore stay `Opaque` and never feed
-        // `has_value_constraint`, or `a.is_null() AND a.ne_missing(4)` would wrongly
-        // collapse (it's satisfiable on the null rows).
-        if self.nullability == Nullability::Null && self.has_value_constraint() {
+        // `!is_in` without `nulls_equal`); the null-*preserving* ops `eq_missing` /
+        // `ne_missing` (`EqValidity` / `NotEqValidity`) must therefore stay `Opaque`
+        // and never feed `drops_nulls`, or `a.is_null() AND a.ne_missing(4)` would
+        // wrongly collapse (it's satisfiable on the null rows).
+        if self.nullability == Nullability::Null && self.drops_nulls() {
             self.unsat = true;
             return;
         }
@@ -899,6 +915,7 @@ fn classify_into_constraints(
         // Not a `col op lit`, so no bound. Listed explicitly (no `_`) so a new
         // `AExpr` variant fails to compile here and forces a decision.
         AExpr::Element
+        | AExpr::EvalColumn(_)
         | AExpr::Explode { .. }
         | AExpr::Column(_)
         | AExpr::Literal(_)
@@ -1067,14 +1084,15 @@ fn classify_negation(
         // `!is_in(haystack)` disallows each haystack member: recorded for
         // contradiction detection only, the node kept verbatim (never rewritten
         // into `!=` terms). Same conservatism as positive `is_in` (literal,
-        // null-free haystack only, enforced by `as_value_set`).
+        // null-free haystack only, enforced by `as_value_set`). With `nulls_equal` a
+        // null is not in the haystack, so `!is_in` keeps the nulls; not recorded.
         #[cfg(feature = "is_in")]
         AExpr::Function {
             input,
-            function: IRFunctionExpr::Boolean(IRBooleanFunction::IsIn { .. }),
+            function: IRFunctionExpr::Boolean(IRBooleanFunction::IsIn { nulls_equal, .. }),
             ..
         } => {
-            if let Some(col_name) = as_column(expr_arena.get(input[0].node())) {
+            if !nulls_equal && let Some(col_name) = as_column(expr_arena.get(input[0].node())) {
                 let cc = column_constraints(constraints, schema, col_name);
                 if let Some(values) = as_value_set(expr_arena.get(input[1].node()), &cc.dtype) {
                     cc.add_disallowed(values);
@@ -1109,6 +1127,7 @@ fn classify_negation(
         // Negation of any other shape isn't a constraint we model; kept verbatim.
         AExpr::Function { .. }
         | AExpr::Element
+        | AExpr::EvalColumn(_)
         | AExpr::Explode { .. }
         | AExpr::Column(_)
         | AExpr::Literal(_)

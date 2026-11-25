@@ -38,6 +38,16 @@ class ComputeMixin:
         """``GET /v1/compute/clusters``."""
         return get_items(self.transport.get("/v1/compute/clusters"), "clusters")
 
+    def list_cluster_machines(self, cluster: str, *, status: str | None = None) -> list[dict[str, Any]]:
+        """``GET /v1/compute/clusters/{id or key}/machines``: the machines Probe expects there, with status."""
+        query = {"status": status} if status else None
+        return get_items(self.transport.get(f"/v1/compute/clusters/{_quote(cluster)}/machines", params=query),
+                         "machines")
+
+    def register_cluster_machines(self, page: Mapping[str, Any]) -> dict[str, Any]:
+        """``POST /v1/compute/clusters/machines``: one page of a connected cluster's machine list (T7)."""
+        return dict(self.transport.post("/v1/compute/clusters/machines", dict(page)) or {})
+
     def create_enrollment_token(
         self,
         name: str,
@@ -45,8 +55,10 @@ class ComputeMixin:
         labels: Mapping[str, str] | None = None,
         max_nodes: int | None = None,
         expires_in_seconds: int | None = None,
+        runs_submit_key_id: str | None = None,
     ) -> dict[str, Any]:
-        """``POST /v1/compute/enrollment-tokens``: the new token, its secret included this once."""
+        """``POST /v1/compute/enrollment-tokens``: the new token, its secret included this once.
+        ``runs_submit_key_id``: a SkyPilot queue reader's server key (yours), revoked with the token's cluster."""
         if not str(name or "").strip():
             raise errors.ValidationError("name the enrollment token")
         body: dict[str, Any] = {"name": str(name).strip()}
@@ -56,15 +68,20 @@ class ComputeMixin:
             body["max_nodes"] = int(max_nodes)
         if expires_in_seconds is not None:
             body["expires_in_seconds"] = int(expires_in_seconds)
+        if runs_submit_key_id:
+            body["runs_submit_key_id"] = str(runs_submit_key_id)
         return dict(self.transport.post("/v1/compute/enrollment-tokens", body) or {})
 
     def list_enrollment_tokens(self) -> list[dict[str, Any]]:
         """``GET /v1/compute/enrollment-tokens``: the team's tokens, never their secrets."""
         return get_items(self.transport.get("/v1/compute/enrollment-tokens"), "tokens")
 
-    def revoke_enrollment_token(self, token_id: str) -> None:
-        """``DELETE /v1/compute/enrollment-tokens/{id}``: no new node joins with it; joined nodes stay."""
-        self.transport.delete(f"/v1/compute/enrollment-tokens/{_quote(token_id)}")
+    def revoke_enrollment_token(self, token_id: str, *, should_revoke_nodes: bool = False) -> None:
+        """``DELETE /v1/compute/enrollment-tokens/{id}``: no new node joins with it; joined nodes stay, unless
+        ``should_revoke_nodes`` (``?revoke_nodes=true``), which revokes the nodes it enrolled too."""
+        query = {"revoke_nodes": "true"} if should_revoke_nodes else None
+        self.transport.request("DELETE", f"/v1/compute/enrollment-tokens/{_quote(token_id)}", params=query,
+                               idempotent=True)
 
 
 def get_items(answer: Any, key: str) -> list[dict[str, Any]]:

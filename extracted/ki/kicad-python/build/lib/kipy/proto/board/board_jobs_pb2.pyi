@@ -424,6 +424,71 @@ IPC2581V_B: Ipc2581Version.ValueType
 IPC2581V_C: Ipc2581Version.ValueType
 global___Ipc2581Version = Ipc2581Version
 
+class _FabDataSet:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _FabDataSetEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_FabDataSet.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    FDS_UNKNOWN: _FabDataSet.ValueType
+    FDS_USERDEF: _FabDataSet.ValueType
+    FDS_BOM: _FabDataSet.ValueType
+    FDS_STACKUP: _FabDataSet.ValueType
+    FDS_FABRICATION: _FabDataSet.ValueType
+    FDS_ASSEMBLY: _FabDataSet.ValueType
+    FDS_TEST: _FabDataSet.ValueType
+    FDS_STENCIL: _FabDataSet.ValueType
+    FDS_DFX: _FabDataSet.ValueType
+
+class FabDataSet(_FabDataSet, metaclass=_FabDataSetEnumTypeWrapper):
+    """Data set of a fabrication export, per the IPC-2581 function mode table."""
+FDS_UNKNOWN: FabDataSet.ValueType
+FDS_USERDEF: FabDataSet.ValueType
+FDS_BOM: FabDataSet.ValueType
+FDS_STACKUP: FabDataSet.ValueType
+FDS_FABRICATION: FabDataSet.ValueType
+FDS_ASSEMBLY: FabDataSet.ValueType
+FDS_TEST: FabDataSet.ValueType
+FDS_STENCIL: FabDataSet.ValueType
+FDS_DFX: FabDataSet.ValueType
+global___FabDataSet = FabDataSet
+
+class _FabNetNamePolicy:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _FabNetNamePolicyEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_FabNetNamePolicy.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    FNNP_UNKNOWN: _FabNetNamePolicy.ValueType
+    FNNP_INCLUDE: _FabNetNamePolicy.ValueType
+    FNNP_ANONYMIZE: _FabNetNamePolicy.ValueType
+    'Opaque names that keep the connections'
+
+class FabNetNamePolicy(_FabNetNamePolicy, metaclass=_FabNetNamePolicyEnumTypeWrapper):
+    ...
+FNNP_UNKNOWN: FabNetNamePolicy.ValueType
+FNNP_INCLUDE: FabNetNamePolicy.ValueType
+FNNP_ANONYMIZE: FabNetNamePolicy.ValueType
+'Opaque names that keep the connections'
+global___FabNetNamePolicy = FabNetNamePolicy
+
+class _Ipc2581RefDes:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _Ipc2581RefDesEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_Ipc2581RefDes.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    IPC2581RD_UNKNOWN: _Ipc2581RefDes.ValueType
+    IPC2581RD_INCLUDE: _Ipc2581RefDes.ValueType
+    IPC2581RD_OMIT: _Ipc2581RefDes.ValueType
+
+class Ipc2581RefDes(_Ipc2581RefDes, metaclass=_Ipc2581RefDesEnumTypeWrapper):
+    ...
+IPC2581RD_UNKNOWN: Ipc2581RefDes.ValueType
+IPC2581RD_INCLUDE: Ipc2581RefDes.ValueType
+IPC2581RD_OMIT: Ipc2581RefDes.ValueType
+global___Ipc2581RefDes = Ipc2581RefDes
+
 class _OdbCompression:
     ValueType = typing.NewType('ValueType', builtins.int)
     V: typing_extensions.TypeAlias = ValueType
@@ -449,6 +514,44 @@ ODBC_TGZ: OdbCompression.ValueType
 'Tar+gzip archive (.tgz).'
 global___OdbCompression = OdbCompression
 
+class _OdbVariantPackaging:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _OdbVariantPackagingEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_OdbVariantPackaging.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    ODBVP_UNKNOWN: _OdbVariantPackaging.ValueType
+    ODBVP_SEPARATE: _OdbVariantPackaging.ValueType
+    ODBVP_COMBINED: _OdbVariantPackaging.ValueType
+
+class OdbVariantPackaging(_OdbVariantPackaging, metaclass=_OdbVariantPackagingEnumTypeWrapper):
+    ...
+ODBVP_UNKNOWN: OdbVariantPackaging.ValueType
+ODBVP_SEPARATE: OdbVariantPackaging.ValueType
+ODBVP_COMBINED: OdbVariantPackaging.ValueType
+global___OdbVariantPackaging = OdbVariantPackaging
+
+class _OdbOrigin:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _OdbOriginEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_OdbOrigin.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    ODBO_UNKNOWN: _OdbOrigin.ValueType
+    ODBO_ABSOLUTE: _OdbOrigin.ValueType
+    ODBO_AUX: _OdbOrigin.ValueType
+    'Drill and place file origin'
+    ODBO_GRID: _OdbOrigin.ValueType
+
+class OdbOrigin(_OdbOrigin, metaclass=_OdbOriginEnumTypeWrapper):
+    ...
+ODBO_UNKNOWN: OdbOrigin.ValueType
+ODBO_ABSOLUTE: OdbOrigin.ValueType
+ODBO_AUX: OdbOrigin.ValueType
+'Drill and place file origin'
+ODBO_GRID: OdbOrigin.ValueType
+global___OdbOrigin = OdbOrigin
+
 class _StatsOutputFormat:
     ValueType = typing.NewType('ValueType', builtins.int)
     V: typing_extensions.TypeAlias = ValueType
@@ -469,6 +572,35 @@ SOF_REPORT: StatsOutputFormat.ValueType
 SOF_JSON: StatsOutputFormat.ValueType
 'JSON structured output.'
 global___StatsOutputFormat = StatsOutputFormat
+
+class _IdfOriginMode:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _IdfOriginModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_IdfOriginMode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    IOM_UNKNOWN: _IdfOriginMode.ValueType
+    IOM_BOARD_CENTER: _IdfOriginMode.ValueType
+    'Center of the board outline bounding box.'
+    IOM_GRID_ORIGIN: _IdfOriginMode.ValueType
+    "The board's grid origin."
+    IOM_DRILL_ORIGIN: _IdfOriginMode.ValueType
+    "The board's auxiliary (drill/place file) origin."
+    IOM_USER: _IdfOriginMode.ValueType
+    'A user-specified point; see user_origin.'
+
+class IdfOriginMode(_IdfOriginMode, metaclass=_IdfOriginModeEnumTypeWrapper):
+    """Which reference point of the board maps to the IDF file origin."""
+IOM_UNKNOWN: IdfOriginMode.ValueType
+IOM_BOARD_CENTER: IdfOriginMode.ValueType
+'Center of the board outline bounding box.'
+IOM_GRID_ORIGIN: IdfOriginMode.ValueType
+"The board's grid origin."
+IOM_DRILL_ORIGIN: IdfOriginMode.ValueType
+"The board's auxiliary (drill/place file) origin."
+IOM_USER: IdfOriginMode.ValueType
+'A user-specified point; see user_origin.'
+global___IdfOriginMode = IdfOriginMode
 
 @typing.final
 class BoardPlotSettings(google.protobuf.message.Message):
@@ -1073,6 +1205,47 @@ class RunBoardJobExportGencad(google.protobuf.message.Message):
 global___RunBoardJobExportGencad = RunBoardJobExportGencad
 
 @typing.final
+class RunBoardJobExportSpecctraDsn(google.protobuf.message.Message):
+    """Exports a board to Specctra DSN format.  Returns RunJobResponse.
+    Since: 11.0
+    """
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    JOB_SETTINGS_FIELD_NUMBER: builtins.int
+
+    @property
+    def job_settings(self) -> common.types.jobs_pb2.RunJobSettings:
+        ...
+
+    def __init__(self, *, job_settings: common.types.jobs_pb2.RunJobSettings | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['job_settings', b'job_settings']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['job_settings', b'job_settings']) -> None:
+        ...
+global___RunBoardJobExportSpecctraDsn = RunBoardJobExportSpecctraDsn
+
+@typing.final
+class FabExportContent(google.protobuf.message.Message):
+    """Content selection shared by the ODB++ and IPC-2581 exports."""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    DATA_SET_FIELD_NUMBER: builtins.int
+    SECTIONS_FIELD_NUMBER: builtins.int
+    NET_NAMES_FIELD_NUMBER: builtins.int
+    data_set: global___FabDataSet.ValueType
+    sections: builtins.str
+    'Section key letters that replace the optional sections of the data set'
+    net_names: global___FabNetNamePolicy.ValueType
+
+    def __init__(self, *, data_set: global___FabDataSet.ValueType=..., sections: builtins.str=..., net_names: global___FabNetNamePolicy.ValueType=...) -> None:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['data_set', b'data_set', 'net_names', b'net_names', 'sections', b'sections']) -> None:
+        ...
+global___FabExportContent = FabExportContent
+
+@typing.final
 class RunBoardJobExportIpc2581(google.protobuf.message.Message):
     """Exports a board to IPC-2581 format.  Returns RunJobResponse."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -1089,6 +1262,9 @@ class RunBoardJobExportIpc2581(google.protobuf.message.Message):
     DISTRIBUTOR_PART_NUMBER_COLUMN_FIELD_NUMBER: builtins.int
     DISTRIBUTOR_COLUMN_FIELD_NUMBER: builtins.int
     BOM_REVISION_FIELD_NUMBER: builtins.int
+    CHECK_ZONES_FIELD_NUMBER: builtins.int
+    CONTENT_FIELD_NUMBER: builtins.int
+    REF_DES_FIELD_NUMBER: builtins.int
     drawing_sheet: builtins.str
     variant: builtins.str
     units: common.types.enums_pb2.Units.ValueType
@@ -1102,20 +1278,31 @@ class RunBoardJobExportIpc2581(google.protobuf.message.Message):
     distributor_part_number_column: builtins.str
     distributor_column: builtins.str
     bom_revision: builtins.str
+    check_zones: builtins.bool
+    ref_des: global___Ipc2581RefDes.ValueType
 
     @property
     def job_settings(self) -> common.types.jobs_pb2.RunJobSettings:
         ...
 
-    def __init__(self, *, job_settings: common.types.jobs_pb2.RunJobSettings | None=..., drawing_sheet: builtins.str=..., variant: builtins.str=..., units: common.types.enums_pb2.Units.ValueType=..., version: global___Ipc2581Version.ValueType=..., precision: builtins.int | None=..., compress: builtins.bool=..., internal_id_column: builtins.str=..., manufacturer_part_number_column: builtins.str=..., manufacturer_column: builtins.str=..., distributor_part_number_column: builtins.str=..., distributor_column: builtins.str=..., bom_revision: builtins.str=...) -> None:
+    @property
+    def content(self) -> global___FabExportContent:
         ...
 
-    def HasField(self, field_name: typing.Literal['_precision', b'_precision', 'job_settings', b'job_settings', 'precision', b'precision']) -> builtins.bool:
+    def __init__(self, *, job_settings: common.types.jobs_pb2.RunJobSettings | None=..., drawing_sheet: builtins.str=..., variant: builtins.str=..., units: common.types.enums_pb2.Units.ValueType=..., version: global___Ipc2581Version.ValueType=..., precision: builtins.int | None=..., compress: builtins.bool=..., internal_id_column: builtins.str=..., manufacturer_part_number_column: builtins.str=..., manufacturer_column: builtins.str=..., distributor_part_number_column: builtins.str=..., distributor_column: builtins.str=..., bom_revision: builtins.str=..., check_zones: builtins.bool | None=..., content: global___FabExportContent | None=..., ref_des: global___Ipc2581RefDes.ValueType=...) -> None:
         ...
 
-    def ClearField(self, field_name: typing.Literal['_precision', b'_precision', 'bom_revision', b'bom_revision', 'compress', b'compress', 'distributor_column', b'distributor_column', 'distributor_part_number_column', b'distributor_part_number_column', 'drawing_sheet', b'drawing_sheet', 'internal_id_column', b'internal_id_column', 'job_settings', b'job_settings', 'manufacturer_column', b'manufacturer_column', 'manufacturer_part_number_column', b'manufacturer_part_number_column', 'precision', b'precision', 'units', b'units', 'variant', b'variant', 'version', b'version']) -> None:
+    def HasField(self, field_name: typing.Literal['_check_zones', b'_check_zones', '_precision', b'_precision', 'check_zones', b'check_zones', 'content', b'content', 'job_settings', b'job_settings', 'precision', b'precision']) -> builtins.bool:
         ...
 
+    def ClearField(self, field_name: typing.Literal['_check_zones', b'_check_zones', '_precision', b'_precision', 'bom_revision', b'bom_revision', 'check_zones', b'check_zones', 'compress', b'compress', 'content', b'content', 'distributor_column', b'distributor_column', 'distributor_part_number_column', b'distributor_part_number_column', 'drawing_sheet', b'drawing_sheet', 'internal_id_column', b'internal_id_column', 'job_settings', b'job_settings', 'manufacturer_column', b'manufacturer_column', 'manufacturer_part_number_column', b'manufacturer_part_number_column', 'precision', b'precision', 'ref_des', b'ref_des', 'units', b'units', 'variant', b'variant', 'version', b'version']) -> None:
+        ...
+
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal['_check_zones', b'_check_zones']) -> typing.Literal['check_zones'] | None:
+        ...
+
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal['_precision', b'_precision']) -> typing.Literal['precision'] | None:
         ...
 global___RunBoardJobExportIpc2581 = RunBoardJobExportIpc2581
@@ -1150,26 +1337,51 @@ class RunBoardJobExportODB(google.protobuf.message.Message):
     UNITS_FIELD_NUMBER: builtins.int
     PRECISION_FIELD_NUMBER: builtins.int
     COMPRESSION_FIELD_NUMBER: builtins.int
+    CHECK_ZONES_FIELD_NUMBER: builtins.int
+    VARIANT_NAMES_FIELD_NUMBER: builtins.int
+    VARIANT_PACKAGING_FIELD_NUMBER: builtins.int
+    MANUFACTURER_PART_NUMBER_COLUMN_FIELD_NUMBER: builtins.int
+    ORIGIN_FIELD_NUMBER: builtins.int
+    PRODUCT_NAME_FIELD_NUMBER: builtins.int
+    CONTENT_FIELD_NUMBER: builtins.int
     drawing_sheet: builtins.str
     variant: builtins.str
     units: common.types.enums_pb2.Units.ValueType
     'Inches or millimeters are accepted'
     precision: builtins.int
     compression: global___OdbCompression.ValueType
+    check_zones: builtins.bool
+    variant_packaging: global___OdbVariantPackaging.ValueType
+    manufacturer_part_number_column: builtins.str
+    origin: global___OdbOrigin.ValueType
+    product_name: builtins.str
 
     @property
     def job_settings(self) -> common.types.jobs_pb2.RunJobSettings:
         ...
 
-    def __init__(self, *, job_settings: common.types.jobs_pb2.RunJobSettings | None=..., drawing_sheet: builtins.str=..., variant: builtins.str=..., units: common.types.enums_pb2.Units.ValueType=..., precision: builtins.int | None=..., compression: global___OdbCompression.ValueType=...) -> None:
+    @property
+    def variant_names(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         ...
 
-    def HasField(self, field_name: typing.Literal['_precision', b'_precision', 'job_settings', b'job_settings', 'precision', b'precision']) -> builtins.bool:
+    @property
+    def content(self) -> global___FabExportContent:
         ...
 
-    def ClearField(self, field_name: typing.Literal['_precision', b'_precision', 'compression', b'compression', 'drawing_sheet', b'drawing_sheet', 'job_settings', b'job_settings', 'precision', b'precision', 'units', b'units', 'variant', b'variant']) -> None:
+    def __init__(self, *, job_settings: common.types.jobs_pb2.RunJobSettings | None=..., drawing_sheet: builtins.str=..., variant: builtins.str=..., units: common.types.enums_pb2.Units.ValueType=..., precision: builtins.int | None=..., compression: global___OdbCompression.ValueType=..., check_zones: builtins.bool | None=..., variant_names: collections.abc.Iterable[builtins.str] | None=..., variant_packaging: global___OdbVariantPackaging.ValueType=..., manufacturer_part_number_column: builtins.str=..., origin: global___OdbOrigin.ValueType=..., product_name: builtins.str=..., content: global___FabExportContent | None=...) -> None:
         ...
 
+    def HasField(self, field_name: typing.Literal['_check_zones', b'_check_zones', '_precision', b'_precision', 'check_zones', b'check_zones', 'content', b'content', 'job_settings', b'job_settings', 'precision', b'precision']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['_check_zones', b'_check_zones', '_precision', b'_precision', 'check_zones', b'check_zones', 'compression', b'compression', 'content', b'content', 'drawing_sheet', b'drawing_sheet', 'job_settings', b'job_settings', 'manufacturer_part_number_column', b'manufacturer_part_number_column', 'origin', b'origin', 'precision', b'precision', 'product_name', b'product_name', 'units', b'units', 'variant', b'variant', 'variant_names', b'variant_names', 'variant_packaging', b'variant_packaging']) -> None:
+        ...
+
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal['_check_zones', b'_check_zones']) -> typing.Literal['check_zones'] | None:
+        ...
+
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal['_precision', b'_precision']) -> typing.Literal['precision'] | None:
         ...
 global___RunBoardJobExportODB = RunBoardJobExportODB
@@ -1204,3 +1416,93 @@ class RunBoardJobExportStats(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal['exclude_footprints_without_pads', b'exclude_footprints_without_pads', 'format', b'format', 'job_settings', b'job_settings', 'subtract_holes_from_board_area', b'subtract_holes_from_board_area', 'subtract_holes_from_copper_areas', b'subtract_holes_from_copper_areas', 'units', b'units']) -> None:
         ...
 global___RunBoardJobExportStats = RunBoardJobExportStats
+
+@typing.final
+class RunBoardJobExportPng(google.protobuf.message.Message):
+    """Plots board layers to a PNG file. Returns RunJobResponse."""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    JOB_SETTINGS_FIELD_NUMBER: builtins.int
+    PLOT_SETTINGS_FIELD_NUMBER: builtins.int
+    DPI_FIELD_NUMBER: builtins.int
+    ANTIALIASING_FIELD_NUMBER: builtins.int
+    PAGE_MODE_FIELD_NUMBER: builtins.int
+    PLOT_BACKGROUND_COLOR_FIELD_NUMBER: builtins.int
+    dpi: builtins.int
+    'Range 72-2400.  If unspecified, will use the GUI default resolution (300 DPI).'
+    antialiasing: common.types.jobs_pb2.AntialiasingMode.ValueType
+    'If unspecified, anti-aliasing will follow the GUI default (enabled)'
+    page_mode: global___BoardJobPaginationMode.ValueType
+    'Supports BJPM_ALL_LAYERS_ONE_PAGE and BJPM_EACH_LAYER_OWN_FILE.'
+    plot_background_color: builtins.bool
+    'If true, will plot using the background color from the theme specified in\n    plot_settings.  If false or absent, will plot with a transparent background.\n    '
+
+    @property
+    def job_settings(self) -> common.types.jobs_pb2.RunJobSettings:
+        ...
+
+    @property
+    def plot_settings(self) -> global___BoardPlotSettings:
+        ...
+
+    def __init__(self, *, job_settings: common.types.jobs_pb2.RunJobSettings | None=..., plot_settings: global___BoardPlotSettings | None=..., dpi: builtins.int | None=..., antialiasing: common.types.jobs_pb2.AntialiasingMode.ValueType=..., page_mode: global___BoardJobPaginationMode.ValueType=..., plot_background_color: builtins.bool | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['_dpi', b'_dpi', '_plot_background_color', b'_plot_background_color', 'dpi', b'dpi', 'job_settings', b'job_settings', 'plot_background_color', b'plot_background_color', 'plot_settings', b'plot_settings']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['_dpi', b'_dpi', '_plot_background_color', b'_plot_background_color', 'antialiasing', b'antialiasing', 'dpi', b'dpi', 'job_settings', b'job_settings', 'page_mode', b'page_mode', 'plot_background_color', b'plot_background_color', 'plot_settings', b'plot_settings']) -> None:
+        ...
+
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal['_dpi', b'_dpi']) -> typing.Literal['dpi'] | None:
+        ...
+
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal['_plot_background_color', b'_plot_background_color']) -> typing.Literal['plot_background_color'] | None:
+        ...
+global___RunBoardJobExportPng = RunBoardJobExportPng
+
+@typing.final
+class RunBoardJobExportIdf(google.protobuf.message.Message):
+    """Exports a board to IDFv3 files.  Returns RunJobResponse."""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    JOB_SETTINGS_FIELD_NUMBER: builtins.int
+    UNITS_FIELD_NUMBER: builtins.int
+    ORIGIN_MODE_FIELD_NUMBER: builtins.int
+    USER_ORIGIN_FIELD_NUMBER: builtins.int
+    INCLUDE_UNSPECIFIED_FIELD_NUMBER: builtins.int
+    INCLUDE_DNP_FIELD_NUMBER: builtins.int
+    ONLY_USE_EXPLICIT_HEIGHTS_FIELD_NUMBER: builtins.int
+    PART_NUMBER_FIELD_FIELD_NUMBER: builtins.int
+    units: common.types.enums_pb2.Units.ValueType
+    'Millimeters or mils are accepted'
+    origin_mode: global___IdfOriginMode.ValueType
+    include_unspecified: builtins.bool
+    'If true, footprints without the through-hole or SMD attribute are included.'
+    include_dnp: builtins.bool
+    'If true, footprints marked DNP in the current variant are included.'
+    only_use_explicit_heights: builtins.bool
+    'If true, footprints without an explicit height property or explicit IDF model will be\n    excluded from the export.  If false / absent, footprints without an explicit height set will\n    be exported if they have a visible STEP model, using the height of the tallest model.\n    '
+    part_number_field: builtins.str
+    'The footprint field to export as the component part number in the IDF library file.\n    Defaults to the Value field if unspecified.\n    '
+
+    @property
+    def job_settings(self) -> common.types.jobs_pb2.RunJobSettings:
+        ...
+
+    @property
+    def user_origin(self) -> common.types.base_types_pb2.Vector2:
+        """Origin point used when origin_mode is IOM_USER."""
+
+    def __init__(self, *, job_settings: common.types.jobs_pb2.RunJobSettings | None=..., units: common.types.enums_pb2.Units.ValueType=..., origin_mode: global___IdfOriginMode.ValueType=..., user_origin: common.types.base_types_pb2.Vector2 | None=..., include_unspecified: builtins.bool=..., include_dnp: builtins.bool=..., only_use_explicit_heights: builtins.bool=..., part_number_field: builtins.str | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['_part_number_field', b'_part_number_field', 'job_settings', b'job_settings', 'part_number_field', b'part_number_field', 'user_origin', b'user_origin']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['_part_number_field', b'_part_number_field', 'include_dnp', b'include_dnp', 'include_unspecified', b'include_unspecified', 'job_settings', b'job_settings', 'only_use_explicit_heights', b'only_use_explicit_heights', 'origin_mode', b'origin_mode', 'part_number_field', b'part_number_field', 'units', b'units', 'user_origin', b'user_origin']) -> None:
+        ...
+
+    def WhichOneof(self, oneof_group: typing.Literal['_part_number_field', b'_part_number_field']) -> typing.Literal['part_number_field'] | None:
+        ...
+global___RunBoardJobExportIdf = RunBoardJobExportIdf

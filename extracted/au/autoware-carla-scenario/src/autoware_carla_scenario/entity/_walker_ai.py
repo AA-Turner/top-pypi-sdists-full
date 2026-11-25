@@ -106,11 +106,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "BACK_STALL_S",
     "CARLA_CROSS_FACTOR",
     "REACHED_M",
     "RETARGET_S",
     "TARGET_SPACING_M",
     "at_walk_end",
+    "back_progress",
     "drive",
     "forget_all",
     "give_way",
@@ -119,6 +121,7 @@ __all__ = [
     "has_navmesh",
     "release",
     "road_stretches",
+    "seed_navigation",
 ]
 
 #: CARLA's own pedestrian cross factor (``Navigation::_probability_crossing``).
@@ -183,6 +186,8 @@ _GIVING_WAY: dict[int, float] = {}
 
 #: Whether each episode's map has a navigation mesh, by world id.
 _NAVMESH: dict[int, bool] = {}
+#: The worlds whose missing navigation mesh has been said, by world id.
+_NAVMESH_SAID: set[int] = set()
 #: The walkers' velocities, measured from where they stand: a walker on its
 #: controller is placed, and its ``get_velocity()`` reads 0.
 _WALKING = WalkerVelocities()
@@ -263,9 +268,9 @@ class _Driven:
 _DRIVEN: dict[int, _Driven] = {}
 
 
-def has_navmesh(world: "carla.World") -> bool:
-    """Whether *world*'s map has a pedestrian navigation mesh (asked once per
-    episode; a map without one is said once)."""
+def _probe_navmesh(world: "carla.World") -> bool:
+    """Whether *world*'s map has a pedestrian navigation mesh, drawing
+    navigation locations only the first time a world is asked; silent."""
     key = int(world.id) if hasattr(world, "id") else 0
     if key not in _NAVMESH:
         found = False
@@ -274,13 +279,39 @@ def has_navmesh(world: "carla.World") -> bool:
                 found = True
                 break
         _NAVMESH[key] = found
-        if not found:
-            logger.warning(
-                "The map has no pedestrian navigation mesh: routed walkers are "
-                "stepped along their routes, not walked by CARLA's walker "
-                "controller (build one when importing the map)"
-            )
     return _NAVMESH[key]
+
+
+def has_navmesh(world: "carla.World") -> bool:
+    """Whether *world*'s map has a pedestrian navigation mesh (asked once per
+    episode; a map without one is said once, when a walker first needs it)."""
+    found = _probe_navmesh(world)
+    key = int(world.id) if hasattr(world, "id") else 0
+    if not found and key not in _NAVMESH_SAID:
+        _NAVMESH_SAID.add(key)
+        logger.warning(
+            "The map has no pedestrian navigation mesh: routed walkers are "
+            "stepped along their routes, not walked by CARLA's walker "
+            "controller (build one when importing the map)"
+        )
+    return found
+
+
+def seed_navigation(world: "carla.World", seed: int) -> None:
+    """Seed *world*'s pedestrian navigation for a run, after asking (silently;
+    :func:`has_navmesh` says a missing mesh when a walker needs it) whether
+    its map has a mesh.
+
+    The seed decides ``get_random_location_from_navigation()``, the cross
+    factor's draw as a controller starts and random routes.  The probe draws
+    navigation locations, but only the first time a world is asked (a soft
+    reset keeps the world id), so probed lazily -- at a run's first
+    :func:`drive` -- it would take draws from the first run on a world and not
+    from the ones after it, and every draw after it would depend on the run's
+    place in a batch (#2448).  Probed here, before the seed, its draws come
+    before the run's sequence starts, whichever run it is."""
+    _probe_navmesh(world)
+    world.set_pedestrians_seed(seed)
 
 
 def _start(world: "carla.World", driven: _Driven) -> None:
@@ -605,6 +636,21 @@ def _turns_back(
     return _walk_back(walker, driven, location, speed)
 
 
+def back_progress(
+    gap: float, nearest: float, stalled_s: float, tick_s: float
+) -> tuple[float, float]:
+    """A tick of a turned-back walker *gap* (m) from where it walks back to:
+    the nearest it has come (by :data:`_BACK_PROGRESS_M`) and the seconds it
+    has come no nearer, from the *nearest* and *stalled_s* before this tick
+    of *tick_s* s.  Stalled for :data:`BACK_STALL_S`, its steps back are
+    blocked.  Start with *nearest* ``math.inf``.  The turn-back both a routed
+    walker (:func:`_walk_back`) and
+    :class:`~..actions.walk_straight.WalkStraightAction` stall by."""
+    if gap < nearest - _BACK_PROGRESS_M:
+        return gap, 0.0
+    return nearest, stalled_s + tick_s
+
+
 def _walk_back(
     walker: "carla.Actor",
     driven: _Driven,
@@ -623,11 +669,14 @@ def _walk_back(
     assert target is not None
     dx, dy = target.x - location.x, target.y - location.y
     gap = math.hypot(dx, dy)
-    if gap < driven.back_gap - _BACK_PROGRESS_M:
-        driven.back_gap = gap
-        driven.back_stalled = 0.0
-    else:
-        driven.back_stalled += tick_seconds_or_fixed(walker.get_world())
+    nearest, stalled_s = back_progress(
+        gap,
+        driven.back_gap,
+        driven.back_stalled,
+        tick_seconds_or_fixed(walker.get_world()),
+    )
+    driven.back_gap = nearest
+    driven.back_stalled = stalled_s
     if gap <= _BACK_REACHED_M or driven.back_stalled >= BACK_STALL_S:
         walker.apply_control(carla.WalkerControl(speed=0.0))
         driven.turning_back = False

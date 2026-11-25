@@ -109,24 +109,22 @@ namespace sogen
             {
                 // KxContextToKframes takes the XMM registers and MXCSR (kept to KiMxCsrMask) from the context and keeps
                 // what a user context may set of FltSave's control word; fxrstor then loads FltSave without its MXCSR.
-                emu.reg<uint32_t>(x86_register::mxcsr, context.MxCsr & mxcsr_legal);
-                emu.reg<uint16_t>(x86_register::fpcw, (context.FltSave.ControlWord & x87_control_legal) | x87_control_always_one);
-                emu.reg<uint16_t>(x86_register::fpsw, context.FltSave.StatusWord);
-
-                for (int i = 0; i < 8; i++)
+                x86_64_cpu::floating_point_state state{};
+                state.control_word = static_cast<uint16_t>((context.FltSave.ControlWord & x87_control_legal) | x87_control_always_one);
+                state.status_word = context.FltSave.StatusWord;
+                state.tag_word = context.FltSave.TagWord;
+                state.mxcsr = context.MxCsr & mxcsr_legal;
+                for (size_t i = 0; i < state.st.size(); ++i)
                 {
-                    const auto reg = static_cast<x86_register>(static_cast<int>(x86_register::st0) + i);
-                    emu.reg<M128A>(reg, context.FltSave.FloatRegisters[i]);
+                    std::memcpy(state.st[i].data(), &context.FltSave.FloatRegisters[i], state.st[i].size());
                 }
 
-                // After the registers: a backend that keeps FSAVE's full tag word classifies the values they now hold.
-                emu.reg<uint16_t>(x86_register::fptag, context.FltSave.TagWord);
-
-                for (int i = 0; i < 16; i++)
+                for (size_t i = 0; i < state.xmm.size(); ++i)
                 {
-                    const auto reg = static_cast<x86_register>(static_cast<int>(x86_register::xmm0) + i);
-                    emu.reg<M128A>(reg, (&context.Xmm0)[i]);
+                    std::memcpy(state.xmm[i].data(), &(&context.Xmm0)[i], state.xmm[i].size());
                 }
+
+                emu.write_floating_point_state(state);
             }
 
             // CONTEXT_XSTATE's AVX and later state is in the CONTEXT_EX area after the record (KxContextToKframes
@@ -139,7 +137,6 @@ namespace sogen
             {
                 // KeContextFromKframes reports the debug registers only while DR7 enables a breakpoint (DR7_ACTIVE: L0-L3,
                 // LE, GE), and KeCopyLastBranchInformation the last-branch records only once DR7.LE recorded some.
-                constexpr uint64_t dr7_active = 0x355;
                 const auto dr7 = emu.reg(x86_register::dr7);
                 const auto active = (dr7 & dr7_active) != 0;
                 context.Dr0 = active ? emu.reg(x86_register::dr0) : 0;
@@ -194,23 +191,22 @@ namespace sogen
             {
                 // KeContextFromKframes fxsaves the thread's state into FltSave, takes the XMM registers from its frames
                 // and gives MxCsr and FltSave.MxCsr the frame's MXCSR.
-                const auto mxcsr = emu.reg<uint32_t>(x86_register::mxcsr);
-                context.MxCsr = mxcsr;
-                context.FltSave.ControlWord = emu.reg<uint16_t>(x86_register::fpcw);
-                context.FltSave.StatusWord = emu.reg<uint16_t>(x86_register::fpsw);
-                context.FltSave.TagWord = static_cast<BYTE>(emu.reg<uint16_t>(x86_register::fptag));
-                context.FltSave.MxCsr = mxcsr;
+                x86_64_cpu::floating_point_state state{};
+                emu.read_floating_point_state(state);
+                context.MxCsr = state.mxcsr;
+                context.FltSave.ControlWord = state.control_word;
+                context.FltSave.StatusWord = state.status_word;
+                context.FltSave.TagWord = static_cast<BYTE>(state.tag_word);
+                context.FltSave.MxCsr = state.mxcsr;
                 context.FltSave.MxCsr_Mask = mxcsr_legal;
-                for (int i = 0; i < 8; i++)
+                for (size_t i = 0; i < state.st.size(); ++i)
                 {
-                    const auto reg = static_cast<x86_register>(static_cast<int>(x86_register::st0) + i);
-                    context.FltSave.FloatRegisters[i] = emu.reg<M128A>(reg);
+                    std::memcpy(&context.FltSave.FloatRegisters[i], state.st[i].data(), state.st[i].size());
                 }
 
-                for (int i = 0; i < 16; i++)
+                for (size_t i = 0; i < state.xmm.size(); ++i)
                 {
-                    const auto reg = static_cast<x86_register>(static_cast<int>(x86_register::xmm0) + i);
-                    (&context.Xmm0)[i] = emu.reg<M128A>(reg);
+                    std::memcpy(&(&context.Xmm0)[i], state.xmm[i].data(), state.xmm[i].size());
                 }
             }
 

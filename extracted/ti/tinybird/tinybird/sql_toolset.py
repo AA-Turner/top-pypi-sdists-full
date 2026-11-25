@@ -4,9 +4,8 @@ import re
 import threading
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
 from functools import lru_cache
-from typing import FrozenSet, List, Optional, Set, Tuple, Union
+from typing import Any, FrozenSet, Iterable, List, Optional, Set, Tuple, Union
 
 from chtoolset import query as chquery
 from lru import LRU
@@ -206,7 +205,7 @@ def format_where_for_mutation_command(
 #      https://clickhouse.com/docs/en/sql-reference/table-functions/cluster
 #      https://clickhouse.com/docs/en/sql-reference/table-functions/remote
 _FUNCTIONS_WITH_TABLE_NAME_ARGS = re.compile(
-    r"\b(?:dictGet\w*|dictHas|dictIsIn|hasColumnInTable|remote|cluster|clusterAllReplicas)\s*\(",
+    r"\b(?:dict\w*|hasColumnInTable|remote\w*|cluster\w*|merge|dictionary|joinGet\w*)\s*\(",
     re.IGNORECASE,
 )
 
@@ -218,7 +217,7 @@ def _normalize_sql_for_cache(sql: str) -> str:
     while preserving table/column names, so queries with the same structure share
     cache entries.
 
-    However, some functions like dictGet*, remote(), cluster(), and
+    However, some functions like dictGet*, remote(), remoteSecure(), cluster(), and
     clusterAllReplicas() take table/dictionary names as arguments. Normalizing these
     would incorrectly map different tables to the same cache key, so we fall back to
     using the original SQL for such queries.
@@ -436,11 +435,11 @@ def sql_get_used_tables(
 
 
 class ReplacementsDict(dict):
-    def __init__(self, *args, enabled_table_functions=None, **kwargs):
+    def __init__(self, *args: Any, enabled_table_functions: Optional[FrozenSet[str]] = None, **kwargs: Any) -> None:
         self.enabled_table_functions = enabled_table_functions
         super().__init__(*args, **kwargs)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Union[str, Tuple[str, str]]) -> Any:
         v = super().__getitem__(key)
         if isinstance(v, tuple):
             k, r = v
@@ -454,7 +453,9 @@ class ReplacementsDict(dict):
         return v
 
 
-def tables_or_sql(replacement: dict, table_functions=False, function_allow_list=None) -> set:
+def tables_or_sql(
+    replacement: Tuple[str, str], table_functions: bool = False, function_allow_list: Iterable[str] = ()
+) -> set:
     try:
         return set(
             sql_get_used_tables(
@@ -517,7 +518,6 @@ def replace_tables(
     only_replacements: bool = False,
     valid_tables: Optional[Set[Tuple[str, str]]] = None,
     output_one_line: bool = False,
-    timestamp: Optional[datetime] = None,
     function_allow_list: Optional[FrozenSet[str]] = None,
     settings_allow_list: Optional[FrozenSet[str]] = None,
     original_replacements: Optional[dict] = None,

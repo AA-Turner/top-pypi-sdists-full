@@ -23,7 +23,7 @@ COMMAND_DOCTOR = "dreamscale doctor"
 # Points at the server-filtered list instead of naming models, so unreleased ones stay hidden.
 SEE_MODELS = "See the models your organization can run: dreamscale models list"
 COMMAND_SIM = (
-    "dreamscale sim libero --model molmoact2-libero --task-suite libero_spatial --task-id 0"
+    "dreamscale sim libero --model molmoact2-libero --task-id libero_spatial/0"
 )
 COMMAND_CALIBRATE = "dreamscale robots so101 calibrate"
 COMMAND_HOME = "dreamscale robots so101 home"

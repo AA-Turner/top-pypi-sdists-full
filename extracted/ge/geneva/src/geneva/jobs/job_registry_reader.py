@@ -8,8 +8,8 @@ compaction it runs as a job under
 ``<root>/_jobs/v1/l/<hash>_tb/<db>:<namespace>$<table>/``, one directory per
 job holding ``active.lance`` until the job finishes. This module lists a
 table's unfinished ``compact`` jobs so a Geneva job can wait for them before it
-plans. The layout is Sophon's internal format, so a record this cannot read is
-skipped rather than waited for.
+plans. An unreadable record stops admission: skipping it could let a backfill
+plan against fragments a compaction is still replacing.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 from typing import Any, Protocol
 
 import attrs
@@ -31,7 +32,14 @@ COMPACTION_JOB_TYPE = "compact"
 FOOTER_KEY = "lancedb.job_coordinator.job_event_file"
 ACTIVE_FILE = "active.lance"
 TERMINAL_STATES = frozenset({"succeeded", "failed", "canceled", "timed_out"})
+RECORD_FILES = frozenset({ACTIVE_FILE, *(f"{s}.lance" for s in TERMINAL_STATES)})
 LIVE_PREFIX = "_jobs/v1/l"
+# Match Sophon's registry-managed terminal-record retention. Cancellation
+# fences new claims, but an already executing commit can still be draining.
+WORKER_DRAIN_MARGIN_MS = 5 * 60 * 1000
+PRELAUNCH_FAILURE_PHASES = frozenset(
+    {"geneva_backfill_active", "geneva_backfill_check"}
+)
 
 _CONNECT_TIMEOUT_S = 10
 _READ_TIMEOUT_S = 30
@@ -156,8 +164,17 @@ class LocalRecordReader:
             return f.read()
 
     def list(self, prefix: str) -> list[str]:
+        def fail(error: OSError) -> None:
+            raise error
+
         keys = []
-        for dirpath, _, files in os.walk(self._path(prefix)):
+        path = self._path(prefix)
+        if not os.path.isdir(self._root):
+            raise FileNotFoundError(self._root)
+        # The registry root must exist, but a table with no jobs has no prefix.
+        if not os.path.exists(path):
+            return []
+        for dirpath, _, files in os.walk(path, onerror=fail):
             for name in files:
                 rel = os.path.relpath(os.path.join(dirpath, name), self._root)
                 keys.append(rel.replace(os.sep, "/"))
@@ -205,25 +222,86 @@ def _record_job_type(record_dir: str) -> str | None:
     return parts[2]
 
 
-def in_flight_compactions(reader: RecordReader, table: RegistryTableRef) -> list[str]:
-    """Job ids of compactions of ``table`` that have not finished.
+def _may_have_workers(footer: dict[str, Any], now_ms: int) -> bool:
+    state = footer["latest_state"]
+    started = footer.get("execution_started_at_millis")
+    epoch = footer.get("active_execution_epoch")
+    if state == "succeeded":
+        return False  # the single commit owner finished publishing
+    if state in {"created", "queued"}:
+        # Never wait for jobs that still need admission. They publish InProgress
+        # before checking Geneva, so they cannot pass our already active row.
+        return footer["version"] < 4 or (
+            (started is not None or epoch is not None)
+            and footer.get("pause_drained_at_millis") is None
+        )
+    if state == "in_progress":
+        return True
+    if state not in TERMINAL_STATES:
+        raise ValueError(f"Unknown compaction state: {state!r}")
+    failure = footer.get("failure") or {}
+    if state == "failed" and failure.get("phase") in PRELAUNCH_FAILURE_PHASES:
+        return False  # Sophon's Geneva check failed before launching any worker
+    if started is None and epoch is None:
+        # Old metadata did not persist execution provenance. Only current
+        # records can prove this job was canceled before it ever started.
+        return footer["version"] < 4
+    ttl = footer.get("execution_ttl_millis")
+    completed = footer.get("completed_at_millis")
+    if not isinstance(ttl, int) or ttl <= 0 or not isinstance(completed, int):
+        return True
+    return now_ms <= completed + ttl + WORKER_DRAIN_MARGIN_MS
 
-    Queued, running and paused ones all count: any of them can still rewrite
-    the table's fragments. A record that cannot be read is logged and skipped.
+
+def in_flight_compactions(
+    reader: RecordReader, table: RegistryTableRef, *, now_ms: int | None = None
+) -> list[str]:
+    """Compactions that can still replace fragments, including terminal drains.
+
+    Read failures propagate. A disappearing active file is followed to its
+    terminal file, which may still have workers draining after cancellation.
     """
+    now_ms = int(time.time() * 1000) if now_ms is None else now_ms
     job_ids = []
     for key in reader.list(table.prefix):
         record_dir, _, file_name = key.rpartition("/")
         job_type = _record_job_type(record_dir.rsplit("/", 1)[-1])
-        if file_name != ACTIVE_FILE or job_type != COMPACTION_JOB_TYPE:
+        if file_name not in RECORD_FILES or job_type != COMPACTION_JOB_TYPE:
             continue
         try:
             footer = decode_footer(reader.get(key))
         except FileNotFoundError:
-            continue  # finished between the listing and the read
-        except Exception:  # noqa: BLE001 - one unreadable record must not block jobs
-            _LOG.warning("Could not read job registry record %s", key, exc_info=True)
-            continue
-        if footer.get("latest_state") not in TERMINAL_STATES:
-            job_ids.append(str(footer.get("job_id", key)))
+            if file_name != ACTIVE_FILE:
+                raise
+            # Terminalization writes the terminal file before deleting active.
+            # Follow the move instead of missing a canceled worker's drain.
+            for state in sorted(TERMINAL_STATES):
+                try:
+                    footer = decode_footer(reader.get(f"{record_dir}/{state}.lance"))
+                    break
+                except FileNotFoundError:
+                    continue
+            else:
+                raise
+        if (
+            not isinstance(footer.get("version"), int)
+            or footer["version"] < 1
+            or footer["version"] > 7
+            or footer.get("job_type") != COMPACTION_JOB_TYPE
+            or not isinstance(footer.get("job_id"), str)
+            or not footer["job_id"]
+            or not isinstance(footer.get("latest_state"), str)
+        ):
+            raise ValueError(f"Invalid compaction registry metadata: {key}")
+        for field in (
+            "execution_started_at_millis",
+            "active_execution_epoch",
+            "execution_ttl_millis",
+            "completed_at_millis",
+            "pause_drained_at_millis",
+        ):
+            if footer.get(field) is not None and type(footer[field]) is not int:
+                raise ValueError(f"Invalid compaction {field}: {key}")
+        if _may_have_workers(footer, now_ms) and footer["job_id"] not in job_ids:
+            job_ids.append(footer["job_id"])
     return job_ids

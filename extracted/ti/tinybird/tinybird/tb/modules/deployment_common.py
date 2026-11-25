@@ -19,6 +19,8 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager, bcolors
 from tinybird.tb.modules.job_common import echo_job_url
 from tinybird.tb.modules.project import Project
 
+REQUEST_TIMEOUT: float = 30
+
 
 # TODO(eclbg): This should eventually end up in client.py, but we're not using it here yet.
 def api_fetch(
@@ -32,7 +34,7 @@ def api_fetch(
     retries = 0
     while retries <= max_retries:
         try:
-            r = requests.get(url, headers=headers, params=request_params)
+            r = requests.get(url, headers=headers, params=request_params, timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 logging.debug(json.dumps(r.json(), indent=2))
                 return r.json()
@@ -98,6 +100,17 @@ def api_post(
     return {}
 
 
+def _delete_deployment(url: str, headers: dict, params: Optional[dict] = None) -> dict:
+    try:
+        response = requests.delete(url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
+    except requests.RequestException as error:
+        message = f"Deployment deletion request failed: {error}"
+        click.echo(FeedbackManager.error(message=message))
+        sys_exit("deployment_error", message)
+        return {}
+    return response.json()
+
+
 def _get_migrate_to_forward_error_message(result: dict[str, Any]) -> str:
     error = result.get("error")
     if error:
@@ -125,7 +138,7 @@ def _is_first_deployment_with_seed_live(host: Optional[str], headers: dict) -> b
 
 def _list_deployments(host: Optional[str], headers: dict) -> list[dict]:
     """Fetch the current deployments. Raises if the lookup fails."""
-    response = requests.get(f"{host}/v1/deployments", headers=headers)
+    response = requests.get(f"{host}/v1/deployments", headers=headers, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
 
     result = response.json()
@@ -138,7 +151,9 @@ def _get_current_live_deployment_id(host: Optional[str], headers: dict) -> Optio
     if not deployments:
         return None
 
-    live_deployment = next((deployment for deployment in deployments if deployment.get("live")), deployments[0])
+    live_deployment = next((deployment for deployment in deployments if deployment.get("live")), None)
+    if live_deployment is None:
+        return None
     live_id = live_deployment.get("id")
     return str(live_id) if live_id is not None else None
 
@@ -243,13 +258,29 @@ def promote_deployment(
         sys_exit("deployment_error", message)
         return
 
+    last_deployment = next((deployment for deployment in deployments if deployment.get("live")), None)
+    if last_deployment is None:
+        message = "No live deployment found"
+        click.echo(FeedbackManager.error(message=message))
+        sys_exit("deployment_error", message)
+        return
+
     if len(deployments) < 2:
         message = "Only one deployment found"
         click.echo(FeedbackManager.error(message=message))
         sys_exit("deployment_error", message)
         return
 
-    last_deployment, candidate_deployment = deployments[0], deployments[1]
+    candidate_deployment = max(
+        (deployment for deployment in deployments if not deployment.get("live")),
+        key=lambda deployment: int(deployment["id"]),
+        default=None,
+    )
+    if candidate_deployment is None:
+        message = "No candidate deployment found"
+        click.echo(FeedbackManager.error(message=message))
+        sys_exit("deployment_error", message)
+        return
 
     if candidate_deployment.get("status") != "data_ready":
         click.echo(FeedbackManager.error(message="Current deployment is not ready"))
@@ -270,9 +301,7 @@ def promote_deployment(
     last_deployment_id = last_deployment.get("id")
     tb_api_last_deployment_url = f"{TINYBIRD_API_DEPLOYMENTS_BASE_URL}/{last_deployment_id}"
     request_params = {"from": request_from} if request_from and "from=" not in tb_api_last_deployment_url else None
-    r = requests.delete(tb_api_last_deployment_url, headers=headers, params=request_params)
-
-    result = r.json()
+    result = _delete_deployment(tb_api_last_deployment_url, headers=headers, params=request_params)
     logging.debug(json.dumps(result, indent=2))
     if result.get("error"):
         click.echo(FeedbackManager.error(message=result.get("error")))
@@ -331,11 +360,17 @@ def discard_deployment(host: Optional[str], headers: dict, wait: bool, request_f
         click.echo(FeedbackManager.error(message="No deployments found"))
         return
 
+    live_deployment = next((deployment for deployment in deployments if deployment.get("live")), None)
+    if live_deployment is None:
+        message = "No live deployment found"
+        click.echo(FeedbackManager.error(message=message))
+        sys_exit("deployment_error", message)
+        return
+
     if len(deployments) < 2:
         click.echo(FeedbackManager.error(message="Only one deployment found. Cannot discard the only deployment."))
         return
 
-    live_deployment = next((deployment for deployment in deployments if deployment.get("live")), deployments[0])
     deployment_to_discard = next(deployment for deployment in deployments if deployment is not live_deployment)
 
     if live_deployment.get("status") != "data_ready":
@@ -351,8 +386,7 @@ def discard_deployment(host: Optional[str], headers: dict, wait: bool, request_f
 
     TINYBIRD_API_URL = f"{host}/v1/deployments/{deployment_to_discard.get('id')}"
     request_params = {"from": request_from} if request_from and "from=" not in TINYBIRD_API_URL else None
-    r = requests.delete(TINYBIRD_API_URL, headers=headers, params=request_params)
-    result = r.json()
+    result = _delete_deployment(TINYBIRD_API_URL, headers=headers, params=request_params)
     logging.debug(json.dumps(result, indent=2))
     if result.get("error"):
         click.echo(FeedbackManager.error(message=result.get("error")))
@@ -399,6 +433,7 @@ def create_deployment(
     show_migrate_to_forward_hint: bool = True,
     output: Optional[str] = "human",
     env: Optional[str] = "cloud",
+    branch: Optional[str] = None,
     return_check_result: bool = False,
     validate_forward_workspace: bool = True,
     is_classic_migration: bool = False,
@@ -443,6 +478,7 @@ def create_deployment(
                 (MULTIPART_BOUNDARY_DATA_PROJECT_VENDORED, (relative_path, fd.read().decode("utf-8"), content_type))
             )
 
+    target_flag = f"--branch={branch}" if branch else f"--{env}"
     deployment_job: Optional[Dict[str, Any]] = None
     deployment_request_sent = False
     deployment = {}
@@ -584,7 +620,7 @@ def create_deployment(
         if deployment_request_sent and not check:
             click.echo(
                 FeedbackManager.warning(
-                    message=f"\nDeployment request might have reached the server. Check with `tb --{env} deployment ls`. You can cancel an ongoing deployment with `tb --{env} deployment discard`."
+                    message=f"\nDeployment request might have reached the server. Check with `tb {target_flag} deployment ls`. You can cancel an ongoing deployment with `tb {target_flag} deployment discard`."
                 )
             )
         raise click.Abort()
@@ -628,6 +664,15 @@ def create_deployment(
 
             if status == "data_ready":
                 if auto and not deployment.get("live"):
+                    auto_promote_error = _get_auto_promote_error(deployment)
+                    if auto_promote_error:
+                        click.echo(FeedbackManager.error(message=auto_promote_error))
+                        click.echo(
+                            FeedbackManager.error(
+                                message=f"Fix the issue and run `tb {target_flag} deployment promote` to promote manually."
+                            )
+                        )
+                        sys_exit("deployment_error", auto_promote_error)
                     if not waiting_auto_promote:
                         click.echo(FeedbackManager.info(message="✓ Deployment is ready"))
                         click.echo(FeedbackManager.highlight(message="» Waiting for deployment to be promoted..."))
@@ -671,11 +716,10 @@ def create_deployment(
 
         click.echo(FeedbackManager.warning(message="Canceling deployment"))
         cancel_url = f"{client.host}/v1/deployments/{deployment.get('id')}"
-        r = requests.delete(cancel_url, headers=HEADERS)
-        result = r.json()
+        result = _delete_deployment(cancel_url, headers=HEADERS)
         logging.debug(json.dumps(result, indent=2))
         if result.get("error"):
-            click.echo(FeedbackManager.error(message="Failed to cancel deployment: " + result.get("error")))
+            click.echo(FeedbackManager.error(message=f"Failed to cancel deployment: {result.get('error')}"))
             sys_exit("deployment_error", result.get("error", "Unknown error"))
 
         click.echo(FeedbackManager.success(message="Deployment canceled. It will be deleted evenutally."))
@@ -697,7 +741,7 @@ def create_deployment(
             click.echo(
                 FeedbackManager.warning(
                     message="Could not confirm if there's a previous deployment to remove. "
-                    f"If a follow-up `tb deploy` reports one already in progress, check `tb --{env} deployment ls`."
+                    f"If a follow-up `tb deploy` reports one already in progress, check `tb {target_flag} deployment ls`."
                 )
             )
 
@@ -711,7 +755,7 @@ def create_deployment(
                 click.echo(
                     FeedbackManager.warning(
                         message=f"\nDeployment is live, but the old deployment is still being removed. "
-                        f"Check its status with `tb --{env} deployment ls`."
+                        f"Check its status with `tb {target_flag} deployment ls`."
                     )
                 )
                 raise click.Abort()
@@ -721,7 +765,7 @@ def create_deployment(
                 click.echo(
                     FeedbackManager.warning(
                         message="Deployment is live, but the old deployment failed to be removed. "
-                        f"Check its status with `tb --{env} deployment ls`."
+                        f"Check its status with `tb {target_flag} deployment ls`."
                     )
                 )
 
@@ -738,6 +782,18 @@ def create_deployment(
     if output == "json" and deployment:
         echo_json(deployment, 8)
 
+    return None
+
+
+AUTO_PROMOTE_ERROR_PREFIXES = ("Auto-promote failed", "Auto-promote skipped")
+
+
+def _get_auto_promote_error(deployment: dict[str, Any]) -> Optional[str]:
+    """Return the warning that the server adds to the deployment feedback when it can't auto-promote it."""
+    for feedback in deployment.get("feedback") or []:
+        message = feedback.get("message") or ""
+        if feedback.get("level") == "WARNING" and message.startswith(AUTO_PROMOTE_ERROR_PREFIXES):
+            return message
     return None
 
 

@@ -33,6 +33,7 @@ bool LocalCacheManager::put(std::unique_ptr<LocalCacheObject> object) {
 Transaction::Transaction(main::ClientContext& clientContext, TransactionType transactionType,
     common::transaction_t transactionID, common::transaction_t startTS)
     : type{transactionType}, ID{transactionID}, startTS{startTS},
+      catalogPlanVersion{clientContext.getDatabase()->getCatalog()->getPlanVersion()},
       commitTS{common::INVALID_TRANSACTION}, forceCheckpoint{false} {
     this->clientContext = &clientContext;
     localStorage = std::make_unique<storage::LocalStorage>(clientContext);
@@ -64,23 +65,15 @@ bool Transaction::shouldForceCheckpoint() const {
     return !clientContext->isInMemory() && forceCheckpoint;
 }
 
-void Transaction::commit(storage::WAL* wal) {
-    if (commitTS == common::INVALID_TRANSACTION) {
-        throw common::RuntimeException{"Cannot commit with an invalid commit timestamp."};
-    }
-    uint64_t walCommitSequence = 0;
-    writeCommitToWAL(wal, walCommitSequence);
-    publishCommit();
-}
-
-void Transaction::writeCommitToWAL(storage::WAL* wal, uint64_t& walCommitSequence) {
+void Transaction::writeCommitToWAL(storage::WAL* wal, uint64_t& walCommitSequence,
+    uint64_t& walBlockStart) {
     walCommitSequence = 0;
     if (!shouldLogToWAL()) {
         return;
     }
     DASSERT(localWAL && wal);
     localWAL->logCommit();
-    wal->logCommittedWAL(*localWAL, clientContext, walCommitSequence);
+    wal->logCommittedWAL(*localWAL, clientContext, walCommitSequence, &walBlockStart);
     localWAL->clear();
 }
 
@@ -193,6 +186,7 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
     const auto newCatalogEntry = catalogEntry.getNext();
     switch (newCatalogEntry->getType()) {
     case CatalogEntryType::INDEX_ENTRY:
+    case CatalogEntryType::CONSTRAINT_ENTRY:
     case CatalogEntryType::NODE_TABLE_ENTRY:
     case CatalogEntryType::REL_GROUP_ENTRY: {
         if (catalogEntry.getType() == CatalogEntryType::DUMMY_ENTRY) {
@@ -228,6 +222,7 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
         }
         switch (catalogEntry.getType()) {
         case CatalogEntryType::INDEX_ENTRY:
+        case CatalogEntryType::CONSTRAINT_ENTRY:
         case CatalogEntryType::SCALAR_MACRO_ENTRY:
         case CatalogEntryType::NODE_TABLE_ENTRY:
         case CatalogEntryType::REL_GROUP_ENTRY:
@@ -331,6 +326,11 @@ void Transaction::recordCatalogChange(catalog::Catalog* catalog) {
 
 Transaction* Transaction::Get(const main::ClientContext& context) {
     return TransactionContext::Get(context)->getActiveTransaction();
+}
+
+bool Transaction::hasCatalogChanges() const {
+    std::lock_guard lck{changedCatalogsMutex};
+    return !changedCatalogs.empty();
 }
 
 Transaction DUMMY_TRANSACTION = Transaction(TransactionType::DUMMY);

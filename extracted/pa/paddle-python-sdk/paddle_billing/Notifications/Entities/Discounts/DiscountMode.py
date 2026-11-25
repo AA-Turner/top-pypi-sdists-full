@@ -1,6 +1,10 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class DiscountMode(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    Standard: "DiscountMode" = "standard"
-    Custom: "DiscountMode" = "custom"
+    Standard: "DiscountMode" = member("standard")
+    Custom: "DiscountMode" = member("custom")

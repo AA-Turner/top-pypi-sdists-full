@@ -1,3 +1,4 @@
+import copy
 import gc
 import pickle
 import unittest
@@ -7,45 +8,45 @@ from pymunk.constraints import *
 
 
 class UnitTestConstraint(unittest.TestCase):
-    def testA(self) -> None:
+    def test_a(self) -> None:
         a, b = p.Body(10, 10), p.Body(10, 10)
         j = PivotJoint(a, b, (0, 0))
         self.assertEqual(j.a, a)
 
-    def testB(self) -> None:
+    def test_b(self) -> None:
         a, b = p.Body(10, 10), p.Body(10, 10)
         j = PivotJoint(a, b, (0, 0))
         self.assertEqual(j.b, b)
 
-    def testMaxForce(self) -> None:
+    def test_max_force(self) -> None:
         a, b = p.Body(10, 10), p.Body(10, 10)
         j = PivotJoint(a, b, (0, 0))
         self.assertEqual(j.max_force, float("inf"))
         j.max_force = 10
         self.assertEqual(j.max_force, 10)
 
-    def testErrorBias(self) -> None:
+    def test_error_bias(self) -> None:
         a, b = p.Body(10, 10), p.Body(10, 10)
         j = PivotJoint(a, b, (0, 0))
         self.assertAlmostEqual(j.error_bias, pow(1.0 - 0.1, 60.0))
         j.error_bias = 0.3
         self.assertEqual(j.error_bias, 0.3)
 
-    def testMaxBias(self) -> None:
+    def test_max_bias(self) -> None:
         a, b = p.Body(10, 10), p.Body(10, 10)
         j = PivotJoint(a, b, (0, 0))
         self.assertEqual(j.max_bias, float("inf"))
         j.max_bias = 10
         self.assertEqual(j.max_bias, 10)
 
-    def testCollideBodies(self) -> None:
+    def test_collide_bodies(self) -> None:
         a, b = p.Body(10, 10), p.Body(10, 10)
         j = PivotJoint(a, b, (0, 0))
         self.assertEqual(j.collide_bodies, True)
         j.collide_bodies = False
         self.assertEqual(j.collide_bodies, False)
 
-    def testImpulse(self) -> None:
+    def test_impulse(self) -> None:
         a, b = p.Body(10, 10), p.Body(10, 10)
         b.position = 0, 10
         j = PivotJoint(a, b, (0, 0))
@@ -57,7 +58,7 @@ class UnitTestConstraint(unittest.TestCase):
         s.step(1)
         self.assertAlmostEqual(j.impulse, 50)
 
-    def testActivate(self) -> None:
+    def test_activate(self) -> None:
         a, b = p.Body(4, 5), p.Body(10, 10)
         j = PivotJoint(a, b, (0, 0))
         s = p.Space()
@@ -70,7 +71,7 @@ class UnitTestConstraint(unittest.TestCase):
         self.assertFalse(a.is_sleeping)
         self.assertFalse(b.is_sleeping)
 
-    def testPreSolve(self) -> None:
+    def test_pre_solve(self) -> None:
         b = p.Body(1, 2)
         s = p.Space()
         j = PivotJoint(s.static_body, b, (0, 0))
@@ -94,7 +95,7 @@ class UnitTestConstraint(unittest.TestCase):
         self.assertEqual(actual_constraint, j)
         self.assertEqual(actual_space, s)
 
-    def testPostSolve(self) -> None:
+    def test_post_solve(self) -> None:
         b = p.Body(1, 2)
         s = p.Space()
         j = PivotJoint(s.static_body, b, (0, 0))
@@ -118,7 +119,7 @@ class UnitTestConstraint(unittest.TestCase):
         self.assertEqual(actual_constraint, j)
         self.assertEqual(actual_space, s)
 
-    def testPrePostSolveOrder(self) -> None:
+    def test_pre_post_solve_order(self) -> None:
         s = p.Space()
         b = p.Body(1, 2)
         j = PivotJoint(s.static_body, b, (0, 0))
@@ -141,7 +142,7 @@ class UnitTestConstraint(unittest.TestCase):
 
         self.assertEqual(actual_order, [1, 2])
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(4, 5), p.Body(10, 10)
         a.custom = "a"
         b.custom = "b"
@@ -213,7 +214,7 @@ class UnitTestConstraint(unittest.TestCase):
 
 
 class UnitTestPinJoint(unittest.TestCase):
-    def testAnchor(self) -> None:
+    def test_anchor(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = PinJoint(a, b, (1, 2), (3, 4))
         self.assertEqual(j.anchor_a, (1, 2))
@@ -223,16 +224,17 @@ class UnitTestPinJoint(unittest.TestCase):
         self.assertEqual(j.anchor_a, (5, 6))
         self.assertEqual(j.anchor_b, (7, 8))
 
-    def testDistane(self) -> None:
+    def test_distane(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = PinJoint(a, b, (0, 0), (10, 0))
         self.assertEqual(j.distance, 10)
         j.distance = 20
         self.assertEqual(j.distance, 20)
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = PinJoint(a, b, (1, 2), (3, 4))
+        j.distance = 8
 
         s = pickle.dumps(j)
         j2 = pickle.loads(s)
@@ -243,9 +245,21 @@ class UnitTestPinJoint(unittest.TestCase):
         self.assertEqual(j.a.mass, j2.a.mass)
         self.assertEqual(j.b.mass, j2.b.mass)
 
+    def test_copy_distance(self) -> None:
+        a, b = p.Body(10, 10), p.Body(20, 20)
+        b.position = (3, 4)
+        j = PinJoint(a, b)
+        j.distance = 8
+        for clone in (j.copy, lambda: copy.deepcopy(j)):
+            with self.subTest(clone=clone):
+                j2 = clone()
+                self.assertEqual(j2.distance, 8)
+                self.assertIsNot(j2.a, a)
+                self.assertIsNot(j2.b, b)
+
 
 class UnitTestSlideJoint(unittest.TestCase):
-    def testAnchor(self) -> None:
+    def test_anchor(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = SlideJoint(a, b, (1, 2), (3, 4), 0, 10)
         self.assertEqual(j.anchor_a, (1, 2))
@@ -255,21 +269,21 @@ class UnitTestSlideJoint(unittest.TestCase):
         self.assertEqual(j.anchor_a, (5, 6))
         self.assertEqual(j.anchor_b, (7, 8))
 
-    def testMin(self) -> None:
+    def test_min(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = SlideJoint(a, b, (0, 0), (0, 0), 1, 0)
         self.assertEqual(j.min, 1)
         j.min = 2
         self.assertEqual(j.min, 2)
 
-    def testMax(self) -> None:
+    def test_max(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = SlideJoint(a, b, (0, 0), (0, 0), 0, 1)
         self.assertEqual(j.max, 1)
         j.max = 2
         self.assertEqual(j.max, 2)
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = SlideJoint(a, b, (1, 2), (3, 4), 5, 6)
 
@@ -285,14 +299,14 @@ class UnitTestSlideJoint(unittest.TestCase):
 
 
 class UnitTestPivotJoint(unittest.TestCase):
-    def testAnchorByPivot(self) -> None:
+    def test_anchor_by_pivot(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         a.position = (5, 7)
         j = PivotJoint(a, b, (1, 2))
         self.assertEqual(j.anchor_a, (-4, -5))
         self.assertEqual(j.anchor_b, (1, 2))
 
-    def testAnchorByAnchor(self) -> None:
+    def test_anchor_by_anchor(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = PivotJoint(a, b, (1, 2), (3, 4))
         self.assertEqual(j.anchor_a, (1, 2))
@@ -302,7 +316,7 @@ class UnitTestPivotJoint(unittest.TestCase):
         self.assertEqual(j.anchor_a, (5, 6))
         self.assertEqual(j.anchor_b, (7, 8))
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = PivotJoint(a, b, (1, 2), (3, 4))
 
@@ -316,14 +330,14 @@ class UnitTestPivotJoint(unittest.TestCase):
 
 
 class UnitTestGrooveJoint(unittest.TestCase):
-    def testAnchor(self) -> None:
+    def test_anchor(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = GrooveJoint(a, b, (0, 0), (0, 0), (1, 2))
         self.assertEqual(j.anchor_b, (1, 2))
         j.anchor_b = (3, 4)
         self.assertEqual(j.anchor_b, (3, 4))
 
-    def testGroove(self) -> None:
+    def test_groove(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = GrooveJoint(a, b, (1, 2), (3, 4), (0, 0))
         self.assertEqual(j.groove_a, (1, 2))
@@ -333,7 +347,7 @@ class UnitTestGrooveJoint(unittest.TestCase):
         self.assertEqual(j.groove_a, (5, 6))
         self.assertEqual(j.groove_b, (7, 8))
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = GrooveJoint(a, b, (1, 2), (3, 4), (5, 6))
 
@@ -348,7 +362,7 @@ class UnitTestGrooveJoint(unittest.TestCase):
 
 
 class UnitTestDampedSpring(unittest.TestCase):
-    def testAnchor(self) -> None:
+    def test_anchor(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedSpring(a, b, (1, 2), (3, 4), 0, 0, 0)
         self.assertEqual(j.anchor_a, (1, 2))
@@ -358,28 +372,28 @@ class UnitTestDampedSpring(unittest.TestCase):
         self.assertEqual(j.anchor_a, (5, 6))
         self.assertEqual(j.anchor_b, (7, 8))
 
-    def testRestLength(self) -> None:
+    def test_rest_length(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedSpring(a, b, (0, 0), (0, 0), 1, 0, 0)
         self.assertEqual(j.rest_length, 1)
         j.rest_length = 2
         self.assertEqual(j.rest_length, 2)
 
-    def testStiffness(self) -> None:
+    def test_stiffness(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedSpring(a, b, (0, 0), (0, 0), 0, 1, 0)
         self.assertEqual(j.stiffness, 1)
         j.stiffness = 2
         self.assertEqual(j.stiffness, 2)
 
-    def testDamping(self) -> None:
+    def test_damping(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedSpring(a, b, (0, 0), (0, 0), 0, 0, 1)
         self.assertEqual(j.damping, 1)
         j.damping = 2
         self.assertEqual(j.damping, 2)
 
-    def testForceFunc(self) -> None:
+    def test_force_func(self) -> None:
         s = p.Space()
         a, b = p.Body(10, 10), p.Body(20, 20)
         b.position = 0, 100
@@ -403,7 +417,7 @@ class UnitTestDampedSpring(unittest.TestCase):
         s.step(1)
         self.assertAlmostEqual(j.impulse, -100.15)
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedSpring(a, b, (1, 2), (3, 4), 5, 6, 7)
 
@@ -418,30 +432,56 @@ class UnitTestDampedSpring(unittest.TestCase):
         self.assertEqual(j.a.mass, j2.a.mass)
         self.assertEqual(j.b.mass, j2.b.mass)
 
+    def test_copy_force_func(self) -> None:
+        a, b = p.Body(10, 10), p.Body(20, 20)
+        b.position = (3, 0)
+        j = DampedSpring(a, b, (0, 0), (0, 0), 1, 2, 0)
+        j.force_func = nonlinear_spring_force
+        for clone in (
+            j.copy,
+            lambda: copy.deepcopy(j),
+            lambda: pickle.loads(pickle.dumps(j)),
+        ):
+            with self.subTest(clone=clone):
+                j2 = clone()
+                self.assertIs(j2.force_func, nonlinear_spring_force)
+                space = p.Space()
+                space.add(j2.a, j2.b, j2)
+                space.step(0.125)
+                self.assertEqual(j2.impulse, -2)
+
+        j.force_func = DampedSpring.spring_force
+        j2 = pickle.loads(pickle.dumps(j))
+        self.assertIs(j2.force_func, DampedSpring.spring_force)
+        space = p.Space()
+        space.add(j2.a, j2.b, j2)
+        space.step(0.125)
+        self.assertEqual(j2.impulse, -0.5)
+
 
 class UnitTestDampedRotarySpring(unittest.TestCase):
-    def testRestAngle(self) -> None:
+    def test_rest_angle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedRotarySpring(a, b, 1, 0, 0)
         self.assertEqual(j.rest_angle, 1)
         j.rest_angle = 2
         self.assertEqual(j.rest_angle, 2)
 
-    def testStiffness(self) -> None:
+    def test_stiffness(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedRotarySpring(a, b, 0, 1, 0)
         self.assertEqual(j.stiffness, 1)
         j.stiffness = 2
         self.assertEqual(j.stiffness, 2)
 
-    def testDamping(self) -> None:
+    def test_damping(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedRotarySpring(a, b, 0, 0, 1)
         self.assertEqual(j.damping, 1)
         j.damping = 2
         self.assertEqual(j.damping, 2)
 
-    def testTorqueFunc(self) -> None:
+    def test_torque_func(self) -> None:
         s = p.Space()
         a, b = p.Body(10, 10), p.Body(20, 20)
         b.angle = 2
@@ -465,7 +505,7 @@ class UnitTestDampedRotarySpring(unittest.TestCase):
         s.step(1)
         self.assertAlmostEqual(j.impulse, -21.5)
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = DampedRotarySpring(a, b, 1, 2, 3)
 
@@ -478,23 +518,49 @@ class UnitTestDampedRotarySpring(unittest.TestCase):
         self.assertEqual(j.a.mass, j2.a.mass)
         self.assertEqual(j.b.mass, j2.b.mass)
 
+    def test_copy_torque_func(self) -> None:
+        a, b = p.Body(10, 10), p.Body(20, 20)
+        b.angle = 2
+        j = DampedRotarySpring(a, b, 0, 2, 0)
+        j.torque_func = nonlinear_spring_torque
+        for clone in (
+            j.copy,
+            lambda: copy.deepcopy(j),
+            lambda: pickle.loads(pickle.dumps(j)),
+        ):
+            with self.subTest(clone=clone):
+                j2 = clone()
+                self.assertIs(j2.torque_func, nonlinear_spring_torque)
+                space = p.Space()
+                space.add(j2.a, j2.b, j2)
+                space.step(0.125)
+                self.assertEqual(j2.impulse, -2)
+
+        j.torque_func = DampedRotarySpring.spring_torque
+        j2 = pickle.loads(pickle.dumps(j))
+        self.assertIs(j2.torque_func, DampedRotarySpring.spring_torque)
+        space = p.Space()
+        space.add(j2.a, j2.b, j2)
+        space.step(0.125)
+        self.assertEqual(j2.impulse, -0.5)
+
 
 class UnitTestRotaryLimitJoint(unittest.TestCase):
-    def testMin(self) -> None:
+    def test_min(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = RotaryLimitJoint(a, b, 1, 0)
         self.assertEqual(j.min, 1)
         j.min = 2
         self.assertEqual(j.min, 2)
 
-    def testMax(self) -> None:
+    def test_max(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = RotaryLimitJoint(a, b, 0, 1)
         self.assertEqual(j.max, 1)
         j.max = 2
         self.assertEqual(j.max, 2)
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = RotaryLimitJoint(a, b, 1, 2)
 
@@ -508,56 +574,70 @@ class UnitTestRotaryLimitJoint(unittest.TestCase):
 
 
 class UnitTestRatchetJoint(unittest.TestCase):
-    def testAngle(self) -> None:
+    def test_angle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = RatchetJoint(a, b, 0, 0)
         self.assertEqual(j.angle, 0)
         j.angle = 1
         self.assertEqual(j.angle, 1)
 
-    def testPhase(self) -> None:
+    def test_phase(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = RatchetJoint(a, b, 1, 0)
         self.assertEqual(j.phase, 1)
         j.phase = 2
         self.assertEqual(j.phase, 2)
 
-    def testRatchet(self) -> None:
+    def test_ratchet(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = RatchetJoint(a, b, 0, 1)
         self.assertEqual(j.ratchet, 1)
         j.ratchet = 2
         self.assertEqual(j.ratchet, 2)
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = RatchetJoint(a, b, 1, 2)
+        j.angle = 3
 
         s = pickle.dumps(j)
         j2 = pickle.loads(s)
 
+        self.assertEqual(j.angle, j2.angle)
         self.assertEqual(j.phase, j2.phase)
         self.assertEqual(j.ratchet, j2.ratchet)
         self.assertEqual(j.a.mass, j2.a.mass)
         self.assertEqual(j.b.mass, j2.b.mass)
 
+    def test_copy_angle(self) -> None:
+        a, b = p.Body(10, 10), p.Body(20, 20)
+        b.angle = 0.25
+        j = RatchetJoint(a, b, 0, 0.5)
+        j.angle = 1.5
+        for clone in (j.copy, lambda: copy.deepcopy(j)):
+            with self.subTest(clone=clone):
+                j2 = clone()
+                self.assertEqual(j2.angle, 1.5)
+                self.assertIsNot(j2.a, a)
+                self.assertIsNot(j2.b, b)
+
 
 class UnitTestGearJoint(unittest.TestCase):
-    def testPhase(self) -> None:
+    def test_phase(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = GearJoint(a, b, 1, 0)
         self.assertEqual(j.phase, 1)
         j.phase = 2
         self.assertEqual(j.phase, 2)
 
-    def testRatio(self) -> None:
+    def test_ratio(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = GearJoint(a, b, 0, 1)
         self.assertEqual(j.ratio, 1)
         j.ratio = 2
         self.assertEqual(j.ratio, 2)
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = GearJoint(a, b, 1, 2)
 
@@ -571,14 +651,14 @@ class UnitTestGearJoint(unittest.TestCase):
 
 
 class UnitTestSimleMotor(unittest.TestCase):
-    def testSimpleMotor(self) -> None:
+    def test_simple_motor(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = SimpleMotor(a, b, 0.3)
         self.assertEqual(j.rate, 0.3)
         j.rate = 0.4
         self.assertEqual(j.rate, 0.4)
 
-    def testPickle(self) -> None:
+    def test_pickle(self) -> None:
         a, b = p.Body(10, 10), p.Body(20, 20)
         j = SimpleMotor(a, b, 1)
 
@@ -597,3 +677,11 @@ def pre_solve(c: Constraint, s: p.Space) -> None:
 
 def post_solve(c: Constraint, s: p.Space) -> None:
     pass
+
+
+def nonlinear_spring_force(spring: DampedSpring, distance: float) -> float:
+    return spring.stiffness * (spring.rest_length - distance) ** 3
+
+
+def nonlinear_spring_torque(spring: DampedRotarySpring, relative_angle: float) -> float:
+    return spring.stiffness * (relative_angle - spring.rest_angle) ** 3

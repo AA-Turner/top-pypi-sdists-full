@@ -12,8 +12,9 @@ SILENT_AFTER_MISSED_REPORTS = 3
 RETIRE_AFTER_SECONDS = 24 * 3600
 #: The metric step grid, shared with the SDK hardware rail (`sdk/hardware/grid.py` HW_STEP_SECONDS).
 STEP_SECONDS = 60
-#: The latest full report is kept on the node row for the live view; larger reports are refused.
-MAX_REPORT_BYTES = 64 * 1024
+#: The latest full report is kept on the node row for the live view; larger reports are refused. 256 KiB holds
+#: ~750 occupants without points (conformance F-21; it was 64 KiB, ~190).
+MAX_REPORT_BYTES = 256 * 1024
 MAX_POINTS_PER_REPORT = 5_000
 MAX_GPUS_PER_NODE = 64
 MAX_OCCUPANTS_PER_GPU = 64
@@ -31,6 +32,8 @@ ENV_ALLOWLIST = frozenset(
         "PROBE_RUN_ID",
         "PROBE_LAUNCH_ID",
         "SLURM_JOB_ID",
+        #: A SkyPilot managed job's id (T5): its stint names it, and `probe compute job stop` refuses it.
+        "SKYPILOT_MANAGED_JOB_ID",
         "RAY_JOB_ID",
         "TORCHELASTIC_RUN_ID",
         "CLAUDE_CODE_SESSION_ID",
@@ -58,6 +61,8 @@ class InstallMode(StrEnum):
     CLUSTER = "cluster"
     HOST = "host"
     POD = "pod"
+    #: A queue reader beside a scheduler (the SkyPilot API server's sidecar, T5): no GPUs, never a machine.
+    QUEUE = "queue"
 
 
 class Capacity(StrEnum):
@@ -84,7 +89,8 @@ class NodeKeySource(StrEnum):
 
 
 class NodeState(StrEnum):
-    """Where a node is. `silent` after missed reports; `released` on a goodbye or a provider answer."""
+    """Where a node is. `silent` after missed reports; `released` on a goodbye or a provider answer;
+    `uninstalling` once an admin asked to remove Probe from it (its report ack carries the order)."""
 
     ACTIVE = "active"
     SILENT = "silent"
@@ -92,6 +98,7 @@ class NodeState(StrEnum):
     BILLING_UNATTENDED = "billing_unattended"
     UNKNOWN = "unknown"
     RETIRED = "retired"
+    UNINSTALLING = "uninstalling"
 
 
 class ClusterKind(StrEnum):
@@ -132,3 +139,5 @@ class StintEndReason(StrEnum):
     EXITED = "exited"
     NODE_GONE = "node_gone"
     NODE_RELEASED = "node_released"
+    #: The GPU fell off the bus (Xid 79): the daemon named it in `health.lost_gpus` (conformance F-18).
+    GPU_LOST = "gpu_lost"

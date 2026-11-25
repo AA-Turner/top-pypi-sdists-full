@@ -7,6 +7,7 @@ import warnings
 import weakref
 from typing import Literal
 
+from urwid.command_map import Command
 from urwid.split_repr import remove_defaults
 
 from .columns import Columns
@@ -14,7 +15,6 @@ from .constants import Align, Sizing, WHSettings
 from .container import (
     _SELECT_COMMANDS,
     SelectNavigationListContentsMixin,
-    _invalidate_on_focus_change,
     _UnfocusedFocusAttrMixin,
     _WeakCallback,
 )
@@ -31,6 +31,7 @@ if typing.TYPE_CHECKING:
 
     from .attr_map import _AttrMapLike
     from .container import _UnfocusedFocusAttrFunc
+    from .widget import AbstractFixedWidget
 
 
 class GridFlowError(WidgetError):
@@ -41,7 +42,17 @@ class GridFlowWarning(WidgetWarning):
     """GridFlow specific warning."""
 
 
-GridFlowOptions = tuple[Literal[WHSettings.GIVEN], int]
+def _cell_span(columns: Columns, index: int) -> tuple[int, int]:
+    """Return the offset and the width of cell *index* in a row of the display widget.
+
+    Every cell of the row has a ``'given'`` width, and a cell 0 columns wide has no divider, as :class:`Columns` lays
+    it out.
+    """
+    widths = [typing.cast("int", options[1]) for _w, options in columns.contents]
+    return sum(columns.dividechars + width for width in widths[:index] if width > 0), widths[index]
+
+
+GridFlowOptions = tuple[Literal[WHSettings.GIVEN], int] | tuple[Literal[WHSettings.PACK], None]
 GridFlowContentsItem = tuple[AbstractFlowWidget, GridFlowOptions]
 
 
@@ -53,7 +64,8 @@ class GridFlow(
     """Flow widget that arranges the widgets it contains into rows.
 
     Arranges them from left to right and top to bottom.
-    Each cell is :attr:`cell_width` wide unless its options in :attr:`contents` give it its own width.
+    Each cell is :attr:`cell_width` wide unless its options in :attr:`contents` give it its own width,
+    or make it as wide as its widget packs to.
 
     Sends ``"focus changed"`` after :attr:`focus_position` changed, also through a change of :attr:`contents`.
     Its handlers receive the container, the old and the new focus position, which is ``None`` while it is empty.
@@ -73,9 +85,13 @@ class GridFlow(
     def sizing(self) -> frozenset[Sizing]:
         """Widget sizing.
 
-        ..note:: Empty widget sizing is limited to the FLOW due to no data for width.
+        .. note:: Sizing is limited to FLOW when there is no width to give a fixed size:
+            the GridFlow is empty, or a ``'pack'`` cell holds a widget without FIXED sizing.
         """
-        if self:
+        if self and all(
+            width_type == WHSettings.GIVEN or Sizing.FIXED in w.sizing()
+            for w, (width_type, _width_amount) in self.contents
+        ):
             return frozenset((Sizing.FLOW, Sizing.FIXED))
         return frozenset((Sizing.FLOW,))
 
@@ -147,7 +163,7 @@ class GridFlow(
         # Bumped on every contents change, so input handlers can tell that the display widget went stale.
         self._contents_generation = 0
         self._contents.set_modified_callback(_WeakCallback(self, type(self)._contents_changed))
-        self._contents.set_focus_changed_callback(_WeakCallback(self, _invalidate_on_focus_change))
+        self._contents.set_focus_changed_callback(_WeakCallback(self, type(self)._focus_changed))
         self._contents.set_focus_moved_callback(_WeakCallback(self, type(self)._emit, "focus changed"))
         self._contents.set_validate_contents_modified(_WeakCallback(self, type(self)._contents_modified))
         self._cell_width = cell_width
@@ -158,8 +174,17 @@ class GridFlow(
         self._set_unfocused_focus_attr(unfocused_focus_attr)
         self._unfocused_focus_attr_func = unfocused_focus_attr_func
         self.first_position: weakref.WeakKeyDictionary[Padding[Columns], int] = weakref.WeakKeyDictionary()
-        maxcol = self._get_maxcol(())
-        self._cache_maxcol: int | None = maxcol
+        # The cursor column kept for the focus cell, as an offset inside that cell, so it survives rebuilds of the
+        # display widget. It always belongs to the current focus cell: a focus or contents change drops it.
+        self._pref_col: int | None = None
+        maxcol, widths = self._layout(())
+        # The width laid out in, each cell's width and which cells are selectable, which picks the focus cell of each
+        # row: a 'pack' cell can change its width, and any cell its selectability, without invalidating the GridFlow.
+        self._cache_key: tuple[int, tuple[int, ...], tuple[bool, ...]] | None = (
+            maxcol,
+            widths,
+            tuple(w.selectable() for w, _ in self.contents),
+        )
         super().__init__(self.generate_display_widget((maxcol,)))
 
     def _repr_words(self) -> list[str]:
@@ -208,12 +233,24 @@ class GridFlow(
 
     def _invalidate(self) -> None:
         """Drop the cached display widget and the cached canvases."""
-        self._cache_maxcol = None
+        self._cache_key = None
         super()._invalidate()
 
+    def _focus_changed(self, _focus: int) -> None:
+        """Drop the cursor column kept for the cell losing the focus.
+
+        The cached display widget is invalidated too.
+        """
+        self._pref_col = None
+        self._invalidate()
+
     def _contents_changed(self) -> None:
-        """Record a contents change and invalidate the cached display widget."""
+        """Record a contents change.
+
+        The kept cursor column is dropped, and the cached display widget is invalidated.
+        """
         self._contents_generation += 1
+        self._pref_col = None
         self._invalidate()
 
     def _contents_modified(
@@ -228,8 +265,8 @@ class GridFlow(
         """
         for item in new_items:
             try:
-                _w, (t, _n) = item
-                if t != WHSettings.GIVEN:
+                _w, (t, n) = item
+                if t != WHSettings.GIVEN and not (t == WHSettings.PACK and n is None):
                     raise GridFlowError(f"added content invalid {item!r}")
             except (TypeError, ValueError) as exc:
                 raise GridFlowError(f"added content invalid {item!r}").with_traceback(exc.__traceback__) from exc
@@ -258,9 +295,10 @@ class GridFlow(
     def contents(self) -> MonitoredFocusList[GridFlowContentsItem]:
         """The contents of this GridFlow as a list of (widget, options) tuples.
 
-        options is currently a tuple in the form `('given', number)`.
-        number is the number of screen columns to allocate to this cell.
-        'given' is the only type accepted at this time.
+        options is a tuple in one of these forms:
+
+        - `('given', number)`: the cell is number screen columns wide.
+        - `('pack', None)`: the cell is as wide as its widget packs to, at most the width of the GridFlow.
 
         This list may be modified like a normal list and the GridFlow
         widget will update automatically.
@@ -278,26 +316,47 @@ class GridFlow(
         """
         self._contents.replace(new_contents)
 
+    @typing.overload
     def options(
         self,
-        width_type: Literal["given", WHSettings.GIVEN] = WHSettings.GIVEN,
+        width_type: Literal["pack", WHSettings.PACK],
+        width_amount: None = None,
+    ) -> tuple[Literal[WHSettings.PACK], None]: ...
+
+    @typing.overload
+    def options(
+        self,
+        width_type: Literal["given", WHSettings.GIVEN] = ...,
+        width_amount: int | None = None,
+    ) -> tuple[Literal[WHSettings.GIVEN], int]: ...
+
+    def options(
+        self,
+        width_type: Literal["given", "pack", WHSettings.GIVEN, WHSettings.PACK] = WHSettings.GIVEN,
         width_amount: int | None = None,
     ) -> GridFlowOptions:
         """
         Return a new options tuple for use in a GridFlow's .contents list.
 
-        Each cell keeps the width its options give, so the cells of one GridFlow may differ in width:
+        Each cell keeps the width its options give, so the cells of one GridFlow may differ in width.
+        A ``'pack'`` cell is measured each time the GridFlow is laid out:
 
         >>> import urwid
         >>> grid = urwid.GridFlow([], 1, 1, 0, "left")
-        >>> grid.contents.extend((urwid.Text(label), grid.options("given", len(label))) for label in ("Open", "Quit"))
+        >>> grid.contents.extend((urwid.Text(label), grid.options("pack")) for label in ("Open", "Quit"))
         >>> grid.render(()).text
         [b'Open Quit']
 
-        :param width_type: 'given' is the only value accepted
-        :param width_amount: None to use the default cell_width for this GridFlow
-        :raises GridFlowError: *width_type* is not ``GIVEN``.
+        :param width_type: ``'given'`` for a cell *width_amount* screen columns wide,
+            ``'pack'`` for a cell as wide as its widget packs to.
+        :param width_amount: for ``'given'``, None to use the default cell_width for this GridFlow;
+            for ``'pack'``, None.
+        :raises GridFlowError: *width_type* is neither ``GIVEN`` nor ``PACK``, or a ``PACK`` cell is given a width.
         """
+        if width_type == WHSettings.PACK:
+            if width_amount is not None:
+                raise GridFlowError(f"a 'pack' cell takes no width_amount: {width_amount!r}")
+            return (WHSettings.PACK, None)
         if width_type != WHSettings.GIVEN:
             raise GridFlowError(f"invalid width_type: {width_type!r}")
         if width_amount is None:
@@ -341,50 +400,81 @@ class GridFlow(
             ) from exc
         self.contents.focus = position
 
-    def _get_maxcol(self, size: tuple[int] | tuple[()]) -> int:
-        """Return the number of screen columns to lay the cells out in.
+    def _layout(self, size: tuple[int] | tuple[()]) -> tuple[int, tuple[int, ...]]:
+        """Return the number of screen columns to lay the cells out in, and the width of each cell.
 
-        A flow size gives the width directly.
-        A :exc:`GridFlowWarning` is issued when that width is narrower than the widest cell.
-        A fixed size uses the width of all cells in one row.
+        A flow size gives the width directly, and a ``'pack'`` cell is at most that wide.
+        A :exc:`GridFlowWarning` is issued when that width is narrower than the widest ``'given'`` cell.
+        A fixed size uses the width of all cells in one row, with each ``'pack'`` cell at its fixed width.
+        A cell 0 columns wide takes no space and no divider, as :class:`Columns` hides it.
 
         :param size: ``(maxcol,)`` for a flow size, ``()`` for a fixed size
-        :returns: the width in screen columns, 0 for an empty GridFlow with a fixed size
+        :returns: the width in screen columns, 0 for an empty GridFlow with a fixed size, and the cell widths
+            in contents order.
         """
-        widths = [width_amount for _w, (_width_type, width_amount) in self.contents]
-        if size:
-            (maxcol,) = size
-            if widths and maxcol < (widest := max(widths)):
-                warnings.warn(
-                    f"Size is smaller than cell width ({maxcol!r} < {widest!r})",
-                    GridFlowWarning,
-                    stacklevel=3,
-                )
-        elif widths:
-            maxcol = sum(widths) + (len(widths) - 1) * self.h_sep
-        else:
-            maxcol = 0
-        return maxcol
+        widths: list[int] = []
+        widest_given = 0
+        for w, (width_type, width_amount) in self.contents:
+            if width_type == WHSettings.GIVEN:
+                widths.append(typing.cast("int", width_amount))
+                widest_given = max(widest_given, typing.cast("int", width_amount))
+            elif not size:
+                widths.append(typing.cast("AbstractFixedWidget", w).pack(())[0])
+            else:
+                # As Columns does for 'pack': a FLOW widget packed at maxcol may claim all of it, so its fixed width
+                # comes first, unless it is too wide.
+                (maxcol,) = size
+                width = typing.cast("AbstractFixedWidget", w).pack(())[0] if Sizing.FIXED in w.sizing() else 0
+                if not width or width > maxcol:
+                    width = w.pack(size)[0]
+                widths.append(min(width, maxcol))
+
+        if not size:
+            visible = [width for width in widths if width > 0]
+            return sum(visible) + (len(visible) - 1) * self.h_sep if visible else 0, tuple(widths)
+
+        (maxcol,) = size
+        if maxcol < widest_given:
+            warnings.warn(
+                f"Size is smaller than cell width ({maxcol!r} < {widest_given!r})",
+                GridFlowWarning,
+                stacklevel=3,
+            )
+        return maxcol, tuple(widths)
 
     def get_display_widget(self, size: tuple[int] | tuple[()]) -> Divider | Pile:
         """Arrange the cells into columns (and possibly a pile) for display, input or to calculate rows.
 
         Also updates the display widget.
+        The display widget is reused while the width, every cell's width and every cell's ``selectable()``
+        stay the same.
+        The row of the focus cell gets the cursor column kept for that cell, and every other row none.
         """
-        maxcol = self._get_maxcol(size)
+        maxcol, widths = self._layout(size)
+        key = (maxcol, widths, tuple(w.selectable() for w, _ in self.contents))
 
-        # use cache if possible
-        if self._cache_maxcol == maxcol:
-            return self._w
+        if self._cache_key != key:
+            self._w = self.generate_display_widget((maxcol,))
+            # after the assignment: setting _w invalidates, which clears the cache key
+            self._cache_key = key
+        elif isinstance(self._w, Pile):
+            # a reused display widget starts from the preferred columns a new one has
+            self._w.pref_col = 0
+            for row, _options in self._w.contents:
+                if isinstance(row, Padding):
+                    typing.cast("Columns", row.original_widget).pref_col = None
 
-        self._cache_maxcol = maxcol
-        self._w = self.generate_display_widget((maxcol,))
+        if self._pref_col is not None:
+            pad = typing.cast("Padding[Columns]", self._w.focus)
+            columns = pad.original_widget
+            x, width = _cell_span(columns, self.focus_position - self.first_position[pad])
+            columns.pref_col = x + min(self._pref_col, max(width - 1, 0))
 
         return self._w
 
     def generate_display_widget(self, size: tuple[int] | tuple[()]) -> Divider | Pile:
         """Actually generate display widget (ignoring cache)."""
-        maxcol = self._get_maxcol(size)
+        maxcol, widths = self._layout(size)
 
         divider = Divider()
         if not self.contents:
@@ -398,8 +488,11 @@ class GridFlow(
         p = Pile([])
         used_space = 0
 
-        for i, (w, (_width_type, width_amount)) in enumerate(self.contents):
-            if c is None or maxcol - used_space < width_amount:
+        for i, ((w, _options), width_amount) in enumerate(zip(self.contents, widths, strict=True)):
+            # A cell takes at most maxcol columns, as it is added below. A cell 0 columns wide fits in any row,
+            # and a row of only such cells has room for any cell, so no row shows nothing.
+            width = min(width_amount, maxcol)
+            if c is None or (width > 0 and maxcol - used_space < width):
                 # starting a new row
                 if self.v_sep:
                     p.contents.append((divider, p.options()))
@@ -416,7 +509,7 @@ class GridFlow(
                     w,
                     c.options(
                         WHSettings.GIVEN,
-                        min(width_amount, maxcol),
+                        width,
                     ),
                 )
             )
@@ -428,8 +521,10 @@ class GridFlow(
                 # only the row holding the focus cell marks it, so the other rows' own focus cells stay plain
                 c.unfocused_focus_attr = self._unfocused_focus_attr
                 c.unfocused_focus_attr_func = self._unfocused_focus_attr_func
-            used_space = sum(typing.cast("int", x[1][1]) for x in c.contents) + self.h_sep * len(c.contents)
-            pad.width = used_space - self.h_sep
+            # Columns draws no divider next to a column 0 columns wide
+            visible = [width for _w, (_t, width, _b) in c.contents if typing.cast("int", width) > 0]
+            used_space = sum(typing.cast("int", width) for width in visible) + self.h_sep * len(visible)
+            pad.width = max(used_space - self.h_sep, 0)
 
         if self.v_sep:
             # remove first divider
@@ -438,7 +533,11 @@ class GridFlow(
         return p
 
     def _set_focus_from_display_widget(self) -> None:
-        """Set the focus to the item in focus in the display widget."""
+        """Set the focus to the item in focus in the display widget.
+
+        The cursor column of its row is kept for that cell,
+        unless a "focus changed" handler moved the focus again or changed the contents.
+        """
         # display widget (self._w) is always built as:
         #
         # Pile([
@@ -460,7 +559,25 @@ class GridFlow(
 
         first_position = self.first_position[typing.cast("Padding[Columns]", pile_focus)]
 
-        self.focus_position = first_position + col_focus_position
+        # The cursor column the row got from the display widget is kept as an offset inside the focus cell:
+        # 'left' and 'right' become its first and last column.
+        pref_col: int | None = None
+        if (col := c.pref_col) is not None:
+            x, width = _cell_span(c, col_focus_position)
+            if col in {Align.LEFT, Align.RIGHT}:
+                offset = 0 if col == Align.LEFT else width - 1
+            else:
+                offset = typing.cast("int", col) - x
+            pref_col = min(max(offset, 0), max(width - 1, 0))
+
+        position = first_position + col_focus_position
+        generation = self._contents_generation
+        self.focus_position = position
+        # This runs after the focus change, which drops the column kept for the cell before.
+        # A "focus changed" handler runs inside the setter: when it moved the focus or changed the contents,
+        # the column belongs to no cell.
+        if self.contents.focus == position and self._contents_generation == generation:
+            self._pref_col = pref_col
 
     def keypress(
         self,
@@ -472,7 +589,10 @@ class GridFlow(
         Captures focus changes.
         With :attr:`select_navigation`, unhandled ``'next selectable'`` and ``'prev selectable'`` commands
         move the focus to the next or previous selectable cell.
+        A key other than up, down, page up and page down drops the kept cursor column, as in :class:`Columns`.
         """
+        if self._command_map[key] not in {Command.UP, Command.DOWN, Command.PAGE_UP, Command.PAGE_DOWN}:
+            self._pref_col = None
         self.get_display_widget(size)
         focus_before = self.contents.focus
         generation_before = self._contents_generation
@@ -497,7 +617,7 @@ class GridFlow(
         """Return the number of screen columns and rows this widget requires."""
         if size:
             return super().pack(size, focus)
-        cols = self._get_maxcol(())
+        cols, _widths = self._layout(())
         return cols, self.rows((cols,), focus)
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
@@ -520,10 +640,18 @@ class GridFlow(
         return super().get_cursor_coords(size)
 
     def move_cursor_to_coords(self, size: tuple[int] | tuple[()], col: int, row: int) -> bool:
-        """Set the widget in focus based on the col + row."""
+        """Set the widget in focus based on the col + row.
+
+        The column, limited to the cell that gets the focus, is kept as the preferred column.
+        A cell that changes the contents while it moves its cursor leaves no column kept.
+        """
         self.get_display_widget(size)
+        generation_before = self._contents_generation
         rval = super().move_cursor_to_coords(size, col, row)
         self._set_focus_from_display_widget()
+        if self._contents_generation != generation_before:
+            # the column was read from the display widget of the old contents
+            self._pref_col = None
         return rval
 
     def mouse_event(
@@ -537,6 +665,8 @@ class GridFlow(
     ) -> bool | None:
         """Handle a mouse event, updating the focus based on the resulting display widget.
 
+        An event that moves the focus to another cell leaves no cursor column kept.
+
         :returns: ``True`` when a cell handled the event or the focus moved to another cell, otherwise the
             result of the display widget, so an event such as the mouse wheel stays unhandled for a parent
             like :class:`ListBox`.
@@ -549,6 +679,9 @@ class GridFlow(
         # over the display widget, which was built before the event was dispatched.
         if self.contents.focus == focus_before and self._contents_generation == generation_before:
             self._set_focus_from_display_widget()
+        if self.contents.focus != focus_before:
+            # no cursor column comes with a click, so the kept one belongs to the cell left behind
+            self._pref_col = None
         return handled or self.contents.focus != focus_before
 
     def get_pref_col(self, size: tuple[int] | tuple[()]) -> int | None:

@@ -234,6 +234,40 @@ std::ostream& operator<<(
         std::ostream& os,
         OptimizationMode optimization_mode);
 
+/**
+ * How the value of a leftover is computed, for the 'BinPackingWithLeftovers'
+ * objective (the shape of the leftover is given by the leftover mode of the
+ * problem type).
+ */
+enum class LeftoverValueType
+{
+    /**
+     * The value of a leftover is the square of its area (or volume), or the
+     * sum of the squares of the areas of its pieces if it is cut (default).
+     *
+     * For a single leftover, it ranks the leftovers as their areas. Over
+     * several bins, a large leftover is worth more than several smaller
+     * leftovers of the same total area.
+     */
+    SquaredArea,
+
+    /**
+     * The value of a leftover is the integral, over its points, of their
+     * distance to its edge: its area (or volume) times the average depth of
+     * its points, so a compact leftover is worth more than a thin one of the
+     * same area (see 'src/algorithms/leftover.hpp').
+     */
+    Depth,
+};
+
+std::istream& operator>>(
+        std::istream& in,
+        LeftoverValueType& leftover_value_type);
+
+std::ostream& operator<<(
+        std::ostream& os,
+        LeftoverValueType leftover_value_type);
+
 
 enum class ProblemType
 {
@@ -285,7 +319,59 @@ enum class Objective
     SequentialOneDimensionalRectangleSubproblem,
     Feasibility,
     BinPackingCuttingCost,
+    /**
+     * Variable-sized bin packing in which the leftovers of the bins are
+     * valued (see 'LeftoverValueType').
+     *
+     * The net cost of the solution is minimized: the cost of its bins minus a
+     * refund for each of their leftovers (see 'Instance::leftover_refund' of
+     * each problem type). The algorithms optimize it as
+     * 'VariableSizedBinPacking'.
+     */
+    VariableSizedBinPackingWithLeftovers,
 };
+
+/**
+ * Return 'true' iff an objective is optimized as variable-sized bin packing:
+ * 'VariableSizedBinPacking' or 'VariableSizedBinPackingWithLeftovers'.
+ */
+inline bool is_variable_sized_bin_packing(Objective objective)
+{
+    return objective == Objective::VariableSizedBinPacking
+        || objective == Objective::VariableSizedBinPackingWithLeftovers;
+}
+
+/**
+ * Return 'true' iff the leftover post-process applies to an objective: the
+ * objectives for which all the bins of a solution are packed with a fixed set
+ * of items.
+ *
+ * For 'BinPackingWithLeftovers' and 'VariableSizedBinPackingWithLeftovers',
+ * better leftovers give a better solution. For the other ones, re-packing the
+ * items of a bin doesn't change the value of the solution, but it may leave
+ * better leftovers.
+ */
+inline bool leftover_post_process_objective(Objective objective)
+{
+    return objective == Objective::BinPacking
+        || objective == Objective::BinPackingWithLeftovers
+        || objective == Objective::VariableSizedBinPacking
+        || objective == Objective::VariableSizedBinPackingWithLeftovers
+        || objective == Objective::Knapsack;
+}
+
+/**
+ * Get the objective of a onedimensional sub-instance built from an instance
+ * of another problem type: the onedimensional problem type doesn't value the
+ * leftovers in variable-sized bin packing, so
+ * 'VariableSizedBinPackingWithLeftovers' becomes 'VariableSizedBinPacking'.
+ */
+inline Objective onedimensional_subproblem_objective(Objective objective)
+{
+    return (objective == Objective::VariableSizedBinPackingWithLeftovers)?
+        Objective::VariableSizedBinPacking:
+        objective;
+}
 
 std::istream& operator>>(
         std::istream& in,
@@ -413,6 +499,31 @@ public:
         worst_ = *std::prev(solutions_.end());
 
         return (new_best)? 1: 0;
+    }
+
+    /**
+     * Replace the best solution of the pool by a solution which is equivalent
+     * to it: with the same value for the objective, and the same item copies.
+     *
+     * It is used by the post-processes which improve a solution on a
+     * criterion which is not part of the objective, e.g. its leftovers.
+     *
+     * Return 'false', without changing the pool, if the solution is not
+     * equivalent to the best solution.
+     */
+    bool replace_best(
+            const Solution& solution,
+            const std::string& label = "")
+    {
+        Entry entry = {solution, label};
+        EntryComparator comparator;
+        if (comparator(entry, best_) || comparator(best_, entry))
+            return false;
+        solutions_.erase(solutions_.begin());
+        solutions_.insert(entry);
+        best_ = *solutions_.begin();
+        worst_ = *std::prev(solutions_.end());
+        return true;
     }
 
 private:

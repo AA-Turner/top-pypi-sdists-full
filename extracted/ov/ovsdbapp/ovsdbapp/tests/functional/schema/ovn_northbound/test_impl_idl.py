@@ -27,13 +27,13 @@ class OvnNorthboundTest(base.FunctionalTestCase):
     schemas = ['OVN_Northbound']
 
     def setUp(self):
-        super(OvnNorthboundTest, self).setUp()
+        super().setUp()
         self.api = self.useFixture(fixtures.NbApiFixture(self.connection)).obj
 
 
 class TestLogicalSwitchOps(OvnNorthboundTest):
     def setUp(self):
-        super(TestLogicalSwitchOps, self).setUp()
+        super().setUp()
         self.table = self.api.tables['Logical_Switch']
 
     def _ls_add(self, *args, **kwargs):
@@ -135,7 +135,7 @@ class TestLogicalSwitchOps(OvnNorthboundTest):
 
 class TestAclOps(OvnNorthboundTest):
     def setUp(self):
-        super(TestAclOps, self).setUp()
+        super().setUp()
         self.switch = self.useFixture(
             fixtures.LogicalSwitchFixture(self.api)).obj
         self.port_group = self.useFixture(
@@ -460,7 +460,7 @@ class TestAclOps(OvnNorthboundTest):
 
 class TestAddressSetOps(OvnNorthboundTest):
     def setUp(self):
-        super(TestAddressSetOps, self).setUp()
+        super().setUp()
         self.table = self.api.tables['Address_Set']
 
     def _addr_set_add(self, name=None, *args, **kwargs):
@@ -583,7 +583,7 @@ class TestAddressSetOps(OvnNorthboundTest):
 
 class TestQoSOps(OvnNorthboundTest):
     def setUp(self):
-        super(TestQoSOps, self).setUp()
+        super().setUp()
         self.switch = self.useFixture(
             fixtures.LogicalSwitchFixture(self.api, name='LS_for_QoS')).obj
 
@@ -837,7 +837,7 @@ class TestQoSOps(OvnNorthboundTest):
 
 class TestLspOps(OvnNorthboundTest):
     def setUp(self):
-        super(TestLspOps, self).setUp()
+        super().setUp()
         name = utils.get_rand_device_name()
         self.switch = self.useFixture(
             fixtures.LogicalSwitchFixture(self.api, name)).obj
@@ -982,7 +982,7 @@ class TestLspOps(OvnNorthboundTest):
             self.api, name=utils.get_rand_device_name())).obj
         other_port = self._lsp_add(other_switch, None)
         all_ports = set(self.api.lsp_list().execute(check_error=True))
-        self.assertTrue((ports.union(set([other_port]))).issubset(all_ports))
+        self.assertTrue((ports.union({other_port})).issubset(all_ports))
 
     def test_lsp_get_parent(self):
         ls1 = self._lsp_add(self.switch, None)
@@ -1143,6 +1143,41 @@ class TestLogicalRouterOps(OvnNorthboundTest):
         external_ids = {'mykey': 'myvalue', 'yourkey': 'yourvalue'}
         lr = self._lr_add(external_ids=external_ids)
         self.assertEqual(external_ids, lr.external_ids)
+
+    def test_lr_add_exists(self):
+        name = utils.get_rand_device_name()
+        self._lr_add(name)
+        cmd = self.api.lr_add(name)
+        self.assertRaises(RuntimeError, cmd.execute, check_error=True)
+        # A duplicate router with the same name must not have been created
+        self.assertEqual(
+            1, len([lr for lr in self.api.lr_list().execute(check_error=True)
+                    if lr.name == name]))
+
+    def test_lr_add_may_exist(self):
+        name = utils.get_rand_device_name()
+        self._lr_add(name)
+        self._lr_add(name, may_exist=True)
+
+    def test_lr_add_add_duplicate(self):
+        name = utils.get_rand_device_name()
+        lr1 = self._lr_add(name)
+        lr2 = self._lr_add(name, add_duplicate=True)
+        self.assertNotEqual(lr1.uuid, lr2.uuid)
+        self.assertEqual(
+            2, len([lr for lr in self.api.lr_list().execute(check_error=True)
+                    if lr.name == name]))
+
+    def test_lr_add_may_exist_add_duplicate(self):
+        self.assertRaises(RuntimeError, self.api.lr_add,
+                          utils.get_rand_device_name(),
+                          may_exist=True, add_duplicate=True)
+
+    def test_lr_add_may_exist_no_name(self):
+        self.assertRaises(RuntimeError, self.api.lr_add, may_exist=True)
+
+    def test_lr_add_add_duplicate_no_name(self):
+        self.assertRaises(RuntimeError, self.api.lr_add, add_duplicate=True)
 
     def test_lr_del(self):
         lr = self._lr_add()
@@ -1807,7 +1842,7 @@ class TestLogicalRouterOps(OvnNorthboundTest):
 
 class TestLogicalRouterPortOps(OvnNorthboundTest):
     def setUp(self):
-        super(TestLogicalRouterPortOps, self).setUp()
+        super().setUp()
         self.lr = self.useFixture(fixtures.LogicalRouterFixture(self.api)).obj
 
     def _lrp_add(self, port, mac='de:ad:be:ef:4d:ad',
@@ -1901,6 +1936,14 @@ class TestLogicalRouterPortOps(OvnNorthboundTest):
         self.assertRaises(RuntimeError, self._lrp_add, *args,
                           peer='fake', may_exist=True)
 
+    def test_lrp_add_may_exist_peer(self):
+        # 'peer' is an optional string column, which the IDL returns as a
+        # list; may_exist must not report a different peer when it is equal
+        name = utils.get_rand_device_name()
+        args = (name, 'de:ad:be:ef:4d:ad', ['192.0.2.0/24'])
+        self._lrp_add(*args, peer='fake_peer')
+        self._lrp_add(*args, peer='fake_peer', may_exist=True)
+
     def test_lrp_add_columns(self):
         options = {'myside': 'yourside'}
         external_ids = {'myside': 'yourside'}
@@ -1909,7 +1952,7 @@ class TestLogicalRouterPortOps(OvnNorthboundTest):
         self.assertEqual(external_ids, lrp.external_ids)
 
     def test_lrp_add_gw_chassis(self):
-        name, c1, c2 = [utils.get_rand_device_name() for _ in range(3)]
+        name, c1, c2 = (utils.get_rand_device_name() for _ in range(3))
         args = (name, 'de:ad:be:ef:4d:ad')
         lrp = self._lrp_add(*args, gateway_chassis=(c1, c2))
         c1 = self.api.lookup('Gateway_Chassis', "%s_%s" % (lrp.name, c1))
@@ -1917,9 +1960,35 @@ class TestLogicalRouterPortOps(OvnNorthboundTest):
         self.assertIn(c1, lrp.gateway_chassis)
         self.assertIn(c2, lrp.gateway_chassis)
 
+    def test_lrp_add_columns_kept_for_retry(self):
+        """``lrp_add()`` must not consume its special columns
+
+        ``Transaction.do_commit()`` re-runs every command when
+        ``commit_block()`` returns TRY_AGAIN. ``LrpAddCommand.run_idl()``
+        used to consume ``gateway_chassis`` and ``ha_chassis_group`` from
+        ``self.columns``, so a retry silently created the port without them
+        and the transaction still reported success.
+        """
+        name, c1, c2 = [utils.get_rand_device_name() for _ in range(3)]
+        hcg_name = 'ha-group-%s' % ovsdb_utils.generate_uuid()
+        hcg = self.api.ha_chassis_group_add(hcg_name).execute(check_error=True)
+
+        cmd = self.api.lrp_add(
+            self.lr.uuid, name, 'de:ad:be:ef:4d:ad', ['192.0.2.0/24'],
+            gateway_chassis=(c1, c2), ha_chassis_group=hcg_name)
+        lrp = cmd.execute(check_error=True)
+
+        # The command is reusable: a retry would still see both columns.
+        self.assertEqual({c1, c2}, set(cmd.columns['gateway_chassis']))
+        self.assertEqual(hcg_name, cmd.columns['ha_chassis_group'])
+        # ... and the first attempt applied them.
+        self.assertEqual({c1, c2},
+                         {gwc.chassis_name for gwc in lrp.gateway_chassis})
+        self.assertEqual(hcg.uuid, lrp.ha_chassis_group[0].uuid)
+
     def test_gwc_add(self):
         # NOTE: no API method to create gateway chassis directly
-        name, c1_name = [utils.get_rand_device_name() for _ in range(2)]
+        name, c1_name = (utils.get_rand_device_name() for _ in range(2))
         lrp = self._lrp_add(name, gateway_chassis=[c1_name])
         c1 = self.api.lookup('Gateway_Chassis', "%s_%s" % (lrp.name, c1_name))
         self.assertEqual(c1.name, "%s_%s" % (lrp.name, c1_name))
@@ -2212,7 +2281,7 @@ class TestLogicalRouterPortOps(OvnNorthboundTest):
 
     def test_lrp_set_multiple_gwc(self):
         lrp = self._lrp_add(None)
-        c1_name, c2_name = [utils.get_rand_device_name() for _ in range(2)]
+        c1_name, c2_name = (utils.get_rand_device_name() for _ in range(2))
         for gwc in [c1_name, c2_name]:
             self.api.lrp_set_gateway_chassis(lrp.uuid, gwc).execute(
                 check_error=True)
@@ -2538,7 +2607,7 @@ class TestObLbOps(testscenarios.TestWithScenarios, OvnNorthboundTest):
     ]
 
     def setUp(self):
-        super(TestObLbOps, self).setUp()
+        super().setUp()
         self.add_fn = getattr(self.api, self._add_fn)
         self.del_fn = getattr(self.api, self._del_fn)
         self.list_fn = getattr(self.api, self._list_fn)
@@ -2606,7 +2675,7 @@ class TestObLbOps(testscenarios.TestWithScenarios, OvnNorthboundTest):
 
 class TestCommonDbOps(OvnNorthboundTest):
     def setUp(self):
-        super(TestCommonDbOps, self).setUp()
+        super().setUp()
         name = utils.get_rand_device_name()
         self.switch = self.useFixture(
             fixtures.LogicalSwitchFixture(self.api, name)).obj
@@ -2805,7 +2874,7 @@ class TestLsDnsOps(OvnNorthboundTest):
 class TestPortGroup(OvnNorthboundTest):
 
     def setUp(self):
-        super(TestPortGroup, self).setUp()
+        super().setUp()
         self.switch = self.useFixture(
             fixtures.LogicalSwitchFixture(self.api)).obj
         self.pg_name = 'testpg-%s' % ovsdb_utils.generate_uuid()
@@ -2876,7 +2945,7 @@ class TestPortGroup(OvnNorthboundTest):
 class TestHAChassisGroup(OvnNorthboundTest):
 
     def setUp(self):
-        super(TestHAChassisGroup, self).setUp()
+        super().setUp()
         self.hcg_name = 'ha-group-%s' % ovsdb_utils.generate_uuid()
         self.chassis = 'chassis-%s' % ovsdb_utils.generate_uuid()
 
@@ -3010,7 +3079,7 @@ class TestReferencedObjects(OvnNorthboundTest):
     transaction context.
     """
     def setUp(self):
-        super(TestReferencedObjects, self).setUp()
+        super().setUp()
         self.ls_name = utils.get_rand_device_name()
         self.lsp_name = utils.get_rand_device_name()
         self.lsp_test_addresses = ['de:ad:be:ef:4d:ad 192.0.2.1']
@@ -3046,7 +3115,7 @@ class TestReferencedObjects(OvnNorthboundTest):
 class TestMeterOps(OvnNorthboundTest):
 
     def setUp(self):
-        super(TestMeterOps, self).setUp()
+        super().setUp()
         self.table = self.api.tables['Meter']
 
     def _meter_add(self, name=None, unit=None, rate=1, fair=False,
@@ -3132,7 +3201,7 @@ class TestMeterOps(OvnNorthboundTest):
 class TestBFDOps(OvnNorthboundTest):
 
     def setUp(self):
-        super(TestBFDOps, self).setUp()
+        super().setUp()
         self.table = self.api.tables['BFD']
 
     @staticmethod
@@ -3145,17 +3214,19 @@ class TestBFDOps(OvnNorthboundTest):
     def _bfd_add(self, *args, **kwargs):
         cmd = self.api.bfd_add(*args, **kwargs)
         row = cmd.execute(check_error=True)
-        self.assertEqual(cmd.logical_port, row.logical_port)
-        self.assertEqual(cmd.dst_ip, row.dst_ip)
-        self.assertEqual(cmd.columns['min_tx'] if cmd.columns[
-            'min_tx'] else [], row.min_tx)
-        self.assertEqual(cmd.columns['min_rx'] if cmd.columns[
-            'min_rx'] else [], row.min_rx)
-        self.assertEqual(cmd.columns['detect_mult'] if cmd.columns[
-            'detect_mult'] else [], row.detect_mult)
-        self.assertEqual(cmd.columns['external_ids'] or {}, row.external_ids)
-        self.assertEqual(cmd.columns['options'] or {}, row.options)
-        return self._freeze_and_filter_row(row, ('status',))
+        # Re-read the row independently so an existing-row update cannot
+        # appear successful merely because attributes were set on the
+        # command's returned RowView wrapper.
+        stored_row = self.api.bfd_get(row.uuid).execute(check_error=True)
+        self.assertEqual(cmd.logical_port, stored_row.logical_port)
+        self.assertEqual(cmd.dst_ip, stored_row.dst_ip)
+        for col in ('min_tx', 'min_rx', 'detect_mult'):
+            if col in cmd.columns:
+                self.assertEqual(cmd.columns[col], getattr(stored_row, col))
+        self.assertEqual(cmd.columns['external_ids'] or {},
+                         stored_row.external_ids)
+        self.assertEqual(cmd.columns['options'] or {}, stored_row.options)
+        return self._freeze_and_filter_row(stored_row, ('status',))
 
     def test_bfd_add(self):
         name = utils.get_rand_name()
@@ -3202,6 +3273,13 @@ class TestBFDOps(OvnNorthboundTest):
         self.assertNotEqual(b1, b2)
         self.assertEqual(b1.uuid, b2.uuid)
 
+    def test_bfd_add_may_exist_update_is_committed(self):
+        name = utils.get_rand_name()
+        b1 = self._bfd_add(name, name, min_tx=22)
+        b2 = self._bfd_add(name, name, min_tx=44, may_exist=True)
+        self.assertEqual(b1.uuid, b2.uuid)
+        self.assertEqual([44], b2.min_tx)
+
     def test_bfd_del(self):
         name = utils.get_rand_name()
         b1 = self._bfd_add(name, name)
@@ -3225,8 +3303,8 @@ class TestBFDOps(OvnNorthboundTest):
             b1.dst_ip).execute(check_error=True)
         self.assertEqual(1, len(found))
         self.assertEqual(b1.uuid, found[0].uuid)
-        for col in set(self.api.tables['BFD'].columns.keys()) - set(
-                ('_uuid', 'status')):
+        for col in set(self.api.tables['BFD'].columns.keys()) - {
+                '_uuid', 'status'}:
             self.assertEqual(
                 getattr(b1, col),
                 getattr(found[0], col))
@@ -3245,7 +3323,7 @@ class TestBFDOps(OvnNorthboundTest):
 class TestMirrorOps(OvnNorthboundTest):
 
     def setUp(self):
-        super(TestMirrorOps, self).setUp()
+        super().setUp()
         self.table = self.api.tables['Mirror']
         self.switch = self.useFixture(
             fixtures.LogicalSwitchFixture(self.api)).obj

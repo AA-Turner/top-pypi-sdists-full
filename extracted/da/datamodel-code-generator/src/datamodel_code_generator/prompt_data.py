@@ -19,6 +19,7 @@ OPTION_DESCRIPTIONS: dict[str, str] = {
     "--allow-population-by-field-name": "Allow Pydantic model population by field name (not just alias).",
     "--allow-private-network": "Allow HTTP requests to private network schema endpoints.",
     "--allow-remote-refs": "Enable fetching of `$ref` targets over HTTP/HTTPS.",
+    "--apply-default-values-to-true-properties": "Give the default of `--default-values` to a property whose schema...",
     "--apply-field-options-to-every-field": "Give the fields that leave out some field options the ones others take.",
     "--base-class": "Specify a custom base class for generated models.",
     "--base-class-map": "Specify different base classes for specific models via JSON mapping.",
@@ -64,6 +65,7 @@ OPTION_DESCRIPTIONS: dict[str, str] = {
     "--disable-future-imports": "Prevent automatic addition of __future__ imports in generated code.",
     "--disable-timestamp": "Disable timestamp in generated file header for reproducible output.",
     "--disable-warnings": "Suppress warning messages during code generation.",
+    "--distribute-allof-over-object-branches": "Give an allOf over a union a complete variant per object branch.",
     "--distribute-allof-over-unions": "Read an `allOf` with the `anyOf` and `oneOf` it holds or sits beside, as JSO...",
     "--duplicate-name-suffix": "Customize suffix for duplicate model names.",
     "--emit-model-metadata": "Write a separate JSON map from the final generated models, modules, fields, and type ...",
@@ -321,4 +323,5 @@ OPTION_DESCRIPTIONS: dict[str, str] = {
     "--watch": "Watch input file(s) for changes and regenerate output automatically.",
     "--watch-delay": "Set debounce delay in seconds for watch mode.",
     "--wrap-string-literal": "Wrap long string literals across multiple lines.",
+    "--write-pyproject-config": "Write the recommended or generated table into pyproject.toml (experimental).",
 }

@@ -12,7 +12,7 @@ import re
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import TYPE_CHECKING, Optional, cast
@@ -176,6 +176,35 @@ def _parse_udf_version_from_fragment_checkpoint_key(
 
 def _is_fragment_checkpoint_for_column(key: str, column: str) -> bool:
     return _fragment_checkpoint_identity_for_column(key, column) is not None
+
+
+def keys_have_udf_version_mismatch(
+    keys: Iterable[str], column: str, current_udf_version: str
+) -> bool:
+    """Whether any flat fragment key for ``column`` has a different UDF version."""
+    for key in keys:
+        if not _is_fragment_checkpoint_for_column(key, column):
+            continue
+        stored_version = _parse_udf_version_from_fragment_checkpoint_key(key, column)
+        # An unparseable version counts as a mismatch so the caller reprocesses.
+        if stored_version is None or stored_version != current_udf_version:
+            return True
+    return False
+
+
+def fragments_with_flat_progress(
+    keys: Iterable[str], column: str, udf_version: str
+) -> set[int]:
+    """Fragment ids with flat checkpoints (done or per-batch) for ``column`` at
+    ``udf_version``."""
+    frag_ids: set[int] = set()
+    for key in keys:
+        base = _RANGE_CHECKPOINT_SUFFIX_RE.sub("", key)
+        if _parse_udf_version_from_fragment_checkpoint_key(base, column) == udf_version:
+            frag_id = parse_frag_id_from_checkpoint_key(base)
+            if frag_id is not None:
+                frag_ids.add(frag_id)
+    return frag_ids
 
 
 def _swap_field_blob_marker(
@@ -558,31 +587,18 @@ class CheckpointStore(abc.ABC):
         Returns False when no checkpoints exist for the column or all
         existing ones match the current version.
         """
-        for key in self.list_keys(prefix="udf-"):
-            if not _is_fragment_checkpoint_for_column(key, column):
-                continue
-            stored_version = _parse_udf_version_from_fragment_checkpoint_key(
-                key, column
-            )
-            if stored_version is None:
-                # Fragment key for this column with no parseable ``_ver-``
-                # token; treat as a mismatch so the caller forces a
-                # reprocess.
-                return True
-            if stored_version != current_udf_version:
-                return True
-        return False
+        return keys_have_udf_version_mismatch(
+            self.list_keys(prefix="udf-"), column, current_udf_version
+        )
 
-    def has_srcfiles_hash_mismatch(
-        self, column: str, current_srcfiles_hash: str
-    ) -> bool:
-        """Return True if any existing fragment checkpoint for ``column``
-        encodes a srcfiles hash different from ``current_srcfiles_hash``.
+    def srcfiles_hashes(self, column: str) -> set[str]:
+        """Return the srcfiles hashes encoded in ``column``'s fragment
+        checkpoints.
 
         Used to detect when the UDF's input data has changed since the
         column was last computed (e.g. an input column was re-backfilled
-        via alter_columns). Returns False if no checkpoints exist for the
-        column, or all existing ones match the current hash.
+        via alter_columns): the input changed when hashes exist and none
+        of them, across every store of the table, is the current hash.
 
         Default implementation iterates ``list_keys(prefix="udf-")`` and
         extracts each key's ``_srcfiles-{hash}`` segment. Stores with a
@@ -601,9 +617,7 @@ class CheckpointStore(abc.ABC):
             m = srcfiles_pattern.search(key)
             if m:
                 existing_hashes.add(m.group(1))
-        if not existing_hashes:
-            return False
-        return current_srcfiles_hash not in existing_hashes
+        return existing_hashes
 
     def purge(self, key: str) -> None:
         """Hard-delete a checkpoint, physically reclaiming its storage.
@@ -654,12 +668,12 @@ class CheckpointStore(abc.ABC):
         base_checkpoint_uris: Optional[dict[int, str]] = None,
         frag_to_base: Optional[dict[int, int]] = None,
         base_storage_options: Optional[dict[str, str]] = None,
+        layout: Optional[str] = None,
     ) -> "CheckpointStore":
         """Construct a CheckpointStore from a URI.
 
-        Picks the implementation class from ``CheckpointConfig.store_layout``:
-        ``"flat"`` (default) returns :class:`FlatLanceCheckpointStore`;
-        ``"hierarchical"`` returns :class:`HierarchicalLanceCheckpointStore`.
+        Picks the implementation class from ``CheckpointConfig.store_layout``
+        (``"hierarchical"`` by default, or ``"flat"``) unless ``layout`` pins it.
 
         When ``base_checkpoint_uris`` and ``frag_to_base`` are provided (a
         multi-base dataset), the store is wrapped in a
@@ -674,7 +688,11 @@ class CheckpointStore(abc.ABC):
                     f"pylance {lance.__version__} has issues at scale.  "
                     "Upgrade to 0.35.0b3 or higher to avoid this."
                 )
-            store_cls = _select_store_class()
+            store_cls = (
+                _store_class_for_layout(_normalize_store_layout(layout))
+                if layout is not None
+                else _select_store_class()
+            )
             if issubclass(store_cls, HierarchicalLanceCheckpointStore):
                 store: CheckpointStore = store_cls(
                     uri,
@@ -707,18 +725,30 @@ class CheckpointStore(abc.ABC):
             raise ValueError(f"Invalid checkpoint store uri: {uri}") from e
 
 
-def _select_store_class() -> type["FlatLanceCheckpointStore"]:
-    """Return the configured Lance-backed checkpoint store class."""
-    try:
-        layout = CheckpointConfig.get().store_layout
-    except Exception:
-        # Config unavailable (e.g. partial test setup); fall back to flat.
-        _LOG.warning("checkpoint config unavailable; using flat layout", exc_info=True)
-        return FlatLanceCheckpointStore
+def _store_class_for_layout(layout: str) -> type["FlatLanceCheckpointStore"]:
+    """Map a normalized layout token to its Lance-backed store class."""
     if layout == "hierarchical":
-        _LOG.warning("using experimental hierarchical checkpoint layout")
         return HierarchicalLanceCheckpointStore
     return FlatLanceCheckpointStore
+
+
+def configured_store_layout() -> str:
+    """Return the configured checkpoint layout (``"hierarchical"`` or ``"flat"``)."""
+    # Read the env var first so an explicit override survives a malformed
+    # config elsewhere in the ``checkpoint`` section.
+    env = os.environ.get("CHECKPOINT__STORE_LAYOUT")
+    if env is not None:
+        return _normalize_store_layout(env)
+    try:
+        return CheckpointConfig.get().store_layout
+    except Exception:
+        _LOG.debug("checkpoint config unavailable; using default layout", exc_info=True)
+        return _normalize_store_layout(None)
+
+
+def _select_store_class() -> type["FlatLanceCheckpointStore"]:
+    """Return the configured Lance-backed checkpoint store class."""
+    return _store_class_for_layout(configured_store_layout())
 
 
 class MultiBaseCheckpointStore(CheckpointStore):
@@ -943,12 +973,8 @@ class MultiBaseCheckpointStore(CheckpointStore):
             for store in (self.default_store, *self.base_stores.values())
         )
 
-    # has_srcfiles_hash_mismatch is intentionally NOT delegated per child:
-    # its contract is "current hash not in the UNION of stored hashes", and
-    # per-fragment hashes are spread across stores (any-child delegation
-    # reports a spurious mismatch whenever one store lacks the probed hash,
-    # forcing full recomputes). The inherited default implementation walks
-    # this wrapper's chained list_keys, which preserves union semantics.
+    # srcfiles_hashes is not overridden: the inherited default walks this
+    # wrapper's chained list_keys, which returns the union across stores.
 
 
 def unwrap_default_checkpoint_store(store: "CheckpointStore") -> "CheckpointStore":
@@ -1634,6 +1660,21 @@ def _parse_flat_key(key: str) -> tuple[str, str, int, Optional[int], Optional[in
     return prefix, uri_m.group("uri"), frag, start, end
 
 
+def _is_resolvable_hierarchical_key(key: str) -> bool:
+    """True if the hierarchical store has a path for ``key``.
+
+    Fragment-shaped UDF keys and generic chunker/udtf keys resolve; anything
+    else (e.g. a legacy bare-hash dedupe key) cannot exist in this store.
+    """
+    if _is_generic_checkpoint_key(key):
+        return True
+    try:
+        _parse_flat_key(key)
+    except ValueError:
+        return False
+    return True
+
+
 def _split_hierarchical_identity(prefix: str) -> tuple[str, str, Optional[str]]:
     """Return (bf identity, key reconstruction prefix, srcfiles hash)."""
     m = _FLAT_KEY_IDENTITY_RE.match(prefix)
@@ -1786,6 +1827,23 @@ class HierarchicalLanceCheckpointStore(FlatLanceCheckpointStore):
             return f"{base}/fragments/{shard}/{fragment_identity}.lance"
         return f"{base}/ranges/{shard}/{fragment_identity}/{start}-{end}.lance"
 
+    # Keys with no hierarchical path are absent rather than errors, so the
+    # planner's legacy bare-hash key probe is a clean miss.
+    def __contains__(self, key: str) -> bool:
+        if not _is_resolvable_hierarchical_key(key):
+            return False
+        return super().__contains__(key)
+
+    def __getitem__(self, key: str) -> pa.RecordBatch:
+        if not _is_resolvable_hierarchical_key(key):
+            raise KeyError(key)
+        return super().__getitem__(key)
+
+    def read_range(self, key: str, start: int, num_rows: int) -> pa.RecordBatch:
+        if not _is_resolvable_hierarchical_key(key):
+            raise KeyError(key)
+        return super().read_range(key, start, num_rows)
+
     def _strip_checkpoint_root_prefix(self, session_rel_path: str) -> str:
         rel = session_rel_path
         prefix = f"{self._session_root_subdir()}/"
@@ -1922,9 +1980,7 @@ class HierarchicalLanceCheckpointStore(FlatLanceCheckpointStore):
             if path.endswith(".lance"):
                 yield path.rsplit("/", 1)[-1].removesuffix(".lance")
 
-    def has_srcfiles_hash_mismatch(
-        self, column: str, current_srcfiles_hash: str
-    ) -> bool:
+    def srcfiles_hashes(self, column: str) -> set[str]:
         """Fast path for the hierarchical layout: list only the
         ``bf=H/fragments/`` subtree of each matching backfill and parse
         the srcfiles hash out of the leaf filename, skipping the
@@ -1940,9 +1996,7 @@ class HierarchicalLanceCheckpointStore(FlatLanceCheckpointStore):
                 continue
             for srcfiles in self._iter_fragment_srcfiles(bf_hash):
                 existing_hashes.add(srcfiles)
-        if not existing_hashes:
-            return False
-        return current_srcfiles_hash not in existing_hashes
+        return existing_hashes
 
     def _iter_fragment_srcfiles(self, bf_hash: str) -> Iterator[str]:
         """Yield srcfiles hashes from fragment-level leaves under one bf=
@@ -2085,11 +2139,16 @@ class HierarchicalLanceCheckpointStore(FlatLanceCheckpointStore):
                 # (for example chunker work-item checkpoints) live under _keys/.
                 if rel.startswith(("bf=", f"{self._GENERIC_KEYS_SUBDIR}/")):
                     continue
+                # A flat store sharing this root (blanket GENEVA_CHECKPOINT_SUBDIR)
+                # writes flat-pinned udtf keys at the root; not a layout mix.
+                if _is_generic_checkpoint_key(rel.removesuffix(".lance")):
+                    continue
                 raise CheckpointRootMixedLayoutError(
                     f"checkpoint root {self.root!r} contains a flat-layout "
-                    f"entry {rel!r}; refusing to mix layouts. Point the "
-                    "hierarchical store at a fresh root or remove the "
-                    "existing flat-layout checkpoints."
+                    f"entry {rel!r}; refusing to mix layouts. Set "
+                    "CHECKPOINT__STORE_LAYOUT=flat in the cluster environment "
+                    "to keep using the existing flat-layout checkpoints, or "
+                    "remove them from this root."
                 )
             self._coexistence_checked = True
 
@@ -2265,7 +2324,7 @@ def _normalize_store_layout(value: str | None) -> str:
     Returns one of ``"flat"`` or ``"hierarchical"``.
     """
     if value is None:
-        return "flat"
+        return "hierarchical"
     v = str(value).strip().lower()
     if v in ("flat", "1"):
         return "flat"
@@ -2278,13 +2337,17 @@ def _normalize_store_layout(value: str | None) -> str:
 
 @attrs.define
 class ObjectStoreCheckpointConfig(ConfigBase):
-    path: str
+    # Optional so a ``checkpoint`` section without a path (e.g. only
+    # ``store_layout``) still loads; stores that need a path reject it in make().
+    path: str | None = None
 
     @classmethod
     def name(cls) -> str:
         return "object_store"
 
     def make(self) -> CheckpointStore:
+        if self.path is None:
+            raise ValueError("CheckpointConfig::object_store::path is required")
         return _apply_checkpoint_wrap(FlatLanceCheckpointStore(self.path))
 
 
@@ -2296,11 +2359,11 @@ class CheckpointConfig(ConfigBase):
 
     object_store: ObjectStoreCheckpointConfig | None = attrs.field(default=None)
 
-    # ``"flat"`` (default) selects ``FlatLanceCheckpointStore``;
-    # ``"hierarchical"`` selects ``HierarchicalLanceCheckpointStore``. Set
-    # via env var ``CHECKPOINT__STORE_LAYOUT`` for opt-in adoption per
-    # ``internal_docs/checkpoint-layout-v2.md``.
-    store_layout: str = attrs.field(default="flat", converter=_normalize_store_layout)
+    # ``"hierarchical"`` (default) or ``"flat"``, overridable via
+    # ``CHECKPOINT__STORE_LAYOUT``. UDTF refresh always uses flat.
+    store_layout: str = attrs.field(
+        default="hierarchical", converter=_normalize_store_layout
+    )
 
     # Per-layout default subdir for the per-table checkpoint root, exposed
     # through geneva's standard ``ConfigBase`` env-var pattern
@@ -2341,8 +2404,8 @@ class CheckpointConfig(ConfigBase):
                 _LOG.info("Create checkpoint store on %s", temp_dir)
                 store: CheckpointStore = self._lance_store_cls()(temp_dir)
             case CheckpointMode.OBJECT_STORE:
-                if self.object_store is None:
-                    raise ValueError("CheckpointConfig::object_store is required")
+                if self.object_store is None or self.object_store.path is None:
+                    raise ValueError("CheckpointConfig::object_store::path is required")
                 store = self._lance_store_cls()(self.object_store.path)
             case CheckpointMode.IN_MEMORY:
                 store = InMemoryCheckpointStore()

@@ -16,7 +16,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 @cli.group()
 @click.pass_context
-def materialization(ctx):
+def materialization(ctx: click.Context) -> None:
     """Materialization commands."""
 
 

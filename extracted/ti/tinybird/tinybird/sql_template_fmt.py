@@ -93,7 +93,8 @@ def _format_jinja_node(self: JinjaFormatter, node: Node, max_length: int) -> boo
                     line_length=mode.line_length if mode is not None else max_length,
                     string_normalization=False,
                 )
-                return old_format_str(string, mode=black_mode)
+                formatted: str = old_format_str(string, mode=black_mode)
+                return formatted
 
             black.format_str = format_str  # type: ignore[attr-defined]
             black._tinybird_preserve_string_normalization = True  # type: ignore[attr-defined]
@@ -473,7 +474,7 @@ class TBMode(Mode):
         self.dialect = TinybirdDialect(self.lower_keywords)
 
 
-def _calc_str(self) -> str:
+def _calc_str(self: Comment) -> str:
     if self.is_multiline:
         return self.token.token + "\n"
     marker, comment_text = self._comment_parts()

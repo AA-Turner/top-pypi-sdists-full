@@ -234,6 +234,8 @@ _HOMES = {
     "SavedLog": "probe.sdk.client.resources.runs.logs",
     # probe.sdk.client.resources.runs.home: `project=probe.FROM_ENV` (R22, D26)
     "FROM_ENV": "probe.sdk.client.resources.runs.home",
+    # probe.sdk.client.resources.charts: a script's `key_metrics=` parsed once, before any request (T32)
+    "to_key_metrics": "probe.sdk.client.resources.charts",
     "ProjectFromEnv": "probe.sdk.client.resources.runs.home",
     # probe.sdk.delivery.notices
     "_telemetry": "probe.sdk.delivery.notices",

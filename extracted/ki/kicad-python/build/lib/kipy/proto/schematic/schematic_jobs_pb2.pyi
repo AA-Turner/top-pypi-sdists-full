@@ -59,6 +59,29 @@ SJPS_A: SchematicJobPageSize.ValueType
 'Force ANSI A page size'
 global___SchematicJobPageSize = SchematicJobPageSize
 
+class _SchematicJobSheetMode:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _SchematicJobSheetModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_SchematicJobSheetMode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    SJSM_UNKNOWN: _SchematicJobSheetMode.ValueType
+    SJSM_ALL_SHEETS: _SchematicJobSheetMode.ValueType
+    'Export all sheets; the job settings output path is treated as a directory'
+    SJSM_SINGLE_SHEET: _SchematicJobSheetMode.ValueType
+    'Export a single sheet; the job settings output path is treated as a file name'
+
+class SchematicJobSheetMode(_SchematicJobSheetMode, metaclass=_SchematicJobSheetModeEnumTypeWrapper):
+    """Controls whether a schematic plot job exports all sheets to an output directory or a
+    single sheet to an output file
+    """
+SJSM_UNKNOWN: SchematicJobSheetMode.ValueType
+SJSM_ALL_SHEETS: SchematicJobSheetMode.ValueType
+'Export all sheets; the job settings output path is treated as a directory'
+SJSM_SINGLE_SHEET: SchematicJobSheetMode.ValueType
+'Export a single sheet; the job settings output path is treated as a file name'
+global___SchematicJobSheetMode = SchematicJobSheetMode
+
 class _SchematicNetlistFormat:
     ValueType = typing.NewType('ValueType', builtins.int)
     V: typing_extensions.TypeAlias = ValueType
@@ -105,6 +128,23 @@ BSD_ASCENDING: BOMSortDirection.ValueType
 BSD_DESCENDING: BOMSortDirection.ValueType
 global___BOMSortDirection = BOMSortDirection
 
+class _BOMFilterScope:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _BOMFilterScopeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BOMFilterScope.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    BFS_REFERENCE: _BOMFilterScope.ValueType
+    BFS_VISIBLE: _BOMFilterScope.ValueType
+    BFS_ALL: _BOMFilterScope.ValueType
+
+class BOMFilterScope(_BOMFilterScope, metaclass=_BOMFilterScopeEnumTypeWrapper):
+    ...
+BFS_REFERENCE: BOMFilterScope.ValueType
+BFS_VISIBLE: BOMFilterScope.ValueType
+BFS_ALL: BOMFilterScope.ValueType
+global___BOMFilterScope = BOMFilterScope
+
 @typing.final
 class SchematicPlotSettings(google.protobuf.message.Message):
     """Shared plot options for schematic plot exports"""
@@ -121,6 +161,7 @@ class SchematicPlotSettings(google.protobuf.message.Message):
     USE_BACKGROUND_COLOR_FIELD_NUMBER: builtins.int
     MIN_PEN_WIDTH_FIELD_NUMBER: builtins.int
     THEME_FIELD_NUMBER: builtins.int
+    SHEET_MODE_FIELD_NUMBER: builtins.int
     drawing_sheet: builtins.str
     default_font: builtins.str
     variant: builtins.str
@@ -132,15 +173,16 @@ class SchematicPlotSettings(google.protobuf.message.Message):
     use_background_color: builtins.bool
     min_pen_width: builtins.int
     theme: builtins.str
+    sheet_mode: global___SchematicJobSheetMode.ValueType
 
     @property
     def plot_pages(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         ...
 
-    def __init__(self, *, drawing_sheet: builtins.str=..., default_font: builtins.str=..., variant: builtins.str=..., plot_all: builtins.bool=..., plot_drawing_sheet: builtins.bool=..., plot_pages: collections.abc.Iterable[builtins.str] | None=..., show_hop_over: builtins.bool=..., black_and_white: builtins.bool=..., page_size: global___SchematicJobPageSize.ValueType=..., use_background_color: builtins.bool=..., min_pen_width: builtins.int=..., theme: builtins.str=...) -> None:
+    def __init__(self, *, drawing_sheet: builtins.str=..., default_font: builtins.str=..., variant: builtins.str=..., plot_all: builtins.bool=..., plot_drawing_sheet: builtins.bool=..., plot_pages: collections.abc.Iterable[builtins.str] | None=..., show_hop_over: builtins.bool=..., black_and_white: builtins.bool=..., page_size: global___SchematicJobPageSize.ValueType=..., use_background_color: builtins.bool=..., min_pen_width: builtins.int=..., theme: builtins.str=..., sheet_mode: global___SchematicJobSheetMode.ValueType=...) -> None:
         ...
 
-    def ClearField(self, field_name: typing.Literal['black_and_white', b'black_and_white', 'default_font', b'default_font', 'drawing_sheet', b'drawing_sheet', 'min_pen_width', b'min_pen_width', 'page_size', b'page_size', 'plot_all', b'plot_all', 'plot_drawing_sheet', b'plot_drawing_sheet', 'plot_pages', b'plot_pages', 'show_hop_over', b'show_hop_over', 'theme', b'theme', 'use_background_color', b'use_background_color', 'variant', b'variant']) -> None:
+    def ClearField(self, field_name: typing.Literal['black_and_white', b'black_and_white', 'default_font', b'default_font', 'drawing_sheet', b'drawing_sheet', 'min_pen_width', b'min_pen_width', 'page_size', b'page_size', 'plot_all', b'plot_all', 'plot_drawing_sheet', b'plot_drawing_sheet', 'plot_pages', b'plot_pages', 'sheet_mode', b'sheet_mode', 'show_hop_over', b'show_hop_over', 'theme', b'theme', 'use_background_color', b'use_background_color', 'variant', b'variant']) -> None:
         ...
 global___SchematicPlotSettings = SchematicPlotSettings
 
@@ -251,6 +293,48 @@ class RunSchematicJobExportPs(google.protobuf.message.Message):
 global___RunSchematicJobExportPs = RunSchematicJobExportPs
 
 @typing.final
+class RunSchematicJobExportPng(google.protobuf.message.Message):
+    """Plots a schematic to PNG. Returns RunJobResponse."""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    JOB_SETTINGS_FIELD_NUMBER: builtins.int
+    PLOT_SETTINGS_FIELD_NUMBER: builtins.int
+    DPI_FIELD_NUMBER: builtins.int
+    ANTIALIASING_FIELD_NUMBER: builtins.int
+    PLOT_BACKGROUND_COLOR_FIELD_NUMBER: builtins.int
+    dpi: builtins.int
+    'Range 72-2400.  If unspecified, will use the GUI default resolution (300 DPI).'
+    antialiasing: common.types.jobs_pb2.AntialiasingMode.ValueType
+    'If unspecified, anti-aliasing will follow the GUI default (enabled).'
+    plot_background_color: builtins.bool
+    'If true, will plot using the background color from the theme specified in\n    plot_settings.  If false or absent, will plot with a transparent background.\n    '
+
+    @property
+    def job_settings(self) -> common.types.jobs_pb2.RunJobSettings:
+        ...
+
+    @property
+    def plot_settings(self) -> global___SchematicPlotSettings:
+        ...
+
+    def __init__(self, *, job_settings: common.types.jobs_pb2.RunJobSettings | None=..., plot_settings: global___SchematicPlotSettings | None=..., dpi: builtins.int | None=..., antialiasing: common.types.jobs_pb2.AntialiasingMode.ValueType=..., plot_background_color: builtins.bool | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['_dpi', b'_dpi', '_plot_background_color', b'_plot_background_color', 'dpi', b'dpi', 'job_settings', b'job_settings', 'plot_background_color', b'plot_background_color', 'plot_settings', b'plot_settings']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['_dpi', b'_dpi', '_plot_background_color', b'_plot_background_color', 'antialiasing', b'antialiasing', 'dpi', b'dpi', 'job_settings', b'job_settings', 'plot_background_color', b'plot_background_color', 'plot_settings', b'plot_settings']) -> None:
+        ...
+
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal['_dpi', b'_dpi']) -> typing.Literal['dpi'] | None:
+        ...
+
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal['_plot_background_color', b'_plot_background_color']) -> typing.Literal['plot_background_color'] | None:
+        ...
+global___RunSchematicJobExportPng = RunSchematicJobExportPng
+
+@typing.final
 class RunSchematicJobExportNetlist(google.protobuf.message.Message):
     """Exports a schematic netlist. Returns RunJobResponse."""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -338,21 +422,24 @@ class BOMFieldSettings(google.protobuf.message.Message):
     SORT_FIELD_FIELD_NUMBER: builtins.int
     SORT_DIRECTION_FIELD_NUMBER: builtins.int
     FILTER_FIELD_NUMBER: builtins.int
+    FILTER_SCOPE_FIELD_NUMBER: builtins.int
     preset_name: builtins.str
     "If supplied, will apply a default or user-stored preset to the other field settings.\n    Default values available include 'Default Editing', 'Grouped By Value',\n    'Grouped By Value and Footprint', and 'Attributes'.\n    "
     sort_field: builtins.str
     sort_direction: global___BOMSortDirection.ValueType
     'Sort direction; defaults to ascending if unspecified'
     filter: builtins.str
+    filter_scope: global___BOMFilterScope.ValueType
+    'Fields searched by the filter; defaults to reference designators if unspecified'
 
     @property
     def fields(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___BOMField]:
         """An ordered list of fields to export"""
 
-    def __init__(self, *, preset_name: builtins.str=..., fields: collections.abc.Iterable[global___BOMField] | None=..., sort_field: builtins.str=..., sort_direction: global___BOMSortDirection.ValueType=..., filter: builtins.str=...) -> None:
+    def __init__(self, *, preset_name: builtins.str=..., fields: collections.abc.Iterable[global___BOMField] | None=..., sort_field: builtins.str=..., sort_direction: global___BOMSortDirection.ValueType=..., filter: builtins.str=..., filter_scope: global___BOMFilterScope.ValueType=...) -> None:
         ...
 
-    def ClearField(self, field_name: typing.Literal['fields', b'fields', 'filter', b'filter', 'preset_name', b'preset_name', 'sort_direction', b'sort_direction', 'sort_field', b'sort_field']) -> None:
+    def ClearField(self, field_name: typing.Literal['fields', b'fields', 'filter', b'filter', 'filter_scope', b'filter_scope', 'preset_name', b'preset_name', 'sort_direction', b'sort_direction', 'sort_field', b'sort_field']) -> None:
         ...
 global___BOMFieldSettings = BOMFieldSettings
 

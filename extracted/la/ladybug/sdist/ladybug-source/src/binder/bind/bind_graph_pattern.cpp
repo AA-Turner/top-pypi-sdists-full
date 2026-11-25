@@ -15,6 +15,7 @@
 #include "common/exception/binder.h"
 #include "common/exception/exception.h"
 #include "common/partition_routing_hook.h"
+#include "common/string_utils.h"
 #include "common/types/types.h"
 #include "common/utils.h"
 #include "function/cast/functions/cast_from_string_functions.h"
@@ -57,10 +58,12 @@ static bool isLbugDatabase(main::DatabaseManager* dbManager, const std::string& 
 //    - In UPDATE clause, there are properties to set.
 // We do not store key-value pairs in query graph primarily because we will merge key-value
 // std::pairs with other predicates specified in WHERE clause.
-BoundGraphPattern Binder::bindGraphPattern(const std::vector<PatternElement>& graphPattern) {
+BoundGraphPattern Binder::bindGraphPattern(const std::vector<PatternElement>& graphPattern,
+    bool isOptionalMatch) {
     auto queryGraphCollection = QueryGraphCollection();
     for (auto& patternElement : graphPattern) {
-        queryGraphCollection.addAndMergeQueryGraphIfConnected(bindPatternElement(patternElement));
+        queryGraphCollection.addAndMergeQueryGraphIfConnected(
+            bindPatternElement(patternElement, isOptionalMatch));
     }
     queryGraphCollection.finalize();
     auto boundPattern = BoundGraphPattern();
@@ -69,7 +72,7 @@ BoundGraphPattern Binder::bindGraphPattern(const std::vector<PatternElement>& gr
 }
 
 // Grammar ensures pattern element is always connected and thus can be bound as a query graph.
-QueryGraph Binder::bindPatternElement(const PatternElement& patternElement) {
+QueryGraph Binder::bindPatternElement(const PatternElement& patternElement, bool isOptionalMatch) {
     auto queryGraph = QueryGraph();
     expression_vector nodeAndRels;
     auto leftNode = bindQueryNode(*patternElement.getFirstNodePattern(), queryGraph);
@@ -86,6 +89,9 @@ QueryGraph Binder::bindPatternElement(const PatternElement& patternElement) {
     if (patternElement.hasPathName()) {
         auto pathName = patternElement.getPathName();
         auto pathExpression = createPath(pathName, nodeAndRels);
+        if (isOptionalMatch) {
+            pathExpression->setOptional();
+        }
         // Every other scoped variable carries its name as alias (needed by
         // WITH * star expansion, which rejects empty aliases); do the same
         // for path variables so `MATCH p = ... WITH *` can bind.
@@ -115,7 +121,7 @@ static void extraFieldFromStructType(const LogicalType& structType,
     }
 }
 
-std::shared_ptr<Expression> Binder::createPath(const std::string& pathName,
+std::shared_ptr<PathExpression> Binder::createPath(const std::string& pathName,
     const expression_vector& children) {
     std::unordered_set<std::string> nodeFieldNameSet;
     std::vector<StructField> nodeFields;
@@ -175,7 +181,8 @@ static std::shared_ptr<PropertyExpression> createPropertyExpression(const std::s
         auto isPrimaryKey = false;
         if (entry->getTableType() == TableType::NODE) {
             auto nodeEntry = entry->constPtrCast<NodeTableCatalogEntry>();
-            isPrimaryKey = nodeEntry->getPrimaryKeyName() == propertyName;
+            isPrimaryKey =
+                StringUtils::caseInsensitiveEquals(nodeEntry->getPrimaryKeyName(), propertyName);
         }
         auto info = SingleLabelPropertyInfo(exists, isPrimaryKey);
         infos.insert({entry->getTableID(), std::move(info)});
@@ -618,6 +625,7 @@ std::shared_ptr<RelExpression> Binder::createRecursiveQueryRel(const parser::Rel
     recursiveInfo->function = QueryRelTypeUtils::getFunction(queryRel->getRelType());
     recursiveInfo->bindData = std::move(bindData);
     queryRel->setRecursiveInfo(std::move(recursiveInfo));
+    scope.addRecursiveRel(queryRel->getUniqueName());
     return queryRel;
 }
 
@@ -867,14 +875,19 @@ static table_catalog_entry_set_t expandPartitionedNodeTables(catalog::Catalog* c
     main::ClientContext* clientContext) {
     table_catalog_entry_set_t expanded;
     bool anyClaimed = false;
+    bool anyUnclaimed = false;
     std::string claimedParentName;
     for (auto entry : entrySet) {
         if (entry->getType() != CatalogEntryType::NODE_TABLE_ENTRY) {
+            anyUnclaimed = true;
             expanded.insert(entry);
             continue;
         }
         auto* nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
-        if (!nodeEntry->isPartitioned()) {
+        // Keep the schema available to MATCH and the first CREATE/MERGE before a day
+        // partition exists. The scan planner omits storage-less parents.
+        if (!nodeEntry->isPartitioned() || nodeEntry->getChildTableIDs().empty()) {
+            anyUnclaimed = true;
             expanded.insert(entry);
             continue;
         }
@@ -886,6 +899,7 @@ static table_catalog_entry_set_t expandPartitionedNodeTables(catalog::Catalog* c
             common::PartitionHandle handle = nullptr;
             if (hooks == nullptr || hooks->locate == nullptr ||
                 !hooks->locate(hooks->context, ref, &handle)) {
+                anyUnclaimed = true;
                 expanded.insert(child);
                 continue;
             }
@@ -928,7 +942,9 @@ static table_catalog_entry_set_t expandPartitionedNodeTables(catalog::Catalog* c
                 retainPartitionedScanEntry(std::move(patched), clientContext, spec.scanFunction));
         }
     }
-    if (anyClaimed && expanded.size() > 1) {
+    // The entry set deduplicates by table ID. A wrapper substitute can have the
+    // same ID as a local child, so test ownership independently of the set size.
+    if (anyClaimed && (anyUnclaimed || expanded.size() > 1)) {
         throw BinderException(std::format(
             "Table {}: scanning a mix of locally stored and remotely routed partitions is not "
             "supported. A routing wrapper must claim either all or none of a scanned parent's "

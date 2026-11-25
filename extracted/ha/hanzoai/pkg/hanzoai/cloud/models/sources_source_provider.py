@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -30,8 +30,9 @@ class SourcesSourceProvider(BaseModel):
     kind: Optional[StrictStr] = Field(default=None, description="Kind is `login` (a subscription session that stays on the source) or `key`.")
     plan: Optional[StrictStr] = Field(default=None, description="Plan is the plan label the provider reports, for example `max`. May be empty.")
     provider: Optional[StrictStr] = Field(default=None, description="Provider is the provider's catalog name, for example `claude`.")
+    shared: Optional[StrictBool] = Field(default=None, description="Shared is the person's local choice to offer this login to their other surfaces (default off). It is reported, never decided here.")
     state: Optional[StrictStr] = Field(default=None, description="State is `ready`, `needs_login` or `limited`.")
-    __properties: ClassVar[List[str]] = ["instance", "kind", "plan", "provider", "state"]
+    __properties: ClassVar[List[str]] = ["instance", "kind", "plan", "provider", "shared", "state"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -88,6 +89,7 @@ class SourcesSourceProvider(BaseModel):
             "kind": obj.get("kind"),
             "plan": obj.get("plan"),
             "provider": obj.get("provider"),
+            "shared": obj.get("shared"),
             "state": obj.get("state")
         })
         return _obj

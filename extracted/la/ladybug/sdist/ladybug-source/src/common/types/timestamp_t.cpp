@@ -4,7 +4,10 @@
 #include <string>
 
 #include "common/exception/conversion.h"
+#include "common/exception/overflow.h"
+#include "function/arithmetic/add.h"
 #include "function/arithmetic/multiply.h"
+#include "function/arithmetic/subtract.h"
 #include <format>
 
 namespace lbug {
@@ -83,28 +86,58 @@ timestamp_t timestamp_t::operator+(const interval_t& interval) const {
     time.micros += diff;
     if (time.micros >= Interval::MICROS_PER_DAY) {
         time.micros -= Interval::MICROS_PER_DAY;
-        date.days++;
+        int32_t lDays = date.days, one = 1;
+        try {
+            function::Add::operation(lDays, one, date.days);
+        } catch (const OverflowException& e) {
+            throw OverflowException{"Timestamp value is out of range"};
+        }
     } else if (time.micros < 0) {
         time.micros += Interval::MICROS_PER_DAY;
-        date.days--;
+        int32_t lDays = date.days, one = 1;
+        try {
+            function::Subtract::operation(lDays, one, date.days);
+        } catch (const OverflowException& e) {
+            throw OverflowException{"Timestamp value is out of range"};
+        }
     }
     return Timestamp::fromDateTime(date, time);
 }
 
 timestamp_t timestamp_t::operator-(const interval_t& interval) const {
     interval_t inverseRight{};
-    inverseRight.months = -interval.months;
-    inverseRight.days = -interval.days;
-    inverseRight.micros = -interval.micros;
+    int32_t zero32 = 0;
+    int64_t zero64 = 0;
+    int32_t negMonths = interval.months, negDays = interval.days;
+    int64_t negMicros = interval.micros;
+    try {
+        function::Subtract::operation(zero32, negMonths, inverseRight.months);
+        function::Subtract::operation(zero32, negDays, inverseRight.days);
+        function::Subtract::operation(zero64, negMicros, inverseRight.micros);
+    } catch (const OverflowException& e) {
+        throw OverflowException{"Interval value is out of range"};
+    }
     return (*this) + inverseRight;
 }
 
 interval_t timestamp_t::operator-(const timestamp_t& rhs) const {
     interval_t result{};
-    uint64_t diff = std::abs(value - rhs.value);
+    // Compute the magnitude without signed overflow and without abs(INT64_MIN)
+    // UB. Note the casts happen *before* the subtraction: casting the result
+    // of a signed subtraction (as in (uint64_t)(value - rhs.value)) would still
+    // trigger signed overflow UB when the operands have opposite signs.
+    // Unsigned subtraction wraps modulo 2^64, yielding the correct magnitude
+    // since |value - rhs| <= UINT64_MAX.
+    uint64_t diff = value >= rhs.value ?
+                        static_cast<uint64_t>(value) - static_cast<uint64_t>(rhs.value) :
+                        static_cast<uint64_t>(rhs.value) - static_cast<uint64_t>(value);
+    uint64_t days = diff / Interval::MICROS_PER_DAY;
+    uint64_t micros = diff % Interval::MICROS_PER_DAY;
+    // days <= UINT64_MAX / MICROS_PER_DAY < INT32_MAX and micros < MICROS_PER_DAY,
+    // so the narrowing and the negation below cannot overflow.
     result.months = 0;
-    result.days = diff / Interval::MICROS_PER_DAY;
-    result.micros = diff % Interval::MICROS_PER_DAY;
+    result.days = (int32_t)days;
+    result.micros = (int64_t)micros;
     if (value < rhs.value) {
         result.days = -result.days;
         result.micros = -result.micros;
@@ -314,10 +347,26 @@ dtime_t Timestamp::getTime(timestamp_t timestamp) {
 
 timestamp_t Timestamp::fromDateTime(date_t date, dtime_t time) {
     timestamp_t result;
+    // date_t holds a wider int32 range than [Date::MIN_YEAR, Date::MAX_YEAR];
+    // Date::convert DASSERTs (aborting Debug builds) on out-of-range inputs,
+    // so reject them here with an OverflowException instead.
+    {
+        static const int32_t minDays = Date::fromDate(Date::MIN_YEAR, 1, 1).days;
+        static const int32_t maxDays = Date::fromDate(Date::MAX_YEAR, 12, 31).days;
+        if (date.days < minDays || date.days > maxDays) {
+            throw OverflowException{"Timestamp value is out of range"};
+        }
+    }
     int32_t year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0, microsecond = -1;
     Date::convert(date, year, month, day);
     Time::convert(time, hour, minute, second, microsecond);
-    result.value = date.days * Interval::MICROS_PER_DAY + time.micros;
+    try {
+        int64_t dayMicros = 0;
+        function::Multiply::operation((int64_t)date.days, Interval::MICROS_PER_DAY, dayMicros);
+        function::Add::operation(dayMicros, time.micros, result.value);
+    } catch (const OverflowException& e) {
+        throw OverflowException{"Timestamp value is out of range"};
+    }
     return result;
 }
 

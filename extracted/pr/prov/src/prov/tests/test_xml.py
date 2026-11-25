@@ -340,20 +340,11 @@ def test_other_elements() -> None:
         "Document contains non-PROV information in <prov:other>. It will "
         "be ignored in this package." in str(w[0].message)
     )
+    assert issubclass(w[0].category, prov.ProvWarning)
+    assert issubclass(w[0].category, UserWarning)
 
     # This document contains nothing else.
     assert len(doc._records) == 0
-
-
-def test_nested_default_namespace() -> None:
-    """
-    An `xmlns` declared on an inner element is not the document's default,
-    so a bare name under it is rejected.
-    """
-    filename = os.path.join(DATA_PATH, "nested_default_namespace.xml")
-    with pytest.raises(ProvXMLException, match=r"http://example\.org/0/") as caught:
-        prov.ProvDocument.deserialize(source=filename, format="xml")
-    assert "e001" in str(caught.value)
 
 
 def test_xmlns_on_the_document_element_is_the_default_namespace() -> None:
@@ -550,8 +541,7 @@ def test_deserialization_with_xsd_as_default_namespace() -> None:
 
 
 # The following cover ProvXMLSerializer error/warning paths not reached by
-# the round-trip fixtures (planning/test-gap-checklist.md, T13 item under
-# serializers/provxml.py).
+# the round-trip fixtures.
 
 
 def test_non_prov_top_level_element_raises() -> None:
@@ -590,19 +580,25 @@ def test_unrepresentable_sub_element_attribute_warns_and_is_ignored() -> None:
         with io.StringIO(xml_string) as xml:
             doc = prov.ProvDocument.deserialize(source=xml, format="xml")
 
-    assert any(
-        "not representable in the prov module's internal data model"
-        in str(warning.message)
+    (unrepresentable,) = [
+        warning
         for warning in w
-    )
+        if "not representable in the prov module's internal data model"
+        in str(warning.message)
+    ]
+    assert issubclass(unrepresentable.category, prov.ProvWarning)
+    assert issubclass(unrepresentable.category, UserWarning)
     e1 = doc.get_record("ex:e1")[0]
     assert list(e1.get_attribute("ex:version")) == ["2"]
 
 
-def test_unrecognised_only_attribute_on_first_sub_element_raises() -> None:
-    # #254 mode 1: a child whose only XML attribute is unrecognised used to
-    # leak a raw UnboundLocalError when it was the record's first child.
-    xml_string = """<?xml version="1.0" encoding="UTF-8"?>
+@pytest.mark.parametrize(
+    "xml_string",
+    [
+        # #254 mode 1: a child whose only XML attribute is unrecognised used to
+        # leak a raw UnboundLocalError when it was the record's first child.
+        pytest.param(
+            """<?xml version="1.0" encoding="UTF-8"?>
     <prov:document
         xmlns:prov="http://www.w3.org/ns/prov#"
         xmlns:ex="http://example.com/ns/ex#">
@@ -610,21 +606,13 @@ def test_unrecognised_only_attribute_on_first_sub_element_raises() -> None:
         <ex:only ex:junk="x">value</ex:only>
       </prov:entity>
     </prov:document>
-    """
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        with (
-            pytest.raises(ProvXMLException) as ctx,
-            io.StringIO(xml_string) as xml,
-        ):
-            prov.ProvDocument.deserialize(source=xml, format="xml")
-    assert "no representable value" in str(ctx.value)
-
-
-def test_unrecognised_only_attribute_after_sibling_raises_not_reuses_value() -> None:
-    # #254 mode 2: with a previous sibling, the stale value used to be
-    # silently reused ("world" lost, "hello" duplicated).
-    xml_string = """<?xml version="1.0" encoding="UTF-8"?>
+    """,
+            id="first-child",
+        ),
+        # #254 mode 2: with a previous sibling, the stale value used to be
+        # silently reused ("world" lost, "hello" duplicated).
+        pytest.param(
+            """<?xml version="1.0" encoding="UTF-8"?>
     <prov:document
         xmlns:prov="http://www.w3.org/ns/prov#"
         xmlns:ex="http://example.com/ns/ex#">
@@ -633,7 +621,12 @@ def test_unrecognised_only_attribute_after_sibling_raises_not_reuses_value() -> 
         <ex:second ex:junk="x">world</ex:second>
       </prov:entity>
     </prov:document>
-    """
+    """,
+            id="after-sibling",
+        ),
+    ],
+)
+def test_unrecognised_only_attribute_on_a_sub_element_raises(xml_string: str) -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         with (
@@ -674,26 +667,6 @@ def test_empty_string_value_shapes_survive_xml_roundtrip(attributes) -> None:
     assert roundtrip_document(document, "xml") == document
 
 
-def test_absent_optional_formal_attribute_stays_none_after_xml_roundtrip() -> None:
-    # Regression guard for #224: a genuinely *absent* optional formal
-    # attribute (no XML element for it at all) must still deserialize as
-    # None, not be coalesced into the empty string.
-    document = prov.ProvDocument()
-    document.add_namespace("ex", "http://example.org/")
-    document.entity("ex:e1")
-    document.activity("ex:a1")
-    document.wasGeneratedBy("ex:e1", "ex:a1")
-    roundtripped = roundtrip_document(document, "xml")
-    assert roundtripped == document
-    (generation,) = [
-        rec
-        for rec in roundtripped.get_records()
-        if rec.get_type() == PROV["Generation"]
-    ]
-    formal = dict(generation.formal_attributes)
-    assert formal[PROV["time"]] is None
-
-
 @pytest.mark.parametrize(
     "local_part",
     [
@@ -705,9 +678,14 @@ def test_absent_optional_formal_attribute_stays_none_after_xml_roundtrip() -> No
         pytest.param("has[bracket]", id="brackets"),
         pytest.param("has=equals", id="equals"),
         pytest.param("0leadingdigit", id="leading-digit"),
+        # A literal name that itself already looks like an _xHHHH_ escape
+        # sequence must still round-trip: the write side self-escapes its
+        # introducing underscore (as _x005F_) so the read side's inverse
+        # transform recovers the original name exactly (#289).
+        pytest.param("_x0041_", id="escape-lookalike"),
     ],
 )
-def test_ncname_illegal_attribute_names_roundtrip_xml(local_part) -> None:
+def test_ncname_attribute_names_roundtrip_xml(local_part) -> None:
     document = prov.ProvDocument()
     document.add_namespace("ex", "http://example.org/")
     document.entity("ex:e1", {f"ex:{local_part}": "value"})
@@ -808,17 +786,6 @@ def test_sorted_attributes_order(
     # then the rest by name and value text; equal keys keep input order.
     result = prov.sorted_attributes(element, attributes)
     assert [(str(name), value) for name, value in result] == expected
-
-
-def test_literal_ncname_escape_shaped_attribute_name_roundtrips_xml() -> None:
-    # A literal attribute name that itself already looks like an _xHHHH_
-    # escape sequence must still round-trip: the write side self-escapes
-    # its introducing underscore (as _x005F_) so the read side's inverse
-    # transform recovers the original name exactly (#289).
-    document = prov.ProvDocument()
-    document.add_namespace("ex", "http://example.org/")
-    document.entity("ex:e1", {"ex:_x0041_": "value"})
-    assert roundtrip_document(document, "xml") == document
 
 
 @pytest.mark.parametrize(

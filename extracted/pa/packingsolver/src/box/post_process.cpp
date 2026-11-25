@@ -14,7 +14,7 @@ GroupIdenticalBinsOutput packingsolver::box::group_identical_bins(
     return output;
 }
 
-Solution packingsolver::box::reoptimize_bin(
+Solution packingsolver::box::reoptimize_bin_leftovers(
         const Solution& solution,
         BinPos bin_pos,
         const OptimizeParameters& parameters)
@@ -28,6 +28,10 @@ Solution packingsolver::box::reoptimize_bin(
 
     // Add bin types.
     const SolutionBin& bin = solution.bin(bin_pos);
+    // An empty bin has nothing to re-optimize: its sub-instance would have no
+    // items, and its solution no bin.
+    if (bin.items.empty())
+        return solution;
     BinTypeId bin_type_id = bin_instance_builder.add_bin_type_from_original_instance(bin.bin_type_id);
     bin_instance_builder.set_bin_type_copies(bin_type_id, 1);
     bin_instance_builder.set_bin_type_copies_min(bin_type_id, 0);
@@ -51,13 +55,48 @@ Solution packingsolver::box::reoptimize_bin(
     // Build instance.
     Instance bin_instance = bin_instance_builder.build();
 
+    // Retrieve a solution: the bins of 'solution', the bin at 'bin_pos' being
+    // replaced by a solution of the sub-instance.
+    auto retrieve_solution = [&instance, &solution, &bin, bin_pos, &bin_to_orig](
+            const Solution& bin_solution)
+    {
+        Solution new_solution(instance);
+        for (BinPos pos = 0;
+                pos < solution.number_of_different_bins();
+                ++pos) {
+            if (pos == bin_pos) {
+                new_solution.append_bin(
+                        bin_solution,
+                        0,
+                        bin.copies,
+                        {bin.bin_type_id},
+                        bin_to_orig);
+            } else {
+                new_solution.append_bin(solution, pos, solution.bin(pos).copies);
+            }
+        }
+        return new_solution;
+    };
+
     // Solve instance.
     OptimizeParameters bin_parameters = parameters;
     bin_parameters.messages_to_stdout = false;
     bin_parameters.messages_path = "";
     bin_parameters.messages_streams.clear();
     bin_parameters.write_json_output = false;
-    bin_parameters.new_solution_callback = [](const packingsolver::box::Output&) { };
+    // The solutions found during the re-optimization, reported as solutions
+    // of the instance.
+    bin_parameters.new_solution_callback = [&parameters, &instance, &retrieve_solution](
+            const packingsolver::box::Output& bin_output)
+    {
+        const Solution& bin_solution = bin_output.solution_pool.best();
+        if (!bin_solution.feasible() || !bin_solution.full())
+            return;
+        packingsolver::box::Output output(instance);
+        output.solution_pool.add(retrieve_solution(bin_solution));
+        output.time = bin_output.time;
+        parameters.new_solution_callback(output);
+    };
     bin_parameters.verbosity_level = 0;
     // The sub-instance has a single bin: its post-process would re-optimize
     // this same bin again.
@@ -67,44 +106,63 @@ Solution packingsolver::box::reoptimize_bin(
     if (!bin_solution.feasible() || !bin_solution.full())
         return solution;
 
-    // Retrieve solution: the bins of 'solution', the bin at 'bin_pos' being
-    // replaced by the re-optimized one.
-    Solution new_solution(instance);
-    for (BinPos pos = 0;
-            pos < solution.number_of_different_bins();
-            ++pos) {
-        if (pos == bin_pos) {
-            new_solution.append_bin(
-                    bin_solution,
-                    0,
-                    bin.copies,
-                    {bin.bin_type_id},
-                    bin_to_orig);
-        } else {
-            new_solution.append_bin(solution, pos, solution.bin(pos).copies);
+    return retrieve_solution(bin_solution);
+}
+
+namespace
+{
+
+/**
+ * Re-optimize each of the first 'number_of_bins' bins of a solution, and keep
+ * a re-optimized bin if its leftovers are better.
+ */
+Solution reoptimize_bins_leftovers(
+        const Solution& solution,
+        BinPos number_of_bins,
+        const OptimizeParameters& parameters)
+{
+    // The solutions found while re-optimizing a bin are not reported: they
+    // may be worse than the solution with the bins re-optimized before.
+    OptimizeParameters bin_parameters = parameters;
+    bin_parameters.new_solution_callback = [](const packingsolver::box::Output&) { };
+    Solution new_solution = solution;
+    for (BinPos bin_pos = 0;
+            bin_pos < number_of_bins;
+            ++bin_pos) {
+        if (parameters.timer.needs_to_end())
+            break;
+        Solution bin_solution = box::reoptimize_bin_leftovers(
+                new_solution,
+                bin_pos,
+                bin_parameters);
+        // Only the bin at 'bin_pos' differs: the comparison is on its leftover
+        // value, then on its staircase leftover value.
+        if (!(bin_solution < new_solution)
+                && bin_solution.leftovers_better(new_solution)) {
+            new_solution = bin_solution;
         }
     }
     return new_solution;
 }
 
-Solution packingsolver::box::reoptimize_non_last_bins(
+}
+
+Solution packingsolver::box::reoptimize_non_last_bins_leftovers(
         const Solution& solution,
         const OptimizeParameters& parameters)
 {
-    Solution new_solution = solution;
-    for (BinPos bin_pos = 0;
-            bin_pos < solution.number_of_different_bins() - 1;
-            ++bin_pos) {
-        if (parameters.timer.needs_to_end())
-            break;
-        Solution bin_solution = reoptimize_bin(
-                new_solution,
-                bin_pos,
-                parameters);
-        // Only the bin at 'bin_pos' differs: the comparison is on its leftover
-        // value, then on its staircase leftover value.
-        if (new_solution < bin_solution)
-            new_solution = bin_solution;
-    }
-    return new_solution;
+    return reoptimize_bins_leftovers(
+            solution,
+            solution.number_of_different_bins() - 1,
+            parameters);
+}
+
+Solution packingsolver::box::reoptimize_all_bins_leftovers(
+        const Solution& solution,
+        const OptimizeParameters& parameters)
+{
+    return reoptimize_bins_leftovers(
+            solution,
+            solution.number_of_different_bins(),
+            parameters);
 }

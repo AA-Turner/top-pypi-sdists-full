@@ -34,7 +34,7 @@ from tinybird.tb_cli_modules.exceptions import CLIPipeException
 
 @cli.group()
 @click.pass_context
-def pipe(ctx):
+def pipe(ctx: click.Context) -> None:
     """Pipes commands"""
 
 
@@ -58,7 +58,7 @@ def pipe_sink(ctx: Context) -> None:
 @click.argument("query")
 @click.option("--force", is_flag=True, default=False, help="Override existing files")
 @click.pass_context
-def generate_pipe(ctx: click.Context, name: str, query: str, force: bool):
+def generate_pipe(_ctx: click.Context, name: str, query: str, force: bool) -> None:
     pipefile = f"""
 NODE endpoint
 DESCRIPTION >
@@ -294,7 +294,7 @@ async def pipe_populate(
         on_demand_compute=on_demand_compute,
     )
     if "job" not in response:
-        raise CLIPipeException(response)
+        raise CLIPipeException(str(response))
 
     job_id = response["job"]["id"]
     job_url = response["job"]["job_url"]
@@ -489,8 +489,7 @@ async def pipe_published_node(
     ctx: click.Context,
     pipe_name_or_id: str,
     node_uid: Optional[str] = None,
-    no_live_warning: bool = False,
-):
+) -> None:
     """Same as 'publish', change the published node of a pipe"""
 
     await common_pipe_publish_node(ctx, pipe_name_or_id, node_uid)
@@ -673,8 +672,8 @@ async def regression_test(
     filenames: Optional[List[str]],
     debug: bool,
     only_response_times: bool,
-    workspace_map,
-    workspace: str,
+    workspace_map: Tuple[Tuple[str, str], ...],
+    workspace: Tuple[Tuple[str, str], ...],
     no_versions: bool,
     limit: int,
     sample_by_params: int,
@@ -684,7 +683,7 @@ async def regression_test(
     validate_processed_bytes: bool,
     check_requests_from_main: bool,
     relative_change: float,
-):
+) -> None:
     """
     Run regression tests on Tinybird
     """

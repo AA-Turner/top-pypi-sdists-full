@@ -13,10 +13,13 @@ replay of some entries only would reorder or lose.
 
 Code that the parser hands the live ``Imports`` (``DataModel.resolve_module_import_conflicts``) runs inside
 ``ModuleImportLedger.external``, which records what it changed as removals, additions and aliases of import keys.
-The ``DATAMODEL_CODE_GENERATOR_CHECK_MODULE_IMPORTS`` check of the test suite (``tests/checks/module_imports.py``)
-compares each module's imports with the replay of their entries when the module's import text is written, so a write
-that bypasses the ledger fails it. The re-exports of package ``__init__`` modules and the imports of forwarder modules
-are built and written at once by one function each and are not module imports in this sense.
+The re-exports of package ``__init__`` modules and the imports of forwarder modules are built and written at once by
+one function each and are not module imports in this sense. Only this module, ``imports.py`` and those writers
+(``LEDGER_WRITERS`` of ``scripts/fact_tables.py``) call a method that changes an ``Imports``; heki's contract
+``imports-through-the-ledger`` reports any other call. The ``DATAMODEL_CODE_GENERATOR_CHECK_MODULE_IMPORTS`` check of
+the test suite (``tests/checks/module_imports.py``) compares each module's imports with the replay of their entries
+when the module's import text is written, so it also fails a write heki does not see (an entry or attribute of an
+``Imports`` changed in place, a call on a value heki cannot tie to a class).
 
 The names a module's ``ModelResolver`` gives its imports are asked for through the ledger too (``add_name``,
 ``release_names``), so that the check sees, in order, every name a module asked for and released.
@@ -83,6 +86,7 @@ ImportPass: TypeAlias = Literal[
     "import-renamed-types",
     "import-enum-member-literal-classes",
     "tag-fields-of-tagged-bases",
+    "flatten-conflicting-final-layouts",
     "flatten-narrowed-inherited-fields",
     "generic-base-class",
     "inherited-keyword-only-copies",
@@ -125,6 +129,8 @@ ImportPass: TypeAlias = Literal[
   repairs of the same names.
 * ``tag-fields-of-tagged-bases``: ``tag_fields_of_tagged_bases`` (L6), the models that the fields a reused msgspec
   struct copies from its bases name from the module of that struct.
+* ``flatten-conflicting-final-layouts``: ``flatten_conflicting_final_layouts`` (L6), the models that the fields a
+  msgspec struct whose generated bases conflict copies from them name from the module of that struct.
 * ``flatten-narrowed-inherited-fields``: ``flatten_narrowed_inherited_fields`` (L6), the models that the fields a model
   whose field narrows an inherited one copies from its bases name from the module of that model.
 * ``generic-base-class``: ``apply_generic_base_class`` (L6), the generated base model instead of the output base class.

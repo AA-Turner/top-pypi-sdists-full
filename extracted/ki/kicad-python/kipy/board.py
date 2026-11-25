@@ -18,8 +18,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from __future__ import annotations
+
+import pathlib
+from collections.abc import Iterable, Sequence
 from time import sleep
-from typing import List, Dict, Union, Iterable, Optional, Sequence, cast, overload
+from typing import cast, overload
+
 from google.protobuf.empty_pb2 import Empty
 
 from kipy.board_types import (
@@ -27,68 +32,88 @@ from kipy.board_types import (
     Barcode,
     BoardEditorAppearanceSettings,
     BoardItem,
-    ReferenceImage,
+    BoardShape,
     BoardText,
     BoardTextBox,
     Dimension,
     FootprintInstance,
+    Group,
     Net,
     Pad,
-    BoardShape,
+    ReferenceImage,
+    ReferencePoint,
+    Table,
     Track,
     Via,
     Zone,
-    Group,
     to_concrete_board_shape,
     to_concrete_dimension,
-    unwrap
+    unwrap,
 )
 from kipy.client import ApiError, KiCadClient
-from kipy.common_types import Color, Commit, TitleBlockInfo, TextAttributes
-from kipy.geometry import Box2, PolygonWithHoles, Vector2
-from kipy.project import Project, NetClass
-from kipy.proto.board import board_types_pb2
-from kipy.proto.common.commands import editor_commands_pb2, project_commands_pb2
-from kipy.proto.common.envelope_pb2 import ApiStatusCode
-from kipy.util import pack_any
-from kipy.wrapper import Item, Wrapper
-
-from kipy.proto.common.commands import Ping
-from kipy.proto.common.types import DocumentSpecifier, KIID, KiCadObjectType, base_types_pb2
-from kipy.proto.common.commands.editor_commands_pb2 import (
-    BeginCommit, BeginCommitResponse, CommitAction,
-    EndCommit, EndCommitResponse,
-    CreateItems, CreateItemsResponse,
-    UpdateItems, UpdateItemsResponse,
-    GetItems, GetItemsById, GetItemsResponse,
-    DeleteItems, DeleteItemsResponse,
-    HitTest, HitTestResponse, HitTestResult
+from kipy.common_types import (
+    Color,
+    Commit,
+    EmbeddedFile,
+    EmbeddedFiles,
+    TextAttributes,
+    TitleBlockInfo,
 )
-from kipy.proto.board import board_pb2
-from kipy.proto.board import board_commands_pb2
+from kipy.geometry import Box2, PolygonWithHoles, Vector2
+from kipy.project import NetClass, Project
+from kipy.proto.board import board_commands_pb2, board_pb2, board_types_pb2
+from kipy.proto.board.board_commands_pb2 import BoardFlipDirection, BoardOriginType  # noqa
 
 # Re-exported protobuf enum types
-from kipy.proto.board.board_pb2 import (    # noqa
-    BoardLayerClass,
+from kipy.proto.board.board_pb2 import (  # noqa
     BoardEdgeConnectorType,
-    DielectricModel,
+    BoardLayerClass,
     BoardStackupDielectricType,
+    DielectricModel,
 )
-from kipy.proto.board.board_types_pb2 import ( #noqa
-    BoardLayer
+from kipy.proto.board.board_types_pb2 import BoardLayer
+from kipy.proto.common.commands import Ping, editor_commands_pb2, project_commands_pb2
+from kipy.proto.common.commands.editor_commands_pb2 import (
+    BeginCommit,
+    BeginCommitResponse,
+    CommitAction,
+    CreateItems,
+    CreateItemsResponse,
+    DeleteItems,
+    DeleteItemsResponse,
+    EndCommit,
+    EndCommitResponse,
+    GetItems,
+    GetItemsById,
+    GetItemsResponse,
+    HitTest,
+    HitTestResponse,
+    HitTestResult,
+    UpdateItems,
+    UpdateItemsResponse,
 )
-from kipy.proto.board.board_commands_pb2 import ( #noqa
-    BoardOriginType,
-    BoardFlipDirection
+from kipy.proto.common.envelope_pb2 import ApiStatusCode
+from kipy.proto.common.types import (
+    KIID,
+    DocumentSpecifier,
+    KiCadObjectType,
+    base_types_pb2,
+    embedded_files_pb2,
 )
+from kipy.util import pack_any
+from kipy.variants import VariantsCommandHandler
+from kipy.wrapper import Item, Wrapper
+
 
 class BoardLayerGraphicsDefaults(Wrapper):
     """The default properties for graphic items added on a given class of board layer"""
-    def __init__(self, proto: Optional[board_pb2.BoardLayerGraphicsDefaults] = None):
+
+    def __init__(self, proto: board_pb2.BoardLayerGraphicsDefaults | None = None):
         self._proto = board_pb2.BoardLayerGraphicsDefaults()
 
         if proto is not None:
             self._proto.CopyFrom(proto)
+
     @property
     def layer(self) -> board_pb2.BoardLayerClass.ValueType:
         """The layer class that these defaults apply to"""
@@ -110,8 +135,9 @@ class BoardLayerGraphicsDefaults(Wrapper):
     def text(self) -> TextAttributes:
         return TextAttributes(self._proto.text)
 
+
 class BoardStackupDielectricProperties(Wrapper):
-    def __init__(self, proto: Optional[board_pb2.BoardStackupDielectricProperties] = None):
+    def __init__(self, proto: board_pb2.BoardStackupDielectricProperties | None = None):
         self._proto = board_pb2.BoardStackupDielectricProperties()
         if proto:
             self._proto.CopyFrom(proto)
@@ -161,7 +187,7 @@ class BoardStackupDielectricProperties(Wrapper):
         self._proto.thickness_locked = locked
 
     @property
-    def spec_frequency(self) -> Optional[float]:
+    def spec_frequency(self) -> float | None:
         """The frequency at which the dielectric properties were measured, in Hz
 
         .. versionadded:: 0.8.0 (KiCad 11.0)
@@ -171,7 +197,7 @@ class BoardStackupDielectricProperties(Wrapper):
         return None
 
     @spec_frequency.setter
-    def spec_frequency(self, frequency: Optional[float]):
+    def spec_frequency(self, frequency: float | None):
         if frequency is None:
             self._proto.ClearField("spec_frequency")
         else:
@@ -191,13 +217,13 @@ class BoardStackupDielectricProperties(Wrapper):
 
 
 class BoardStackupDielectricLayer(Wrapper):
-    def __init__(self, proto: Optional[board_pb2.BoardStackupDielectricLayer] = None):
+    def __init__(self, proto: board_pb2.BoardStackupDielectricLayer | None = None):
         self._proto = board_pb2.BoardStackupDielectricLayer()
         if proto:
             self._proto.CopyFrom(proto)
 
     @property
-    def layers(self) -> List[BoardStackupDielectricProperties]:
+    def layers(self) -> list[BoardStackupDielectricProperties]:
         """Each dielectric layer may be made up of one or more sub-layers with different properties"""
         return [BoardStackupDielectricProperties(layer) for layer in self._proto.layer]
 
@@ -219,7 +245,7 @@ class BoardStackupSoldermaskLayer(Wrapper):
 
     .. versionadded:: 0.8.0 (KiCad 10.0.6)"""
 
-    def __init__(self, proto: Optional[board_pb2.BoardStackupSoldermaskLayer] = None):
+    def __init__(self, proto: board_pb2.BoardStackupSoldermaskLayer | None = None):
         self._proto = board_pb2.BoardStackupSoldermaskLayer()
         if proto:
             self._proto.CopyFrom(proto)
@@ -262,7 +288,7 @@ class BoardStackupSilkscreenLayer(Wrapper):
 
     .. versionadded:: 0.8.0 (KiCad 10.0.6)"""
 
-    def __init__(self, proto: Optional[board_pb2.BoardStackupSilkscreenLayer] = None):
+    def __init__(self, proto: board_pb2.BoardStackupSilkscreenLayer | None = None):
         self._proto = board_pb2.BoardStackupSilkscreenLayer()
         if proto:
             self._proto.CopyFrom(proto)
@@ -277,7 +303,7 @@ class BoardStackupSilkscreenLayer(Wrapper):
 
 
 class BoardStackupLayer(Wrapper):
-    def __init__(self, proto: Optional[board_pb2.BoardStackupLayer] = None):
+    def __init__(self, proto: board_pb2.BoardStackupLayer | None = None):
         self._proto = board_pb2.BoardStackupLayer()
         if proto:
             self._proto.CopyFrom(proto)
@@ -326,7 +352,7 @@ class BoardStackupLayer(Wrapper):
         self._proto.type = value
 
     @property
-    def dielectric(self) -> Optional[BoardStackupDielectricLayer]:
+    def dielectric(self) -> BoardStackupDielectricLayer | None:
         """Dielectric details, if this layer is a dielectric layer
 
         .. versionadded:: 0.8.0 (KiCad 10.0.6)
@@ -340,7 +366,7 @@ class BoardStackupLayer(Wrapper):
         self._proto.dielectric.CopyFrom(value.proto)
 
     @property
-    def soldermask(self) -> Optional[BoardStackupSoldermaskLayer]:
+    def soldermask(self) -> BoardStackupSoldermaskLayer | None:
         """Soldermask details, if this layer is a soldermask layer
 
         .. versionadded:: 0.8.0 (KiCad 10.0.6)
@@ -354,7 +380,7 @@ class BoardStackupLayer(Wrapper):
         self._proto.soldermask.CopyFrom(value.proto)
 
     @property
-    def silkscreen(self) -> Optional[BoardStackupSilkscreenLayer]:
+    def silkscreen(self) -> BoardStackupSilkscreenLayer | None:
         """Silkscreen details, if this layer is a silkscreen layer
 
         .. versionadded:: 0.8.0 (KiCad 10.0.6)
@@ -399,7 +425,7 @@ class BoardFinish(Wrapper):
 
     .. versionadded:: 0.8.0 (KiCad 10.0.6)"""
 
-    def __init__(self, proto: Optional[board_pb2.BoardFinish] = None):
+    def __init__(self, proto: board_pb2.BoardFinish | None = None):
         self._proto = board_pb2.BoardFinish()
         if proto:
             self._proto.CopyFrom(proto)
@@ -422,7 +448,7 @@ class BoardImpedanceControl(Wrapper):
 
     .. versionadded:: 0.8.0 (KiCad 10.0.6)"""
 
-    def __init__(self, proto: Optional[board_pb2.BoardImpedanceControl] = None):
+    def __init__(self, proto: board_pb2.BoardImpedanceControl | None = None):
         self._proto = board_pb2.BoardImpedanceControl()
         if proto:
             self._proto.CopyFrom(proto)
@@ -442,7 +468,7 @@ class BoardEdgeConnector(Wrapper):
 
     .. versionadded:: 0.8.0 (KiCad 10.0.6)"""
 
-    def __init__(self, proto: Optional[board_pb2.BoardEdgeConnector] = None):
+    def __init__(self, proto: board_pb2.BoardEdgeConnector | None = None):
         self._proto = board_pb2.BoardEdgeConnector()
         if proto:
             self._proto.CopyFrom(proto)
@@ -461,7 +487,7 @@ class EdgePlating(Wrapper):
 
     .. versionadded:: 0.8.0 (KiCad 10.0.6)"""
 
-    def __init__(self, proto: Optional[board_pb2.EdgePlating] = None):
+    def __init__(self, proto: board_pb2.EdgePlating | None = None):
         self._proto = board_pb2.EdgePlating()
         if proto:
             self._proto.CopyFrom(proto)
@@ -481,7 +507,7 @@ class BoardEdgeSettings(Wrapper):
 
     .. versionadded:: 0.8.0 (KiCad 10.0.6)"""
 
-    def __init__(self, proto: Optional[board_pb2.BoardEdgeSettings] = None):
+    def __init__(self, proto: board_pb2.BoardEdgeSettings | None = None):
         self._proto = board_pb2.BoardEdgeSettings()
         if proto:
             self._proto.CopyFrom(proto)
@@ -504,7 +530,7 @@ class BoardEdgeSettings(Wrapper):
 
 
 class BoardStackup(Wrapper):
-    def __init__(self, proto: Optional[board_pb2.BoardStackup] = None):
+    def __init__(self, proto: board_pb2.BoardStackup | None = None):
         self._proto = board_pb2.BoardStackup()
         if proto:
             self._proto.CopyFrom(proto)
@@ -549,11 +575,12 @@ class BoardStackup(Wrapper):
         self._proto.edge.CopyFrom(value.proto)
 
     @property
-    def layers(self) -> List[BoardStackupLayer]:
+    def layers(self) -> list[BoardStackupLayer]:
         """The stackup layers, in order from top to bottom of the board"""
         return [BoardStackupLayer(layer) for layer in self._proto.layers]
 
-class Board:
+
+class Board(VariantsCommandHandler):
     def __init__(self, kicad: KiCadClient, document: DocumentSpecifier):
         """Represents an open board (.kicad_pcb) document in KiCad"""
         self._kicad = kicad
@@ -587,15 +614,16 @@ class Board:
         self._kicad.send(command, Empty)
 
     def save_as(self, filename: str, overwrite: bool = False, include_project: bool = True):
-        """Saves the board to a new file.
+        """Saves the board to a new file.  Does not open the newly-saved file.
 
         :param filename: The path to save the board to
         :param overwrite: If True, the file will be overwritten if it already exists
         :param include_project: If True, the project will be saved along with the board
         """
+        path = pathlib.Path(filename)
         command = editor_commands_pb2.SaveCopyOfDocument()
         command.document.CopyFrom(self._doc)
-        command.path = filename
+        command.path = str(path.resolve())
         command.options.overwrite = overwrite
         command.options.include_project = include_project
         self._kicad.send(command, Empty)
@@ -619,6 +647,7 @@ class Board:
         step.
         """
         command = BeginCommit()
+        command.header.document.CopyFrom(self._doc)
         return Commit(self._kicad.send(command, BeginCommitResponse).id)
 
     def push_commit(self, commit: Commit, message: str = ""):
@@ -626,6 +655,7 @@ class Board:
         result in a single undo step being added to the undo history."""
         command = EndCommit()
         command.id.CopyFrom(commit.id)
+        command.header.document.CopyFrom(self._doc)
         command.action = CommitAction.CMA_COMMIT
         command.message = message
         self._kicad.send(command, EndCommitResponse)
@@ -634,10 +664,11 @@ class Board:
         """Cancel a commit, discarding any changes made since the commit was opened"""
         command = EndCommit()
         command.id.CopyFrom(commit.id)
+        command.header.document.CopyFrom(self._doc)
         command.action = CommitAction.CMA_DROP
         self._kicad.send(command, EndCommitResponse)
 
-    def create_items(self, items: Union[Wrapper, Iterable[Wrapper]]) -> List[Wrapper]:
+    def create_items(self, items: Wrapper | Iterable[Wrapper]) -> list[Wrapper]:
         command = CreateItems()
         command.header.document.CopyFrom(self._doc)
 
@@ -651,8 +682,8 @@ class Board:
             for result in self._kicad.send(command, CreateItemsResponse).created_items
         ]
 
-    def _to_concrete_items(self, items: Sequence[Wrapper]) -> List[BoardItem]:
-        items_converted: List[BoardItem] = []
+    def _to_concrete_items(self, items: Sequence[Wrapper]) -> list[BoardItem]:
+        items_converted: list[BoardItem] = []
         for it in items:
             assert isinstance(it, BoardItem)
 
@@ -665,7 +696,7 @@ class Board:
         return items_converted
 
     def get_items(
-        self, types: Union[KiCadObjectType.ValueType, Sequence[KiCadObjectType.ValueType]]
+        self, types: KiCadObjectType.ValueType | Sequence[KiCadObjectType.ValueType]
     ) -> Sequence[Item]:
         """Retrieves items from the board, optionally filtering to a single or set of types"""
         command = GetItems()
@@ -680,9 +711,7 @@ class Board:
             [unwrap(item) for item in self._kicad.send(command, GetItemsResponse).items]
         )
 
-    def get_items_by_id(
-        self, ids: Union[KIID, Sequence[KIID]]
-    ) -> Sequence[Item]:
+    def get_items_by_id(self, ids: KIID | Sequence[KIID]) -> Sequence[Item]:
         """Retrieves items from the board by their KIID (internal unique identifier)
 
         .. versionadded:: 0.7.0 (KiCad 10.0.0)
@@ -700,10 +729,8 @@ class Board:
 
     def get_items_by_net(
         self,
-        nets: Union[Net, Sequence[Net]],
-        types: Optional[
-            Union[KiCadObjectType.ValueType, Sequence[KiCadObjectType.ValueType]]
-        ] = None,
+        nets: Net | Sequence[Net],
+        types: KiCadObjectType.ValueType | Sequence[KiCadObjectType.ValueType] | None = None,
     ) -> Sequence[Item]:
         """Retrieves items from the board, filtered by one or more nets
 
@@ -727,10 +754,8 @@ class Board:
 
     def get_items_by_netclass(
         self,
-        net_classes: Union[str, Sequence[str]],
-        types: Optional[
-            Union[KiCadObjectType.ValueType, Sequence[KiCadObjectType.ValueType]]
-        ] = None,
+        net_classes: str | Sequence[str],
+        types: KiCadObjectType.ValueType | Sequence[KiCadObjectType.ValueType] | None = None,
     ) -> Sequence[Item]:
         """Retrieves items from the board, filtered by one or more net class names
 
@@ -754,10 +779,8 @@ class Board:
 
     def get_connected_items(
         self,
-        items: Union[BoardItem, KIID, Sequence[Union[BoardItem, KIID]]],
-        types: Optional[
-            Union[KiCadObjectType.ValueType, Sequence[KiCadObjectType.ValueType]]
-        ] = None,
+        items: BoardItem | KIID | Sequence[BoardItem | KIID],
+        types: KiCadObjectType.ValueType | Sequence[KiCadObjectType.ValueType] | None = None,
     ) -> Sequence[Item]:
         """Retrieves items that are copper-connected to the given source item(s) or item IDs
 
@@ -779,7 +802,7 @@ class Board:
             [unwrap(item) for item in self._kicad.send(command, GetItemsResponse).items]
         )
 
-    def get_tracks(self) -> Sequence[Union[Track, ArcTrack]]:
+    def get_tracks(self) -> Sequence[Track | ArcTrack]:
         """Retrieves all tracks and arc tracks on the board"""
         return [
             cast(Track, item) if isinstance(item, Track) else cast(ArcTrack, item)
@@ -826,7 +849,7 @@ class Board:
             if item is not None
         ]
 
-    def get_text(self) -> Sequence[Union[BoardText, BoardTextBox]]:
+    def get_text(self) -> Sequence[BoardText | BoardTextBox]:
         """Retrieves all text objects on the board"""
         return [
             cast(BoardText, item) if isinstance(item, BoardText) else cast(BoardTextBox, item)
@@ -840,8 +863,7 @@ class Board:
 
         .. versionadded:: 0.7.0"""
         return [
-            cast(Barcode, item)
-            for item in self.get_items(types=[KiCadObjectType.KOT_PCB_BARCODE])
+            cast(Barcode, item) for item in self.get_items(types=[KiCadObjectType.KOT_PCB_BARCODE])
         ]
 
     def get_reference_images(self) -> Sequence[ReferenceImage]:
@@ -853,6 +875,14 @@ class Board:
             for item in self.get_items(types=[KiCadObjectType.KOT_PCB_REFERENCE_IMAGE])
         ]
 
+    def get_tables(self) -> Sequence[Table]:
+        """Retrieves all table objects on the board
+
+        .. versionadded:: 0.9.0 (KiCad 10.0.7)"""
+        return [
+            cast(Table, item) for item in self.get_items(types=[KiCadObjectType.KOT_PCB_TABLE])
+        ]
+
     def get_zones(self) -> Sequence[Zone]:
         """Retrieves all zones (including rule areas and graphic zones) on the board"""
         return [cast(Zone, item) for item in self.get_items(types=[KiCadObjectType.KOT_PCB_ZONE])]
@@ -861,7 +891,9 @@ class Board:
         """Retrieves all groups on the board
 
         .. versionadded:: 0.7.0 (KiCad 10.0.0)"""
-        groups = [cast(Group, item) for item in self.get_items(types=[KiCadObjectType.KOT_PCB_GROUP])]
+        groups = [
+            cast(Group, item) for item in self.get_items(types=[KiCadObjectType.KOT_PCB_GROUP])
+        ]
 
         # Unwrap items in groups
         if len(groups) > 0:
@@ -870,6 +902,15 @@ class Board:
                 group._unwrapped_items = items
 
         return groups
+
+    def get_reference_points(self) -> Sequence[ReferencePoint]:
+        """Retrieves all reference point objects on the board
+
+        .. versionadded:: 0.9.0 (KiCad 10.0.7)"""
+        return [
+            cast(ReferencePoint, item)
+            for item in self.get_items(types=[KiCadObjectType.KOT_PCB_POINT])
+        ]
 
     def get_as_string(self) -> str:
         """Returns the board as a string in KiCad's board file format"""
@@ -882,7 +923,7 @@ class Board:
         command = editor_commands_pb2.SaveSelectionToString()
         return self._kicad.send(command, editor_commands_pb2.SavedSelectionResponse).contents
 
-    def update_items(self, items: Union[BoardItem, Sequence[BoardItem]]) -> List[BoardItem]:
+    def update_items(self, items: BoardItem | Sequence[BoardItem]) -> list[BoardItem]:
         """Updates the properties of one or more items on the board.  The items must already exist
         on the board, and are matched by internal UUID.  All other properties of the items are
         updated from those passed in this call.
@@ -903,13 +944,11 @@ class Board:
         return self._to_concrete_items(
             [
                 unwrap(result.item)
-                for result in self._kicad.send(
-                    command, UpdateItemsResponse
-                ).updated_items
+                for result in self._kicad.send(command, UpdateItemsResponse).updated_items
             ]
         )
 
-    def remove_items(self, items: Union[BoardItem, Sequence[BoardItem]]):
+    def remove_items(self, items: BoardItem | Sequence[BoardItem]):
         """Deletes one or more items from the board"""
         command = DeleteItems()
         command.header.document.CopyFrom(self._doc)
@@ -924,7 +963,7 @@ class Board:
 
         self._kicad.send(command, DeleteItemsResponse)
 
-    def remove_items_by_id(self, items: Union[KIID, Sequence[KIID]]):
+    def remove_items_by_id(self, items: KIID | Sequence[KIID]):
         """Deletes one or more items from the board using their unique IDs
 
         .. versionadded:: 0.4.0"""
@@ -943,9 +982,9 @@ class Board:
 
     def flip_items(
         self,
-        items: Union[BoardItem, Sequence[BoardItem]],
+        items: BoardItem | Sequence[BoardItem],
         direction: board_commands_pb2.BoardFlipDirection.ValueType = BoardFlipDirection.BFD_LEFT_RIGHT,
-    ) -> List[BoardItem]:
+    ) -> list[BoardItem]:
         """Flips one or more board items to the opposite side of the board.
 
         The given items must already exist on the board; each is flipped in place and the
@@ -973,7 +1012,7 @@ class Board:
 
         response = self._kicad.send(command, board_commands_pb2.FlipItemsResponse)
 
-        flipped: List[BoardItem] = []
+        flipped: list[BoardItem] = []
         for item, result in zip(items, response.flipped_items):
             if result.status.code != editor_commands_pb2.ItemStatusCode.ISC_OK:
                 continue
@@ -984,9 +1023,9 @@ class Board:
 
     def flip_items_by_id(
         self,
-        items: Union[KIID, Sequence[KIID]],
+        items: KIID | Sequence[KIID],
         direction: board_commands_pb2.BoardFlipDirection.ValueType = BoardFlipDirection.BFD_LEFT_RIGHT,
-    ) -> List[BoardItem]:
+    ) -> list[BoardItem]:
         """Flips one or more board items to the opposite side of the board by their unique IDs.
 
         Returns the flipped items as returned by KiCad.  Items that could not be flipped (for
@@ -1020,9 +1059,7 @@ class Board:
             ]
         )
 
-    def get_nets(
-        self, netclass_filter: Optional[Union[str, Sequence[str]]] = None
-    ) -> Sequence[Net]:
+    def get_nets(self, netclass_filter: str | Sequence[str] | None = None) -> Sequence[Net]:
         """Retrieves all nets on the board, optionally filtering by net class"""
         command = board_commands_pb2.GetNets()
         command.board.CopyFrom(self._doc)
@@ -1033,11 +1070,10 @@ class Board:
             command.netclass_filter.extend(netclass_filter)
 
         return [
-            Net(net)
-            for net in self._kicad.send(command, board_commands_pb2.NetsResponse).nets
+            Net(net) for net in self._kicad.send(command, board_commands_pb2.NetsResponse).nets
         ]
 
-    def get_netclass_for_nets(self, nets: Union[Net, Sequence[Net]]) -> Dict[str, NetClass]:
+    def get_netclass_for_nets(self, nets: Net | Sequence[Net]) -> dict[str, NetClass]:
         """Retrieves the net class for one or more nets on the board"""
         cmd = board_commands_pb2.GetNetClassForNets()
         if isinstance(nets, Net):
@@ -1050,9 +1086,7 @@ class Board:
 
     def get_selection(
         self,
-        types: Optional[
-            Union[KiCadObjectType.ValueType, Sequence[KiCadObjectType.ValueType]]
-        ] = None,
+        types: KiCadObjectType.ValueType | Sequence[KiCadObjectType.ValueType] | None = None,
     ) -> Sequence[Wrapper]:
         cmd = editor_commands_pb2.GetSelection()
         cmd.header.document.CopyFrom(self._doc)
@@ -1062,16 +1096,14 @@ class Board:
         else:
             cmd.types.extend(types or [])
 
-        return self._to_concrete_items([
-            unwrap(item)
-            for item in self._kicad.send(
-                cmd, editor_commands_pb2.SelectionResponse
-            ).items
-        ])
+        return self._to_concrete_items(
+            [
+                unwrap(item)
+                for item in self._kicad.send(cmd, editor_commands_pb2.SelectionResponse).items
+            ]
+        )
 
-    def add_to_selection(
-        self, items: Union[BoardItem, Sequence[BoardItem]]
-    ) -> Sequence[Wrapper]:
+    def add_to_selection(self, items: BoardItem | Sequence[BoardItem]) -> Sequence[Wrapper]:
         """Adds one or more items to the current selection on the board
 
         :param items: The items to add to the selection
@@ -1087,14 +1119,10 @@ class Board:
 
         return [
             unwrap(item)
-            for item in self._kicad.send(
-                cmd, editor_commands_pb2.SelectionResponse
-            ).items
+            for item in self._kicad.send(cmd, editor_commands_pb2.SelectionResponse).items
         ]
 
-    def remove_from_selection(
-        self, items: Union[BoardItem, Sequence[BoardItem]]
-    ) -> Sequence[Wrapper]:
+    def remove_from_selection(self, items: BoardItem | Sequence[BoardItem]) -> Sequence[Wrapper]:
         """Removes one or more items from the current selection on the board
 
         :param items: The items to remove from the selection
@@ -1110,9 +1138,7 @@ class Board:
 
         return [
             unwrap(item)
-            for item in self._kicad.send(
-                cmd, editor_commands_pb2.SelectionResponse
-            ).items
+            for item in self._kicad.send(cmd, editor_commands_pb2.SelectionResponse).items
         ]
 
     def clear_selection(self):
@@ -1140,7 +1166,7 @@ class Board:
         response = self._kicad.send(cmd, board_commands_pb2.BoardEnabledLayersResponse)
         return response.copper_layer_count
 
-    def get_enabled_layers(self) -> List[board_types_pb2.BoardLayer.ValueType]:
+    def get_enabled_layers(self) -> list[board_types_pb2.BoardLayer.ValueType]:
         """
         Retrieves the list of all enabled layers in the board, including copper and non-copper layers.
 
@@ -1157,7 +1183,7 @@ class Board:
         self,
         copper_layer_count: int,
         layers: Sequence[board_types_pb2.BoardLayer.ValueType],
-    ) -> List[board_types_pb2.BoardLayer.ValueType]:
+    ) -> list[board_types_pb2.BoardLayer.ValueType]:
         """
         Sets the copper layer count and enabled non-copper layers for the board.
 
@@ -1176,19 +1202,60 @@ class Board:
         response = self._kicad.send(cmd, board_commands_pb2.BoardEnabledLayersResponse)
         return list(response.layers)
 
-    def get_graphics_defaults(self) -> Dict[int, BoardLayerGraphicsDefaults]:
+    def get_graphics_defaults(self) -> dict[int, BoardLayerGraphicsDefaults]:
         """Retrieves the default graphics properties for each layer class on the board"""
         cmd = board_commands_pb2.GetGraphicsDefaults()
         cmd.board.CopyFrom(self._doc)
         reply = self._kicad.send(cmd, board_commands_pb2.GraphicsDefaultsResponse)
         return {
-            board_pb2.BoardLayerClass.BLC_SILKSCREEN:  BoardLayerGraphicsDefaults(reply.defaults.layers[0]),
-            board_pb2.BoardLayerClass.BLC_COPPER:      BoardLayerGraphicsDefaults(reply.defaults.layers[1]),
-            board_pb2.BoardLayerClass.BLC_EDGES:       BoardLayerGraphicsDefaults(reply.defaults.layers[2]),
-            board_pb2.BoardLayerClass.BLC_COURTYARD:   BoardLayerGraphicsDefaults(reply.defaults.layers[3]),
-            board_pb2.BoardLayerClass.BLC_FABRICATION: BoardLayerGraphicsDefaults(reply.defaults.layers[4]),
-            board_pb2.BoardLayerClass.BLC_OTHER:       BoardLayerGraphicsDefaults(reply.defaults.layers[5])
+            board_pb2.BoardLayerClass.BLC_SILKSCREEN: BoardLayerGraphicsDefaults(
+                reply.defaults.layers[0]
+            ),
+            board_pb2.BoardLayerClass.BLC_COPPER: BoardLayerGraphicsDefaults(
+                reply.defaults.layers[1]
+            ),
+            board_pb2.BoardLayerClass.BLC_EDGES: BoardLayerGraphicsDefaults(
+                reply.defaults.layers[2]
+            ),
+            board_pb2.BoardLayerClass.BLC_COURTYARD: BoardLayerGraphicsDefaults(
+                reply.defaults.layers[3]
+            ),
+            board_pb2.BoardLayerClass.BLC_FABRICATION: BoardLayerGraphicsDefaults(
+                reply.defaults.layers[4]
+            ),
+            board_pb2.BoardLayerClass.BLC_OTHER: BoardLayerGraphicsDefaults(
+                reply.defaults.layers[5]
+            ),
         }
+
+    def get_embedded_files(self) -> EmbeddedFiles:
+        """Retrieves the files embedded in the board
+
+        .. versionadded:: 0.9.0 (KiCad 10.0.7)"""
+        cmd = board_commands_pb2.GetEmbeddedFiles()
+        cmd.board.CopyFrom(self._doc)
+        response = self._kicad.send(cmd, embedded_files_pb2.EmbeddedFiles)
+        return EmbeddedFiles(response)
+
+    def add_embedded_files(self, files: EmbeddedFile | Sequence[EmbeddedFile]):
+        """Appends the given file(s) to the board's embedded files
+
+        .. versionadded:: 0.9.0 (KiCad 10.0.7)"""
+        cmd = board_commands_pb2.AddEmbeddedFiles()
+        cmd.board.CopyFrom(self._doc)
+        files_list = [files] if isinstance(files, EmbeddedFile) else files
+        cmd.files.files.extend([file.proto for file in files_list])
+        self._kicad.send(cmd, Empty)
+
+    def set_embedded_files(self, files: EmbeddedFile | Sequence[EmbeddedFile]):
+        """Replaces all files embedded in the board with the given file(s)
+
+        .. versionadded:: 0.9.0 (KiCad 10.0.7)"""
+        cmd = board_commands_pb2.SetEmbeddedFiles()
+        cmd.board.CopyFrom(self._doc)
+        files_list = [files] if isinstance(files, EmbeddedFile) else files
+        cmd.files.files.extend([file.proto for file in files_list])
+        self._kicad.send(cmd, Empty)
 
     def get_title_block_info(self) -> TitleBlockInfo:
         """Retrieves the title block information for the board"""
@@ -1214,8 +1281,9 @@ class Board:
         cmd.type = origin_type
         return Vector2(self._kicad.send(cmd, base_types_pb2.Vector2))
 
-    def set_origin(self, origin_type: board_commands_pb2.BoardOriginType.ValueType,
-                   origin: Vector2):
+    def set_origin(
+        self, origin_type: board_commands_pb2.BoardOriginType.ValueType, origin: Vector2
+    ):
         """Sets the specified (grid or drill/place) board origin
 
         .. versionadded:: 0.3.0"""
@@ -1247,18 +1315,27 @@ class Board:
         return self._kicad.send(cmd, board_commands_pb2.BoardLayerResponse).layer
 
     @overload
-    def expand_text_variables(self, text: str) -> str:
-        ...
+    def expand_text_variables(self, text: str, *, expand_env_vars: bool = False) -> str: ...
 
     @overload
-    def expand_text_variables(self, text: List[str]) -> List[str]:
-        ...
+    def expand_text_variables(
+        self, text: list[str], *, expand_env_vars: bool = False
+    ) -> list[str]: ...
 
-    def expand_text_variables(self, text: Union[str, List[str]]) -> Union[str, List[str]]:
+    def expand_text_variables(
+        self, text: str | list[str], *, expand_env_vars: bool = False
+    ) -> str | list[str]:
         """Expands text variables in a string or list of strings.  Any text variables that do not
-        exist will be left as-is in the output."""
+        exist will be left as-is in the output.
+
+        .. param:: expand_env_vars will expand environment variables in addition to built-in
+                                   KiCad text variables when True.
+
+        .. versionadded:: 0.9.0 (expand_env_vars parameter)
+        """
         command = project_commands_pb2.ExpandTextVariables()
         command.document.CopyFrom(self._doc)
+        command.expand_env_vars = expand_env_vars
         if isinstance(text, list):
             command.text.extend(text)
         else:
@@ -1275,18 +1352,16 @@ class Board:
     @overload
     def get_item_bounding_box(
         self, items: BoardItem, include_text: bool = False
-    ) -> Optional[Box2]: ...
+    ) -> Box2 | None: ...
 
     @overload
     def get_item_bounding_box(
         self, items: Sequence[BoardItem], include_text: bool = False
-    ) -> List[Optional[Box2]]: ...
+    ) -> list[Box2 | None]: ...
 
     def get_item_bounding_box(
-        self,
-        items: Union[BoardItem, Sequence[BoardItem]],
-        include_text: bool = False
-    ) -> Union[Optional[Box2], List[Optional[Box2]]]:
+        self, items: BoardItem | Sequence[BoardItem], include_text: bool = False
+    ) -> Box2 | None | list[Box2 | None]:
         """Gets the KiCad-calculated bounding box for an item or items, returning None if the item
         does not exist or has no bounding box"""
         cmd = editor_commands_pb2.GetBoundingBox()
@@ -1317,16 +1392,16 @@ class Board:
     @overload
     def get_pad_shapes_as_polygons(
         self, pads: Pad, layer: BoardLayer.ValueType = BoardLayer.BL_F_Cu
-    ) -> Optional[PolygonWithHoles]: ...
+    ) -> PolygonWithHoles | None: ...
 
     @overload
     def get_pad_shapes_as_polygons(
         self, pads: Sequence[Pad], layer: BoardLayer.ValueType = BoardLayer.BL_F_Cu
-    ) -> List[Optional[PolygonWithHoles]]: ...
+    ) -> list[PolygonWithHoles | None]: ...
 
     def get_pad_shapes_as_polygons(
-        self, pads: Union[Pad, Sequence[Pad]], layer: BoardLayer.ValueType = BoardLayer.BL_F_Cu
-    ) -> Union[Optional[PolygonWithHoles], List[Optional[PolygonWithHoles]]]:
+        self, pads: Pad | Sequence[Pad], layer: BoardLayer.ValueType = BoardLayer.BL_F_Cu
+    ) -> PolygonWithHoles | None | list[PolygonWithHoles | None]:
         """Retrieves the polygonal shape of one or more pads on a given layer.  If a pad does not
         exist or has no polygonal shape on the given layer, None will be returned for that pad."""
         cmd = board_commands_pb2.GetPadShapeAsPolygon()
@@ -1343,7 +1418,9 @@ class Board:
         if isinstance(pads, Pad):
             return PolygonWithHoles(response.polygons[0]) if len(response.polygons) == 1 else None
 
-        pad_to_polygon = {pad.value: polygon for pad, polygon in zip(response.pads, response.polygons)}
+        pad_to_polygon = {
+            pad.value: polygon for pad, polygon in zip(response.pads, response.polygons)
+        }
         return [
             PolygonWithHoles(p)
             for p in (pad_to_polygon.get(pad.id.value, None) for pad in pads)
@@ -1352,9 +1429,10 @@ class Board:
 
     def check_padstack_presence_on_layers(
         self,
-        items: Union[BoardItem, Iterable[BoardItem]],
-        layers: Union[board_types_pb2.BoardLayer.ValueType, Iterable[board_types_pb2.BoardLayer.ValueType]]
-    ) -> Dict[BoardItem, Dict[board_types_pb2.BoardLayer.ValueType, bool]]:
+        items: BoardItem | Iterable[BoardItem],
+        layers: board_types_pb2.BoardLayer.ValueType
+        | Iterable[board_types_pb2.BoardLayer.ValueType],
+    ) -> dict[BoardItem, dict[board_types_pb2.BoardLayer.ValueType, bool]]:
         """Checks if the given items with padstacks (pads or vias) have content on the given layers.
 
         :param items: The items to check (one or more pads or vias).
@@ -1367,7 +1445,7 @@ class Board:
         cmd = board_commands_pb2.CheckPadstackPresenceOnLayers()
         cmd.board.CopyFrom(self._doc)
 
-        items_map: Dict[str, BoardItem] = {}
+        items_map: dict[str, BoardItem] = {}
 
         if isinstance(items, BoardItem):
             cmd.items.append(items.id)
@@ -1383,7 +1461,7 @@ class Board:
 
         response = self._kicad.send(cmd, board_commands_pb2.PadstackPresenceResponse)
 
-        result: Dict[BoardItem, Dict[board_types_pb2.BoardLayer.ValueType, bool]] = {}
+        result: dict[BoardItem, dict[board_types_pb2.BoardLayer.ValueType, bool]] = {}
         for entry in response.entries:
             if entry.item.value not in items_map:
                 continue
@@ -1399,7 +1477,7 @@ class Board:
 
         return result
 
-    def interactive_move(self, items: Union[KIID, Iterable[KIID]]):
+    def interactive_move(self, items: KIID | Iterable[KIID]):
         """Initiates an interactive move operation on one or more items on the board.  The user
         will be able to move the items interactively in the KiCad editor.  This is a blocking
         operation; this function will return immediately but future API calls will return AS_BUSY
@@ -1414,8 +1492,9 @@ class Board:
 
         self._kicad.send(cmd, Empty)
 
-    def refill_zones(self, block=True, max_poll_seconds: float = 30.0,
-                     poll_interval_seconds: float = 0.5):
+    def refill_zones(
+        self, block=True, max_poll_seconds: float = 30.0, poll_interval_seconds: float = 0.5
+    ):
         """Refills all zones on the board.  If block is True, this function will block until the
         refill operation is complete.  If block is False, this function will return immediately,
         and future API calls will return AS_BUSY until the refill operation is complete."""
@@ -1434,14 +1513,14 @@ class Board:
             sleep(poll_interval_seconds)
             try:
                 self._kicad.send(Ping(), Empty)
-            except IOError:
+            except OSError:
                 # transport-layer timeout
                 continue
             except ApiError as e:
                 if e.code == ApiStatusCode.AS_BUSY:
                     continue
                 else:
-                    raise e
+                    raise
             break
 
     def hit_test(self, item: Item, position: Vector2, tolerance: int = 0) -> bool:

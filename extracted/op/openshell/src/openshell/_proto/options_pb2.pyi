@@ -10,13 +10,15 @@ SECRET_FIELD_NUMBER: _ClassVar[int]
 secret: _descriptor.FieldDescriptor
 
 class AuthorizationRule(_message.Message):
-    __slots__ = ("auth_mode", "workspace_role", "global_role", "scope")
+    __slots__ = ("auth_mode", "workspace_role", "global_role", "scope", "audit")
     AUTH_MODE_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_ROLE_FIELD_NUMBER: _ClassVar[int]
     GLOBAL_ROLE_FIELD_NUMBER: _ClassVar[int]
     SCOPE_FIELD_NUMBER: _ClassVar[int]
+    AUDIT_FIELD_NUMBER: _ClassVar[int]
     auth_mode: str
     workspace_role: str
     global_role: str
     scope: str
-    def __init__(self, auth_mode: _Optional[str] = ..., workspace_role: _Optional[str] = ..., global_role: _Optional[str] = ..., scope: _Optional[str] = ...) -> None: ...
+    audit: str
+    def __init__(self, auth_mode: _Optional[str] = ..., workspace_role: _Optional[str] = ..., global_role: _Optional[str] = ..., scope: _Optional[str] = ..., audit: _Optional[str] = ...) -> None: ...

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -18,10 +18,11 @@ from babel import numbers
 
 
 def test_can_parse_decimals():
-    assert decimal.Decimal('1099.98') == numbers.parse_decimal('1,099.98', locale='en_US')
-    assert decimal.Decimal('1099.98') == numbers.parse_decimal('1.099,98', locale='de')
-    assert decimal.Decimal('1099.98') == numbers.parse_decimal('1,099.98', locale='ar', numbering_system="default")
-    assert decimal.Decimal('1099.98') == numbers.parse_decimal('1٬099٫98', locale='ar_EG', numbering_system="default")
+    v = decimal.Decimal('1099.98')
+    assert numbers.parse_decimal('1,099.98', locale='en_US') == v
+    assert numbers.parse_decimal('1.099,98', locale='de') == v
+    assert numbers.parse_decimal('1,099.98', locale='ar', numbering_system="default") == v  # fmt: skip
+    assert numbers.parse_decimal('1٬099٫98', locale='ar_EG', numbering_system="default") == v  # fmt: skip
     with pytest.raises(numbers.NumberFormatError):
         numbers.parse_decimal('2,109,998', locale='de')
     with pytest.raises(numbers.UnsupportedNumberingSystemError):

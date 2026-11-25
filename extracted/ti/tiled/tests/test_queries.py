@@ -1,7 +1,5 @@
 import asyncio
 import string
-import subprocess
-import sys
 from contextlib import nullcontext
 
 import numpy
@@ -11,7 +9,9 @@ from starlette.status import HTTP_400_BAD_REQUEST
 
 from tiled.adapters.array import ArrayAdapter
 from tiled.adapters.mapping import MapAdapter
+from tiled.alembic_utils import upgrade
 from tiled.catalog import from_uri, in_memory
+from tiled.catalog.alembic_constants import ALEMBIC_DIR, ALEMBIC_INI_TEMPLATE_PATH
 from tiled.client import Context, from_context
 from tiled.queries import (
     Comparison,
@@ -32,6 +32,7 @@ from tiled.queries import (
     StructureFamilyQuery,
 )
 from tiled.server.app import build_app
+from tiled.utils import ensure_specified_sql_driver
 
 from .conftest import TILED_TEST_POSTGRESQL_URI
 from .utils import fail_with_status_code, sqlite_from_dump, temp_postgres
@@ -62,6 +63,10 @@ mapping["full_text_test_case_urple"] = ArrayAdapter.from_array(
 mapping["specs_foo_bar"] = ArrayAdapter.from_array(numpy.ones(10), specs=["foo", "bar"])
 mapping["specs_foo_bar_baz"] = ArrayAdapter.from_array(
     numpy.ones(10), specs=["foo", "bar", "baz"]
+)
+# Spec names that are patterns, quoted, or differ only in case.
+mapping["specs_odd"] = ArrayAdapter.from_array(
+    numpy.ones(10), specs=["f%o", "b_r", 'q"uote', "FOO"]
 )
 nested_metadata = {
     "nested": {"nested-key-1": "nested-value-1", "nested-key-2": "nested-value-2"}
@@ -208,9 +213,11 @@ def test_full_text_after_migration():
     # Load a SQL database created by an older version of Tiled, predating FullText
     # support, and verify that the migration indexes the pre-existing metadata.
     with sqlite_from_dump("before_creating_fts5_virtual_table.sql") as database_path:
-        subprocess.check_call(
-            [sys.executable]
-            + f"-m tiled catalog upgrade-database sqlite:///{database_path}".split()
+        upgrade(
+            ALEMBIC_INI_TEMPLATE_PATH,
+            ALEMBIC_DIR,
+            ensure_specified_sql_driver(f"sqlite:///{database_path}"),
+            "head",
         )
         catalog = from_uri(database_path)
         app = build_app(catalog)
@@ -289,6 +296,18 @@ def test_same_query_type_given_twice(client):
     )
     response.raise_for_status()
     assert response.json()["data"] == []
+
+
+def test_page_cursor(client):
+    "A cursor pages through a catalog. A tree without cursors refuses it, with 400."
+    response = _search_http(client, {"page[cursor]": "0", "page[limit]": "1"})
+
+    if client.metadata["backend"] == "map":
+        assert response.status_code == HTTP_400_BAD_REQUEST
+        assert "cursor" in response.json()["detail"]
+    else:
+        response.raise_for_status()
+        assert len(response.json()["data"]) == 1
 
 
 def test_filter_parameters_given_different_numbers_of_times(client):
@@ -408,6 +427,21 @@ def test_specs(client, include_values, exclude_values):
     ) == ["specs_foo_bar"]
 
 
+@pytest.mark.parametrize(
+    "include, expected",
+    [
+        (["f%o"], ["specs_odd"]),  # Not a wildcard: "foo" does not match.
+        (["b_r"], ["specs_odd"]),
+        (['q"uote'], ["specs_odd"]),
+        (["FOO"], ["specs_odd"]),  # Case matters.
+        (["fo%"], []),
+        (["Foo"], []),
+    ],
+)
+def test_specs_match_names_literally(client, include, expected):
+    assert list(client.search(SpecsQuery(include=include))) == expected
+
+
 def test_structure_families(client):
     with pytest.raises(ValueError):
         StructureFamilyQuery("foo")
@@ -446,6 +480,7 @@ def test_key_present(client):
         "full_text_test_case_urple",
         "specs_foo_bar",
         "specs_foo_bar_baz",
+        "specs_odd",
         "nested_key_test",
     ]
 

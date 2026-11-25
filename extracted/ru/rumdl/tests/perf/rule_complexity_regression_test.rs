@@ -652,6 +652,27 @@ fn test_md077_fence_lookup_linear_complexity() {
     }
 }
 
+/// A line below a long paragraph outside its item must not read every fix of
+/// that paragraph to find that they are more than its own fix carries.
+#[test]
+fn test_md077_lines_below_a_long_outside_paragraph_linear_complexity() {
+    let rule = MD077ListContinuationIndent::default();
+    let times: Vec<_> = [8192, 16384, 32768]
+        .into_iter()
+        .map(|count| {
+            let content = format!("- X\n\n{}\n{}", " a\n".repeat(count), "   b\n".repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert!(!rule.should_skip(&ctx));
+            let warnings = rule.check(&ctx).unwrap();
+            assert_eq!(warnings.len(), 2 * count);
+            assert!(warnings[..count].iter().all(|warning| warning.fix.is_some()));
+            assert!(warnings[count..].iter().all(|warning| warning.fix.is_none()));
+            measure_rule_time_with_context(&rule, &ctx, 5)
+        })
+        .collect();
+    assert_linear_complexity("MD077 lines below a long outside paragraph", &times, 3.0);
+}
+
 /// Unrecognized numeric text must not rescan the same indented run per line.
 #[test]
 fn test_md030_indented_fallback_linear_complexity() {
@@ -2877,7 +2898,7 @@ fn test_md054_fix_planning_linear_complexity() {
 fn test_md034_linear_complexity() {
     let sizes = [500, 1000, 2000];
     let iterations = 5;
-    let rule = MD034NoBareUrls;
+    let rule = MD034NoBareUrls::default();
 
     let durations: Vec<_> = sizes
         .iter()
@@ -2892,7 +2913,7 @@ fn test_md034_linear_complexity() {
 
 #[test]
 fn test_md034_interleaved_code_links_and_bare_urls_linear_complexity() {
-    let rule = MD034NoBareUrls;
+    let rule = MD034NoBareUrls::default();
     let durations: Vec<_> = [2000, 4000, 8000]
         .into_iter()
         .map(|size| {
@@ -2915,11 +2936,34 @@ fn test_md034_interleaved_code_links_and_bare_urls_linear_complexity() {
 
 #[test]
 fn test_md034_long_line_linear_complexity() {
-    let rule = MD034NoBareUrls;
-    for (name, unit, warnings_per_unit) in [
-        ("formatted", "[link](https://example.com) <hello@example.com> ", 0),
-        ("bare Unicode", "é🦀 https://example.com hello@example.com ", 2),
+    // The last column is `cjk-punctuation`.
+    for (name, unit, warnings_per_unit, cjk_punctuation) in [
+        (
+            "formatted",
+            "[link](https://example.com) <hello@example.com> ",
+            0,
+            false,
+        ),
+        ("bare Unicode", "é🦀 https://example.com hello@example.com ", 2, false),
+        // Full-width punctuation ends a URL but not the regex match, so each
+        // search must stop at the next cut instead of reading to the line end.
+        ("full-width comma", "https://example.com/a、", 1, true),
+        ("www and full-width comma", "www.example.com/a、", 1, true),
+        (
+            "separate URI schemes",
+            "ssh://example.org/日本、https://example.com/a、hello@example.com、",
+            2,
+            true,
+        ),
+        // A `（` before a URL does not keep the `）` after it from cutting, so
+        // the cut must be found from the URL, not from the search position.
+        ("full-width paren pair", "（https://example.com/a）", 1, true),
+        ("unclosed full-width paren", "（（https://example.com/a）", 1, true),
+        // The regex ends this URL at an ASCII delimiter, and the line has no
+        // whitespace, so the search must still stop at the match end.
+        ("ASCII delimiter", "https://example.com/a\"", 1, true),
     ] {
+        let rule = MD034NoBareUrls::with_cjk_punctuation(cjk_punctuation);
         let durations: Vec<_> = [4096, 8192, 16384]
             .into_iter()
             .map(|size| {

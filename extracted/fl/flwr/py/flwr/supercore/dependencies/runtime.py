@@ -33,18 +33,12 @@ from flwr.proto.message_pb2 import (  # pylint: disable=E0611
 from flwr.proto.runtime_pb2 import (  # pylint: disable=E0611
     AcquireTaskRequest,
     AcquireTaskResponse,
-    CreateTaskRequest,
-    CreateTaskResponse,
-    GetCompactedContextsRequest,
-    GetCompactedContextsResponse,
     GetConnectorRequest,
     GetConnectorResponse,
     GetNodesRequest,
     GetNodesResponse,
     GetRunSeriesEventsRequest,
     GetRunSeriesEventsResponse,
-    GetSpaceEventsRequest,
-    GetSpaceEventsResponse,
     ListAgentConnectorsRequest,
     ListAgentConnectorsResponse,
     PullAppMessagesRequest,
@@ -55,14 +49,6 @@ from flwr.proto.runtime_pb2 import (  # pylint: disable=E0611
     PushAppMessagesResponse,
     PushTaskOutputRequest,
     PushTaskOutputResponse,
-    PutCompactedContextRequest,
-    PutCompactedContextResponse,
-)
-from flwr.proto.space_pb2 import (  # pylint: disable=E0611
-    GetSpaceMessagesRequest,
-    GetSpaceMessagesResponse,
-    SendSpaceMessageRequest,
-    SendSpaceMessageResponse,
 )
 from flwr.proto.task_pb2 import Task  # pylint: disable=E0611
 from flwr.supercore.corestate import CoreState
@@ -84,14 +70,6 @@ StateT_contra = TypeVar("StateT_contra", bound=CoreState, contravariant=True)
 
 class RuntimeHandlers(Protocol[StateT_contra]):
     """Component-specific handlers used by the shared Runtime API router."""
-
-    def _get_agent_id(self, state: StateT_contra, task: Task) -> int:
-        """Resolve the authenticated task's agent ID for file scoping."""
-
-    def create_task(
-        self, request: CreateTaskRequest, state: StateT_contra, task: Task
-    ) -> CreateTaskResponse:
-        """Create a child task within the authenticated Run."""
 
     def list_agent_connectors(
         self, request: ListAgentConnectorsRequest, state: StateT_contra, task: Task
@@ -163,34 +141,6 @@ class RuntimeHandlers(Protocol[StateT_contra]):
         task: Task,
     ) -> GetRunSeriesEventsResponse:
         """Get events from the authenticated task's run series."""
-
-    def get_space_events(
-        self,
-        request: GetSpaceEventsRequest,
-        state: StateT_contra,
-        task: Task,
-    ) -> GetSpaceEventsResponse:
-        """Get events from the authenticated task's Space."""
-
-    def get_space_messages(
-        self, request: GetSpaceMessagesRequest, state: StateT_contra, task: Task
-    ) -> GetSpaceMessagesResponse:
-        """Read messages from the authenticated task's Space."""
-
-    def send_space_message(
-        self, request: SendSpaceMessageRequest, state: StateT_contra, task: Task
-    ) -> SendSpaceMessageResponse:
-        """Publish a message to the authenticated task's Space."""
-
-    def get_compacted_contexts(
-        self, request: GetCompactedContextsRequest, state: StateT_contra, task: Task
-    ) -> GetCompactedContextsResponse:
-        """Get summaries from the authenticated task's run series."""
-
-    def put_compacted_context(
-        self, request: PutCompactedContextRequest, state: StateT_contra, task: Task
-    ) -> PutCompactedContextResponse:
-        """Store a summary in the authenticated task's run series."""
 
 
 def get_runtime_state(request: Request) -> CoreState:

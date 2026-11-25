@@ -507,6 +507,65 @@ class SetProject(command.Command):
         identity_client.update_project(project_id, **kwargs)
 
 
+class UnsetProject(command.Command):
+    _description = _("Unset project properties")
+
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser = super().get_parser(prog_name)
+        parser.add_argument(
+            'project',
+            metavar='<project>',
+            help=_('Project to modify (name or ID)'),
+        )
+        parser.add_argument(
+            '--domain',
+            metavar='<domain>',
+            help=_('Domain owning <project> (name or ID)'),
+        )
+        parser.add_argument(
+            '--property',
+            metavar='<key>',
+            dest='properties',
+            action='append',
+            default=[],
+            help=_(
+                'Unset a project property '
+                '(repeat option to unset multiple properties)'
+            ),
+        )
+        return parser
+
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
+
+        if parsed_args.domain:
+            domain = common.find_domain_id_sdk(
+                identity_client,
+                parsed_args.domain,
+                validate_actor_existence=False,
+            )
+            project = identity_client.find_project(
+                parsed_args.project,
+                domain_id=domain,
+                ignore_missing=True,
+            )
+        else:
+            project = identity_client.find_project(
+                parsed_args.project,
+                ignore_missing=True,
+            )
+
+        kwargs: dict[str, None] = {}
+        for key in parsed_args.properties:
+            kwargs[key] = None
+
+        if kwargs:
+            project_id = project.id if project else parsed_args.project
+            identity_client.update_project(project_id, **kwargs)
+
+
 class ShowProject(command.ShowOne):
     _description = _("Display project details")
 
@@ -515,7 +574,10 @@ class ShowProject(command.ShowOne):
         parser.add_argument(
             'project',
             metavar='<project>',
-            help=_('Project to display (name or ID)'),
+            nargs='?',
+            help=_(
+                'Project to display (name or ID) (defaults to current project)'
+            ),
         )
         parser.add_argument(
             '--domain',
@@ -543,6 +605,18 @@ class ShowProject(command.ShowOne):
             self.app.client_manager.sdk_connection.identity, '3'
         )
 
+        project_id = parsed_args.project
+        if project_id is None:
+            auth_ref = self.app.client_manager.auth_ref
+            if not auth_ref or not auth_ref.project_id:
+                raise exceptions.CommandError(
+                    _(
+                        'No current project available. '
+                        'Specify a project explicitly.'
+                    )
+                )
+            project_id = auth_ref.project_id
+
         kwargs: dict[str, Any] = {}
 
         domain = None
@@ -557,7 +631,7 @@ class ShowProject(command.ShowOne):
         # parents/children if only project name was given
         project = common.find_project_id_sdk(
             identity_client,
-            parsed_args.project,
+            project_id,
             domain_name_or_id=domain,
             validate_actor_existence=False,
             validate_domain_actor_existence=False,

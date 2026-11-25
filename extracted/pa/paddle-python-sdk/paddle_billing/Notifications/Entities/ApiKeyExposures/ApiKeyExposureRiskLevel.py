@@ -1,6 +1,10 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class ApiKeyExposureRiskLevel(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    High: "ApiKeyExposureRiskLevel" = "high"
-    Low: "ApiKeyExposureRiskLevel" = "low"
+    High: "ApiKeyExposureRiskLevel" = member("high")
+    Low: "ApiKeyExposureRiskLevel" = member("low")

@@ -106,6 +106,7 @@ class IssueActionType(str, Enum):
     ISSUECOMMENTEDBYAUTOMATIONRULE = 'IssueCommentedByAutomationRule'
     CLOUDRESOURCEDELETED = 'CloudResourceDeleted'
     REPOSITORYBRANCHDELETED = 'RepositoryBranchDeleted'
+    SHAREDFILEDELETED = 'SharedFileDeleted'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

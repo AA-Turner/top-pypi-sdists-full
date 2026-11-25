@@ -7,12 +7,17 @@ import sys
 import warnings
 from collections.abc import Iterator
 from collections.abc import Sequence
+from typing import IO
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import BinaryIO
 from typing import Callable
 from typing import Literal
+from typing import TextIO
+from typing import TypeVar
 from typing import overload
 from urllib.parse import SplitResult
+from urllib.parse import unquote_to_bytes
 
 from fsspec import AbstractFileSystem
 
@@ -35,17 +40,18 @@ from upath.types import SupportsPathLike
 from upath.types import WritablePath
 from upath.types import WritablePathLike
 
-if TYPE_CHECKING:
-    from typing import IO
-    from typing import BinaryIO
-    from typing import TextIO
-    from typing import TypeVar
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    try:
+        from typing_extensions import Self
+    except ImportError:  # only needed for resolving annotations at runtime
+        pass
 
+if TYPE_CHECKING:
     if sys.version_info >= (3, 11):
-        from typing import Self
         from typing import Unpack
     else:
-        from typing_extensions import Self
         from typing_extensions import Unpack
 
     from pydantic import GetCoreSchemaHandler
@@ -53,7 +59,7 @@ if TYPE_CHECKING:
 
     from upath.types.storage_options import FileStorageOptions
 
-    _WT = TypeVar("_WT", bound="WritablePath")
+_WT = TypeVar("_WT", bound="WritablePath")
 
 __all__ = [
     "LocalPath",
@@ -113,6 +119,10 @@ class _LocalPathInfo(PathInfo):
 
     def is_symlink(self) -> bool:
         return os.path.islink(self._path)
+
+
+def _ends_with_sep(pattern: str) -> bool:
+    return pattern.endswith(os.sep) or bool(os.altsep and pattern.endswith(os.altsep))
 
 
 class LocalPath(_UPathMixin, pathlib.Path):
@@ -367,6 +377,48 @@ class LocalPath(_UPathMixin, pathlib.Path):
         else:
             shutil.rmtree(self)
 
+    if sys.version_info < (3, 15):
+
+        def mkdir(
+            self,
+            mode: int = 0o777,
+            parents: bool = False,
+            exist_ok: bool = False,
+            *,
+            parent_mode: int | None = None,
+        ) -> None:
+            if parent_mode is None:
+                return super().mkdir(mode, parents, exist_ok)
+            # backport of the parent_mode argument added in python 3.15
+            try:
+                super().mkdir(mode, parents=False, exist_ok=exist_ok)
+            except FileNotFoundError:
+                if not parents or self.parent == self:
+                    raise
+                self.parent.mkdir(
+                    mode=parent_mode,
+                    parents=True,
+                    exist_ok=True,
+                    parent_mode=parent_mode,
+                )
+                super().mkdir(mode, parents=False, exist_ok=exist_ok)
+
+    else:
+
+        def is_reserved(self) -> bool:
+            # pathlib.PurePath.is_reserved() was removed in python 3.15
+            warnings.warn(
+                f"{type(self).__name__}.is_reserved() is deprecated. Use"
+                " os.path.isreserved() to detect reserved paths on Windows.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if os.name == "nt":
+                import ntpath
+
+                return ntpath.isreserved(self)
+            return False
+
     # we need to override pathlib.Path._copy_from to support it as a
     # WritablePath._copy_from target with support for on_name_collision
     # Issue: https://github.com/barneygale/pathlib-abc/issues/48
@@ -485,7 +537,26 @@ class LocalPath(_UPathMixin, pathlib.Path):
 
         @classmethod
         def from_uri(cls, uri: str, **storage_options: Any) -> Self:
-            return UPath(uri, **storage_options)  # type: ignore[return-value]
+            # backport of pathlib.Path.from_uri from python 3.13
+            if not uri.startswith("file:"):
+                raise ValueError(f"URI does not start with 'file:': {uri!r}")
+            path = uri[5:]
+            if path[:3] == "///":
+                # Remove empty authority
+                path = path[2:]
+            elif path[:12] == "//localhost/":
+                # Remove 'localhost' authority
+                path = path[11:]
+            if path[:3] == "///" or (path[:1] == "/" and path[2:3] in ":|"):
+                # Remove slash before DOS device/UNC path
+                path = path[1:]
+            if path[1:2] == "|":
+                # Replace bar with colon in DOS drive
+                path = path[:1] + ":" + path[2:]
+            pth = cls(os.fsdecode(unquote_to_bytes(path)), **storage_options)
+            if not pth.is_absolute():
+                raise ValueError(f"URI is not absolute: {uri!r}")
+            return pth
 
         def is_dir(self, *, follow_symlinks: bool = True) -> bool:
             if not follow_symlinks:
@@ -554,6 +625,9 @@ class LocalPath(_UPathMixin, pathlib.Path):
                     UserWarning,
                     stacklevel=2,
                 )
+            if sys.version_info < (3, 11) and _ends_with_sep(pattern_str):
+                # backport: only match directories for a trailing separator
+                return (p for p in super().glob(pattern_str, **kw) if p.is_dir())
             return super().glob(pattern_str, **kw)
 
         def rglob(  # type: ignore[override]
@@ -585,6 +659,9 @@ class LocalPath(_UPathMixin, pathlib.Path):
                     UserWarning,
                     stacklevel=2,
                 )
+            if sys.version_info < (3, 11) and _ends_with_sep(pattern_str):
+                # backport: only match directories for a trailing separator
+                return (p for p in super().rglob(pattern_str, **kw) if p.is_dir())
             return super().rglob(pattern_str, **kw)
 
         def owner(self, *, follow_symlinks: bool = True) -> str:
@@ -830,6 +907,10 @@ class FilePath(UPath):
         follow_symlinks: bool = True,
     ) -> None:
         return os.chmod(self.path, mode, follow_symlinks=follow_symlinks)
+
+    def _rmdir_empty(self) -> None:
+        # os.rmdir atomically refuses to remove non-empty directories
+        self.fs.rmdir(self.path)
 
 
 LocalPath.register(FilePath)

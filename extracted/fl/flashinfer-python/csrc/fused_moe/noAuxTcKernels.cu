@@ -2,6 +2,7 @@
 #include <cooperative_groups/reduce.h>
 
 #include <cmath>
+#include <limits>
 
 #include "flashinfer/trtllm/fused_moe/noAuxTcKernels.h"
 #include "moeTopKFuncs.cuh"
@@ -30,7 +31,10 @@ static constexpr int NumTopGroupScores = 2;
 static constexpr int MaxNumTopExperts = 8;
 static constexpr int MaxNumTopGroups = 4;
 
-static __device__ inline float sigmoid_accurate(float x) { return 0.5f * tanhf(0.5f * x) + 0.5f; }
+static __device__ inline float sigmoid_accurate(float x) {
+  // Avoid cancellation when the sigmoid is close to zero.
+  return 1.0f / (1.0f + expf(-x));
+}
 
 template <typename InputT, typename BiasT, typename OutputT, typename IdxT, int MaxNumExperts,
           bool UseGroups>
@@ -49,11 +53,11 @@ __global__ void deepseek_v3_topk_kernel(InputT* scores, OutputT* topkValues, Idx
 
   // declare shared memory structure
   // number of experts is bounded by number of threads
-  __shared__ float __attribute((aligned(128))) smemScoreSigmoid[MaxNumExperts];
-  __shared__ float __attribute((aligned(128))) smemScoreBias[MaxNumExperts];
+  __shared__ float __align__(128) smemScoreSigmoid[MaxNumExperts];
+  __shared__ float __align__(128) smemScoreBias[MaxNumExperts];
   // number of expert groups is bounded by number of warps
   int constexpr NumWarps = MaxNumExperts / WARP_SIZE;
-  __shared__ float __attribute((aligned(128))) smemGroupScores[NumWarps];
+  __shared__ float __align__(128) smemGroupScores[NumWarps];
 
   // needed for warp reduce
   auto block = cg::this_thread_block();
@@ -72,7 +76,7 @@ __global__ void deepseek_v3_topk_kernel(InputT* scores, OutputT* topkValues, Idx
   // note that for invalid scores, we simply use a negative value:
   // they work well even with the compacted format used in topK, and
   // sigmoid / bias activated scores cannot be negative
-  static constexpr float invalidScoreFloat = float{-INFINITY};
+  static constexpr float invalidScoreFloat = -std::numeric_limits<float>::infinity();
   const OutputT invalidScore = OutputT{invalidScoreFloat};
 
   // load bias already; each warp represents one expert group
@@ -160,8 +164,8 @@ __global__ void deepseek_v3_topk_kernel(InputT* scores, OutputT* topkValues, Idx
 
     int constexpr NumExpertWarps = (MaxNumExperts - 1) / MaxNumExpertsUnit + 1;
     int constexpr NumInterTopK = NumExpertWarps * MaxNumTopExperts;
-    __shared__ float __attribute((aligned(128))) smemInterTopScores[NumInterTopK];
-    __shared__ int32_t __attribute((aligned(128))) smemInterTopExperts[NumInterTopK];
+    __shared__ float __align__(128) smemInterTopScores[NumInterTopK];
+    __shared__ int32_t __align__(128) smemInterTopExperts[NumInterTopK];
     if (warpIdx < NumExpertWarps) {
       int offset = warpIdx * WARP_SIZE * MaxNumTopGroups;
 #pragma unroll

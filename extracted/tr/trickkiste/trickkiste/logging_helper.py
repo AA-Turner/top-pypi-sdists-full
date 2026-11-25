@@ -35,10 +35,18 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from rich.console import Console
-from rich.logging import RichHandler
 from rich.markup import escape as markup_escape
+from rich.text import Text
 
-LOG_LEVELS = ("ALL_DEBUG", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL")
+LOG_LEVELS = (
+    "ALL_DEBUG",
+    "DEBUG",
+    "INFO",
+    "WARN",
+    "WARNING",
+    "ERROR",
+    "CRITICAL",
+)
 SHORT_COLOR_LEVEL_NAMES = {
     "NOTSET": "[dim]NN[/]",
     "DEBUG": "[green]DD[/]",
@@ -92,7 +100,9 @@ def markup_escape_filter(record: logging.LogRecord) -> bool:
         markup_escape(arg) if isinstance(arg, str) else arg
         for arg in record.args
     )
-    record.msg = markup_escape(record.msg)
+    record.msg = (
+        markup_escape(record.msg) if isinstance(record.msg, str) else record.msg
+    )
     return True
 
 
@@ -133,8 +143,54 @@ def logger_levelname_filter(record: logging.LogRecord) -> bool:
     # another approach would be to register styles for
     # logging.level.<SHORTNAME> and set
     # record.levelname = <SHORTNAME>
-    record.shortlevelname = SHORT_COLOR_LEVEL_NAMES[record.levelname]
+    record.shortlevelname = SHORT_COLOR_LEVEL_NAMES.get(
+        record.levelname, markup_escape(record.levelname)
+    )
     return True
+
+
+def without_exc(record: logging.LogRecord) -> logging.LogRecord:
+    """A copy of @record without exception and stack, which are no markup"""
+    return logging.makeLogRecord(
+        {
+            **record.__dict__,
+            "exc_info": None,
+            "exc_text": None,
+            "stack_info": None,
+        }
+    )
+
+
+def exc_text(record: logging.LogRecord, formatter: logging.Formatter) -> str:
+    """Exception and stack of @record as @formatter would append them"""
+    return "\n".join(
+        filter(
+            None,
+            (
+                (record.exc_info and formatter.formatException(record.exc_info))
+                or record.exc_text,
+                record.stack_info and formatter.formatStack(record.stack_info),
+            ),
+        )
+    )
+
+
+class FluidRichHandler(logging.Handler):
+    """Simple replacement for RichHandler which doesn't add padding"""
+
+    def __init__(self, console: Console) -> None:
+        """Initialises a logging.Handler which uses rich.Console"""
+        super().__init__()
+        self._console = console
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Prints the log line as rich markup, exception and stack plain"""
+        try:
+            self._console.print(self.format(without_exc(record)))
+            if extra := exc_text(record, self.formatter or logging.Formatter()):
+                self._console.print(Text(extra))
+        except Exception:  # noqa: BLE001 - like logging.StreamHandler
+            self.handleError(record)
 
 
 def setup_logging(  # pylint: disable=too-many-arguments
@@ -153,12 +209,7 @@ def setup_logging(  # pylint: disable=too-many-arguments
     """Make logging fun"""
     if not logging.getLogger().hasHandlers():
         setup_logging_handler(
-            RichHandler(
-                show_level=False,
-                show_time=False,
-                omit_repeated_times=True,
-                show_path=False,
-                markup=True,
+            FluidRichHandler(
                 console=Console(
                     # rich defaults to stdout even for logging so we have to fix it here
                     stderr=True,
@@ -172,7 +223,7 @@ def setup_logging(  # pylint: disable=too-many-arguments
                         if sys.stdout.isatty() or os.getenv("FORCE_COLOR")
                         else None
                     ),
-                ),
+                )
             ),
             show_level,
             show_time,
@@ -189,7 +240,7 @@ def setup_logging(  # pylint: disable=too-many-arguments
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 
-def setup_logging_handler(
+def setup_logging_handler(  # noqa: PLR0917 - positional callers exist
     handler: logging.Handler,
     show_level: bool,
     show_time: bool,

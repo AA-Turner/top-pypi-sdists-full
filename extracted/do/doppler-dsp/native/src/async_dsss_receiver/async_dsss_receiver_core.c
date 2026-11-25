@@ -1967,6 +1967,32 @@ dp_async_dsss_receiver_create (
   return obj;
 }
 
+/* The receiver at the 415.1-B-1 point: its arguments are
+   dp_ccsds_415_rx()'s table, the one place they are written, and a
+   refusal is that function's sentence. */
+dp_async_dsss_receiver_state_t *
+dp_async_dsss_receiver_create_ccsds415 (const uint8_t *code, size_t code_len,
+                                        double carrier_freq_hz,
+                                        double lost_confirm_s, bool refine,
+                                        const char **why)
+{
+  dp_ccsds_415_rx_t a;
+  if (dp_ccsds_415_rx (&a, code_len, carrier_freq_hz, lost_confirm_s, refine,
+                       why)
+      != 0)
+    return NULL;
+  dp_async_dsss_receiver_state_t *s = dp_async_dsss_receiver_create (
+      code, code_len, a.chip_rate, a.symbol_rate, a.sample_rate, a.m,
+      a.cn0_dbhz, a.pfa, a.pd, a.doppler_uncertainty, a.segments, a.sps,
+      a.differential, a.refine_max_error_db, a.refine_samples_per_symbol,
+      a.refine_design_margin_db, a.refine_n_fft, a.refine_zero_pad,
+      a.refine_sequential, a.refine_max_n_blocks, a.carrier_freq_hz,
+      a.lost_confirm_s, a.reacquire, a.code_only_s, a.doppler_rate, a.refine);
+  if (!s && why)
+    *why = "dp_async_dsss_receiver_create() refused the point's arguments";
+  return s;
+}
+
 void
 dp_async_dsss_receiver_destroy (dp_async_dsss_receiver_state_t *state)
 {

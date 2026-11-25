@@ -1,7 +1,7 @@
 # Standard library modules.
 import collections
 import re
-from typing import Union
+from typing import Any, Iterable, List, Mapping, Optional, Union
 
 # Modules included in our package.
 from humanfriendly.compat import coerce_string
@@ -18,7 +18,7 @@ from tinybird.tb.modules.feedback_manager import bcolors
 NUMERIC_DATA_PATTERN = re.compile(r"^\d+(\.\d+)?$")
 
 
-def format_table(data, columns):
+def format_table(data: Iterable[Iterable[Any]], columns: Iterable[Mapping[str, Any]]) -> str:
     """
     Render tabular data using the most appropriate representation.
 
@@ -68,7 +68,13 @@ def format_table(data, columns):
     return format_robust_table(data, column_names)
 
 
-def format_pretty_table(data, column_names=None, column_types=None, horizontal_bar="─", vertical_bar=" "):
+def format_pretty_table(
+    data: Iterable[Iterable[Any]],
+    column_names: Optional[Iterable[Any]] = None,
+    column_types: Optional[Iterable[Any]] = None,
+    horizontal_bar: str = "─",
+    vertical_bar: str = " ",
+) -> str:
     """
     Render a table using characters like dashes and vertical bars to emulate borders.
 
@@ -163,7 +169,7 @@ def format_pretty_table(data, column_names=None, column_types=None, horizontal_b
     return "\n".join(lines)
 
 
-def normalize_columns(row, expandtabs=False):
+def normalize_columns(row: Iterable[Any], expandtabs: bool = False) -> List[str]:
     results = []
     for value in row:
         text = coerce_string(value)
@@ -173,15 +179,15 @@ def normalize_columns(row, expandtabs=False):
     return results
 
 
-def highlight_column_name(name):
+def highlight_column_name(name: str) -> str:
     return ansi_wrap(name)
 
 
-def highlight_column_name_robust(name):
+def highlight_column_name_robust(name: str) -> str:
     return f"{bcolors.CGREY}{name}{bcolors.ENDC}"
 
 
-def highlight_column_type(type):
+def highlight_column_type(type: str) -> str:
     return f"{bcolors.CGREY}\033[3m{type}\033[23m{bcolors.ENDC}"
 
 
@@ -189,7 +195,7 @@ def highlight_horizontal_bar(horizontal_bar: str) -> str:
     return f"\033[38;5;247m\033[3m{horizontal_bar}\033[23m{bcolors.ENDC}"
 
 
-def format_robust_table(data, column_names):
+def format_robust_table(data: Iterable[Iterable[Any]], column_names: Iterable[Any]) -> str:
     """
     Render tabular data with one column per line (allowing columns with line breaks).
 

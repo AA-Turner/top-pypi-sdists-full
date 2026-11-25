@@ -251,6 +251,12 @@ class Deployment(BaseModel):
     api_model_mounts: Optional[List[ModelMount]] = FieldInfo(alias="model_mounts", default=None)
     """Model weights mounted into this deployment, including the pinned revisions."""
 
+    api_model_name: Optional[str] = FieldInfo(alias="model_name", default=None)
+    """ModelName is the model the deployment handles traffic for.
+
+    Equals name unless set
+    """
+
     name: Optional[str] = None
     """Name is the name of the deployment"""
 
@@ -294,6 +300,12 @@ class Deployment(BaseModel):
     """
     TerminationGracePeriodSeconds is the time in seconds to wait for graceful
     shutdown before forcefully terminating the replica
+    """
+
+    traffic_weight: Optional[int] = None
+    """
+    TrafficWeight is the deployment's share of its model's traffic, relative to the
+    other deployments of that model
     """
 
     updated_at: Optional[datetime] = None

@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# fetch-core.sh: copy files from NVIDIA/OpenShell at a pinned ref.
+# fetch-core.sh: copy files from ai-openshell/openshell at a pinned ref.
 #
 # The protos come from `buf export` (mise run proto:fetch); this script fetches
 # the other core files the repository checks against, such as the vendored
@@ -23,7 +23,7 @@ fi
 ref=$1
 out=$2
 shift 2
-remote=${OPENSHELL_CORE_REMOTE:-https://github.com/NVIDIA/OpenShell.git}
+remote=${OPENSHELL_CORE_REMOTE:-https://github.com/ai-openshell/openshell.git}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 

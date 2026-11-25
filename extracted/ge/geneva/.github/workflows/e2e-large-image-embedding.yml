@@ -9,7 +9,6 @@ on:
         required: false
         type: choice
         options:
-          - gcp
           - aws
           - azure
         default: 'aws'

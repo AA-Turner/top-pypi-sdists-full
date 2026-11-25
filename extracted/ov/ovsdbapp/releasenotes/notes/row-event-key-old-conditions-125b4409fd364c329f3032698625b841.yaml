@@ -1,0 +1,8 @@
+---
+fixes:
+  - |
+    ``RowEvent`` equality now also compares ``old_conditions``. Two
+    events of the same class watching the same table and event types
+    with equal conditions but different ``old_conditions`` are now
+    distinct watches and both are notified; previously the second
+    registration was silently dropped.

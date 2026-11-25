@@ -202,7 +202,7 @@ function theme(defaultTheme = "auto") {
 		openAllApplications: false,
 		adminTheme: themeLocked
 			? defaultTheme
-			: Alpine.$persist(defaultTheme).as("adminTheme"),
+			: localStorage.getItem("adminTheme") || defaultTheme,
 		init() {
 			this.$watch("filterOpen", (value) => {
 				if (isFilterModalOpen()) {
@@ -216,6 +216,7 @@ function theme(defaultTheme = "auto") {
 			}
 
 			this.adminTheme = theme;
+			localStorage.setItem("adminTheme", theme);
 		},
 		themeBindings: {
 			["x-resize.window"]() {
@@ -290,11 +291,7 @@ function theme(defaultTheme = "auto") {
 
 					event.preventDefault();
 
-					if (this.adminTheme === "light") {
-						this.adminTheme = "dark";
-					} else {
-						this.adminTheme = "light";
-					}
+					this.switchTheme(this.adminTheme === "light" ? "dark" : "light");
 				}
 			},
 		},
@@ -485,14 +482,12 @@ function searchCommand() {
 			this.currentIndex = 0;
 		},
 		handleContentLoaded(event) {
-			if (
-				event.target.id !== "command-results" &&
-				event.target.id !== "command-results-list"
-			) {
+
+			if (event.target.id !== "search-input-command") {
 				return;
 			}
 
-			this.hasResponse = event.detail.xhr.response.length > 0;
+			this.hasResponse = event.detail.ctx.text.length > 0;
 
 			const commandResultsList = document.getElementById(
 				"command-results-list",
@@ -657,18 +652,24 @@ const warnWithoutSaving = () => {
 /*************************************************************
  * Filter form
  *************************************************************/
-const filterForm = () => {
-	const filterForm = document.getElementById("filter-form");
+function filterForm() {
+	function removeEmptyFilterFields(formId) {
+		const filterForm = document.getElementById(formId);
 
-	if (!filterForm) {
-		return;
+		if (!filterForm) {
+			return;
+		}
+
+		filterForm.addEventListener("formdata", (event) => {
+			Array.from(event.formData.entries()).forEach(([key, value]) => {
+				if (value === "") event.formData.delete(key);
+			});
+		});
 	}
 
-	filterForm.addEventListener("formdata", (event) => {
-		Array.from(event.formData.entries()).forEach(([key, value]) => {
-			if (value === "") event.formData.delete(key);
-		});
-	});
+	removeEmptyFilterFields("filter-form");
+
+	removeEmptyFilterFields("vertical-filter-form");
 };
 
 /*************************************************************
@@ -681,6 +682,8 @@ function numericRangeFilter() {
 			const inputTo = wrapper.querySelectorAll("input[type=number]")[1];
 			const inputFrom = wrapper.querySelectorAll("input[type=number]")[0];
 			const rangeTo = wrapper.querySelectorAll("input[type=range]")[1];
+			const gradientDirection =
+				getComputedStyle(rangeTo).direction === "rtl" ? "left" : "right";
 
 			function recalculateActiveRange() {
 				const rangeDistance = inputTo.max - inputTo.min;
@@ -688,7 +691,7 @@ function numericRangeFilter() {
 				const toPosition = inputTo.value - inputTo.min;
 
 				rangeTo.style.background = `linear-gradient(
-				to right,
+				to ${gradientDirection},
 				transparent 0%,
 				transparent ${(fromPosition / rangeDistance) * 100}%,
 				var(--color-primary-500) ${(fromPosition / rangeDistance) * 100}%,
@@ -1312,7 +1315,7 @@ function updateStackedCounter(rowsParent) {
 /*************************************************************
  * Reinitialize inlines after pagination AJAX request
  *************************************************************/
-document.addEventListener("htmx:afterSettle", (e) => {
+document.addEventListener("htmx:after:swap", (e) => {
 	e.target.querySelectorAll(".form-row").forEach((formRow) => {
 		formRow.dispatchEvent(
 			new CustomEvent("formset:added", {

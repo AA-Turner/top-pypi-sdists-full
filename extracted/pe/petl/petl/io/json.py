@@ -10,7 +10,7 @@ from json.encoder import JSONEncoder
 from os import unlink
 from tempfile import NamedTemporaryFile
 
-from petl.compat import PY2
+from petl import config
 from petl.compat import pickle
 from petl.io.sources import read_source_from_arg, write_source_from_arg
 # internal dependencies
@@ -122,10 +122,9 @@ class JsonView(Table):
         if self._header is not None:
             self._header = tuple(self._header)
         with self.source.open('rb') as f:
-            if not PY2:
-                # wrap buffer for text IO
-                f = io.TextIOWrapper(f, encoding='utf-8', newline='',
-                                     write_through=True)
+            # wrap buffer for text IO
+            f = io.TextIOWrapper(f, encoding='utf-8', newline='',
+                                 write_through=True)
             try:
                 if self.lines:
                     for row in iterjlines(f, self._header, self.missing,
@@ -137,8 +136,7 @@ class JsonView(Table):
                                          self.missing):
                         yield row
             finally:
-                if not PY2:
-                    f.detach()
+                f.detach()
 
 
 def fromdicts(dicts, header=None, sample=1000, missing=None):
@@ -166,7 +164,8 @@ def fromdicts(dicts, header=None, sample=1000, missing=None):
 
     Argument `dicts` can also be a generator, the output of generator
     is iterated and cached using a temporary file to support further
-    transforms and multiple passes of the table:
+    transforms and multiple passes of the table. Set `petl.config.temp_dir`
+    before creating the table to choose the directory for this file.
 
         >>> import petl as etl
         >>> dicts = ({"foo": chr(ord("a")+i), "bar":i+1} for i in range(3))
@@ -292,6 +291,7 @@ class DictsGeneratorView(DictsView):
 
     def __init__(self, dicts, header=None, sample=1000, missing=None):
         super(DictsGeneratorView, self).__init__(dicts, header, sample, missing)
+        self._tempdir = config.temp_dir
         self._filecache = None
         self._cached = 0
 
@@ -303,10 +303,8 @@ class DictsGeneratorView(DictsView):
         yield self._header
 
         if not self._filecache:
-            if PY2:
-                self._filecache = NamedTemporaryFile(delete=False, mode='wb+', bufsize=0)
-            else:
-                self._filecache = NamedTemporaryFile(delete=False, mode='wb+', buffering=0)
+            self._filecache = NamedTemporaryFile(
+                dir=self._tempdir, delete=False, mode='wb+', buffering=0)
 
         position = 0
         it = iter(self._dicts)
@@ -468,17 +466,13 @@ def _writejson(source, obj, prefix, suffix, *args, **kwargs):
     encoder = JSONEncoder(*args, **kwargs)
     source = write_source_from_arg(source)
     with source.open('wb') as f:
-        if PY2:
-            # write directly to buffer
+        # wrap buffer for text IO
+        f = io.TextIOWrapper(f, encoding='utf-8', newline='',
+                             write_through=True)
+        try:
             _writeobj(encoder, obj, f, prefix, suffix, lines=lines)
-        else:
-            # wrap buffer for text IO
-            f = io.TextIOWrapper(f, encoding='utf-8', newline='',
-                                 write_through=True)
-            try:
-                _writeobj(encoder, obj, f, prefix, suffix, lines=lines)
-            finally:
-                f.detach()
+        finally:
+            f.detach()
 
 
 def _writeobj(encoder, obj, f, prefix, suffix, lines=False):

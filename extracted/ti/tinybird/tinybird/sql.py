@@ -1,9 +1,8 @@
 import logging
 import re
 import string
-from collections import namedtuple
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional
 
 valid_chars_name: str = string.ascii_letters + string.digits + "._`*<>+-'"
 valid_chars_fn: str = valid_chars_name + "[](),=!?:/% \n\t\r"
@@ -586,7 +585,10 @@ def clean_comments(schema_to_clean: str) -> str:
     return "\n".join(out_lines).strip()
 
 
-SyntaxExpr = namedtuple("SyntaxExpr", ["name", "regex"])
+class SyntaxExpr(NamedTuple):
+    name: str
+    regex: re.Pattern[str]
+
 
 NULL = SyntaxExpr("NULL", re.compile(r"\s+NULL([^a-z0-9_]|$)", re.IGNORECASE))
 NOTNULL = SyntaxExpr("NOTNULL", re.compile(r"\s+NOT\s+NULL([^a-z0-9_]|$)", re.IGNORECASE))
@@ -623,7 +625,7 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
     pos: int = 1
 
     # Find the first SyntaxExpr in lookup that matches the schema at the current offset
-    def lookahead_matches(lookup: Iterable) -> Optional[SyntaxExpr]:
+    def lookahead_matches(lookup: Iterable[Any]) -> Optional[SyntaxExpr]:
         # Use substring to preserve semantics of patterns anchored to end ($)
         s = schema[i:]
         return next((x for x in lookup if x.regex.match(s)), None)
@@ -888,7 +890,7 @@ def engine_replicated_to_local(engine: str) -> str:
     'VersionedCollapsingMergeTree(sign, version) ORDER BY pk TTL toDate(local_timeplaced) + toIntervalDay(3) SETTINGS index_granularity = 8192'
     """
 
-    def _replace(m):
+    def _replace(m: re.Match[str]) -> str:
         parts = m.groups()
         s = parts[0] + "MergeTree("
         if parts[1]:

@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: opik
-Version: 2.3.1
+Version: 2.3.4
 Summary: Comet tool for logging and evaluating LLM traces
 Home-page: https://www.comet.com
 Author: Comet ML Inc.
 Author-email: mail@comet.com
 License: Apache 2.0 License
-Project-URL: Source code, https://github.com/comet-ml/opik
+Project-URL: Repository, https://github.com/comet-ml/opik
 Keywords: opik
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers

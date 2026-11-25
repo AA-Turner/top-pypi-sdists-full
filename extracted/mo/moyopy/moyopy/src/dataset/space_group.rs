@@ -41,6 +41,7 @@ impl PyMoyoDataset {
     #[new]
     #[pyo3(signature = (cell, *, symprec=1e-4, angle_tolerance=None, setting=None, rotate_basis=true))]
     pub fn new(
+        py: Python<'_>,
         cell: &PyStructure,
         symprec: f64,
         angle_tolerance: Option<f64>,
@@ -59,13 +60,15 @@ impl PyMoyoDataset {
             Setting::default()
         };
 
-        let dataset = MoyoDataset::new(
-            &cell.to_owned().into(),
-            symprec,
-            angle_tolerance,
-            setting,
-            rotate_basis,
-        )?;
+        let dataset = py.detach(|| {
+            MoyoDataset::new(
+                &cell.to_owned().into(),
+                symprec,
+                angle_tolerance,
+                setting,
+                rotate_basis,
+            )
+        })?;
         Ok(PyMoyoDataset(dataset))
     }
 
@@ -313,7 +316,7 @@ impl PyMoyoDataset {
 /// ``len(stabilizer) * len(coset_representatives)`` equals the number of
 /// normalizer operations.
 #[derive(Debug, Clone)]
-#[pyclass(name = "NormalizerWyckoffPositions", frozen, skip_from_py_object)]
+#[pyclass(name = "NormalizerWyckoffPositions", frozen)]
 #[pyo3(module = "moyopy")]
 pub struct PyNormalizerWyckoffPositions(NormalizerWyckoffPositions);
 

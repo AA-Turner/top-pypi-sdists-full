@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zigpy-znp
-Version: 1.1.1
+Version: 1.1.2
 Summary: A library for zigpy which communicates with TI ZNP radios
 Author-email: Alexei Chetroi <alexei.chetroi@outlook.com>
 License: GPL-3.0

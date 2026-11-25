@@ -152,7 +152,7 @@ class StateRequestSubmitter:
                 )
                 view_traversal_duration_ms = int((perf_counter() - view_traversal_start) * 1000)
 
-                # Non-table references (e.g. Snowflake Stages, table-valued functions) were skipped, so
+                # Non-table references (e.g. Snowflake user/table stages, table-valued functions) were skipped, so
                 # nothing can check their freshness. A source with a freshness override is never expanded,
                 # so reaching one here means no override covers it. Run without state rather than risk
                 # reusing a model whose upstream data changed

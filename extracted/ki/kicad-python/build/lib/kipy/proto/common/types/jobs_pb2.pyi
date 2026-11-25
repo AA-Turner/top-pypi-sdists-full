@@ -53,6 +53,27 @@ JS_WARNING: JobStatus.ValueType
 JS_ERROR: JobStatus.ValueType
 global___JobStatus = JobStatus
 
+class _AntialiasingMode:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _AntialiasingModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_AntialiasingMode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    AAM_UNKNOWN: _AntialiasingMode.ValueType
+    AAM_NONE: _AntialiasingMode.ValueType
+    'No anti-aliasing'
+    AAM_STANDARD: _AntialiasingMode.ValueType
+    'Anti-aliasing (KiCad currently has only one AA mode)'
+
+class AntialiasingMode(_AntialiasingMode, metaclass=_AntialiasingModeEnumTypeWrapper):
+    """Anti-aliasing mode for raster plot outputs"""
+AAM_UNKNOWN: AntialiasingMode.ValueType
+AAM_NONE: AntialiasingMode.ValueType
+'No anti-aliasing'
+AAM_STANDARD: AntialiasingMode.ValueType
+'Anti-aliasing (KiCad currently has only one AA mode)'
+global___AntialiasingMode = AntialiasingMode
+
 @typing.final
 class RunJobResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

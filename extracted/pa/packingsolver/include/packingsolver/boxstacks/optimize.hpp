@@ -61,6 +61,9 @@ struct Output: packingsolver::Output<Instance, Solution>
         case Objective::VariableSizedBinPacking:
             return solution_pool.best().feasible()
                 && equal_cost(variable_sized_bin_packing_bound, solution_pool.best().cost());
+        case Objective::VariableSizedBinPackingWithLeftovers:
+            // There is no bound on the value of the leftovers.
+            return false;
         case Objective::Feasibility:
             return solution_pool.best().feasible();
         default:
@@ -90,7 +93,7 @@ struct Output: packingsolver::Output<Instance, Solution>
         case Objective::BinPacking:
             write_bound(os, width, solution_pool.best().number_of_bins(), bin_packing_bound);
             break;
-        case Objective::VariableSizedBinPacking:
+        case Objective::VariableSizedBinPacking: case Objective::VariableSizedBinPackingWithLeftovers:
             write_bound(os, width, solution_pool.best().cost(), variable_sized_bin_packing_bound);
             break;
         case Objective::Feasibility:
@@ -198,8 +201,9 @@ struct OptimizeParameters: packingsolver::Parameters<Instance, Solution, Output>
     std::vector<GuideId> tree_search_guides;
 
     /**
-     * Re-optimize the bins of the best solution at the end, for the
-     * BinPackingWithLeftovers objective in a not-anytime mode.
+     * Re-optimize the bins of the best solution at the end, to improve their
+     * leftovers, in a not-anytime mode, for the objectives of
+     * 'leftover_post_process_objective'.
      */
     bool post_process = true;
 

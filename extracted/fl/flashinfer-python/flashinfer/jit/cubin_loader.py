@@ -71,13 +71,19 @@ def _log_error_response(response) -> None:
     )
 
 
+# How long a process waits for another process downloading the same artifact.
+# The slowest downloads seen in CI took about 3 minutes; this leaves headroom
+# while a holder that is stuck (not dead) still ends in an error, not a hang.
+DOWNLOAD_LOCK_TIMEOUT_SECONDS = 900.0
+
+
 def download_file(
     source: str,
     destination: str,
     retries: int = 4,
     delay: int = 5,
     timeout: int = 10,
-    lock_timeout: int = 30,
+    lock_timeout: float | None = None,
     session: "requests.Session | None" = None,
     *,
     expected_sha256: str | None = None,
@@ -93,7 +99,10 @@ def download_file(
     - retries (int): Number of retry attempts for URL downloads (default: 3).
     - delay (int): Initial delay in seconds for exponential backoff (default: 5).
     - timeout (int): Timeout for the HTTP request in seconds (default: 10).
-    - lock_timeout (int): Timeout in seconds for the file lock (default: 30).
+    - lock_timeout (float | None): Timeout in seconds for the file lock. None
+      uses DOWNLOAD_LOCK_TIMEOUT_SECONDS (900): long enough for a concurrent
+      download of a large artifact, bounded so a stuck holder cannot hang
+      the waiter. A negative value waits indefinitely.
     - expected_sha256 (str | None): Reuse a matching cached file after acquiring
       the lock. None preserves unconditional download/copy behavior.
 
@@ -106,6 +115,8 @@ def download_file(
     if session is None:
         session = requests.Session()
 
+    if lock_timeout is None:
+        lock_timeout = DOWNLOAD_LOCK_TIMEOUT_SECONDS
     lock_path = f"{destination}.lock"  # Lock file path
     lock = filelock.FileLock(lock_path, timeout=lock_timeout)
 
@@ -240,8 +251,8 @@ def load_cubin(cubin_path: str, sha256: str) -> bytes | None:
             logger.warning(
                 f"sha256 mismatch (expected {sha256} actual {actual_sha}) for {cubin_path}"
             )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Cannot read {cubin_path}: {e}")
     return None
 
 
@@ -346,6 +357,13 @@ dll_cubin_handlers = {}
 
 
 def setup_cubin_loader(dll_path: str) -> None:
+    """Register the Python cubin callback with a loaded native module.
+
+    Parameters
+    ----------
+    dll_path : str
+        Path of the native module that exports FlashInferSetCubinCallback.
+    """
     if dll_path in dll_cubin_handlers:
         return
 
@@ -355,8 +373,17 @@ def setup_cubin_loader(dll_path: str) -> None:
     CALLBACK_TYPE = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_char_p)
 
     def get_cubin_callback(name: bytes, sha256: bytes):
-        # Both name and sha256 are bytes (c_char_p)
-        cubin = get_artifact(name.decode("utf-8"), sha256.decode("utf-8"))
+        """Deliver the cubin bytes for ``name`` to the native side; never raises into native code."""
+        # Both name and sha256 are bytes (c_char_p). A ctypes callback cannot
+        # propagate an exception, so always hand the native side a buffer:
+        # empty bytes mean the cubin is unavailable (a failed download or
+        # checksum, logged by get_artifact), and the consumer's checked driver
+        # load decides whether that is fatal or skippable.
+        try:
+            cubin = get_artifact(name.decode("utf-8"), sha256.decode("utf-8"))
+        except Exception as e:
+            logger.error(f"Failed to load cubin {name.decode('utf-8', 'replace')}: {e}")
+            cubin = b""
         _LIB.FlashInferSetCurrentCubin(
             convert_to_ctypes_char_p(cubin), ctypes.c_int(len(cubin))
         )

@@ -43,20 +43,20 @@ class TestBroadcastsPagination:
         self.broadcasts_client = getattr(self.client, "broadcasts")
 
 
-    def test_list_cursor_creation(self):
-        """Test that list can be used with Cursor."""
-        method = getattr(self.broadcasts_client, "list")
+    def test_get_broadcast_chat_cursor_creation(self):
+        """Test that get_broadcast_chat can be used with Cursor."""
+        method = getattr(self.broadcasts_client, "get_broadcast_chat")
         # Should be able to create cursor without error
         try:
-            test_cursor = cursor(method, max_results=10)
+            test_cursor = cursor(method, "test_id", max_results=10)
             assert test_cursor is not None
             assert isinstance(test_cursor, Cursor)
         except PaginationError:
-            pytest.fail(f"Method list should support pagination")
+            pytest.fail(f"Method get_broadcast_chat should support pagination")
 
 
-    def test_list_cursor_pages(self):
-        """Test pagination with pages() for list."""
+    def test_get_broadcast_chat_cursor_pages(self):
+        """Test pagination with pages() for get_broadcast_chat."""
         with patch.object(self.client, "session") as mock_session:
             # Mock first page response
             first_page_response = Mock()
@@ -85,8 +85,8 @@ class TestBroadcastsPagination:
             # Return different responses for consecutive calls
             mock_session.get.side_effect = [first_page_response, second_page_response]
             # Test pagination
-            method = getattr(self.broadcasts_client, "list")
-            test_cursor = cursor(method, max_results=2)
+            method = getattr(self.broadcasts_client, "get_broadcast_chat")
+            test_cursor = cursor(method, "test_id", max_results=2)
             pages = list(test_cursor.pages(2))  # Limit to 2 pages
             assert len(pages) == 2, f"Should get 2 pages, got {len(pages)}"
             # Verify first page
@@ -101,8 +101,8 @@ class TestBroadcastsPagination:
             assert len(second_data) == 1, "Second page should have 1 item"
 
 
-    def test_list_cursor_items(self):
-        """Test pagination with items() for list."""
+    def test_get_broadcast_chat_cursor_items(self):
+        """Test pagination with items() for get_broadcast_chat."""
         with patch.object(self.client, "session") as mock_session:
             # Mock response with paginated data
             mock_response = Mock()
@@ -118,8 +118,8 @@ class TestBroadcastsPagination:
             mock_response.headers = {"content-type": "application/json"}
             mock_session.get.return_value = mock_response
             # Test item iteration
-            method = getattr(self.broadcasts_client, "list")
-            test_cursor = cursor(method, max_results=10)
+            method = getattr(self.broadcasts_client, "get_broadcast_chat")
+            test_cursor = cursor(method, "test_id", max_results=10)
             items = list(test_cursor.items(5))  # Limit to 5 items
             assert len(items) == 3, f"Should get 3 items, got {len(items)}"
             # Verify items round-trip the spec-valid mock payload
@@ -132,8 +132,8 @@ class TestBroadcastsPagination:
                         ), f"Items should have '{_key}' field"
 
 
-    def test_list_pagination_parameters(self):
-        """Test that pagination parameters are handled correctly for list."""
+    def test_get_broadcast_chat_pagination_parameters(self):
+        """Test that pagination parameters are handled correctly for get_broadcast_chat."""
         with patch.object(self.client, "session") as mock_session:
             mock_response = Mock()
             mock_response.status_code = 200
@@ -144,9 +144,9 @@ class TestBroadcastsPagination:
             mock_response.raise_for_status.return_value = None
             mock_response.headers = {"content-type": "application/json"}
             mock_session.get.return_value = mock_response
-            method = getattr(self.broadcasts_client, "list")
+            method = getattr(self.broadcasts_client, "get_broadcast_chat")
             # Test with max_results parameter
-            test_cursor = cursor(method, max_results=5)
+            test_cursor = cursor(method, "test_id", max_results=5)
             list(test_cursor.pages(1))  # Trigger one request
             # Verify max_results was passed in request
             call_args = mock_session.get.call_args
@@ -181,7 +181,7 @@ class TestBroadcastsPagination:
                 mock_response_with_token,
                 second_page_response,
             ]
-            test_cursor = cursor(method, max_results=1)
+            test_cursor = cursor(method, "test_id", max_results=1)
             pages = list(test_cursor.pages(2))
             # Should have made 2 requests
             assert (
@@ -523,20 +523,20 @@ class TestBroadcastsPagination:
                 ), "Pagination token should be passed correctly"
 
 
-    def test_get_broadcast_chat_cursor_creation(self):
-        """Test that get_broadcast_chat can be used with Cursor."""
-        method = getattr(self.broadcasts_client, "get_broadcast_chat")
+    def test_list_cursor_creation(self):
+        """Test that list can be used with Cursor."""
+        method = getattr(self.broadcasts_client, "list")
         # Should be able to create cursor without error
         try:
-            test_cursor = cursor(method, "test_id", max_results=10)
+            test_cursor = cursor(method, max_results=10)
             assert test_cursor is not None
             assert isinstance(test_cursor, Cursor)
         except PaginationError:
-            pytest.fail(f"Method get_broadcast_chat should support pagination")
+            pytest.fail(f"Method list should support pagination")
 
 
-    def test_get_broadcast_chat_cursor_pages(self):
-        """Test pagination with pages() for get_broadcast_chat."""
+    def test_list_cursor_pages(self):
+        """Test pagination with pages() for list."""
         with patch.object(self.client, "session") as mock_session:
             # Mock first page response
             first_page_response = Mock()
@@ -565,8 +565,8 @@ class TestBroadcastsPagination:
             # Return different responses for consecutive calls
             mock_session.get.side_effect = [first_page_response, second_page_response]
             # Test pagination
-            method = getattr(self.broadcasts_client, "get_broadcast_chat")
-            test_cursor = cursor(method, "test_id", max_results=2)
+            method = getattr(self.broadcasts_client, "list")
+            test_cursor = cursor(method, max_results=2)
             pages = list(test_cursor.pages(2))  # Limit to 2 pages
             assert len(pages) == 2, f"Should get 2 pages, got {len(pages)}"
             # Verify first page
@@ -581,8 +581,8 @@ class TestBroadcastsPagination:
             assert len(second_data) == 1, "Second page should have 1 item"
 
 
-    def test_get_broadcast_chat_cursor_items(self):
-        """Test pagination with items() for get_broadcast_chat."""
+    def test_list_cursor_items(self):
+        """Test pagination with items() for list."""
         with patch.object(self.client, "session") as mock_session:
             # Mock response with paginated data
             mock_response = Mock()
@@ -598,8 +598,8 @@ class TestBroadcastsPagination:
             mock_response.headers = {"content-type": "application/json"}
             mock_session.get.return_value = mock_response
             # Test item iteration
-            method = getattr(self.broadcasts_client, "get_broadcast_chat")
-            test_cursor = cursor(method, "test_id", max_results=10)
+            method = getattr(self.broadcasts_client, "list")
+            test_cursor = cursor(method, max_results=10)
             items = list(test_cursor.items(5))  # Limit to 5 items
             assert len(items) == 3, f"Should get 3 items, got {len(items)}"
             # Verify items round-trip the spec-valid mock payload
@@ -612,8 +612,8 @@ class TestBroadcastsPagination:
                         ), f"Items should have '{_key}' field"
 
 
-    def test_get_broadcast_chat_pagination_parameters(self):
-        """Test that pagination parameters are handled correctly for get_broadcast_chat."""
+    def test_list_pagination_parameters(self):
+        """Test that pagination parameters are handled correctly for list."""
         with patch.object(self.client, "session") as mock_session:
             mock_response = Mock()
             mock_response.status_code = 200
@@ -624,9 +624,9 @@ class TestBroadcastsPagination:
             mock_response.raise_for_status.return_value = None
             mock_response.headers = {"content-type": "application/json"}
             mock_session.get.return_value = mock_response
-            method = getattr(self.broadcasts_client, "get_broadcast_chat")
+            method = getattr(self.broadcasts_client, "list")
             # Test with max_results parameter
-            test_cursor = cursor(method, "test_id", max_results=5)
+            test_cursor = cursor(method, max_results=5)
             list(test_cursor.pages(1))  # Trigger one request
             # Verify max_results was passed in request
             call_args = mock_session.get.call_args
@@ -661,7 +661,7 @@ class TestBroadcastsPagination:
                 mock_response_with_token,
                 second_page_response,
             ]
-            test_cursor = cursor(method, "test_id", max_results=1)
+            test_cursor = cursor(method, max_results=1)
             pages = list(test_cursor.pages(2))
             # Should have made 2 requests
             assert (
@@ -697,8 +697,8 @@ class TestBroadcastsPagination:
             empty_response.headers = {"content-type": "application/json"}
             mock_session.get.return_value = empty_response
             # Pick first paginatable method for testing
-            method = getattr(self.broadcasts_client, "list")
-            test_cursor = cursor(method, max_results=10)
+            method = getattr(self.broadcasts_client, "get_broadcast_chat")
+            test_cursor = cursor(method, "test_id", max_results=10)
             # Should handle empty responses gracefully
             pages = list(test_cursor.pages(1))
             assert len(pages) == 1, "Should get one page even if empty"
@@ -711,13 +711,6 @@ class TestBroadcastsPagination:
         # Create a mock method that doesn't support pagination
         def non_paginatable_method(id: str) -> dict:
             return {"id": id}
-        with pytest.raises(PaginationError):
-            cursor(non_paginatable_method)
-
-
-        def non_paginatable_method(id: str) -> dict:
-            return {"id": id}
-
         with pytest.raises(PaginationError):
             cursor(non_paginatable_method)
 

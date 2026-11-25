@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 import pytest
 import ray  # noqa: F401
 
-from geneva import connect
+from geneva import JobNotSubmittedError, connect
+from geneva.db import Connection
 from geneva.jobs import JobRecord, JobStateManager, JobStatus
 from geneva.jobs.jobs import JobMetric
 from geneva.runners.ray.pipeline import _submit_ray_job
@@ -83,48 +84,77 @@ def test_jobstatemanager_persists_audit_field_paths(tmp_path: Path) -> None:
     assert listed[0].output_columns == ["user_id"]
 
 
+def test_unfinished_job_ids_reads_all_matching_jobs(
+    rest_pushdown_db: Connection,
+) -> None:
+    history = rest_pushdown_db._history
+    name = "owner's table"
+    pending = {history.launch(name, "b").job_id for _ in range(12)}
+    running = history.launch(name, "b").job_id
+    history.set_running(running)
+    history.set_completed(history.launch(name, "b").job_id)
+    history.set_cancelled(history.launch(name, "b").job_id)
+    history.launch("other", "b")
+
+    assert history.unfinished_job_ids(name) == pending | {running}
+    assert history.unfinished_job_ids("missing") == set()
+
+
 def test_submit_ray_job_marks_failed_on_submit_error() -> None:
     class Hist:
         def __init__(self) -> None:
-            self.failed: list[tuple[str, str]] = []
+            self.saved: list[bytes] = []
+            self.failed: list[tuple[str, str, bytes | None]] = []
 
-        def set_failed(self, job_id: str, msg: str) -> None:
-            self.failed.append((job_id, msg))
+        def set_failed(
+            self, job_id: str, msg: str, *, object_ref: bytes | None = None
+        ) -> None:
+            self.failed.append((job_id, msg, object_ref))
 
         def set_object_ref(self, job_id: str, object_ref: bytes) -> None:
-            raise AssertionError("object ref should not be persisted")
+            self.saved.append(object_ref)
 
     hist = Hist()
+    submitted: list[bytes | None] = []
 
-    def fail_submit() -> object:
+    def fail_submit(attempt: bytes | None) -> object:
+        submitted.append(attempt)
         raise RuntimeError("submit failed")
 
     with pytest.raises(RuntimeError, match="submit failed"):
         _submit_ray_job(hist, "job-1", fail_submit)
 
-    assert hist.failed == [("job-1", "submit failed")]
+    # The attempt is saved before submitting, and the failure is fenced on it.
+    assert submitted == hist.saved
+    assert hist.failed == [("job-1", "submit failed", hist.saved[0])]
 
 
-def test_submit_ray_job_continues_when_object_ref_persist_fails(caplog) -> None:
+def test_submit_ray_job_does_not_submit_when_object_ref_persist_fails() -> None:
     class Hist:
         def __init__(self) -> None:
             self.failed: list[tuple[str, str]] = []
 
-        def set_failed(self, job_id: str, msg: str) -> None:
+        def set_failed(self, job_id: str, msg: str, **kwargs: object) -> None:
             self.failed.append((job_id, msg))
 
         def set_object_ref(self, job_id: str, object_ref: bytes) -> None:
             raise RuntimeError("persist failed")
 
     hist = Hist()
-    obj_ref = object()
+    submitted: list[bytes] = []
 
-    with caplog.at_level(logging.WARNING):
-        result = _submit_ray_job(hist, "job-2", lambda: obj_ref)
+    def submit(attempt: bytes) -> object:
+        submitted.append(attempt)
+        return object()
 
-    assert result is obj_ref
+    with pytest.raises(
+        JobNotSubmittedError, match="Job job-2 was not submitted"
+    ) as error:
+        _submit_ray_job(hist, "job-2", submit)
+
+    assert str(error.value.__cause__) == "persist failed"
+    assert submitted == []
     assert hist.failed == []
-    assert "Failed to persist Ray object ref for job job-2" in caplog.text
 
 
 def test_jobstatemanager(tmp_path: Path) -> None:

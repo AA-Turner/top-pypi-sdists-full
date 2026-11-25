@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.sparse import csc_matrix
-from scipy.sparse.linalg import spsolve
 
 import pybamm
 
@@ -122,7 +121,39 @@ class EISSimulation(BaseSimulation):
             Forcing vector with unit perturbation on the current variable.
         """
         model = self._built_model
-        inputs_dict = inputs_dict or {}
+        outputs = pybamm.numpy_concatenation(
+            model.get_processed_variable("Voltage [V]"),
+            model.get_processed_variable("Current [A]"),
+        )
+        # Input names, state ordering and matrices are fixed until the model is rebuilt
+        if getattr(self, "_matrix_model", None) is not model:
+            # Compile against only the inputs the compiled functions read, so
+            # inputs used elsewhere (e.g. other output variables) never shift them
+            unpacker = pybamm.SymbolUnpacker(pybamm.InputParameter)
+            symbols = unpacker.unpack_list_of_symbols(
+                [
+                    model.concatenated_rhs,
+                    model.concatenated_algebraic,
+                    model.concatenated_initial_conditions,
+                    outputs,
+                    *(event.expression for event in model.events),
+                ]
+            )
+            self._input_names = sorted({symbol.name for symbol in symbols})
+            indices = {
+                var.name: slices[0].start for var, slices in model.y_slices.items()
+            }
+            self._current_index = indices["Current variable [A]"]
+            self._cached_M = csc_matrix(model.mass_matrix.entries)
+            self._cached_b = np.zeros(model.len_rhs_and_alg)
+            self._cached_b[self._current_index] = -1
+            self._matrix_model = model
+        inputs = pybamm.ParameterValues.check_parameter_values(inputs_dict or {})
+        missing = [name for name in self._input_names if inputs.get(name) is None]
+        if missing:
+            missing_str = ", ".join(f"'{name}'" for name in missing)
+            raise pybamm.SolverError(f"No value provided for input: [{missing_str}].")
+        inputs_dict = {name: inputs[name] for name in self._input_names}
 
         # Convert inputs to casadi format for Jacobian evaluation
         if model.convert_to_format == "casadi":
@@ -139,10 +170,6 @@ class EISSimulation(BaseSimulation):
             solver.set_up(model, inputs=inputs_dict)
 
         y0 = model.concatenated_initial_conditions.evaluate(0, inputs=inputs_dict)
-        outputs = pybamm.numpy_concatenation(
-            model.get_processed_variable("Voltage [V]"),
-            model.get_processed_variable("Current [A]"),
-        )
         from casadi import MX, Function, jacobian
 
         y = MX.sym("y", y0.size)
@@ -152,17 +179,6 @@ class EISSimulation(BaseSimulation):
         )(y0).sparse()
         J_sparse = model.jac_rhs_algebraic_eval(0, y0, casadi_inputs).sparse()
         neg_J = -csc_matrix(J_sparse)
-
-        # State ordering and matrices are fixed until the model is rebuilt.
-        if getattr(self, "_matrix_model", None) is not model:
-            indices = {
-                var.name: slices[0].start for var, slices in model.y_slices.items()
-            }
-            self._current_index = indices["Current variable [A]"]
-            self._cached_M = csc_matrix(model.mass_matrix.entries)
-            self._cached_b = np.zeros(y0.shape[0])
-            self._cached_b[self._current_index] = -1
-            self._matrix_model = model
 
         return self._cached_M, neg_J, self._cached_b
 
@@ -185,11 +201,15 @@ class EISSimulation(BaseSimulation):
         z : complex
             Complex impedance in Ohms.
         """
+        from scipy.sparse.linalg import spsolve
+
         A = (1.0j * 2 * np.pi * frequency) * M + neg_J
         x = spsolve(A, b)
         voltage, current = self._output_jacobian @ x
         return -voltage / current
 
+    # EIS solves in the frequency domain, so it takes frequencies, not t_eval
+    # pyrefly: ignore[bad-override]
     def solve(self, frequencies, inputs=None, initial_soc=None):
         """Compute impedance at the given frequencies.
 
@@ -246,8 +266,42 @@ class EISSimulation(BaseSimulation):
         fig : matplotlib.figure.Figure or None
         ax : matplotlib.axes.Axes
         """
+        return self._solved_solution().nyquist_plot(**kwargs)
+
+    def bode_plot(self, **kwargs):
+        """Generate a Bode plot from the most recent solution.
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments forwarded to :func:`pybamm.bode_plot`.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure or None
+        ax : tuple of matplotlib.axes.Axes
+        """
+        return self._solved_solution().bode_plot(**kwargs)
+
+    # pyrefly: ignore[bad-override]
+    def plot(self, **kwargs):
+        """Plot Nyquist and Bode plots of the most recent solution side by side.
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments forwarded to :func:`pybamm.eis_plot`.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+        axes : tuple of matplotlib.axes.Axes
+        """
+        return self._solved_solution().plot(**kwargs)
+
+    def _solved_solution(self):
         if self._solution is None:
             raise ValueError(
                 "EIS simulation has not been solved yet. Call solve() before plotting."
             )
-        return self._solution.nyquist_plot(**kwargs)
+        return self._solution

@@ -47,16 +47,9 @@ def test_decimal_literals_compare_in_value_space() -> None:
     assert Literal(10, XSD_DECIMAL) != Literal("10.01", XSD_DECIMAL)
 
 
-def test_ill_formed_decimal_literals_compare_lexically() -> None:
-    # A text that decimal.Decimal cannot parse compares as text.
-    assert Literal("abc", XSD_DECIMAL) == Literal("abc", XSD_DECIMAL)
-    assert hash(Literal("abc", XSD_DECIMAL)) == hash(Literal("abc", XSD_DECIMAL))
-    assert Literal("abc", XSD_DECIMAL) != Literal("abd", XSD_DECIMAL)
-
-
 # One value each (XSD 1.1 Part 2, sections 3.3.2 to 3.3.5 and 3.4.x): two texts
 # in a datatype's lexical space that denote the same value in its value space
-# (#527, #593, #594, #595).
+# (#527, #593, #594, #595), or the same text outside it, which compares as text.
 SAME_VALUE: list[tuple[Literal, Literal]] = [
     (Literal("5", XSD_INT), Literal("05", XSD_INT)),
     (Literal("5", XSD_LONG), Literal("+5", XSD_LONG)),
@@ -77,6 +70,7 @@ SAME_VALUE: list[tuple[Literal, Literal]] = [
     (Literal("1.0", XSD_DECIMAL), Literal("\t1.0\n", XSD_DECIMAL)),
     (Literal("1.5", XSD_DOUBLE), Literal("\r1.5 ", XSD_DOUBLE)),
     (Literal("true", XSD_BOOLEAN), Literal(" true", XSD_BOOLEAN)),
+    (Literal("abc", XSD_DECIMAL), Literal("abc", XSD_DECIMAL)),
 ]
 
 # Two values: a different asserted datatype (#235), a text outside the lexical
@@ -94,6 +88,7 @@ DIFFERENT_VALUE: list[tuple[Literal, Literal]] = [
     (Literal("nan", XSD_DOUBLE), Literal("NaN", XSD_DOUBLE)),
     (Literal("1e1", XSD_DECIMAL), Literal("10", XSD_DECIMAL)),
     (Literal("abc", XSD_INT), Literal("abd", XSD_INT)),
+    (Literal("abc", XSD_DECIMAL), Literal("abd", XSD_DECIMAL)),
     (Literal("1", XSD_INT), Literal("2", XSD_INT)),
     (Literal("\u00a05", XSD_INT), Literal("5", XSD_INT)),
     (Literal("\f5", XSD_INT), Literal("5", XSD_INT)),
@@ -140,13 +135,36 @@ def test_langtag_comparison_is_case_insensitive() -> None:
     assert Literal("hello", langtag="en") != Literal("hello", langtag="fr")
 
 
-def test_langtag_case_is_preserved_in_output() -> None:
+@pytest.mark.parametrize(
+    ("fmt", "options", "written"),
+    [
+        pytest.param("json", {}, '"lang": "EN"', id="json"),
+        pytest.param("xml", {}, 'xml:lang="EN"', id="xml"),
+        pytest.param("rdf", {"rdf_format": "nt11"}, '"hello"@EN', id="rdf"),
+        pytest.param("jsonld", {}, '"@language": "EN"', id="jsonld"),
+        pytest.param("provn", {}, '"hello"@EN', id="provn"),
+    ],
+)
+def test_langtag_case_is_preserved_in_output(
+    fmt: str, options: dict[str, str], written: str
+) -> None:
     # #259 non-goal: the stored tag is not normalised -- output stays verbatim.
     document = ex_document()
     document.entity("ex:e1", {"ex:a": Literal("hello", langtag="EN")})
-    content = document.serialize(format="json")
+    content = document.serialize(format=fmt, **options)
     assert content is not None
-    assert '"lang": "EN"' in content
+    assert written in content
+
+
+@pytest.mark.parametrize("fmt", ROUNDTRIP_FORMATS)
+def test_langtag_case_is_preserved_on_read(fmt: str) -> None:
+    # #259 non-goal: a reader keeps the tag verbatim,
+    # and equality ignores its case.
+    document = ex_document()
+    document.entity("ex:e1", {"ex:a": Literal("hello", langtag="EN")})
+    value = _single_value(roundtrip_document(document, fmt))
+    assert isinstance(value, Literal)
+    assert value.langtag == "EN"
 
 
 def test_rdf_plain_string_emitted_without_xsd_string() -> None:
@@ -441,8 +459,8 @@ class _Stamp(datetime.datetime):
     pass
 
 
-class _Letter(enum.StrEnum):
-    A = "a"
+class _Text(str):
+    pass
 
 
 # Literal(value) spells a Python value in XSD form (E7).
@@ -473,6 +491,7 @@ class _Letter(enum.StrEnum):
         (b"\xab\x01", XSD["hexBinary"], "AB01"),
         (datetime.date(2012, 1, 1), XSD["date"], "2012-01-01"),
         (_Level.LOW, XSD_INT, "5"),
+        pytest.param(_OddFloat(0.1), XSD_DECIMAL, "0.1", id="float-subclass"),
         # No form in the given datatype: prov's spelling, under that datatype (N29).
         (b"\x00", XSD["duration"], "AA=="),
     ],
@@ -494,8 +513,8 @@ def test_literal_spells_a_python_value_in_xsd_form(
         (_OddFloat(1.5), 1.5),
         (_Stamp(2012, 1, 1), datetime.datetime(2012, 1, 1)),
         (
-            _Stamp(2012, 1, 1, tzinfo=datetime.UTC),
-            datetime.datetime(2012, 1, 1, tzinfo=datetime.UTC),
+            _Stamp(2012, 1, 1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(2012, 1, 1, tzinfo=datetime.timezone.utc),
         ),
     ],
     ids=["int", "float", "datetime", "aware-datetime"],
@@ -523,7 +542,7 @@ def test_a_subclass_of_a_plain_type_is_written_as_the_plain_value(
     assert len(both.extra_attributes) == 1
 
 
-_AWARE_DT = datetime.datetime(2012, 1, 1, tzinfo=datetime.UTC)
+_AWARE_DT = datetime.datetime(2012, 1, 1, tzinfo=datetime.timezone.utc)
 
 
 _VALUE_SET = type(
@@ -547,7 +566,7 @@ def _only_key(value: object) -> tuple[Any, ...]:
         pytest.param(1.5, Literal("1.5", XSD_DOUBLE), True, id="float"),
         pytest.param(float("nan"), Literal("NaN", XSD_DOUBLE), True, id="nan"),
         pytest.param(_Level.LOW, 5, True, id="int-subclass"),
-        pytest.param(_Letter.A, "a", True, id="str-subclass"),
+        pytest.param(_Text("a"), "a", True, id="str-subclass"),
         pytest.param(
             _Stamp(2012, 1, 1),
             datetime.datetime(2012, 1, 1),
@@ -595,7 +614,3 @@ def test_a_plain_value_keys_as_its_twin(
 )
 def test_a_value_with_no_plain_form_keys_by_its_type(value: object, slot: type) -> None:
     assert _only_key(value)[0] is slot
-
-
-def test_float_subclass_with_a_custom_repr_converts_to_decimal() -> None:
-    assert Literal(_OddFloat(0.1), XSD_DECIMAL).value == "0.1"

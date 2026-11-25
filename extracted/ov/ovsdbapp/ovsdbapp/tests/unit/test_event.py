@@ -21,8 +21,9 @@ from ovsdbapp.tests import base
 class TestEvent(event.RowEvent):
     def __init__(self, events=(event.RowEvent.ROW_CREATE,),
                  table="FakeTable", conditions=(("col", "=", "val"),),
-                 priority=None):
-        super().__init__(events, table, conditions)
+                 old_conditions=None, priority=None):
+        super().__init__(events, table, conditions,
+                         old_conditions=old_conditions)
         if priority is not None:
             self.priority = priority
 
@@ -48,6 +49,42 @@ class TestRowEvent(base.TestCase):
         self.assertNotEqual(TestEvent(), TestEvent(conditions=None))
         self.assertNotEqual(TestEvent(priority=1), TestEvent(priority=2))
         self.assertNotEqual(TestEvent(), OtherTestEvent())
+
+    def test_compare_equality_old_conditions(self):
+        # old_conditions is part of the event value: two events that
+        # differ only in old_conditions are distinct watches and both
+        # can be registered at the same time.
+        self.assertNotEqual(TestEvent(),
+                            TestEvent(old_conditions=(("col", "=", "1"),)))
+        self.assertEqual(TestEvent(old_conditions=(("col", "=", "1"),)),
+                         TestEvent(old_conditions=(("col", "=", "1"),)))
+
+
+class KeyOverrideTestEvent(TestEvent):
+    """Event with a per-instance variable, as BGPBridgePortCreatedEvent."""
+
+    def __init__(self, extra, **kwargs):
+        super().__init__(**kwargs)
+        self.extra = extra
+
+    @property
+    def key(self):
+        return super().key + (self.extra,)
+
+
+class TestRowEventKeyOverride(base.TestCase):
+    def test_key_override_distinguishes_instances(self):
+        # Events that differ only in a per-instance variable describe
+        # different watches: overriding ``key`` makes both registrable.
+        first = KeyOverrideTestEvent('br-ex')
+        second = KeyOverrideTestEvent('br-bgp')
+        self.assertNotEqual(first, second)
+        self.assertNotEqual(hash(first), hash(second))
+        handler = event.RowEventHandler()
+        handler.watch_events([first, second])
+        self.assertCountEqual([first, second], handler._watched_events)
+        handler.unwatch_event(first)
+        self.assertCountEqual([second], handler._watched_events)
 
 
 class TestRowEventHandler(base.TestCase):

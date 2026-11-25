@@ -20,5 +20,4 @@
 
 from kipy.packaging.cli import main
 
-
 raise SystemExit(main())

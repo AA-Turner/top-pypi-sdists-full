@@ -14,7 +14,7 @@ def format_description(file_parts: List[str], doc: Any) -> List[str]:
         file_parts.append("DESCRIPTION >")
         file_parts.append(DATAFILE_NEW_LINE)
         [
-            file_parts.append(f"{DATAFILE_INDENT}{d.strip()}\n")  # type: ignore
+            file_parts.append(f"{DATAFILE_INDENT}{d.strip()}\n")  # type: ignore[func-returns-value]
             for d in description.split(DATAFILE_NEW_LINE)
             if d.strip()
         ]

@@ -15,11 +15,16 @@ from contextlib import suppress
 import attrs
 import kubernetes
 import kubernetes.stream.ws_client
+from kubernetes.client.exceptions import ApiException
 from typing_extensions import Self
 
 from geneva.runners.ray.raycluster import RayCluster
 
 _LOG = logging.getLogger(__name__)
+
+_HTTP_UNAUTHORIZED = 401
+# Bounds the walk down a failure's exception chain when looking for a 401.
+_MAX_EXCEPTION_CHAIN = 8
 
 
 @attrs.define
@@ -54,8 +59,11 @@ class PortForward:
     """
 
     port: int
-    core_api: kubernetes.client.CoreV1Api
+    core_api_provider: Callable[[], kubernetes.client.CoreV1Api]
+    """Returns the current client; ``KuberayClients.refresh`` replaces it."""
     pod_resolver: Callable[[], tuple[str | None, str | None]]
+    refresh_auth: Callable[[], None]
+    """Reauthenticates the clients ``core_api_provider`` returns."""
 
     local_port: int = 0
     alive: _Flag = attrs.field(factory=_Flag.true, init=False)
@@ -75,8 +83,9 @@ class PortForward:
 
         return cls(
             port=10001,
-            core_api=cluster.clients.core_api,
+            core_api_provider=lambda: cluster.clients.core_api,
             pod_resolver=resolve,
+            refresh_auth=cluster.clients.refresh,
         )
 
     @classmethod
@@ -92,8 +101,9 @@ class PortForward:
 
         return cls(
             port=3000,
-            core_api=cluster.clients.core_api,
+            core_api_provider=lambda: cluster.clients.core_api,
             pod_resolver=resolve,
+            refresh_auth=cluster.clients.refresh,
         )
 
     def _start_proxy(
@@ -119,6 +129,7 @@ class PortForward:
         self, *, attempts: int = 12, sleep_s: float = 2.5
     ) -> socket.socket:
         last_err = None
+        reauthenticated = False
         for _ in range(attempts):
             if not self.alive:
                 raise RuntimeError("forwarder stopping")
@@ -129,7 +140,7 @@ class PortForward:
 
                 pf: kubernetes.stream.ws_client.PortForward = (
                     kubernetes.stream.portforward(
-                        self.core_api.connect_get_namespaced_pod_portforward,
+                        self.core_api_provider().connect_get_namespaced_pod_portforward,
                         pod_name,
                         ns,
                         ports=f"{self.port}",
@@ -138,9 +149,17 @@ class PortForward:
                 s = pf.socket(self.port)
                 s.setblocking(True)
                 return s
-            except Exception as e:  # NotFound / Gone / transient
-                _LOG.debug(f"failed to resolve pod for port forwarding: {e}")
+            except Exception as e:  # NotFound / Gone / transient / expired token
                 last_err = e
+                # KuberayClients reauthenticates on 401 only for the REST calls it
+                # wraps; port-forward bypasses that wrapper, so refresh here. Once
+                # per connection, so a rejected refresh cannot loop on the API.
+                if not reauthenticated and _is_unauthorized(e):
+                    _LOG.info("k8s rejected the port-forward token, reauthenticating")
+                    self.refresh_auth()
+                    reauthenticated = True
+                    continue
+                _LOG.debug(f"failed to resolve pod for port forwarding: {e}")
                 time.sleep(sleep_s)
         if last_err is not None:
             raise last_err
@@ -238,6 +257,25 @@ class PortForward:
         if tcp_keepcnt is not None:
             with suppress(Exception):
                 s.setsockopt(socket.IPPROTO_TCP, tcp_keepcnt, 3)
+
+
+def _is_unauthorized(exc: BaseException) -> bool:
+    """Whether k8s rejected a port-forward's credentials.
+
+    ``kubernetes.stream`` re-raises a failed websocket handshake as
+    ``ApiException(status=0)``; the handshake's HTTP status survives only as
+    ``status_code`` on the websocket exception it was raised from.
+    """
+    current: BaseException | None = exc
+    for _ in range(_MAX_EXCEPTION_CHAIN):
+        if current is None:
+            return False
+        if getattr(current, "status_code", None) == _HTTP_UNAUTHORIZED:
+            return True
+        if isinstance(current, ApiException) and current.status == _HTTP_UNAUTHORIZED:
+            return True
+        current = current.__cause__ or current.__context__
+    return False
 
 
 def _format_sock(sock: socket.socket) -> str:

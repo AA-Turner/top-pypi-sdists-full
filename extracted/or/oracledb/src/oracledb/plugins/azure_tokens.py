@@ -30,12 +30,16 @@
 
 import datetime
 import enum
+import pathlib
 
 import msal
 import oracledb
+import requests
 
 
 class AuthType(str, enum.Enum):
+    AzureFile = "AzureFile".lower()
+    AzureManagedIdentity = "AzureManagedIdentity".lower()
     AzureServicePrincipal = "AzureServicePrincipal".lower()
 
 
@@ -45,6 +49,27 @@ def _build_msal_app(params):
         client_credential=params["client_credential"],
         authority=params["authority"],
     )
+
+
+def _file_based_credentials(token_auth_config):
+    """
+    Returns an access token found within a file.
+    """
+    _validate_config(token_auth_config, "token_location")
+    token_path = pathlib.Path(token_auth_config["token_location"]).expanduser()
+    if token_path.is_dir():
+        token_path /= "token"
+    token = token_path.read_text().strip()
+    if not token:
+        raise ValueError(f"File {token_path} is empty")
+    return token
+
+
+def _get_azure_scope(app_id_uri: str) -> str:
+    scope = app_id_uri.rstrip("/")
+    if not scope.endswith("/.default"):
+        scope += "/.default"
+    return scope
 
 
 def _get_token(key, result):
@@ -63,18 +88,74 @@ def _get_token(key, result):
     return token
 
 
+def _managed_identity_credentials(token_auth_config):
+    """
+    Returns the access token for authentication with a managed identity.
+    """
+    _validate_config(token_auth_config, "scopes")
+    client_id = token_auth_config.get("client_id")
+    if client_id is None:
+        managed_identity = msal.SystemAssignedManagedIdentity()
+    else:
+        managed_identity = msal.UserAssignedManagedIdentity(
+            client_id=client_id
+        )
+    app = msal.ManagedIdentityClient(
+        managed_identity, http_client=requests.Session()
+    )
+
+    # ManagedIdentityClient expects a resource URI instead of an OAuth scope.
+    resource = _get_azure_scope(token_auth_config["scopes"]).removesuffix(
+        "/.default"
+    )
+    return app.acquire_token_for_client(resource=resource)
+
+
 def _service_principal_credentials(token_auth_config):
     """
     Returns the access token for authentication as a service principal.
     """
-    # Initialize the Confidential Client Application
-    cca = _build_msal_app(token_auth_config)
-    auth_response = cca.acquire_token_for_client(
-        scopes=[token_auth_config["scopes"]]
+    _validate_config(
+        token_auth_config,
+        "authority",
+        "client_id",
+        "client_credential",
+        "scopes",
     )
+    cca = _build_msal_app(token_auth_config)
+    scopes = token_auth_config["scopes"]
+    return cca.acquire_token_for_client(scopes=[scopes])
 
-    if "access_token" in auth_response:
-        return auth_response["access_token"]
+
+def _validate_config(config, *required_names):
+    """
+    Validates the configuration by checking to see if the configuration
+    contains the required parameters.
+    """
+    missing = [name for name in required_names if config.get(name) is None]
+    if missing:
+        auth_type = config["auth_type"]
+        raise ValueError(
+            f"missing required {auth_type} configuration parameters: "
+            f"{', '.join(missing)}"
+        )
+
+
+def generate_token(token_auth_config, refresh=False):
+    """
+    Generates an Azure access token based on provided credentials.
+    """
+    auth_type = token_auth_config["auth_type"].lower()
+    if auth_type == AuthType.AzureServicePrincipal:
+        response = _service_principal_credentials(token_auth_config)
+    elif auth_type == AuthType.AzureManagedIdentity:
+        response = _managed_identity_credentials(token_auth_config)
+    elif auth_type == AuthType.AzureFile:
+        return _file_based_credentials(token_auth_config)
+    token = response.get("access_token")
+    if token is None:
+        raise Exception(f"Token acquisition failed: {response}")
+    return token
 
 
 def get_database_access_token(deepsec_params, user_token):
@@ -125,15 +206,6 @@ def get_database_access_token_obo_flow(deepsec_params, user_token):
     return _get_token(key, result)
 
 
-def generate_token(token_auth_config, refresh=False):
-    """
-    Generates an Azure access token based on provided credentials.
-    """
-    auth_type = token_auth_config["auth_type"].lower()
-    if auth_type == AuthType.AzureServicePrincipal:
-        return _service_principal_credentials(token_auth_config)
-
-
 def has_azure_auth_type(extra_auth_params):
     """
     Validates that extra_auth_params contains a valid 'auth_type'
@@ -144,7 +216,7 @@ def has_azure_auth_type(extra_auth_params):
     return auth_type is not None and auth_type.lower() in AuthType
 
 
-def azure_token_hook(params: oracledb.ConnectParams):
+def params_hook(params: oracledb.ConnectParams):
     """
     Azure-specific hook for generating a token.
     """
@@ -157,4 +229,4 @@ def azure_token_hook(params: oracledb.ConnectParams):
 
 
 # Register the token hook for Azure
-oracledb.register_params_hook(azure_token_hook)
+oracledb.register_params_hook(params_hook)

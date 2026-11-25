@@ -275,7 +275,7 @@ def _current_gcs_address() -> str | None:
 
 
 class ActorPool:
-    """Utility class to operate on a fixed pool of actors.
+    """Utility class to operate on a pool of up to ``num_actors`` actors.
 
     Parameters
     ----------
@@ -284,9 +284,14 @@ class ActorPool:
             that returns a new actor handle when called. The factory will be called
             num_actors times to create the initial pool of actors.
         num_actors
-            Number of actors to create in the pool.
+            Number of actors to create in the pool. Actors freed by
+            :meth:`release_idle_actors` are restarted for later work, never
+            past this size.
         worker_tracker
             Optional ObjectRef for tracking worker progress.
+        clock
+            Monotonic clock that times how long actors stay idle for
+            :meth:`release_idle_actors`. Defaults to ``time.monotonic``.
 
     Examples
     --------
@@ -321,9 +326,11 @@ class ActorPool:
         worker_metric: str = "workers",
         resubmit_on_actor_failure: bool = True,
         actor_num_gpus: float | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         # factory to create actors
         self._actor_factory = actors_factory
+        self._clock = clock or time.monotonic
 
         self._actor_num_gpus = actor_num_gpus
         self._parked_actors: list[Any] = []
@@ -338,6 +345,9 @@ class ActorPool:
         # actors to be used
         self._idle_actors = []
 
+        # When each idle actor (by _actor_key) last became idle.
+        self._idle_since: dict[tuple[str, Any], float] = {}
+
         # get actor from future
         self._future_to_actor = {}
 
@@ -349,6 +359,11 @@ class ActorPool:
 
         # next work depending when actors free
         self._pending_submits = []
+
+        # Actor slots freed by release_idle_actors and not yet refilled. Live
+        # actors (idle, busy, starting) plus these always equal num_actors, so
+        # restarting into them can never grow the pool past its original size.
+        self._released_slots = 0
 
         # results drained by drain_ready before a mid-batch task error, held so
         # the next drain_ready call returns them instead of dropping them
@@ -382,7 +397,8 @@ class ActorPool:
             "fake job id", None, **job_tracker_throttle_kwargs()
         )
         self.job_tracker.set_total.remote(worker_metric, num_actors)  # type: ignore[attr-defined]
-        self.job_tracker.set.remote(worker_metric, 0)  # type: ignore[attr-defined]
+        # No reset call: the tracker drops a worker count restored from a
+        # previous run on the first increment (see RESTART_STALE_METRICS).
         ray_tqdm([], self.job_tracker, worker_metric)
 
         for _ in range(num_actors):
@@ -392,11 +408,37 @@ class ActorPool:
         """Whether parking an actor keeps its GPU out of Ray's scheduling pool."""
         return self._actor_num_gpus is not None and self._actor_num_gpus >= 1
 
+    def _now(self) -> float:
+        """Current time on the pool's idle clock."""
+        return getattr(self, "_clock", time.monotonic)()
+
+    def _idle_since_by_key(self) -> dict[tuple[str, Any], float]:
+        """When each idle actor became idle, keyed by :meth:`_actor_key`."""
+        idle_since = getattr(self, "_idle_since", None)
+        if idle_since is None:
+            idle_since = self._idle_since = {}
+        return idle_since
+
+    def _pop_idle_actor(self) -> Any:
+        """Take the most recently idled actor, so the longest idle go first."""
+        actor = self._idle_actors.pop()
+        self._idle_since_by_key().pop(self._actor_key(actor), None)
+        return actor
+
     def _queue_actor_startup(self) -> None:
         new_actor = self._actor_factory()
         ready_fut = new_actor.__ray_ready__.remote()
         self.job_tracker.increment.remote(self.worker_metric, 1)  # type: ignore[attr-defined]
         self._ready_fut_to_actor[ready_fut] = new_actor
+
+    def _record_actor_gone(self) -> None:
+        """Subtract a failed actor that left the pool for good from the count.
+
+        Call once per actor, after it is removed from every pool state, so
+        ``shutdown`` (which subtracts the actors it still owns) never counts it
+        again.
+        """
+        self.job_tracker.increment.remote(self.worker_metric, -1)  # type: ignore[attr-defined]
 
     def _collect_ready_actors(self) -> None:
         # Non‑blocking drain of all currently ready actors. This avoids throttling
@@ -420,6 +462,7 @@ class ActorPool:
                     _LOG.exception("Actor died or unavailable, cleaning it up")
                     with contextlib.suppress(Exception):
                         ray.kill(actor)
+                    self._record_actor_gone()
                     self._queue_actor_startup()
 
     def _map(
@@ -559,7 +602,7 @@ class ActorPool:
                 2 4
         """
         if self._idle_actors:
-            actor = self._idle_actors.pop()
+            actor = self._pop_idle_actor()
             future = fn(actor, value)
             future_key = tuple(future) if isinstance(future, list) else future
             self._future_to_actor[future_key] = (self._next_task_index, actor)
@@ -571,6 +614,26 @@ class ActorPool:
                 self._future_to_actor_id[future_key] = actor_id
         else:
             self._pending_submits.append((fn, value))
+            self._restart_released_actors()
+
+    def _restart_released_actors(self) -> None:
+        """Start actors for queued work in slots freed by release_idle_actors.
+
+        Queued submits beyond the actors already starting each get a new
+        actor, until the released slots run out. A no-op unless actors were
+        released, so a pool that never releases keeps its exact behavior.
+        """
+        while getattr(self, "_released_slots", 0) > 0:
+            if len(self._pending_submits) <= len(self._ready_fut_to_actor):
+                return
+            self._queue_actor_startup()
+            self._released_slots -= 1
+            _LOG.info(
+                "Restarted an actor for late work (%d queued task(s), %d "
+                "released slot(s) left)",
+                len(self._pending_submits),
+                self._released_slots,
+            )
 
     def has_next(self) -> bool:
         """Returns whether there are any pending results to return.
@@ -612,6 +675,10 @@ class ActorPool:
             or bool(self._pending_submits)
             or bool(self._drained_buffer)
         )
+
+    def has_buffered_results(self) -> bool:
+        """Whether a failed drain has completed results awaiting delivery."""
+        return bool(self._drained_buffer)
 
     def submission_capacity(self, *, extra_pending: int = 1) -> int:
         """Return how many tasks can be submitted without overfilling the pool.
@@ -754,6 +821,7 @@ class ActorPool:
         )
         with contextlib.suppress(Exception):
             ray.kill(actor)
+        self._record_actor_gone()
         self._queue_actor_startup()
         return fn, task, lost_error
 
@@ -908,10 +976,12 @@ class ActorPool:
                     "allocated and out of rotation for this job",
                     a,
                 )
+                # Still alive, so it stays counted until shutdown kills it.
                 self._parked_actors.append(a)
             else:
                 with contextlib.suppress(Exception):
                     ray.kill(a)
+                self._record_actor_gone()
             self._queue_actor_startup()
             raise ActorPoolTaskError(task=task, cause=e) from e
         except _ACTOR_LOSS_ERRORS as e:
@@ -931,6 +1001,7 @@ class ActorPool:
                     cause = ActorLostError(snapshot=snapshot, task=task)
             with contextlib.suppress(Exception):
                 ray.kill(a)
+            self._record_actor_gone()
             # queue a new actor
             self._queue_actor_startup()
             if self.resubmit_on_actor_failure:
@@ -1125,6 +1196,7 @@ class ActorPool:
 
     def _return_actor(self, actor) -> None:
         self._idle_actors.append(actor)
+        self._idle_since_by_key()[self._actor_key(actor)] = self._now()
         # while self._idle_actors and self._pending_submits:
         if self._pending_submits:
             self.submit(*self._pending_submits.pop(0))
@@ -1192,8 +1264,96 @@ class ActorPool:
 
         """
         if self.has_free():
-            return self._idle_actors.pop()
+            return self._pop_idle_actor()
         return None
+
+    @staticmethod
+    def _actor_key(actor: Any) -> tuple[str, Any]:
+        """Identify an actor by Ray actor ID, or by object for test doubles."""
+        actor_id = _actor_id_hex(actor)
+        return ("actor", actor_id) if actor_id is not None else ("object", id(actor))
+
+    @classmethod
+    def _unique_actors(cls, actors: Iterable[Any]) -> list[Any]:
+        """Deduplicate actors by :meth:`_actor_key`, keeping first-seen order.
+
+        An actor should only occupy one pool state, but transitions could
+        overlap.
+        """
+        actors_by_key: dict[tuple[str, Any], Any] = {}
+        for actor in actors:
+            actors_by_key.setdefault(cls._actor_key(actor), actor)
+        return list(actors_by_key.values())
+
+    def release_idle_actors(
+        self,
+        *,
+        idle_grace_s: float = 0.0,
+        cleanup_method: str | None = None,
+        cleanup_timeout: float = 10.0,
+    ) -> int:
+        """Kill actors that have no work left, so their resources free early.
+
+        Call only when the caller has nothing more to submit for now. Releases
+        actors idle for at least ``idle_grace_s`` seconds, and actors still
+        starting up. Actors idle for less stay, so work submitted within the
+        grace runs on them. Busy actors keep running, and parked actors keep
+        their faulty GPU out of rotation. Each released idle actor first runs
+        ``cleanup_method``, because ``ray.kill`` skips the actor's exit hooks.
+        If work is submitted later, :meth:`submit` starts new actors, up to the
+        pool's original size.
+
+        Returns
+        -------
+            The number of actors released.
+        """
+        if self._pending_submits:
+            return 0
+        now = self._now()
+        idle_since = self._idle_since_by_key()
+        expired: list[Any] = []
+        within_grace: list[Any] = []
+        for actor in self._idle_actors:
+            # An actor added without a timestamp starts its grace now.
+            since = idle_since.setdefault(self._actor_key(actor), now)
+            (expired if now - since >= idle_grace_s else within_grace).append(actor)
+        kept = {self._actor_key(actor) for actor in within_grace}
+        starting = [
+            actor
+            for actor in self._ready_fut_to_actor.values()
+            if self._actor_key(actor) not in kept
+        ]
+        if not expired and not starting:
+            return 0
+        if cleanup_method is not None and expired:
+            self._call_each(expired, cleanup_method, timeout=cleanup_timeout)
+        # Drop the actors from every pool state before killing them, so a
+        # startup future that fails because of the kill is never collected and
+        # replaced, and liveness scans (which only track busy actors) never
+        # see them.
+        self._idle_actors[:] = within_grace
+        for actor in expired:
+            idle_since.pop(self._actor_key(actor), None)
+        self._ready_fut_to_actor.clear()
+        released = self._unique_actors([*expired, *starting])
+        for actor in released:
+            with contextlib.suppress(Exception):
+                ray.kill(actor)
+        self._released_slots = getattr(self, "_released_slots", 0) + len(released)
+        self.job_tracker.increment.remote(  # type: ignore[attr-defined]
+            self.worker_metric, -len(released)
+        )
+        _LOG.info(
+            "Released %d actor(s) with no work left (%d idle for %.0fs or more, "
+            "%d starting); %d idle within the grace, %d still busy",
+            len(released),
+            len(expired),
+            idle_grace_s,
+            len(starting),
+            len(within_grace),
+            len(self._future_to_actor),
+        )
+        return len(released)
 
     def shutdown(self) -> None:
         """Kill the pool's actors and stop the liveness scanner. Single-use:
@@ -1202,20 +1362,14 @@ class ActorPool:
         # observe the just-killed actors as missing during the kill loop and
         # start the exact-query fanout this flag is meant to prevent.
         self._liveness_scan_cancelled.set()
-        actors = [
-            *self._idle_actors,
-            *(actor for _, actor in self._future_to_actor.values()),
-            *self._ready_fut_to_actor.values(),
-            *self._parked_actors,
-        ]
-        # An actor should only occupy one pool state, but deduplicate by Ray actor
-        # ID (or object identity for test doubles) in case transitions overlap.
-        actors_by_id = {}
-        for actor in actors:
-            actor_id = _actor_id_hex(actor)
-            key = ("actor", actor_id) if actor_id is not None else ("object", id(actor))
-            actors_by_id.setdefault(key, actor)
-        owned_actors = list(actors_by_id.values())
+        owned_actors = self._unique_actors(
+            [
+                *self._idle_actors,
+                *(actor for _, actor in self._future_to_actor.values()),
+                *self._ready_fut_to_actor.values(),
+                *self._parked_actors,
+            ]
+        )
 
         for actor in owned_actors:
             _LOG.debug("Shutting down actor %s", actor)
@@ -1228,6 +1382,7 @@ class ActorPool:
             )
 
         self._idle_actors.clear()
+        self._idle_since_by_key().clear()
         self._parked_actors.clear()
         self._ready_fut_to_actor.clear()
         self._future_to_actor.clear()
@@ -1248,10 +1403,15 @@ class ActorPool:
 
         Ignores errors and actors that don't define the method. Intended for
         lifecycle hooks (e.g. a final telemetry flush) right before
-        :meth:`shutdown`, when all tasks have drained and every actor is idle.
+        :meth:`shutdown` kills the idle actors. Busy actors are not called.
         """
+        self._call_each(self._idle_actors, method, timeout=timeout)
+
+    @staticmethod
+    def _call_each(actors: Iterable[Any], method: str, *, timeout: float) -> None:
+        """Best-effort, no-arg call of ``method`` on ``actors``; waits for all."""
         refs = []
-        for actor in self._idle_actors:
+        for actor in actors:
             with contextlib.suppress(Exception):
                 refs.append(getattr(actor, method).remote())
         if refs:

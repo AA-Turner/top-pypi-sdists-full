@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openshell
-Version: 0.1.9
+Version: 0.1.10
 Summary: Python SDK for OpenShell sandbox management and command execution.
 Author: NVIDIA Inc.
 License-Expression: Apache-2.0
@@ -31,9 +31,9 @@ Requires-Dist: protobuf>=6.31.1
 Dynamic: license-file
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/NVIDIA/OpenShell/main/docs/brand/assets/openshell-banner-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/NVIDIA/OpenShell/main/docs/brand/assets/openshell-banner-light.png">
-  <img alt="OpenShell" src="https://raw.githubusercontent.com/NVIDIA/OpenShell/main/docs/brand/assets/openshell-banner-light.png" width="430">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ai-openshell/openshell/main/docs/brand/assets/openshell-banner-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/ai-openshell/openshell/main/docs/brand/assets/openshell-banner-light.png">
+  <img alt="OpenShell" src="https://raw.githubusercontent.com/ai-openshell/openshell/main/docs/brand/assets/openshell-banner-light.png" width="430">
 </picture>
 
 # Python SDK for OpenShell
@@ -43,7 +43,7 @@ Dynamic: license-file
 [![Security policy](https://img.shields.io/badge/Security-Report%20a%20Vulnerability-red)](https://github.com/ai-openshell/sdk-python/blob/main/SECURITY.md)
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen)](https://docs.nvidia.com/openshell/latest/sdk/python)
 
-Use the Python SDK to manage [OpenShell](https://github.com/NVIDIA/OpenShell) sandboxes from applications, notebooks, and automation. Create sandboxes, run commands and Python functions, and manage templates, workspaces, and provider credentials through the gateway.
+Use the Python SDK to manage [OpenShell](https://github.com/ai-openshell/openshell) sandboxes from applications, notebooks, and automation. Create sandboxes, run commands and Python functions, and manage templates, workspaces, and provider credentials through the gateway.
 
 See the [Python SDK documentation](https://docs.nvidia.com/openshell/latest/sdk/python) for connection options, authentication, and generated gRPC bindings.
 

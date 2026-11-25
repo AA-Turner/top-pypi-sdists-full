@@ -174,7 +174,7 @@ def folder_pull(
 
         if progress_bar:
             written_files = []
-            with click.progressbar(resources, label=f"Pulling {extension}s") as resources:  # type: ignore
+            with click.progressbar(resources, label=f"Pulling {extension}s") as resources:  # type: ignore[assignment]
                 for k in resources:
                     written_file = write_resource(k)
                     if written_file:

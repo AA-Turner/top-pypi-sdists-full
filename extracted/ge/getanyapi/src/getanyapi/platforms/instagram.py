@@ -274,7 +274,7 @@ class InstagramHighlightDetailInput(TypedDict, total=False):
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
-    requireFields: NotRequired[list[Literal["createdUtc"]]]
+    requireFields: NotRequired[list[Literal["createdUtc", "locations", "mentions"]]]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `createdUtc`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
@@ -1694,8 +1694,19 @@ class InstagramHighlightDetailItem(BaseModel):
     image: str | None = Field(
         default=None, description="Direct URL to the media image (highest resolution)."
     )
+    links: list[str] = Field(
+        description="Web addresses the link stickers on the item open, without Instagram's redirect or click-tracking parameters. Empty when it carries none."
+    )
+    locations: list[InstagramHighlightDetailLocation] | None = Field(
+        default=None,
+        description="Places tagged with a location sticker on the item. Empty when it tags none; null when the source does not report locations.",
+    )
     media_type: int | None = Field(
         default=None, alias="mediaType", description="Media type: 1 = image, 2 = video."
+    )
+    mentions: list[str] | None = Field(
+        default=None,
+        description="Usernames of the accounts tagged with a mention sticker on the item, without the leading @. Empty when it tags none; null when the source does not report mentions.",
     )
     paid_partnership: bool | None = Field(
         default=None,
@@ -1707,12 +1718,38 @@ class InstagramHighlightDetailItem(BaseModel):
         alias="productType",
         description="Instagram product type of the media, for example story.",
     )
+    stickers: list[InstagramHighlightDetailSticker] = Field(
+        description="Link stickers placed on the item. Empty when it carries none."
+    )
     video_url: str | None = Field(
         default=None,
         alias="videoUrl",
         description="Direct URL to the media video, when the item is a video.",
     )
     width: int | None = Field(default=None, description="Media pixel width.")
+
+
+class InstagramHighlightDetailLocation(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str | None = Field(default=None, description="Instagram location identifier.")
+    lat: float | None = Field(default=None, description="Latitude in decimal degrees.")
+    lng: float | None = Field(default=None, description="Longitude in decimal degrees.")
+    name: str | None = Field(default=None, description="Location name.")
+
+
+class InstagramHighlightDetailSticker(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    id: str | None = Field(default=None, description="Sticker identifier.")
+    link_title: str | None = Field(
+        default=None, alias="linkTitle", description="Text shown on a link sticker."
+    )
+    link_url: str | None = Field(
+        default=None,
+        alias="linkUrl",
+        description="Web address the link sticker opens, without Instagram's redirect or click-tracking parameters.",
+    )
 
 
 class InstagramLocationDetailsData(BaseModel):
@@ -4717,7 +4754,7 @@ class InstagramNamespace:
         Fetch an Instagram account's core public profile fields (followers, posts,
         bio, verification) by user id.
 
-        Price: $0.00079 per request.
+        Price: $0.00076 per request.
 
         Example:
             res = client.instagram.basic_profile(userId="314216")
@@ -5187,7 +5224,7 @@ class InstagramNamespace:
         extra on top of the price. If you want the spoken words as well,
         instagram.reel_transcript transcribes the same reel.
 
-        Price: $0.00037 per request.
+        Price: $0.00035 per request.
 
         Example:
             res = client.instagram.post(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -5208,7 +5245,7 @@ class InstagramNamespace:
         List the comments on an Instagram post or reel by URL with cursor pagination
         (text, author, likes).
 
-        Price: $0.00072 per request.
+        Price: $0.00069 per request.
 
         Example:
             res = client.instagram.post_comments(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -5273,7 +5310,7 @@ class InstagramNamespace:
         Fetch an Instagram account's public profile (followers, posts, bio,
         verification) by handle.
 
-        Price: $0.00053 per request.
+        Price: $0.00052 per request.
 
         Example:
             res = client.instagram.profile(handle="nasa")
@@ -5650,7 +5687,7 @@ class InstagramNamespace:
         instead. For the full list of accounts Instagram suggests as similar, use
         instagram.suggested_profiles.
 
-        Price: $0.0022 per request.
+        Price: $0.00175 per request.
 
         Example:
             res = client.instagram.similar_profiles(handle="nasa")
@@ -5888,7 +5925,7 @@ class InstagramNamespace:
         List an Instagram account's reels by handle with cursor pagination (caption,
         plays, likes, comments).
 
-        Price: $0.00067 per request.
+        Price: $0.00062 per request.
 
         Example:
             res = client.instagram.user_reels(handle="nasa")
@@ -6122,7 +6159,7 @@ class AsyncInstagramNamespace:
         Fetch an Instagram account's core public profile fields (followers, posts,
         bio, verification) by user id.
 
-        Price: $0.00079 per request.
+        Price: $0.00076 per request.
 
         Example:
             res = client.instagram.basic_profile(userId="314216")
@@ -6594,7 +6631,7 @@ class AsyncInstagramNamespace:
         extra on top of the price. If you want the spoken words as well,
         instagram.reel_transcript transcribes the same reel.
 
-        Price: $0.00037 per request.
+        Price: $0.00035 per request.
 
         Example:
             res = client.instagram.post(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -6615,7 +6652,7 @@ class AsyncInstagramNamespace:
         List the comments on an Instagram post or reel by URL with cursor pagination
         (text, author, likes).
 
-        Price: $0.00072 per request.
+        Price: $0.00069 per request.
 
         Example:
             res = client.instagram.post_comments(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -6680,7 +6717,7 @@ class AsyncInstagramNamespace:
         Fetch an Instagram account's public profile (followers, posts, bio,
         verification) by handle.
 
-        Price: $0.00053 per request.
+        Price: $0.00052 per request.
 
         Example:
             res = client.instagram.profile(handle="nasa")
@@ -7057,7 +7094,7 @@ class AsyncInstagramNamespace:
         instead. For the full list of accounts Instagram suggests as similar, use
         instagram.suggested_profiles.
 
-        Price: $0.0022 per request.
+        Price: $0.00175 per request.
 
         Example:
             res = client.instagram.similar_profiles(handle="nasa")
@@ -7295,7 +7332,7 @@ class AsyncInstagramNamespace:
         List an Instagram account's reels by handle with cursor pagination (caption,
         plays, likes, comments).
 
-        Price: $0.00067 per request.
+        Price: $0.00062 per request.
 
         Example:
             res = client.instagram.user_reels(handle="nasa")

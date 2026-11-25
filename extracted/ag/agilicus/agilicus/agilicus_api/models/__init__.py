@@ -89,6 +89,7 @@ from agilicus_api.model.application_service_stats import ApplicationServiceStats
 from agilicus_api.model.application_service_stats_group import ApplicationServiceStatsGroup
 from agilicus_api.model.application_service_stats_publish import ApplicationServiceStatsPublish
 from agilicus_api.model.application_service_status import ApplicationServiceStatus
+from agilicus_api.model.application_service_type import ApplicationServiceType
 from agilicus_api.model.application_state_selector import ApplicationStateSelector
 from agilicus_api.model.application_stats import ApplicationStats
 from agilicus_api.model.application_stats_list import ApplicationStatsList
@@ -339,8 +340,10 @@ from agilicus_api.model.file_template_spec import FileTemplateSpec
 from agilicus_api.model.file_visibility import FileVisibility
 from agilicus_api.model.form_injection import FormInjection
 from agilicus_api.model.form_injection_config import FormInjectionConfig
+from agilicus_api.model.forwarded_application_service_stats_publish import ForwardedApplicationServiceStatsPublish
 from agilicus_api.model.forwarder_common_stats import ForwarderCommonStats
 from agilicus_api.model.forwarder_detailed_stats import ForwarderDetailedStats
+from agilicus_api.model.forwarder_meta_stats import ForwarderMetaStats
 from agilicus_api.model.forwarder_resource_group_networks import ForwarderResourceGroupNetworks
 from agilicus_api.model.forwarder_stats_publish import ForwarderStatsPublish
 from agilicus_api.model.forwarder_summary_stats import ForwarderSummaryStats
@@ -709,6 +712,7 @@ from agilicus_api.model.page_info import PageInfo
 from agilicus_api.model.page_on import PageOn
 from agilicus_api.model.per_instance_audit_destination_stats import PerInstanceAuditDestinationStats
 from agilicus_api.model.per_instance_debug_stats import PerInstanceDebugStats
+from agilicus_api.model.per_instance_forwarded_network_stats import PerInstanceForwardedNetworkStats
 from agilicus_api.model.per_instance_forwarder_stats import PerInstanceForwarderStats
 from agilicus_api.model.per_instance_upstream_stats import PerInstanceUpstreamStats
 from agilicus_api.model.per_tunnel_stats import PerTunnelStats

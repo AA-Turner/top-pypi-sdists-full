@@ -76,7 +76,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_DEPENDENCY_REVIEW_ACTION")
     @builtins.classmethod
     def ACTIONS_DEPENDENCY_REVIEW_ACTION(cls) -> builtins.str:
-        '''(experimental) actions/dependency-review-action at v5.0.0.
+        '''(experimental) actions/dependency-review-action at v5.0.1 (immutable).
 
         :stability: experimental
         '''

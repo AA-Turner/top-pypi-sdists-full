@@ -381,20 +381,33 @@ def itercat(sources, missing, header):
     # output data rows
     for hdr, it in zip(hdrs, its):
 
+        # map each output field to an index in this source table, matching
+        # duplicate field names positionally, in order, so that e.g. the
+        # second occurrence of 'foo' in the output maps to the second
+        # occurrence of 'foo' in the source, rather than to the first one
+        # (see issue #561: list.index() always returns the first match,
+        # which silently copied the first column's values into every
+        # duplicate column)
+        remaining = list(range(len(hdr)))
+        indices = []
+        for h in outhdr:
+            idx = None
+            for i in remaining:
+                if hdr[i] == h:
+                    idx = i
+                    remaining.remove(i)
+                    break
+            indices.append(idx)
+
         # now construct and yield the data rows
         for row in it:
             outrow = list()
-            for h in outhdr:
-                val = missing
-                try:
-                    val = row[hdr.index(h)]
-                except IndexError:
-                    # short row
-                    pass
-                except ValueError:
-                    # field not in table
-                    pass
-                outrow.append(val)
+            for idx in indices:
+                if idx is None or idx >= len(row):
+                    # field not in table, or short row
+                    outrow.append(missing)
+                else:
+                    outrow.append(row[idx])
             yield tuple(outrow)
 
 
@@ -1131,6 +1144,8 @@ def addcolumn(table, field, col, index=None, missing=None):
         +-----+-----+-------+
 
     Use the `index` parameter to control the position of the new column.
+    Short input rows are padded with `missing` and extra cells beyond the
+    header are trimmed before the new column is inserted.
 
     """
 
@@ -1156,27 +1171,18 @@ class AddColumnView(Table):
 
 def iteraddcolumn(table, field, col, index, missing):
     it = iter(table)
-    try:
-        hdr = next(it)
-    except StopIteration:
-        hdr = []
-
-    # determine position of new column
+    outhdr = list(next(it, ()))
+    width = len(outhdr)
     if index is None:
-        index = len(hdr)
-
-    # construct output header
-    outhdr = list(hdr)
+        index = width
     outhdr.insert(index, field)
     yield tuple(outhdr)
 
-    # construct output data
-    for row, val in izip_longest(it, col, fillvalue=missing):
-        # run out of rows?
-        if row == missing:
-            row = [missing] * len(hdr)
-        outrow = list(row)
-        outrow.insert(index, val)
+    exhausted = object()
+    for row, val in izip_longest(it, col, fillvalue=exhausted):
+        outrow = [] if row is exhausted else list(islice(row, width))
+        outrow.extend([missing] * (width - len(outrow)))
+        outrow.insert(index, missing if val is exhausted else val)
         yield tuple(outrow)
 
 

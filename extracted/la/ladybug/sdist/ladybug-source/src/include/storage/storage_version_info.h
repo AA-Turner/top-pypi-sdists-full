@@ -41,6 +41,19 @@ struct StorageVersionInfo {
     // key -> child map. Older files have no key bytes; replayed LIST children stay
     // unkeyed.
     static constexpr storage_version_t STORAGE_VERSION_49 = 49;
+    // Storage version 50 adds a persisted external format name (e.g. "lance") alongside
+    // the generic StorageFormat::EXTERNAL on node/rel-group catalog entries, so extension
+    // formats no longer need core changes.
+    static constexpr storage_version_t STORAGE_VERSION_50 = 50;
+    // Storage version 51 uses the high bit of the serialized partition method to record
+    // enforced write constraints. Legacy parents remain ineligible for partition pruning.
+    static constexpr storage_version_t STORAGE_VERSION_51 = 51;
+    // Storage version 52 adds the UNIQUE constraint catalog set. Older files have no
+    // constraint entries; readers must use an empty set.
+    static constexpr storage_version_t STORAGE_VERSION_52 = 52;
+    // Storage version 53 adds the daily RANGE partition method. It uses the existing
+    // encoded-key directory to persist each materialized day and its child table ID.
+    static constexpr storage_version_t STORAGE_VERSION_53 = 53;
 
     static std::unordered_map<std::string, storage_version_t> getStorageVersionInfo() {
         return {{"0.12.0", STORAGE_VERSION_40}, {"0.12.2", STORAGE_VERSION_40},
@@ -56,7 +69,7 @@ struct StorageVersionInfo {
             {"0.20.1", STORAGE_VERSION_47}, {"0.20.2", STORAGE_VERSION_47},
             {"0.21.0", STORAGE_VERSION_47}, {"0.21.1", STORAGE_VERSION_47},
             {"0.21.2", STORAGE_VERSION_47}, {"0.22.0", STORAGE_VERSION_49},
-            {"0.22.1", STORAGE_VERSION_49}, {"0.22.2", STORAGE_VERSION_49}, {"0.22.3", STORAGE_VERSION_49}};
+            {"0.22.1", STORAGE_VERSION_49}, {"0.23.0", STORAGE_VERSION_53}};
     }
 
     static LBUG_API storage_version_t getStorageVersion();
@@ -65,7 +78,9 @@ struct StorageVersionInfo {
                storageVersion == STORAGE_VERSION_42 || storageVersion == STORAGE_VERSION_43 ||
                storageVersion == STORAGE_VERSION_44 || storageVersion == STORAGE_VERSION_45 ||
                storageVersion == STORAGE_VERSION_46 || storageVersion == STORAGE_VERSION_47 ||
-               storageVersion == STORAGE_VERSION_48 || storageVersion == getStorageVersion();
+               storageVersion == STORAGE_VERSION_48 || storageVersion == STORAGE_VERSION_49 ||
+               storageVersion == STORAGE_VERSION_50 || storageVersion == STORAGE_VERSION_51 ||
+               storageVersion == STORAGE_VERSION_52 || storageVersion == getStorageVersion();
     }
 
     static constexpr const char* MAGIC_BYTES = "LBUG";

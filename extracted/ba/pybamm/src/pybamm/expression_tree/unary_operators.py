@@ -3,10 +3,11 @@
 #
 from __future__ import annotations
 
+import warnings
+
 import casadi
 import numpy as np
 import numpy.typing as npt
-import sympy
 from scipy.sparse import csr_matrix, issparse
 
 import pybamm
@@ -128,6 +129,21 @@ class UnaryOperator(pybamm.Symbol):
         ]
         return self._casadi_evaluate(converted_child)
 
+    def _to_rust(
+        self, graph: pybamm.rust.ExprGraph, rust_symbols: dict
+    ) -> pybamm.rust.Expr:
+        (child,) = self._children_to_rust(graph, rust_symbols)
+        return self._rust_node(graph, child)
+
+    def _rust_node(
+        self, graph: pybamm.rust.ExprGraph, child: pybamm.rust.Expr
+    ) -> pybamm.rust.Expr:
+        """Allocate this operator's node in ``graph`` over its converted child."""
+        raise NotImplementedError(
+            f"Cannot convert unary operator of type '{type(self).__name__}' "
+            f"to the Rust backend. {self._RUST_FALLBACK_HINT}"
+        )
+
     def evaluate(
         self,
         t: float | None = None,
@@ -146,7 +162,7 @@ class UnaryOperator(pybamm.Symbol):
         """
         return self._children[0].evaluate_for_shape()
 
-    def _evaluates_on_edges(self, dimension: str) -> bool:
+    def _evaluates_on_edges(self, dimension: str) -> bool | str:
         """See :meth:`pybamm.Symbol._evaluates_on_edges()`."""
         return self.child.evaluates_on_edges(dimension)
 
@@ -160,6 +176,8 @@ class UnaryOperator(pybamm.Symbol):
 
     def to_equation(self):
         """Convert the node and its subtree into a SymPy equation."""
+        import sympy
+
         if self.print_name is not None:
             return sympy.Symbol(self.print_name)
         else:
@@ -193,6 +211,10 @@ class Negate(UnaryOperator):
     def _unary_evaluate(self, child):
         """See :meth:`UnaryOperator._unary_evaluate()`."""
         return -child
+
+    def _rust_node(self, graph, child):
+        """See :meth:`pybamm.UnaryOperator._rust_node()`."""
+        return graph.neg(child)
 
     def _unary_new_copy(self, child, perform_simplifications: bool = True):
         """
@@ -229,6 +251,10 @@ class AbsoluteValue(UnaryOperator):
     def _unary_evaluate(self, child):
         """See :meth:`UnaryOperator._unary_evaluate()`."""
         return np.abs(child)
+
+    def _rust_node(self, graph, child):
+        """See :meth:`pybamm.UnaryOperator._rust_node()`."""
+        return graph.abs(child)
 
     def _casadi_evaluate(self, child):
         """See :meth:`pybamm.UnaryOperator._casadi_evaluate()`."""
@@ -305,6 +331,10 @@ class Sign(UnaryOperator):
             with np.errstate(invalid="ignore"):
                 return np.sign(child)
 
+    def _rust_node(self, graph, child):
+        """See :meth:`pybamm.UnaryOperator._rust_node()`."""
+        return graph.sign(child)
+
     def _unary_new_copy(self, child, perform_simplifications: bool = True):
         """
         Creates a new copy of the operator with the child `child`.
@@ -341,6 +371,10 @@ class Floor(UnaryOperator):
         """See :meth:`UnaryOperator._unary_evaluate()`."""
         return np.floor(child)
 
+    def _rust_node(self, graph, child):
+        """See :meth:`pybamm.UnaryOperator._rust_node()`."""
+        return graph.floor(child)
+
     def _casadi_evaluate(self, child):
         """See :meth:`pybamm.UnaryOperator._casadi_evaluate()`."""
         return casadi.floor(child)
@@ -368,6 +402,10 @@ class Ceiling(UnaryOperator):
     def _unary_evaluate(self, child):
         """See :meth:`UnaryOperator._unary_evaluate()`."""
         return np.ceil(child)
+
+    def _rust_node(self, graph, child):
+        """See :meth:`pybamm.UnaryOperator._rust_node()`."""
+        return graph.ceiling(child)
 
     def _casadi_evaluate(self, child):
         """See :meth:`pybamm.UnaryOperator._casadi_evaluate()`."""
@@ -462,6 +500,26 @@ class Index(UnaryOperator):
         """See :meth:`UnaryOperator._unary_evaluate()`."""
         return child[self.slice]
 
+    def _rust_node(self, graph, child):
+        """See :meth:`pybamm.UnaryOperator._rust_node()`."""
+        s = self.slice
+        if s.step is not None and s.step != 1:
+            raise NotImplementedError(
+                "Cannot convert a strided Index (step != 1) to the Rust backend. "
+                f"{self._RUST_FALLBACK_HINT}"
+            )
+        size = self.children[0].size
+        start = 0 if s.start is None else s.start
+        stop = size if s.stop is None else s.stop
+        if start < 0:
+            start += size
+        if stop < 0:
+            stop += size
+        # Clamp like numpy slicing; the Rust builder takes usize bounds
+        start = max(0, min(start, size))
+        stop = max(0, min(stop, size))
+        return graph.index(child, start, stop)
+
     def _unary_new_copy(self, child, perform_simplifications=True):
         """See :meth:`UnaryOperator._unary_new_copy()`."""
         return self.__class__(child, self.index, check_size=False)
@@ -525,6 +583,13 @@ class SpatialOperator(UnaryOperator):
     # Names of __init__ args (besides the child) to serialise; subclasses set this.
     _json_extra_fields: tuple[str, ...] = ()
 
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        # Commutes with d/dt; overridden if not linear in the child's values alone
+        if variable == pybamm.t:
+            return self._unary_new_copy(self.child.diff(variable))
+        return super()._diff(variable)
+
     def to_json(self):
         json_dict = super().to_json()
         for field in self._json_extra_fields:
@@ -556,6 +621,11 @@ class Gradient(SpatialOperator):
                 f"Cannot take gradient of '{child}' since it evaluates on edges"
             )
         super().__init__("grad", child)
+
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        # Uses the child's boundary conditions, which its time derivative lacks
+        raise NotImplementedError
 
     def _evaluates_on_edges(self, dimension: str) -> bool:
         """See :meth:`pybamm.Symbol._evaluates_on_edges()`."""
@@ -592,9 +662,10 @@ class Divergence(SpatialOperator):
     For tensor fields (rank-2 tensors), returns a vector field.
     """
 
-    __slots__ = ()
+    __slots__ = ("no_simplification",)
+    _json_extra_fields = ("no_simplification",)
 
-    def __init__(self, child):
+    def __init__(self, child, no_simplification=False):
         if child._domains["primary"] == []:
             raise pybamm.DomainError(
                 f"Cannot take divergence of '{child}' since its domain is empty. "
@@ -610,6 +681,23 @@ class Divergence(SpatialOperator):
                 "divergence."
             )
         super().__init__("div", child)
+        self.no_simplification = no_simplification
+
+    @classmethod
+    def _from_json(cls, snippet):
+        """Instantiate from JSON, defaulting the simplification flag for old data."""
+        return cls(
+            snippet["children"][0],
+            no_simplification=snippet.get("no_simplification", False),
+        )
+
+    def __setstate__(self, state):
+        """
+        Set default value for no_simplification if not present in state.
+        This is for backwards compatibility with old pickled objects.
+        """
+        state.setdefault("no_simplification", False)
+        super().__setstate__(state)
 
     def _evaluates_on_edges(self, dimension: str) -> bool:
         """See :meth:`pybamm.Symbol._evaluates_on_edges()`."""
@@ -622,10 +710,10 @@ class Divergence(SpatialOperator):
         Uses the convenience function :meth:`div` to cover scenarios where divergence is
         0 or interacts with other functions.
         """
-        if perform_simplifications:
+        if perform_simplifications and not self.no_simplification:
             return div(child)
         else:
-            return Divergence(child)
+            return Divergence(child, no_simplification=self.no_simplification)
 
     def _sympy_operator(self, child):
         """Override :meth:`pybamm.UnaryOperator._sympy_operator`"""
@@ -646,6 +734,11 @@ class Laplacian(SpatialOperator):
     def __init__(self, child):
         super().__init__("laplacian", child)
 
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        # Uses the child's boundary conditions, which its time derivative lacks
+        raise NotImplementedError
+
     def _evaluates_on_edges(self, dimension: str) -> bool:
         """See :meth:`pybamm.Symbol._evaluates_on_edges()`."""
         return False
@@ -664,6 +757,11 @@ class GradientSquared(SpatialOperator):
     def __init__(self, child):
         super().__init__("grad squared", child)
 
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        # Not linear in the child, unlike the other spatial operators
+        raise NotImplementedError
+
     def _evaluates_on_edges(self, dimension: str) -> bool:
         """See :meth:`pybamm.Symbol._evaluates_on_edges()`."""
         return False
@@ -680,6 +778,10 @@ class Mass(SpatialOperator):
     def __init__(self, child):
         super().__init__("mass", child)
 
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        return pybamm.Scalar(0)
+
     def _evaluate_for_shape(self):
         return pybamm.evaluate_for_shape_using_domain(self._domains, typ="matrix")
 
@@ -695,6 +797,10 @@ class BoundaryMass(SpatialOperator):
 
     def __init__(self, child):
         super().__init__("boundary mass", child)
+
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        return pybamm.Scalar(0)
 
     def _evaluate_for_shape(self):
         return pybamm.evaluate_for_shape_using_domain(self._domains, typ="matrix")
@@ -825,6 +931,8 @@ class Integral(SpatialOperator):
 
     def _sympy_operator(self, child):
         """Override :meth:`pybamm.UnaryOperator._sympy_operator`"""
+        import sympy
+
         return sympy.Integral(child, sympy.Symbol("xn"))
 
 
@@ -939,6 +1047,10 @@ class DefiniteIntegralVector(SpatialOperator):
         self.vector_type = vector_type
         # integrating removes the domain
         super().__init__(name, child, domains=_EMPTY_DOMAINS)
+
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        return pybamm.Scalar(0)
 
     def _unary_new_copy(self, child, perform_simplifications=True):
         """See :meth:`UnaryOperator._unary_new_copy()`."""
@@ -1210,6 +1322,8 @@ class BoundaryValue(BoundaryOperator):
 
     def _sympy_operator(self, child):
         """Override :meth:`pybamm.UnaryOperator._sympy_operator`"""
+        import sympy
+
         if (
             self.child._domains["primary"][0]
             in ["negative particle", "positive particle"]
@@ -1249,6 +1363,10 @@ class BoundaryMeshSize(BoundaryOperator):
     def __init__(self, child, side):
         super().__init__("boundary mesh size", child, side)
 
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        return pybamm.Scalar(0)
+
 
 class ExplicitTimeIntegral(UnaryOperator):
     __slots__ = ("initial_condition",)
@@ -1267,6 +1385,11 @@ class ExplicitTimeIntegral(UnaryOperator):
 
     def _unary_evaluate(self, child):
         # return result of evaluating the child, we'll only implement the sum once the model is solved (in pybamm.ProcessedVariable)
+        return child
+
+    def _rust_node(self, graph, child):
+        """See :meth:`pybamm.UnaryOperator._rust_node()`."""
+        # Pass-through: the actual computation happens in ProcessedVariable
         return child
 
     def is_constant(self):
@@ -1299,6 +1422,8 @@ class BoundaryGradient(BoundaryOperator):
 
     def _sympy_operator(self, child):
         """Override :meth:`pybamm.UnaryOperator._sympy_operator`"""
+        import sympy
+
         latex_child = (
             r"\nabla " + sympy.latex(child) + r"^{" + sympy.latex(self.side) + r"}"
         )
@@ -1380,6 +1505,11 @@ class UpwindDownwind(SpatialOperator):
                 f"Cannot upwind '{child}' since it does not " + "evaluate on nodes."
             )
 
+    def _diff(self, variable: pybamm.Symbol):
+        """See :meth:`pybamm.Symbol._diff()`."""
+        # Uses the child's boundary conditions, which its time derivative lacks
+        raise NotImplementedError
+
     def _evaluates_on_edges(self, dimension: str) -> bool:
         """See :meth:`pybamm.Symbol._evaluates_on_edges()`."""
         return True
@@ -1450,12 +1580,23 @@ class NodeToEdge2D(SpatialOperator):
 
 class Magnitude(UnaryOperator):
     """
-    A node in the expression tree representing the magnitude of a vector field.
+    Extract a directional component from a 2D :class:`VectorField`.
+
+    .. deprecated:: 26.11
+        Use :class:`Component` with index ``0`` (``"lr"``) or ``1`` (``"tb"``)
+        instead. ``Magnitude`` will be removed in 27.1.
     """
 
     __slots__ = ("direction",)
 
     def __init__(self, child, direction):
+        warnings.warn(
+            "pybamm.Magnitude is deprecated and will be removed in 27.1. "
+            "Use pybamm.Component(symbol, 0) for the lr/x component "
+            "or pybamm.Component(symbol, 1) for the tb/z component.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__("magnitude" + f"({direction})", child)
         self.direction = direction
 
@@ -1467,12 +1608,19 @@ class Magnitude(UnaryOperator):
         }
 
     @classmethod
+    def _without_warning(cls, child, direction):
+        # Internal copies and loads must not re-warn users who never built one
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            return cls(child, direction)
+
+    @classmethod
     def _from_json(cls, snippet):
-        return cls(snippet["children"][0], snippet["direction"])
+        return cls._without_warning(snippet["children"][0], snippet["direction"])
 
     def _unary_new_copy(self, child, perform_simplifications=True):
         """See :meth:`UnaryOperator._unary_new_copy()`."""
-        return self.__class__(child, self.direction)
+        return self._without_warning(child, self.direction)
 
 
 class Component(UnaryOperator):
@@ -1569,6 +1717,10 @@ class NotConstant(UnaryOperator):
         """See :meth:`UnaryOperator._unary_evaluate()`."""
         return child
 
+    def _rust_node(self, graph, child):
+        """See :meth:`pybamm.UnaryOperator._rust_node()`."""
+        return child
+
     def is_constant(self):
         """See :meth:`pybamm.Symbol.is_constant()`."""
         # This symbol is not constant
@@ -1616,7 +1768,7 @@ def grad(symbol):
         return Gradient(symbol)
 
 
-def div(symbol):
+def div(symbol, no_simplification=False):
     """
     convenience function for creating a :class:`Divergence`
 
@@ -1639,16 +1791,17 @@ def div(symbol):
         else:
             new_child = pybamm.PrimaryBroadcast(0, symbol.child._domains["primary"])
         return pybamm.PrimaryBroadcast(new_child, symbol._domains["primary"])
-    # Divergence commutes with Negate operator
-    if isinstance(symbol, pybamm.Negate):
-        return -div(symbol.orphans[0])
-    elif isinstance(symbol, pybamm.Multiplication | pybamm.Division):
-        left, right = symbol.orphans
-        if isinstance(left, pybamm.Negate):
-            return -div(symbol._binary_new_copy(left.orphans[0], right))
+    if not no_simplification:
+        # Divergence commutes with Negate operator
+        if isinstance(symbol, pybamm.Negate):
+            return -div(symbol.orphans[0])
+        elif isinstance(symbol, pybamm.Multiplication | pybamm.Division):
+            left, right = symbol.orphans
+            if isinstance(left, pybamm.Negate):
+                return -div(symbol._binary_new_copy(left.orphans[0], right))
 
     # Last resort
-    return Divergence(symbol)
+    return Divergence(symbol, no_simplification=no_simplification)
 
 
 def laplacian(symbol):

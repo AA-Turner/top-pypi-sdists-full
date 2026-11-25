@@ -9,11 +9,17 @@ Overwriting an object creates no Lance version, so heartbeats add no commits to
 the jobs table however often they are written. Each heartbeat carries the lease
 its driver promises to renew within; a reader that finds the lease expired knows
 the driver died without recording a final job status.
+
+The same directory holds attempt outcomes, ``_outcomes/<job_id>/<attempt>.json``:
+how one driver attempt ended, written by that driver and keyed by the attempt
+token its row names, so readers can apply it when the job's status write was
+lost (GEN-1012).
 """
 
 from __future__ import annotations
 
 import enum
+import hashlib
 import json
 import logging
 import os
@@ -21,6 +27,7 @@ import socket
 import tempfile
 import threading
 import time
+import uuid
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
@@ -38,6 +45,7 @@ _LOG = logging.getLogger(__name__)
 
 HEARTBEAT_DIR = "_heartbeats"
 HEARTBEAT_SCHEMA_VERSION = 1
+OUTCOME_DIR = "_outcomes"
 
 HEARTBEAT_INTERVAL_ENV = "GENEVA_DRIVER_HEARTBEAT_INTERVAL_S"
 HEARTBEAT_LEASE_ENV = "GENEVA_DRIVER_HEARTBEAT_LEASE_S"
@@ -137,8 +145,55 @@ def heartbeat_path(job_id: str) -> str:
     return f"{HEARTBEAT_DIR}/{quote(job_id, safe='')}.json"
 
 
+def new_attempt() -> bytes:
+    """A fresh identity for one driver attempt of a job (GEN-1012).
+
+    The submitter saves it as the job row's ``object_ref`` before submitting
+    the driver and passes it to the driver, so both sides hold the same token.
+    """
+    return uuid.uuid4().hex.encode()
+
+
+def attempt_outcome_path(job_id: str, attempt: bytes) -> str:
+    """Object path of one attempt's outcome, relative to the jobs table root.
+
+    Keyed by the attempt, so a reader looks up only the attempt its row names
+    and an earlier attempt's outcome is never found for a replacement.
+    """
+    digest = hashlib.sha256(attempt).hexdigest()
+    return f"{OUTCOME_DIR}/{quote(job_id, safe='')}/{digest}.json"
+
+
+@attrs.define(kw_only=True, frozen=True)
+class AttemptOutcome:
+    """How one driver attempt of a job ended, recorded by its driver once its
+    work finished: DONE, or FAILED with the error. A plain object write, so a
+    busy jobs table can't reject it the way it can the job's status write."""
+
+    job_id: str
+    status: str
+    written_at: datetime
+    detail: str | None = None
+
+    def to_json(self) -> bytes:
+        """Serialize for storage."""
+        record: dict[str, Any] = attrs.asdict(self)
+        record["written_at"] = self.written_at.isoformat()
+        return json.dumps(record, sort_keys=True).encode()
+
+    @classmethod
+    def from_json(cls, data: bytes) -> AttemptOutcome:
+        """Parse a stored outcome, ignoring fields this version doesn't know."""
+        record = json.loads(data)
+        known = {f.name for f in attrs.fields(cls)}
+        values = {k: v for k, v in record.items() if k in known}
+        values["written_at"] = datetime.fromisoformat(values["written_at"])
+        return cls(**values)
+
+
 class HeartbeatStore:
-    """Driver heartbeat objects stored inside the jobs table's directory.
+    """Driver heartbeat and attempt outcome objects stored inside the jobs
+    table's directory.
 
     Paths are relative to the table's dataset root, as with checkpoints, so the
     table's own (possibly vended) credentials cover them, and Lance cleanup
@@ -163,12 +218,35 @@ class HeartbeatStore:
 
     def write(self, heartbeat: DriverHeartbeat) -> None:
         """Overwrite the job's heartbeat object."""
+        self.write_object(heartbeat_path(heartbeat.job_id), heartbeat.to_json())
+
+    def write_object(self, path: str, data: bytes) -> None:
+        """Overwrite the object at ``path``, relative to the jobs table root."""
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 local = os.path.join(tmp_dir, _LOCAL_FILE)
                 with open(local, "wb") as f:
-                    f.write(heartbeat.to_json())
-                self._get_session().upload_file(local, heartbeat_path(heartbeat.job_id))
+                    f.write(data)
+                self._get_session().upload_file(local, path)
+        except Exception:
+            self._reset_session()
+            raise
+
+    def read_object(self, path: str) -> bytes | None:
+        """The object at ``path``, relative to the jobs table root, or None if
+        there is none."""
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                local = os.path.join(tmp_dir, _LOCAL_FILE)
+                session = self._get_session()
+                try:
+                    session.download_file(path, local)
+                except OSError:
+                    if not session.contains(path):
+                        return None
+                    raise
+                with open(local, "rb") as f:
+                    return f.read()
         except Exception:
             self._reset_session()
             raise
@@ -190,22 +268,9 @@ class HeartbeatStore:
 
     def read(self, job_id: str) -> DriverHeartbeat | None:
         """The job's latest heartbeat, or None if its driver never wrote one."""
-        path = heartbeat_path(job_id)
-        try:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                local = os.path.join(tmp_dir, _LOCAL_FILE)
-                session = self._get_session()
-                try:
-                    session.download_file(path, local)
-                except OSError:
-                    if not session.contains(path):
-                        return None
-                    raise
-                with open(local, "rb") as f:
-                    data = f.read()
-        except Exception:
-            self._reset_session()
-            raise
+        data = self.read_object(heartbeat_path(job_id))
+        if data is None:
+            return None
         try:
             return DriverHeartbeat.from_json(data)
         except (ValueError, TypeError, KeyError):

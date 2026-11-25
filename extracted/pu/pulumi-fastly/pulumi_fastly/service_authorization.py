@@ -150,12 +150,7 @@ class ServiceAuthorization(pulumi.CustomResource):
         import pulumi
         import pulumi_fastly as fastly
 
-        demo = fastly.ServiceVcl("demo",
-            name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }])
+        demo = fastly.ServiceVcl("demo", name="demofastly")
         user = fastly.User("user",
             login="demo@example.com",
             name="Demo User")
@@ -199,12 +194,7 @@ class ServiceAuthorization(pulumi.CustomResource):
         import pulumi
         import pulumi_fastly as fastly
 
-        demo = fastly.ServiceVcl("demo",
-            name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }])
+        demo = fastly.ServiceVcl("demo", name="demofastly")
         user = fastly.User("user",
             login="demo@example.com",
             name="Demo User")
@@ -291,6 +281,18 @@ class ServiceAuthorization(pulumi.CustomResource):
         __props__.__dict__["service_id"] = service_id
         __props__.__dict__["user_id"] = user_id
         return ServiceAuthorization(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            permission: pulumi.Input[Optional[_builtins.str]] = None,
+            service_id: pulumi.Input[Optional[_builtins.str]] = None,
+            user_id: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["permission"] = permission
+        __props__["serviceId"] = service_id
+        __props__["userId"] = user_id
+        return pulumi.runtime.exists_resource(None, 'fastly:index/serviceAuthorization:ServiceAuthorization', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter

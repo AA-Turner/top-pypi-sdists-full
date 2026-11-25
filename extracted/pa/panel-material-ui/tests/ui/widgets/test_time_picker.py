@@ -5,8 +5,9 @@ import pytest
 pytest.importorskip('playwright')
 
 from panel.tests.util import serve_component, wait_until
-from panel_material_ui.widgets import TimePicker
 from playwright.sync_api import expect
+
+from panel_material_ui.widgets import TimePicker
 
 pytestmark = pytest.mark.ui
 
@@ -200,3 +201,42 @@ def test_time_picker_increments(page):
     # Verify the format shows seconds
     input_value = page.locator(".MuiPickersInputBase-input").input_value().lower()
     assert "06:08:00 pm" in input_value or "06:08:00pm" in input_value
+
+
+def test_time_picker_partial_edit_not_committed(page):
+    widget = TimePicker(value=datetime.time(10, 30), clock='24h')
+    values = []
+    widget.param.watch(lambda e: values.append(e.new), 'value')
+    serve_component(page, widget)
+
+    input_el = page.locator(".MuiPickersInputBase-input")
+    wait_until(lambda: "10:30" in input_el.input_value(), page)
+
+    page.locator("span[aria-label='Minutes']").click()
+    page.keyboard.press("Backspace")
+    expect(input_el).to_have_value("10:mm")
+    page.wait_for_timeout(300)
+    assert values == []
+
+    # "4" alone already forms the valid time 10:04, which is committed
+    # unless "5" arrives before that change is sent; type at a human pace
+    # so that path is taken and check only complete times are committed.
+    page.keyboard.type("45", delay=100)
+    wait_until(lambda: widget.value == datetime.time(10, 45), page)
+    assert values[-1] == datetime.time(10, 45)
+    assert all(isinstance(v, datetime.time) for v in values)
+
+
+def test_time_picker_partial_edit_restored_on_blur(page):
+    widget = TimePicker(value=datetime.time(10, 30), clock='24h')
+    serve_component(page, widget)
+
+    input_el = page.locator(".MuiPickersInputBase-input")
+    wait_until(lambda: "10:30" in input_el.input_value(), page)
+
+    page.locator("span[aria-label='Minutes']").click()
+    page.keyboard.press("Backspace")
+    page.keyboard.press("Tab")
+
+    expect(input_el).to_have_value("10:30")
+    assert widget.value == "10:30:00"

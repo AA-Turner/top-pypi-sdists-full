@@ -7,6 +7,7 @@ import click
 from watchdog.events import (
     DirDeletedEvent,
     FileDeletedEvent,
+    FileSystemEvent,
     PatternMatchingEventHandler,
 )
 from watchdog.observers import Observer
@@ -29,7 +30,7 @@ class WatchProjectHandler(PatternMatchingEventHandler):
         ".env.local",
     ]
 
-    def __init__(self, project: Project, config: dict[str, Any], process: Callable):
+    def __init__(self, project: Project, config: dict[str, Any], process: Callable[..., object]) -> None:
         self.project = project
         self.config = config
         self.process = process
@@ -98,13 +99,13 @@ class WatchProjectHandler(PatternMatchingEventHandler):
 
         return None
 
-    def on_any_event(self, event):
+    def on_any_event(self, event: FileSystemEvent) -> None:
         if str(event.src_path).endswith("~"):
             return
 
         if event.event_type == "modified":
             self.modified(event)
-        elif event.event_type == "deleted":
+        elif isinstance(event, (DirDeletedEvent, FileDeletedEvent)):
             self.deleted(event)
 
     def created(self, event: Any) -> None:
@@ -129,7 +130,7 @@ class WatchProjectHandler(PatternMatchingEventHandler):
 
 
 def watch_project(
-    process: Callable[[bool, Optional[str], Optional[str]], None],
+    process: Callable[..., object],
     project: Project,
     config: dict[str, Any],
 ) -> None:

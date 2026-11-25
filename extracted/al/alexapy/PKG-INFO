@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: AlexaPy
-Version: 1.37.1
+Version: 1.38.0
 Summary: Python API to control Amazon Echo Devices Programmatically.
 License: Apache-2.0
 License-File: AUTHORS.md
@@ -92,4 +92,40 @@ generation. The structure of `additionalApplianceDetails` is device-dependent.
 `get_network_details(login)` continues to return only legacy appliance records,
 including `additionalApplianceDetails`. Call `get_devices_gql(login)` when the
 sibling endpoint model and DMS identifier metadata are needed.
+
+## Smart-home groups and devices
+
+Smart-home groups are the rooms of the Alexa app. Their members are the
+`applianceId` values of `get_network_details(login)`.
+
+- `get_appliance_groups(login)` returns the group documents (`groupId`, `name`,
+  `applianceIds`, ...).
+- `create_appliance_group(login, name, appliance_ids=None)` creates a group and
+  returns its document, including the new `groupId`.
+- `set_appliance_group_members(login, group_id, appliance_ids)` replaces the
+  members. `rename_appliance_group(login, group_id, name)` renames the group and
+  keeps its members. Both read the group first and send the rest of its document
+  back unchanged.
+- `delete_appliance_group(login, group_id)` deletes the group, not its devices.
+- `discover_appliances(login)` asks Alexa to search for new devices, like the
+  device search of the Alexa app. Echo devices with a Zigbee hub search as well,
+  so it can add devices that were not in the account before, without a group.
+
+Device changes take the endpoint `id` of `get_devices_gql(login)`
+(`amzn1.alexa.endpoint...`), not the `applianceId`:
+
+- `set_endpoint_friendly_name(login, endpoint_id, name)` renames a device. Amazon
+  rejects some names, for example names with an underscore.
+- `set_endpoint_enabled(login, endpoint_id, enabled)` enables or disables a device.
+- `forget_endpoint(login, endpoint_id)` deletes a device from the account.
+
+The write methods return `True` when Amazon accepted the change.
+
+## Echo devices and skills
+
+- `rename_device(login, serial, device_type, device_account_id, name)` renames an
+  Alexa device such as an Echo. The arguments are the `serialNumber`,
+  `deviceType` and `deviceAccountId` of `get_devices(login)`.
+- `get_skills(login)` returns the skills enabled for the account, each with
+  `title`, `asin`, `productMetadata.skillId` and `productDetails.skillTypes`.
 

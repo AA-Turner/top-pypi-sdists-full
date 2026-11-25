@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 from asyncio import timeout as asyncio_timeout
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+import contextlib
+import dataclasses
+from datetime import UTC, datetime, timedelta
 import importlib.metadata
 import logging
 import os
@@ -71,6 +73,12 @@ MFG_ID_RESET_DELAY = 180
 RESET_ATTEMPT_BACKOFF_TIME = 5
 NETWORK_UP_TIMEOUT_S = 10
 MAX_WATCHDOG_FAILURES = 4
+# The NCP and routers open their permit windows after the join window's timer starts,
+# keep the join keys a little longer so joins at the end of those windows still work
+JOIN_WINDOW_GRACE_S = 2
+# The NCP transmits a GPDF about 20ms after taking it from its queue, but drops some
+# without reporting them
+GPDF_SENT_GRACE_S = 1
 IEEE_PREFIX_MFG_ID = {
     "04:CF:8C": 0x115F,  # Xiaomi
     "54:EF:44": 0x115F,  # Lumi
@@ -99,6 +107,14 @@ GP_SECURITY_STATUSES = {
 }
 
 
+@dataclasses.dataclass
+class JoinWindow:
+    link_keys: dict[t.EUI64, t.KeyData] | None
+    close_event: asyncio.Event
+    timer: asyncio.TimerHandle
+    task: asyncio.Task
+
+
 class ControllerApplication(zigpy.application.ControllerApplication):
     SCHEMA = CONFIG_SCHEMA
 
@@ -116,12 +132,18 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         self._ezsp = None
         self._multicast = None
         self._mfg_id_task: asyncio.Task | None = None
+        self._join_window: JoinWindow | None = None
+        self._join_window_lock = asyncio.Lock()
         self._pending_requests = {}
         self._watchdog_failures = 0
         self._watchdog_feed_counter = 0
 
         self._req_lock = asyncio.Lock()
         self._packet_capture_channel: int | None = None
+
+        # The NCP queues a single GPDF for all GPDs
+        self._gpdf_lock = asyncio.Lock()
+        self._gpdf_sent: asyncio.Future[None] | None = None
 
     @property
     def controller_event(self):
@@ -729,6 +751,11 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                 proxyTableIndex,
                 gpdCommandPayload,
             )
+        elif frame_name == "dGpSentHandler":
+            # The NCP reports neither the transmit status nor the GPEP handle: both are
+            # always zero. With one GPDF queued at a time, this is the queued one.
+            if self._gpdf_sent is not None and not self._gpdf_sent.done():
+                self._gpdf_sent.set_result(None)
         elif frame_name == "messageSentHandler":
             if self._ezsp.ezsp_version >= 14:
                 (
@@ -1005,7 +1032,12 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             if self._mfg_id_task and not self._mfg_id_task.done():
                 self._mfg_id_task.cancel()
             self._mfg_id_task = asyncio.create_task(self._reset_mfg_id(mfg_id))
-        self.handle_join(nwk, ieee, parent_nwk)
+
+        # Unsecured joins and rejoins are unauthenticated: anyone can send one for any
+        # EUI64 and the device may never receive the network key. The device's own
+        # network-secured Device_annce reports the join once it has the key.
+        if device_update_status == t.EmberDeviceUpdate.STANDARD_SECURITY_SECURED_REJOIN:
+            self.handle_join(nwk, ieee, parent_nwk)
 
     async def _reset_mfg_id(self, mfg_id: int) -> None:
         """Resets manufacturer id if was temporary overridden by a joining device."""
@@ -1335,10 +1367,73 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             finally:
                 del self._pending_requests[pending_tag]
 
+    async def _close_join_window(self) -> None:
+        if self._join_window is None:
+            return
+
+        window = self._join_window
+        self._join_window = None
+
+        window.timer.cancel()
+        window.close_event.set()
+
+        # The window task always runs to completion so cleanup is never interrupted
+        await asyncio.wait([window.task])
+
+    async def _open_join_window(
+        self, time_s: int, link_keys: dict[t.EUI64, t.KeyData] | None = None
+    ) -> None:
+        loop = asyncio.get_running_loop()
+        window = self._join_window
+
+        # Reopening the window would briefly reject joins, extend it instead
+        if (
+            window is not None
+            and not window.close_event.is_set()
+            and window.link_keys == link_keys
+        ):
+            window.timer.cancel()
+
+            # The NCP drops transient keys a fixed time after they are added
+            # (`CONFIG_TRANSIENT_KEY_TIMEOUT_S`), re-add them to cover the extension
+            try:
+                await self._ezsp.refresh_join_link_keys(link_keys=link_keys)
+            except BaseException:
+                # The window has no timer anymore, close it instead of leaking it
+                await self._close_join_window()
+                raise
+
+            window.timer = loop.call_later(
+                time_s + JOIN_WINDOW_GRACE_S, window.close_event.set
+            )
+            return
+
+        await self._close_join_window()
+
+        stack = contextlib.AsyncExitStack()
+        await stack.enter_async_context(self._ezsp.allow_joins(link_keys=link_keys))
+        close_event = asyncio.Event()
+
+        async def join_window() -> None:
+            async with stack:
+                await close_event.wait()
+
+        self._join_window = JoinWindow(
+            link_keys=link_keys,
+            close_event=close_event,
+            timer=loop.call_later(time_s + JOIN_WINDOW_GRACE_S, close_event.set),
+            task=self.create_task(join_window(), "join_window"),
+        )
+
     async def permit(self, time_s: int = 60, node: t.EmberNodeId = None) -> None:
         """Permit joining."""
-        self.create_task(self._ezsp.pre_permit(time_s), "pre_permit")
-        await super().permit(time_s, node)
+        async with self._join_window_lock:
+            if time_s == 0:
+                await self._close_join_window()
+            else:
+                await self._open_join_window(time_s)
+
+            await super().permit(time_s, node)
 
     def permit_ncp(self, time_s=60):
         assert 0 <= time_s <= 254
@@ -1348,22 +1443,9 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         self, node: t.EUI64, link_key: t.KeyData, time_s: int = 60
     ) -> None:
         """Permits a new device to join with the given IEEE and link key."""
-
-        status = await self._ezsp.add_transient_link_key(node, link_key)
-
-        if t.sl_Status.from_ember_status(status) != t.sl_Status.OK:
-            raise ControllerError("Failed to set link key")
-
-        if self._ezsp.ezsp_version >= 8:
-            await self._ezsp.setPolicy(
-                policyId=t.EzspPolicyId.TRUST_CENTER_POLICY,
-                decisionId=(
-                    t.EzspDecisionBitmask.ALLOW_JOINS
-                    | t.EzspDecisionBitmask.JOINS_USE_INSTALL_CODE_KEY
-                ),
-            )
-
-        return await super().permit(time_s)
+        async with self._join_window_lock:
+            await self._open_join_window(time_s, link_keys={node: link_key})
+            await super().permit(time_s)
 
     async def _subscribe_to_multicast_group(
         self, group_id: zigpy.types.Group, endpoint_id: int
@@ -1382,6 +1464,105 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             return None
 
         await self._multicast.unsubscribe(group_id=group_id, endpoint_id=endpoint_id)
+
+    async def _send_gpdf(
+        self,
+        *,
+        target: zgp_t.SrcID | tuple[zigpy.types.EUI64, int] | None,
+        command_id: zgp_t.GPDCommandID,
+        payload: bytes,
+        channel: int,
+        lifetime: timedelta,
+    ) -> None:
+        """Send a GPDF from the NCP in its GPD's next receive window."""
+        # The NCP only transmits on the operational channel, outside of a GP channel
+        # delivery scan
+        if channel != self.state.network_info.channel:
+            raise zigpy.exceptions.DeliveryError(
+                f"Cannot send a GPDF on channel {channel}"
+            )
+
+        # A Maintenance frame is queued for SrcID 0 (A.1.5.2.2)
+        match target:
+            case None:
+                addr = t.EmberGpAddress(
+                    applicationId=zgp_t.ApplicationID.SrcID,
+                    source_id=zgp_t.SrcID(0x00000000),
+                    source_id_padding=0,
+                    endpoint=0,
+                )
+            case (ieee, endpoint):
+                addr = t.EmberGpAddress(
+                    applicationId=zgp_t.ApplicationID.IEEE,
+                    gpd_eui64=ieee,
+                    endpoint=endpoint,
+                )
+            case _:
+                addr = t.EmberGpAddress(
+                    applicationId=zgp_t.ApplicationID.SrcID,
+                    source_id=target,
+                    source_id_padding=target,
+                    endpoint=0,
+                )
+
+        # The NCP never expires a queued GPDF, which would block every other GPD, so the
+        # GPDF is removed once `lifetime` is up
+        async with self._gpdf_lock:
+            self._gpdf_sent = asyncio.get_running_loop().create_future()
+
+            try:
+                (status,) = await self._ezsp.dGpSend(
+                    action=True,
+                    useCca=False,
+                    addr=addr,
+                    gpdCommandId=command_id,
+                    gpdAsdu=payload,
+                    gpepHandle=0,
+                    # The NCP ignores this, the lifetime is enforced here
+                    gpTxQueueEntryLifetimeMs=min(
+                        lifetime // timedelta(milliseconds=1), 0xFFFF
+                    ),
+                )
+
+                if t.sl_Status.from_ember_status(status) != t.sl_Status.OK:
+                    raise zigpy.exceptions.DeliveryError(
+                        f"Failed to queue GPDF: {status!r}"
+                    )
+
+                try:
+                    async with asyncio_timeout(lifetime.total_seconds()):
+                        await asyncio.shield(self._gpdf_sent)
+                except TimeoutError:
+                    if await self._remove_gpdf(addr):
+                        raise zigpy.exceptions.DeliveryError(
+                            "GPD did not listen before the GPDF expired"
+                        ) from None
+
+                    # Not finding it means the GPD took it meanwhile. Its report must
+                    # not complete the next GPDF.
+                    try:
+                        async with asyncio_timeout(GPDF_SENT_GRACE_S):
+                            await self._gpdf_sent
+                    except TimeoutError:
+                        raise zigpy.exceptions.DeliveryError(
+                            "NCP dropped the GPDF"
+                        ) from None
+            finally:
+                self._gpdf_sent = None
+
+    async def _remove_gpdf(self, addr: t.EmberGpAddress) -> bool:
+        """Remove the GPDF queued for a GPD, returning whether the NCP still held it."""
+        (status,) = await self._ezsp.dGpSend(
+            action=False,
+            useCca=False,
+            addr=addr,
+            gpdCommandId=0x00,
+            gpdAsdu=b"",
+            gpepHandle=0,
+            gpTxQueueEntryLifetimeMs=0,
+        )
+
+        return t.sl_Status.from_ember_status(status) == t.sl_Status.OK
 
     def _handle_id_conflict(self, nwk: t.EmberNodeId) -> None:
         LOGGER.warning("NWK conflict is reported for 0x%04x", nwk)

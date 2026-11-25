@@ -1,9 +1,13 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class Environment(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    PRODUCTION: "Environment" = "production"
-    SANDBOX: "Environment" = "sandbox"
+    PRODUCTION: "Environment" = member("production")
+    SANDBOX: "Environment" = member("sandbox")
 
     @property
     def base_url(self) -> str:

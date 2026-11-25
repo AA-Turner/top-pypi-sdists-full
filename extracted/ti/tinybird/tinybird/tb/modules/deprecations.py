@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import click
 
 from tinybird.tb.modules.cli import cli
@@ -13,7 +15,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
     hidden=True,
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def auth(args) -> None:
+def auth(args: Tuple[str, ...]) -> None:
     """
     `tb auth` is deprecated. Use `tb login` instead.
     """
@@ -37,7 +39,7 @@ def auth(args) -> None:
     hidden=True,
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def environment(args) -> None:
+def environment(args: Tuple[str, ...]) -> None:
     """
     `tb environment` has been renamed to `tb branch`.
     """
@@ -59,7 +61,7 @@ def environment(args) -> None:
     hidden=True,
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def check(args) -> None:
+def check(args: Tuple[str, ...]) -> None:
     """
     `tb check` is deprecated.
     """
@@ -77,7 +79,7 @@ def check(args) -> None:
     hidden=True,
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def diff(args) -> None:
+def diff(args: Tuple[str, ...]) -> None:
     """
     `tb diff` is deprecated.
     """
@@ -95,7 +97,7 @@ def diff(args) -> None:
     hidden=True,
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def push(args) -> None:
+def push(args: Tuple[str, ...]) -> None:
     """
     `tb push` is deprecated. Use `tb deploy` instead.
     """
@@ -113,7 +115,7 @@ def push(args) -> None:
     hidden=True,
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def tag(args) -> None:
+def tag(args: Tuple[str, ...]) -> None:
     """
     `tb tag` is deprecated
     """
@@ -131,7 +133,7 @@ def tag(args) -> None:
     hidden=True,
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def create(args) -> None:
+def create(args: Tuple[str, ...]) -> None:
     """
     `tb create` is deprecated. Use `tb init` instead.
     """
@@ -154,7 +156,7 @@ def create(args) -> None:
     hidden=True,
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def mock(args) -> None:
+def mock(args: Tuple[str, ...]) -> None:
     """
     `tb mock` is removed.
     """

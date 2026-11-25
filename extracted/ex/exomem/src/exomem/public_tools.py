@@ -246,6 +246,10 @@ class SearchMemory(Wire):
     types: list[str] | None = None
     projects: list[str] | None = None
     tags: list[str] | None = None
+    file_types: list[str] | None = Field(
+        default=None,
+        description='Kinds to keep, e.g. ["image", "video"] for a photo, screenshot or video. If unsure a picture is meant, also search without it.',
+    )
     filters: dict[str, Any] | None = Field(
         default=None, description='Metadata filter, such as {"page.status": "active"}.'
     )
@@ -259,6 +263,12 @@ class SearchMemory(Wire):
 
 
 def _search(wire: dict[str, Any], ctx: Context) -> Translated:
+    options = wire.get("options") or {}
+    if "file_types" in options and wire.get("file_types") is None:
+        # A host on a cached tool surface still sends `file_types` in `options`, where it lived
+        # before it became a field; move it rather than refuse the call.
+        wire = {**wire, "file_types": options["file_types"],
+                "options": {key: value for key, value in options.items() if key != "file_types"}}
     if (wire.get("options") or {}).get("result_level") == "passage":
         from . import passage_evidence
 
@@ -270,6 +280,7 @@ def _search(wire: dict[str, Any], ctx: Context) -> Translated:
         "query": wire.get("query"), "types": wire.get("types"), "tags": wire.get("tags"),
         "filters": wire.get("filters"), "deep": wire.get("deep"), "limit": wire.get("limit"),
         "continuation": wire.get("more"), "detail": wire.get("detail"), "projects": wire.get("projects"),
+        "file_types": wire.get("file_types"),
     }
     return "ask_memory", _leaf_call(wire, "options", ctx, "ask_memory", "search_memory", leaf)
 
@@ -436,8 +447,11 @@ _EDIT_ACTION_FIELDS: dict[str, tuple[frozenset[str], tuple[str, ...]]] = {  # no
     "set_tags": (frozenset({"tags"}), ("tags",)),
     "set_fields": (frozenset({"fields"}), ("fields",)),
     "fill_row": (frozenset({"row", "take", "overwrite"}), ("row", "take")),
-    "edit_observation": (frozenset({"observation", "category", "text", "tags", "context", "links"}), ("observation",)),
+    "edit_observation": (frozenset({"observation", "category", "text", "tags", "context", "links", "kind", "as_of", "verdict"}), ("observation",)),
     "remove_observation": (frozenset({"observation"}), ("observation",)),
+    "supersede_observation": (frozenset({"unit", "span", "text", "category", "kind", "as_of", "tags", "context", "links"}), ("text",)),
+    "assess_observation": (frozenset({"unit", "span", "verdict", "check_by", "links", "kind"}), ()),
+    "link_observation": (frozenset({"unit", "span", "links", "kind"}), ("links",)),
 }
 _EDIT_SHARED = frozenset({"note", "why", "action", "unlinked_reason", "review", "preview", "detail"})
 
@@ -460,10 +474,16 @@ class EditNote(Wire):
     take: str | None = Field(default=None, description="fill_row.")
     overwrite: bool | None = Field(default=None, description="fill_row: replace a filled take.")
     observation: str | None = Field(default=None, description="edit_observation, remove_observation: the unit id.")
-    category: str | None = Field(default=None, description="edit_observation.")
-    text: str | None = Field(default=None, description="edit_observation.")
-    context: str | None = Field(default=None, description="edit_observation.")
-    links: list[Link] | None = Field(default=None, description="edit_observation: the full list.")
+    unit: str | None = Field(default=None, description="supersede_observation, assess_observation, link_observation: the claim's unit id or anchor.")
+    span: str | None = Field(default=None, description="supersede_observation, assess_observation, link_observation: the claim's exact text when its unit id is unknown.")
+    verdict: str | None = Field(default=None, description="assess_observation, edit_observation: a governed verdict such as confirmed, qualified, or refuted.")
+    check_by: str | None = Field(default=None, description="assess_observation: an ISO date to revisit the claim.")
+    kind: str | None = Field(default=None, description="supersede_observation, assess_observation, link_observation, edit_observation: a governed rich kind; required to promote a compact observation.")
+    as_of: str | None = Field(default=None, description="supersede_observation, edit_observation: the ISO date the claim started holding.")
+    category: str | None = Field(default=None, description="edit_observation, supersede_observation.")
+    text: str | None = Field(default=None, description="edit_observation, supersede_observation.")
+    context: str | None = Field(default=None, description="edit_observation, supersede_observation.")
+    links: list[Link] | None = Field(default=None, description="edit_observation: the full list; supersede_observation, link_observation: links to add.")
     unlinked_reason: str | None = _UNLINKED
     review: str | None = _REVIEW
     preview: bool | None = _PREVIEW
@@ -494,9 +514,40 @@ def _edit_note(wire: dict[str, Any], ctx: Context) -> Translated:
             **_given({
                 "category": wire.get("category"), "content": wire.get("text"), "tags": wire.get("tags"),
                 "context": wire.get("context"), "relations": _links(wire.get("links")),
+                "kind": wire.get("kind"), "as_of": wire.get("as_of"), "verdict": wire.get("verdict"),
             }),
             **_given(_unlinked(wire)), **_edit_review(wire), **guard, **detail,
         }
+        return "observe_memory", leaf
+    if action in {"supersede_observation", "assess_observation", "link_observation"}:
+        if (wire.get("unit") is None) == (wire.get("span") is None):
+            given = "both" if wire.get("unit") is not None else "neither"
+            raise Refusal(
+                "INVALID_ARGUMENT",
+                f"{action} names its claim once, as `unit` or an exact `span`; this call gives {given}.",
+            )
+        if action == "assess_observation" and all(
+            wire.get(key) is None for key in ("verdict", "check_by", "links")
+        ):
+            raise Refusal(
+                "MISSING_ARGUMENT",
+                "assess_observation needs a verdict, a check_by, or links.",
+            )
+        leaf = {
+            "operation": "supersede" if action == "supersede_observation" else "assess",
+            "path": wire["note"], "reason": wire["why"],
+            **_given({
+                "unit": wire.get("unit"), "span": wire.get("span"),
+                "content": wire.get("text"), "category": wire.get("category"),
+                "kind": wire.get("kind"), "as_of": wire.get("as_of"),
+                "tags": wire.get("tags"), "context": wire.get("context"),
+                "verdict": wire.get("verdict"), "check_by": wire.get("check_by"),
+                "relations": _links(wire.get("links")),
+            }),
+            **_given(_unlinked(wire)), **_edit_review(wire), **guard, **detail,
+        }
+        if wire.get("preview"):
+            leaf["validate_only"] = True
         return "observe_memory", leaf
     operation: dict[str, Any]
     if action == "replace_text":
@@ -582,6 +633,45 @@ def _spell_edit(arguments: Mapping[str, Any]) -> dict[str, Any] | None:
     return wire
 
 
+#: The observe_memory fields a claim action spells, leaf name to wire name.
+_CLAIM_INVERSE = {
+    "path": "note", "reason": "why", "unit": "unit", "span": "span", "content": "text",
+    "category": "category", "kind": "kind", "as_of": "as_of", "tags": "tags", "context": "context",
+    "verdict": "verdict", "check_by": "check_by", "transition_token": "review", "response_detail": "detail",
+}
+
+
+def _spell_claim_edit(arguments: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The edit_note call of an observe_memory supersede or assess, or None for a call edit_note cannot send.
+
+    An assess that sets a verdict or a check_by is assess_observation; one that only adds links is
+    link_observation. The page id that edit_note takes in `note` stands for `expected_hash`.
+    """
+    if arguments.get("operation") == "supersede":
+        action = "supersede_observation"
+    elif arguments.get("verdict") is not None or arguments.get("check_by") is not None:
+        action = "assess_observation"
+    else:
+        action = "link_observation"
+    wire: dict[str, Any] = {"action": action}
+    for key, value in arguments.items():
+        if value is None or key in {"operation", "expected_hash"}:
+            continue
+        if key in _CLAIM_INVERSE:
+            wire[_CLAIM_INVERSE[key]] = value
+        elif key == "relations":
+            wire["links"] = [{"relation": link.get("kind"), "page": link.get("target")} for link in value]
+        elif key == "validate_only":
+            if value:
+                wire["preview"] = True
+        elif key == "relation_disposition" and value == "reviewed_none":
+            wire["unlinked_reason"] = arguments.get("relation_review_reason")
+        elif key not in _RELATION_DECISION:
+            # A call that this tool would send without the field is another operation's call.
+            return None
+    return wire
+
+
 def _is_id(value: object) -> bool:
     from .page_ids import is_page_id
 
@@ -660,10 +750,8 @@ def _save_evidence(wire: dict[str, Any], ctx: Context) -> Translated:
     if text == files or (text and wire.get("name") is None):
         raise Refusal("INVALID_ARGUMENT", "save_evidence takes `text` with `name`, or `files`, and not both.")
     if files:
-        if wire.get("description") is not None:
-            raise Refusal("INVALID_ARGUMENT", "description applies to `text` evidence only.")
         leaf = {"scope": wire["scope"], "category": wire["category"], "files": wire["files"],
-                "response_detail": wire.get("detail")}
+                "description": wire.get("description"), "response_detail": wire.get("detail")}
         return "preserve_artifacts", _leaf_call(wire, "options", ctx, "preserve_artifacts", "save_evidence", leaf)
     leaf = {"scope": wire["scope"], "category": wire["category"], "filename": wire["name"],
             "content": wire["text"], "description": wire.get("description"), "response_detail": wire.get("detail")}
@@ -695,6 +783,9 @@ class UploadFiles(Wire):
     size_bytes: int | None = Field(default=None, strict=True, ge=0, description="Exact Source bytes.")
     import_identity: str | None = Field(default=None, description="Held Source import ID.")
     hold: bool | None = Field(default=None, description="Hold bytes for a later save.")
+    scope: str | None = None
+    category: str | None = None
+    description: str | None = None
     detail: Detail | None = _DETAIL
 
 
@@ -705,6 +796,7 @@ def _upload_files(wire: dict[str, Any], ctx: Context) -> Translated:
         "lane": wire["lane"], "expected_sha256": wire.get("expected_sha256"), "hold": held,
         "import_identity": wire.get("import_identity"),
         "size_bytes": wire.get("size_bytes"),
+        "scope": wire.get("scope"), "category": wire.get("category"), "description": wire.get("description"),
         "response_detail": wire.get("detail")})}
 
 
@@ -1028,13 +1120,18 @@ TOOLS: dict[str, WireTool] = {t.name: t for t in (  # nosemgrep: ep-word-dict --
                  derived=frozenset({"expected_hash"})),
            Route("observe_memory", when={"operation": "remove"}, add={"action": "remove_observation"},
                  inverse={"path": "note", "unit": "observation", "unit_ref": "observation", "reason": "why", **_NOTE_INVERSE},
-                 derived=frozenset({"expected_hash"}))],
+                 derived=frozenset({"expected_hash"})),
+           Route("observe_memory", when={"operation": "supersede"}, reverse=_spell_claim_edit),
+           Route("observe_memory", when={"operation": "assess"}, reverse=_spell_claim_edit)],
           destructive=True,
           example={"note": "Retry policy", "why": "Cap changed after the outage review", "action": "replace_text", "old_text": "cap at 30 s", "new_text": "cap at 10 s"},
-          claims=(("observe_memory", "update"), ("observe_memory", "remove")),
+          claims=(("observe_memory", "update"), ("observe_memory", "remove"),
+                  ("observe_memory", "supersede"), ("observe_memory", "validate-supersede"),
+                  ("observe_memory", "assess"), ("observe_memory", "validate-assess")),
           captures=True),
     _tool("supersede_note", "Supersede note",
-          "Replace a changed conclusion; keep the old note linked and readable.",
+          "Replace a changed conclusion; keep the old note linked and readable. "
+          "For one claim inside a note, use edit_note action supersede_observation.",
           SupersedeNote, "write", _supersede_note,
           [Route("replace_memory", inverse={"old_path": "note", "reason": "why", "note_type": "type", **_NOTE_INVERSE},
                  bag="fields", derived=frozenset({"draft_id", "draft_hash", "draft_token"}))],
@@ -1047,7 +1144,7 @@ TOOLS: dict[str, WireTool] = {t.name: t for t in (  # nosemgrep: ep-word-dict --
           meta=_FILES_META,
           captures=True),
     _tool("save_evidence", "Save evidence",
-          "Keep proof as append-only evidence: text with a name, or attached files.",
+          "Keep proof as append-only evidence in the turn it arrives: text with a name, or attached files.",
           SaveEvidence, "write", _save_evidence,
           [Route("preserve_evidence", inverse={"filename": "name", "content": "text", "response_detail": "detail"}),
            Route("preserve_artifacts", inverse={"response_detail": "detail"}, bag="options")],
@@ -1060,9 +1157,11 @@ TOOLS: dict[str, WireTool] = {t.name: t for t in (  # nosemgrep: ep-word-dict --
           claims=(("episode_memory", "record"),),
           captures=True),
     _tool("upload_files", "Upload files",
-          "Get a file handoff. Follow its next step. Held files go to save_source or save_evidence.",
+          "Get a file handoff. Follow its next step. Evidence with scope and category saves on arrival; else held files go to save_source or save_evidence.",
           UploadFiles, "write", _upload_files,
-          [Route("transfer_artifact", when={"operation": "upload"}, inverse={"response_detail": "detail"})]),
+          [Route("transfer_artifact", when={"operation": "upload"}, inverse={"response_detail": "detail"})],
+          # An evidence upload with a destination saves on arrival, so it can land the capture the turn needed.
+          captures=True),
     _tool("download_files", "Download files",
           "Get the original files of pages back out of memory. The reply gives a link or a command that saves each.",
           DownloadFiles, "write", _download_files,

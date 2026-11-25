@@ -6,7 +6,7 @@ import json
 import sys
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -139,6 +139,15 @@ class Sandbox:
     accessed_object: Callable[[MockOverrideCtx], str | None] | None = None
 
 
+@dataclass(frozen=True)
+class LiveSandbox(Sandbox):
+    pass
+
+
+def is_live_sandbox(sandbox: Sandbox) -> bool:
+    return isinstance(sandbox, LiveSandbox)
+
+
 def _as_stored(_start_ctx: SandboxStartCtx, value: Any) -> Any:
     return value
 
@@ -233,6 +242,55 @@ class SandboxSession:
             finally:
                 attach_access(access)
 
+    def answer_live(
+        self,
+        sandbox: Sandbox,
+        call: MockOverrideCtx,
+        run: Callable[[], Any],
+        attach_report: Callable[[dict[str, Any]], None],
+        attach_access: Callable[[dict[str, Any]], None] = lambda _access: None,
+    ) -> Any:
+        access = self._record_live(sandbox, call, attach_report, attach_access)
+        try:
+            return run()
+        except BaseException:
+            access["failed"] = True
+            raise
+
+    async def answer_live_async(
+        self,
+        sandbox: Sandbox,
+        call: MockOverrideCtx,
+        run: Callable[[], Awaitable[Any]],
+        attach_report: Callable[[dict[str, Any]], None],
+        attach_access: Callable[[dict[str, Any]], None] = lambda _access: None,
+    ) -> Any:
+        access = self._record_live(sandbox, call, attach_report, attach_access)
+        try:
+            return await run()
+        except BaseException:
+            access["failed"] = True
+            raise
+
+    def _record_live(
+        self,
+        sandbox: Sandbox,
+        call: MockOverrideCtx,
+        attach_report: Callable[[dict[str, Any]], None],
+        attach_access: Callable[[dict[str, Any]], None],
+    ) -> dict[str, Any]:
+        with self._lock:
+            access = self._access_of(sandbox, call)
+            attach_access(access)
+            try:
+                state = self._state_for(sandbox, attach_report)
+                sandbox.handle(state, call)
+                self._reports[sandbox.name]["calls"] += 1
+            except BaseException:
+                access["failed"] = True
+                raise
+            return access
+
     def _access_of(self, sandbox: Sandbox, call: MockOverrideCtx) -> dict[str, Any]:
         writes = None if sandbox.is_write is None else bool(sandbox.is_write(call))
         withheld = sandbox.integration in getattr(
@@ -282,7 +340,7 @@ class SandboxSession:
                     self._saved_condition().notify_all()
                     return
                 self._save_pending = False
-                snapshot = copy.deepcopy(self._states)
+                snapshot = copy.deepcopy(self._stored_states())
                 store = self.store
             try:
                 store.write_states(snapshot)
@@ -311,7 +369,8 @@ class SandboxSession:
         if sandbox.name in self._states:
             return self._states[sandbox.name]
         start_ctx = self.make_start_ctx(sandbox)
-        entry = self._stored_entry(sandbox.name)
+        live = is_live_sandbox(sandbox)
+        entry = None if live else self._stored_entry(sandbox.name)
         if entry is None:
             state = (sandbox.start or recorded_state)(start_ctx)
         else:
@@ -325,7 +384,7 @@ class SandboxSession:
             "traceStartedAt": start_ctx.trace_started_at,
             "calls": 0,
         }
-        if self.store is not None:
+        if self.store is not None and not live:
             report["startedFromSavedState"] = entry is not None
         if sandbox.mode is not None:
             report["mode"] = sandbox.mode
@@ -351,8 +410,12 @@ class SandboxSession:
         with self._lock:
             while self._saving:
                 self._saved_condition().wait()
-            states = dict(self._states)
+            states = self._stored_states()
         self.store.write_states(states)
+
+    def _stored_states(self) -> dict[str, Any]:
+        live = {sandbox.name for sandbox in self.sandboxes if is_live_sandbox(sandbox)}
+        return {name: state for name, state in self._states.items() if name not in live}
 
 
 def _never(_node: SpanNodeMeta) -> bool:

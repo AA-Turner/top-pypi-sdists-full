@@ -68,7 +68,48 @@ class _ButtonLike(MaterialWidget):
         return params
 
 
-class _ButtonBase(_ButtonLike, _PnButtonBase):
+class _AriaMixin(param.Parameterized):
+    """
+    Mixin adding ARIA attributes to a widget's interactive element.
+    """
+
+    aria = param.Dict(default={}, doc="""
+        Further ARIA attributes of the widget's interactive element, e.g.
+        ``{"controls": "settings-panel", "haspopup": "dialog"}``. Keys may be
+        given with or without the ``aria-`` prefix and booleans are written
+        as ``"true"`` or ``"false"``.""")
+
+    aria_expanded = param.Boolean(default=None, allow_None=True, doc="""
+        Whether the element this widget controls, e.g. a menu, dialog or
+        drawer, is expanded. Sets ``aria-expanded`` when not None.""")
+
+    aria_label = param.String(default=None, doc="""
+        Accessible name of the widget, read by screen readers instead of its
+        visible label. Useful for icon-only buttons and to include state
+        that is only shown visually, such as a badge count.""")
+
+    __abstract = True
+
+
+class _BadgeMixin(param.Parameterized):
+    """
+    Mixin adding a badge to a button.
+    """
+
+    badge = param.ClassSelector(default=None, class_=(int, str), doc="""
+        Content of a badge shown on the button's icon, e.g. a count of
+        pending items. A count of 0 or None hides the badge.""")
+
+    badge_color: ColorType = param.Selector(objects=COLORS, default="error", doc="""
+        The color of the badge.""")  # type: ignore[assignment]
+
+    badge_max = param.Integer(default=99, bounds=(1, None), doc="""
+        Largest count shown on the badge; larger counts show as e.g. 99+.""")
+
+    __abstract = True
+
+
+class _ButtonBase(_AriaMixin, _ButtonLike, _PnButtonBase):
     """
     Abstract base class for Material UI button widgets.
     """
@@ -104,7 +145,21 @@ class _ButtonBase(_ButtonLike, _PnButtonBase):
     }
     _stylesheets: t.ClassVar[list[str]] = []
 
+    # Whether to pass the color and variant defaults to the constructor.
+    _seed_appearance_defaults: t.ClassVar[bool] = True
+
     __abstract = True
+
+    def __init__(self, **params):
+        # The alias defaults (None) differ from color and variant, so Panel's
+        # post-init alias sync would set both aliases and fire a cascade of
+        # watchers; passing the defaults lets the constructor align them.
+        if self._seed_appearance_defaults:
+            if 'color' not in params and 'button_type' not in params:
+                params['color'] = type(self).color
+            if 'variant' not in params and 'button_style' not in params:
+                params['variant'] = type(self).variant
+        super().__init__(**params)
 
     @param.depends("button_style", watch=True)
     def _update_variant(self):
@@ -119,7 +174,7 @@ class _ButtonBase(_ButtonLike, _PnButtonBase):
         return props
 
 
-class Button(_ButtonBase, _ClickButton):
+class Button(_BadgeMixin, _ButtonBase, _ClickButton):
     """
     The `Button` widget allows triggering events when the button is clicked.
 
@@ -207,6 +262,11 @@ class Fab(Button):
 
     icon = param.String(default="add", allow_None=True, doc="""
         The icon to display on the button.""")
+
+    label = param.String(default="", doc="""
+        The label of the button. The ``extended`` variant shows it next to the
+        icon; the ``circular`` variant only shows the icon and uses the label
+        as the button's accessible name.""")
 
     icon_size = param.String(default="1.5em", doc="""
         Size of the icon as a string, e.g. 12px or 1em.""")

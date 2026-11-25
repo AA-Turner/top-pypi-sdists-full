@@ -114,7 +114,7 @@ def test_create_finding_round_trips_evidence(
   evidence_model: type[BaseModel],
 ) -> None:
   body: FindingsCreateParams = {
-    "bench_id": "bench-fixture",
+    "spec_id": "bench-fixture",
     "task_id": "task-fixture",
     "title": "Verifier overlooks unfinished work",
     "explanation": "The verifier accepts an incomplete result.",
@@ -123,7 +123,9 @@ def test_create_finding_round_trips_evidence(
   }
   with client_for(
     {
-      **body,
+      # Responses keep the stored field name; only request arguments are renamed.
+      **{key: value for key, value in body.items() if key != "spec_id"},
+      "bench_id": "bench-fixture",
       "finding_id": "finding-fixture",
       "state": "open",
       "created_by": "API key test-key",

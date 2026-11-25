@@ -46,6 +46,7 @@ WAITING_SERVER = "cannot get the session from Probe's server"  # its receipts ne
 WAITING_LOCAL = "cannot use its local storage"  # this machine's journal, or the claim in it, failed
 WAITING_INGESTION_OFF = "Probe ingestion is off"
 WAITING_DELETED = "deleted at the customer's request"
+WAITING_OFF_HERE = "Probe is off for it by its own check"  # the service's row may not say `off`
 
 
 @dataclass

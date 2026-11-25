@@ -143,7 +143,7 @@ def row_by_record(idl_, table, record):
     return row
 
 
-class ExceptionResult(object):
+class ExceptionResult:
     def __init__(self, ex, tb):
         self.ex = ex
         self.tb = tb
@@ -193,7 +193,7 @@ def fetch_schema_json(connection, schema_name):
                                   'err': resp.error})
             continue
         return resp.result
-    raise Exception("Could not retrieve schema from %s" % connection)
+    raise RuntimeError("Could not retrieve schema from %s" % connection)
 
 
 def get_schema_helper(connection, schema_name):
@@ -295,50 +295,6 @@ def rows_to_uuids(val):
     return val
 
 
-def circular(*items):
-    """Circularly iterate over the list of arguments"""
-    if not items:
-        return
-    while True:
-        yield from items
-
-
-def merge_intersection(*sorted_gens):
-    """Yield non-duplicate entries in the intersection of pre-sorted generators
-
-    Each sorted iterator will be iterated over in parallel, with values that
-    cannot be in all iterators or duplicate values being skipped. Values that
-    are in each passed sorted_gen will be yielded. There are never any
-    intermediate lists/sets etc. which would require storing everything in
-    memory.
-
-    :param sorted_gens pre-sorted iterators
-    """
-    len_sorted_gens = len(sorted_gens)
-    sorted_gens = circular(*sorted_gens)
-    try:
-        first = next(sorted_gens)
-        val = cut_off = next(first)
-        matches = 1
-    except (StopIteration, IndexError):
-        return  # The can't all match if one is empty
-    for gen in sorted_gens:
-        while True:
-            if matches == len_sorted_gens:
-                yield val
-            try:
-                val = next(gen)
-            except StopIteration:
-                return
-            if val >= cut_off:
-                break
-        if val != cut_off:
-            cut_off = val
-            matches = 1
-        else:
-            matches += 1
-
-
 def condition_index_columns(table, *conditions):
     return [(col, op, match) for col, op, match in conditions
             if op == '=' and col in table.rows.indexes]
@@ -348,11 +304,17 @@ def index_condition_match(table, *conditions):
     index_columns = condition_index_columns(table, *conditions)
     if not index_columns:
         return
-    # We have to access the underlying index objects and not the results from
-    # index_lookup_all() because they are the ones with the proper ordering
-    return (table.rows[r.uuid] for r in merge_intersection(
-        *[_index_lookup_internal(table, **{col: match})
-          for col, op, match in index_columns]))
+    # Each index lookup returns the matching entries for its own column,
+    # ordered by that column; the same row may appear at different
+    # positions in each result, so the intersection can't be done by
+    # iterating the pre-sorted results in parallel. Intersect on the row
+    # UUIDs instead.
+    uuids = None
+    for col, op, match in index_columns:
+        col_uuids = {r.uuid for r in
+                     _index_lookup_internal(table, **{col: match})}
+        uuids = col_uuids if uuids is None else uuids & col_uuids
+    return (table.rows[uuid] for uuid in uuids)
 
 
 def condition_match(row, condition):

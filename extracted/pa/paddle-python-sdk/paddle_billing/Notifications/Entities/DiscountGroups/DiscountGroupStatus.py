@@ -1,6 +1,10 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class DiscountGroupStatus(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    Active: "DiscountGroupStatus" = "active"
-    Archived: "DiscountGroupStatus" = "archived"
+    Active: "DiscountGroupStatus" = member("active")
+    Archived: "DiscountGroupStatus" = member("archived")

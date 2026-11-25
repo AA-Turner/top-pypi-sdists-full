@@ -41,7 +41,19 @@ def _heuristic_classify_lines(lines: list[str]) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for line in lines:
         line_lower = line.lower()
-        if re.search(r"\berror\b|\bfail(?:ed|ure)?\b|\bfatal\b|\bexception\b", line_lower):
+        if re.search(
+            r"\bcritical\b|\bcrit\b|\bpanic\b|\bemerg(?:ency)?\b|\balert\b|\boom\b|\boutofmemoryerror\b",
+            line_lower,
+        ):
+            results.append({"label": "critical", "confidence": 0.95})
+        elif (
+            re.search(r"\b[A-Z][A-Za-z0-9_]*(?:Error|Exception)\b", line)
+            or re.search(r"\b[a-z0-9]+_(?:error|exception)\b", line_lower)
+            or re.search(
+                r"\berror\b|\bexception\b|\bfail(?:ed|ure)?\b|\bfatal\b|\btraceback\b",
+                line_lower,
+            )
+        ):
             results.append({"label": "error", "confidence": 0.95})
         elif re.search(r"\bwarn(?:ing)?\b|\bdegraded\b|\bslow\b", line_lower):
             results.append({"label": "warn", "confidence": 0.85})
@@ -208,24 +220,29 @@ def _classify_payload(args: Sequence[str], payload: dict[str, Any] | None) -> tu
     max_lines = DEFAULT_CLASSIFY_MAX_LINES
     positional_args: list[str] = []
     index = 0
+    end_of_options = False
     while index < len(args):
         arg = args[index]
-        if arg == "--format" and index + 1 < len(args):
+        if not end_of_options and arg == "--":
+            end_of_options = True
+            index += 1
+            continue
+        if not end_of_options and arg == "--format" and index + 1 < len(args):
             format_type = str(args[index + 1])
             index += 2
             continue
-        if arg.startswith("--format="):
+        if not end_of_options and arg.startswith("--format="):
             format_type = arg.split("=", 1)[1]
             index += 1
             continue
-        if arg == "--max-lines" and index + 1 < len(args):
+        if not end_of_options and arg == "--max-lines" and index + 1 < len(args):
             try:
                 max_lines = int(str(args[index + 1]))
             except ValueError:
                 return "", "invalid --max-lines value\n", 2
             index += 2
             continue
-        if arg.startswith("--max-lines="):
+        if not end_of_options and arg.startswith("--max-lines="):
             try:
                 max_lines = int(arg.split("=", 1)[1])
             except ValueError:

@@ -14,7 +14,6 @@ from unfold.utils import parse_date_str, parse_datetime_str
 
 
 class RangeDateFilter(admin.FieldListFilter):
-    request = None
     parameter_name = None
     form_class = RangeDateForm
     template = "unfold/filters/filters_date_range.html"
@@ -23,7 +22,7 @@ class RangeDateFilter(admin.FieldListFilter):
         self,
         field: Field,
         request: HttpRequest,
-        params: dict[str, str],
+        params: dict[str, list[str]],
         model: type[Model],
         model_admin: ModelAdmin,
         field_path: str,
@@ -57,11 +56,15 @@ class RangeDateFilter(admin.FieldListFilter):
 
         value_from = self.used_parameters.get(f"{self.parameter_name}_from")
         if value_from not in EMPTY_VALUES and isinstance(value_from, str):
-            filters.update({f"{self.parameter_name}__gte": parse_date_str(value_from)})
+            filters.update(
+                {f"{self.parameter_name}__date__gte": parse_date_str(value_from)}
+            )
 
         value_to = self.used_parameters.get(f"{self.parameter_name}_to")
         if value_to not in EMPTY_VALUES and isinstance(value_to, str):
-            filters.update({f"{self.parameter_name}__lte": parse_date_str(value_to)})
+            filters.update(
+                {f"{self.parameter_name}__date__lte": parse_date_str(value_to)}
+            )
 
         try:
             return queryset.filter(**filters)
@@ -75,6 +78,9 @@ class RangeDateFilter(admin.FieldListFilter):
         ]
 
     def choices(self, changelist: ChangeList) -> Iterator:
+        if self.parameter_name is None:
+            raise ValueError("Parameter name is required")
+
         yield {
             "request": self.request,
             "parameter_name": self.parameter_name,
@@ -93,7 +99,6 @@ class RangeDateFilter(admin.FieldListFilter):
 
 
 class RangeDateTimeFilter(admin.FieldListFilter):
-    request = None
     parameter_name = None
     template = "unfold/filters/filters_datetime_range.html"
     form_class = RangeDateTimeForm
@@ -102,7 +107,7 @@ class RangeDateTimeFilter(admin.FieldListFilter):
         self,
         field: Field,
         request: HttpRequest,
-        params: dict[str, str],
+        params: dict[str, list[str]],
         model: type[Model],
         model_admin: ModelAdmin,
         field_path: str,
@@ -178,6 +183,9 @@ class RangeDateTimeFilter(admin.FieldListFilter):
             return None
 
     def choices(self, changelist: ChangeList) -> Iterator:
+        if self.parameter_name is None:
+            raise ValueError("Parameter name is required")
+
         yield {
             "request": self.request,
             "parameter_name": self.parameter_name,

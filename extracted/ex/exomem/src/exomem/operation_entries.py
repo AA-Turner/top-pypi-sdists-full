@@ -115,6 +115,12 @@ class OperationEntry:
         return self.action == action and all(item.matches(arguments) for item in self.constraints)
 
 
+#: `(synonym, leaf)` pairs: a second name every rendering accepts for a leaf field, never published.
+#: A typed tool names its paging cursor `more`; a grouped operation names it `continuation`.
+#: It lives here, beside the rows, because a surface can be built before any command registers.
+LEAF_SYNONYMS = (("more", "continuation"),)
+
+
 @dataclass(frozen=True, slots=True)
 class RenderingSpec:
     """A public tool spelling of a grouped command: one side of its operations."""
@@ -156,10 +162,22 @@ class Rendering:
             raise ValueError("a leaf kind field needs an alias to preserve the discriminator")
         if set(wire) & fields:
             raise ValueError("a field alias collides with another leaf field")
+        if any(synonym in fields for synonym, _ in LEAF_SYNONYMS):
+            raise ValueError("a field synonym collides with a leaf field")
 
-    def leaf_fields(self, fields: Mapping[str, Any]) -> dict[str, Any]:
-        """Translate wire fields without allowing an alias to overwrite a raw leaf field."""
+    def leaf_fields(self, kind: str, fields: Mapping[str, Any]) -> dict[str, Any]:
+        """Translate wire fields without allowing an alias to overwrite a raw leaf field.
+
+        A synonym renames only for an operation whose own fields take the leaf; any other
+        operation keeps the name the caller sent, so its refusal names that field.
+        """
         result = dict(fields)
+        taken = set().union(*(variant.fields for variant in self.variants if variant.kind == kind))
+        for synonym, leaf in LEAF_SYNONYMS:
+            if synonym in result and leaf in taken:
+                if leaf in result:
+                    raise ValueError(f"conflicting fields {synonym!r} and {leaf!r}; send one")
+                result[leaf] = result.pop(synonym)
         for wire, leaf in self.field_aliases:
             if leaf in fields:
                 raise ValueError(f"conflicting raw field {leaf!r}; use alias {wire!r}")
@@ -614,6 +632,7 @@ _REMAINING = {
     "bootstrap": (None, (_row("instructions", "bootstrap"),)),
     "coordination_status": (None, (_row("writer-status", "bootstrap"),)),
     "inspect_captured_sources": (None, (_row("inventory", "read_memory"),)),
+    "inspect_name_drift": (None, (_row("name_drift", "check_memory"),)),
     "inspect_capture_erasure_policy": (None, (_row("erasure_policy", "read_memory"),)),
     "reserve_source_capture": (None, (_row("reserve_capture", "reserve_capture", verb="saved"),)),
     "settle_source_capture": (None, (_row("settle_capture", "settle_capture", verb="updated"),)),
@@ -711,6 +730,11 @@ _REMAINING = {
         _row("add", "change_observations", None, ("path", "content", "category"), verb="saved"),  # nosemgrep: ep-word-set -- closed tool-schema field names of this operation; only its outcome verb changed.
         _row("update", "change_observations", None, ("path",), destructive=True, verb="updated"),  # nosemgrep: ep-word-set -- closed tool-schema field names of this operation; only its outcome verb changed.
         _row("remove", "change_observations", ("path", "unit", "unit_ref", "expected_fingerprint", "expected_hash", "reason"), ("path",), destructive=True, verb="updated"),  # nosemgrep: ep-word-set -- closed tool-schema field names of this operation; only its outcome verb changed.
+        # A claim correction previews with validate_only, which reads like `validate`: it lands nothing and never queues.
+        _row("supersede", "change_observations", None, ("path",), constraints=(_literal("validate_only", False, True),), verb="saved"),
+        _row("supersede", "prepare_note", None, ("path",), kind="validate-supersede", constraints=(_literal("validate_only", True, implied=True),)),
+        _row("assess", "change_observations", None, ("path",), constraints=(_literal("validate_only", False, True),), destructive=True, verb="updated"),
+        _row("assess", "prepare_note", None, ("path",), kind="validate-assess", constraints=(_literal("validate_only", True, implied=True),)),
     ), True),
     "manage_memory_file": ("operation", (
         _row("list", "browse_memory", ("path", "recursive", "include_hidden"), kind="files"),
@@ -869,12 +893,14 @@ def _maintenance_rows():
             _row("collections-store", "check_memory", ("cursor",)),
             # The cutover previews here and takes no argument; the owner applies its plan_id with the CLI.
             _row("collections-cutover", "check_memory", ())]
-    for action, field, default, write_extra in (("fix", "dry_run", True, ("rebuild_embeddings",)),
-                                                ("backfill-ids", "dry_run", True, ()),
-                                                ("capture-metadata", "dry_run", True, ()),
-                                                ("convert-originals", "dry_run", True, ()),
-                                                ("reconcile", "dry_run", False, ("rebuild_graph",))):
-        fields = ("categories", "dry_run", "rebuild_embeddings", "rebuild_graph", "detail", "legacy_sample_limit")
+    # The last element is what only the preview of recovery also takes: it names the arguments the write applies.
+    for action, field, default, write_extra, read_extra in (
+            ("fix", "dry_run", True, ("rebuild_embeddings",), ()),
+            ("backfill-ids", "dry_run", True, (), ()),
+            ("capture-metadata", "dry_run", True, ("recover", "originals_root"), ("recover", "originals_root")),
+            ("convert-originals", "dry_run", True, (), ()),
+            ("reconcile", "dry_run", False, ("rebuild_graph",), ())):
+        fields = ("categories", "dry_run", "rebuild_embeddings", "rebuild_graph", "detail", "legacy_sample_limit", *read_extra)
         for value in (True, False, None):
             read = value is True if action == "reconcile" else value is not False
             # A write offers only the flags its mode uses, and names the preview it runs and why;

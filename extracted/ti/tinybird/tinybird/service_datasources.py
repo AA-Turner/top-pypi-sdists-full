@@ -801,7 +801,7 @@ def get_organization_service_datasources() -> List[Dict[str, Any]]:
         },
         {
             "name": "organization.kafka_ops_log",
-            "description": "Contains all operations performed to your Kafka Data Sources during the last 30 days accross the organization.",
+            "description": "Contains all operations performed to your Kafka Data Sources during the last 30 days across the organization.",
             "dateColumn": "timestamp",
             "engine": {
                 "engine": "MergeTree",

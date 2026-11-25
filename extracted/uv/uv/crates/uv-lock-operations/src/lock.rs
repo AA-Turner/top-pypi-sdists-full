@@ -17,7 +17,7 @@ use uv_distribution_types::{
     UnresolvedRequirementSpecification,
 };
 use uv_git::ResolvedRepositoryReference;
-use uv_lock::{GroupMetadata, Lock, ResolverManifest};
+use uv_lock::{GroupMetadata, Lock, LockSatisfactionError, ResolverManifest};
 use uv_normalize::PackageName;
 use uv_preview::{Preview, PreviewFeature};
 use uv_pypi_types::{ConflictKind, SupportedEnvironments};
@@ -36,7 +36,10 @@ use uv_warnings::{warn_user, warn_user_once, warn_user_with_chain};
 use uv_workspace::WorkspaceCache;
 
 use crate::lock_target::find_lock_format_error;
-use crate::{LockError, LockTarget, LockValidationError, MissingLockfileSource, ValidatedLock};
+use crate::{
+    LockError, LockMismatchReason, LockTarget, LockValidationError, MissingLockfileSource,
+    ValidatedLock,
+};
 
 /// The result of running a lock operation.
 #[derive(Debug, Clone)]
@@ -191,7 +194,7 @@ impl<'env> LockOperation<'env> {
                 };
 
                 // Perform the lock operation, but don't write the lockfile to disk.
-                let result = Box::pin(do_lock(
+                let (result, reason) = Box::pin(do_lock(
                     target,
                     interpreter,
                     Some(existing),
@@ -213,12 +216,13 @@ impl<'env> LockOperation<'env> {
                 .await?;
 
                 // If the lockfile changed, return an error.
-                if let LockResult::Changed(prev, cur) = result {
-                    return Err(LockError::LockMismatch(
-                        prev.map(Box::new),
-                        Box::new(cur),
+                if let LockResult::Changed(_, resolved) = result {
+                    return Err(LockError::LockMismatch {
+                        filename: lock_filename,
                         lock_source,
-                    ));
+                        resolved: Some(Box::new(resolved)),
+                        reason: reason.map(Box::new),
+                    });
                 }
 
                 Ok(result)
@@ -246,7 +250,7 @@ impl<'env> LockOperation<'env> {
                 };
 
                 // Perform the lock operation.
-                let result = Box::pin(do_lock(
+                let (result, _) = Box::pin(do_lock(
                     target,
                     interpreter,
                     existing,
@@ -299,7 +303,7 @@ async fn do_lock(
     workspace_cache: &WorkspaceCache,
     printer: Printer,
     preview: Preview,
-) -> Result<LockResult, LockError> {
+) -> Result<(LockResult, Option<LockMismatchReason>), LockError> {
     let start = std::time::Instant::now();
 
     // Extract the project settings.
@@ -836,18 +840,36 @@ async fn do_lock(
     };
 
     match existing_lock {
+        // A known-invalid selection can be reported in locked mode without resolving again.
+        Some(ValidatedLock::Preferable(_, LockMismatchReason::Satisfaction(mismatch)))
+            if let LockMode::Locked(_, lock_source) = mode
+                && matches!(
+                    *mismatch,
+                    LockSatisfactionError::MismatchedDependencyVersion(..)
+                        | LockSatisfactionError::ConflictingDependencySelections(..)
+                ) =>
+        {
+            Err(LockError::LockMismatch {
+                filename: target.lock_filename(),
+                lock_source,
+                resolved: None,
+                reason: Some(Box::new(LockMismatchReason::Satisfaction(mismatch))),
+            })
+        }
         // Resolution from the lockfile succeeded.
         Some(ValidatedLock::Satisfies(lock)) => {
             // Print the success message after completing resolution.
             logger.on_complete(lock.len(), start, printer)?;
 
-            Ok(LockResult::Unchanged(lock))
+            Ok((LockResult::Unchanged(lock), None))
         }
 
         // The lockfile did not contain enough information to obtain a resolution, fallback
         // to a fresh resolve.
         Some(
-            ValidatedLock::Unusable(_) | ValidatedLock::Versions(_) | ValidatedLock::Preferable(_),
+            ValidatedLock::Unusable(..)
+            | ValidatedLock::Versions(..)
+            | ValidatedLock::Preferable(..),
         )
         | None => {
             let recorder = if preview.is_enabled(PreviewFeature::ResolutionInputs) {
@@ -866,9 +888,9 @@ async fn do_lock(
             // Determine whether we can reuse the existing package versions.
             let versions_lock = existing_lock.as_ref().and_then(|lock| match &lock {
                 ValidatedLock::Satisfies(lock) => Some(lock),
-                ValidatedLock::Preferable(lock) => Some(lock),
-                ValidatedLock::Versions(lock) => Some(lock),
-                ValidatedLock::Unusable(_) => None,
+                ValidatedLock::Preferable(lock, _) => Some(lock),
+                ValidatedLock::Versions(lock, _) => Some(lock),
+                ValidatedLock::Unusable(..) => None,
             });
 
             // If an existing lockfile exists, build up a set of preferences.
@@ -886,9 +908,9 @@ async fn do_lock(
             // Determine whether we can reuse the existing package forks.
             let forks_lock = existing_lock.as_ref().and_then(|lock| match &lock {
                 ValidatedLock::Satisfies(lock) => Some(lock),
-                ValidatedLock::Preferable(lock) => Some(lock),
-                ValidatedLock::Versions(_) => None,
-                ValidatedLock::Unusable(_) => None,
+                ValidatedLock::Preferable(lock, _) => Some(lock),
+                ValidatedLock::Versions(..) => None,
+                ValidatedLock::Unusable(..) => None,
             });
 
             // When we run the same resolution from the lockfile again, we could get a different result the
@@ -992,7 +1014,10 @@ async fn do_lock(
             )
             .relative_to(target.install_path())?;
 
-            let previous = existing_lock.map(ValidatedLock::into_lock);
+            let (previous, reason) = existing_lock.map_or((None, None), |lock| {
+                let (lock, reason) = lock.into_parts();
+                (Some(lock), reason)
+            });
             let lock = Lock::from_resolution(
                 &resolution,
                 manifest,
@@ -1034,9 +1059,9 @@ async fn do_lock(
             };
 
             if unchanged {
-                Ok(LockResult::Unchanged(lock))
+                Ok((LockResult::Unchanged(lock), None))
             } else {
-                Ok(LockResult::Changed(previous, lock))
+                Ok((LockResult::Changed(previous, lock), reason))
             }
         }
     }

@@ -45,6 +45,8 @@ from ..utils.console import _rich_echo, _rich_error, _rich_info, _rich_success, 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from ..install.local_bundle_pending import PendingBundle
+    from ..models.dependency.reference import DependencyReference
     from ..security.executables import ExecutableDeclaration
 
 
@@ -320,12 +322,20 @@ def approve_cmd(
         packages = tuple(pkg for pkg in packages if not _is_content_bound_key(pkg))
         bundles = _resolve_bundle_keys(manifest, bundle_keys)
         packages = _canonical_specs(manifest, packages) if packages else ()
+        selected, missing = _select_packages(manifest, packages)
+        # Refuse a still-denied package before any approval path writes (#4923).
+        _refuse_still_denied(manifest, user_scope, deny, selected, logger=logger)
+        # The org dependency denylist blocks the package itself: approving cannot lift it (#5236).
+        _refuse_policy_denied_dependencies(manifest, selected, logger=logger, bundles=bundles)
         if bundle_keys:
             _approve_bundles(manifest, user_scope, allow, deny, bundles, logger=logger)
             if not packages:
                 return
             allow, deny = _load_store(manifest, user_scope, migrate_legacy=False)
-        _approve_packages(manifest, user_scope, allow, deny, packages, logger=logger)
+        if selected:
+            _record_and_save(manifest, user_scope, allow, deny, selected, logger=logger)
+        if missing:
+            sys.exit(1)
     except PolicyViolationError as exc:
         _report_policy_block(exc)
         sys.exit(1)
@@ -422,15 +432,23 @@ def deny_cmd(packages: tuple[str, ...], user_scope: bool, global_scope: bool) ->
         )
 
 
-def _effective_trust_context(manifest: Path, *, logger: CommandLogger):
-    """Build the org / project / user trust context the install gate resolves."""
+def _effective_trust_context(
+    manifest: Path, *, logger: CommandLogger, migrate_user_legacy: bool = True
+):
+    """Build the org / project / user trust context the install gate resolves.
+
+    *migrate_user_legacy* False reads a legacy ``approvals.yml`` without
+    persisting the migration, for checks that run before approve writes.
+    """
     from ..models.manifest_io import load_manifest
     from ..security.executables import build_exec_trust_context
 
     data = load_manifest(manifest) if manifest.is_file() else None
     project_data = data if isinstance(data, dict) else {}
     policy = _load_org_policy(manifest.parent, logger=logger)
-    return build_exec_trust_context(policy=policy, project_data=project_data)
+    return build_exec_trust_context(
+        policy=policy, project_data=project_data, migrate_user_legacy=migrate_user_legacy
+    )
 
 
 def explain_decision(package: str, *, logger: CommandLogger, global_scope: bool = False) -> None:
@@ -772,7 +790,9 @@ def _approve_recommended(
     if not selected:
         _rich_info("No installed packages match the org-recommended set.", symbol="info")
         return
-    _record_and_save(manifest, user_scope, allow, deny, selected, logger=logger, bulk=True)
+    selected = _without_policy_denied(manifest, selected, logger=logger)
+    if selected:
+        _record_and_save(manifest, user_scope, allow, deny, selected, logger=logger, bulk=True)
 
 
 def _approve_all_pending(
@@ -788,19 +808,17 @@ def _approve_all_pending(
     if not pending:
         _rich_success("All packages with executables are already approved.")
         return
-    _record_and_save(manifest, user_scope, allow, deny, pending, logger=logger, bulk=True)
+    pending = _without_policy_denied(manifest, pending, logger=logger)
+    if pending:
+        _record_and_save(manifest, user_scope, allow, deny, pending, logger=logger, bulk=True)
 
 
-def _approve_packages(
-    manifest: Path,
-    user_scope: bool,
-    allow: dict[str, dict[str, bool]],
-    deny: dict[str, dict[str, bool]],
-    packages: tuple[str, ...],
-    *,
-    logger: CommandLogger,
-) -> None:
-    """Approve specific packages by name; exit 1 when any name matches nothing."""
+def _select_packages(
+    manifest: Path, packages: tuple[str, ...]
+) -> tuple[list[ExecutableDeclaration], int]:
+    """Installed packages with executables that *packages* name, and the count matching nothing."""
+    if not packages:
+        return [], 0
     declarations = _scan_installed_packages(manifest)
 
     selected = []
@@ -817,10 +835,7 @@ def _approve_packages(
             _rich_info(f"{pkg}: no executable primitives to approve.", symbol="info")
             continue
         selected.append(decl)
-    if selected:
-        _record_and_save(manifest, user_scope, allow, deny, selected, logger=logger)
-    if missing:
-        sys.exit(1)
+    return selected, missing
 
 
 def _resolve_bundle_keys(manifest: Path, keys: Sequence[str]) -> list:
@@ -1155,11 +1170,15 @@ def _first_approval_parks(
     policy = _load_org_policy(manifest.parent, logger=logger)
     if project_executables_gate_enabled(project_data):
         return []
-    before = build_exec_trust_context(policy=policy, project_data=project_data)
+    before = build_exec_trust_context(
+        policy=policy, project_data=project_data, migrate_user_legacy=False
+    )
     if before.gate_enabled:
         return []
     after = build_exec_trust_context(
-        policy=policy, project_data={"executables": {"allow": allow, "deny": deny}}
+        policy=policy,
+        project_data={"executables": {"allow": allow, "deny": deny}},
+        migrate_user_legacy=False,
     )
     approving_keys = {decl.package_key for decl in approving}
     parked = []
@@ -1209,10 +1228,11 @@ def _record_and_save(
 
     Naming a package clears its deny in the same store, mirroring how
     ``apm deny`` drops the matching allow; ``--all`` and ``--recommended``
-    (*bulk*) skip denied packages instead of lifting them. Exits 1 when any
-    requested package could not be pinned, the user declined, or another
-    layer still denies it, so an approval never reports success without
-    effect (#3957).
+    (*bulk*) skip denied packages instead of lifting them. Callers refuse a
+    named package another layer still denies before any write (#4923).
+    Exits 1 when any requested package could not be pinned, the user
+    declined, or another layer still denies it, so an approval never reports
+    success without effect (#3957).
     """
     from ..security.trust import PINNED_GRANTS_MIN_APM, has_any_pins
 
@@ -1264,19 +1284,6 @@ def _record_and_save(
         _save_store(manifest, user_scope, allow, deny)
         for key in cleared:
             _rich_info(f"Cleared deny for {key} in {_store_label(user_scope)}.", symbol="info")
-        still_denied = _still_denied(manifest, recorded, logger=logger)
-        for decl, layer in still_denied:
-            _rich_error(
-                f"{_identity(decl)} is still denied ({layer}); the approval has no effect "
-                f"until that deny is lifted: {_lift_deny_hint(layer, _identity(decl), user_scope=global_install)}"
-            )
-        still_ids = {id(decl) for decl, _layer in still_denied}
-        successes = [
-            line
-            for decl, line in zip(recorded, successes, strict=True)
-            if id(decl) not in still_ids
-        ]
-        refused += len(still_denied)
         for line in successes:
             _rich_success(line, symbol="check")
     if successes:
@@ -1316,17 +1323,226 @@ def _same_store_denies(deny: dict, decl: ExecutableDeclaration) -> list[str]:
     ]
 
 
-def _still_denied(
+def _refuse_still_denied(
+    manifest: Path,
+    user_scope: bool,
+    deny: dict,
+    declarations: list[ExecutableDeclaration],
+    *,
+    logger: CommandLogger,
+) -> None:
+    """Exit 1 before any write when a deny the approval cannot lift blocks a package.
+
+    Naming a package clears its deny in the store being written, so only the
+    remaining deny keys count. An org deny or a deny in the other store still
+    blocks it, and a failed approve must leave every store unchanged (#4923).
+    """
+    lifted = {key for decl in declarations for key in _same_store_denies(deny, decl)}
+    remaining = {key: value for key, value in deny.items() if key not in lifted}
+    blocked = _still_denied(
+        manifest, declarations, logger=logger, user_scope=user_scope, deny=remaining
+    )
+    if not blocked:
+        return
+    global_install = _install_command(manifest).endswith("-g")
+    for decl, layer in blocked:
+        _rich_error(
+            f"{_identity(decl)} is still denied ({layer}); the approval has no effect "
+            f"until that deny is lifted: {_lift_deny_hint(layer, _identity(decl), user_scope=global_install)}"
+        )
+    _rich_info("Nothing written.", symbol="info")
+    sys.exit(1)
+
+
+def _refuse_policy_denied_dependencies(
+    manifest: Path,
+    declarations: list[ExecutableDeclaration],
+    *,
+    logger: CommandLogger,
+    bundles: Sequence[PendingBundle] = (),
+) -> None:
+    """Exit 1 before any write when org policy blocks a named package (#5236)."""
+    if _report_policy_denied(manifest, declarations, logger=logger, bundles=bundles):
+        _rich_info("Nothing written.", symbol="info")
+        sys.exit(1)
+
+
+def _without_policy_denied(
     manifest: Path, declarations: list[ExecutableDeclaration], *, logger: CommandLogger
+) -> list[ExecutableDeclaration]:
+    """The bulk approvals the org dependency policy admits; each blocked one is named (#5407)."""
+    denied = _report_policy_denied(manifest, declarations, logger=logger, bulk=True)
+    return [decl for decl in declarations if _identity(decl) not in denied]
+
+
+def _unlocked_dependency_ref(
+    manifest: Path, declaration: ExecutableDeclaration
+) -> DependencyReference | None:
+    """Resolve a no-lockfile declaration only from its matching root dependency entry."""
+    if declaration.install_path is None:
+        return None
+    from ..models.apm_package import APMPackage
+
+    try:
+        package = APMPackage.from_apm_yml(manifest, create_config=False)
+        installed_path = Path(declaration.install_path).resolve()
+        modules_path = manifest.parent / "apm_modules"
+        references = {}
+        from ..models.dependency.replacement import project_manifest_dependencies
+
+        for reference in project_manifest_dependencies(package, modules_dir=modules_path):
+            try:
+                candidate_path = reference.ownership_reference.get_install_path(
+                    modules_path
+                ).resolve()
+            except (OSError, ValueError):
+                continue
+            if candidate_path == installed_path:
+                references[reference.get_unique_key()] = reference
+    except (OSError, ValueError):
+        return None
+    return next(iter(references.values())) if len(references) == 1 else None
+
+
+def _report_policy_denied(
+    manifest: Path,
+    declarations: list[ExecutableDeclaration],
+    *,
+    logger: CommandLogger,
+    bulk: bool = False,
+    bundles: Sequence[PendingBundle] = (),
+) -> set[str]:
+    """Name each of *declarations* a blocking org dependency policy denies; return them.
+
+    A dependency the deny list matches, or one outside a configured allow list,
+    is named with that check. The same dependency check install, compile and
+    audit apply (:func:`~apm_cli.install.exec_gate.policy_denied_dependencies`),
+    under the same enforcement: ``block`` denies, ``warn`` and ``off`` admit.
+    A no-lockfile scan uses a matching root-manifest reference when available;
+    otherwise restrictions fail closed because the source cannot be verified.
+    """
+    if not declarations and not bundles:
+        return set()
+    from ..deps.lockfile import LockFile, get_lockfile_path
+    from ..install.exec_gate import policy_denied_dependencies
+
+    policy = _load_org_policy(manifest.parent, logger=logger)
+    if getattr(policy, "enforcement", "block") != "block":
+        return set()
+    dependency_policy = getattr(policy, "dependencies", None)
+    allow = getattr(dependency_policy, "allow", None)
+    deny = getattr(dependency_policy, "deny", ()) or ()
+    if allow is None and not deny:
+        return set()
+
+    keyed = [decl for decl in declarations if decl.lock_key]
+    lockfile = LockFile.read(get_lockfile_path(manifest.parent)) if keyed else None
+    locked = (
+        {dep.get_unique_key(): dep for dep in lockfile.get_package_dependencies()}
+        if lockfile is not None
+        else {}
+    )
+    subjects = []
+    denied = {}
+    for declaration in declarations:
+        dependency = locked.get(declaration.lock_key) if declaration.lock_key else None
+        reference = (
+            dependency.to_dependency_ref()
+            if dependency is not None
+            else _unlocked_dependency_ref(manifest, declaration)
+        )
+        identity = _identity(declaration)
+        if reference is None:
+            denied[identity] = "org policy: no authoritative dependency reference is available"
+        else:
+            subjects.append((identity, reference))
+    denied.update(policy_denied_dependencies(subjects, policy))
+    from ..policy.matcher import dependency_policy_subject
+
+    bundle_names = []
+    bundle_packages = []
+    bundles_without_subjects = []
+    bundles_without_packages: list[str] = []
+    for bundle in bundles:
+        policy_subjects = bundle.policy_subjects
+        if policy_subjects is None:
+            bundles_without_subjects.append(bundle)
+            continue
+        bundle_names.extend(
+            (dependency_policy_subject(reference), reference) for reference in policy_subjects.names
+        )
+        bundle_packages.extend(
+            (dependency_policy_subject(reference), reference)
+            for reference in policy_subjects.packages
+        )
+        if not policy_subjects.packages and allow is not None:
+            bundle_identity = (
+                dependency_policy_subject(policy_subjects.names[0])
+                if policy_subjects.names
+                else bundle.approval_key
+            )
+            bundles_without_packages.append(bundle_identity)
+    denied_names = policy_denied_dependencies(bundle_names, policy)
+    denied.update(
+        {
+            identity: reason
+            for identity, reason in denied_names.items()
+            if "denied by pattern" in reason
+        }
+    )
+    denied.update(policy_denied_dependencies(bundle_packages, policy))
+    for bundle in bundles_without_subjects:
+        denied[bundle.approval_key] = (
+            "org policy: no authoritative dependency references are available"
+        )
+    for identity in bundles_without_packages:
+        denied[identity] = "org policy: bundle records no packages for dependencies.allow to match"
+    for identity, reason in sorted(denied.items()):
+        detail = reason.removeprefix("org policy: ")
+        check = (
+            "dependency-denylist"
+            if "denied by pattern" in detail or allow is None
+            else "dependency-allowlist"
+        )
+        remedy = (
+            "reinstall the bundle to refresh its policy subjects"
+            if "no authoritative dependency references" in detail
+            else "ask its owner to change apm-policy.yml"
+        )
+        reason = f"denied by org policy ({check}: {detail}); approving cannot lift it: {remedy}"
+        if bulk:
+            logger.progress(f"Skipped: {identity} is {reason}", symbol="info")
+        else:
+            _rich_error(f"{identity} is {reason}")
+    return set(denied)
+
+
+def _still_denied(
+    manifest: Path,
+    declarations: list[ExecutableDeclaration],
+    *,
+    logger: CommandLogger,
+    user_scope: bool = False,
+    deny: dict | None = None,
 ) -> list[tuple[ExecutableDeclaration, str]]:
-    """Recorded packages a deny in another layer still blocks, with its layer."""
+    """Packages a deny in any layer blocks, with the first layer that denies.
+
+    *deny* stands in for the deny map of the store being written (``--user``
+    or ``apm.yml``), so the verdict reads that store as approve would save it.
+    """
     from dataclasses import replace
 
-    from ..security.executables import TRUST_DENIED
+    from ..security.executables import TRUST_DENIED, _deny_types
 
     if not declarations:
         return []
-    ctx = replace(_effective_trust_context(manifest, logger=logger), gate_enabled=True)
+    ctx = replace(
+        _effective_trust_context(manifest, logger=logger, migrate_user_legacy=False),
+        gate_enabled=True,
+    )
+    if deny is not None:
+        store = "user_deny" if user_scope else "project_deny"
+        ctx = replace(ctx, **{store: _deny_types(deny)})
     blocked = []
     for decl in declarations:
         layers = [v.layer for v in _verdicts(ctx, decl).values() if v.state == TRUST_DENIED]
@@ -1500,6 +1716,7 @@ def scan_installed_executable_packages(manifest: Path) -> list:
                     replace(
                         declaration,
                         install_path=str(package_dir),
+                        lock_key=locked.get_unique_key(),
                         depth=locked.depth,
                         content_verified=installed_content_matches_lock(locked, package_dir),
                         native_plugin=native,

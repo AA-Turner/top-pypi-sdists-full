@@ -4,13 +4,13 @@ from __future__ import annotations
 import inspect
 import sys
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 if TYPE_CHECKING:
     from types import FrameType
+    from typing import Self
 
     from _typeshed import TraceFunction
-    from typing_extensions import Self
 
 
 class SkipContext(ABC):
@@ -30,6 +30,7 @@ class SkipContext(ABC):
         else:
             raise RuntimeError("Unable to establish current frame.")
         assert frame is not None
+        self._frame = frame
         # Hold on to the previous trace.
         self._old_trace = frame.f_trace
         # Setting the frametrace, will cause the function to be run on _every_
@@ -39,23 +40,26 @@ class SkipContext(ABC):
         return self
 
     def _trace_wrapper(
-        self, frame: FrameType, event: str, arg: Any
+        self, frame: FrameType, event: str, arg: object
     ) -> TraceFunction | None:
         """Wrapper function that ensures we do not break existing traces (e.g., code coverage)."""
         result = None
         if self._sys_trace:
             result = self._sys_trace(frame, event, arg)
-        # Presumed to be skipped, but hasn't actually entered the frame yet.
-        # Call the original trace function
+        # Finalizers can run before the with body; only trace its own frame.
         if self._skipped and not self.entered_trace:
-            return self._trace(frame, event, arg)
+            if frame is self._frame:
+                return self._trace(frame, event, arg)
+            # Coverage can reinstall its global tracer while handling a call.
+            if sys.gettrace() != self._trace_wrapper:
+                sys.settrace(self._trace_wrapper)
         return result
 
     def skip(self) -> NoReturn:
         raise SkipWithBlock()
 
     def _trace(
-        self, with_frame: FrameType, _event: str, _arg: Any
+        self, with_frame: FrameType, _event: str, _arg: object
     ) -> TraceFunction | None:
         self._entered_trace = True
 

@@ -3,11 +3,14 @@
 #include "common/assert.h"
 #include "common/exception/conversion.h"
 #include "common/exception/overflow.h"
+#include "common/exception/runtime.h"
 #include "common/string_utils.h"
 #include "common/types/cast_helpers.h"
+#include "common/types/int128_t.h"
 #include "common/types/timestamp_t.h"
 #include "function/arithmetic/add.h"
 #include "function/arithmetic/multiply.h"
+#include "function/arithmetic/subtract.h"
 #include "function/cast/functions/cast_from_string_functions.h"
 #include "function/cast/functions/cast_functions.h"
 #include "re2.h"
@@ -21,7 +24,16 @@ interval_t::interval_t(int32_t months_p, int32_t days_p, int64_t micros_p)
     : months(months_p), days(days_p), micros(micros_p) {}
 
 bool interval_t::operator==(const interval_t& rhs) const {
-    return this->days == rhs.days && this->months == rhs.months && this->micros == rhs.micros;
+    // Equality is evaluated on normalized entries so that it agrees with the
+    // ordering below (e.g. INTERVAL '1 month' equals INTERVAL '30 days',
+    // INTERVAL '25 hours' equals INTERVAL '1 day 1 hour'). Without this,
+    // a == b could be false while neither a > b nor b > a holds, making
+    // a < b and b < a simultaneously true (see #1690).
+    int64_t lMonths = 0, lDays = 0, lMicros = 0;
+    int64_t rMonths = 0, rDays = 0, rMicros = 0;
+    Interval::normalizeIntervalEntries(*this, lMonths, lDays, lMicros);
+    Interval::normalizeIntervalEntries(rhs, rMonths, rDays, rMicros);
+    return lMonths == rMonths && lDays == rDays && lMicros == rMicros;
 }
 
 bool interval_t::operator!=(const interval_t& rhs) const {
@@ -46,9 +58,18 @@ bool interval_t::operator>=(const interval_t& rhs) const {
 
 interval_t interval_t::operator+(const interval_t& rhs) const {
     interval_t result{};
-    result.months = months + rhs.months;
-    result.days = days + rhs.days;
-    result.micros = micros + rhs.micros;
+    try {
+        // NB: the checked Add overloads take non-const references, so operate
+        // on locals to avoid silently falling back to the raw template.
+        int32_t lMonths = months, rMonths = rhs.months;
+        int32_t lDays = days, rDays = rhs.days;
+        int64_t lMicros = micros, rMicros = rhs.micros;
+        function::Add::operation(lMonths, rMonths, result.months);
+        function::Add::operation(lDays, rDays, result.days);
+        function::Add::operation(lMicros, rMicros, result.micros);
+    } catch (const OverflowException& e) {
+        throw OverflowException{"Interval value is out of range"};
+    }
     return result;
 }
 
@@ -62,44 +83,124 @@ date_t interval_t::operator+(const date_t& rhs) const {
 
 interval_t interval_t::operator-(const interval_t& rhs) const {
     interval_t result{};
-    result.months = months - rhs.months;
-    result.days = days - rhs.days;
-    result.micros = micros - rhs.micros;
+    try {
+        // NB: see operator+ on why locals are required here.
+        int32_t lMonths = months, rMonths = rhs.months;
+        int32_t lDays = days, rDays = rhs.days;
+        int64_t lMicros = micros, rMicros = rhs.micros;
+        function::Subtract::operation(lMonths, rMonths, result.months);
+        function::Subtract::operation(lDays, rDays, result.days);
+        function::Subtract::operation(lMicros, rMicros, result.micros);
+    } catch (const OverflowException& e) {
+        throw OverflowException{"Interval value is out of range"};
+    }
     return result;
 }
 
-interval_t interval_t::operator/(const uint64_t& rhs) const {
+interval_t interval_t::operator/(const int64_t& rhs) const {
+    if (rhs == 0) {
+        throw RuntimeException("Divide by zero.");
+    }
+    // Integer division distributes higher-unit remainders into the next smaller
+    // unit (months into days at 30 days/month, days into micros at
+    // MICROS_PER_DAY). All computation is done in signed 128-bit arithmetic
+    // (via the portable common::int128_t, which has an MSVC fallback, unlike
+    // compiler-specific __int128): the previous unsigned implementation
+    // implicitly converted negative operands to huge unsigned values, producing
+    // garbage (see #1691, #1692).
     interval_t result{};
-    int32_t monthsRemainder = months % rhs;
-    int32_t daysRemainder = (days + monthsRemainder * Interval::DAYS_PER_MONTH) % rhs;
-    result.months = months / rhs;
-    result.days = (days + monthsRemainder * Interval::DAYS_PER_MONTH) / rhs;
-    result.micros = (micros + daysRemainder * Interval::MICROS_PER_DAY) / rhs;
+    // |monthsRemainder| <= INT32_MAX, so monthsRemainder * 30 + days fits
+    // comfortably in int64 (no 128-bit arithmetic needed here).
+    int64_t monthsRemainder = (int64_t)months % rhs;
+    int64_t daysTotal = monthsRemainder * (int64_t)Interval::DAYS_PER_MONTH + (int64_t)days;
+    int64_t daysQuotient = daysTotal / rhs;
+    int64_t daysRemainder = daysTotal % rhs;
+    // |daysRemainder| < |rhs| can still be up to ~2^36, so
+    // daysRemainder * MICROS_PER_DAY + micros needs up to ~73 bits.
+    int128_t microsTotal =
+        int128_t(daysRemainder) * int128_t(Interval::MICROS_PER_DAY) + int128_t(micros);
+    int128_t microsQuotient128 = microsTotal / int128_t(rhs);
+    int64_t microsQuotient = 0;
+    if (!Int128_t::tryCast(microsQuotient128, microsQuotient)) {
+        throw OverflowException{"Interval value is out of range"};
+    }
+    int64_t monthsQuotient = (int64_t)months / rhs;
+    if (monthsQuotient > INT32_MAX || monthsQuotient < INT32_MIN || daysQuotient > INT32_MAX ||
+        daysQuotient < INT32_MIN) {
+        throw OverflowException{"Interval value is out of range"};
+    }
+    result.months = (int32_t)monthsQuotient;
+    result.days = (int32_t)daysQuotient;
+    result.micros = microsQuotient;
     return result;
 }
 
 void Interval::addition(interval_t& result, uint64_t number, std::string specifierStr) {
+    // number is cast to int64_t below; values above INT64_MAX would wrap to
+    // negative and silently subtract instead of throwing.
+    if (number > static_cast<uint64_t>(INT64_MAX)) {
+        throw OverflowException{"Interval value is out of range"};
+    }
     StringUtils::toLower(specifierStr);
-    if (specifierStr == "year" || specifierStr == "years" || specifierStr == "y") {
-        result.months += number * MONTHS_PER_YEAR;
-    } else if (specifierStr == "month" || specifierStr == "months" || specifierStr == "mon") {
-        result.months += number;
-    } else if (specifierStr == "day" || specifierStr == "days" || specifierStr == "d") {
-        result.days += number;
-    } else if (specifierStr == "hour" || specifierStr == "hours" || specifierStr == "h") {
-        result.micros += number * MICROS_PER_HOUR;
-    } else if (specifierStr == "minute" || specifierStr == "minutes" || specifierStr == "m") {
-        result.micros += number * MICROS_PER_MINUTE;
-    } else if (specifierStr == "second" || specifierStr == "seconds" || specifierStr == "s") {
-        result.micros += number * MICROS_PER_SEC;
-    } else if (specifierStr == "millisecond" || specifierStr == "milliseconds" ||
-               specifierStr == "ms" || specifierStr == "msec") {
-        result.micros += number * MICROS_PER_MSEC;
-    } else if (specifierStr == "microsecond" || specifierStr == "microseconds" ||
-               specifierStr == "us") {
-        result.micros += number;
-    } else {
-        throw ConversionException("Unrecognized interval specifier string: " + specifierStr + ".");
+    // All updates go through checked arithmetic so extreme inputs throw
+    // OverflowException instead of silently wrapping (see #1691, #1694).
+    auto addMonths = [&](int64_t amount) {
+        int64_t current = result.months;
+        int64_t updated = 0;
+        function::Add::operation(current, amount, updated);
+        if (updated > INT32_MAX || updated < INT32_MIN) {
+            throw OverflowException{"Interval value is out of range"};
+        }
+        result.months = (int32_t)updated;
+    };
+    auto addDays = [&](int64_t amount) {
+        int64_t current = result.days;
+        int64_t updated = 0;
+        function::Add::operation(current, amount, updated);
+        if (updated > INT32_MAX || updated < INT32_MIN) {
+            throw OverflowException{"Interval value is out of range"};
+        }
+        result.days = (int32_t)updated;
+    };
+    auto addMicros = [&](int64_t amount) {
+        int64_t current = result.micros;
+        function::Add::operation(current, amount, result.micros);
+    };
+    try {
+        if (specifierStr == "year" || specifierStr == "years" || specifierStr == "y") {
+            int64_t product = 0;
+            function::Multiply::operation((int64_t)number, (int64_t)MONTHS_PER_YEAR, product);
+            addMonths(product);
+        } else if (specifierStr == "month" || specifierStr == "months" || specifierStr == "mon") {
+            addMonths((int64_t)number);
+        } else if (specifierStr == "day" || specifierStr == "days" || specifierStr == "d") {
+            addDays((int64_t)number);
+        } else if (specifierStr == "hour" || specifierStr == "hours" || specifierStr == "h") {
+            int64_t product = 0;
+            function::Multiply::operation((int64_t)number, MICROS_PER_HOUR, product);
+            addMicros(product);
+        } else if (specifierStr == "minute" || specifierStr == "minutes" || specifierStr == "m") {
+            int64_t product = 0;
+            function::Multiply::operation((int64_t)number, MICROS_PER_MINUTE, product);
+            addMicros(product);
+        } else if (specifierStr == "second" || specifierStr == "seconds" || specifierStr == "s") {
+            int64_t product = 0;
+            function::Multiply::operation((int64_t)number, MICROS_PER_SEC, product);
+            addMicros(product);
+        } else if (specifierStr == "millisecond" || specifierStr == "milliseconds" ||
+                   specifierStr == "ms" || specifierStr == "msec") {
+            int64_t product = 0;
+            function::Multiply::operation((int64_t)number, MICROS_PER_MSEC, product);
+            addMicros(product);
+        } else if (specifierStr == "microsecond" || specifierStr == "microseconds" ||
+                   specifierStr == "us") {
+            addMicros((int64_t)number);
+        } else {
+            throw ConversionException(
+                "Unrecognized interval specifier string: " + specifierStr + ".");
+        }
+    } catch (const OverflowException& e) {
+        throw OverflowException{"Interval value is out of range"};
     }
 }
 
@@ -336,20 +437,27 @@ std::string Interval::toString(interval_t interval) {
     return std::string(buffer, length);
 }
 
-// helper function of interval comparison
+// helper function of interval comparison: canonicalize to a unique
+// (months, days, micros) triple with all non-zero components sharing the sign
+// of the total, so that equality/ordering/hashing agree (a month counts as 30
+// days, a day as MICROS_PER_DAY micros). A purely local carry (days into
+// months, micros into days) is insufficient: it leaves mixed-sign triples such
+// as (1 month, -1 day) != (29 days) and (29 days, 24 hours) != (30 days).
+// Canonicalizing via the total micros value fixes both gaps.
 void Interval::normalizeIntervalEntries(interval_t input, int64_t& months, int64_t& days,
     int64_t& micros) {
-    int64_t extra_months_d = input.days / Interval::DAYS_PER_MONTH;
-    int64_t extra_months_micros = input.micros / Interval::MICROS_PER_MONTH;
-    input.days -= extra_months_d * Interval::DAYS_PER_MONTH;
-    input.micros -= extra_months_micros * Interval::MICROS_PER_MONTH;
-
-    int64_t extra_days_micros = input.micros / Interval::MICROS_PER_DAY;
-    input.micros -= extra_days_micros * Interval::MICROS_PER_DAY;
-
-    months = input.months + extra_months_d + extra_months_micros;
-    days = input.days + extra_days_micros;
-    micros = input.micros;
+    int128_t total = int128_t(input.months) * int128_t(Interval::MICROS_PER_MONTH) +
+                     int128_t(input.days) * int128_t(Interval::MICROS_PER_DAY) +
+                     int128_t(input.micros);
+    int128_t months128 = total / int128_t(Interval::MICROS_PER_MONTH);
+    int128_t rem = total % int128_t(Interval::MICROS_PER_MONTH);
+    int128_t days128 = rem / int128_t(Interval::MICROS_PER_DAY);
+    int128_t micros128 = rem % int128_t(Interval::MICROS_PER_DAY);
+    // The canonical components always fit in int64 (|months| <= ~2.3e9,
+    // |days| <= 29, |micros| < MICROS_PER_DAY); the casts cannot fail.
+    Int128_t::tryCast(months128, months);
+    Int128_t::tryCast(days128, days);
+    Int128_t::tryCast(micros128, micros);
 }
 
 bool Interval::greaterThan(const interval_t& left, const interval_t& right) {
@@ -452,7 +560,10 @@ int32_t Interval::getIntervalPart(DatePartSpecifier specifier, interval_t interv
     case DatePartSpecifier::HOUR:
         return interval.micros / Interval::MICROS_PER_HOUR;
     default:
-        UNREACHABLE_CODE;
+        // DOW and WEEK are accepted by tryGetDatePartSpecifier (shared with
+        // date/timestamp) but are not defined for intervals. Throw instead of
+        // hitting UNREACHABLE_CODE, which aborts the process (see #1694).
+        throw ConversionException("date_part specifier is not supported for INTERVAL input.");
     }
 }
 

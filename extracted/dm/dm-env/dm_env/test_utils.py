@@ -51,8 +51,15 @@ absltest.TestCase methods aren't statically available here, only once mixed in.
 
 from absl import logging
 import dm_env
-import tree
 from dm_env import _abstract_test_mixin
+try:
+  import tree  # pylint: disable=g-import-not-at-top
+except ImportError as e:
+  raise ImportError(
+      "dm_env.test_utils requires dm-tree. "
+      "Install with: pip install 'dm-env[test_utils]'."
+  ) from e
+
 _STEP_NEW_ENV_MUST_RETURN_FIRST = (
     "calling step() on a fresh environment must produce a step with "
     "step_type FIRST, got {}")
@@ -84,7 +91,7 @@ class EnvironmentTestMixin(_abstract_test_mixin.TestMixin):
   def tearDown(self):
     self.environment.close()
     # A call to super is required for cooperative multiple inheritance to work.
-    super().tearDown()  # pytype: disable=attribute-error
+    super().tearDown()  # pyrefly: ignore[missing-attribute]
 
   def make_action_sequence(self):
     """Generates a sequence of actions for a longer test.
@@ -113,7 +120,7 @@ class EnvironmentTestMixin(_abstract_test_mixin.TestMixin):
     """
     step = self.environment.reset()
     self.assertValidStep(step)
-    self.assertIs(dm_env.StepType.FIRST, step.step_type,  # pytype: disable=attribute-error
+    self.assertIs(dm_env.StepType.FIRST, step.step_type,  # pyrefly: ignore[missing-attribute]
                   _RESET_MUST_RETURN_FIRST.format(step.step_type))
     return step
 
@@ -142,17 +149,15 @@ class EnvironmentTestMixin(_abstract_test_mixin.TestMixin):
     Args:
       step: An instance of TimeStep.
     """
-    # pytype: disable=attribute-error
-    self.assertIsInstance(step, dm_env.TimeStep)
-    self.assertIsInstance(step.step_type, dm_env.StepType)
+    self.assertIsInstance(step, dm_env.TimeStep)  # pyrefly: ignore[missing-attribute]
+    self.assertIsInstance(step.step_type, dm_env.StepType)  # pyrefly: ignore[missing-attribute]
     if step.step_type is dm_env.StepType.FIRST:
-      self.assertIsNone(step.reward, _FIRST_MUST_NOT_HAVE_REWARD)
-      self.assertIsNone(step.discount, _FIRST_MUST_NOT_HAVE_DISCOUNT)
+      self.assertIsNone(step.reward, _FIRST_MUST_NOT_HAVE_REWARD)  # pyrefly: ignore[missing-attribute]
+      self.assertIsNone(step.discount, _FIRST_MUST_NOT_HAVE_DISCOUNT)  # pyrefly: ignore[missing-attribute]
     else:
       self.assertValidReward(step.reward)
       self.assertValidDiscount(step.discount)
     self.assertValidObservation(step.observation)
-    # pytype: enable=attribute-error
 
   def assertConformsToSpec(self, value, spec):
     """Checks that `value` conforms to `spec`.
@@ -164,13 +169,13 @@ class EnvironmentTestMixin(_abstract_test_mixin.TestMixin):
     try:
       tree.assert_same_structure(value, spec)
     except (TypeError, ValueError) as e:
-      self.fail("`spec` and `value` have mismatching structures: {}".format(e))  # pytype: disable=attribute-error
+      self.fail("`spec` and `value` have mismatching structures: {}".format(e))  # pyrefly: ignore[missing-attribute]
     def validate(path, item, array_spec):
       try:
         return array_spec.validate(item)
       except ValueError as e:
         raise ValueError("Value at path {!r} failed validation: {}."
-                         .format("/".join(map(str, path)), e))
+                         .format("/".join(map(str, path)), e)) from e
     tree.map_structure_with_path(validate, value, spec)
 
   def assertValidObservation(self, observation):
@@ -197,17 +202,17 @@ class EnvironmentTestMixin(_abstract_test_mixin.TestMixin):
     # Calling `step()` on a fresh environment should be equivalent to `reset()`.
     # Note that the action should be ignored.
     step = self.step_environment()
-    self.assertIs(dm_env.StepType.FIRST, step.step_type,  # pytype: disable=attribute-error
+    self.assertIs(dm_env.StepType.FIRST, step.step_type,  # pyrefly: ignore[missing-attribute]
                   _STEP_NEW_ENV_MUST_RETURN_FIRST.format(step.step_type))
     step = self.step_environment()
-    self.assertIsNot(dm_env.StepType.FIRST, step.step_type,  # pytype: disable=attribute-error
+    self.assertIsNot(dm_env.StepType.FIRST, step.step_type,  # pyrefly: ignore[missing-attribute]
                      _STEP_AFTER_FIRST_MUST_NOT_RETURN_FIRST)
 
   def test_step_after_reset(self):
     for _ in range(2):
       self.reset_environment()
       step = self.step_environment()
-      self.assertIsNot(dm_env.StepType.FIRST, step.step_type,  # pytype: disable=attribute-error
+      self.assertIsNot(dm_env.StepType.FIRST, step.step_type,  # pyrefly: ignore[missing-attribute]
                        _STEP_AFTER_FIRST_MUST_NOT_RETURN_FIRST)
 
   def test_longer_action_sequence(self):
@@ -222,10 +227,10 @@ class EnvironmentTestMixin(_abstract_test_mixin.TestMixin):
       for action in self.make_action_sequence():
         step = self.step_environment(action)
         if prev_step_type is dm_env.StepType.LAST:
-          self.assertIs(dm_env.StepType.FIRST, step.step_type,  # pytype: disable=attribute-error
+          self.assertIs(dm_env.StepType.FIRST, step.step_type,  # pyrefly: ignore[missing-attribute]
                         _FIRST_MUST_COME_AFTER_LAST)
         else:
-          self.assertIsNot(dm_env.StepType.FIRST, step.step_type,  # pytype: disable=attribute-error
+          self.assertIsNot(dm_env.StepType.FIRST, step.step_type,  # pyrefly: ignore[missing-attribute]
                            _FIRST_MUST_ONLY_COME_AFTER_LAST)
         if step.last():
           encountered_last_step = True

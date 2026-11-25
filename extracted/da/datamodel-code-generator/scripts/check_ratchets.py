@@ -23,10 +23,11 @@ the area is ``src``, ``tests``, ``scripts`` or ``other``; keys of configuration 
 - ``cast``, ``any`` (``Any`` inside an annotation or a ``cast`` target), ``getattr-private`` (a constant private
   name given to ``getattr`` and its siblings), ``dynamic-import``, ``filterwarnings-ignore``, ``no-type-check`` and
   ``abnormal-path`` (the test marker), read with ``ast``.
-- ``import-cycle:<measure>@<area>``: the modules on import cycles of the package (``src``) and of ``scripts``, read by
-  `scripts/_import_cycles.py` from the model's import graph: ``module-level`` counts the cycles of the imports that run
-  when their module is imported, ``lazy`` those of every import (function-local and ``TYPE_CHECKING`` ones too) and
-  ``largest-lazy`` the largest of those; each module counts once, at its first import into its cycle.
+- ``import-cycle:<measure>@scripts``: the modules on import cycles of ``scripts``, read by
+  `scripts/_import_cycles.py` from the model's import graph (the package's cycles are heki's ``IMP101``):
+  ``module-level`` counts the cycles of the imports that run when their module is imported, ``lazy`` those of every
+  import (function-local and ``TYPE_CHECKING`` ones too) and ``largest-lazy`` the largest of those; each module counts
+  once, at its first import into its cycle.
 - ``source-rule:<rule>``: the sites of each rule of `scripts/check_source_rules.py` that runs without a base, as its
   ``--count`` prints them. A rule absolute in the head or in the base revision (read with the base's own rules) fails
   on any site, whatever the base holds. The base-relative rules (``lost-last-caller``) report candidates that need
@@ -203,6 +204,8 @@ HEKI_RULES = {
     "cached-result-mutation": "MUT114",
     "shallow-copy-nested-mutation": "MUT115",
     "sentinel-lost-in-deepcopy": "MUT118",
+    "change-lost-on-new-object": "MUT119",
+    "readonly-view-mutation": "MUT120",
     "write-owner-violation": "MUT201",
     "readonly-return-mutation": "MUT202",
     "read-owner-violation": "MUT203",
@@ -221,8 +224,13 @@ HEKI_RULES = {
     "exclusive-object-fanout": "EFF110",
     "set-order-output": "EFF112",
     "recursion-error-as-value": "EFF114",
+    "async-def-as-sync-callback": "EFF115",
+    "generator-never-iterated": "EFF116",
     "unretained-async-task": "EFF107",
     "effect-boundary-violation": "EFF201",
+    "import-cycle": "IMP101",
+    "import-owner-violation": "IMP201",
+    "unresolved-guarded-import": "IMP202",
     "loop-carried-concat": "DATA101",
     "list-quadratic-concat": "OPT101",
     "set-dict-quadratic-merge": "OPT102",
@@ -236,7 +244,7 @@ HEKI_RULES = {
     "loop-invariant-container-rebuild": "OPT130",
 }
 """The rules of the pinned heki by name (``heki rule --all``): a suppression may name a rule by its code or its name."""
-HEKI_CODE = re.compile(r"(?:EFF|MUT|DATA|OPT)\d{3}", re.IGNORECASE)
+HEKI_CODE = re.compile(r"(?:EFF|MUT|DATA|OPT|IMP)\d{3}", re.IGNORECASE)
 COMMENT_HINT = re.compile(r"pragma:|ignore|noqa", re.IGNORECASE)
 CALL_HINT = re.compile(
     r"cast|attr\(|attrgetter|__getattribute__|import_module|__import__|filterwarnings|simplefilter|catch_warnings"
@@ -533,6 +541,12 @@ def _hook_value(text: str, following: list[str], indent: int) -> object:
         return None
 
 
+def _hook_rev(text: str) -> str:
+    """Read a hook's rev: the tag of a rev that ``pre-commit autoupdate --freeze`` pinned to a commit."""
+    frozen = re.search(r"#\s*frozen:\s*(\S+)", text)
+    return frozen[1] if frozen else str(_yaml_value(text))
+
+
 def _ruff_hook(root: Path) -> Hook:
     """Read the rev, exclude pattern and arguments of the ruff check hook, and what it could not read."""
     path = root / ".pre-commit-config.yaml"
@@ -545,7 +559,7 @@ def _ruff_hook(root: Path) -> Hook:
         if match := re.match(r"\s*-\s*repo:\s*(\S+)", line):
             repo, hook = match[1], ""
         elif match := re.match(r"\s*rev:\s*(.+)", line):
-            rev = str(_yaml_value(match[1])) if "ruff-pre-commit" in repo else rev
+            rev = _hook_rev(match[1]) if "ruff-pre-commit" in repo else rev
         elif match := re.match(r"\s*-\s*id:\s*(\S+)", line):
             hook = str(_yaml_value(match[1]))
         elif (match := re.match(r"(\s*)(exclude|args):\s*(.*)", line)) and "ruff-pre-commit" in repo and hook == "ruff":
@@ -1124,8 +1138,8 @@ def _named_output_tally(tally: Tally, root: Path) -> None:
 
 
 def _import_cycle_tally(tally: Tally, root: Path, files: list[str]) -> None:
-    """Count the modules on the import cycles of the package and of ``scripts`` among the tree's files."""
-    for key, found in import_cycles(root, files=files).items():
+    """Count the modules on the import cycles of ``scripts`` among the tree's files."""
+    for key, found in import_cycles(root, files).items():
         for path, line in (site for cycle in found for site in cycle):
             tally.add(key, path, line)
 

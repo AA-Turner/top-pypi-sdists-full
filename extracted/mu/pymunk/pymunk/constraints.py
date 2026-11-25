@@ -52,20 +52,21 @@ Example::
 >>> s.add(c)
 
 """
+
 __docformat__ = "reStructuredText"
 
 __all__ = [
     "Constraint",
-    "PinJoint",
-    "SlideJoint",
-    "PivotJoint",
-    "GrooveJoint",
-    "DampedSpring",
     "DampedRotarySpring",
-    "RotaryLimitJoint",
-    "RatchetJoint",
+    "DampedSpring",
     "GearJoint",
+    "GrooveJoint",
+    "PinJoint",
+    "PivotJoint",
+    "RatchetJoint",
+    "RotaryLimitJoint",
     "SimpleMotor",
+    "SlideJoint",
 ]
 
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
@@ -266,9 +267,9 @@ class Constraint(PickleMixin, TypingAttrMixing, object):
 
     def _set_bodies(self, a: "Body", b: "Body") -> None:
         assert a is not b
-        assert (
-            a.body_type == Body.DYNAMIC or b.body_type == Body.DYNAMIC
-        ), "At least one of the two bodies attached to a constraint must be DYNAMIC."
+        assert a.body_type == Body.DYNAMIC or b.body_type == Body.DYNAMIC, (
+            "At least one of the two bodies attached to a constraint must be DYNAMIC."
+        )
         self._a = a
         self._b = b
         a._constraints[self] = None
@@ -309,6 +310,8 @@ class PinJoint(Constraint):
     """
 
     _pickle_attrs_init = Constraint._pickle_attrs_init + ["anchor_a", "anchor_b"]
+
+    _pickle_attrs_general = Constraint._pickle_attrs_general + ["distance"]
 
     def __init__(
         self,
@@ -471,7 +474,7 @@ class PivotJoint(Constraint):
             _constraint = lib.cpPivotJointNew2(a._body, b._body, args[0], args[1])
         else:
             raise Exception(
-                "You must specify either one pivot point" " or two anchor points"
+                "You must specify either one pivot point or two anchor points"
             )
 
         self._init(a, b, _constraint)
@@ -576,6 +579,8 @@ class DampedSpring(Constraint):
         "stiffness",
         "damping",
     ]
+
+    _pickle_attrs_general = Constraint._pickle_attrs_general + ["force_func"]
 
     _pickle_attrs_skip = Constraint._pickle_attrs_skip + ["_force_func"]
 
@@ -706,6 +711,8 @@ class DampedRotarySpring(Constraint):
         "damping",
     ]
 
+    _pickle_attrs_general = Constraint._pickle_attrs_general + ["torque_func"]
+
     _pickle_attrs_skip = Constraint._pickle_attrs_skip + ["_torque_func"]
 
     _torque_func: Optional[_TorqueFunc] = None
@@ -826,6 +833,8 @@ class RatchetJoint(Constraint):
     """RatchetJoint is a rotary ratchet, it works like a socket wrench."""
 
     _pickle_attrs_init = Constraint._pickle_attrs_init + ["phase", "ratchet"]
+
+    _pickle_attrs_general = Constraint._pickle_attrs_general + ["angle"]
 
     def __init__(self, a: "Body", b: "Body", phase: float, ratchet: float) -> None:
         """Works like a socket wrench.

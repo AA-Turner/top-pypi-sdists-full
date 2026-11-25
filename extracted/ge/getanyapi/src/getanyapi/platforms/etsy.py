@@ -51,7 +51,7 @@ class EtsySearchInput(TypedDict, total=False):
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
     """Search keywords, e.g. "cover letter template". For an Etsy /market page, pass its words: https://www.etsy.com/market/habit_tracker_2027 is the query "habit tracker 2027"."""
-    requireFields: NotRequired[list[Literal["rating", "reviewsCount", "totalResults"]]]
+    requireFields: NotRequired[list[Literal["rating", "totalResults"]]]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `rating`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     sort: NotRequired[Literal["relevance", "newest", "price_low", "price_high"]]
     """Result order: relevance (Etsy's own order, the default), newest, price_low, or price_high. Default: relevance."""
@@ -242,12 +242,12 @@ class EtsySearchItem(BaseModel):
     )
     rating: float | None = Field(
         default=None,
-        description="Average rating of the listing, 0-5, or null when unrated or the serving source does not report it.",
+        description="Average rating of the shop selling the listing, 0-5, or null when the shop is unrated or the serving source does not report it.",
     )
     reviews_count: int | None = Field(
         default=None,
         alias="reviewsCount",
-        description="Number of reviews of the listing, or null when not reported.",
+        description="Number of reviews of the listing, or null when the serving source does not report it.",
     )
     shop_id: str | None = Field(
         default=None,
@@ -411,7 +411,7 @@ class EtsyNamespace:
 
         Search Etsy listings by keyword, the same results an Etsy search or /market
         page shows, with optional sort, price range and page, and get title, price,
-        original price, image, shop, rating and ad flag for each listing in one
+        original price, image, shop, shop rating and ad flag for each listing in one
         normalized response.
 
         Price: $0.0009 per request.
@@ -501,7 +501,7 @@ class AsyncEtsyNamespace:
 
         Search Etsy listings by keyword, the same results an Etsy search or /market
         page shows, with optional sort, price range and page, and get title, price,
-        original price, image, shop, rating and ad flag for each listing in one
+        original price, image, shop, shop rating and ad flag for each listing in one
         normalized response.
 
         Price: $0.0009 per request.

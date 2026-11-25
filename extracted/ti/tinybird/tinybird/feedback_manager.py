@@ -1,19 +1,14 @@
-from collections import namedtuple
 from typing import Any, Callable
-
-FeedbackMessage = namedtuple("FeedbackMessage", "message")
 
 
 class bcolors:
     HEADER = "\033[95m"
-    OKBLUE = "\033[94m"
     CGREY = "\33[90m"
     OKGREEN = "\033[92m"
     WARNING = "\033[93m"
     FAIL = "\033[91m"
     ENDC = "\033[0m"
     BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
 
 
 def print_message(message: str, color: str = bcolors.ENDC) -> Callable[..., str]:
@@ -39,10 +34,6 @@ def info_message(message: str) -> Callable[..., str]:
     return print_message(message)
 
 
-def info_highlight_message(message: str) -> Callable[..., str]:
-    return print_message(message, bcolors.OKBLUE)
-
-
 def success_message(message: str) -> Callable[..., str]:
     return print_message(message, bcolors.OKGREEN)
 
@@ -54,12 +45,9 @@ def prompt_message(message: str) -> Callable[..., str]:
 class FeedbackManager:
     error_exception = error_message("{error}")
     simple_error_exception = simple_error_message("{error}")
-    error_exception_trace = error_message("{error}\n** Trace:\n{trace}")
     error_notoken = error_message(
         "No auth token provided. Run 'tb auth' to configure them or re-run the command passing the --token param (example: tb --token <the_token> datasource ls)."
     )
-    error_auth_config = error_message("{config_file} does not exist")
-    error_file_config = error_message("{config_file} can't be written, check write permissions on this folder")
     error_load_file_config = error_message("{config_file} can't be loaded, remove it and run the command again")
     error_push_file_exception = error_message("Failed running {filename}: {error}")
     error_parsing_node = error_message('error parsing node "{node}" from pipe "{pipe}": {error}')
@@ -92,19 +80,15 @@ class FeedbackManager:
     error_updating_datasource = error_message("Failed updating Data Source {datasource} settings: {error}")
     error_promoting_datasource = error_message("Failed promoting Data Source {datasource}: {error}")
     error_creating_datasource = error_message("Failed creating Data Source: {error}")
-    error_processing_data = error_message("{error} - FAIL")
     error_file_already_exists = error_message("{file} already exists, use --force to override")
     error_invalid_token_for_host = error_message("Invalid token for {host}")
     error_invalid_host = error_message(
         "Cannot parse response from host {host}. Please make sure you are using the API host URL."
     )
-    error_invalid_release_for_workspace = error_message(
-        "There's no Release with semver {semver} for Workspace {workspace}"
-    )
     error_invalid_token = error_message(
         "Invalid token\n** Run 'tb auth --interactive' to select region. If you belong to a custom region, include your region host in the command:\n** tb auth --host https://<region>.tinybird.co"
     )
-    error_token_cannot_be_overriden = error_message("Token '{token}' cannot be overriden")
+    error_token_cannot_be_overriden = error_message("Token '{token}' cannot be overridden")
     error_invalid_query = error_message("Only SELECT queries are supported")
     error_pipe_does_not_exist = error_message("'{pipe}' pipe does not exist")
     error_datasource_does_not_exist = error_message("'{datasource}' Data Source does not exist")
@@ -117,7 +101,6 @@ class FeedbackManager:
     error_parsing_indices = error_message(
         "error parsing indexes (line {line}): {error}. Usage: `name expr TYPE type_full GRANULARITY granularity`. Separate multiple indexes by a new line."
     )
-    error_sorting_key = error_message("SORTING_KEY should be set with {engine}")
     error_unknown_resource = error_message("Unknown resource '{resource}'")
     error_file_extension = error_message(
         "File extension for {filename} not supported. It should be one of .datasource or .pipe"
@@ -126,9 +109,7 @@ class FeedbackManager:
         "Engine {engine} not supported for DynamoDB Data Sources. Only ReplacingMergeTree is supported."
     )
     error_format = error_message("Format {extension} not supported. It should be one of {valid_formats}")
-    error_remove_endpoint = error_message("Failed removing pipe endpoint {error}")
     error_remove_no_endpoint = error_message("Pipe does not have any endpoint")
-    error_updating_pipe = error_message("Failed updating pipe {error}")
     error_updating_connector_not_supported = error_message("Changing {param} is not currently supported")
     error_updating_connector_missing_at_least_one_param = error_message(
         "Connection settings not updated. Connection info should have at least one of {param} settings"
@@ -136,17 +117,10 @@ class FeedbackManager:
     error_updating_connector_missing_params = error_message(
         "Connection settings not updated. Connection info should have {param} settings"
     )
-    error_removing_node = error_message("Failed removing node from pipe {pipe}: {error}")
     error_pushing_pipe = error_message("Failed pushing pipe {pipe}: {error}")
     error_creating_endpoint = error_message("Failed creating endpoint in node {node} on pipe {pipe}: {error}")
     error_setting_copy_node = error_message("Failed setting node to be used to copy {node} on pipe {pipe}\n** {error}")
 
-    error_creating_copy_job_not_target_datasource = error_message(
-        "Cannot create copy job. Destination Data Source is required."
-    )
-    error_creating_copy_job_not_compatible_schema = error_message(
-        "Cannot create copy job. Destination data source doesn't have a compatible schema."
-    )
     error_creating_copy_pipe_invalid_cron = error_message(
         "Cannot create Copy pipe. Invalid cron expression: '{schedule_cron}'"
     )
@@ -162,7 +136,6 @@ class FeedbackManager:
     error_creating_copy_pipe_target_datasource_not_found = error_message(
         "Cannot create Copy pipe. Destination Data Source '{target_datasource}' does not exist."
     )
-    error_creating_copy_pipe = error_message("Failed creating copy pipe {error}")
     error_creating_copy_job = error_message("Failed creating copy job: {error}")
     error_pausing_copy_pipe = error_message("Failed pausing copy pipe: {error}")
     error_resuming_copy_pipe = error_message("Failed resuming copy pipe: {error}")
@@ -178,12 +151,10 @@ class FeedbackManager:
     error_creating_pipe = error_message("Failed creating pipe {error}")
     error_creating_sink_job = error_message("Failed creating sink job: {error}")
     error_running_on_demand_sink_job = error_message("Failed running on-demand sink job: {error}")
-    error_removing_dummy_node = error_message("Failed removing node {error}")
     error_check_pipes_populate = error_message("You can't check pipes with populate=True")
     error_check_pipes_api = error_message(
         "Error retrieving most common {pipe} requests to run automatic regression tests, you can bypass checks by running push with the --no-check flag"
     )
-    error_negative_version = error_message("VERSION gets one positive integer param")
     error_while_running_job = error_message("Error while running job: {error}")
     error_getting_job_info = error_message(
         "Error while getting job status:\n{error}\n\nThe job should still be running. Check => {url}"
@@ -199,15 +170,9 @@ class FeedbackManager:
     error_diff_file = error_message(
         "Cannot diff {filename}. Datafile names must be globally unique, make sure there is no other Datafile with the same name."
     )
-    error_auth = error_message("Check your local config")
     error_wrong_config_file = error_message("Wrong {config_file}, run 'tb auth' to initialize")
-    error_workspace_not_in_local_config = error_message(
-        "Use 'tb auth add --ws {workspace}' to add this workspace to the local config"
-    )
-    error_not_personal_auth = error_message("** You have to authenticate with a personal account")
     error_syncing_datasource = error_message("Failed syncing Data Source {datasource}: {error}")
     error_sync_not_supported = error_message("The --sync parameter is only supported for {valid_datasources}")
-    error_invalid_connector = error_message("Invalid connector parameter: Use one of {connectors}")
     error_option = error_message("{option} is not a valid option")
     error_job_does_not_exist = error_message("Job with id '{job_id}' does not exist")
     error_job_cancelled_but_status_unknown = error_message(
@@ -227,7 +192,6 @@ class FeedbackManager:
         'Invalid kafka auto.offset.reset config. Valid values are: ["earliest", "latest", "error"]'
     )
     error_datasource_name = error_message("Invalid Data Source name")
-    error_datasource_connection_id = error_message("Invalid connection ID")
     error_connection_file_already_exists = error_message("Connection file {name} already exists")
     error_connection_already_exists = error_message(
         "Connection {name} already exists. Use 'tb connection ls' to list your connections"
@@ -281,9 +245,7 @@ class FeedbackManager:
     )
     error_datasource_ls_type = error_message("Invalid Format provided")
     error_pipe_ls_type = error_message("Invalid Format provided")
-    error_token_not_validate_in_any_region = error_message("Token not validated in any region")
     error_not_authenticated = error_message("You are not authenticated, use 'tb auth -i' to authenticate yourself")
-    error_checking_templates = error_message("Unable to retrieve list of available starter kits")
     error_starterkit_index = error_message(
         "Error selecting starter kit '{starterkit_index}'. Select a valid index or 0 to cancel"
     )
@@ -345,9 +307,6 @@ class FeedbackManager:
     error_init_release = error_message(
         "No release on Workspace '{workspace}'. Hint: use 'tb init --git' to start working with git"
     )
-    error_branch_init_release = error_message(
-        "Branch '{workspace}' not ready for deploy. Hint: use 'tb init --git' to start working with git and assure Branch is completely created using '--wait' on 'tb branch create'"
-    )
     error_commit_changes_to_init_release = error_message(
         "Data project has changes: 'git status -s {path}'\n\n{git_output} \n\n You need to commit your changes in the data project, then re-run 'tb init --git' to finish git initialization."
     )
@@ -400,6 +359,12 @@ class FeedbackManager:
     )
     error_number_of_fixed_params_and_resources_mismatch = error_message(
         "The number of --fixed-params options must not exceed the number of --scope and --resource options."
+    )
+    error_jwt_fixed_params_scope_mismatch = error_message(
+        "--fixed-params apply to the --scope and --resource at the same position, which is {scope} {resource}. Only PIPES:READ accepts --fixed-params."
+    )
+    error_jwt_filter_scope_mismatch = error_message(
+        "--filter applies to the --scope and --resource at the same position, which is {scope} {resource}. Only DATASOURCES:READ accepts --filter."
     )
     error_pipe_not_materialized = error_message("Pipe {pipe} is not materialized.")
     error_populate_no_materialized_in_pipe = error_message("No materialized nodes in pipe {pipe}. Use --node param.")
@@ -457,9 +422,6 @@ class FeedbackManager:
         "Do you want to populate the materialized view with existing data? (It'll truncate the materialized view before population starts)"
     )
 
-    prompt_ws_name = prompt_message("❓ Workspace name:")
-    prompt_ws_template = prompt_message("❓ Starter template:")
-
     prompt_s3_iamrole_connection_login_aws = prompt_message("""[1] Log into your AWS Console\n\n""")
     prompt_s3_iamrole_connection_policy = prompt_message(
         """\n[2] Go to IAM > Policies. Create a new policy with the following permissions. Please, replace {replacements}:\n\n{access_policy}\n\n(The policy has been copied to your clipboard)\n\n"""
@@ -476,7 +438,6 @@ class FeedbackManager:
     prompt_init_git_release_pull = prompt_message(
         "❓ Download the Data Project to continue, otherwise you can't initialize Workspace with Git. Execute '{pull_command}'?"
     )
-    prompt_init_cicd = prompt_message("\n Do you want to generate CI/CD config files?")
     prompt_init_git_release_force = prompt_message(
         "You are going to manually update workspace commit reference manually, this is just for special occasions. Do you want to update current commit reference '{current_commit}' to '{new_commit}'?"
     )
@@ -488,12 +449,7 @@ class FeedbackManager:
         "Warning: Do you want to exchange Data Source {datasource_a} by Data Source {datasource_b}?"
     )
     warning_no_test_results = warning_message("Warning: No test results to show")
-    warning_using_branch_token = warning_message("** You're using the token defined in $TB_TOKEN.")
-    warning_using_branch_host = warning_message("** You're using the token defined in $TB_HOST.")
 
-    error_bump_release = error_message(
-        "Error: Bump the --semver flag, example 'tb --semver 0.0.2 {command}'. If you are in CI, bump the VERSION envvar in .tinyenv\n"
-    )
     error_connection_improper_permissions = error_message(
         "Connection is not valid. Please check your credentials and try again.\n"
     )
@@ -611,9 +567,8 @@ class FeedbackManager:
     )
     warning_for_cicd_file = warning_message("** 🚨 Warning 🚨: {warning_message}")
     warning_unknown_response = warning_message("** Warning. Unknown response from server: {response}")
-    warning_resource_not_in_workspace = warning_message("** Warning: '{resource_name}' not found in workspace")
     warning_copy_pipes_changed = warning_message(
-        "Your changes in the copy pipe will be applied directly to Live. Alter strategy is prefered to change copy pipes. Increment the post-release number of the semver (for example: 0.0.1 -> 0.0.1-1)"
+        "Your changes in the copy pipe will be applied directly to Live. Alter strategy is preferred to change copy pipes. Increment the post-release number of the semver (for example: 0.0.1 -> 0.0.1-1)"
     )
     warning_sink_no_connection = warning_message(
         "** Warning: pipe '{pipe_name}' does not have an associated Sink connection."
@@ -634,7 +589,6 @@ class FeedbackManager:
         "🚨🚨🚨 [DEPRECATED] S3 (Access Key + Secret) connector is deprecated. Use S3 IAM role instead. https://www.tinybird.co/docs/get-data-in/connectors/s3 **"
     )
 
-    info_fixtures_branch = info_message("** Data Fixtures are only pushed to Branches")
     info_materialize_push_datasource_exists = warning_message("** Data Source {name} already exists")
     info_materialize_push_datasource_override = prompt_message(
         "Delete the Data Source from the workspace and push {name} again?"
@@ -649,7 +603,6 @@ class FeedbackManager:
     info_before_push_materialize = info_message("** Pushing the pipe {name} to your workspace to analyze it")
     info_before_materialize = info_message("** Analyzing the pipe {name}")
     info_pipe_exists = prompt_message("** A pipe with the name {name} already exists, do you want to override it?")
-    prompt_override = prompt_message("** Do you want to try override it?")
     prompt_override_local_file = prompt_message(
         "** Do you want to override {name} with the formatted version shown above?"
     )
@@ -657,7 +610,6 @@ class FeedbackManager:
     info_populate_job_url = info_message("** Populating job url {url}")
     info_data_branch_job_url = info_message("** Branch job url {url}")
     info_regression_tests_branch_job_url = info_message("** Branch regression tests job url {url}")
-    info_merge_branch_job_url = info_message("** Merge Branch deployment job url {url}")
     info_copy_from_main_job_url = info_message("** Copy from 'main' Workspace to '{datasource_name}' job url {url}")
     info_copy_with_sql_job_url = info_message("** Copy with --sql `{sql}` to '{datasource_name}' job url {url}")
     info_populate_subset_job_url = info_message("** Populating (subset {subset}) job url {url}")
@@ -666,7 +618,6 @@ class FeedbackManager:
     )
     info_create_not_found_token = info_message("** Token {token} not found, creating one")
     info_create_found_token = info_message("** Token {token} found, adding permissions")
-    info_populate_job = info_message("** Populating job ({job}) {progress}- {status}")
     info_building_dependencies = info_message("** Building dependencies")
     info_processing_new_resource = info_message("** Running '{name}' {version}")
     info_dry_processing_new_resource = info_message("** [DRY RUN] Running '{name}' {version}")
@@ -686,7 +637,6 @@ class FeedbackManager:
     info_skip_already_exists = print_message("    => skipping, already exists")
     info_dependency_list = info_message("** {dependency}")
     info_dependency_list_item = info_message("** --- {dependency}")
-    info_no_dependencies_found = info_message("** No dependencies found for {dependency}")
     info_no_compatible_dependencies_found = info_message("** Data Sources with incompatible partitions found:")
     info_append_data = info_message("** => If you want to insert data use: $ tb datasource append")
     info_datasources = info_message("** Data Sources:")
@@ -701,9 +651,7 @@ class FeedbackManager:
     info_datasource_scheduling_pause = info_message("** Pausing scheduling...")
     info_datasource_scheduling_resume = info_message("** Resuming scheduling...")
     info_pipes = info_message("** Pipes:")
-    info_pipe_name = info_message("** - {pipe}")
     info_using_node = print_message("** Using last node {node} as endpoint")
-    info_using_node_to_copy = print_message("** Using last node {node} to copy data")
     info_removing_datasource = info_message("** Removing Data Source {datasource}")
     info_removing_datasource_not_found = info_message("** {datasource} not found")
     info_dry_removing_datasource = info_message("** [DRY RUN] Removing Data Source {datasource}")
@@ -721,10 +669,7 @@ class FeedbackManager:
     )
     info_writing_resource = info_message("** Writing {resource}")
     info_skipping_resource = info_message("** Skipping {resource}")
-    info_writing_datasource = info_message("[D] writing {datasource}")
     info_starting_import_process = info_message("** \N{EGG} starting import process")
-    info_progress_blocks = info_message("\N{EGG} blocks")
-    info_progress_current_blocks = info_message("\N{HATCHING CHICK} blocks")
     info_release_generated = info_message(
         "** Custom deployment files for Release {semver} generated. Edit the `deploy.sh` file with the instructions to deploy the branch and `postdeploy.sh` file with the instructions to do data operations (e.g. populates) after deploying."
     )
@@ -761,7 +706,6 @@ class FeedbackManager:
     )
     info_ask_for_alter_confirmation = info_message("** Please confirm you want to apply the changes above y/N")
     info_available_regions = info_message("** List of available regions:")
-    info_trying_authenticate = info_message("** Trying to authenticate with {host}")
     info_auth_cancelled_by_user = info_message("** Auth cancelled by user.")
     info_user_already_exists = info_message("** The user '{user}' already exists in {workspace_name}")
     info_users_already_exists = info_message("** All users already exist in {workspace_name}")
@@ -774,9 +718,6 @@ class FeedbackManager:
     info_sink_job_running = info_message("** Running {pipe}")
     info_workspace_create_greeting = info_message(
         "Please enter the name for your new workspace. Remember the name you choose must be unique, you can add a suffix in case of collision.\nYou can bypass this step by supplying it after the command."
-    )
-    info_create_ws_msg_template = info_message(
-        "Now let's pick a starter template! 🐣\nStarter template are pre-built data projects for different use cases, that you can use as a starting point and then build on top of that.\nYou can bypass this step by supplying a value for the --starter-kit option."
     )
     info_workspace_branch_create_greeting = info_message(
         "Please enter the name for your new Branch. Remember the name you choose must be unique, you can add a suffix in case of collision.\nYou can bypass this step by supplying a value for the --name option."
@@ -835,17 +776,8 @@ class FeedbackManager:
         "** Warning: This operation will make changes to the live Release. Consider using a preview release or a branch."
     )
 
-    success_test_endpoint = info_message(
-        "** => Test endpoint with:\n** $ curl {host}/v0/pipes/{pipe}.json?token={token}"
-    )
     success_deployment_release = success_message("** => Release {semver} created in deploying status")
     success_test_endpoint_no_token = success_message("** => Test endpoint at {host}/v0/pipes/{pipe}.json")
-    success_promote = success_message(
-        "** Release has been promoted to Live. Run `tb release ls` to list Releases in the Workspace. To rollback to the previous Release run `tb release rollback`."
-    )
-    success_rollback = success_message(
-        "** Previous Release has been promoted to Live. Run `tb release ls` to list Releases in the Workspace."
-    )
     success_processing_data = success_message("**  OK")
     success_generated_file = success_message(
         """** Generated {file}
@@ -858,11 +790,6 @@ class FeedbackManager:
 ** => Create it on the server running: $ tb push {file}
 """
     )
-    success_generated_matview = success_message(
-        """** Generated destination Data Source for materialized node {node_name} -> {file}
-** => Check everything is correct before and create it on the server running: $ tb push {file}
-"""
-    )
     success_generated_local_file = success_message("** => Saved local file {file}")
     success_generated_fixture = success_message("** => Generated fixture {fixture}")
     success_processing_file = success_message("** => File {filename} processed correctly")
@@ -871,13 +798,10 @@ class FeedbackManager:
     success_appended_datasource = success_message("** Data appended to Data Source '{datasource}' successfully!")
     success_replaced_datasource = success_message("** Data replaced in Data Source '{datasource}' successfully!")
     success_import_job_queued = success_message("** {operation} import job queued: {job_id}")
-    success_import_job_completed = success_message("** {operation} import completed: {job_id}")
     info_import_job_status = info_message("Check status: tb job details {job_id}")
     success_auth = success_message(
         "** Auth successful! \n** Configuration written to .tinyb file, consider adding it to .gitignore"
     )
-    success_auth_added = success_message("** Auth config added!")
-    success_auth_removed = success_message("** Auth config removed")
     success_delete_datasource = success_message("** Data Source '{datasource}' deleted")
     success_update_datasource = success_message("** Data Source '{datasource}' updated:\n    {params}")
     success_promoting_datasource = success_message("** Data Source '{datasource}' connection settings updated")
@@ -902,14 +826,6 @@ class FeedbackManager:
 ** Materialized views work as insert triggers, anytime you append data into the source Data Source the materialized node query will be triggered.
 """
     )
-    success_created_pipe = success_message(
-        """** New pipe created!
-** Node id: {node_id})
-** Set node as endpoint with:
-**   $ tb pipe set_endpoint {pipe} {node_id}
-** Pipe URL: {host}/v0/pipes/{pipe}
-"""
-    )
     success_node_changed = success_message(
         "** New node: {node_id}\n    => pipe: {pipe_name_or_uid}\n    => name: {node_name}"
     )
@@ -924,12 +840,6 @@ class FeedbackManager:
 """
     )
     success_pipe_unlinked = success_message("""** Pipe {pipe} unlinked""")
-    success_node_copy = success_message(
-        """** Node set to be used to copy data!
-** Pipe URL: {host}/v0/pipes/{pipe}
-"""
-    )
-    success_scheduled_copy_job_created = success_message("""** Copy to '{target_datasource}' scheduled job created""")
     success_copy_job_created = success_message("""** Copy to '{target_datasource}' job created: {job_url}""")
     success_sink_job_created = success_message("""** Sink to '{bucket_path}' job created: {job_url}""")
     success_data_copied_to_ds = success_message("""** Data copied to '{target_datasource}'""")
@@ -942,9 +852,6 @@ class FeedbackManager:
     success_dynamodb_initial_load = success_message("** Initial load of DynamoDB table started: {job_url}")
     success_progress_blocks = success_message("** \N{FRONT-FACING BABY CHICK} done")
     success_now_using_config = success_message("** Now using {name} ({id})")
-    success_connector_config = success_message(
-        "** {connector} configuration written to {file_name} file, consider adding it to .gitignore"
-    )
     success_job_cancellation_cancelled = success_message("** Job with id '{job_id}' has been cancelled")
     success_job_cancellation_cancelling = success_message(
         "** Job with id '{job_id}' is now in cancelling status and will be cancelled eventually"
@@ -991,19 +898,15 @@ class FeedbackManager:
         "** Partitions from 'main' Workspace are being attached to the Branch in job {job_url}"
     )
 
-    success_workspace_deploying_template = success_message(
-        "Deploying your new '{workspace_name}' workspace, using the '{template}' template:"
-    )
     success_workspace_deleted = success_message("** Workspace '{workspace_name}' deleted")
     success_branch_deleted = success_message("** Branch '{branch_name}' deleted")
     success_workspace_user_added = success_message("** User {user} added to workspace '{workspace_name}'")
     success_workspace_users_added = success_message("** Users added to workspace '{workspace_name}'")
     success_workspace_user_removed = success_message("** User {user} removed from workspace '{workspace_name}'")
     success_workspace_users_removed = success_message("** Users removed from workspace '{workspace_name}'")
-    success_workspace_user_changed_role = success_message("** {user}'s role setted to {role} in '{workspace_name}'")
-    success_workspace_users_changed_role = success_message("** Users' role setted to {role} in '{workspace_name}'")
+    success_workspace_user_changed_role = success_message("** {user}'s role set to {role} in '{workspace_name}'")
+    success_workspace_users_changed_role = success_message("** Users' role set to {role} in '{workspace_name}'")
 
-    success_test_added = success_message("** Test added successfully")
     success_remember_api_host = success_message("** Remember to use {api_host} in all your API calls.")
     success_git_release = success_message("** New commit deployed: '{release_commit}'")
     success_dry_git_release = success_message("** [DRY RUN] New commit deployed: '{release_commit}'")
@@ -1018,9 +921,6 @@ class FeedbackManager:
     success_dry_release_preview = success_message("** [DRY RUN] Release {semver} in preview status")
     success_release_rollback = success_message("** Workspace rolled back to Release {semver}")
     success_release_delete = success_message("** Release {semver} deleted")
-    info_release_delete_dry_run = info_message(
-        "** Release {semver} delete (dry run). The following resources IDs are only present in this Release and will be deleted:"
-    )
 
     success_delete_token = success_message("** Token '{token}' removed successfully")
     success_refresh_token = success_message("** Token '{token}' refreshed successfully")

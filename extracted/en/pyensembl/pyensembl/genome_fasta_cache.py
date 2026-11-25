@@ -26,8 +26,8 @@ import datacache
 from filelock import FileLock, Timeout
 
 from .download_cache import cache_root
-from .common import _remove, parse_md5sum_manifest
-from .genome_fasta import GenomeFasta, _read_json, _write_json
+from .common import parse_md5sum_manifest, read_json, remove_if_exists, write_json
+from .genome_fasta import GenomeFasta
 
 logger = logging.getLogger(__name__)
 _KEY = re.compile(r"^[0-9a-f]{64}$")
@@ -202,8 +202,42 @@ def _dated_object_directory(root, identity):
             / provider / "toplevel" / masking / "fasta" / _identity_key(identity)[:16])
 
 
-def head_content_length(url, *, timeout=60, max_retries=3, retry_backoff=0.5):
-    """Fetch Content-Length via HEAD with bounded retries on transient errors."""
+def head_content_length(
+    url, *, timeout=60, max_retries=3, retry_backoff=0.5, offline=None
+):
+    """Fetch Content-Length via HEAD with bounded retries on transient errors.
+
+    Enforces ``DATACACHE_OFFLINE`` / ``OPENVAX_OFFLINE`` (or explicit
+    ``offline``) via :func:`datacache.require_online` before issuing any
+    remote request.
+
+    Parameters
+    ----------
+    url : str
+        URL to probe with an HTTP ``HEAD`` request.
+    timeout : float, optional
+        Per-attempt socket timeout in seconds. Default is ``60``.
+    max_retries : int, optional
+        Maximum number of attempts on transient HTTP or transport errors.
+        Default is ``3``.
+    retry_backoff : float, optional
+        Initial delay in seconds before retrying, doubled on each attempt.
+        Default is ``0.5``.
+    offline : bool or None, optional
+        Explicitly forbid (``True``) or allow (``False``) remote requests.
+        Default ``None`` honors ``DATACACHE_OFFLINE`` and ``OPENVAX_OFFLINE``.
+
+    Returns
+    -------
+    int
+        Parsed ``Content-Length`` header in bytes.
+
+    Raises
+    ------
+    datacache.OfflineError
+        If offline mode forbids probing a remote URL.
+    """
+    datacache.require_online(url, offline=offline)
     last_error = None
     for attempt in range(max_retries):
         try:
@@ -250,7 +284,7 @@ def _check_object_identity(root, directory, identity):
         return
     if not directory.is_dir() or (directory / "object.json").is_symlink():
         raise ValueError("Invalid shared genome FASTA object: %s" % directory)
-    state = _read_json(directory / "object.json")
+    state = read_json(directory / "object.json")
     if state is None and not any(
         not path.name.startswith(".") for path in directory.iterdir()
     ):
@@ -310,6 +344,8 @@ def _remote_identity(source):
                 "checksum": [int(value) for value in checksum],
                 "compressed_size": length,
             }
+    except datacache.OfflineError:
+        raise
     except (OSError, URLError, ValueError, TypeError, KeyError, UnicodeError):
         pass
     logger.warning(
@@ -338,7 +374,7 @@ def _remove_staging_files(directory):
     # Only call with the object lock held: nothing else is writing here.
     for path in directory.iterdir():
         if path.name.startswith(".") and not path.is_dir():
-            _remove(path)
+            remove_if_exists(path)
 
 
 class SharedGenomeFasta(GenomeFasta):
@@ -363,7 +399,7 @@ class SharedGenomeFasta(GenomeFasta):
         self._load_reference()
 
     def _load_reference(self):
-        state = _read_json(self.reference_path)
+        state = read_json(self.reference_path)
         if (
             isinstance(state, dict)
             and state.get("source") == self.source
@@ -403,8 +439,8 @@ class SharedGenomeFasta(GenomeFasta):
     def _register(self):
         """Record this release's reference; the caller holds the object lock."""
         with dna_cache_lock(self.root):
-            _write_json(self.reference_path, self._reference_state())
-            _write_json(self.manifest_path, self._reference_state())
+            write_json(self.reference_path, self._reference_state())
+            write_json(self.manifest_path, self._reference_state())
 
     def prepare(self, download=False, overwrite=False, show_progress=False):
         self._load_reference()  # Another process may have registered it.
@@ -421,7 +457,7 @@ class SharedGenomeFasta(GenomeFasta):
             if overwrite or self.installed_path is None:
                 self.directory.mkdir(parents=True, exist_ok=True)
                 _remove_staging_files(self.directory)
-                _write_json(self.directory / "object.json", {"identity": self.identity})
+                write_json(self.directory / "object.json", {"identity": self.identity})
                 self._download(
                     expected_size=self.identity.get("compressed_size"),
                     show_progress=show_progress,
@@ -435,7 +471,7 @@ class SharedGenomeFasta(GenomeFasta):
     def _is_registered(self):
         return (
             self.installed_path is not None
-            and _read_json(self.reference_path) == self._reference_state()
+            and read_json(self.reference_path) == self._reference_state()
         )
 
     def remember(self):
@@ -499,7 +535,7 @@ def _owned_objects(root):
         ]
         if "object.json" not in files or (directory / "object.json").is_symlink():
             continue
-        state = _read_json(directory / "object.json")
+        state = read_json(directory / "object.json")
         if not isinstance(state, dict) or not isinstance(state.get("identity"), dict):
             continue
         identity = state["identity"]
@@ -525,7 +561,7 @@ def prune_genome_fastas(dry_run=False, cache_root=None):
     with dna_cache_lock(root):
         referenced = set()
         for path in _reference_manifests(root):
-            state = _read_json(path)
+            state = read_json(path)
             if not isinstance(state, dict) or not isinstance(state.get("source"), str):
                 raise ValueError(
                     "Cannot safely prune: invalid genome FASTA manifest %s" % path

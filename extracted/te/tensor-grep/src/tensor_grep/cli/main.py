@@ -41,28 +41,29 @@ from tensor_grep.cli import terminal_output as _terminal_output
 from tensor_grep.cli import windows_launcher as _windows_launcher
 from tensor_grep.cli._index_lock import atomic_write_bytes_anchored as atomic_write_bytes_anchored
 from tensor_grep.cli.completeness_output import _output_limit_note, coverage_gap_banner
-from tensor_grep.cli.detail_tier import apply_detail_tier as _apply_detail_tier
-from tensor_grep.cli.detail_tier import detail_option as _detail_option
-from tensor_grep.cli.detail_tier import dump_detail_json as _dump_detail_json
-from tensor_grep.cli.formatters.base import OutputFormatter
-from tensor_grep.cli.prepare_service import (
-    _build_prepare_payload,
+from tensor_grep.cli.detail_tier import (
+    apply_detail_tier as _apply_detail_tier,
 )
+from tensor_grep.cli.detail_tier import (
+    compact_option as _compact_option,
+)
+from tensor_grep.cli.detail_tier import (
+    detail_option as _detail_option,
+)
+from tensor_grep.cli.detail_tier import (
+    dump_detail_json as _dump_detail_json,
+)
+from tensor_grep.cli.detail_tier import (
+    resolve_compact_detail as _resolve_compact_detail,
+)
+from tensor_grep.cli.formatters.base import OutputFormatter
+from tensor_grep.cli.prepare_service import _build_prepare_payload
 from tensor_grep.cli.rg_post_process import post_process_matches as _rg_out
 from tensor_grep.cli.root_app import create_root_app
-from tensor_grep.cli.runtime_paths import (
-    _native_tg_version as _native_tg_version,
-)
-from tensor_grep.cli.runtime_paths import (
-    _native_tg_version_matches as _native_tg_version_matches,
-)
-from tensor_grep.cli.runtime_paths import (
-    env_flag_disabled,
-    env_flag_enabled,
-)
-from tensor_grep.cli.runtime_paths import (
-    inspect_native_tg_binary as inspect_native_tg_binary,
-)
+from tensor_grep.cli.runtime_paths import _native_tg_version as _native_tg_version
+from tensor_grep.cli.runtime_paths import _native_tg_version_matches as _native_tg_version_matches
+from tensor_grep.cli.runtime_paths import env_flag_disabled, env_flag_enabled
+from tensor_grep.cli.runtime_paths import inspect_native_tg_binary as inspect_native_tg_binary
 from tensor_grep.cli.runtime_paths import (
     is_cross_domain_native_binary as is_cross_domain_native_binary,
 )
@@ -71,12 +72,8 @@ from tensor_grep.cli.runtime_paths import (
 from tensor_grep.cli.runtime_paths import (
     native_frontdoor_metadata_path as native_frontdoor_metadata_path,
 )
-from tensor_grep.cli.runtime_paths import (
-    resolve_native_tg_binary as resolve_native_tg_binary,
-)
-from tensor_grep.cli.runtime_paths import (
-    resolve_ripgrep_binary as resolve_ripgrep_binary,
-)
+from tensor_grep.cli.runtime_paths import resolve_native_tg_binary as resolve_native_tg_binary
+from tensor_grep.cli.runtime_paths import resolve_ripgrep_binary as resolve_ripgrep_binary
 from tensor_grep.cli.runtime_paths import (
     translate_path_for_windows_binary as translate_path_for_windows_binary,
 )
@@ -86,7 +83,7 @@ from tensor_grep.core import result as _JSON_OUTPUT_VERSION_CONTRACT
 from tensor_grep.core import retrieval_symbols
 from tensor_grep.core.case_semantics import case_regex_flags
 from tensor_grep.core.observability import nvtx_range
-from tensor_grep.core.reranker import build_why_ranked_reasons, route_labels
+from tensor_grep.core.reranker import route_labels, select_deduplicated_find_matches
 from tensor_grep.core.retrieval_chunker import MAX_CHUNKS
 from tensor_grep.io.file_types import BUILTIN_TYPE_LIST as _BUILTIN_TYPE_LIST
 from tensor_grep.io.project_markers import path_has_project_marker as _path_has_project_marker
@@ -1358,6 +1355,7 @@ def _execute_find(
     why_ranked: bool = False,
     grounding: str = "local",
     rerank: str = "off",
+    hybrid: bool = False,
 ) -> "SearchResult":
     """The `tg find` pipeline: whole-repo walk -> chunk -> BM25 [+ dense] [+ late MaxSim] rank via
     the shared `rank_chunks` core (`core/reranker.py`) -> `--limit` -> token-budget fit -> a
@@ -1585,6 +1583,8 @@ def _execute_find(
             late_reranker=late_reranker,
             dense_weight=_find_dense_weight(query),
             combine=_find_combine_mode(query),
+            hybrid=hybrid,
+            cache_root=root if hybrid else None,
             **retrieval_symbols.evidence_options(result),
         )
     except DenseUnavailableError as exc:
@@ -1613,10 +1613,12 @@ def _execute_find(
             late_reranker=None,
             dense_weight=_find_dense_weight(query),
             combine=_find_combine_mode(query),
+            hybrid=hybrid,
+            cache_root=root if hybrid else None,
             **retrieval_symbols.evidence_options(result),
         )
     result.routing_backend, result.routing_reason, result.install_state = route_labels(
-        dense_index, result.rank_fusion
+        dense_index, result.rank_fusion, hybrid=hybrid
     )
     if late_fallback_reason:
         result.rank_fallback_reason = (
@@ -1625,14 +1627,14 @@ def _execute_find(
             else late_fallback_reason
         )
 
-    selected = fused_order[: max(0, limit)]
-    query_terms = set(split_terms(query))
-    matches: list[MatchLine] = []
-    for chunk_index in selected:
-        chunk = chunks[chunk_index]
-        line_number, line_text = _find_representative_line(chunk, query_terms)
-        why = build_why_ranked_reasons(chunk, query_terms, why_ranked)
-        matches.append(MatchLine(line_number, line_text, chunk.file_path, why_ranked=why))
+    matches, selected = select_deduplicated_find_matches(
+        chunks,
+        fused_order,
+        set(split_terms(query)),
+        limit=limit,
+        why_ranked=why_ranked,
+        find_representative_line=_find_representative_line,
+    )
 
     # Output-only budget fit (never touches result_incomplete -- see docstring): truncate the
     # LOWEST-ranked matches first (the tail of the already best-first `matches` list), floored at 1
@@ -1714,17 +1716,12 @@ def find(
         "Stop the repo walk/chunk phase after N seconds and return ranked results over the partial corpus scanned so far (result_incomplete=true, exit 2) instead of running unbounded."
     ),
     why_ranked: bool = typer.Option(False, "--why-ranked", help="Explain why matches were ranked."),
-    grounding: str = typer.Option(
-        "local", "--grounding", help="Dependency evidence: off, local, registry (explicit network)."
-    ),
-    rerank: str = typer.Option(
-        "off", "--rerank", help="Native reranking: off, auto, cross-encoder."
-    ),
+    grounding: str = typer.Option("local", "--grounding", help="Evidence: off, local, registry."),
+    rerank: str = typer.Option("off", "--rerank", help="Native rerank: off, auto, cross-encoder."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
-    ndjson: bool = typer.Option(
-        False, "--ndjson", help="Emit newline-delimited JSON, one object per match."
-    ),
+    ndjson: bool = typer.Option(False, "--ndjson", help="Emit newline-delimited JSON per match."),
     citations: bool = typer.Option(False, "--citations", help="Emit citation ranges."),
+    hybrid: bool = typer.Option(False, "--hybrid", help="Use FTS5 + adaptive IDF-weighted RRF."),
 ) -> None:
     """EXPERIMENTAL: whole-repo hybrid semantic search (BM25 + local CPU dense-embedding
     relevance, RRF-fused), ranked file:line results.
@@ -1757,6 +1754,7 @@ def find(
             why_ranked=why_ranked,
             grounding=grounding,
             rerank=rerank,
+            hybrid=hybrid,
         )
     except (FileNotFoundError, ConfigurationError) as exc:
         typer.echo(str(exc), err=True)
@@ -4836,6 +4834,7 @@ def orient(
         help="Accepted for command-surface parity with codemap; a no-op since orient already "
         "defaults to an unbounded --deadline.",
     ),
+    compact: bool = _compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit the capsule as JSON"),
 ) -> None:
     """Emit a one-call codebase orientation capsule (central files, entry points, AST snippets)."""
@@ -4843,6 +4842,7 @@ def orient(
     # orient_capsule import and the daemon gate, so front-door time counts against --deadline.
     # CLI consistency fix : `--deadline` used to be undefined on `tg orient`
     # (Click "No such option" exit-2).
+    orient_detail = _resolve_compact_detail(compact, "standard", json_output=json_output)
     effective_deadline = None if no_deadline else deadline
     deadline_monotonic = _cli_deadline_monotonic(effective_deadline)
 
@@ -4888,7 +4888,7 @@ def orient(
     if json_output:
         # build_orient_capsule_json's exact format (json.dumps(..., indent=2), no
         # ensure_ascii=False) -- match it here so a warm hit is byte-identical to a cold miss.
-        typer.echo(json.dumps(payload, indent=2))
+        typer.echo(_dump_detail_json(payload, orient_detail))
         return
 
     # `tg orient` has no exit-2 contract by design (see --deadline's help): a truncated scan still
@@ -5797,6 +5797,7 @@ def agent(
         "off", "--rerank", help="Native advisory snippet reranking: off, auto, cross-encoder."
     ),
     detail: str = _detail_option(),
+    compact: bool = _compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
     citations: bool = typer.Option(False, "--citations", help="Emit citation ranges."),
 ) -> None:
@@ -5826,6 +5827,9 @@ def agent(
         _warn_unavailable_gpu_device_ids(parsed_gpu_device_ids)
         # Daemon misses or unreliable evidence fall through to the cold build. Requests requiring
         # fresh deadlines or new option contracts use the cold path until daemon schema support.
+        effective_detail = _resolve_compact_detail(
+            compact, detail, json_output=json_output, citations=citations
+        )
         daemon_payload = (
             _self._maybe_agent_via_running_daemon(
                 path=resolved_path,
@@ -5855,7 +5859,7 @@ def agent(
             else:
                 daemon_payload.pop("dependency_grounding", None)
             if json_output:
-                typer.echo(_dump_detail_json(daemon_payload, detail, ensure_ascii=False))
+                typer.echo(_dump_detail_json(daemon_payload, effective_detail, ensure_ascii=False))
             else:
                 _emit_scan_incompleteness_banner(daemon_payload)
                 _emit_agent_text(daemon_payload, gpu_device_ids)
@@ -5896,12 +5900,12 @@ def agent(
     # Emit the full capsule before applying the scan-truncation exit contract.
     if citations:
         _citations.emit_payload_citations(
-            _apply_detail_tier(payload, detail) if json_output else payload,
+            _apply_detail_tier(payload, effective_detail) if json_output else payload,
             resolved_path,
             json_output=json_output,
         )
     elif json_output:
-        typer.echo(_dump_detail_json(payload, detail, ensure_ascii=False))
+        typer.echo(_dump_detail_json(payload, effective_detail, ensure_ascii=False))
     else:
         _emit_scan_incompleteness_banner(payload)
         _emit_agent_text(payload, gpu_device_ids)
@@ -5963,6 +5967,7 @@ def edit_plan(
         help="Accepted for command-surface parity with codemap; a no-op since edit-plan already "
         "defaults to an unbounded --deadline.",
     ),
+    compact: bool = _compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return a machine-readable edit-planning bundle without rendered source text."""
@@ -5986,6 +5991,7 @@ def edit_plan(
         # Skip the warm-daemon fast path entirely when a --deadline was requested (a warm
         # session's cached repo_map cannot honor a fresh per-request scan deadline) -- mirrors
         # refs/callers/impact/blast-radius's own daemon gate.
+        edit_detail = _resolve_compact_detail(compact, "standard", json_output=json_output)
         daemon_payload = (
             _maybe_edit_plan_via_running_daemon(
                 path=resolved_path,
@@ -6005,7 +6011,7 @@ def edit_plan(
             # Output-before-exit (Cluster B, 2026-07-06): same exit-2-on-scan-truncation contract as
             # the cold path below -- print the full daemon payload, then exit 2 if it was truncated.
             if json_output:
-                typer.echo(json.dumps(daemon_payload, indent=2))
+                typer.echo(_dump_detail_json(daemon_payload, edit_detail))
             else:
                 _emit_scan_incompleteness_banner(daemon_payload)
                 payload = daemon_payload
@@ -6040,7 +6046,7 @@ def edit_plan(
     # text branches share the same scan-truncation gate below -- output the full payload FIRST, then
     # exit 2 if the scan itself (not just the output) was capped.
     if json_output:
-        typer.echo(json.dumps(payload, indent=2))
+        typer.echo(_dump_detail_json(payload, edit_detail))
     else:
         _emit_scan_incompleteness_banner(payload)
         typer.echo(f"Edit plan for {payload['path']}")
@@ -9715,24 +9721,15 @@ def classify(
     file_path: str | None = typer.Argument(
         None, help="The log file to classify (omit when using --stdin or --text)."
     ),
-    format_type: str = typer.Option("json", "--format", help="Output format"),
+    format_type: str | None = typer.Option(None, "--format", help="Output format"),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON output"),
     max_lines: int = typer.Option(
         DEFAULT_CLASSIFY_MAX_LINES,
         "--max-lines",
         help="Maximum input lines to emit in JSON output (0 disables the cap).",
     ),
-    stdin_flag: bool = typer.Option(
-        False,
-        "--stdin",
-        help="Read the text to classify from stdin instead of a file "
-        "(mutually exclusive with --text).",
-    ),
-    text: str | None = typer.Option(
-        None,
-        "--text",
-        help="Classify a literal string instead of a file or stdin "
-        "(mutually exclusive with --stdin).",
-    ),
+    stdin_flag: bool = typer.Option(False, "--stdin", help="Read text from stdin."),
+    text: str | None = typer.Option(None, "--text", help="Classify a literal string."),
 ) -> None:
     """Run log classification with local heuristics or an explicit cyBERT provider."""
     import json
@@ -9757,6 +9754,9 @@ def classify(
             "Error: tg classify --text cannot be combined with a file path argument", err=True
         )
         raise typer.Exit(1)
+    if json_output and format_type is not None and format_type != "json":
+        typer.echo("Error: tg classify --json cannot be combined with --format", err=True)
+        raise typer.Exit(2)
 
     # Mirrors sidecar.py's _classify_payload: content supplied directly (stdin/--text) skips
     # the file-read branch entirely, and empty content degrades cleanly instead of hanging or
@@ -9803,7 +9803,7 @@ def classify(
     budgeted_lines, line_budget = _apply_classify_line_budget(lines, max_lines)
     results, classification_backend = _classify_lines_with_metadata(budgeted_lines)
 
-    if format_type == "json":
+    if json_output or format_type in (None, "json"):
         data = {
             "version": _json_output_version(),
             "schema_version": _json_output_version(),
@@ -12498,15 +12498,14 @@ def ledger_claim(
     files: str | None = typer.Option(
         None,
         "--files",
+        "--file",
         help="Comma-separated root-relative file paths to claim (e.g. --files a.py,b.py).",
     ),
     intent: str = typer.Option(
         "edit", "--intent", help='Caller-declared intent, e.g. "edit", "review".'
     ),
     ttl: int | None = typer.Option(
-        None,
-        "--ttl",
-        help="Claim TTL in seconds. Defaults to TG_LEDGER_CLAIM_TTL_SECONDS or 900.",
+        None, "--ttl", help="Claim TTL in seconds. Defaults to TG_LEDGER_CLAIM_TTL_SECONDS or 900."
     ),
     agent_id: str | None = typer.Option(
         None,

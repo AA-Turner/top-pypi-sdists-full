@@ -141,7 +141,7 @@ class Screen(_raw_display_base.Screen):
             and the state the terminal reported is set back when it stops; without a report the mode stays as set.
         :param underline_styles: draw the underline styles and the underline colors of the display attributes;
             without them an underline is drawn single and in the text color.
-            None (default) detects them by the terminfo entry of ``TERM`` and by the terminal's environment variables,
+            None (default) detects them by the terminfo entry of ``TERM``,
             and turns them on when the terminal's reply to a capability or version query shows them;
             pass True/False to force it.
 
@@ -433,9 +433,7 @@ class Screen(_raw_display_base.Screen):
                 # and raising here would hide the error that ended the run, such as the closed input.
                 if exc.errno not in {errno.EIO, errno.ENXIO, errno.EPIPE}:
                     raise
-                # _stop_mouse_restore_buffer() did not clear the flag; a later start that fails before clearing it
-                # draws nothing either
-                self._start_complete = False
+                self._forget_stop_state()
             finally:
                 # a failed write skips the step of _mouse_tracking() that stops the helper
                 self._stop_gpm_tracking()

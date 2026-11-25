@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 from time import monotonic
 
@@ -82,6 +83,9 @@ def run_molmospaces(
         for renderer in dict.fromkeys(BENCHMARKS[name].renderer for name in suites)
     }
     counts = benchmark_counts(suites, next(iter(executables.values())))
+    if selection == "random":  # --random: one benchmark, any of its episodes
+        selection = random.randrange(counts[suites[0]])
+        on_line(f"Random task: {suites[0]}/{selection}")
     if selection != "all":
         for name, count in counts.items():
             if selection >= count:

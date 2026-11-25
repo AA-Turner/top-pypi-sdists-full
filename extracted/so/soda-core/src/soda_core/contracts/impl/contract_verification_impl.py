@@ -12,7 +12,7 @@ from soda_core.check_collections.base import CheckCollectionImpl, CheckCollectio
 from soda_core.common._deprecation import deprecated_kwarg
 from soda_core.common.consistent_hash_builder import ConsistentHashBuilder
 from soda_core.common.data_source_impl import DataSourceImpl
-from soda_core.common.exceptions import InvalidRegexException, SodaCoreException
+from soda_core.common.exceptions import InvalidArgumentException, InvalidRegexException, SodaCoreException
 from soda_core.common.logs import Logs
 from soda_core.common.number_conversions import is_finite_number
 from soda_core.common.soda_cloud import SodaCloud
@@ -213,6 +213,23 @@ def collect_post_processing_stages() -> list[PostProcessingStage]:
     return stages
 
 
+def validate_data_source_impls(data_source_impls: Optional[list[DataSourceImpl]]) -> list[DataSourceImpl]:
+    """Returns data_source_impls, and [] for None. Raises InvalidArgumentException for anything but a list of data
+    sources."""
+    if data_source_impls is None:
+        return []
+    not_data_sources: list = (
+        [d for d in data_source_impls if not isinstance(d, DataSourceImpl)]
+        if isinstance(data_source_impls, list)
+        else [data_source_impls]
+    )
+    if not_data_sources:
+        raise InvalidArgumentException(
+            f"Expected a list of data sources, and got a {type(not_data_sources[0]).__name__}"
+        )
+    return data_source_impls
+
+
 class ContractVerificationSessionImpl:
     """Implements the contract verification session.
 
@@ -251,6 +268,8 @@ class ContractVerificationSessionImpl:
         check_selectors: Optional[list[CheckSelector]] = None,
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
         logs: Optional[Logs] = None,
+        execution_dataset: Optional[str] = None,
+        publish_schema_metadata: Optional[bool] = None,
         **kwargs,
     ):
         # Backwards-compat: accept the legacy "agent" kwarg names. Optional[T] = None +
@@ -290,12 +309,7 @@ class ContractVerificationSessionImpl:
             assert isinstance(variables, dict)
             assert all(isinstance(k, str) and isinstance(v, (str, Number)) for k, v in variables.items())
 
-        # Validate input data_source_impls
-        if data_source_impls is None:
-            data_source_impls = []
-        else:
-            assert isinstance(data_source_impls, list)
-            assert all(isinstance(data_source_impl, DataSourceImpl) for data_source_impl in data_source_impls)
+        data_source_impls = validate_data_source_impls(data_source_impls)
 
         # Validate input data_source_yaml_sources
         if data_source_yaml_sources is None:
@@ -323,6 +337,11 @@ class ContractVerificationSessionImpl:
         if check_selectors is None:
             check_selectors = []
 
+        if soda_cloud_use_runner and (execution_dataset is not None or publish_schema_metadata is False):
+            raise InvalidArgumentException(
+                "execution_dataset and publish_schema_metadata=False work only for a local verification, not on a "
+                "runner"
+            )
         if soda_cloud_use_runner:
             contract_verification_results: list[ContractVerificationResult] = cls._execute_on_runner(
                 contract_yaml_sources=contract_yaml_sources,
@@ -338,6 +357,8 @@ class ContractVerificationSessionImpl:
         else:
             local_session_result: CheckCollectionSessionResult = cls._execute_locally(
                 logs=logs,
+                execution_dataset=execution_dataset,
+                publish_schema_metadata=publish_schema_metadata,
                 contract_yaml_sources=contract_yaml_sources,
                 only_validate_without_execute=only_validate_without_execute,
                 provided_variable_values=variables,
@@ -370,6 +391,8 @@ class ContractVerificationSessionImpl:
         soda_cloud_publish_results: bool,
         check_selectors: list[CheckSelector],
         dwh_files: Optional[DiagnosticsWarehouseFiles] = None,
+        execution_dataset: Optional[str] = None,
+        publish_schema_metadata: Optional[bool] = None,
     ) -> CheckCollectionSessionResult:
         "Verifies Contracts locally by funnelling through ``execute_check_collections``."
         from soda_core.check_collections.session import execute_check_collections
@@ -421,6 +444,8 @@ class ContractVerificationSessionImpl:
                 # use ``ContractImpl`` for unknown-kind fallback so the ERROR
                 # placeholder's ``result_class`` matches that declared return.
                 default_impl_class=ContractImpl,
+                execution_dataset=execution_dataset,
+                publish_schema_metadata=publish_schema_metadata,
             )
         finally:
             for name in names_to_close:
@@ -436,15 +461,19 @@ class ContractVerificationSessionImpl:
         data_source_yaml_sources: list[DataSourceYamlSource],
         provided_variable_values: dict[str, str],
     ) -> dict[str, DataSourceImpl]:
-        data_source_impl_by_name: dict[str, DataSourceImpl] = (
-            {data_source_impl.name: data_source_impl for data_source_impl in data_source_impls}
-            if data_source_impls
-            else {}
-        )
-        for data_source_yaml_source in data_source_yaml_sources:
-            data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
+        all_data_source_impls: list[DataSourceImpl] = list(data_source_impls or []) + [
+            DataSourceImpl.from_yaml_source(
                 data_source_yaml_source=data_source_yaml_source, provided_variable_values=provided_variable_values
             )
+            for data_source_yaml_source in data_source_yaml_sources
+        ]
+        data_source_impl_by_name: dict[str, DataSourceImpl] = {}
+        for data_source_impl in all_data_source_impls:
+            if data_source_impl.name in data_source_impl_by_name:
+                raise InvalidArgumentException(
+                    f"Two data sources are named '{data_source_impl.name}'. Pass each data source once, under a "
+                    f"name of its own"
+                )
             data_source_impl_by_name[data_source_impl.name] = data_source_impl
         return data_source_impl_by_name
 
@@ -627,6 +656,8 @@ class ContractImpl(CheckCollectionImpl):
         # cascade in a follow-up dispatch.
         yaml: Optional[ContractYaml] = None,
         soda_cloud_impl: Optional[SodaCloud] = None,
+        execution_dataset: Optional[str] = None,
+        publish_schema_metadata: Optional[bool] = None,
     ):
         # Data-source resolution (data_source_impl=None + all_data_source_impls →
         # look up by the dataset's leading name segment) now lives in the base
@@ -644,6 +675,8 @@ class ContractImpl(CheckCollectionImpl):
             all_data_source_impls=all_data_source_impls,
             dwh_files=dwh_files,
             logs=logs,
+            execution_dataset=execution_dataset,
+            publish_schema_metadata=publish_schema_metadata,
         )
 
     @property
@@ -1332,6 +1365,15 @@ class CheckImpl:
             else:
                 logger.error(f"Unknown check type '{check_yaml.type_name}'")
 
+    # target_query is soda-reconciliation's, for the target side of a metric_diff or rows_diff check.
+    _OWN_SQL_KEYS: tuple[str, ...] = ("query", "keys_query", "target_query")
+
+    def runs_own_sql(self) -> bool:
+        """Whether the check reads the tables its own SQL names instead of the contract's dataset by name, which
+        execution_dataset can't redirect. A check type whose keys mean otherwise answers for itself."""
+        body: dict = self.check_yaml.check_yaml_object.yaml_dict
+        return any(isinstance(body.get(key), str) for key in self._OWN_SQL_KEYS)
+
     def unsupported_reason(self, data_source_impl: Optional[DataSourceImpl]) -> Optional[str]:
         """Why this check cannot run on this data source, or None. Answered by the check because the
         requirement depends on how it is configured — a dataset-level duplicate needs a row hash where
@@ -1563,8 +1605,8 @@ class CheckImpl:
 
         if contract_impl.data_source_impl:
             identity_hash_builder.add_property("dso", contract_impl.data_source_impl.name)
-        identity_hash_builder.add_property("pr", contract_impl.dataset_prefix)
-        identity_hash_builder.add_property("ds", contract_impl.dataset_name)
+        identity_hash_builder.add_property("pr", contract_impl.checked_dataset.dataset.prefixes)
+        identity_hash_builder.add_property("ds", contract_impl.checked_dataset.dataset.dataset_name)
         identity_hash_builder.add_property("c", column_impl.column_yaml.name if column_impl else None)
         identity_hash_builder.add_property("t", check_type)
         identity_hash_builder.add_property("q", qualifier)
@@ -1672,7 +1714,7 @@ class MetricImpl:
         self.type: str = metric_type
         self.check_filter: Optional[str] = check_filter
         self.missing_and_validity: Optional[MissingAndValidity] = missing_and_validity
-        self.dataset_identifier = dataset_identifier or contract_impl.dataset_identifier
+        self.dataset_identifier = dataset_identifier or contract_impl.checked_dataset.dataset
 
         self.data_source_impl: Optional[DataSourceImpl] = None
         if self.contract_impl.data_source_impl:
@@ -1692,12 +1734,8 @@ class MetricImpl:
 
     def _measures_the_collection_dataset(self) -> bool:
         """Whether the metric is on the collection's dataset and data source, compared by value."""
-        collection_dataset: DatasetIdentifier = self.contract_impl.dataset_identifier
-        if not (
-            self.dataset_identifier.data_source_name == collection_dataset.data_source_name
-            and list(self.dataset_identifier.prefixes or []) == list(collection_dataset.prefixes or [])
-            and self.dataset_identifier.dataset_name == collection_dataset.dataset_name
-        ):
+        collection_dataset: DatasetIdentifier = self.contract_impl.checked_dataset.dataset
+        if not (self.dataset_identifier.is_same_as(collection_dataset)):
             return False
         collection_data_source: Optional[DataSourceImpl] = self.contract_impl.data_source_impl
         return self.data_source_impl is collection_data_source or (

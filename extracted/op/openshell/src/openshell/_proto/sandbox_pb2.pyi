@@ -84,7 +84,7 @@ SUPERVISOR_MIDDLEWARE_BINDING_HTTP_RESPONSE_PRE_RETURN: SupervisorMiddlewareBind
 SUPERVISOR_MIDDLEWARE_BINDING_WEBSOCKET_MESSAGE_PRE_CREDENTIALS: SupervisorMiddlewareBinding
 
 class SandboxPolicy(_message.Message):
-    __slots__ = ("version", "filesystem", "landlock", "process", "network_policies", "network_middlewares")
+    __slots__ = ("version", "filesystem", "landlock", "process", "network_policies", "network_middlewares", "cedar_policy", "provider_credential_rules", "endpoint_settings")
     class NetworkPoliciesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -99,19 +99,38 @@ class SandboxPolicy(_message.Message):
         key: str
         value: NetworkMiddlewareConfig
         def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[NetworkMiddlewareConfig, _Mapping]] = ...) -> None: ...
+    class ProviderCredentialRulesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: NetworkPolicyRule
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[NetworkPolicyRule, _Mapping]] = ...) -> None: ...
     VERSION_FIELD_NUMBER: _ClassVar[int]
     FILESYSTEM_FIELD_NUMBER: _ClassVar[int]
     LANDLOCK_FIELD_NUMBER: _ClassVar[int]
     PROCESS_FIELD_NUMBER: _ClassVar[int]
     NETWORK_POLICIES_FIELD_NUMBER: _ClassVar[int]
     NETWORK_MIDDLEWARES_FIELD_NUMBER: _ClassVar[int]
+    CEDAR_POLICY_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_CREDENTIAL_RULES_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     version: int
     filesystem: FilesystemPolicy
     landlock: LandlockPolicy
     process: ProcessPolicy
     network_policies: _containers.MessageMap[str, NetworkPolicyRule]
     network_middlewares: _containers.MessageMap[str, NetworkMiddlewareConfig]
-    def __init__(self, version: _Optional[int] = ..., filesystem: _Optional[_Union[FilesystemPolicy, _Mapping]] = ..., landlock: _Optional[_Union[LandlockPolicy, _Mapping]] = ..., process: _Optional[_Union[ProcessPolicy, _Mapping]] = ..., network_policies: _Optional[_Mapping[str, NetworkPolicyRule]] = ..., network_middlewares: _Optional[_Mapping[str, NetworkMiddlewareConfig]] = ...) -> None: ...
+    cedar_policy: CedarPolicy
+    provider_credential_rules: _containers.MessageMap[str, NetworkPolicyRule]
+    endpoint_settings: _containers.RepeatedCompositeFieldContainer[NetworkEndpoint]
+    def __init__(self, version: _Optional[int] = ..., filesystem: _Optional[_Union[FilesystemPolicy, _Mapping]] = ..., landlock: _Optional[_Union[LandlockPolicy, _Mapping]] = ..., process: _Optional[_Union[ProcessPolicy, _Mapping]] = ..., network_policies: _Optional[_Mapping[str, NetworkPolicyRule]] = ..., network_middlewares: _Optional[_Mapping[str, NetworkMiddlewareConfig]] = ..., cedar_policy: _Optional[_Union[CedarPolicy, _Mapping]] = ..., provider_credential_rules: _Optional[_Mapping[str, NetworkPolicyRule]] = ..., endpoint_settings: _Optional[_Iterable[_Union[NetworkEndpoint, _Mapping]]] = ...) -> None: ...
+
+class CedarPolicy(_message.Message):
+    __slots__ = ("source",)
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    source: str
+    def __init__(self, source: _Optional[str] = ...) -> None: ...
 
 class FilesystemPolicy(_message.Message):
     __slots__ = ("include_workdir", "read_only", "read_write")
@@ -351,12 +370,14 @@ class NetworkBinary(_message.Message):
     def __init__(self, path: _Optional[str] = ...) -> None: ...
 
 class GetSandboxConfigRequest(_message.Message):
-    __slots__ = ("workspace_scope", "name")
+    __slots__ = ("workspace_scope", "name", "supported_capabilities")
     WORKSPACE_SCOPE_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    SUPPORTED_CAPABILITIES_FIELD_NUMBER: _ClassVar[int]
     workspace_scope: _datamodel_pb2.WorkspaceSelector
     name: str
-    def __init__(self, workspace_scope: _Optional[_Union[_datamodel_pb2.WorkspaceSelector, _Mapping]] = ..., name: _Optional[str] = ...) -> None: ...
+    supported_capabilities: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, workspace_scope: _Optional[_Union[_datamodel_pb2.WorkspaceSelector, _Mapping]] = ..., name: _Optional[str] = ..., supported_capabilities: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class GetGatewayConfigRequest(_message.Message):
     __slots__ = ()
@@ -492,18 +513,20 @@ class GetSandboxConfigResponse(_message.Message):
     def __init__(self, policy: _Optional[_Union[SandboxPolicy, _Mapping]] = ..., version: _Optional[int] = ..., policy_hash: _Optional[str] = ..., settings: _Optional[_Mapping[str, EffectiveSetting]] = ..., config_revision: _Optional[int] = ..., policy_source: _Optional[_Union[PolicySource, str]] = ..., global_policy_version: _Optional[int] = ..., provider_env_revision: _Optional[int] = ..., supervisor_middleware_services: _Optional[_Iterable[_Union[SupervisorMiddlewareService, _Mapping]]] = ..., workspace: _Optional[str] = ..., policy_validation_failure_mode: _Optional[str] = ..., extension_authentication_enabled: bool = ..., provider_attachment_epoch: _Optional[str] = ..., configuration_admitted: bool = ..., configuration_error: _Optional[str] = ..., configuration_instance_id: _Optional[str] = ..., settings_revision: _Optional[int] = ..., service_routes: _Optional[_Iterable[_Union[SandboxServiceRoute, _Mapping]]] = ...) -> None: ...
 
 class SandboxServiceRoute(_message.Message):
-    __slots__ = ("endpoint_id", "name", "target_port", "authorization_mode", "resource_version")
+    __slots__ = ("endpoint_id", "name", "target_port", "authorization_mode", "resource_version", "application_hostname")
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TARGET_PORT_FIELD_NUMBER: _ClassVar[int]
     AUTHORIZATION_MODE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_VERSION_FIELD_NUMBER: _ClassVar[int]
+    APPLICATION_HOSTNAME_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     name: str
     target_port: int
     authorization_mode: int
     resource_version: int
-    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., target_port: _Optional[int] = ..., authorization_mode: _Optional[int] = ..., resource_version: _Optional[int] = ...) -> None: ...
+    application_hostname: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., target_port: _Optional[int] = ..., authorization_mode: _Optional[int] = ..., resource_version: _Optional[int] = ..., application_hostname: _Optional[str] = ...) -> None: ...
 
 class SupervisorMiddlewareService(_message.Message):
     __slots__ = ("name", "grpc_endpoint", "max_payload_bytes", "request_timeout", "tls_ca_cert_pem", "audience", "allow_insecure_transport", "binding_policy", "bindings")

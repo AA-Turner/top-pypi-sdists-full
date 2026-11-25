@@ -3,11 +3,14 @@ from __future__ import annotations
 import typing as t
 from collections import defaultdict
 from collections.abc import Callable, Iterable
+from functools import partial
 
 import param
 from bokeh.models import Spacer as BkSpacer
 from panel._param import Margin
+from panel.io.document import hold
 from panel.io.resources import CDN_DIST
+from panel.io.state import state
 from panel.layout.base import (
     _SCROLL_MAPPING,
     ListLike,
@@ -68,6 +71,25 @@ class MaterialLayout(MaterialComponent, SizingModeMixin):
         model.update(**sizing_mode)
         return model
 
+    def _update_model(
+        self, events: dict[str, param.parameterized.Event], msg: dict[str, t.Any],
+        root: Model, model: Model, doc: Document, comm: Comm | None
+    ) -> None:
+        # Like Panel's own layouts, re-infer the layout's sizing from its
+        # children whenever they change, not only on the initial render.
+        with hold(doc):
+            super()._update_model(events, msg, root, model, doc, comm)
+            if 'objects' not in events:
+                return
+            props = {
+                prop: getattr(model, prop)
+                for prop in ('sizing_mode', 'styles', 'width', 'min_width', 'margin')
+            }
+            sizing_mode = self._compute_sizing_mode(model.data.objects, props)
+            changed = {k: v for k, v in sizing_mode.items() if getattr(model, k) != v}
+            if changed:
+                model.update(**changed)
+
 
 class MaterialListLike(MaterialLayout, ListLike):
 
@@ -127,9 +149,32 @@ class MaterialNamedListLike(MaterialLayout, NamedListLike):
         #        replaced by watch precedence support in param
         self.param.watchers['objects']['value'].reverse()
 
-    @param.depends("objects", watch=True)
-    def _trigger_names(self):
-        self.param.trigger("_names", "_headers")
+    def _update_items(self, objects, headers, names, **params) -> None:
+        # Updating the names and headers in the same batch as the objects
+        # ensures they are validated and synced in a single update.
+        self.param.update(objects=objects, _headers=headers, _names=names, **params)
+
+    def _update_names(self, event: param.parameterized.Event) -> None:
+        if len(event.new) == len(self._names):
+            return
+        names, headers = [], []
+        for obj in event.new:
+            if obj in event.old:
+                index = event.old.index(obj)
+                names.append(self._names[index])
+                headers.append(self._headers[index] if index < len(self._headers) else None)
+            else:
+                names.append(obj.name)
+                headers.append(None)
+        self.param.update(_names=names, _headers=headers)
+
+    def _index_updates(self, n: int, removed: int | None = None) -> dict[str, t.Any]:
+        """
+        Returns parameter updates which keep index based parameters
+        valid for n objects and, if an object was removed, pointing
+        at the same objects.
+        """
+        return {}
 
     def _to_object_and_name(self, item):
         if isinstance(item, tuple):
@@ -156,12 +201,12 @@ class MaterialNamedListLike(MaterialLayout, NamedListLike):
         return objs, names
 
     def __setitem__(self, index, panes):
-        new_objects = list(self)
+        new_objects, headers, names = list(self), list(self._headers), list(self._names)
         if isinstance(index, slice):
-            new_objects[index], self._headers[index], self._names[index] = self._to_objects_and_names(panes)
+            new_objects[index], headers[index], names[index] = self._to_objects_and_names(panes)
         else:
-            new_objects[index], self._headers[index], self._names[index] = self._to_object_and_name(panes)
-        self.objects = new_objects
+            new_objects[index], headers[index], names[index] = self._to_object_and_name(panes)
+        self._update_items(new_objects, headers, names)
 
     def append(self, pane: t.Any) -> None:
         """
@@ -172,19 +217,15 @@ class MaterialNamedListLike(MaterialLayout, NamedListLike):
         obj (object): Panel component to add as a tab.
         """
         new_object, new_header, new_name = self._to_object_and_name(pane)
-        new_objects = list(self)
-        new_objects.append(new_object)
-        self._names.append(new_name)
-        self._headers.append(new_header)
-        self.objects = new_objects
+        self._update_items(
+            [*self, new_object], [*self._headers, new_header], [*self._names, new_name]
+        )
 
     def clear(self) -> None:
         """
         Clears the tabs.
         """
-        self._names = []
-        self._headers = []
-        self.objects = []
+        self._update_items([], [], [], **self._index_updates(0))
 
     def extend(self, panes: Iterable[t.Any]) -> None:
         """
@@ -195,11 +236,9 @@ class MaterialNamedListLike(MaterialLayout, NamedListLike):
         objects (list): List of panel components to add as tabs.
         """
         new_objects, new_headers, new_names = self._to_objects_and_names(panes)
-        objects = list(self)
-        objects.extend(new_objects)
-        self._names.extend(new_names)
-        self._headers.extend(new_headers)
-        self.objects = objects
+        self._update_items(
+            [*self, *new_objects], [*self._headers, *new_headers], [*self._names, *new_names]
+        )
 
     def insert(self, index: int, pane: t.Any) -> None:
         """
@@ -211,11 +250,11 @@ class MaterialNamedListLike(MaterialLayout, NamedListLike):
         object (object): Panel components to insert as tabs.
         """
         new_object, new_header, new_name = self._to_object_and_name(pane)
-        new_objects = list(self.objects)
+        new_objects, headers, names = list(self), list(self._headers), list(self._names)
         new_objects.insert(index, new_object)
-        self._headers.insert(index, new_header)
-        self._names.insert(index, new_name)
-        self.objects = new_objects
+        headers.insert(index, new_header)
+        names.insert(index, new_name)
+        self._update_items(new_objects, headers, names)
 
     def pop(self, index: int = -1) -> Viewable:
         """
@@ -225,11 +264,14 @@ class MaterialNamedListLike(MaterialLayout, NamedListLike):
         ----------
         index (int): The index of the item to pop from the tabs.
         """
-        new_objects = list(self)
+        new_objects, headers, names = list(self), list(self._headers), list(self._names)
         obj = new_objects.pop(index)
-        self._names.pop(index)
-        self._headers.pop(index)
-        self.objects = new_objects
+        headers.pop(index)
+        names.pop(index)
+        index = index % (len(new_objects) + 1)
+        self._update_items(
+            new_objects, headers, names, **self._index_updates(len(new_objects), index)
+        )
         return obj
 
     def remove(self, pane: Viewable) -> None:
@@ -240,25 +282,15 @@ class MaterialNamedListLike(MaterialLayout, NamedListLike):
         ----------
         obj (object): The object to remove from the tabs.
         """
-        new_objects = list(self)
-        if pane in new_objects:
-            index = new_objects.index(pane)
-            new_objects.remove(pane)
-            self._names.pop(index)
-            self._headers.pop(index)
-            self.objects = new_objects
-        else:
+        if pane not in self.objects:
             raise ValueError(f'{pane!r} is not in list')
+        self.pop(self.objects.index(pane))
 
     def reverse(self) -> None:
         """
         Reverses the tabs.
         """
-        new_objects = list(self)
-        new_objects.reverse()
-        self._names.reverse()
-        self._headers.reverse()
-        self.objects = new_objects
+        self._update_items(self.objects[::-1], self._headers[::-1], self._names[::-1])
 
 
 class Column(MaterialListLike):
@@ -477,27 +509,19 @@ class Feed(Column):
             new_models.append(model)
         return new_models, old_models  # type: ignore[return-value]
 
-    def _process_event(self, event=None) -> None:
+    def _move_to_latest(self) -> None:
         """
-        Process a scroll-button click event by forcing range to latest window.
+        Moves the visible range to the latest objects.
         """
         if not self.visible_range:
             return
 
-        # Need to get all the way to the bottom rather than the center
-        # of the buffer zone.
-        load_buffer = self.load_buffer
-        with param.discard_events(self):
-            self.load_buffer = 1
-
+        # The window synced from this range ends at the latest object and keeps
+        # the full load_buffer above it.
         n = len(self.objects)
-        n_visible = self.visible_range[-1] - self.visible_range[0]
+        n_visible = max(self.visible_range[-1] - self.visible_range[0], 1)
         with edit_readonly(self):
-            # plus one to center on the last object
-            self.visible_range = (min(max(n - n_visible + 1, 0), n), n)
-
-        with param.discard_events(self):
-            self.load_buffer = load_buffer
+            self.visible_range = (max(n - n_visible, 0), n)
 
     def _handle_click(self, event=None):
         self.scroll_to_latest()
@@ -506,6 +530,12 @@ class Feed(Column):
     def _handle_msg(self, msg: dict[str, t.Any]) -> None:
         if msg.get("type") == "request_latest":
             self.scroll_to_latest(scroll_limit=msg.get("scroll_limit"))
+        elif msg.get("type") == "at_latest" and self.objects:
+            # The frontend scrolled to the newest child it has, which may be
+            # behind the server, so the window follows the newest object.
+            n = len(self.objects)
+            with edit_readonly(self):
+                self.visible_range = (n - 1, n)
 
     def scroll_to_latest(self, scroll_limit: float | None = None) -> None:
         """
@@ -520,7 +550,7 @@ class Feed(Column):
         """
         rerender = bool(self._last_synced and self._last_synced[-1] < len(self.objects))
         if rerender:
-            self._process_event()
+            self._move_to_latest()
         self._send_msg({"type": "scroll_latest", "rerender": rerender, "scroll_limit": scroll_limit})
 
 
@@ -764,6 +794,38 @@ class MaterialDynamicNamedListLike(MaterialNamedListLike):
 
     __abstract = True
 
+    def __init__(self, *objects, **params):
+        super().__init__(*objects, **params)
+        # One placeholder per root and position, so that switching only
+        # replaces the models of the objects that were (de)activated.
+        self._placeholders: dict[str, dict[int, BkSpacer]] = {}
+        self.param.watch(self._clamp_indices, 'objects')
+
+    def _clamp_indices(self, event: param.parameterized.Event):
+        # A trigger (e.g. a dynamic re-render on an active change) leaves
+        # the objects unchanged, so indices are only clamped on real changes.
+        if event.old is event.new:
+            return
+        if (updates := self._index_updates(len(event.new))):
+            self.param.update(updates)
+
+    @staticmethod
+    def _shift_indices(indices: list[int], n: int, removed: int | None) -> list[int]:
+        shifted = []
+        for i in indices:
+            if removed is not None:
+                if i == removed:
+                    continue
+                elif i > removed:
+                    i -= 1
+            if 0 <= i < n:
+                shifted.append(i)
+        return shifted
+
+    def _index_updates(self, n: int, removed: int | None = None) -> dict[str, t.Any]:
+        disabled = self._shift_indices(self.disabled, n, removed)
+        return {} if disabled == self.disabled else {'disabled': disabled}
+
     def _is_active(self, index: int) -> bool:
         raise NotImplementedError
 
@@ -772,15 +834,25 @@ class MaterialDynamicNamedListLike(MaterialNamedListLike):
         if self.dynamic:
             self.param.trigger("objects")
 
+    def _cleanup(self, root: Model | None = None) -> None:
+        if root:
+            self._placeholders.pop(root.ref['id'], None)
+        super()._cleanup(root)
+
     def _get_child_model(self, child, doc, root, parent, comm):
         # Other children, e.g. the headers, are always rendered
         if child is not self.objects:
             return super()._get_child_model(child, doc, root, parent, comm)
         ref = root.ref["id"]
+        placeholders = self._placeholders.setdefault(ref, {})
+        for i in [i for i in placeholders if i >= len(child)]:
+            del placeholders[i]
         models, old_models = [], []
         for i, sv in enumerate(child):
             if self.dynamic and not self._is_active(i):
-                model = BkSpacer()
+                if i not in placeholders:
+                    placeholders[i] = BkSpacer()
+                model = placeholders[i]
             else:
                 if ref in sv._models:
                     old_models.append(sv._models[ref][0])
@@ -966,6 +1038,13 @@ class Accordion(MaterialDynamicNamedListLike, PaperMixin):
             params["objects"] = objects
         super().__init__(**params)
 
+    def _index_updates(self, n: int, removed: int | None = None) -> dict[str, t.Any]:
+        updates = super()._index_updates(n, removed)
+        active = self._shift_indices(self.active, n, removed)
+        if active != self.active:
+            updates['active'] = active
+        return updates
+
     def _is_active(self, index: int) -> bool:
         return index in self.active
 
@@ -1030,16 +1109,33 @@ class Tabs(MaterialDynamicNamedListLike):
             params["objects"] = objects
         super().__init__(**params)
 
+    def _index_updates(self, n: int, removed: int | None = None) -> dict[str, t.Any]:
+        updates = super()._index_updates(n, removed)
+        active = self.active
+        if removed is not None and (removed < active or active >= n):
+            active -= 1
+        active = max(min(active, n - 1), 0)
+        if active != self.active:
+            updates['active'] = active
+        return updates
+
     def _is_active(self, index: int) -> bool:
         return index == self.active
 
     def _handle_msg(self, msg):
         if msg.get('type') == 'close':
             obj_id = msg['id']
+            index = msg.get('index')
             for model, _ in self._models.values():
                 if model is None:
                     continue
-                for i, obj_model in enumerate(model.data.objects):
+                objects = model.data.objects
+                # The same object may be listed more than once, so the index
+                # the frontend reports is preferred if it still matches.
+                if isinstance(index, int) and 0 <= index < len(objects) and objects[index].id == obj_id:
+                    self.pop(index)
+                    return
+                for i, obj_model in enumerate(objects):
                     if obj_model.id == obj_id:
                         self.pop(i)
                         return
@@ -1157,14 +1253,21 @@ class Dialog(MaterialListLike):
     - https://mui.com/material-ui/react-dialog/
 
     :Example:
-    >>> close = Button(on_click=lambda _: dialog.param.update(open=False), label='Close')  # type: ignore
-    >>> dialog = Dialog("This is a modal", close)
+    >>> close = Button(on_click=lambda _: dialog.param.update(open=False), label='Close', variant='text')  # type: ignore
+    >>> dialog = Dialog("This is a modal", title="Dialog", actions=[close])
     >>> button = Button(on_click=lambda _: dialog.param.update(open=True), label=f'Open {Dialog.name}')
     >>> pn.Column(button, dialog).servable()
     """
 
+    actions = Children(default=[], doc="""
+        Components, usually buttons, shown right-aligned in a footer below
+        the content. The footer stays in view while the content scrolls.""")
+
     close_on_click = param.Boolean(default=False, doc="""
         Close when clicking outside the Dialog area.""")
+
+    close_on_escape = param.Boolean(default=True, doc="""
+        Close when the Escape key is pressed.""")
 
     full_screen = param.Boolean(default=False, doc="""
         Whether the dialog should be full screen.""")
@@ -1175,7 +1278,7 @@ class Dialog(MaterialListLike):
     title = param.String(default="", doc="""
         The title of the dialog.""")
 
-    title_variant = param.String(default="h3", doc="""
+    title_variant = param.String(default="h5", doc="""
         The text variant of the Dialog title.""")
 
     scroll: t.Literal["body", "paper"] = param.Selector(objects=["body", "paper"], default="paper", doc="""
@@ -1235,6 +1338,39 @@ class Drawer(MaterialListLike):
         doc="Variant style of the drawer.")  # type: ignore[assignment]
 
     _esm_base = "Drawer.jsx"
+
+    def __init__(self, *objects, **params):
+        self._on_transition_callbacks: list[Callable[[bool], t.Any]] = []
+        super().__init__(*objects, **params)
+
+    def on_transition(self, callback: Callable[[bool], t.Any]) -> None:
+        """
+        Register a callback to run once the drawer has finished opening or closing.
+
+        Arguments
+        ---------
+        callback: (callable)
+            Called with whether the drawer is now open. May be a sync or
+            async function.
+        """
+        self._on_transition_callbacks.append(callback)
+
+    def remove_on_transition(self, callback: Callable[[bool], t.Any]) -> None:
+        """
+        Remove a callback registered with ``on_transition``.
+
+        Arguments
+        ---------
+        callback: (callable)
+            The callback to remove.
+        """
+        self._on_transition_callbacks.remove(callback)
+
+    def _handle_msg(self, msg: t.Any) -> None:
+        if msg.get("type") != "transition":
+            return
+        for fn in list(self._on_transition_callbacks):
+            state.execute(partial(fn, msg["open"]))
 
     @param.depends("variant", "inline", "anchor", watch=True, on_init=True)
     def _force_zero_dimensions(self):
@@ -1297,7 +1433,23 @@ class Popup(MaterialListLike):
     hide_backdrop = param.Boolean(default=False, doc="""
         Whether to hide the backdrop when the Popup is open.""")
 
-    elevation = param.Integer(default=1, bounds=(0, None), doc="Elevation of the paper surface.")
+    elevation = param.Integer(default=None, bounds=(0, None), allow_None=True, doc="""
+        Elevation of the paper surface. Defaults to 1 for a modal Popup and
+        to 8, the elevation of menus, for a non-modal one.""")
+
+    label = param.String(default=None, doc="""
+        Accessible name of the Popup. When set, the Popup is announced as a
+        dialog with this name. A non-modal Popup without a label takes the
+        name of its trigger.""")
+
+    modal = param.Boolean(default=True, doc="""
+        Whether the Popup is modal. A non-modal Popup behaves as a non-modal
+        dialog: it is anchored to its trigger, has no backdrop and leaves the
+        page usable, moves the focus to its first focusable element when it
+        opens, and closes on Escape, on a click outside and when the focus
+        moves elsewhere on the page, returning the focus to its trigger when
+        it had it. The trigger is the button in the same layout as the Popup
+        that opened it, and gets ``aria-haspopup`` and ``aria-expanded``.""")
 
     open = param.Boolean(default=False, doc="Whether the pop-up is open.")
 

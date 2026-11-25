@@ -504,6 +504,7 @@ class Generator:
     SUPPORTS_SELECT_INTO = False
 
     SUPPORTS_OPTIMIZE = False
+    SUPPORTS_EXECUTE_IMMEDIATE = True
 
     # Whether UNLOGGED tables can be created
     SUPPORTS_UNLOGGED_TABLES = False
@@ -623,6 +624,7 @@ class Generator:
     ALTER_SET_WRAPPED = False
 
     # Whether to normalize the date parts in EXTRACT(<date_part> FROM <expr>) into a common representation
+    # using the dialect's general aliases as a fallback for parts without an EXTRACT-specific mapping.
     # For instance, to extract the day of week in ISO semantics, one can use ISODOW, DAYOFWEEKISO etc depending on the dialect.
     # TODO: The normalization should be done by default once we've tested it across all dialects.
     NORMALIZE_EXTRACT_DATE_PARTS = False
@@ -1031,7 +1033,9 @@ class Generator:
         expression = self.preprocess(expression)
 
         self.unsupported_messages = []
-        sql = self.sql(expression).strip()
+        sql = self.sql(expression)
+        # A trailing newline in a raw command can terminate a line comment.
+        sql = sql.lstrip() if isinstance(expression, exp.Command) else sql.strip()
 
         if self.pretty:
             sql = sql.replace(self.SENTINEL_LINE_BREAK, "\n")
@@ -2661,6 +2665,10 @@ class Generator:
 
         return f"{only}{table}{changes}{partition}{file_format}{pre_alias}{alias}{indexed}{hints}{pivots}{post_alias}{joins}{laterals}{ordinality}"
 
+    def tableargument_sql(self, expression: exp.TableArgument) -> str:
+        table = expression.this
+        return f"TABLE {self.maybe_comment(self.table_parts(table), table)}"
+
     def tablefromrows_sql(self, expression: exp.TableFromRows) -> str:
         table = self.func("TABLE", expression.this)
         alias = self.sql(expression, "alias")
@@ -3947,14 +3955,18 @@ class Generator:
         order = f" OVER ({self.order_sql(order, flat=True)})" if order else ""
         return f"NEXT VALUE FOR {self.sql(expression, 'this')}{order}"
 
-    def extract_sql(self, expression: exp.Extract) -> str:
-        import sqlglot.dialects.dialect
+    def extract_date_part(self, part: exp.Expr) -> exp.Expr:
+        mapping = self.dialect.EXTRACT_DATE_PART_MAPPING
+        if self.NORMALIZE_EXTRACT_DATE_PARTS and part.name.upper() not in mapping:
+            mapping = self.dialect.DATE_PART_MAPPING
+        if mapping:
+            import sqlglot.dialects.dialect
 
-        this = (
-            sqlglot.dialects.dialect.map_date_part(expression.this, self.dialect)
-            if self.NORMALIZE_EXTRACT_DATE_PARTS
-            else expression.this
-        )
+            return sqlglot.dialects.dialect.map_date_part(part, mapping=mapping)
+        return part
+
+    def extract_sql(self, expression: exp.Extract) -> str:
+        this = self.extract_date_part(expression.this)
         if self.EXTRACT_ALLOWS_QUOTES:
             this_sql = self.sql(this)
         elif isinstance(this, exp.WeekStart):
@@ -4498,7 +4510,8 @@ class Generator:
         return self.binary(expression, "COLLATE")
 
     def command_sql(self, expression: exp.Command) -> str:
-        return f"{self.sql(expression, 'this')} {expression.text('expression').strip()}"
+        args = expression.text("expression").lstrip()
+        return f"{self.sql(expression, 'this')} {args}".rstrip(" \t")
 
     def optimize_sql(self, expression: exp.Optimize) -> str:
         if not self.SUPPORTS_OPTIMIZE:
@@ -5967,7 +5980,8 @@ class Generator:
 
     def gapfill_sql(self, expression: exp.GapFill) -> str:
         this = self.sql(expression, "this")
-        this = f"TABLE {this}"
+        if isinstance(expression.this, exp.Table):
+            this = f"TABLE {this}"
         return self.func("GAP_FILL", this, *[v for k, v in expression.args.items() if k != "this"])
 
     def scope_resolution(self, rhs: str, scope_name: str) -> str:
@@ -6883,6 +6897,14 @@ class Generator:
     def executesql_sql(self, expression: exp.ExecuteSql) -> str:
         self.unsupported("Unsupported Execute syntax")
         return ""
+
+    def executeimmediate_sql(self, expression: exp.ExecuteImmediate) -> str:
+        if not self.SUPPORTS_EXECUTE_IMMEDIATE:
+            self.unsupported("EXECUTE IMMEDIATE is not supported")
+            return ""
+        using = self.expressions(expression, flat=True)
+        using = f" USING {using}" if using else ""
+        return f"EXECUTE IMMEDIATE {self.sql(expression, 'this')}{using}"
 
     def altermodifysqlsecurity_sql(self, expression: exp.AlterModifySqlSecurity) -> str:
         props = self.expressions(expression, sep=" ")

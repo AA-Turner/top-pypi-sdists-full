@@ -1,12 +1,10 @@
 import uuid
 import warnings
-from email.message import MIMEPart
 
 from requests.structures import CaseInsensitiveDict
 
 from ..exceptions import (
     AnymailConfigurationError,
-    AnymailNotSupportedWarning,
     AnymailSerializationError,
     AnymailWarning,
 )
@@ -25,12 +23,6 @@ class EmailBackend(AnymailRequestsBackend):
     def __init__(self, **kwargs):
         """Init options from Django settings"""
         esp_name = self.esp_name
-
-        warnings.warn(
-            "django-anymail has dropped official support for SendGrid."
-            " See https://github.com/anymail/django-anymail/issues/432.",
-            AnymailNotSupportedWarning,
-        )
 
         # Warn if v2-only username or password settings found
         username = get_anymail_setting(
@@ -318,19 +310,17 @@ class SendGridPayload(RequestsPayload):
         )
 
     def add_attachment(self, attachment):
-        # SendGrid strips charset from `type` and doesn't include `charset`
-        # in the Content-Type header, so use utf-8 encoding for text and hope
-        # for the best. (See issue #150.)
-        content_type = attachment.content_type
-        if attachment.charset and attachment.charset != "utf-8":
-            # Rebuild content_type with charset=utf-8 to match what we'll send
-            temp = MIMEPart()
-            temp.add_header("Content-Type", attachment.mimetype, charset="utf-8")
-            content_type = temp["Content-Type"]
-
+        # For text attachments, SendGrid's API inconsistently either rejects a
+        # charset param in `type` (with the error "The attachment type cannot
+        # contain ';', or CRLF characters.") -- or silently ignores it and
+        # sends the attachment either with no charset param, or sometimes with
+        # charset="iso-8859-1" (see issues #150, #492). Since we can't be sure
+        # what SendGrid might do with text, encode as utf-8 (best chance of
+        # decoding properly in many clients if charset is omitted), but leave
+        # out the charset param in `type` (to avoid the API error).
         att = {
             "content": attachment.b64content_utf8,
-            "type": content_type,
+            "type": attachment.mimetype,
             # (filename is required -- submit empty string if unknown)
             "filename": attachment.name or "",
         }

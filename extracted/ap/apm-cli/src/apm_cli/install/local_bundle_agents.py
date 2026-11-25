@@ -88,7 +88,7 @@ def render_and_deploy_codex_agent(
     from ..integration.agent_integrator import _SKIPPED, AgentIntegrator, CodexAgentFieldError
     from ..utils.atomic_io import normalize_crlf_to_lf
     from ..utils.diagnostics import DiagnosticCollector
-    from ..utils.path_security import PathTraversalError
+    from ..utils.path_security import PathTraversalError, SymlinkedDeployError
 
     def _warn(message: str) -> None:
         if diagnostics is not None:
@@ -140,9 +140,11 @@ def render_and_deploy_codex_agent(
             return None
         rendered_hash = hashlib.sha256(normalize_crlf_to_lf(rendered).encode("utf-8")).hexdigest()
         if dry_run:
-            if logger is not None:
-                logger.verbose_detail(f"[dry-run] would deploy {record}")
-            return f"sha256:{rendered_hash}", False
+            key = _collision_key(dest, collision_roots)
+            skip, adopted = integrator._check_adopt_or_skip(
+                dest, src, key, None, force, collector, [], expected_content=rendered
+            )
+            return _preview(record, f"sha256:{rendered_hash}", skip and not adopted, logger)
         try:
             outcome = integrator._deploy_rendered_agent(
                 dest,
@@ -154,9 +156,12 @@ def render_and_deploy_codex_agent(
                 diagnostics=collector,
                 target_paths=[],
             )
+        except SymlinkedDeployError:
+            raise
         except (PathTraversalError, ValueError) as exc:
             _warn(f"Skipped unsafe bundle entry {rel_path!r}: {exc}")
             return None
+
         if outcome == _SKIPPED:
             return None
         if logger is not None:
@@ -165,6 +170,15 @@ def render_and_deploy_codex_agent(
     finally:
         if collector is not diagnostics:
             _relay(collector, record, logger)
+
+
+def _preview(record: str, claim: str, skipped: bool, logger: Any) -> tuple[str, bool] | None:
+    """A dry run's outcome: the adopt-or-skip decision the write takes, nothing written."""
+    if skipped:
+        return None
+    if logger is not None:
+        logger.verbose_detail(f"[dry-run] would deploy {record}")
+    return claim, False
 
 
 def _verified_text(packed: bytes) -> str:

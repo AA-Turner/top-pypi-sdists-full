@@ -44,18 +44,12 @@ from flwr.proto.message_pb2 import (  # pylint: disable=E0611
 from flwr.proto.runtime_pb2 import (  # pylint: disable=E0611
     AcquireTaskRequest,
     AcquireTaskResponse,
-    CreateTaskRequest,
-    CreateTaskResponse,
-    GetCompactedContextsRequest,
-    GetCompactedContextsResponse,
     GetConnectorRequest,
     GetConnectorResponse,
     GetNodesRequest,
     GetNodesResponse,
     GetRunSeriesEventsRequest,
     GetRunSeriesEventsResponse,
-    GetSpaceEventsRequest,
-    GetSpaceEventsResponse,
     ListAgentConnectorsRequest,
     ListAgentConnectorsResponse,
     PullAppMessagesRequest,
@@ -66,24 +60,15 @@ from flwr.proto.runtime_pb2 import (  # pylint: disable=E0611
     PushAppMessagesResponse,
     PushTaskOutputRequest,
     PushTaskOutputResponse,
-    PutCompactedContextRequest,
-    PutCompactedContextResponse,
-)
-from flwr.proto.space_pb2 import (  # pylint: disable=E0611
-    GetSpaceMessagesRequest,
-    GetSpaceMessagesResponse,
-    SendSpaceMessageRequest,
-    SendSpaceMessageResponse,
 )
 from flwr.proto.task_pb2 import Task  # pylint: disable=E0611
 from flwr.server.superlink.linkstate import LinkState
 from flwr.server.superlink.linkstate.utils import create_run_context
 from flwr.supercore import log
-from flwr.supercore.auth.typing import AccountInfo
+from flwr.supercore.auth.typing import AuthenticatedUser
 from flwr.supercore.constant import AUTOMATION_BATCH_LIMIT, TaskType
 from flwr.supercore.error import ApiErrorCode, FlowerError
 from flwr.supercore.object_store import NoObjectInStoreError
-from flwr.supercore.run import Run
 from flwr.supercore.servicer.runtime import runtime_handlers as core_runtime_handlers
 from flwr.supercore.task_process.connector import registry as connector_registry
 from flwr.supercore.task_process.connector.json_utils import connector_display_name
@@ -105,9 +90,9 @@ def get_run_series_events(
 ) -> GetRunSeriesEventsResponse:
     """Get events from all runs in the authenticated task's series."""
     log(DEBUG, "Runtime.GetRunSeriesEvents")
-    run = state.get_run_info(run_ids=[task.run_id])[0]
+    run = state.get_run(run_ids=[task.run_id])[0]
     series = state.get_run_series(series_ids=[run.series_id])[0]
-    series_runs = state.get_run_info(run_ids=series.run_ids)
+    series_runs = state.get_run(run_ids=series.run_ids)
     primary_task_ids = [
         run.primary_task_id for run in series_runs if run.primary_task_id is not None
     ]
@@ -123,84 +108,6 @@ def get_run_series_events(
         last_n=request.last_n or None,
     )
     return GetRunSeriesEventsResponse(events=events)
-
-
-def get_space_events(
-    request: GetSpaceEventsRequest,
-    state: LinkState,
-    task: Task,
-) -> GetSpaceEventsResponse:
-    """Get events from the authenticated task's Space."""
-    runs = state.get_run_info(run_ids=[task.run_id])
-    if not runs:
-        raise FlowerError(
-            ApiErrorCode.RUN_ID_NOT_FOUND, f"Run {task.run_id} not found."
-        )
-    space_id = runs[0].space_id
-    if space_id is None:
-        raise FlowerError(
-            ApiErrorCode.RUNTIME_ENDPOINT_UNAVAILABLE,
-            "This endpoint is only available to Space tasks.",
-        )
-    return core_runtime_handlers.get_space_events(request, state, space_id)
-
-
-def _get_task_run(state: LinkState, task: Task) -> Run:
-    """Resolve the authenticated task's Run."""
-    runs = state.get_run_info(run_ids=[task.run_id])
-    if not runs:
-        raise FlowerError(
-            ApiErrorCode.RUN_ID_NOT_FOUND, f"Run {task.run_id} not found."
-        )
-    return runs[0]
-
-
-def get_space_messages(
-    request: GetSpaceMessagesRequest, state: LinkState, task: Task
-) -> GetSpaceMessagesResponse:
-    """Read messages within the authenticated task's Space grant."""
-    return core_runtime_handlers.get_space_messages(
-        request, state, task, _get_task_run(state, task)
-    )
-
-
-def send_space_message(
-    request: SendSpaceMessageRequest, state: LinkState, task: Task
-) -> SendSpaceMessageResponse:
-    """Publish with the primary AgentApp's server-bound agent identity."""
-    return core_runtime_handlers.send_space_message(
-        request, state, task, _get_task_run(state, task)
-    )
-
-
-def get_compacted_contexts(
-    request: GetCompactedContextsRequest, state: LinkState, task: Task
-) -> GetCompactedContextsResponse:
-    """Get summaries for the agent."""
-    run = _get_task_run(state, task)
-    _, participant = core_runtime_handlers.authenticate_space_agent(task, run)
-    return core_runtime_handlers.get_compacted_contexts(
-        request, state, participant.agent_id
-    )
-
-
-def put_compacted_context(
-    request: PutCompactedContextRequest, state: LinkState, task: Task
-) -> PutCompactedContextResponse:
-    """Store a summary for the agent."""
-    run = _get_task_run(state, task)
-    _, participant = core_runtime_handlers.authenticate_space_agent(task, run)
-    return core_runtime_handlers.put_compacted_context(
-        request, state, participant.agent_id
-    )
-
-
-def _get_agent_id(state: LinkState, task: Task) -> int:
-    """Resolve the authenticated task's agent ID for file scoping."""
-    runs = state.get_run_info(run_ids=[task.run_id])
-    return core_runtime_handlers.require_agent_id(
-        runs[0] if runs else None, task.run_id
-    )
 
 
 def acquire_task(request: AcquireTaskRequest, state: LinkState) -> AcquireTaskResponse:
@@ -316,21 +223,11 @@ def pull_messages(  # pylint: disable=R0914
     )
 
 
-def create_task(
-    request: CreateTaskRequest, state: LinkState, task: Task
-) -> CreateTaskResponse:
-    """Create a child task using the authenticated task's Run."""
-    return core_runtime_handlers.create_task(
-        request, state, task, _get_task_run(state, task)
-    )
-
-
 def list_agent_connectors(
     request: ListAgentConnectorsRequest, state: LinkState, task: Task
 ) -> ListAgentConnectorsResponse:
     """Return connection metadata for the primary Space AgentApp."""
-    run = _get_task_run(state, task)
-    _, participant = core_runtime_handlers.authenticate_space_agent(task, run)
+    _, participant = core_runtime_handlers.authenticate_space_agent(state, task)
     connectors = []
     for connector in state.get_agent_connectors(participant.agent_id):
         flow = connector_registry.OAUTH_FLOWS.get(connector.connector_ref)
@@ -362,7 +259,7 @@ def get_connector(
             "Connector credentials are not available to this task.",
         )
 
-    runs = state.get_run_info(run_ids=[task.run_id])
+    runs = state.get_run(run_ids=[task.run_id])
     run = runs[0] if runs else None
     if run is None:
         raise FlowerError(ApiErrorCode.CONNECTOR_NOT_FOUND, "Connector not found.")
@@ -424,7 +321,7 @@ def pull_task_input(
     log(DEBUG, "Runtime.PullTaskInput")
     run_id = task.run_id
 
-    runs = state.get_run_info(run_ids=[run_id])
+    runs = state.get_run(run_ids=[run_id])
     run = runs[0] if runs else None
     fab = state.get_fab(run.fab_hash) if run and run.fab_hash else None
     agent = (
@@ -438,7 +335,14 @@ def pull_task_input(
             context = create_run_context(run_id)
         elif run.series_id:
             context = state.get_run_series_context(run.series_id)
-    if run and fab and context and state.activate_task(task.task_id):
+    agent_available = run is not None and (run.agent_id is None or agent is not None)
+    if (
+        run
+        and fab
+        and context
+        and agent_available
+        and state.activate_task(task.task_id)
+    ):
         log(INFO, "Started task %d of run %d", task.task_id, run_id)
         return PullTaskInputResponse(
             context=context_to_proto(context),
@@ -474,7 +378,7 @@ def push_task_output(
     ):
         log(INFO, "Finished task %d of run %d", task.task_id, run_id)
         if request.HasField("context"):
-            runs = state.get_run_info(run_ids=[run_id])
+            runs = state.get_run(run_ids=[run_id])
             run = runs[0] if runs else None
             if run and run.series_id and run.primary_task_id == task.task_id:
                 state.set_run_series_context(
@@ -497,7 +401,7 @@ def start_automation(
             "Only AgentApp and ServerApp tasks can create automations.",
         )
 
-    run = state.get_run_info(run_ids=[task.run_id])[0]
+    run = state.get_run(run_ids=[task.run_id])[0]
     if not run.federation_id:
         raise FlowerError(
             ApiErrorCode.RUNTIME_AUTOMATION_CREATION_NOT_ALLOWED,
@@ -510,9 +414,9 @@ def start_automation(
     )
     return start_control_automation(
         request,
-        AccountInfo(
-            flwr_aid=run.flwr_aid,
-            account_name=run.account_name,
+        AuthenticatedUser(
+            user_id=run.flwr_aid,
+            handle=run.account_name,
         ),
         state,
     )

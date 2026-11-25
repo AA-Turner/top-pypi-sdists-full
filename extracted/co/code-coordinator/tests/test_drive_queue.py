@@ -16,6 +16,7 @@ most attention here are the ones that caused real incidents:
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -1944,6 +1945,250 @@ def test_a_merge_stage_exit_still_blocks_the_ceiling_without_a_clear_gate():
     assert "fix-round ceiling" in reconcile.reason
     assert "(#2972)" in reconcile.reason
     assert len(plan.blocked) == 1
+
+
+def test_a_review_fix_budget_stop_is_exempt_from_the_ceiling_and_retries():
+    """#4117: a drive died on `_decide_review`'s "review requested changes
+    after N fix round(s) this drive — stopping" give-up — THIS drive
+    session's own narrower `--max-fix-rounds` ran out while fixing an
+    earlier Test failure, not the issue's `max_review_iterations` budget
+    (the message says so itself). Work legs already run against this row
+    sit exactly AT the #2972 lifetime ceiling too (both budgets are
+    resolved from the same `effective_max_fix_rounds` figure), so without
+    the #4117 exemption this would wrongly go `exhausted`/`blocked` — the
+    claude-coordinator#4117 incident (quadraui#2870): 5h13m idle with the
+    review's own budget nowhere near exhausted. It must instead fall
+    through to the ordinary `retry`, giving the next relaunch a fresh
+    per-drive budget so the still-unanswered review fix can dispatch."""
+    key = entry_key(REPO, 1650)
+    own_reason = (
+        f"drive exited for {key} (exit_code=1): review requested changes "
+        "after 2 fix round(s) this drive — stopping.\n"
+        "   (review iteration 1/5 is NOT exhausted; this drive's own "
+        "--max-fix-rounds is.)\n"
+        "   Findings: coord log rev1\n"
+        "   Continue by hand: coord assign --interactive --fix-of rev1"
+    )
+    facts = IssueFacts(known=True, issue_state="open", work_leg_count=3)
+    view = BoardView(issues={key: facts})
+    plan = plan_tick(
+        [_dead_running_entry(max_fix_rounds=2, attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+        exit_reasons={key: own_reason},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "retry"
+    assert reconcile.updates["state"] == STATE_WAITING
+    assert reconcile.updates["attempts"] == 1
+    assert own_reason in reconcile.reason
+    assert "fix-round ceiling" not in reconcile.reason
+    assert "(#2972)" not in reconcile.reason
+    assert len(plan.blocked) == 0
+
+
+def test_a_plain_fix_round_ceiling_exit_still_blocks_despite_the_4117_exemption():
+    """Same work-leg count, but `own_reason` names an unrecognized death
+    with no marker at all, not the #4117 review-fix-budget-stop shape —
+    the new exemption must not accidentally widen to every ceiling exit."""
+    key = entry_key(REPO, 1650)
+    own_reason = "some other death with no recognised marker at all"
+    facts = IssueFacts(known=True, issue_state="open", work_leg_count=3)
+    view = BoardView(issues={key: facts})
+    plan = plan_tick(
+        [_dead_running_entry(max_fix_rounds=2, attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+        exit_reasons={key: own_reason},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "exhausted"
+    assert "fix-round ceiling" in reconcile.reason
+    assert "(#2972)" in reconcile.reason
+    assert len(plan.blocked) == 1
+
+
+def test_is_review_fix_budget_stop_reason_matches_only_that_shape():
+    from coord.drive_queue import is_review_fix_budget_stop_reason
+
+    full = (
+        "review requested changes after 2 fix round(s) this drive — "
+        "stopping.\n   (review iteration 1/5 is NOT exhausted; this "
+        "drive's own --max-fix-rounds is.)"
+    )
+    assert is_review_fix_budget_stop_reason(full)
+    # The unrelated #2972 lifetime ceiling wording must never match.
+    assert not is_review_fix_budget_stop_reason(
+        "fix-round ceiling reached across relaunches (#2972): 3 work "
+        "leg(s) already run against this row's own budget of 3"
+    )
+    # `coord.drive`'s neighbouring review-stage give-ups are different
+    # decisions (the issue's own review loop IS exhausted; auto_loop is
+    # off) and must not borrow this exemption.
+    assert not is_review_fix_budget_stop_reason(
+        "review requested changes and the fix loop is exhausted\n"
+        "   (5 rounds, cap 5)."
+    )
+    assert not is_review_fix_budget_stop_reason(
+        "review requested changes but pipeline.auto_loop is OFF — the "
+        "review→fix path is switched off in coordinator.yml"
+    )
+    assert not is_review_fix_budget_stop_reason("")
+    assert not is_review_fix_budget_stop_reason(None)
+
+
+def test_is_review_fix_budget_stop_reason_survives_the_backoff_rewrite():
+    """The tick that actually relaunches is a LATER one than the death
+    (#2273 paces every relaunch behind a post-death backoff), so the text
+    this predicate is asked about there is the row's persisted
+    `last_reason` — which `_augment_backoff_reason` has reduced to the
+    first line of the original cause plus a fresh backoff sentence. A
+    predicate that needed the message's second-line "is NOT exhausted"
+    clause read False on exactly that tick, so the relaunch was budgeted
+    with the lifetime remainder (0) and died without dispatching
+    anything. Built through the real `_augment_backoff_reason` rather
+    than a hand-written approximation of its output, so the two cannot
+    drift apart.
+    """
+    from coord.drive_queue import (
+        _augment_backoff_reason,
+        is_review_fix_budget_stop_reason,
+    )
+
+    death = (
+        "drive exited for claude-coordinator#1650 (exit_code=1): review "
+        "requested changes after 2 fix round(s) this drive — stopping.\n"
+        "   (review iteration 1/5 is NOT exhausted; this drive's own "
+        "--max-fix-rounds is.)\n"
+        "   Findings: coord log rev1"
+    )
+    stored = _augment_backoff_reason(
+        f"{death} (attempt 1/2) — requeued at position 0",
+        "retry backoff: the previous attempt failed 0s ago, next attempt "
+        "permitted in 60s",
+    )
+    # The clause the predicate used to require really is gone by then.
+    assert "is NOT exhausted" not in stored
+    assert is_review_fix_budget_stop_reason(stored)
+
+
+def _launch_argv_config(tmp_path: Path) -> Path:
+    """A minimal real `coordinator.yml` for the `_launch_argv` tests below.
+
+    They must hand `_launch_argv` an EXPLICIT config path: `None` resolves
+    to ``$HOME/.coord/coordinator.yml``, so a unit test passing `None`
+    reads (or fails to read) whatever the machine it runs on happens to
+    have — green on a coordinator host, red in a thin-client ``$HOME``
+    with no `coordinator.yml` at all, which is what
+    `scripts/run_tests_in_populated_home.sh` synthesizes and what every
+    fleet client really looks like. This file names no `pipeline:` block,
+    so `pipeline.max_fix_rounds` is the built-in default and the entry's
+    own `max_fix_rounds` override is what decides the figure under test.
+    """
+    path = tmp_path / "coordinator.yml"
+    path.write_text(
+        "repos:\n"
+        f"  - name: {REPO}\n"
+        f"    github: john/{REPO}\n"
+        "    default_branch: main\n"
+        "machines:\n"
+        "  - name: dellserver\n"
+        "    host: dellserver\n"
+        f"    repos: [{REPO}]\n"
+    )
+    return path
+
+
+def test_launch_argv_widens_back_to_the_per_drive_figure_for_a_review_fix_budget_stop(
+    tmp_path: Path,
+):
+    """#4117: the #2972 ceiling CHECK is only half of what blocked the
+    quadraui#2870 incident — `_reconcile_running`'s exemption above makes
+    the row fall through to `retry` rather than `exhausted`, but the
+    relaunch's own `coord drive --tmux --max-fix-rounds` argv is built by
+    `coord.commands.drive_queue._launch_argv`, a SEPARATE function that
+    narrows the figure via `remaining_fix_rounds` — the exact same lifetime
+    budget the ceiling check just exempted. Walking the issue's own numbers
+    (`max_fix_rounds=2`, `work_leg_count=3`, `legs_at_enqueue=0`):
+    `remaining_fix_rounds` = `2 - (3-0-1)` = 0, so without `own_reason`
+    threaded through too, this relaunch would still be launched with
+    `--max-fix-rounds 0` and die immediately on `coord drive`'s own ceiling
+    check — zero fix legs dispatched, despite the #4117 exemption firing.
+    Passing the review-fix-budget-stop `own_reason` through must instead
+    widen the figure back to `effective_max_fix_rounds`'s plain per-drive
+    allowance (2), the "fresh per-drive allowance" the exemption's own
+    reason text promises."""
+    from coord.commands.drive_queue import _launch_argv
+
+    key = entry_key(REPO, 1650)
+    own_reason = (
+        f"drive exited for {key} (exit_code=1): review requested changes "
+        "after 2 fix round(s) this drive — stopping.\n"
+        "   (review iteration 1/5 is NOT exhausted; this drive's own "
+        "--max-fix-rounds is.)"
+    )
+    row = entry(1650, max_fix_rounds=2)
+    facts = IssueFacts(known=True, issue_state="open", work_leg_count=3)
+
+    argv = _launch_argv(row, _launch_argv_config(tmp_path), facts, own_reason)
+    assert "--max-fix-rounds" in argv
+    assert argv[argv.index("--max-fix-rounds") + 1] == "2"
+
+
+def test_launch_argv_still_narrows_for_an_ordinary_death_at_the_same_leg_count(
+    tmp_path: Path,
+):
+    """Same entry/facts as above, but `own_reason` names an UNRELATED death
+    (or is absent) — the #4117 widening must not leak into the ordinary
+    #2972 narrowing path, which `remaining_fix_rounds` still computes as 0
+    for this leg count."""
+    from coord.commands.drive_queue import _launch_argv
+
+    row = entry(1650, max_fix_rounds=2)
+    facts = IssueFacts(known=True, issue_state="open", work_leg_count=3)
+    config_path = _launch_argv_config(tmp_path)
+
+    argv = _launch_argv(row, config_path, facts, "some other death, no marker at all")
+    assert argv[argv.index("--max-fix-rounds") + 1] == "0"
+
+    argv_no_reason = _launch_argv(row, config_path, facts, None)
+    assert argv_no_reason[argv_no_reason.index("--max-fix-rounds") + 1] == "0"
+
+
+def test_the_fix_round_config_peek_fails_soft_on_an_unresolvable_config(
+    tmp_path: Path,
+):
+    """The `--max-fix-rounds` figure both `_launch_argv` and the tick's
+    `plan_tick` call read their config default from is an ADVISORY peek:
+    it must degrade to `None` (built-in default) when the config cannot be
+    resolved at all, never take the tick down with it.
+
+    `_load_config` reports an unresolvable config as `click.echo` +
+    `sys.exit(2)`, and `SystemExit` is a `BaseException` — it escapes an
+    `except Exception`. So a peek routed through that wrapper killed the
+    launch path outright on any machine whose config does not resolve: a
+    thin client with no `~/.coord/coordinator.yml`, exactly the shape
+    `scripts/run_tests_in_populated_home.sh` synthesizes. Pinned on both
+    halves: the peek returning `None`, and `_launch_argv` still producing
+    a launchable argv (with the entry's own per-drive figure) over the
+    same unresolvable path.
+    """
+    from coord.commands.drive_queue import (
+        _launch_argv,
+        _pipeline_max_fix_rounds_default,
+    )
+
+    missing = tmp_path / "definitely-absent" / "coordinator.yml"
+    assert _pipeline_max_fix_rounds_default(missing) is None
+
+    row = entry(1650, max_fix_rounds=2)
+    facts = IssueFacts(known=True, issue_state="open", work_leg_count=1)
+    argv = _launch_argv(row, missing, facts, None)
+    assert argv[argv.index("--max-fix-rounds") + 1] == "2"
 
 
 def test_the_daemon_host_shape_never_exempts_the_ceiling_without_a_live_override():
@@ -10764,3 +11009,234 @@ def test_an_unconfirmed_test_state_reset_reason_keeps_the_dead_end_markers():
     # With no original cause to layer onto, the note stands alone rather
     # than emitting a dangling separator.
     assert not test_routing_recovery_unconfirmed_reason("", observed).startswith(" —")
+
+
+# ── #4117: board-doctor remedy for "newest review is request-changes, no
+# newer work leg" ────────────────────────────────────────────────────────
+
+
+def _assignment(
+    *, assignment_type: str, dispatched_at: float, assignment_id: str,
+    review_verdict: str | None = None, review_target: str | None = None,
+):
+    from coord.models import Assignment
+
+    return Assignment(
+        machine_name="m1",
+        repo_name=REPO,
+        issue_number=1650,
+        issue_title="t",
+        assignment_id=assignment_id,
+        type=assignment_type,
+        status="done",
+        dispatched_at=dispatched_at,
+        review_verdict=review_verdict,
+        review_target=review_target,
+    )
+
+
+def test_review_fix_remedy_target_fires_when_newest_review_requests_changes():
+    """#4117: the newest review for this issue recorded request-changes and
+    no work-like leg has been dispatched since — the remedy is a fix off
+    THAT review, named by its assignment id."""
+    from coord.board_doctor_policy import review_fix_remedy_target
+    from coord.models import Board
+
+    work = _assignment(assignment_type="work", dispatched_at=NOW - 100, assignment_id="work1")
+    review = _assignment(
+        assignment_type="review", dispatched_at=NOW - 50, assignment_id="rev1",
+        review_verdict="request-changes",
+    )
+    board = Board(completed=[work, review])
+    assert review_fix_remedy_target(board, REPO, 1650) == "rev1"
+
+
+def test_review_fix_remedy_target_is_none_once_a_newer_work_leg_exists():
+    """A fix (or any other work-like leg) already followed the review — its
+    OWN eventual review is the open question now, not this stale one."""
+    from coord.board_doctor_policy import review_fix_remedy_target
+    from coord.models import Board
+
+    review = _assignment(
+        assignment_type="review", dispatched_at=NOW - 50, assignment_id="rev1",
+        review_verdict="request-changes",
+    )
+    fix = _assignment(assignment_type="work", dispatched_at=NOW - 10, assignment_id="fix1")
+    board = Board(completed=[review, fix])
+    assert review_fix_remedy_target(board, REPO, 1650) is None
+
+
+def test_review_fix_remedy_target_is_none_when_the_newest_review_approved():
+    """An ordinary approved review names no fix target at all."""
+    from coord.board_doctor_policy import review_fix_remedy_target
+    from coord.models import Board
+
+    review = _assignment(
+        assignment_type="review", dispatched_at=NOW - 50, assignment_id="rev1",
+        review_verdict="approve",
+    )
+    board = Board(completed=[review])
+    assert review_fix_remedy_target(board, REPO, 1650) is None
+
+
+def test_review_fix_remedy_target_is_none_with_no_review_at_all():
+    from coord.board_doctor_policy import review_fix_remedy_target
+    from coord.models import Board
+
+    work = _assignment(assignment_type="work", dispatched_at=NOW - 100, assignment_id="work1")
+    board = Board(completed=[work])
+    assert review_fix_remedy_target(board, REPO, 1650) is None
+
+
+def test_review_fix_remedy_target_is_none_when_a_newer_review_has_no_verdict_yet():
+    """#4117 review: an older review recorded request-changes, but a NEWER
+    review for the same row has not posted a verdict at all yet — still
+    running/pending, or a crashed leg whose verdict never propagated
+    (quadraui#2873). The older request-changes verdict is not this row's
+    newest word, so bouncing off it would race the in-flight review —
+    `review_fix_remedy_target` must refuse rather than pick the stale
+    verdicted review just because it is the newest VERDICTED one."""
+    from coord.board_doctor_policy import review_fix_remedy_target
+    from coord.models import Board
+
+    stale_review = _assignment(
+        assignment_type="review", dispatched_at=NOW - 50, assignment_id="rev1",
+        review_verdict="request-changes",
+    )
+    in_flight_review = _assignment(
+        assignment_type="review", dispatched_at=NOW - 10, assignment_id="rev2",
+        review_verdict=None,
+    )
+    board = Board(completed=[stale_review, in_flight_review])
+    assert review_fix_remedy_target(board, REPO, 1650) is None
+
+
+def test_next_action_unperformed_is_the_mechanical_route_not_the_capacity_gated_one():
+    """#4117 acceptance: the `CAUSE_NEXT_ACTION_UNPERFORMED` remedy
+    (`_perform_next_action_unperformed`, which now picks `fix-from-review`
+    over `restage(review)` when `review_fix_remedy_target` fires) is
+    registered on the #3760 MECHANICAL route — never the #3769 investigate
+    route `InvestigateCapacityGate` paces — so this remedy is never
+    deferred by that gate."""
+    from coord.board_doctor import CAUSE_NEXT_ACTION_UNPERFORMED, TIER_AUTO
+    from coord.board_doctor_policy import (
+        INVESTIGATE_CAUSES,
+        _is_mechanical_route,
+        policy_tier_of,
+    )
+
+    assert CAUSE_NEXT_ACTION_UNPERFORMED not in INVESTIGATE_CAUSES
+    assert _is_mechanical_route(CAUSE_NEXT_ACTION_UNPERFORMED)
+    assert policy_tier_of(CAUSE_NEXT_ACTION_UNPERFORMED) == TIER_AUTO
+
+
+def _next_action_unperformed_row():
+    from coord.board_doctor import CAUSE_NEXT_ACTION_UNPERFORMED, StuckRow
+
+    return StuckRow(
+        queue="drive-queue",
+        key=f"{REPO}#1650",
+        state="stuck",
+        cause=CAUSE_NEXT_ACTION_UNPERFORMED,
+        confidence="high",
+        evidence=(f"cause={CAUSE_NEXT_ACTION_UNPERFORMED}",),
+    )
+
+
+def _wire_next_action_unperformed(monkeypatch, board, config, *, next_action) -> None:
+    import coord.board_doctor_policy as policy
+
+    monkeypatch.setattr(
+        policy, "_resolve_board_and_config_for_mechanical_action",
+        lambda *a, **k: (board, config),
+    )
+    monkeypatch.setattr(
+        "coord.entry_truth.reconcile_entry",
+        lambda *a, **k: SimpleNamespace(
+            next_action=next_action, next_action_reason="review required but not approved",
+        ),
+    )
+
+
+def test_perform_next_action_unperformed_dispatches_a_bounce_off_a_request_changes_review(
+    monkeypatch,
+):
+    """#4117 acceptance: with a `request-changes` review as the newest
+    review for this row and nothing else in flight,
+    `_perform_next_action_unperformed` reaches `dispatch_sweep_action(
+    "bounce", ...)` — the real production wiring, not just
+    `review_fix_remedy_target` in isolation."""
+    from coord.board_doctor_policy import AUTO_DISPATCHERS
+    from coord.config import Config
+    from coord.entry_truth import NEXT_ACTION_DISPATCH_REVIEW
+    from coord.models import Board
+
+    review = _assignment(
+        assignment_type="review", dispatched_at=NOW - 50, assignment_id="rev1",
+        review_verdict="request-changes",
+    )
+    board = Board(completed=[review])
+    config = Config(repos=[], machines=[])
+    _wire_next_action_unperformed(
+        monkeypatch, board, config, next_action=NEXT_ACTION_DISPATCH_REVIEW,
+    )
+    monkeypatch.setattr("coord.drive.list_drive_sessions", list)
+
+    bounce_calls: list[tuple] = []
+    monkeypatch.setattr(
+        "coord.board_doctor_policy.dispatch_sweep_action",
+        lambda *a, **k: bounce_calls.append(a) or {"bounced": True},
+    )
+
+    from coord.board_doctor_policy import CAUSE_NEXT_ACTION_UNPERFORMED
+
+    performed = AUTO_DISPATCHERS[CAUSE_NEXT_ACTION_UNPERFORMED](
+        _next_action_unperformed_row(),
+    )
+
+    assert performed is True
+    assert bounce_calls == [("bounce", REPO, 1650, "rev1", board, config)]
+
+
+def test_perform_next_action_unperformed_refuses_to_bounce_onto_a_live_drive_session(
+    monkeypatch,
+):
+    """#4117 review: a live `coord drive` session is already running
+    against this row (the live-drive half `_in_flight_work_detail` checks
+    that the predecessor `restage(review)` remedy was safe against, and
+    this `fix-from-review` remedy was not) — the bounce must be refused,
+    never dispatched out from under it."""
+    from coord.board_doctor_policy import (
+        AUTO_DISPATCHERS,
+        CAUSE_NEXT_ACTION_UNPERFORMED,
+    )
+    from coord.config import Config
+    from coord.entry_truth import NEXT_ACTION_DISPATCH_REVIEW
+    from coord.models import Board
+
+    review = _assignment(
+        assignment_type="review", dispatched_at=NOW - 50, assignment_id="rev1",
+        review_verdict="request-changes",
+    )
+    board = Board(completed=[review])
+    config = Config(repos=[], machines=[])
+    _wire_next_action_unperformed(
+        monkeypatch, board, config, next_action=NEXT_ACTION_DISPATCH_REVIEW,
+    )
+    monkeypatch.setattr(
+        "coord.drive.list_drive_sessions",
+        lambda: [{"repo": REPO, "issue": 1650, "session_name": "drive-1650"}],
+    )
+
+    bounce_calls: list[tuple] = []
+    monkeypatch.setattr(
+        "coord.board_doctor_policy.dispatch_sweep_action",
+        lambda *a, **k: bounce_calls.append(a) or {"bounced": True},
+    )
+
+    performed = AUTO_DISPATCHERS[CAUSE_NEXT_ACTION_UNPERFORMED](
+        _next_action_unperformed_row(),
+    )
+
+    assert performed is False
+    assert bounce_calls == []

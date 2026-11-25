@@ -18,7 +18,21 @@ from copy import deepcopy
 from enum import Enum
 from os import getcwd, getenv
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Literal, NoReturn, Optional, Set, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    NoReturn,
+    Optional,
+    Set,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 from urllib.parse import urlparse
 
 import click
@@ -81,7 +95,10 @@ def obfuscate_token(value: Optional[str]) -> Optional[str]:
     return f"{value[:4]}...{value[-8:]}"
 
 
-def gather_with_concurrency(n, *tasks):
+T = TypeVar("T")
+
+
+def gather_with_concurrency(n: int, *tasks: Union[T, Callable[[], T]]) -> List[T]:
     results = []
     for task in tasks:
         if callable(task):
@@ -133,7 +150,7 @@ def echo_safe_humanfriendly_tables_format_pretty_table(data: Iterable[Any], colu
             raise exc
 
 
-def echo_safe_format_table(data: Iterable[Any], columns) -> None:
+def echo_safe_format_table(data: Iterable[Any], columns: List[Dict[str, Any]]) -> None:
     """
     There is a bug in the humanfriendly library: it breaks to render the small table for small terminals
     (`format_robust_table`) if we call format_smart_table with an empty dataset. This catches the error and prints
@@ -206,7 +223,7 @@ def get_current_workspace(config: CLIConfig) -> Optional[Dict[str, Any]]:
     return _get_current_workspace_common(workspaces, config["id"])
 
 
-def get_workspace_member_email(workspace, member_id) -> str:
+def get_workspace_member_email(workspace: Dict[str, Any], member_id: str) -> str:
     return next((member["email"] for member in workspace["members"] if member["id"] == member_id), "-")
 
 
@@ -217,14 +234,16 @@ def _get_current_workspace_common(
 
 
 class AliasedGroup(click.Group):
-    def get_command(self, ctx, cmd_name):
+    def get_command(self, ctx: Context, cmd_name: str) -> Optional[click.Command]:
         # Step one: built-in commands as normal
         cm = click.Group.get_command(self, ctx, cmd_name)
         if cm is not None:
             return cm
         return None
 
-    def resolve_command(self, ctx, args):
+    def resolve_command(
+        self, ctx: Context, args: List[str]
+    ) -> Tuple[Optional[str], Optional[click.Command], List[str]]:
         # always return the command's name, not the alias
         _, cmd, args = super().resolve_command(ctx, args)
         return cmd.name, cmd, args  # type: ignore[union-attr]
@@ -256,7 +275,7 @@ line experience. To opt-out, set TB_CLI_TELEMETRY_OPTOUT to '1' or 'true'."""
         )
         formatter.write_paragraph()
 
-    def __call__(self, *args, **kwargs) -> None:
+    def __call__(self, *args: Any, **kwargs: Any) -> None:
         error_msg: Optional[str] = None
         silent_error_msg: Optional[str] = None
         error_event: str = "error"
@@ -345,9 +364,9 @@ line experience. To opt-out, set TB_CLI_TELEMETRY_OPTOUT to '1' or 'true'."""
         return None
 
 
-def list_commands(self, ctx: Context):
+def list_commands(self: click.Group, ctx: Context) -> List[str]:
     all_commands = self.list_commands(ctx)
-    return [cmd for cmd in all_commands if not self.get_command(ctx, cmd).hidden]
+    return [cmd for cmd in all_commands if (command := self.get_command(ctx, cmd)) is not None and not command.hidden]
 
 
 def getenv_bool(key: str, default: bool) -> bool:
@@ -492,7 +511,7 @@ def _compare_region_host(region_name_or_host: str, region: Dict[str, Any]) -> bo
     return region["api_host"] == region_name_or_host
 
 
-def ask_for_region_interactively(regions):
+def ask_for_region_interactively(regions: List[Region]) -> Optional[Region]:
     region_index = -1
 
     while region_index == -1:
@@ -518,14 +537,10 @@ def ask_for_region_interactively(regions):
     return None
 
 
-def get_region_info(ctx, region=None):
+def get_region_info(config: CLIConfig, region: Optional[Region] = None) -> Tuple[str, str, str]:
     name = region["name"] if region else "default"
-    api_host = format_host(
-        region["api_host"] if region else ctx.obj["config"].get("host", DEFAULT_API_HOST), subdomain="api"
-    )
-    ui_host = format_host(
-        region["host"] if region else ctx.obj["config"].get("host", DEFAULT_UI_HOST), subdomain="cloud"
-    )
+    api_host = format_host(region["api_host"] if region else config.get("host", DEFAULT_API_HOST), subdomain="api")
+    ui_host = format_host(region["host"] if region else config.get("host", DEFAULT_UI_HOST), subdomain="cloud")
 
     return name, api_host, ui_host
 
@@ -626,7 +641,7 @@ def check_user_token_with_client(client: TinyB, token: str):
         )
 
 
-def fork_workspace(client: TinyB, user_client: TinyB, created_workspace):
+def fork_workspace(client: TinyB, user_client: TinyB, created_workspace: Dict[str, Any]) -> None:
     config = CLIConfig.get_project_config()
 
     datasources = client.datasources()
@@ -694,7 +709,7 @@ def create_workspace_interactive(
     )
 
 
-def print_data_branch_summary(client, job_id, response=None):
+def print_data_branch_summary(client: TinyB, job_id: Optional[str], response: Optional[Dict[str, Any]] = None) -> None:
     response = client.job(job_id) if job_id else response or {"partitions": []}
     columns = ["Data Source", "Partition", "Status", "Error"]
     table: list[list] = []
@@ -706,7 +721,9 @@ def print_data_branch_summary(client, job_id, response=None):
     echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
 
 
-def print_branch_regression_tests_summary(client, job_id, host, response=None):
+def print_branch_regression_tests_summary(
+    client: TinyB, job_id: Optional[str], host: str, response: Optional[Dict[str, Any]] = None
+) -> None:
     def format_metric(metric: Union[str, float], is_percentage: bool = False) -> str:
         if isinstance(metric, float):
             if is_percentage:
@@ -716,19 +733,19 @@ def print_branch_regression_tests_summary(client, job_id, host, response=None):
 
     failed = False
     response = client.job(job_id) if job_id else response or {"progress": []}
-    output = "\n"
+    output_parts = ["\n"]
     for step in response["progress"]:
         run = step["run"]
         if run["output"]:
             # If the output contains an alert emoji, it means that it should be ou
-            output += (
+            output_parts.append(
                 warning_message(run["output"])()
                 if isinstance(run["output"], str) and "🚨" in run["output"]
                 else "".join(run["output"])
             )
         if not run["was_successfull"]:
             failed = True
-    click.echo(output)
+    click.echo("".join(output_parts))
 
     if failed:
         click.echo("")
@@ -833,7 +850,7 @@ class PlanName(Enum):
     ENTERPRISE = "Enterprise"
 
 
-def _get_workspace_plan_name(plan):
+def _get_workspace_plan_name(plan: Optional[str]) -> str:
     """
     >>> _get_workspace_plan_name("dev")
     'Build'
@@ -917,16 +934,14 @@ def get_format_from_filename_or_url(filename_or_url: str) -> str:
 def push_data(
     client: TinyB,
     datasource_name: str,
-    url,
+    url: Union[str, Tuple[str, ...], List[str]],
     mode: str = "append",
     sql_condition: Optional[str] = None,
-    replace_options=None,
+    replace_options: Optional[Set[str]] = None,
     concurrency: int = 1,
     silent: bool = False,
     wait: bool = True,
 ) -> Optional[list[str]]:
-    if url and type(url) is tuple:
-        url = url[0]
 
     if not silent:
         if mode == "replace":
@@ -934,7 +949,10 @@ def push_data(
         else:
             click.echo(FeedbackManager.highlight(message=f"\n» Appending data to {datasource_name}..."))
 
-    if isinstance(url, list):
+    urls: List[str]
+    if isinstance(url, tuple):
+        urls = [url[0]]
+    elif isinstance(url, list):
         urls = url
     else:
         urls = [url]
@@ -991,7 +1009,7 @@ def push_data(
     return None
 
 
-def sync_data(ctx, datasource_name: str, yes: bool):
+def sync_data(ctx: Context, datasource_name: str, yes: bool) -> None:
     client: TinyB = ctx.obj["client"]
     datasource = client.get_datasource(datasource_name)
 
@@ -1012,7 +1030,7 @@ def sync_data(ctx, datasource_name: str, yes: bool):
 
 
 # eval "$(_TB_COMPLETE=source_bash tb)"
-def autocomplete_topics(ctx: Context, args, incomplete):
+def autocomplete_topics(ctx: Context, args: List[str], incomplete: str) -> List[str]:
     try:
         config = get_config(None, None)
         ctx.ensure_object(dict)["config"] = config
@@ -1023,33 +1041,33 @@ def autocomplete_topics(ctx: Context, args, incomplete):
         return []
 
 
-def validate_datasource_name(name):
+def validate_datasource_name(name: object) -> None:
     if not isinstance(name, str) or name == "":
         raise CLIException(FeedbackManager.error_datasource_name())
 
 
-def validate_kafka_topic(topic):
+def validate_kafka_topic(topic: object) -> None:
     if not isinstance(topic, str):
         raise CLIException(FeedbackManager.error_kafka_topic())
 
 
-def validate_kafka_group(group):
+def validate_kafka_group(group: object) -> None:
     if not isinstance(group, str):
         raise CLIException(FeedbackManager.error_kafka_group())
 
 
-def validate_kafka_auto_offset_reset(auto_offset_reset):
+def validate_kafka_auto_offset_reset(auto_offset_reset: str) -> None:
     valid_values = {"latest", "earliest", "none"}
     if auto_offset_reset not in valid_values:
         raise CLIException(FeedbackManager.error_kafka_auto_offset_reset())
 
 
-def validate_kafka_schema_registry_url(schema_registry_url):
+def validate_kafka_schema_registry_url(schema_registry_url: str) -> None:
     if not is_url_valid(schema_registry_url):
         raise CLIException(FeedbackManager.error_kafka_registry())
 
 
-def is_url_valid(url):
+def is_url_valid(url: str) -> bool:
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
@@ -1073,7 +1091,7 @@ def _parse_kafka_host_port(entry: str) -> tuple[str, int]:
         raise CLIException(FeedbackManager.error_kafka_bootstrap_server())
 
 
-def validate_kafka_bootstrap_servers(host_and_port):
+def validate_kafka_bootstrap_servers(host_and_port: object) -> None:
     """Validate a Kafka bootstrap-servers string (single entry or comma-separated list).
 
     Format is checked for every entry. Connectivity is then probed per entry — Kafka
@@ -1110,12 +1128,12 @@ def validate_kafka_bootstrap_servers(host_and_port):
         raise last_error
 
 
-def validate_kafka_key(s):
+def validate_kafka_key(s: object) -> None:
     if not isinstance(s, str):
         raise CLIException("Key format is not correct, it must be a string")
 
 
-def validate_kafka_secret(s):
+def validate_kafka_secret(s: object) -> None:
     if not isinstance(s, str):
         raise CLIException("Password format is not correct, it must be a string")
 
@@ -1127,7 +1145,7 @@ def validate_string_connector_param(param: str, s: str) -> None:
         raise CLIConnectionException(param + " cannot be empty")
 
 
-def validate_connection_name(client, connection_name, service):
+def validate_connection_name(client: TinyB, connection_name: str, service: str) -> None:
     if client.get_connector(connection_name, service) is not None:
         from tinybird.tb.modules.feedback_manager import get_cli_name
 
@@ -1136,7 +1154,7 @@ def validate_connection_name(client, connection_name, service):
         )
 
 
-def _get_setting_value(connection, setting, sensitive_settings):
+def _get_setting_value(connection: Dict[str, Any], setting: str, sensitive_settings: List[str]) -> Any:
     if setting in sensitive_settings:
         return "*****"
     return connection.get(setting, "")
@@ -1972,7 +1990,7 @@ def get_s3_connection_name(project_folder: str, connection_name: Optional[str] =
     return get_connection_name(project_folder=project_folder, connection_type="S3", connection_name=connection_name)
 
 
-def get_gcs_connection_name(project_folder) -> str:
+def get_gcs_connection_name(project_folder: str) -> str:
     return get_connection_name(project_folder=project_folder, connection_type="GCS")
 
 
@@ -2041,7 +2059,9 @@ class DataConnectorType(str, Enum):
         return self.value
 
 
-def create_aws_iamrole_connection(client: TinyB, service: str, connection_name, role_arn, region) -> None:
+def create_aws_iamrole_connection(
+    client: TinyB, service: str, connection_name: str, role_arn: str, region: str
+) -> None:
     conn_file_name = f"{connection_name}.connection"
     conn_file_path = Path(getcwd(), conn_file_name)
 
@@ -2320,7 +2340,7 @@ def get_error_event(error: str) -> Tuple[str, str]:
 
 
 def force_echo(string: str) -> None:
-    click.echo(string, force_output=True)  # type: ignore
+    click.echo(string, force_output=True)  # type: ignore[call-arg]
 
 
 def echo_json(data: Dict[str, Any], indent: Union[int, str, None] = None) -> None:

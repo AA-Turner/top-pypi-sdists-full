@@ -7,6 +7,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::mem::ManuallyDrop;
+use std::num::NonZeroUsize;
 
 use pyo3::prelude::*;
 #[cfg(PyPy)]
@@ -170,11 +171,14 @@ pub(crate) struct WalkState {
     /// Where the walk's memo stands: the definitions entered, and whether a
     /// node has armed it ([`Memo`]). Its tables are in `rare`.
     pub(crate) memo: Memo,
-    /// The stack address at which `PyPy` last said the walk had room to go
-    /// deeper, the walk's entry until it is first asked
+    /// The stack address below which the walk asks `PyPy` again
     /// ([`the_interpreter_has_room`]).
     #[cfg(PyPy)]
     room_at: Cell<usize>,
+    /// The lowest frame `PyPy` has answered from with room, `usize::MAX` before
+    /// the first.
+    #[cfg(PyPy)]
+    answered: Cell<usize>,
     /// The thread's stack limit, the low end of the reserve a predicate is
     /// called with, read from the thread's at the first predicate this walk
     /// calls, and `usize::MAX` before ([`WalkState::room_for_python`]).
@@ -216,7 +220,7 @@ impl RareSlot {
 
 /// What a walk rarely holds, behind one pointer in [`WalkState`].
 ///
-/// Both are on the paths a walk seldom takes, and each is a resource the state
+/// Each is on a path a walk seldom takes, and each is a resource the state
 /// must release. Held inline, the memo's tables are eleven words to write and
 /// three drops to run on every call, which the instruction gate's
 /// call-boundary shape, about a hundred instructions a call, reads as 43%
@@ -240,6 +244,13 @@ struct Rare {
     /// because a move is as rare as a fatal signal and a walk that meets none
     /// should not write it.
     moves: u32,
+    /// How many failures a limited walk reports ([`WalkState::limit`]), and
+    /// `None` in every other walk. Here rather than in the state, because a
+    /// word the state holds is a word every call writes: held there, the count
+    /// cost the walk of a list of 64 integers an instruction a call, and read
+    /// through the walk's context it held that context live across a list's
+    /// scan, a spilled register and a larger frame, three more.
+    limit: Option<NonZeroUsize>,
 }
 
 impl WalkState {
@@ -251,7 +262,9 @@ impl WalkState {
             depth: Cell::new(0),
             memo: Memo::default(),
             #[cfg(PyPy)]
-            room_at: Cell::new(stack_address()),
+            room_at: Cell::new(stack_address().saturating_sub(ROOM_STEP)),
+            #[cfg(PyPy)]
+            answered: Cell::new(usize::MAX),
             #[cfg(all(not(PyPy), not(Py_3_14), not(target_env = "musl")))]
             call_out_limit: Cell::new(usize::MAX),
         }
@@ -344,6 +357,25 @@ impl WalkState {
     /// How many containers have moved under the walk so far.
     pub(crate) fn moves(&self) -> u32 {
         self.rare.0.borrow().as_ref().map_or(0, |rare| rare.moves)
+    }
+
+    /// Report at most `count` failures: the count a limited walk
+    /// ([`WalkMode::ExplainLimited`]) stops at. Only such a walk sets it, once,
+    /// before it starts, so the slot it allocates is one a call to it pays.
+    pub(crate) fn limit_to(&mut self, count: NonZeroUsize) {
+        self.rare.0.get_mut().get_or_insert_with(Box::default).limit = Some(count);
+    }
+
+    /// How many failures the walk reports, `usize::MAX` for every one. A
+    /// composite stops once its report holds this many, each report a prefix
+    /// of the full one, and the entry point keeps that many.
+    pub(crate) fn limit(&self) -> usize {
+        self.rare
+            .0
+            .borrow()
+            .as_ref()
+            .and_then(|rare| rare.limit)
+            .map_or(usize::MAX, NonZeroUsize::get)
     }
 }
 
@@ -438,79 +470,146 @@ impl<'a> Ctx<'a> {
 /// that fails -- fetching or normalizing the error it raised among them, which
 /// `cpyext` takes for a fault of its own and ends the process on. Under
 /// `sys.setrecursionlimit(60)` a list nested fifty deep did so. So the walk
-/// asks `PyPy`'s own check, `__pypy__.stack_almost_full`, and asks it from a
-/// frame [`ROOM_RESERVE`] bytes deeper than the walk stands: a yes there leaves
-/// the walk that much below it, for the Python a level runs -- a predicate, an
-/// `isinstance` hook, the explaining walk's rendering -- and for raising what
-/// that Python raises. A refusal is the walk's own, a non-member at
-/// `recursion_limit`, the answer the bound gives, since it is the same fact
-/// about the value.
+/// asks `PyPy`'s own check, `__pypy__.stack_almost_full`, and goes on where
+/// [`ROOM_RESERVE`] bytes below it are known to be free, for the Python a level
+/// runs -- a predicate, an `isinstance` hook, the explaining walk's rendering
+/// -- and for raising what that Python raises. A refusal is the walk's own, a
+/// non-member at `recursion_limit`, the answer the bound gives, since it is the
+/// same fact about the value. A check that cannot be asked is read as no room.
 ///
-/// Asked once the walk is [`ROOM_STEP`] bytes deeper than where the check
-/// last answered, rather than at every level: siblings at one depth never
-/// ask, so a list of ten thousand records pays one comparison an element, and
-/// a deep value asks about once a step. The stack grows down on every
-/// platform `PyPy` ships for. A check that cannot be asked is read as no room.
+/// **A yes is worth a known number of bytes.** The check says yes while less
+/// than fifteen sixteenths of the stack is in use, and a recursion limit of `N`
+/// reserves `N / 1000` of 768 KB (`PyPy`'s docstrings of the two), so a yes
+/// leaves a sixteenth of that below the frame it was asked from: 48 KB at the
+/// default limit, 1.8 KB at the limits page's floor of 37. The walk spends what
+/// the yes left before it asks again, and the frames of one level, which no
+/// constant bounds, come out of the reserve. Where a sixteenth is less than
+/// the reserve, the reserve is proven by questions asked below the walk, each
+/// half a sixteenth past the last answered frame ([`asked_at`]). No question is
+/// asked further than that from an answered frame: asked 12 KiB below a frame
+/// nothing had answered for, or a step and a level's frames past the last, the
+/// question's own call ran out of stack and ended the process.
 #[cfg(PyPy)]
 #[inline]
 fn the_interpreter_has_room(state: &WalkState) -> bool {
     let here = stack_address();
-    here.saturating_add(ROOM_STEP) > state.room_at.get() || asked_for_room(state, here)
+    here > state.room_at.get() || asked_for_room(state, here)
 }
 
-/// `PyPy`'s answer at `here`, kept where it is yes. Out of line: a walk asks
-/// it once a step deeper than any answer before.
+/// Whether [`ROOM_RESERVE`] below `here` is free, asking `PyPy` as far down as
+/// that takes, and where the walk asks next. Out of line: a walk asks once
+/// what the last yes left is spent.
 #[cfg(PyPy)]
 #[cold]
 #[inline(never)]
 fn asked_for_room(state: &WalkState, here: usize) -> bool {
-    let room = room_below_the_reserve();
-    if room {
-        state.room_at.set(here);
+    let Some(left) = left_by_a_yes() else {
+        return false;
+    };
+    let mut answered = state.answered.get();
+    loop {
+        // A quarter of what a yes left is kept for the next question's call.
+        let spent_at = answered
+            .saturating_sub(left - left / 4)
+            .saturating_add(ROOM_RESERVE);
+        if answered != usize::MAX && spent_at < here {
+            state.answered.set(answered);
+            state.room_at.set(spent_at);
+            return true;
+        }
+        let point = answered.saturating_sub(left / 2).min(here);
+        if !asked_at(point) {
+            return false;
+        }
+        answered = point;
     }
-    room
 }
 
-/// Whether `PyPy` has room [`ROOM_RESERVE`] bytes below the caller: the
-/// reserve is a frame of that size, never written, and the check is asked
-/// from below it.
+/// How many bytes a yes leaves below the frame it was asked from: a sixteenth
+/// of the stack the recursion limit reserves, or `None` where the limit cannot
+/// be read. Read at each question, since a caller may move the limit.
+#[cfg(PyPy)]
+fn left_by_a_yes() -> Option<usize> {
+    Python::attach(|py| {
+        limit_of(py)
+            .and_then(PyAnyMethods::call0)
+            .and_then(|limit| limit.extract::<usize>())
+            .ok()
+            .map(|limit| limit.saturating_mul(LEFT_PER_LIMIT))
+    })
+}
+
+/// `PyPy`'s answer asked from the first frame at or below `target`: each
+/// frame spends [`ROOM_GRAIN`] bytes, never written, and asks from the next
+/// one down until it stands there, a grain past it at most.
 #[cfg(PyPy)]
 #[inline(never)]
-fn room_below_the_reserve() -> bool {
-    static ALMOST_FULL: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
-    let reserve = [const { std::mem::MaybeUninit::<u8>::uninit() }; ROOM_RESERVE];
-    std::hint::black_box(&reserve);
+fn asked_at(target: usize) -> bool {
+    let grain = [const { std::mem::MaybeUninit::<u8>::uninit() }; ROOM_GRAIN];
+    std::hint::black_box(&grain);
+    let answer = if stack_address() > target {
+        asked_at(target)
+    } else {
+        the_stack_has_room()
+    };
+    // Read after the call, so the frame is not reused for it.
+    std::hint::black_box(&grain);
+    answer
+}
+
+/// Whether `PyPy`'s check says its stack is not almost full.
+#[cfg(PyPy)]
+#[inline(never)]
+fn the_stack_has_room() -> bool {
     Python::attach(|py| {
-        ALMOST_FULL
-            .import(py, "__pypy__", "stack_almost_full")
+        almost_full(py)
             .and_then(PyAnyMethods::call0)
             .and_then(|full| full.is_truthy())
             .is_ok_and(|full| !full)
     })
 }
 
-/// How much deeper than `PyPy`'s last answer the walk goes before asking
-/// again. The question is asked from [`ROOM_RESERVE`] below the walk, so the
-/// step bounds how far past `PyPy`'s threshold that frame can land between two
-/// answers, and past it the question itself overflows inside `cpyext`, which
-/// ends the process: at a step of 2 KiB, explaining a list nested 1,600 deep
-/// and a JSON value twelve lists deep ends `PyPy` 3.11 and 3.12 under a
-/// recursion limit of 48. Each answer is a call into `PyPy`, paid by every value
-/// deep enough to cross a step, so a smaller step costs a deep value more.
+/// `PyPy`'s stack check, imported once.
 #[cfg(PyPy)]
-const ROOM_STEP: usize = 1_024;
+fn almost_full(py: Python<'_>) -> PyResult<&Bound<'_, PyAny>> {
+    static ALMOST_FULL: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    ALMOST_FULL.import(py, "__pypy__", "stack_almost_full")
+}
 
-/// The stack the walk keeps free below itself on `PyPy`, beside the step it
-/// may have gone since the last answer: room for the Python a level runs and
-/// for raising what it raises. Small enough that asking from below it is no
-/// overflow of its own: at 32 KiB the question takes the process down under a
-/// recursion limit of 45, and at 16 KiB under 38, 41 and 53 on `PyPy` 3.12.
-/// With [`ROOM_STEP`] on `PyPy` 3.11 and 3.12, explaining a list nested 1,600
-/// deep and a JSON value twelve lists deep under every limit from 37 to 120
-/// (`test_a_walk_under_a_lowered_recursion_limit_stops_where_pypy_has_room`
-/// asks 37 to 64 and 200), no process ends, `is_valid` refuses at
-/// `recursion_limit`, and the explaining walk's rendering raises a
-/// `RecursionError` the caller catches.
+/// The recursion limit's reader, imported once.
+#[cfg(PyPy)]
+fn limit_of(py: Python<'_>) -> PyResult<&Bound<'_, PyAny>> {
+    static LIMIT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    LIMIT.import(py, "sys", "getrecursionlimit")
+}
+
+/// Import what a question calls when the module loads: an import is the
+/// deepest call a question makes, and a walk's first is made wherever the walk
+/// stands.
+#[cfg(PyPy)]
+pub(crate) fn import_the_questions(py: Python<'_>) -> PyResult<()> {
+    almost_full(py)?;
+    limit_of(py)?;
+    Ok(())
+}
+
+/// How far below its entry a walk goes before its first question, so a walk of
+/// a level or two asks nothing.
+#[cfg(PyPy)]
+const ROOM_STEP: usize = 512;
+
+/// The bytes of a sixteenth of the stack for each unit of the recursion limit:
+/// `PyPy` reserves a thousandth of 768 KB for each.
+#[cfg(PyPy)]
+const LEFT_PER_LIMIT: usize = 49;
+
+/// The stack each frame [`asked_at`] descends through spends: the most a
+/// question lands past its point.
+#[cfg(PyPy)]
+const ROOM_GRAIN: usize = 128;
+
+/// The stack the walk keeps free below itself on `PyPy`: room for the frames
+/// of a level, for the Python a level runs and for raising what it raises.
 #[cfg(PyPy)]
 const ROOM_RESERVE: usize = 12_288;
 
@@ -633,11 +732,12 @@ const fn the_interpreter_has_room(_state: &WalkState) -> bool {
 /// first three replace admitted a combination — fail-fast without explaining —
 /// that no caller produced and the walk read as plain [`Fast`](WalkMode::Fast).
 /// A state with no meaning is better unnameable than merely unused.
-/// The discriminants are ordered so both predicates below are one comparison
+/// The discriminants are ordered so the predicates below are one comparison
 /// rather than a two-way test: explaining is "at most `ExplainFailFast`",
-/// stopping at the first failure is "at least `ExplainFailFast`". The order is
-/// load-bearing for that reason and not alphabetical or by importance; both
-/// predicates are asserted over every variant in the tests.
+/// stopping at the first failure is "at least `ExplainFailFast`", and stopping
+/// before the last failure at all is "past `Explain`". The order is load-bearing
+/// for that reason and not alphabetical or by importance; the predicates are
+/// asserted over every variant in the tests.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[repr(u8)]
 pub(crate) enum WalkMode {
@@ -645,11 +745,15 @@ pub(crate) enum WalkMode {
     /// independent failure: every record field, sequence element, and mapping
     /// entry that fails is reported.
     Explain = 0,
+    /// [`Explain`](WalkMode::Explain) up to [`WalkState::limit`] violations:
+    /// a composite stops once its report holds that many. A mode of its own,
+    /// so the full report asks the count nowhere.
+    ExplainLimited = 1,
     /// Membership plus the first violation only.
-    ExplainFailFast = 1,
+    ExplainFailFast = 2,
     /// Membership only. No violation is built, `out` is never touched, no path is
     /// built, and every composite short-circuits as soon as the answer is fixed.
-    Fast = 2,
+    Fast = 3,
     /// [`Fast`](WalkMode::Fast) for a complement's inner walk, which reads its
     /// answer in Kleene's strong logic: a stop is the third value, so a
     /// conjunction a later part refuses is refused and a union a later branch
@@ -661,7 +765,7 @@ pub(crate) enum WalkMode {
     /// apart -- a union, a complement, the memo -- ask the cell. Last, so both
     /// predicates read it as the fast mode: it explains nothing and stops at a
     /// refusal.
-    Settle = 3,
+    Settle = 4,
 }
 
 impl WalkMode {
@@ -681,12 +785,20 @@ impl WalkMode {
         self >= WalkMode::ExplainFailFast
     }
 
-    /// The mode a caller asking to explain wants, given its fail-fast request.
-    pub(crate) fn explaining(fail_fast: bool) -> Self {
-        if fail_fast {
-            WalkMode::ExplainFailFast
-        } else {
-            WalkMode::Explain
+    /// Whether a composite may stop before its last failing child: in every
+    /// mode but the full report, which walks each child whatever it found.
+    #[inline]
+    pub(crate) fn may_stop(self) -> bool {
+        self > WalkMode::Explain
+    }
+
+    /// The mode a caller asking to explain wants, given how many failures it
+    /// asks for: one, every one (`usize::MAX`), or a count between.
+    pub(crate) fn explaining(reported: usize) -> Self {
+        match reported {
+            1 => WalkMode::ExplainFailFast,
+            usize::MAX => WalkMode::Explain,
+            _ => WalkMode::ExplainLimited,
         }
     }
 }

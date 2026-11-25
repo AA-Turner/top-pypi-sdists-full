@@ -1,9 +1,9 @@
 from typing import Optional
 
 import requests
+from asgiref.sync import sync_to_async
 
 from tinybird.feedback_manager import FeedbackManager
-from tinybird.syncasync import sync_to_async
 from tinybird.tb_cli_modules.common import CLIException, getenv_bool
 
 PYPY_URL = "https://pypi.org/pypi/tinybird-cli/json"

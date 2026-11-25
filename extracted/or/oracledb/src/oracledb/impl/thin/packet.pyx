@@ -58,8 +58,9 @@ cdef class Packet:
 
     cdef inline bint has_end_of_response(self):
         """
-        Returns a boolean indicating if the end of request byte is found at the
-        end of the packet.
+        Returns a boolean indicating if the packet contains the end of response
+        marker. When the server sends a renegotiation request, however, the end
+        of response marker is not sent, so this must be caught separately.
         """
         cdef:
             uint16_t flags
@@ -70,6 +71,9 @@ cdef class Packet:
             return True
         if self.packet_size == PACKET_HEADER_SIZE + 3 \
                 and ptr[PACKET_HEADER_SIZE + 2] == TNS_MSG_TYPE_END_OF_RESPONSE:
+            return True
+        if self.packet_size >= PACKET_HEADER_SIZE + 3 \
+                and ptr[PACKET_HEADER_SIZE + 2] == TNS_MSG_TYPE_RENEGOTIATE:
             return True
         return False
 
@@ -402,21 +406,6 @@ cdef class ReadBuffer(Buffer):
             self.read_uint16be(&data_flags)
             if data_flags == TNS_DATA_FLAGS_EOF:
                 self._pending_error_num = TNS_ERR_SESSION_SHUTDOWN
-
-    async def discard_pipeline_responses(self, ssize_t num_responses):
-        """
-        Discards the specified number of responses after the pipeline has
-        encountered an exception.
-        """
-        while num_responses > 0:
-            if not self.has_response():
-                await self.wait_for_response_async()
-            while True:
-                self._start_packet()
-                if self._current_packet.has_end_of_response():
-                    break
-            num_responses -= 1
-        self.reset_packets()
 
     cdef int notify_packet_received(self) except -1:
         """

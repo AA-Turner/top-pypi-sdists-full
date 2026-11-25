@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from .. import errors
 from ...foundation.process_rank import read_process_ranks
 from ..client.client import Client
-from ..client import FROM_ENV
+from ..client import FROM_ENV, to_key_metrics
 from ..values.run_type import to_run_type
 from ..values.total_steps import to_total_steps
 
@@ -30,7 +30,7 @@ _DESCRIBING_KWARGS = ("name", "question", "hypothesis")
 #: Every kwarg that names or describes a run (the integrations drop them under a launcher).
 _IDENTITY_KWARGS = _CHOOSING_KWARGS + _DESCRIBING_KWARGS
 #: Kwargs an attach applies to the joined run (rank 0), so never named as ignored.
-_APPLIED_KWARGS = ("config", "run_type", "total_steps")
+_APPLIED_KWARGS = ("config", "run_type", "total_steps", "key_metrics")
 
 
 #: The PROBE_RUN_ID this process exported from a per-run token, so a later
@@ -123,6 +123,7 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
     config = kw.get("config")
     run_type = to_run_type(kw["run_type"]) if kw.get("run_type") is not None else None
     total_steps = to_total_steps(kw["total_steps"]) if kw.get("total_steps") is not None else None
+    pinned = to_key_metrics(kw["key_metrics"]) if kw.get("key_metrics") is not None else None
     agreed = set(choosing) - set(unchecked)
     name = kw.get("name")
     if name is not None and data is None:
@@ -201,6 +202,8 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
         run.set_run_type(run_type)
     if total_steps is not None and _nonzero_global_rank() is None:
         run.set_total_steps(total_steps)  # the launcher opened the run without it: a choice, once per job
+    if pinned is not None and _nonzero_global_rank() is None:
+        run._send_key_metrics(pinned, run_type=run_type)  # after the type PATCH, so it pins the declared type's list
     return run
 
 def _read_run_quietly(client: Client, run_id: str) -> dict | None:

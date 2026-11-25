@@ -4,6 +4,8 @@ VectorField class - a rank-1 tensor field with N components.
 
 from __future__ import annotations
 
+from typing import cast
+
 import casadi
 
 import pybamm
@@ -70,7 +72,10 @@ class VectorField(TensorField):
             *(component.with_meshes(mesh, domains) for component in self.components),
             disc_state_vector=self.disc_state_vector,
         )
-        return super(VectorField, with_components).with_meshes(mesh, domains)
+        # Attaching meshes rebuilds the same class
+        return cast(
+            VectorField, super(VectorField, with_components).with_meshes(mesh, domains)
+        )
 
     @property
     def n_components(self) -> int:
@@ -106,6 +111,11 @@ class VectorField(TensorField):
         return casadi.vertcat(
             *self._children_to_casadi(t, y, y_dot, inputs, casadi_symbols)
         )
+
+    def _to_rust(
+        self, graph: pybamm.rust.ExprGraph, rust_symbols: dict
+    ) -> pybamm.rust.Expr:
+        return graph.concat(self._children_to_rust(graph, rust_symbols))
 
     def evaluates_on_edges(self, dimension: str) -> bool:
         statuses = [c.evaluates_on_edges(dimension) for c in self.components]

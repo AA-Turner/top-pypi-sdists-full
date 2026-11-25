@@ -113,6 +113,9 @@ def run(ctx: InstallContext) -> None:
         if registries_map is not None:
             extra_kwargs["registries"] = registries_map
 
+    from apm_cli.install.commit_gate import resolved_lockfile
+    from apm_cli.policy.schema import DependencyPolicy
+
     audit_result = run_dependency_policy_checks(
         _with_prefetch_denials(ctx),
         lockfile=ctx.existing_lockfile,
@@ -125,6 +128,13 @@ def run(ctx: InstallContext) -> None:
         declared_refs=getattr(ctx, "declared_direct_refs", None) or None,
         # This install locks deps_to_install; a required one it adds is not absent.
         installing=True,
+        # max_depth judges the graph this install resolved, not the lockfile
+        # it replaces (#4826); without a limit the check reads no rows.
+        depth_lockfile=(
+            resolved_lockfile(ctx)
+            if policy.dependencies.max_depth < DependencyPolicy.max_depth
+            else None
+        ),
         # Root ``marketplaces:`` origins, and the catalog origins of locked
         # and freshly resolved marketplace deps, meet marketplace.allow (#2903).
         marketplace_origins=MarketplaceOrigins(
@@ -143,7 +153,11 @@ def run(ctx: InstallContext) -> None:
     # ------------------------------------------------------------------
     # One violation per offending dependency / MCP server; the check
     # name is only the category (#3835).
-    from apm_cli.policy.install_preflight import emit_check_violations, render_dry_run_verdicts
+    from apm_cli.policy.install_preflight import (
+        emit_check_violations,
+        emit_passed_check_warnings,
+        render_dry_run_verdicts,
+    )
 
     if getattr(ctx, "dry_run", False) is True:
         # --dry-run previews the same verdicts and never stops the preview.
@@ -151,6 +165,8 @@ def run(ctx: InstallContext) -> None:
             render_dry_run_verdicts(logger, audit_result, enforcement)
         return
 
+    if logger:
+        emit_passed_check_warnings(logger, audit_result.checks, source=source)
     has_blocking = False
     for check in audit_result.checks:
         if not check.passed:
@@ -159,11 +175,6 @@ def run(ctx: InstallContext) -> None:
                 emit_check_violations(logger, check, severity=severity, source=source)
             if severity == "block":
                 has_blocking = True
-        elif check.details and logger:
-            # project-wins version-pin mismatches and self-defined MCP
-            # warnings are passed=True with warning details.  Emit them so
-            # warn-mode surfaces all diagnostics.
-            emit_check_violations(logger, check, severity="warn", source=source)
 
     if has_blocking:
         raise PolicyViolationError(

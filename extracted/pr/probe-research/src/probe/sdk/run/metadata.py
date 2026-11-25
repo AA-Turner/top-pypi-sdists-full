@@ -13,6 +13,10 @@ from .context.context import FailureContext, UnitContext
 from probe.sdk.routes import WriteOp, path_for
 
 
+#: A row's run type that proves it was declared: an undeclared run reads `general` too.
+_PINNING_TYPES = frozenset({RunType.SFT.value, RunType.RL.value})
+
+
 class MetadataMixin:
     """Part of Run: its methods run with `self` the Run; compose() folds them into Run."""
 
@@ -126,6 +130,23 @@ class MetadataMixin:
         if data:
             self._data = data
         return data
+
+    # -- pinned metrics (T32) --------------------------------------------------
+    def _send_key_metrics(self, key_metrics: list[dict[str, str]], *, run_type: str | None) -> None:
+        """Pin this run type's key metrics (``to_key_metrics``'s pairs) for the project, once. Only when the type is
+        declared (``run_type``, else this run's row reading ``sft`` or ``rl``): an undeclared run reads Other, whose
+        list it would fill. A best-effort write (``blocking=False``): queued after the create and any type PATCH,
+        set aside on a transient failure, so it never holds the run's metrics or close; a 4xx is dropped."""
+        declared = run_type or (self._data.get("run_type") if self._data.get("run_type") in _PINNING_TYPES else None)
+        if declared is None:
+            _diagnostics.warn("probe: key_metrics were not pinned: pass run_type=... with key_metrics")
+            return
+        try:
+            self._client.write(
+                "PUT", path_for(WriteOp.KEY_METRICS, self.id), {"key_metrics": key_metrics}, blocking=False
+            )
+        except Exception:  # noqa: BLE001 -- pins never stop training
+            pass
 
     # -- total steps (0515) ---------------------------------------------------
     @property

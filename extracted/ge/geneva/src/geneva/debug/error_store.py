@@ -27,7 +27,12 @@ from tenacity.stop import stop_base
 from tenacity.wait import wait_base
 
 from geneva.state.manager import BaseManager
-from geneva.utils import dt_now_utc, escape_sql_string, retry_lance
+from geneva.utils import (
+    UNBOUNDED_QUERY_LIMIT,
+    dt_now_utc,
+    escape_sql_string,
+    retry_lance,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -900,7 +905,7 @@ class ErrorStore(BaseManager):
         if error_type:
             wheres.append(f"error_type = '{escape_sql_string(error_type)}'")
 
-        query = self.get_table(True).search()
+        query = self.get_table(True).search().limit(UNBOUNDED_QUERY_LIMIT)
         if wheres:
             query = query.where(" and ".join(wheres))
 

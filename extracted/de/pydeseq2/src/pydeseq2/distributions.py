@@ -2,10 +2,11 @@
 
 import numpy as np
 from scipy.optimize import minimize  # type: ignore
+from scipy.special import expit  # type: ignore
 from scipy.special import gammaln  # type: ignore
 from scipy.special import polygamma  # type: ignore
 
-from pydeseq2.grid_search import grid_fit_shrink_beta
+import pydeseq2.grid_search
 
 
 def nb_nll(counts: np.ndarray, mu: np.ndarray, alpha: float | np.ndarray) -> float | np.ndarray:
@@ -131,11 +132,11 @@ def nbinomFn(
     prior_scale
         Prior variance for the intercept.
     shrink_index
-        Index of the LFC coordinate to shrink. (default: ``1``).
+        Index of the LFC coordinate to shrink.
 
     Returns
     -------
-    Sum of the NB negative likelihood and apeGLM prior.
+    Sum of the NB negative likelihood and apeGLM prior, without the terms that do not depend on ``beta``.
     """
     num_vars = design_matrix.shape[-1]
 
@@ -148,7 +149,7 @@ def nbinomFn(
         (beta[shrink_index] / prior_scale) ** 2
     )
 
-    nll = (counts * xbeta - (counts + size) * np.logaddexp(xbeta + offset, np.log(size))).sum(axis=0)
+    nll = (counts * xbeta - (counts + size) * np.logaddexp(0, xbeta + offset - np.log(size))).sum(axis=0)
 
     return prior - nll
 
@@ -183,9 +184,9 @@ def nbinomGLM(
         Prior variance for the LFC parameter.
     optimizer
         Optimizing method to use in case IRLS starts diverging.
-        Accepted values: 'L-BFGS-B', 'BFGS' or 'Newton-CG'. (default: ``'Newton-CG'``).
+        Accepted values: 'L-BFGS-B', 'BFGS' or 'Newton-CG'.
     shrink_index
-        Index of the LFC coordinate to shrink. (default: ``1``).
+        Index of the LFC coordinate to shrink.
 
     Returns
     -------
@@ -240,16 +241,15 @@ def nbinomGLM(
             prior_scale**2 + beta[shrink_index] ** 2
         )
 
-        d_nll = (counts - (counts + size) / (1 + size * np.exp(-xbeta - offset))) @ design_matrix
+        d_nll = (counts - (counts + size) * expit(xbeta + offset - np.log(size))) @ design_matrix
 
         return (d_neg_prior - d_nll) / cnst
 
     def ddf(beta: np.ndarray, cnst: float = scale_cnst) -> np.ndarray:
         # Hessian of the function to optimize
         # Note: will only work if there is a single shrink index
-        xbeta = design_matrix @ beta
-        exp_xbeta_off = np.exp(xbeta + offset)
-        frac = (counts + size) * size * exp_xbeta_off / (size + exp_xbeta_off) ** 2
+        prob = expit(design_matrix @ beta + offset - np.log(size))
+        frac = (counts + size) * prob * (1 - prob)
         # Build diagonal
         h11 = 1 / prior_no_shrink_scale**2
         h22 = 2 * (prior_scale**2 - beta[shrink_index] ** 2) / (prior_scale**2 + beta[shrink_index] ** 2) ** 2
@@ -265,7 +265,7 @@ def nbinomGLM(
         hess=ddf if optimizer == "Newton-CG" else None,
         method=optimizer,
         options={
-            "ftol": 1e-8,
+            "ftol": 1e-12,
             "gtol": 1e-8,
         },
     )
@@ -276,7 +276,7 @@ def nbinomGLM(
     if not converged and num_vars == 2:
         # If the solver failed, fit using grid search (slow)
         # Only for single-factor analysis
-        beta = grid_fit_shrink_beta(
+        beta = pydeseq2.grid_search.grid_fit_shrink_beta(
             counts,
             offset,
             design_matrix,

@@ -1,12 +1,19 @@
-from paddle_billing.EnumStringify import enum_stringify
-from paddle_billing.HasParameters import HasParameters
+from typing import Any
 
-from paddle_billing.Entities.Shared import CatalogType, Interval, Status
+from paddle_billing.EnumStringify import enum_stringify as enum_stringify
+from paddle_billing.HasParameters import HasParameters as HasParameters
 
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
+from paddle_billing.Entities.Shared import CatalogType as CatalogType, Interval as Interval, Status as Status
 
-from paddle_billing.Resources.Shared.Operations import Pager
-from paddle_billing.Resources.Prices.Operations.List.Includes import Includes as PriceIncludes
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
+
+from paddle_billing.Resources.Shared.Operations import Pager as Pager
+from paddle_billing.Resources.Prices.Operations.List.Includes import Includes as _PriceIncludes
+
+# Assigned rather than imported under this name, because type checkers don't treat renamed imports as public.
+PriceIncludes = _PriceIncludes
 
 
 class ListPrices(HasParameters):
@@ -33,13 +40,14 @@ class ListPrices(HasParameters):
         self.statuses = statuses if statuses is not None else []
 
         # Validation
-        for field_name, field_value, field_type in [
+        validations: list[tuple[str, list[Any], type]] = [
             ("ids", self.ids, str),
             ("includes", self.includes, PriceIncludes),
             ("product_ids", self.product_ids, str),
             ("statuses", self.statuses, Status),
             ("types", self.types, CatalogType),
-        ]:
+        ]
+        for field_name, field_value, field_type in validations:
             invalid_items = [item for item in field_value if not isinstance(item, field_type)]
             if invalid_items:
                 raise InvalidArgumentException.array_contains_invalid_types(

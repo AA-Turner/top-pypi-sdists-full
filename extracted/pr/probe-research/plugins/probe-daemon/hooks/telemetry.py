@@ -140,6 +140,8 @@ RESEARCH_SKILLS = {
     "write-preview",
     # fix, update, settings, past work, account or uninstall, by asking (install-one-go D21)
     "manage-probe",
+    # connect a team's GPU machines or cluster; gated, per user (compute-backend-gaps T14)
+    "compute-setup",
     "probe-setup",
     "probe-research-setup",  # the setup command's name before the rename to Probe
     # retired names (kept for resumed transcripts and cached installs);

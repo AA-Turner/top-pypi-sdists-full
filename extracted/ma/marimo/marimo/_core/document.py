@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from msgspec import UNSET
 
 from marimo._core import protocol
+from marimo._core.code import code_fingerprint
 from marimo._core.errors import Invalid
 
 if TYPE_CHECKING:
@@ -26,10 +27,6 @@ if TYPE_CHECKING:
 def etag(text: str) -> protocol.Etag:
     """The first 16 hex characters of SHA-256 over the UTF-8 text."""
     return protocol.Etag(hashlib.sha256(text.encode()).hexdigest()[:16])
-
-
-def code_hash(code: str) -> protocol.Etag:
-    return etag(code)
 
 
 def cell_etag(
@@ -94,16 +91,16 @@ class DocumentCell:
     config: protocol.CellConfig = field(default_factory=default_config)
     etag: protocol.Etag = field(init=False)
     """Identifies code, name, and config together."""
-    code_hash: protocol.Etag = field(init=False)
-    """Identifies the code alone."""
+    code_fingerprint: str = field(init=False)
+    """Identifies the code for result freshness."""
 
     def __post_init__(self) -> None:
         code = normalize_code(self.code)
-        hashed = code_hash(code)
+        hashed = code_fingerprint(code)
         object.__setattr__(self, "code", code)
-        object.__setattr__(self, "code_hash", hashed)
+        object.__setattr__(self, "code_fingerprint", hashed)
         object.__setattr__(
-            self, "etag", cell_etag(hashed, self.name, self.config)
+            self, "etag", cell_etag(etag(code), self.name, self.config)
         )
 
 
@@ -182,7 +179,8 @@ class Document:
     ) -> Document:
         """Rebuild a document from the records the notebook published.
 
-        Cell identities, order, and revisions must agree.
+        Source must be available; cell identities, order, and revisions must agree.
+        Fingerprints are recomputed under the current host scheme.
         """
         by_id = {cell.id: cell for cell in cells}
         if len(by_id) != len(cells) or (
@@ -194,19 +192,22 @@ class Document:
             )
         if any(cell.notebook_id != document.notebook_id for cell in cells):
             raise ValueError("cells must belong to the document")
-        restored = cls(
-            [
-                DocumentCell(cell.id, cell.code, cell.name, cell.config)
-                for cell in (by_id[cell_id] for cell_id in document.order)
-            ],
-            document.app_config,
-        )
+        restored_cells = []
+        for cell_id in document.order:
+            record = by_id[cell_id]
+            if record.code is None:
+                raise ValueError(
+                    "cannot restore a document with withheld source"
+                )
+            restored_cells.append(
+                DocumentCell(
+                    record.id, record.code, record.name, record.config
+                )
+            )
+        restored = cls(restored_cells, document.app_config)
         for cell in restored:
             original = by_id[cell.id]
-            if (
-                cell.etag != original.etag
-                or cell.code_hash != original.code_hash
-            ):
+            if cell.etag != original.etag:
                 raise ValueError("cell revisions must match their content")
         if (
             restored.etag != document.etag
@@ -293,14 +294,14 @@ class Document:
             return current is not None and base == current.etag
 
         for index, change in enumerate(changes):
-            if isinstance(change, protocol.PutCell):
+            if isinstance(change, (protocol.CreateCell, protocol.ReplaceCell)):
                 cell = _cell(change.cell)
-                if change.base_etag is None:
+                if isinstance(change, protocol.CreateCell):
                     # A cell deleted earlier in the batch still existed
                     # when the client read, so creating it is a conflict.
                     if cell.id in self._cells or cell.id in staged:
                         return Stale(index, cell.id)
-                    order.insert(_slot(order, change, index), cell.id)
+                    order.append(cell.id)
                 elif cell.id not in staged or not matches(
                     change.base_etag, cell.id
                 ):
@@ -357,21 +358,3 @@ def _cell(cell: protocol.CellInput) -> DocumentCell:
             else config.expand_output,
         ),
     )
-
-
-def _slot(
-    order: list[protocol.CellId], change: protocol.PutCell, index: int
-) -> int:
-    """Where a created cell goes: after or before an anchor, or at the end."""
-    after = None if change.after is UNSET else change.after
-    before = None if change.before is UNSET else change.before
-    if after is not None and before is not None:
-        raise Invalid(f"change {index} names both after and before")
-    anchor = after if after is not None else before
-    if anchor is None:
-        return len(order)
-    if anchor not in order:
-        raise Invalid(
-            f"change {index} places a cell by {anchor}, which does not exist"
-        )
-    return order.index(anchor) + (1 if after is not None else 0)

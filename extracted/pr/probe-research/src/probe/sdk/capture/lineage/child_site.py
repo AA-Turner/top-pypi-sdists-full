@@ -51,11 +51,11 @@ WRITES_ENV = "PROBE_CAPTURE_WRITES"
 # -- probe exec: the child's hook ---------------------------------------------
 
 
-def _readers_source() -> str:
-    """`c_readers`' source, for the child hook (which cannot import Probe);
-    empty when it cannot be read (the child then has no wrappers)."""
+def _readers_source(name: str = "c_readers.py") -> str:
+    """`c_readers`' (or `object_store`'s) source, for the child hook (which cannot
+    import Probe); empty when it cannot be read (the child then has no wrappers)."""
     try:
-        return (Path(__file__).parent / "c_readers.py").read_text(encoding="utf-8")
+        return (Path(__file__).parent / name).read_text(encoding="utf-8")
     except OSError:
         return ""
 
@@ -140,7 +140,7 @@ def _probe_reads_install():
     owner_check = __OWNER_CHECK__
     state = {"pid": None, "fh": None, "seen": {}, "count": 0, "off": False,
              "writes_off": env_off("PROBE_CAPTURE_WRITES") or env_off("PROBE_CAPTURE_OUTPUTS"),
-             "written": {}, "wcount": 0,
+             "written": {}, "wcount": 0, "objects": set(),
              # The run this process spools into, and whose close takes the spool.
              "dir": spool_dir, "run": _probe_run_of(spool_dir),
              "owner": int(owner) if owner.isdigit() else None,
@@ -244,7 +244,7 @@ def _probe_reads_install():
                 except Exception:
                     pass
             state.update(fh=None, pid=None, run=run, dir=where, seen={}, count=0, capped=False,
-                         written={}, wcount=0, wcapped=False)
+                         written={}, wcount=0, wcapped=False, objects=set())
         state["bind_writes"] = bool(writes)
         return run is not None
 
@@ -323,7 +323,7 @@ def _probe_reads_install():
             # A forked worker records its own reads and writes, from zero, in
             # its own spool.
             state.update(seen={}, count=0, capped=False, written={}, wcount=0, wcapped=False,
-                         for_pid=os.getpid())
+                         objects=set(), for_pid=os.getpid())
 
     def cut():
         if not state.get("capped") and state["fh"] is not None:
@@ -444,12 +444,66 @@ def _probe_reads_install():
         finally:
             local.busy = False
 
+    def note_object(reading, uri, host, fingerprint, size, frame):
+        # A cloud object read or written (`probe.sdk.capture.lineage.object_store`):
+        # once per (uri, endpoint, identity), under the read and write caps.
+        if state["off"] or getattr(local, "busy", False):
+            return
+        try:
+            local.busy = True
+            fresh_pid()
+            if not follow():
+                return
+            if not reading and (state["writes_off"] or not state["bind_writes"]):
+                return
+            key = (reading, uri, host, fingerprint)
+            if key in state["objects"] or probe_calling(frame):
+                return
+            if reading:
+                if state["count"] >= max_paths:
+                    cut()
+                    return
+                state["count"] += 1
+            else:
+                if state["wcount"] >= max_paths:
+                    if not state.get("wcapped"):
+                        state["wcapped"] = True
+                        spool().write(json.dumps({"wtruncated": True}) + "\n")
+                    return
+                state["wcount"] += 1
+            state["objects"].add(key)
+            spool().write(json.dumps({"obj": "r" if reading else "w", "u": uri, "h": host,
+                                      "f": fingerprint, "s": size,
+                                      "t": datetime.now(timezone.utc).isoformat()}) + "\n")
+        except Exception:
+            pass
+        finally:
+            local.busy = False
+
+    def object_coverage(line):
+        # Which library this process hooked, for the run's coverage (the launcher's).
+        try:
+            if not state["off"] and follow():
+                spool().write(json.dumps({"objcov": line}) + "\n")
+        except Exception:
+            pass
+
+    extra = None
+    objects = __OBJECTS__
+    if objects:
+        try:
+            space = {"__name__": "_probe_objects"}
+            exec(compile(objects, "<probe objects>", "exec"), space)
+            extra = space["make_patches"](note_object, active, report=object_coverage)
+        except Exception:
+            extra = None
     readers = __READERS__
     if readers:
         try:
             space = {"__name__": "_probe_readers"}
             exec(compile(readers, "<probe readers>", "exec"), space)
-            space["install"](lambda p, f: note(p, False, f), lambda p, f: note(p, True, f), cut, active)
+            space["install"](lambda p, f: note(p, False, f), lambda p, f: note(p, True, f), cut, active,
+                             extra)
         except Exception:
             pass
 
@@ -480,6 +534,7 @@ for _name, _value in (
     ("__CACHE_ENVS__", _CACHE_ENVS),
     ("__WRITE_PARTS__", _WRITE_ONLY_PARTS),
     ("__READERS__", _readers_source()),
+    ("__OBJECTS__", _readers_source("object_store.py")),
     ("__BIND_CHECK__", BIND_CHECK_S),
     ("__OWNER_CHECK__", OWNER_CHECK_S),
 ):

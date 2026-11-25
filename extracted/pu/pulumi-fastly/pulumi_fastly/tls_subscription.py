@@ -399,17 +399,19 @@ class TlsSubscription(pulumi.CustomResource):
             "b.example.com",
         ]
         example_service_vcl = fastly.ServiceVcl("example",
-            domains=[{
-                "name": entry,
-            } for entry in subdomains],
             name="example-service",
             backends=[{
                 "address": "127.0.0.1",
                 "name": "localhost",
             }],
             force_destroy=True)
+        example_domain: list[fastly.Domain] = []
+        for example_domain_range in [{"value": i} for i in range(0, std.toset(input=subdomains).result)]:
+            example_domain.append(fastly.Domain(f"example-{example_domain_range['value']}",
+                fqdn=example_domain_range["value"],
+                service_id=example_service_vcl.id))
         example_tls_subscription = fastly.TlsSubscription("example",
-            domains=example_service_vcl.domains.apply(lambda domains: [domain.name for domain in domains]),
+            domains=[domain.fqdn for domain in example_domain],
             certificate_authority="lets-encrypt")
         domain_validation: dict[str, aws.Route53Record] = {}
         def create_domain_validation(range_body):
@@ -474,17 +476,19 @@ class TlsSubscription(pulumi.CustomResource):
             "*.example.com",
         ]
         example_service_vcl = fastly.ServiceVcl("example",
-            domains=[{
-                "name": entry,
-            } for entry in domains],
             name="example-service",
             backends=[{
                 "address": "127.0.0.1",
                 "name": "localhost",
             }],
             force_destroy=True)
+        example_domain: list[fastly.Domain] = []
+        for example_domain_range in [{"value": i} for i in range(0, std.toset(input=domains).result)]:
+            example_domain.append(fastly.Domain(f"example-{example_domain_range['value']}",
+                fqdn=example_domain_range["value"],
+                service_id=example_service_vcl.id))
         example_tls_subscription = fastly.TlsSubscription("example",
-            domains=example_service_vcl.domains.apply(lambda domains: [domain.name for domain in domains]),
+            domains=[domain.fqdn for domain in example_domain],
             certificate_authority="lets-encrypt")
         domain_validation: dict[str, aws.Route53Record] = {}
         def create_domain_validation(range_body):
@@ -601,17 +605,19 @@ class TlsSubscription(pulumi.CustomResource):
             "b.example.com",
         ]
         example_service_vcl = fastly.ServiceVcl("example",
-            domains=[{
-                "name": entry,
-            } for entry in subdomains],
             name="example-service",
             backends=[{
                 "address": "127.0.0.1",
                 "name": "localhost",
             }],
             force_destroy=True)
+        example_domain: list[fastly.Domain] = []
+        for example_domain_range in [{"value": i} for i in range(0, std.toset(input=subdomains).result)]:
+            example_domain.append(fastly.Domain(f"example-{example_domain_range['value']}",
+                fqdn=example_domain_range["value"],
+                service_id=example_service_vcl.id))
         example_tls_subscription = fastly.TlsSubscription("example",
-            domains=example_service_vcl.domains.apply(lambda domains: [domain.name for domain in domains]),
+            domains=[domain.fqdn for domain in example_domain],
             certificate_authority="lets-encrypt")
         domain_validation: dict[str, aws.Route53Record] = {}
         def create_domain_validation(range_body):
@@ -676,17 +682,19 @@ class TlsSubscription(pulumi.CustomResource):
             "*.example.com",
         ]
         example_service_vcl = fastly.ServiceVcl("example",
-            domains=[{
-                "name": entry,
-            } for entry in domains],
             name="example-service",
             backends=[{
                 "address": "127.0.0.1",
                 "name": "localhost",
             }],
             force_destroy=True)
+        example_domain: list[fastly.Domain] = []
+        for example_domain_range in [{"value": i} for i in range(0, std.toset(input=domains).result)]:
+            example_domain.append(fastly.Domain(f"example-{example_domain_range['value']}",
+                fqdn=example_domain_range["value"],
+                service_id=example_service_vcl.id))
         example_tls_subscription = fastly.TlsSubscription("example",
-            domains=example_service_vcl.domains.apply(lambda domains: [domain.name for domain in domains]),
+            domains=[domain.fqdn for domain in example_domain],
             certificate_authority="lets-encrypt")
         domain_validation: dict[str, aws.Route53Record] = {}
         def create_domain_validation(range_body):
@@ -853,6 +861,38 @@ class TlsSubscription(pulumi.CustomResource):
         __props__.__dict__["state"] = state
         __props__.__dict__["updated_at"] = updated_at
         return TlsSubscription(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            certificate_authority: pulumi.Input[Optional[_builtins.str]] = None,
+            certificate_id: pulumi.Input[Optional[_builtins.str]] = None,
+            common_name: pulumi.Input[Optional[_builtins.str]] = None,
+            configuration_id: pulumi.Input[Optional[_builtins.str]] = None,
+            created_at: pulumi.Input[Optional[_builtins.str]] = None,
+            domains: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+            force_update: pulumi.Input[Optional[_builtins.bool]] = None,
+            managed_dns_challenge: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            managed_dns_challenges: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TlsSubscriptionManagedDnsChallengeArgs', 'TlsSubscriptionManagedDnsChallengeArgsDict', 'outputs.TlsSubscriptionManagedDnsChallenge']]]]] = None,
+            managed_http_challenges: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TlsSubscriptionManagedHttpChallengeArgs', 'TlsSubscriptionManagedHttpChallengeArgsDict', 'outputs.TlsSubscriptionManagedHttpChallenge']]]]] = None,
+            state: pulumi.Input[Optional[_builtins.str]] = None,
+            updated_at: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["certificateAuthority"] = certificate_authority
+        __props__["certificateId"] = certificate_id
+        __props__["commonName"] = common_name
+        __props__["configurationId"] = configuration_id
+        __props__["createdAt"] = created_at
+        __props__["domains"] = domains
+        __props__["forceDestroy"] = force_destroy
+        __props__["forceUpdate"] = force_update
+        __props__["managedDnsChallenge"] = managed_dns_challenge
+        __props__["managedDnsChallenges"] = managed_dns_challenges
+        __props__["managedHttpChallenges"] = managed_http_challenges
+        __props__["state"] = state
+        __props__["updatedAt"] = updated_at
+        return pulumi.runtime.exists_resource(None, 'fastly:index/tlsSubscription:TlsSubscription', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="certificateAuthority")

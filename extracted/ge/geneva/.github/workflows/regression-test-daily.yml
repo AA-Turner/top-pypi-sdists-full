@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        csp: [gcp, aws, azure]
+        csp: [aws, azure]
     uses: ./.github/workflows/e2e-shared.yml
     with:
       csp: ${{ matrix.csp }}

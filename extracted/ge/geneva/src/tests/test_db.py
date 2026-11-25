@@ -168,7 +168,8 @@ def test_local_directory_namespace_checkpoint_store_uses_ckp_subdir(
 ) -> None:
     db = connect(tmp_path)
     table = db.create_table("checkpointed", pa.table({"value": [1]}))
-    store = table.get_reference().open_checkpoint_store()
+    # The _ckp subdir and a non-fragment-shaped key are flat-store properties.
+    store = table.get_reference().open_checkpoint_store(layout="flat")
     assert list(store.list_keys()) == []
     batch = pa.record_batch([pa.array([42])], names=["value"])
 
@@ -624,7 +625,8 @@ def test_table_reference_checkpoint_store_uses_remote_table_location() -> None:
             host_override="https://phalanx.example.com",
         )
 
-        ref.open_checkpoint_store()
+        # Pin flat so the mocked flat store is the one selected.
+        ref.open_checkpoint_store(layout="flat")
 
     assert mock_resolve_uri.call_args.kwargs["db_uri"] is None
     assert mock_resolve_uri.call_args.kwargs["namespace_client_impl"] == "rest"
@@ -644,7 +646,8 @@ def test_table_reference_open_db_preserves_checkpoint_store(tmp_path: Path) -> N
     conn = tbl.get_reference().open_db()
 
     assert conn._checkpoint_store is not None
-    assert conn._checkpoint_store.uri().endswith("/tbl.lance/_ckp")
+    # Default layout is hierarchical -> per-table _ckpv2 subdir.
+    assert conn._checkpoint_store.uri().endswith("/tbl.lance/_ckpv2")
 
 
 def test_table_reference_open_db_preserves_explicit_empty_remote_system_namespace() -> (
@@ -1059,7 +1062,8 @@ class TestWorkerHostOverride:
                 storage_options={"account_name": "acct"},
             )
 
-            ref.open_checkpoint_store(use_worker_props=True)
+            # Pin flat so the mocked flat store is the one selected.
+            ref.open_checkpoint_store(use_worker_props=True, layout="flat")
 
             assert mock_resolve_uri.call_args.kwargs["use_worker_props"] is True
             store_kwargs = mock_store.call_args.kwargs

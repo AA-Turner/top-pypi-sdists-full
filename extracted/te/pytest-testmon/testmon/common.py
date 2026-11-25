@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from subprocess import run, CalledProcessError, TimeoutExpired, DEVNULL, PIPE
 
 try:
     # Python >= 3.8
@@ -122,6 +123,39 @@ def git_current_branch(path=None):
     except FileNotFoundError:
         pass
     return None
+
+
+def git_heads(path=None):
+    """The commit that is checked out and its parents, as `git` reports them; [] without it.
+
+    A merge commit has two parents: on a pull request built as a merge, they are the tips of the
+    base branch and of the pull request. testmon.net gets them all, to find the results of runs
+    on those commits.
+
+    Unlike git_current_head, this works on a detached HEAD, with packed refs, in a linked
+    worktree and for a branch with a slash in its name. The parents are read from the commit
+    itself (raw format): CI usually checks out a shallow clone, where `git log` and
+    `git rev-parse` show a commit without its parents.
+    """
+    try:
+        result = run(
+            ["git", "rev-list", "-n", "1", "--format=raw", "HEAD"],
+            cwd=path or None,
+            stdout=PIPE,
+            stderr=DEVNULL,
+            check=True,
+            timeout=10,
+        )
+    except (OSError, CalledProcessError, TimeoutExpired):
+        return []
+    heads = []
+    for line in result.stdout.split(b"\n"):
+        if not line:  # the commit's headers end here; its message follows
+            break
+        key, _, value = line.partition(b" ")
+        if key in (b"commit", b"parent"):
+            heads.append(value.decode("ascii"))
+    return heads
 
 
 def git_current_head(path=None):

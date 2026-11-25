@@ -99,6 +99,10 @@ namespace pdflib
     int stack_size;
     int block_count;
     int instr_count;
+    // Preserve the font code through Unicode normalization. For example,
+    // curly opening and closing quotes can both normalize to ASCII quotes.
+    int source_glyph_code = -1;
+    bool text_was_normalized = false;
 
     bool widget;
     bool last_merged_cell_was_ligature = false;
@@ -109,6 +113,10 @@ namespace pdflib
     // glyph's geometry instead of mistaking its replacement text for a real
     // PDF space. This transient implementation detail is not serialized.
     bool text_is_suppressed_glyph = false;
+
+    // An exact visual duplicate with distinct tagged-PDF linkage still belongs
+    // to character and marked-content output. Omit it during contraction.
+    bool omit_from_text_runs = false;
 
     // ISO 32000 word spacing applies to the one-byte source character code
     // 32, independently of whether that font can map the glyph to Unicode.
@@ -130,6 +138,10 @@ namespace pdflib
     double writing_axis_x = 1.0;
     double writing_axis_y = 0.0;
     double nominal_text_height = 0.0;
+    // How far the character spacing (Tc) in force moves the next glyph
+    // after this one, along the writing axis, in page units. A gap of
+    // exactly this much is letter spacing, not a word gap.
+    double text_char_spacing = 0.0;
 
     // tagged-PDF linkage (PDF 32000-2, 14.7.5): the /MCID of the innermost
     // marked-content sequence the glyph was drawn in (-1 when untagged), and

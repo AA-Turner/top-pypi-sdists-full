@@ -35,6 +35,7 @@ class ServiceComputeArgs:
                  logging_datadogs: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingDatadogArgs']]]] = None,
                  logging_digitaloceans: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingDigitaloceanArgs']]]] = None,
                  logging_elasticsearches: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingElasticsearchArgs']]]] = None,
+                 logging_fos: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingFoArgs']]]] = None,
                  logging_ftps: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingFtpArgs']]]] = None,
                  logging_gcs: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingGcArgs']]]] = None,
                  logging_googlepubsubs: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingGooglepubsubArgs']]]] = None,
@@ -69,7 +70,7 @@ class ServiceComputeArgs:
 
         :param pulumi.Input[_builtins.bool] activate: Controls whether newly created service versions are activated. When versioned configuration changes, the apply step creates a draft version but does not activate it if this is set to `false`. Versionless service attributes, such as `name` and `comment`, are updated regardless of this setting. Default `true`
         :param pulumi.Input[_builtins.str] comment: Description field for the service. This versionless attribute is updated regardless of the `activate` and `stage` settings. Default `Managed by Terraform`
-        :param pulumi.Input[Sequence[pulumi.Input['ServiceComputeDomainArgs']]] domains: A set of Domain names to serve as entry points for your Service
+        :param pulumi.Input[Sequence[pulumi.Input['ServiceComputeDomainArgs']]] domains: A set of Domain names to serve as entry points for your Service. Classic domains are only available to accounts created before 2025-09-16; for newer accounts use the versionless `Domain` resource instead.
         :param pulumi.Input[_builtins.bool] force_destroy: Services that are active cannot be destroyed. In order to destroy the Service, set `force_destroy` to `true`. Default `false`
         :param pulumi.Input[_builtins.str] name: The unique name for the Service to create. This versionless attribute is updated regardless of the `activate` and `stage` settings
         :param pulumi.Input['ServiceComputePackageArgs'] package: The `package` block supports uploading or modifying Wasm packages for use in a Fastly Compute service (if omitted, ensure `activate = false` is set on `ServiceCompute` to avoid service validation errors). See Fastly's documentation on [Compute](https://developer.fastly.com/learning/compute/)
@@ -106,6 +107,8 @@ class ServiceComputeArgs:
             pulumi.set(__self__, "logging_digitaloceans", logging_digitaloceans)
         if logging_elasticsearches is not None:
             pulumi.set(__self__, "logging_elasticsearches", logging_elasticsearches)
+        if logging_fos is not None:
+            pulumi.set(__self__, "logging_fos", logging_fos)
         if logging_ftps is not None:
             pulumi.set(__self__, "logging_ftps", logging_ftps)
         if logging_gcs is not None:
@@ -211,7 +214,7 @@ class ServiceComputeArgs:
     @pulumi.getter
     def domains(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeDomainArgs']]]]:
         """
-        A set of Domain names to serve as entry points for your Service
+        A set of Domain names to serve as entry points for your Service. Classic domains are only available to accounts created before 2025-09-16; for newer accounts use the versionless `Domain` resource instead.
         """
         return pulumi.get(self, "domains")
 
@@ -302,6 +305,15 @@ class ServiceComputeArgs:
     @logging_elasticsearches.setter
     def logging_elasticsearches(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingElasticsearchArgs']]]]):
         pulumi.set(self, "logging_elasticsearches", value)
+
+    @_builtins.property
+    @pulumi.getter(name="loggingFos")
+    def logging_fos(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingFoArgs']]]]:
+        return pulumi.get(self, "logging_fos")
+
+    @logging_fos.setter
+    def logging_fos(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingFoArgs']]]]):
+        pulumi.set(self, "logging_fos", value)
 
     @_builtins.property
     @pulumi.getter(name="loggingFtps")
@@ -604,6 +616,7 @@ class _ServiceComputeState:
                  logging_datadogs: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingDatadogArgs']]]] = None,
                  logging_digitaloceans: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingDigitaloceanArgs']]]] = None,
                  logging_elasticsearches: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingElasticsearchArgs']]]] = None,
+                 logging_fos: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingFoArgs']]]] = None,
                  logging_ftps: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingFtpArgs']]]] = None,
                  logging_gcs: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingGcArgs']]]] = None,
                  logging_googlepubsubs: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingGooglepubsubArgs']]]] = None,
@@ -641,7 +654,7 @@ class _ServiceComputeState:
         :param pulumi.Input[_builtins.int] active_version: The currently active version of your Fastly Service
         :param pulumi.Input[_builtins.int] cloned_version: The latest cloned version by the provider
         :param pulumi.Input[_builtins.str] comment: Description field for the service. This versionless attribute is updated regardless of the `activate` and `stage` settings. Default `Managed by Terraform`
-        :param pulumi.Input[Sequence[pulumi.Input['ServiceComputeDomainArgs']]] domains: A set of Domain names to serve as entry points for your Service
+        :param pulumi.Input[Sequence[pulumi.Input['ServiceComputeDomainArgs']]] domains: A set of Domain names to serve as entry points for your Service. Classic domains are only available to accounts created before 2025-09-16; for newer accounts use the versionless `Domain` resource instead.
         :param pulumi.Input[_builtins.bool] force_destroy: Services that are active cannot be destroyed. In order to destroy the Service, set `force_destroy` to `true`. Default `false`
         :param pulumi.Input[_builtins.bool] force_refresh: Used internally by the provider to temporarily indicate if all resources should call their associated API to update the local state. This is for scenarios where the service version has been reverted outside of Terraform (e.g. via the Fastly UI) and the provider needs to resync the state for a different active version (this is only if `activate` is `true`).
         :param pulumi.Input[_builtins.bool] imported: Used internally by the provider to temporarily indicate if the service is being imported, and is reset to false once the import is finished
@@ -689,6 +702,8 @@ class _ServiceComputeState:
             pulumi.set(__self__, "logging_digitaloceans", logging_digitaloceans)
         if logging_elasticsearches is not None:
             pulumi.set(__self__, "logging_elasticsearches", logging_elasticsearches)
+        if logging_fos is not None:
+            pulumi.set(__self__, "logging_fos", logging_fos)
         if logging_ftps is not None:
             pulumi.set(__self__, "logging_ftps", logging_ftps)
         if logging_gcs is not None:
@@ -820,7 +835,7 @@ class _ServiceComputeState:
     @pulumi.getter
     def domains(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeDomainArgs']]]]:
         """
-        A set of Domain names to serve as entry points for your Service
+        A set of Domain names to serve as entry points for your Service. Classic domains are only available to accounts created before 2025-09-16; for newer accounts use the versionless `Domain` resource instead.
         """
         return pulumi.get(self, "domains")
 
@@ -935,6 +950,15 @@ class _ServiceComputeState:
     @logging_elasticsearches.setter
     def logging_elasticsearches(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingElasticsearchArgs']]]]):
         pulumi.set(self, "logging_elasticsearches", value)
+
+    @_builtins.property
+    @pulumi.getter(name="loggingFos")
+    def logging_fos(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingFoArgs']]]]:
+        return pulumi.get(self, "logging_fos")
+
+    @logging_fos.setter
+    def logging_fos(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['ServiceComputeLoggingFoArgs']]]]):
+        pulumi.set(self, "logging_fos", value)
 
     @_builtins.property
     @pulumi.getter(name="loggingFtps")
@@ -1248,6 +1272,7 @@ class ServiceCompute(pulumi.CustomResource):
                  logging_datadogs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingDatadogArgs', 'ServiceComputeLoggingDatadogArgsDict', 'outputs.ServiceComputeLoggingDatadog']]]]] = None,
                  logging_digitaloceans: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingDigitaloceanArgs', 'ServiceComputeLoggingDigitaloceanArgsDict', 'outputs.ServiceComputeLoggingDigitalocean']]]]] = None,
                  logging_elasticsearches: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingElasticsearchArgs', 'ServiceComputeLoggingElasticsearchArgsDict', 'outputs.ServiceComputeLoggingElasticsearch']]]]] = None,
+                 logging_fos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingFoArgs', 'ServiceComputeLoggingFoArgsDict', 'outputs.ServiceComputeLoggingFo']]]]] = None,
                  logging_ftps: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingFtpArgs', 'ServiceComputeLoggingFtpArgsDict', 'outputs.ServiceComputeLoggingFtp']]]]] = None,
                  logging_gcs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGcArgs', 'ServiceComputeLoggingGcArgsDict', 'outputs.ServiceComputeLoggingGc']]]]] = None,
                  logging_googlepubsubs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGooglepubsubArgs', 'ServiceComputeLoggingGooglepubsubArgsDict', 'outputs.ServiceComputeLoggingGooglepubsub']]]]] = None,
@@ -1282,6 +1307,8 @@ class ServiceCompute(pulumi.CustomResource):
         Provides a Fastly Compute service. Compute is a computation platform capable of running custom binaries that you compile on your own systems and upload to Fastly. Security and portability is provided by compiling your code to [WebAssembly](https://webassembly.org/) using the `wasm32-wasi` target. A compute service encompasses Domains and Backends.
 
         The Service resource requires a domain name that is correctly set up to direct traffic to the Fastly service. See Fastly's guide on [Adding CNAME Records](https://docs.fastly.com/en/guides/adding-cname-records) on their documentation site for guidance.
+
+        > **Note:** The nested `domain` block uses classic domains, which are only available to accounts created before 2025-09-16. Use the versionless `Domain` resource to attach domains to a service, as in the examples below.
 
         > **Note:** If you omit the `package` block, you must set `activate = false` to avoid service validation errors.
 
@@ -1324,15 +1351,15 @@ class ServiceCompute(pulumi.CustomResource):
         example = fastly.get_package_hash(filename="./path/to/package.tar.gz")
         example_service_compute = fastly.ServiceCompute("example",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             package={
                 "filename": "package.tar.gz",
                 "source_code_hash": example.hash,
             },
             force_destroy=True)
+        example_domain = fastly.Domain("example",
+            fqdn="demo.notexample.com",
+            description="demo",
+            service_id=example_service_compute.id)
         ```
 
         <!-- remove this curated references once https://github.com/hashicorp/terraform-plugin-docs/issues/28 is resolved -->
@@ -1369,7 +1396,7 @@ class ServiceCompute(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] activate: Controls whether newly created service versions are activated. When versioned configuration changes, the apply step creates a draft version but does not activate it if this is set to `false`. Versionless service attributes, such as `name` and `comment`, are updated regardless of this setting. Default `true`
         :param pulumi.Input[_builtins.str] comment: Description field for the service. This versionless attribute is updated regardless of the `activate` and `stage` settings. Default `Managed by Terraform`
-        :param pulumi.Input[Sequence[pulumi.Input[Union['ServiceComputeDomainArgs', 'ServiceComputeDomainArgsDict', 'outputs.ServiceComputeDomain']]]] domains: A set of Domain names to serve as entry points for your Service
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ServiceComputeDomainArgs', 'ServiceComputeDomainArgsDict', 'outputs.ServiceComputeDomain']]]] domains: A set of Domain names to serve as entry points for your Service. Classic domains are only available to accounts created before 2025-09-16; for newer accounts use the versionless `Domain` resource instead.
         :param pulumi.Input[_builtins.bool] force_destroy: Services that are active cannot be destroyed. In order to destroy the Service, set `force_destroy` to `true`. Default `false`
         :param pulumi.Input[_builtins.str] name: The unique name for the Service to create. This versionless attribute is updated regardless of the `activate` and `stage` settings
         :param pulumi.Input[Union['ServiceComputePackageArgs', 'ServiceComputePackageArgsDict', 'outputs.ServiceComputePackage']] package: The `package` block supports uploading or modifying Wasm packages for use in a Fastly Compute service (if omitted, ensure `activate = false` is set on `ServiceCompute` to avoid service validation errors). See Fastly's documentation on [Compute](https://developer.fastly.com/learning/compute/)
@@ -1388,6 +1415,8 @@ class ServiceCompute(pulumi.CustomResource):
         Provides a Fastly Compute service. Compute is a computation platform capable of running custom binaries that you compile on your own systems and upload to Fastly. Security and portability is provided by compiling your code to [WebAssembly](https://webassembly.org/) using the `wasm32-wasi` target. A compute service encompasses Domains and Backends.
 
         The Service resource requires a domain name that is correctly set up to direct traffic to the Fastly service. See Fastly's guide on [Adding CNAME Records](https://docs.fastly.com/en/guides/adding-cname-records) on their documentation site for guidance.
+
+        > **Note:** The nested `domain` block uses classic domains, which are only available to accounts created before 2025-09-16. Use the versionless `Domain` resource to attach domains to a service, as in the examples below.
 
         > **Note:** If you omit the `package` block, you must set `activate = false` to avoid service validation errors.
 
@@ -1430,15 +1459,15 @@ class ServiceCompute(pulumi.CustomResource):
         example = fastly.get_package_hash(filename="./path/to/package.tar.gz")
         example_service_compute = fastly.ServiceCompute("example",
             name="demofastly",
-            domains=[{
-                "name": "demo.notexample.com",
-                "comment": "demo",
-            }],
             package={
                 "filename": "package.tar.gz",
                 "source_code_hash": example.hash,
             },
             force_destroy=True)
+        example_domain = fastly.Domain("example",
+            fqdn="demo.notexample.com",
+            description="demo",
+            service_id=example_service_compute.id)
         ```
 
         <!-- remove this curated references once https://github.com/hashicorp/terraform-plugin-docs/issues/28 is resolved -->
@@ -1500,6 +1529,7 @@ class ServiceCompute(pulumi.CustomResource):
                  logging_datadogs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingDatadogArgs', 'ServiceComputeLoggingDatadogArgsDict', 'outputs.ServiceComputeLoggingDatadog']]]]] = None,
                  logging_digitaloceans: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingDigitaloceanArgs', 'ServiceComputeLoggingDigitaloceanArgsDict', 'outputs.ServiceComputeLoggingDigitalocean']]]]] = None,
                  logging_elasticsearches: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingElasticsearchArgs', 'ServiceComputeLoggingElasticsearchArgsDict', 'outputs.ServiceComputeLoggingElasticsearch']]]]] = None,
+                 logging_fos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingFoArgs', 'ServiceComputeLoggingFoArgsDict', 'outputs.ServiceComputeLoggingFo']]]]] = None,
                  logging_ftps: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingFtpArgs', 'ServiceComputeLoggingFtpArgsDict', 'outputs.ServiceComputeLoggingFtp']]]]] = None,
                  logging_gcs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGcArgs', 'ServiceComputeLoggingGcArgsDict', 'outputs.ServiceComputeLoggingGc']]]]] = None,
                  logging_googlepubsubs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGooglepubsubArgs', 'ServiceComputeLoggingGooglepubsubArgsDict', 'outputs.ServiceComputeLoggingGooglepubsub']]]]] = None,
@@ -1552,6 +1582,7 @@ class ServiceCompute(pulumi.CustomResource):
             __props__.__dict__["logging_datadogs"] = logging_datadogs
             __props__.__dict__["logging_digitaloceans"] = logging_digitaloceans
             __props__.__dict__["logging_elasticsearches"] = logging_elasticsearches
+            __props__.__dict__["logging_fos"] = logging_fos
             __props__.__dict__["logging_ftps"] = logging_ftps
             __props__.__dict__["logging_gcs"] = logging_gcs
             __props__.__dict__["logging_googlepubsubs"] = logging_googlepubsubs
@@ -1614,6 +1645,7 @@ class ServiceCompute(pulumi.CustomResource):
             logging_datadogs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingDatadogArgs', 'ServiceComputeLoggingDatadogArgsDict', 'outputs.ServiceComputeLoggingDatadog']]]]] = None,
             logging_digitaloceans: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingDigitaloceanArgs', 'ServiceComputeLoggingDigitaloceanArgsDict', 'outputs.ServiceComputeLoggingDigitalocean']]]]] = None,
             logging_elasticsearches: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingElasticsearchArgs', 'ServiceComputeLoggingElasticsearchArgsDict', 'outputs.ServiceComputeLoggingElasticsearch']]]]] = None,
+            logging_fos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingFoArgs', 'ServiceComputeLoggingFoArgsDict', 'outputs.ServiceComputeLoggingFo']]]]] = None,
             logging_ftps: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingFtpArgs', 'ServiceComputeLoggingFtpArgsDict', 'outputs.ServiceComputeLoggingFtp']]]]] = None,
             logging_gcs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGcArgs', 'ServiceComputeLoggingGcArgsDict', 'outputs.ServiceComputeLoggingGc']]]]] = None,
             logging_googlepubsubs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGooglepubsubArgs', 'ServiceComputeLoggingGooglepubsubArgsDict', 'outputs.ServiceComputeLoggingGooglepubsub']]]]] = None,
@@ -1655,7 +1687,7 @@ class ServiceCompute(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] active_version: The currently active version of your Fastly Service
         :param pulumi.Input[_builtins.int] cloned_version: The latest cloned version by the provider
         :param pulumi.Input[_builtins.str] comment: Description field for the service. This versionless attribute is updated regardless of the `activate` and `stage` settings. Default `Managed by Terraform`
-        :param pulumi.Input[Sequence[pulumi.Input[Union['ServiceComputeDomainArgs', 'ServiceComputeDomainArgsDict', 'outputs.ServiceComputeDomain']]]] domains: A set of Domain names to serve as entry points for your Service
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ServiceComputeDomainArgs', 'ServiceComputeDomainArgsDict', 'outputs.ServiceComputeDomain']]]] domains: A set of Domain names to serve as entry points for your Service. Classic domains are only available to accounts created before 2025-09-16; for newer accounts use the versionless `Domain` resource instead.
         :param pulumi.Input[_builtins.bool] force_destroy: Services that are active cannot be destroyed. In order to destroy the Service, set `force_destroy` to `true`. Default `false`
         :param pulumi.Input[_builtins.bool] force_refresh: Used internally by the provider to temporarily indicate if all resources should call their associated API to update the local state. This is for scenarios where the service version has been reverted outside of Terraform (e.g. via the Fastly UI) and the provider needs to resync the state for a different active version (this is only if `activate` is `true`).
         :param pulumi.Input[_builtins.bool] imported: Used internally by the provider to temporarily indicate if the service is being imported, and is reset to false once the import is finished
@@ -1689,6 +1721,7 @@ class ServiceCompute(pulumi.CustomResource):
         __props__.__dict__["logging_datadogs"] = logging_datadogs
         __props__.__dict__["logging_digitaloceans"] = logging_digitaloceans
         __props__.__dict__["logging_elasticsearches"] = logging_elasticsearches
+        __props__.__dict__["logging_fos"] = logging_fos
         __props__.__dict__["logging_ftps"] = logging_ftps
         __props__.__dict__["logging_gcs"] = logging_gcs
         __props__.__dict__["logging_googlepubsubs"] = logging_googlepubsubs
@@ -1720,6 +1753,110 @@ class ServiceCompute(pulumi.CustomResource):
         __props__.__dict__["staged_version"] = staged_version
         __props__.__dict__["version_comment"] = version_comment
         return ServiceCompute(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            activate: pulumi.Input[Optional[_builtins.bool]] = None,
+            active_version: pulumi.Input[Optional[_builtins.int]] = None,
+            backends: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeBackendArgs', 'ServiceComputeBackendArgsDict', 'outputs.ServiceComputeBackend']]]]] = None,
+            cloned_version: pulumi.Input[Optional[_builtins.int]] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            dictionaries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeDictionaryArgs', 'ServiceComputeDictionaryArgsDict', 'outputs.ServiceComputeDictionary']]]]] = None,
+            domains: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeDomainArgs', 'ServiceComputeDomainArgsDict', 'outputs.ServiceComputeDomain']]]]] = None,
+            force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+            force_refresh: pulumi.Input[Optional[_builtins.bool]] = None,
+            healthchecks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeHealthcheckArgs', 'ServiceComputeHealthcheckArgsDict', 'outputs.ServiceComputeHealthcheck']]]]] = None,
+            image_optimizer_default_settings: pulumi.Input[Optional[Union['ServiceComputeImageOptimizerDefaultSettingsArgs', 'ServiceComputeImageOptimizerDefaultSettingsArgsDict', 'outputs.ServiceComputeImageOptimizerDefaultSettings']]] = None,
+            imported: pulumi.Input[Optional[_builtins.bool]] = None,
+            logging_bigqueries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingBigqueryArgs', 'ServiceComputeLoggingBigqueryArgsDict', 'outputs.ServiceComputeLoggingBigquery']]]]] = None,
+            logging_blobstorages: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingBlobstorageArgs', 'ServiceComputeLoggingBlobstorageArgsDict', 'outputs.ServiceComputeLoggingBlobstorage']]]]] = None,
+            logging_cloudfiles: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingCloudfileArgs', 'ServiceComputeLoggingCloudfileArgsDict', 'outputs.ServiceComputeLoggingCloudfile']]]]] = None,
+            logging_datadogs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingDatadogArgs', 'ServiceComputeLoggingDatadogArgsDict', 'outputs.ServiceComputeLoggingDatadog']]]]] = None,
+            logging_digitaloceans: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingDigitaloceanArgs', 'ServiceComputeLoggingDigitaloceanArgsDict', 'outputs.ServiceComputeLoggingDigitalocean']]]]] = None,
+            logging_elasticsearches: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingElasticsearchArgs', 'ServiceComputeLoggingElasticsearchArgsDict', 'outputs.ServiceComputeLoggingElasticsearch']]]]] = None,
+            logging_fos: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingFoArgs', 'ServiceComputeLoggingFoArgsDict', 'outputs.ServiceComputeLoggingFo']]]]] = None,
+            logging_ftps: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingFtpArgs', 'ServiceComputeLoggingFtpArgsDict', 'outputs.ServiceComputeLoggingFtp']]]]] = None,
+            logging_gcs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGcArgs', 'ServiceComputeLoggingGcArgsDict', 'outputs.ServiceComputeLoggingGc']]]]] = None,
+            logging_googlepubsubs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGooglepubsubArgs', 'ServiceComputeLoggingGooglepubsubArgsDict', 'outputs.ServiceComputeLoggingGooglepubsub']]]]] = None,
+            logging_grafanacloudlogs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingGrafanacloudlogArgs', 'ServiceComputeLoggingGrafanacloudlogArgsDict', 'outputs.ServiceComputeLoggingGrafanacloudlog']]]]] = None,
+            logging_heroku: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingHerokuArgs', 'ServiceComputeLoggingHerokuArgsDict', 'outputs.ServiceComputeLoggingHeroku']]]]] = None,
+            logging_honeycombs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingHoneycombArgs', 'ServiceComputeLoggingHoneycombArgsDict', 'outputs.ServiceComputeLoggingHoneycomb']]]]] = None,
+            logging_https: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingHttpArgs', 'ServiceComputeLoggingHttpArgsDict', 'outputs.ServiceComputeLoggingHttp']]]]] = None,
+            logging_kafkas: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingKafkaArgs', 'ServiceComputeLoggingKafkaArgsDict', 'outputs.ServiceComputeLoggingKafka']]]]] = None,
+            logging_kineses: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingKineseArgs', 'ServiceComputeLoggingKineseArgsDict', 'outputs.ServiceComputeLoggingKinese']]]]] = None,
+            logging_logentries: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingLogentryArgs', 'ServiceComputeLoggingLogentryArgsDict', 'outputs.ServiceComputeLoggingLogentry']]]]] = None,
+            logging_logglies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingLogglyArgs', 'ServiceComputeLoggingLogglyArgsDict', 'outputs.ServiceComputeLoggingLoggly']]]]] = None,
+            logging_logshuttles: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingLogshuttleArgs', 'ServiceComputeLoggingLogshuttleArgsDict', 'outputs.ServiceComputeLoggingLogshuttle']]]]] = None,
+            logging_newrelicotlps: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingNewrelicotlpArgs', 'ServiceComputeLoggingNewrelicotlpArgsDict', 'outputs.ServiceComputeLoggingNewrelicotlp']]]]] = None,
+            logging_newrelics: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingNewrelicArgs', 'ServiceComputeLoggingNewrelicArgsDict', 'outputs.ServiceComputeLoggingNewrelic']]]]] = None,
+            logging_openstacks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingOpenstackArgs', 'ServiceComputeLoggingOpenstackArgsDict', 'outputs.ServiceComputeLoggingOpenstack']]]]] = None,
+            logging_papertrails: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingPapertrailArgs', 'ServiceComputeLoggingPapertrailArgsDict', 'outputs.ServiceComputeLoggingPapertrail']]]]] = None,
+            logging_s3s: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingS3Args', 'ServiceComputeLoggingS3ArgsDict', 'outputs.ServiceComputeLoggingS3']]]]] = None,
+            logging_scalyrs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingScalyrArgs', 'ServiceComputeLoggingScalyrArgsDict', 'outputs.ServiceComputeLoggingScalyr']]]]] = None,
+            logging_sftps: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingSftpArgs', 'ServiceComputeLoggingSftpArgsDict', 'outputs.ServiceComputeLoggingSftp']]]]] = None,
+            logging_splunks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingSplunkArgs', 'ServiceComputeLoggingSplunkArgsDict', 'outputs.ServiceComputeLoggingSplunk']]]]] = None,
+            logging_sumologics: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingSumologicArgs', 'ServiceComputeLoggingSumologicArgsDict', 'outputs.ServiceComputeLoggingSumologic']]]]] = None,
+            logging_syslogs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeLoggingSyslogArgs', 'ServiceComputeLoggingSyslogArgsDict', 'outputs.ServiceComputeLoggingSyslog']]]]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            package: pulumi.Input[Optional[Union['ServiceComputePackageArgs', 'ServiceComputePackageArgsDict', 'outputs.ServiceComputePackage']]] = None,
+            product_enablement: pulumi.Input[Optional[Union['ServiceComputeProductEnablementArgs', 'ServiceComputeProductEnablementArgsDict', 'outputs.ServiceComputeProductEnablement']]] = None,
+            resource_links: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ServiceComputeResourceLinkArgs', 'ServiceComputeResourceLinkArgsDict', 'outputs.ServiceComputeResourceLink']]]]] = None,
+            reuse: pulumi.Input[Optional[_builtins.bool]] = None,
+            stage: pulumi.Input[Optional[_builtins.bool]] = None,
+            staged_version: pulumi.Input[Optional[_builtins.int]] = None,
+            version_comment: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["activate"] = activate
+        __props__["activeVersion"] = active_version
+        __props__["backends"] = backends
+        __props__["clonedVersion"] = cloned_version
+        __props__["comment"] = comment
+        __props__["dictionaries"] = dictionaries
+        __props__["domains"] = domains
+        __props__["forceDestroy"] = force_destroy
+        __props__["forceRefresh"] = force_refresh
+        __props__["healthchecks"] = healthchecks
+        __props__["imageOptimizerDefaultSettings"] = image_optimizer_default_settings
+        __props__["imported"] = imported
+        __props__["loggingBigqueries"] = logging_bigqueries
+        __props__["loggingBlobstorages"] = logging_blobstorages
+        __props__["loggingCloudfiles"] = logging_cloudfiles
+        __props__["loggingDatadogs"] = logging_datadogs
+        __props__["loggingDigitaloceans"] = logging_digitaloceans
+        __props__["loggingElasticsearches"] = logging_elasticsearches
+        __props__["loggingFos"] = logging_fos
+        __props__["loggingFtps"] = logging_ftps
+        __props__["loggingGcs"] = logging_gcs
+        __props__["loggingGooglepubsubs"] = logging_googlepubsubs
+        __props__["loggingGrafanacloudlogs"] = logging_grafanacloudlogs
+        __props__["loggingHeroku"] = logging_heroku
+        __props__["loggingHoneycombs"] = logging_honeycombs
+        __props__["loggingHttps"] = logging_https
+        __props__["loggingKafkas"] = logging_kafkas
+        __props__["loggingKineses"] = logging_kineses
+        __props__["loggingLogentries"] = logging_logentries
+        __props__["loggingLogglies"] = logging_logglies
+        __props__["loggingLogshuttles"] = logging_logshuttles
+        __props__["loggingNewrelicotlps"] = logging_newrelicotlps
+        __props__["loggingNewrelics"] = logging_newrelics
+        __props__["loggingOpenstacks"] = logging_openstacks
+        __props__["loggingPapertrails"] = logging_papertrails
+        __props__["loggingS3s"] = logging_s3s
+        __props__["loggingScalyrs"] = logging_scalyrs
+        __props__["loggingSftps"] = logging_sftps
+        __props__["loggingSplunks"] = logging_splunks
+        __props__["loggingSumologics"] = logging_sumologics
+        __props__["loggingSyslogs"] = logging_syslogs
+        __props__["name"] = name
+        __props__["package"] = package
+        __props__["productEnablement"] = product_enablement
+        __props__["resourceLinks"] = resource_links
+        __props__["reuse"] = reuse
+        __props__["stage"] = stage
+        __props__["stagedVersion"] = staged_version
+        __props__["versionComment"] = version_comment
+        return pulumi.runtime.exists_resource(None, 'fastly:index/serviceCompute:ServiceCompute', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -1767,7 +1904,7 @@ class ServiceCompute(pulumi.CustomResource):
     @pulumi.getter
     def domains(self) -> pulumi.Output[Optional[Sequence['outputs.ServiceComputeDomain']]]:
         """
-        A set of Domain names to serve as entry points for your Service
+        A set of Domain names to serve as entry points for your Service. Classic domains are only available to accounts created before 2025-09-16; for newer accounts use the versionless `Domain` resource instead.
         """
         return pulumi.get(self, "domains")
 
@@ -1834,6 +1971,11 @@ class ServiceCompute(pulumi.CustomResource):
     @pulumi.getter(name="loggingElasticsearches")
     def logging_elasticsearches(self) -> pulumi.Output[Optional[Sequence['outputs.ServiceComputeLoggingElasticsearch']]]:
         return pulumi.get(self, "logging_elasticsearches")
+
+    @_builtins.property
+    @pulumi.getter(name="loggingFos")
+    def logging_fos(self) -> pulumi.Output[Optional[Sequence['outputs.ServiceComputeLoggingFo']]]:
+        return pulumi.get(self, "logging_fos")
 
     @_builtins.property
     @pulumi.getter(name="loggingFtps")

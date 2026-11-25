@@ -19,9 +19,19 @@ from geneva.runners.ray.writer import (
 
 pytestmark = pytest.mark.ray
 
+# Fragment-shaped keys so the layout-parametrized tests run on both stores (the
+# hierarchical store only accepts these). Other tests use synthetic keys, so
+# they pin the flat store.
+_FRAG0 = "udf-w_ver-1_col-x_where-aa_uri-bb_srcfiles-cc_frag-0"
+_FRAG1 = "udf-w_ver-1_col-x_where-aa_uri-bb_srcfiles-cc_frag-1"
+_RANGE_0_16 = f"{_FRAG0}_range-0-16"
+_RANGE_16_32 = f"{_FRAG0}_range-16-32"
 
+
+@pytest.mark.parametrize("layout", ["flat", "hierarchical"])
 def test_buffer_sort_and_align_batches_no_alignment_needed(
     tmp_path: Path,
+    layout: str,
 ) -> None:
     batch1 = pa.RecordBatch.from_arrays(
         [pa.array(range(16), type=pa.uint64()), pa.array(range(16), type=pa.uint64())],
@@ -36,14 +46,14 @@ def test_buffer_sort_and_align_batches_no_alignment_needed(
         names=["data", "_rowaddr"],
     )
 
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout=layout)
 
-    store["batch1"] = batch1
-    store["batch2"] = batch2
+    store[_FRAG0] = batch1
+    store[_FRAG1] = batch2
 
     queue = ray.util.queue.Queue()
-    queue.put((16, "batch2", 16))
-    queue.put((0, "batch1", 16))
+    queue.put((16, _FRAG1, 16))
+    queue.put((0, _FRAG0, 16))
 
     assert list(
         _align_batches_to_physical_layout(
@@ -76,8 +86,10 @@ def test_buffer_sort_and_align_batches_no_alignment_needed(
     ]
 
 
+@pytest.mark.parametrize("layout", ["flat", "hierarchical"])
 def test_buffer_sort_and_align_batches_alignment_needed(
     tmp_path: Path,
+    layout: str,
 ) -> None:
     batch1 = pa.RecordBatch.from_arrays(
         [
@@ -95,14 +107,14 @@ def test_buffer_sort_and_align_batches_alignment_needed(
         names=["data", "_rowaddr"],
     )
 
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout=layout)
 
-    store["batch1"] = batch1
-    store["batch2"] = batch2
+    store[_FRAG0] = batch1
+    store[_FRAG1] = batch2
 
     queue = ray.util.queue.Queue()
-    queue.put((8, "batch2", 8))
-    queue.put((0, "batch1", 8))
+    queue.put((8, _FRAG1, 8))
+    queue.put((0, _FRAG0, 8))
 
     batches = list(
         _align_batches_to_physical_layout(
@@ -146,8 +158,10 @@ def test_parse_span_from_key() -> None:
     assert _parse_span_from_key("ckpt_range-bad") is None
 
 
+@pytest.mark.parametrize("layout", ["flat", "hierarchical"])
 def test_buffer_sort_and_align_batches_deferred_load_with_range_keys(
     tmp_path: Path,
+    layout: str,
 ) -> None:
     """Keys with ``_range-`` suffix defer the store read until pop time.
 
@@ -168,16 +182,16 @@ def test_buffer_sort_and_align_batches_deferred_load_with_range_keys(
         names=["data", "_rowaddr"],
     )
 
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout=layout)
 
     # Keys carry the row span via the ``_range-START-END`` suffix.
-    store["ckpt_range-0-16"] = batch1
-    store["ckpt_range-16-32"] = batch2
+    store[_RANGE_0_16] = batch1
+    store[_RANGE_16_32] = batch2
 
     queue = ray.util.queue.Queue()
     # Out-of-order arrival: second range first.
-    queue.put((16, "ckpt_range-16-32", 16))
-    queue.put((0, "ckpt_range-0-16", 16))
+    queue.put((16, _RANGE_16_32, 16))
+    queue.put((0, _RANGE_0_16, 16))
 
     yielded = list(
         _align_batches_to_physical_layout(
@@ -233,7 +247,7 @@ def test_drain_does_not_wedge_on_split_recovered_checkpoint(
     overshoot the queue cursor past the second entry, wedging the drain
     loop in an infinite ``is_empty() -> pop() -> None`` spin.
     """
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckptA_range-0-4"] = _range_batch(0, 4, 100)
     store["ckptB_range-4-8"] = _range_batch(4, 8, 100)
 
@@ -254,7 +268,7 @@ def test_drain_straddling_checkpoint_does_not_drop_neighbor(
 ) -> None:
     """GEN-744: the fully-behind re-enqueue is skipped without losing the
     rows of the checkpoint that follows it."""
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckptA_range-0-6"] = _range_batch(0, 6, 100)
     store["ckptC_range-6-8"] = _range_batch(6, 8, 200)
 
@@ -277,7 +291,7 @@ def test_drain_straddling_checkpoint_does_not_drop_neighbor(
 def test_drain_trims_genuinely_overlapping_ranges(tmp_path: Path) -> None:
     """GEN-744: overlapping ranges from different runs are trimmed to the
     physical layout instead of wedging or emitting duplicate rowaddrs."""
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckptA_range-0-6"] = _range_batch(0, 6, 100)
     store["ckptC_range-4-8"] = _range_batch(4, 8, 200)
 
@@ -317,7 +331,7 @@ def test_seal_gap_raises_for_full_table_backfill(tmp_path: Path) -> None:
     checkpoints were never re-ingested, and the writer used to silently
     commit nulls for the missing rows.
     """
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckptA_range-0-4"] = _range_batch(0, 4, 100)
     store["ckptC_range-6-8"] = _range_batch(6, 8, 200)
 
@@ -332,7 +346,7 @@ def test_seal_gap_raises_for_full_table_backfill(tmp_path: Path) -> None:
 
 def test_seal_tail_gap_raises_for_full_table_backfill(tmp_path: Path) -> None:
     """A missing tail range is also a coverage gap, not legitimate filler."""
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckptA_range-0-4"] = _range_batch(0, 4, 100)
 
     queue = ray.util.queue.Queue()
@@ -352,7 +366,7 @@ def test_seal_gap_fills_nulls_when_full_coverage_not_expected(
     backfill checkpoints tile every task window even with a WHERE filter —
     so this path only applies to callers that feed partial coverage on
     purpose."""
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckptA_range-0-4"] = _range_batch(0, 4, 100)
 
     queue = ray.util.queue.Queue()
@@ -371,7 +385,7 @@ def test_full_coverage_out_of_order_and_late_arrivals_write_all_rows(
     cursor, then the original full-span checkpoint arrives late at the same
     offset (behind the cursor). All rows must come from real checkpoints and
     the guard must not fire."""
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckptB_range-0-2"] = _range_batch(0, 2, 100)
     store["ckptA_range-0-6"] = _range_batch(0, 6, 200)
     store["ckptC_range-6-8"] = _range_batch(6, 8, 300)
@@ -394,7 +408,7 @@ def test_checkpoint_arriving_after_seal_is_ignored_and_gap_raises(
     """A checkpoint enqueued after the seal sentinel is never read (the seal
     barrier in the session should prevent this); the resulting gap must raise
     for a full-table backfill instead of committing null filler."""
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckptA_range-0-4"] = _range_batch(0, 4, 100)
     store["ckptB_range-4-8"] = _range_batch(4, 8, 100)
 
@@ -570,7 +584,7 @@ def _write_with_real_fragment_writer(
     dataset = tbl.to_lance()
 
     ckp_uri = str(URL(str(tmp_path)) / "ckp")
-    store = CheckpointStore.from_uri(ckp_uri)
+    store = CheckpointStore.from_uri(ckp_uri, layout="flat")
     for key, batch in checkpoints.items():
         store[key] = batch
 
@@ -585,6 +599,7 @@ def _write_with_real_fragment_writer(
         0,
         queue,
         read_version=dataset.version,
+        checkpoint_layout="flat",
     )
     try:
         result = ray.get(actor.write.remote(), timeout=120)
@@ -608,7 +623,7 @@ def test_fragment_writer_progress_probe_serves_while_write_blocked(
     dataset = tbl.to_lance()
 
     ckp_uri = str(URL(str(tmp_path)) / "ckp")
-    store = CheckpointStore.from_uri(ckp_uri)
+    store = CheckpointStore.from_uri(ckp_uri, layout="flat")
     store["ckptA_range-0-8"] = _out_batch(0, 8, 100)
     store["ckptB_range-8-16"] = _out_batch(8, 16, 100)
 
@@ -620,6 +635,7 @@ def test_fragment_writer_progress_probe_serves_while_write_blocked(
         0,
         queue,
         read_version=dataset.version,
+        checkpoint_layout="flat",
     )
     write_fut = actor.write.remote()
     try:
@@ -701,7 +717,7 @@ def test_fragment_writer_actor_fails_on_coverage_gap(tmp_path: Path) -> None:
     dataset = tbl.to_lance()
 
     ckp_uri = str(URL(str(tmp_path)) / "ckp")
-    store = CheckpointStore.from_uri(ckp_uri)
+    store = CheckpointStore.from_uri(ckp_uri, layout="flat")
     store["ckptA_range-0-8"] = _out_batch(0, 8, 100)
     # Rows [8, 12) missing: e.g. a task died after flushing [0, 8) and its
     # replacement only covered [12, 16).
@@ -719,6 +735,7 @@ def test_fragment_writer_actor_fails_on_coverage_gap(tmp_path: Path) -> None:
         0,
         queue,
         read_version=dataset.version,
+        checkpoint_layout="flat",
     )
     try:
         with pytest.raises(ray.exceptions.RayTaskError, match="CheckpointCoverage"):
@@ -740,7 +757,7 @@ def test_fragment_writer_actor_fails_on_coverage_gap_with_where(
     dataset = tbl.to_lance()
 
     ckp_uri = str(URL(str(tmp_path)) / "ckp")
-    store = CheckpointStore.from_uri(ckp_uri)
+    store = CheckpointStore.from_uri(ckp_uri, layout="flat")
     store["ckptA_range-0-8"] = _out_batch(0, 8, 100)
     # Rows [8, 16) missing.
 
@@ -756,6 +773,7 @@ def test_fragment_writer_actor_fails_on_coverage_gap_with_where(
         queue,
         where="out IS NULL",
         read_version=dataset.version,
+        checkpoint_layout="flat",
     )
     try:
         with pytest.raises(ray.exceptions.RayTaskError, match="CheckpointCoverage"):
@@ -764,8 +782,10 @@ def test_fragment_writer_actor_fails_on_coverage_gap_with_where(
         ray.kill(actor)
 
 
+@pytest.mark.parametrize("layout", ["flat", "hierarchical"])
 def test_buffer_sort_batches_with_range_keys_uses_pending_reference(
     tmp_path: Path,
+    layout: str,
 ) -> None:
     """Range-keyed checkpoints are read at pop time, not at queue-get time.
 
@@ -786,13 +806,13 @@ def test_buffer_sort_batches_with_range_keys_uses_pending_reference(
         ],
         names=["data", "_rowaddr"],
     )
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
-    store["ckpt_range-0-16"] = batch1
-    store["ckpt_range-16-32"] = batch2
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout=layout)
+    store[_RANGE_0_16] = batch1
+    store[_RANGE_16_32] = batch2
 
     queue = ray.util.queue.Queue()
-    queue.put((16, "ckpt_range-16-32", 16))
-    queue.put((0, "ckpt_range-0-16", 16))
+    queue.put((16, _RANGE_16_32, 16))
+    queue.put((0, _RANGE_0_16, 16))
 
     reads: list[str] = []
     original_getitem = type(store).__getitem__
@@ -809,10 +829,10 @@ def test_buffer_sort_batches_with_range_keys_uses_pending_reference(
         assert reads == []
         first = next(gen)
         # First yield should have triggered exactly one read (in order).
-        assert reads == ["ckpt_range-0-16"]
+        assert reads == [_RANGE_0_16]
         assert first.equals(batch1)
         second = next(gen)
-        assert reads == ["ckpt_range-0-16", "ckpt_range-16-32"]
+        assert reads == [_RANGE_0_16, _RANGE_16_32]
         assert second.equals(batch2)
     finally:
         monkey_store.__getitem__ = original_getitem  # type: ignore[method-assign]
@@ -838,7 +858,7 @@ def test_buffer_sort_rejects_short_checkpoint_readback(
         ],
         names=["data", "_rowaddr"],
     )
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store[key] = short
 
     queue = ray.util.queue.Queue()
@@ -865,7 +885,7 @@ def test_buffer_sort_falls_back_to_stamped_count_when_producer_count_unknown(
     )
     # Stamp records 16 rows, then the store "loses" the tail: 12 survive.
     short = stamp_checkpoint_num_rows(full).slice(0, 12)
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckpt_range-0-16"] = short
 
     queue = ray.util.queue.Queue()
@@ -888,7 +908,7 @@ def test_buffer_sort_accepts_unstamped_checkpoint_when_producer_count_unknown(
         ],
         names=["data", "_rowaddr"],
     )
-    store = CheckpointStore.from_uri(tmp_path.as_posix())
+    store = CheckpointStore.from_uri(tmp_path.as_posix(), layout="flat")
     store["ckpt_range-0-16"] = full
 
     queue = ray.util.queue.Queue()

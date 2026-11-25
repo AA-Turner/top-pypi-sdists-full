@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydeseq2
-Version: 0.6.0
+Version: 0.7.0
 Summary: A python implementation of DESeq2.
 Project-URL: Documentation, https://pydeseq2.readthedocs.io/
 Project-URL: Homepage, https://github.com/scverse/PyDESeq2

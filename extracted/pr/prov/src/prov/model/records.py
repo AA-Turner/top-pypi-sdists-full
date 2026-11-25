@@ -8,6 +8,7 @@ import io
 import logging
 import os
 import re
+import sys
 import typing
 import uuid
 from collections import defaultdict
@@ -28,7 +29,6 @@ from typing import (
     ClassVar,
     Final,
     Protocol,
-    Self,
     TypeVar,
     Union,
     cast,
@@ -130,6 +130,11 @@ from prov.model._values import (
     xsd_value,
 )
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+elif TYPE_CHECKING:
+    from typing_extensions import Self
+
 if TYPE_CHECKING:
     from prov.model.bundle import ProvBundle
 
@@ -204,6 +209,14 @@ def parse_xsd_datetime(value: str) -> datetime.datetime | None:
     end_of_day = _XSD_HOUR24_RE.search(text) is not None
     if end_of_day:
         text = _XSD_HOUR24_RE.sub("T00:00:00", text)
+
+    if sys.version_info < (3, 11):
+        # fromisoformat on Python 3.10 takes neither "Z" nor a fraction other
+        # than 3 or 6 digits long, so write both in the form it takes.
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        text = re.sub(r"\.[0-9]+", lambda m: m.group().ljust(7, "0"), text, count=1)
+
     try:
         parsed = datetime.datetime.fromisoformat(text)
         if end_of_day:
@@ -378,26 +391,42 @@ def _literal_text(value: Any, datatype: QualifiedName | None) -> str:
 def encoding_provn_value(value: object) -> str:
     """Return the PROV-N literal representation of a Python value.
 
-    A ``str`` is quoted (triple-quoted when it spans multiple lines). Any other
+    A ``str`` is quoted (triple-quoted when it has a line feed). Any other
     value that has a PROV form (a ``bool``, ``int``, ``float`` or
     ``datetime``, or a ``Decimal``, ``date``, ``time``, ``timedelta``, ``UUID``
     or bytes-like value) is written as ``"text" %% datatype``, except an
     ``xsd:int``, which is a bare ``INT_LITERAL``. Booleans render as
-    ``"true"``/``"false"``, and floats as full-precision ``xsd:double`` (#251). Plain ints are typed by magnitude: within +/-(2**31-1) they render
-    as a bare ``INT_LITERAL`` (PROV-N [60] sugar for ``xsd:int``); beyond that
-    they carry an explicit ``xsd:long``/``xsd:integer`` suffix (#249). A
-    qualified name, and any value with no PROV form or no lexical form, is
-    rendered via :func:`str`.
+    ``"true"``/``"false"``, and floats as full-precision ``xsd:double``. Plain ints are typed by magnitude: from -(2**31) to 2**31-1 they render
+    as a bare ``INT_LITERAL`` (PROV-N sugar for ``xsd:int``); beyond that
+    they carry an explicit ``xsd:long``/``xsd:integer`` suffix. A qualified
+    name or an identifier is written through its
+    ``provn_representation()``, as ``'ex:a'`` or ``"iri" %% xsd:anyURI``. A
+    :class:`Literal` is written through its ``provn_representation()`` too.
+    Any value with no PROV form or no lexical form is rendered via
+    :func:`str`. A ``str`` subclass is quoted from the text that
+    :func:`str` returns for it.
+
+    Raises:
+        ProvException: If a qualified name has an empty local part in a
+            namespace with no prefix, which has no PROV-N spelling.
     """
+    if isinstance(value, (Identifier, Literal)):
+        return value.provn_representation()
     if isinstance(value, str):
         return _provn_string_literal(value)
     form = python_value_form(value)
     if form is None or (text := form[0]) is None:
-        return str(value)  # a qualified name, or a value with no form
+        return str(value)  # a value with no form or no lexical form
     datatype = form[1]
     if datatype == XSD_INT:
         return text  # bare INT_LITERAL is xsd:int sugar (PROV-N [60])
     return f'"{text}" %% {datatype}'
+
+
+def _time_literal(value: datetime.datetime) -> Literal:
+    """A time attribute's value as an xsd:dateTime Literal cut to
+    microseconds, which every reader takes."""
+    return Literal(_xsd_datetime_text(value, statement=True), XSD_DATETIME)
 
 
 def _check_langtag(value: Any, langtag: Any) -> None:
@@ -1265,7 +1294,7 @@ class ProvRecord:
                 continue
             value = first(values)  # a formal attribute holds one value
             if isinstance(value, datetime.datetime):
-                items.append(_xsd_datetime_text(value))
+                items.append(_xsd_datetime_text(value, statement=True))
             elif isinstance(value, QualifiedName):
                 items.append(value.provn_bare_representation())
             else:
@@ -1279,11 +1308,9 @@ class ProvRecord:
             if attr in self.FORMAL_ATTRIBUTES:
                 continue
             for value in self._attributes[attr]:
-                text = (
-                    value.provn_representation()
-                    if isinstance(value, (Identifier, Literal))
-                    else encoding_provn_value(value)
-                )
+                if attr in PROV_ATTRIBUTE_LITERALS:
+                    value = _time_literal(value)
+                text = encoding_provn_value(value)
                 pairs.append(f"{attr.provn_bare_representation()}={text}")
         return pairs
 

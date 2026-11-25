@@ -30,7 +30,7 @@ class Tasks(APIResource):
 
   def list(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     task_id: SequenceNotStr[str] | None | Omit = omit,
     split: Literal["train", "test", "unassigned"] | None | Omit = omit,
@@ -46,9 +46,9 @@ class Tasks(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[BenchmarkSpecTask]:
-    """Lists the benchmark's tasks in upload order, with appended tasks after earlier ones.
-    Tasks uploaded before upload order was recorded come first, in creation order.
-    `order=desc` reverses the list.
+    """Lists the spec's tasks in upload order, with appended tasks after earlier ones. Tasks
+    uploaded before upload order was recorded come first, in creation order. `order=desc`
+    reverses the list.
 
     Args:
       task_id: Return only these tasks; repeat the parameter for each task ID.
@@ -69,12 +69,12 @@ class Tasks(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._get(
       path_template(
-        "/api/v1/specs/{bench_id}/tasks",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/tasks",
+        spec_id=spec_id,
       ),
       cast_to=SyncPage[BenchmarkSpecTask],
       options=make_request_options(
@@ -100,7 +100,7 @@ class Tasks(APIResource):
 
   def count(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     search: str | None | Omit = omit,
     split: Literal["train", "test", "unassigned"] | None | Omit = omit,
@@ -111,7 +111,7 @@ class Tasks(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkTaskCountResponse:
-    """Benchmark Task Count
+    """Get Spec Task Count
 
     Args:
       search: Count only tasks whose label, ID, user message, or category contains this text.
@@ -132,12 +132,12 @@ class Tasks(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._get(
       path_template(
-        "/api/v1/specs/{bench_id}/task-count",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/task-count",
+        spec_id=spec_id,
       ),
       cast_to=BenchmarkTaskCountResponse,
       options=make_request_options(
@@ -158,7 +158,7 @@ class Tasks(APIResource):
 
   def diff(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     manifest: BenchmarkSpecParams,
     artifacts: Mapping[str, str] | Omit = omit,
@@ -180,12 +180,12 @@ class Tasks(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._post(
       path_template(
-        "/api/v1/specs/{bench_id}/tasks/diff",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/tasks/diff",
+        spec_id=spec_id,
       ),
       cast_to=BenchmarkTaskDiffResponse,
       body=maybe_transform(
@@ -205,7 +205,7 @@ class Tasks(APIResource):
 
   def get_env_resources(
     self,
-    bench_id: str,
+    spec_id: str,
     task_id: str,
     *,
     extra_headers: Headers | None = None,
@@ -213,7 +213,7 @@ class Tasks(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkTaskEnvResources:
-    """Return the CPU, memory, GPU and network settings of one benchmark task's sandbox.
+    """Return the CPU, memory, GPU and network settings of one spec task's sandbox.
 
     Args:
       extra_headers: Send extra headers
@@ -224,14 +224,14 @@ class Tasks(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     if isinstance(task_id, str) and not task_id:
       raise ValueError(f"Expected a non-empty value for `task_id` but received {task_id!r}")
     return self._get(
       path_template(
-        "/api/v1/specs/{bench_id}/tasks/{task_id}/env_resources",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/tasks/{task_id}/env_resources",
+        spec_id=spec_id,
         task_id=task_id,
       ),
       cast_to=BenchmarkTaskEnvResources,
@@ -245,7 +245,7 @@ class Tasks(APIResource):
 
   def update_env_resources(
     self,
-    bench_id: str,
+    spec_id: str,
     task_id: str,
     *,
     cpus: float | None | Omit = omit,
@@ -258,7 +258,7 @@ class Tasks(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkTaskEnvResources:
-    """Change the CPU, memory, GPU or network settings of one benchmark task's sandbox without
+    """Change the CPU, memory, GPU or network settings of one spec task's sandbox without
     uploading the task again. Only the fields in the request change. Rollouts that start
     after the change use it; sandboxes already running keep the settings they started with.
 
@@ -283,14 +283,14 @@ class Tasks(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     if isinstance(task_id, str) and not task_id:
       raise ValueError(f"Expected a non-empty value for `task_id` but received {task_id!r}")
     return self._patch(
       path_template(
-        "/api/v1/specs/{bench_id}/tasks/{task_id}/env_resources",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/tasks/{task_id}/env_resources",
+        spec_id=spec_id,
         task_id=task_id,
       ),
       cast_to=BenchmarkTaskEnvResources,

@@ -286,6 +286,23 @@ with contextlib.suppress(ImportError):
         db.close()
 
 
+@pytest.fixture
+def rest_pushdown_db(tmp_path: Path) -> Iterator[Connection]:
+    """Use native REST QueryTable pushdown, the query path used by db://."""
+    namespace = pytest.importorskip("lance.namespace")
+    with (
+        namespace.RestAdapter(
+            "dir", {"root": str(tmp_path / "rest")}, port=0
+        ) as adapter,
+        connect(
+            namespace_client_impl="rest",
+            namespace_client_properties={"uri": f"http://127.0.0.1:{adapter.port}"},
+            namespace_client_pushdown_operations=["QueryTable"],
+        ) as db,
+    ):
+        yield db
+
+
 # ============================================================================
 # Shared Assertion Helpers for Matview Tests
 # ============================================================================

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from asyncio import timeout as asyncio_timeout
 import collections
-from collections.abc import Callable, Generator
+from collections.abc import AsyncIterator, Callable, Generator
 import contextlib
 import dataclasses
 import functools
@@ -18,6 +18,7 @@ import zigpy.config
 from bellows.ash import NcpFailure
 import bellows.config as conf
 from bellows.exception import (
+    ControllerError,
     EzspError,
     InvalidCommandError,
     InvalidCommandPayload,
@@ -51,6 +52,9 @@ UART_PROBE_TIMEOUT = 3
 NETWORK_PROBE_TIMEOUT = 7
 NETWORK_OPS_TIMEOUT = 10
 NETWORK_COORDINATOR_STARTUP_RESET_WAIT = 2
+
+WILDCARD_EUI64 = t.EUI64.convert("FF:FF:FF:FF:FF:FF:FF:FF")
+WELL_KNOWN_LINK_KEY = t.KeyData(b"ZigBeeAlliance09")
 
 
 class EZSP:
@@ -144,7 +148,10 @@ class EZSP:
 
     async def startup_reset(self) -> None:
         for attempt in range(RESET_ATTEMPTS):
-            self._protocol = v4.EZSPv4(self.handle_callback, self._gw)
+            # Start every attempt from a consistent v4 state. A failed attempt may
+            # already have switched to the stick's protocol version; keeping that
+            # version with a v4 protocol object makes `version()` skip the switch.
+            self._switch_protocol_version(v4.EZSPv4.VERSION)
 
             try:
                 await self._startup_reset()
@@ -628,6 +635,54 @@ class EZSP:
                 )
             )
 
+    async def _add_join_link_keys(self, link_keys: dict[t.EUI64, t.KeyData]) -> None:
+        for ieee, key in link_keys.items():
+            status = await self._protocol.add_transient_link_key(ieee, key)
+
+            if status != t.sl_Status.OK:
+                raise ControllerError(f"Failed to set link key for {ieee}")
+
+    async def refresh_join_link_keys(
+        self, *, link_keys: dict[t.EUI64, t.KeyData] | None = None
+    ) -> None:
+        """Import the transient link keys of an open join window again."""
+        if link_keys is None:
+            link_keys = {WILDCARD_EUI64: WELL_KNOWN_LINK_KEY}
+
+        # The NCP drops transient keys a fixed time after they are imported. The SDK's
+        # network-creator-security imports its key again, without clearing the table,
+        # when an open network is reopened, so joins still find their key meanwhile.
+        try:
+            await self._add_join_link_keys(link_keys)
+        except ControllerError:
+            await self._protocol.clear_transient_link_keys()
+            await self._add_join_link_keys(link_keys)
+
+    @contextlib.asynccontextmanager
+    async def allow_joins(
+        self, *, link_keys: dict[t.EUI64, t.KeyData] | None = None
+    ) -> AsyncIterator[None]:
+        """Allow joins with the well-known key, or only with the given link keys."""
+        install_codes_only = link_keys is not None
+
+        if link_keys is None:
+            link_keys = {WILDCARD_EUI64: WELL_KNOWN_LINK_KEY}
+
+        try:
+            # Keys from a previous window may remain if its cleanup failed
+            await self._protocol.clear_transient_link_keys()
+            await self._add_join_link_keys(link_keys)
+            await self._protocol.set_join_policy(
+                allow_joins=True, install_codes_only=install_codes_only
+            )
+
+            yield
+        finally:
+            try:
+                await self._protocol.clear_transient_link_keys()
+            finally:
+                await self._protocol.set_join_policy(allow_joins=False)
+
     def start_ezsp(self):
         """Mark EZSP as running."""
         self._ezsp_event.set()
@@ -913,3 +968,15 @@ class EZSP:
         """Get maximum and recommended TX power for a country (ISO 3166-1 alpha-2)."""
         code = country_code.upper().encode("ascii")
         return await self.send_xncp_frame(xncp.GetTxPowerInfoReq(country_code=code))
+
+    async def xncp_set_led_state(
+        self, red: t.uint8_t, green: t.uint8_t, blue: t.uint8_t
+    ) -> None:
+        """Set the adapter LED color."""
+        await self.send_xncp_frame(
+            xncp.SetLedStateReq(
+                red=red,
+                green=green,
+                blue=blue,
+            )
+        )

@@ -99,6 +99,8 @@ class LogCapture:
         If ``True``, entries are compared recursively by :meth:`check`.
     :param ensure_checks_above:
         The log level above which entries must have been checked.
+        Passing :data:`logging.NOTSET` turns this checking off for this instance,
+        even if :attr:`default_ensure_checks_above` is set.
         See :meth:`ensure_checked`.
 
     For compatibility with earlier versions, capturing only
@@ -244,9 +246,10 @@ class LogCapture:
 
         :param level:
            This defaults to the level passed during :class:`LogCapture` instantiation.
+           If it is :data:`logging.NOTSET`, no checking is performed.
         """
         threshold: int | None = level if level is not None else self.ensure_checks_above
-        if threshold is None:
+        if threshold is None or threshold == logging.NOTSET:
             return
         un_checked = []
         for entry in self.entries:
@@ -499,7 +502,7 @@ class LoggingHandler(logging.Handler):
     """Minimal handler that forwards records to a :class:`LoggingSource`."""
 
     def __init__(self, source: 'LoggingSource') -> None:
-        super().__init__()
+        super().__init__(source.level)
         self._source = source
 
     def __bool__(self) -> bool:

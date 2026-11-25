@@ -1,7 +1,11 @@
+import sys
+import time
 from io import BytesIO
+from pathlib import Path
+from threading import Thread
 
 import pytest
-from helpers import create_heif, hevc_enc
+from helpers import assert_image_equal, create_heif, hevc_enc
 from PIL import Image
 
 import pillow_heif
@@ -18,6 +22,65 @@ def test_metadata_invalid_item_type():
     im.load()
     assert im.info["exif"] is None
     assert (im.size, im.mode) == ((16, 16), "RGB")
+
+
+@pytest.mark.skipif(not hevc_enc(), reason="Requires HEVC encoder.")
+def test_metadata_unreadable_item():
+    # libheif reads metadata on access, a file whose XMP item is cut off opens without that item
+    exif = Image.Exif()
+    exif[0x010F] = "Maker"
+    xmp = b"<x:xmpmeta xmlns:x='adobe:ns:meta/'></x:xmpmeta>"
+    buf = BytesIO()
+    pillow_heif.from_pillow(Image.new("RGB", (64, 64), (255, 0, 0))).save(buf, exif=exif.tobytes(), xmp=xmp, quality=-1)
+    assert buf.getvalue().endswith(xmp)
+    data = buf.getvalue()[:-1]
+    heif_file = pillow_heif.open_heif(data)
+    assert heif_file.info["metadata"] == []
+    assert "xmp" not in heif_file.info
+    im = heif_file.to_pillow()
+    assert im.getexif()[0x010F] == "Maker"
+    assert_image_equal(im, pillow_heif.open_heif(buf).to_pillow())
+    out_buf = BytesIO()
+    heif_file.save(out_buf)
+    assert Image.open(out_buf).getexif()[0x010F] == "Maker"
+    im = Image.open(BytesIO(data))
+    im.load()
+    assert "xmp" not in im.info
+    assert im.getexif()[0x010F] == "Maker"
+
+
+@pytest.mark.skipif(getattr(sys, "_is_gil_enabled", lambda: True)(), reason="Requires the free-threaded build")
+def test_metadata_opened_in_threads():
+    # libheif counts the memory of an item freed after its context to another context: when files are opened in many
+    # threads at once, reading a metadata item can fail with a security limit exceeded: no file may open without it
+    data = Path("images/heif_other/pug.heic").read_bytes()
+    expected = [(i.info["exif"], i.info["xmp"]) for i in pillow_heif.open_heif(data)]
+    opened, failures = [], []
+    stop = time.monotonic() + 2
+
+    def open_files():
+        while time.monotonic() < stop:
+            try:
+                metadata = [(i.info.get("exif"), i.info.get("xmp")) for i in pillow_heif.open_heif(data)]
+            except RuntimeError as e:
+                if "Security limit exceeded" not in str(e):
+                    failures.append(repr(e))
+                continue
+            except Exception as e:  # noqa # pylint: disable=broad-exception-caught
+                failures.append(repr(e))
+                continue
+            if metadata == expected:
+                opened.append(1)
+            else:
+                failures.append("opened without the metadata")
+
+    threads = [Thread(target=open_files) for _ in range(16)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert not failures[:3], f"{len(failures)} of {len(failures) + len(opened)} opens failed"
+    assert opened
 
 
 @pytest.mark.skipif(not hevc_enc(), reason="Requires HEVC encoder.")

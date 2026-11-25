@@ -12,7 +12,7 @@ import os
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 from apm_cli.core.scope import manifest_file
 
@@ -22,6 +22,7 @@ from ..core.remediation import (
     REQUIRED_PACKAGE_UNLOCKED,
     UNMANAGED_FILE_TRACK,
 )
+from .allowlist_remedy import with_allowlist_next_step as _advise
 from .models import (
     CheckResult,
     CIAuditResult,
@@ -29,6 +30,9 @@ from .models import (
     PolicyRemedy,
     PolicySubject,
 )
+
+if TYPE_CHECKING:
+    from ..integration.mcp_config_view import CurrentMcpConfigView
 
 _logger = logging.getLogger(__name__)
 FAIL_CLOSED_POLICY_CHECKS = frozenset({"dependency-content-hashes"})
@@ -769,8 +773,66 @@ def _check_mcp_self_defined(
     )
 
 
+_TRUST_TRANSITIVE = "mcp-trust-transitive"
+_TRUST_TRANSITIVE_REASON = "transitive server not in mcp.allow (mcp.trust_transitive: false)"
+
+
+def _trust_transitive_result(names: Sequence[str]) -> CheckResult:
+    if not names:
+        return CheckResult(
+            name=_TRUST_TRANSITIVE,
+            passed=True,
+            message="No transitive MCP server outside mcp.allow",
+        )
+    return _subjects_result(
+        _TRUST_TRANSITIVE,
+        f"{len(names)} transitive MCP server(s) not in mcp.allow while "
+        "mcp.trust_transitive is false",
+        [PolicySubject(name, _TRUST_TRANSITIVE_REASON) for name in names],
+    )
+
+
+def _check_mcp_trust_transitive(mcp_deps: list, policy: McpPolicy) -> CheckResult:
+    """Check 10b: with ``mcp.trust_transitive`` false, transitive servers need mcp.allow.
+
+    A transitive server (declared by a package at lock depth > 1, and not
+    re-declared by the root apm.yml) passes only when ``mcp.allow`` lists it
+    (req-sc-016). A direct dependency's server is not transitive.
+    """
+    from ..security.trust import transitive_server_listed
+
+    if policy.trust_transitive:
+        return _trust_transitive_result(())
+    root = {m.name for m in mcp_deps if not getattr(m, "resolved_by", None)}
+    transitive = sorted({m.name for m in mcp_deps if getattr(m, "declared_depth", 0) > 1} - root)
+    return _trust_transitive_result(
+        [name for name in transitive if not transitive_server_listed(name, policy)]
+    )
+
+
+def _parked_trust_transitive(
+    view: CurrentMcpConfigView, native: Sequence[str] = ()
+) -> CheckResult | None:
+    """Audit: transitive servers withheld under ``mcp.trust_transitive``.
+
+    *view* carries the servers the trust owner parked; *native* names those
+    of locked transitive native plugins, which Claude loads itself.
+    """
+    from ..security.trust import REASON_POLICY_TRANSITIVE
+
+    parked = sorted(
+        {
+            name
+            for name, evidence in view.omissions.items()
+            if isinstance(evidence, Mapping) and evidence.get("reason") == REASON_POLICY_TRANSITIVE
+        }
+        | set(native)
+    )
+    return _trust_transitive_result(parked) if parked else None
+
+
 def mcp_policy_checks(mcp_list: list, policy: ApmPolicy) -> list[CheckResult]:
-    """Run org MCP checks 7-10 (allow, deny, transport, self-defined) on *mcp_list*.
+    """Run org MCP checks 7-10b (allow, deny, transport, self-defined, trust_transitive).
 
     The one composition of the MCP checks: the install gate and the native
     Claude plugin route (which vets the servers a plugin declares) both use it.
@@ -780,6 +842,7 @@ def mcp_policy_checks(mcp_list: list, policy: ApmPolicy) -> list[CheckResult]:
         _check_mcp_denylist(mcp_list, policy.mcp),
         _check_mcp_transport(_effective_mcp_transports(mcp_list, policy.mcp), policy.mcp),
         _check_mcp_self_defined(mcp_list, policy.mcp),
+        _check_mcp_trust_transitive(mcp_list, policy.mcp),
     ]
 
 
@@ -1175,6 +1238,7 @@ def _check_unmanaged_files(
     resolve. Paths matching ``policy.exclude`` are suppressed. This is drift /
     divergence visibility, not supply-chain-attack prevention.
     """
+    from ..integration.hook_ownership import verified_apm_hook_files
     from .matcher import first_matching_pattern
 
     if policy.effective_action == "ignore":
@@ -1187,8 +1251,7 @@ def _check_unmanaged_files(
     dirs = policy.directories if policy.directories else _DEFAULT_GOVERNANCE_DIRS
     exclude = policy.exclude or ()
 
-    # Build set of deployed files AND directory prefixes from lockfile
-    deployed: set[str] = set()
+    deployed: set[str] = set(verified_apm_hook_files(project_root, lock)) if lock else set()
     deployed_dir_prefixes: list[str] = []
     if lock:
         for _key, dep in lock.dependencies.items():
@@ -1218,14 +1281,14 @@ def _check_unmanaged_files(
                 # File-symlink guard: never follow a link out of the workspace.
                 if file_path.is_symlink() and _symlink_escapes_workspace(file_path, project_root):
                     continue
-                if not file_path.is_file():
+                if file_path.is_dir():  # a FIFO or other special file is counted
                     continue
                 files_scanned += 1
                 if files_scanned > _MAX_UNMANAGED_SCAN_FILES:
                     cap_hit = True
                     break
                 rel = file_path.relative_to(project_root).as_posix()
-                if rel in deployed or (dir_prefix_tuple and rel.startswith(dir_prefix_tuple)):
+                if (rel in deployed or rel.startswith(dir_prefix_tuple)) and file_path.is_file():
                     continue
                 if first_matching_pattern(rel, exclude) is not None:
                     continue
@@ -1637,6 +1700,7 @@ def run_dependency_policy_checks(  # noqa: PLR0913
     installing: bool = False,
     marketplace_origins: MarketplaceOrigins | None = None,
     bundled_deps: Iterable[DependencyReference] | LocalBundleSubjects = (),
+    depth_lockfile: LockFile | None = None,
 ) -> CIAuditResult:
     """Evaluate :class:`ApmPolicy` against an already-resolved dependency set.
 
@@ -1653,6 +1717,9 @@ def run_dependency_policy_checks(  # noqa: PLR0913
     lockfile:
         An ``ApmLockfile`` / ``LockFile`` instance, or ``None``.  Needed
         for deployed-files and version-pin checks.
+    depth_lockfile:
+        Rows of the graph an install resolved; ``dependencies.max_depth``
+        judges these instead of *lockfile* when given.
     policy:
         The effective :class:`ApmPolicy` to enforce.
     mcp_deps:
@@ -1780,7 +1847,9 @@ def run_dependency_policy_checks(  # noqa: PLR0913
         )
     ):
         return result
-    if _run(_check_transitive_depth(lockfile, policy.dependencies)):
+    # An install judges the graph it resolved, not the lockfile it replaces (#4826).
+    depth_lock = depth_lockfile if depth_lockfile is not None else lockfile
+    if _run(_check_transitive_depth(depth_lock, policy.dependencies)):
         return result
 
     # -- Registry source + pinned-constraint + MCP + tail checks -----
@@ -1861,6 +1930,7 @@ def run_policy_checks(
     fail_fast: bool = True,
     modules_root: Path | None = None,
     no_policy: bool = False,
+    policy_source: str | None = None,
 ) -> CIAuditResult:
     """Run the full set of policy checks against a project on disk.
 
@@ -1904,6 +1974,7 @@ def run_policy_checks(
     # recorded local-bundle servers), so policy judges the audit view's set,
     # as the install preflight judges the merged set.
     mcp_brought_in_by = None
+    trust_check: CheckResult | None = None
     if lock is None:
         mcp_deps = manifest.get_all_mcp_dependencies()
     else:
@@ -1914,6 +1985,15 @@ def run_policy_checks(
         )
         mcp_deps = list(view.kept_dependencies())
         mcp_brought_in_by = view.brought_in_by
+        from ..claude_plugins.admission import locked_transitive_native_refusals
+        from ..codex_plugins.admission import locked_transitive_codex_refusals
+
+        modules = modules_root or project_root / "apm_modules"
+        native = [
+            *locked_transitive_native_refusals(lock, modules, policy),
+            *locked_transitive_codex_refusals(lock, modules, policy),
+        ]
+        trust_check = _parked_trust_transitive(view, native)
 
     try:
         source_deps = _audit_source_dependencies(manifest, lock)
@@ -1950,11 +2030,16 @@ def run_policy_checks(
             manifest.marketplaces, marketplace_resolution_origins(lock)
         ),
     )
-    result.checks.extend(dep_result.checks)
+    inputs = (project_root, manifest, apm_deps, lock, raw_yml)
+    result.checks.extend(_advise(dep_result.checks, source_deps, policy, policy_source, inputs))
 
     # Early exit if dep checks already failed in fail-fast mode
     if fail_fast and not dep_result.passed:
         return result
+    if trust_check is not None:
+        result.checks.append(trust_check)
+        if fail_fast and not trust_check.passed:
+            return result
 
     hash_check = _check_dependency_content_hashes(
         lock,
@@ -1977,17 +2062,17 @@ def run_policy_checks(
     from ..models.apm_package import package_target_selection
 
     manifest_decision = EffectiveTargetDecision(package_target_selection(manifest), "apm.yml")
-    if _run(
-        _check_compilation_target(
-            manifest_decision.canonical_targets,
-            policy.compilation,
-            source=manifest_decision.source,
+    if (
+        _run(
+            _check_compilation_target(
+                manifest_decision.canonical_targets,
+                policy.compilation,
+                source=manifest_decision.source,
+            )
         )
+        or _run(_check_compilation_strategy(raw_yml, policy.compilation))
+        or _run(_check_source_attribution(raw_yml, policy.compilation))
     ):
-        return result
-    if _run(_check_compilation_strategy(raw_yml, policy.compilation)):
-        return result
-    if _run(_check_source_attribution(raw_yml, policy.compilation)):
         return result
 
     # Manifest checks (14-15)

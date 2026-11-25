@@ -64,8 +64,9 @@ def selected_suites(suite: str) -> tuple[str, ...]:
 
 
 def episode_selection(value: str | int) -> int | str:
-    if value == "all":
-        return "all"
+    """An episode index, "all", or "random" (one episode, picked once the counts are known)."""
+    if value in ("all", "random"):
+        return value
     if isinstance(value, bool):
         raise ValueError("MolmoSpaces --task-id must be a nonnegative episode index or all.")
     try:

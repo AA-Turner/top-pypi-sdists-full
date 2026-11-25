@@ -1949,6 +1949,13 @@ namespace sogen
         {
             this->setup_registers(emu, context);
             this->setup_done = true;
+
+            // Until it runs, a new thread's context is the trap frame KiInitializeContextThread built: EFlags with IF
+            // only, and no debug registers.
+            if (dynamic_cast<x86_64_cpu*>(&emu))
+            {
+                this->trap_frame = trap_frame_registers{.eflags = cpu_context::eflags_interrupt};
+            }
         }
         if (this->pending_status.has_value())
         {
@@ -2024,12 +2031,16 @@ namespace sogen
         // CRT's pow/_except1 path) raises a STATUS_FLOAT_INEXACT_RESULT that never occurs on real Windows.
         emu.reg<uint16_t>(x86_register::fpcw, 0x037F);
         emu.reg<uint32_t>(x86_register::mxcsr, 0x1F80);
+        // KiInitializeContextThread puts a new thread's context, whose EFlags is 0, through KxContextToKframes: its
+        // trap frame's EFlags holds IF only. PspInitializeThunkContext hands LdrInitializeThunk that frame as its CONTEXT.
+        emu.reg<uint32_t>(x86_register::eflags, cpu_context::eflags_interrupt | cpu_context::eflags_always_one);
 
         CONTEXT64 ctx{};
         ctx.ContextFlags = CONTEXT64_ALL;
 
         unalign_stack(emu);
         cpu_context::save(emu, ctx);
+        ctx.EFlags = cpu_context::eflags_interrupt;
 
         ctx.Rip = context.rtl_user_thread_start;
         ctx.Rcx = this->start_address;

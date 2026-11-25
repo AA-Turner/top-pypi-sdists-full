@@ -2,7 +2,7 @@ import difflib
 import os
 from os import getcwd
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterable, List, Optional
+from typing import Any, Dict, Generator, Iterable, List, Optional, Union
 
 try:
     from colorama import Fore, init
@@ -11,7 +11,7 @@ try:
 except ImportError:  # fallback so that the imported classes always exist
 
     class ColorFallback:
-        def __getattr__(self, name):
+        def __getattr__(self, name: str) -> str:
             return ""
 
     Fore = ColorFallback()
@@ -41,13 +41,13 @@ def diff_files(
     client: Optional[TinyB] = None,
     for_deploy: bool = False,
 ):
-    def file_lines(filename):
+    def file_lines(filename: str) -> List[str]:
         with open(filename) as file:
             return file.readlines()
 
-    def parse(filename, with_format=True, unroll_includes=False):
+    def parse(filename: str, with_format: bool = True, unroll_includes: bool = False) -> Optional[List[str]]:
         extensions = Path(filename).suffixes
-        lines = None
+        lines: Union[str, List[str], None] = None
         if is_file_a_datasource(filename):
             lines = (
                 format_datasource(
@@ -75,9 +75,11 @@ def diff_files(
             )
         else:
             click.echo(f"Unsupported file type: {filename}")
-        if lines:
-            return [f"{l}\n" for l in lines.split("\n")] if with_format else lines  # noqa: E741
-        return None
+        if not lines:
+            return None
+        if isinstance(lines, str):
+            return [f"{line}\n" for line in lines.split("\n")]
+        return lines
 
     try:
         lines1 = parse(from_file, with_format)
@@ -110,7 +112,7 @@ def diff_command(
     progress_bar: bool = False,
     for_deploy: bool = False,
 ):
-    def is_shared_datasource(name):
+    def is_shared_datasource(name: str) -> bool:
         return "." in name
 
     with_explicit_filenames = filenames
@@ -138,7 +140,7 @@ def diff_command(
         if (".datasource" in file or ".pipe" in file) and ".incl" not in file
     }
 
-    changed = {}
+    changed: Dict[str, Optional[str]] = {}
     for resource in remote_datasources + remote_pipes:
         properties: Dict[str, Any] = get_name_version(resource["name"])
         name = properties.get("name", None)

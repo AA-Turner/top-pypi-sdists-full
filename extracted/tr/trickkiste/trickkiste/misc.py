@@ -42,7 +42,7 @@ from collections.abc import (
 )
 from concurrent.futures import Executor
 from contextlib import contextmanager, suppress
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial, reduce, wraps
 from pathlib import Path
 from subprocess import DEVNULL, check_output
@@ -53,8 +53,6 @@ from typing import (
     TypeVar,
     overload,
 )
-
-from dateutil import tz
 
 ReturnT = TypeVar("ReturnT")
 ArgumentsP = ParamSpec("ArgumentsP")
@@ -76,7 +74,7 @@ def throw(exception: BaseException) -> NoReturn:
     raise exception
 
 
-def md5from(filepath: Path) -> None | str:
+def md5from(filepath: Path) -> str | None:
     """Returns an MD5 sum from contents of file provided"""
     with suppress(FileNotFoundError):
         with filepath.open("rb") as input_file:
@@ -106,6 +104,8 @@ def dur_str(seconds: float, fixed: bool = False) -> str:
     '42s'
     >>> dur_str(12345)
     '3h:25m:45s'
+    >>> dur_str(12345, fixed=True)
+    '00d:03h:25m:45s'
     """
     if not fixed and not seconds:
         return "0s"
@@ -126,15 +126,13 @@ def dur_str(seconds: float, fixed: bool = False) -> str:
         else ""
     )
     seconds_str = (
-        f"{int(seconds % 60):0{digits}d}s"
-        if not fixed and ((seconds % 60) or seconds == 0)
-        else ""
+        f"{int(seconds % 60):0{digits}d}s" if fixed or seconds % 60 else ""
     )
     return ":".join(e for e in (days, hours, minutes, seconds_str) if e)
 
 
 def age_str(
-    now: float | datetime, age: None | int | datetime, fixed: bool = False
+    now: float | datetime, age: int | datetime | None, fixed: bool = False
 ) -> str:
     """Turn a number of seconds into something human readable
     >>> age_str(1700000000, 1600000000)
@@ -144,7 +142,7 @@ def age_str(
         return "--"
     age_ts = age.timestamp() if isinstance(age, datetime) else age
     now_ts = now.timestamp() if isinstance(now, datetime) else now
-    if (age_ts or now_ts) <= 0.0:
+    if min(age_ts, now_ts) <= 0.0:
         return "--"
     return dur_str(now_ts - age_ts, fixed=fixed)
 
@@ -163,14 +161,14 @@ def date_str(
     date_dt = (
         timestamp
         if isinstance(timestamp, datetime)
-        else datetime.fromtimestamp(timestamp, tz=tz.tzlocal())
+        else datetime.fromtimestamp(timestamp, tz=timezone.utc).astimezone()
     )
     if date_dt.year < 1000:
         return "--"
     return (date_dt).strftime(datefmt)
 
 
-def date_from(timestamp: float | str) -> None | datetime:
+def date_from(timestamp: float | str) -> datetime | None:
     """Convenience date parser for a couple of time representations
     >>> str(date_from("2023-07-14T15:05:32.174200714+02:00"))
     '2023-07-14 15:05:32+02:00'
@@ -184,13 +182,15 @@ def date_from(timestamp: float | str) -> None | datetime:
             return timestamp
 
         if isinstance(timestamp, (int, float)):
-            return datetime.fromtimestamp(timestamp, tz=tz.tzlocal())
+            return datetime.fromtimestamp(
+                timestamp, tz=timezone.utc
+            ).astimezone()
 
         if timestamp[-1] == "Z":
             return (
                 datetime.strptime(timestamp[:19], "%Y-%m-%dT%H:%M:%S")
-                .replace(tzinfo=tz.tzutc())
-                .astimezone(tz.tzlocal())
+                .replace(tzinfo=timezone.utc)
+                .astimezone()
             )
         if re.match(
             r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\+\d{2}:\d{2}$",
@@ -222,19 +222,21 @@ def parse_age(string: str) -> int:
     number = r"\d*(?:\.(?:\d*)?)?"
     with suppress(ValueError):
         return int(string)
-    if match := re.match(
-        (
-            "(?i)^"
-            f"(?:({number})d)?"
-            "(?::)?"
-            f"(?:({number})h)?"
-            "(?::)?"
-            f"(?:({number})m)?"
-            "(?::)?"
-            f"(?:({number})s)?$"
-        ),
-        string,
-    ):
+    if (
+        match := re.match(
+            (
+                "(?i)^"
+                f"(?:({number})d)?"
+                "(?::)?"
+                f"(?:({number})h)?"
+                "(?::)?"
+                f"(?:({number})m)?"
+                "(?::)?"
+                f"(?:({number})s)?$"
+            ),
+            string,
+        )
+    ) and any(match.groups()):
         days, hours, mins, secs = match.groups()
         return int(
             float(days or "0") * 86400
@@ -249,6 +251,8 @@ def smart_split(string: str, delimiter: str = ",") -> Iterator[str]:
     r"""Like str.split but takes quotes and parenthesis into account
     >>> list(smart_split("(=,),'a=x',\"b=y\""))
     ['(=,)', "'a=x'", '"b=y"']
+    >>> list(smart_split("a='(',b=1"))
+    ["a='('", 'b=1']
     """
     splits: list[int] = []
     closers: list[str] = []
@@ -258,7 +262,7 @@ def smart_split(string: str, delimiter: str = ",") -> Iterator[str]:
             splits.append(i)
         elif closers and char == closers[-1]:
             closers.pop()
-        elif char in parenthizers:
+        elif char in parenthizers and not (closers and closers[-1] in "\"'"):
             closers.append(parenthizers[char])
     start = 0
     for pos in splits:
@@ -295,7 +299,7 @@ def split_params(
 def compact_dict(
     mapping: Mapping[str, float | str],
     *,
-    maxlen: None | int = 10,
+    maxlen: int | None = 10,
     delim: str = ", ",
 ) -> str:
     """Turns a dict into a 'string packed map' (for making a dict human readable)
@@ -337,8 +341,8 @@ def asyncify(
     @wraps(func)
     async def run(  # type: ignore[valid-type]
         *args: ArgumentsP.args,
-        loop: None | asyncio.AbstractEventLoop = None,
-        executor: None | Executor = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+        executor: Executor | None = None,
         **kwargs: ArgumentsP.kwargs,
     ) -> ReturnT:
         return await (loop or asyncio.get_event_loop()).run_in_executor(

@@ -167,6 +167,7 @@ def _activate_validated_candidate(
 ) -> Path:
     """Publish one accepted candidate, then expose its download metadata."""
     from apm_cli.utils.content_hash import compute_package_hash
+    from apm_cli.utils.realpath import resolve_path
 
     content_hash = compute_package_hash(candidate_path, framed=True)
     live_path = staging_session.publish_replacement(candidate_path)
@@ -177,7 +178,7 @@ def _activate_validated_candidate(
         dep_key, resolved_sha = pending
         callback_downloaded[dep_key] = resolved_sha
         if callback_content_hashes is not None:
-            callback_content_hashes[dep_key] = (live_path.resolve(), content_hash)
+            callback_content_hashes[dep_key] = (resolve_path(live_path), content_hash)
     if tui is not None:
         tui.task_completed(dep_key)
     return live_path
@@ -327,11 +328,27 @@ def _fail_on_resolution_errors(ctx: InstallContext, dependency_graph, failures=(
         return
     for _display, failure in failures if ctx.logger else ():
         ctx.logger.verbose_detail(f"  {failure}")
-    for error in dependency_graph.resolution_errors:
+    from apm_cli.install.errors import DependencyResolutionError
+
+    errors = list(dependency_graph.resolution_errors)
+    unprinted = []
+    for error in errors:
         if ctx.logger and not error.startswith("Marketplace package materialization failed:"):
             ctx.logger.error(error)
-    joined_errors = "; ".join(dependency_graph.resolution_errors)
-    raise RuntimeError(f"Dependency resolution failed: {joined_errors}")
+        else:
+            unprinted.append(error)
+    raise DependencyResolutionError(errors, unprinted=unprinted)
+
+
+def _judge_resolution(ctx: InstallContext, graph, failures, depth_policy, resolver) -> None:
+    """Refuse the resolved graph: policy refusals first, then any other resolution error."""
+    from apm_cli.install.commit_gate import refuse_policy_depth_limit
+    from apm_cli.install.phases.policy_gate import _drop_policy_refused_replacement_errors
+
+    _drop_policy_refused_replacement_errors(ctx, graph)
+    if depth_policy is not None:
+        refuse_policy_depth_limit(ctx, depth_policy, resolver.depth_limit_chains)
+    _fail_on_resolution_errors(ctx, graph, failures)
 
 
 def _attach_resolver_marketplace_provenance(ctx: InstallContext, resolver) -> None:
@@ -737,10 +754,13 @@ def _resolve_dependencies(
     # ------------------------------------------------------------------
     # 6. Resolver creation + dependency resolution
     # ------------------------------------------------------------------
+    from apm_cli.install.commit_gate import policy_depth_limit
     from apm_cli.install.legacy_plugin_compat import validate_cached_legacy_plugin
     from apm_cli.install.service import InstallService
 
+    depth_policy, max_depth = policy_depth_limit(ctx)
     resolver = APMDependencyResolver(
+        max_depth=max_depth,
         apm_modules_dir=ctx.apm_modules_dir,
         download_callback=download_callback,
         activation_callback=partial(
@@ -768,10 +788,7 @@ def _resolve_dependencies(
 
     # The graph reads source_root; apm_modules_dir remains the deployment root.
     dependency_graph = _build_dependency_graph(ctx, resolver)
-    from apm_cli.install.phases.policy_gate import _drop_policy_refused_replacement_errors
-
-    _drop_policy_refused_replacement_errors(ctx, dependency_graph)
-    _fail_on_resolution_errors(ctx, dependency_graph, transitive_failures)
+    _judge_resolution(ctx, dependency_graph, transitive_failures, depth_policy, resolver)
 
     # Fold remote-parent local_path rejections into ``callback_failures`` so
     # the integrate phase skips them via the same gate used for download

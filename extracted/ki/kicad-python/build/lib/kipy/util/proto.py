@@ -19,19 +19,20 @@
 # SOFTWARE.
 
 from google.protobuf.any_pb2 import Any
-from google.protobuf.message import Message, DecodeError
+from google.protobuf.message import DecodeError, Message
 
 from kipy.proto.board import board_types_pb2
 from kipy.proto.common.types import base_types_pb2
+
 
 def pack_any(object: Message) -> Any:
     a = Any()
     a.Pack(object)
     return a
 
+
 _any_urls = {
     "type.googleapis.com/kiapi.common.types.GraphicShape": base_types_pb2.GraphicShape,
-
     "type.googleapis.com/kiapi.board.types.Track": board_types_pb2.Track,
     "type.googleapis.com/kiapi.board.types.Arc": board_types_pb2.Arc,
     "type.googleapis.com/kiapi.board.types.Via": board_types_pb2.Via,
@@ -44,10 +45,13 @@ _any_urls = {
     "type.googleapis.com/kiapi.board.types.Dimension": board_types_pb2.Dimension,
     "type.googleapis.com/kiapi.board.types.ReferenceImage": board_types_pb2.ReferenceImage,
     "type.googleapis.com/kiapi.board.types.Group": board_types_pb2.Group,
+    "type.googleapis.com/kiapi.board.types.Table": board_types_pb2.Table,
+    "type.googleapis.com/kiapi.board.types.ReferencePoint": board_types_pb2.ReferencePoint,
     "type.googleapis.com/kiapi.board.types.Field": board_types_pb2.Field,
     "type.googleapis.com/kiapi.board.types.FootprintInstance": board_types_pb2.FootprintInstance,
-    "type.googleapis.com/kiapi.board.types.Footprint3DModel": board_types_pb2.Footprint3DModel
+    "type.googleapis.com/kiapi.board.types.Footprint3DModel": board_types_pb2.Footprint3DModel,
 }
+
 
 def unpack_any(object: Any) -> Message:
     if len(object.type_url) == 0:
@@ -61,5 +65,7 @@ def unpack_any(object: Any) -> Message:
     try:
         object.Unpack(concrete)
     except DecodeError:
-        raise ValueError(f"Can't unpack {object.type_url}.  Incompatible change on KiCad side?") from None
+        raise ValueError(
+            f"Can't unpack {object.type_url}.  Incompatible change on KiCad side?"
+        ) from None
     return concrete

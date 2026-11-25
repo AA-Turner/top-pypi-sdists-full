@@ -909,15 +909,30 @@ class Server(
         Returns
         -------
         list[str] | None
-            Stdout lines, or None when *background* is True. Empty list on
-            tmux 3.3a/3.4 (upstream stdout passthrough was broken until 3.5).
+            Stdout lines, or None when *background* is True.
+
+        Raises
+        ------
+        :exc:`~libtmux.exc.VersionTooLow`
+            On tmux 3.3a and 3.4, for a shell command run without
+            *background*, *as_tmux_command* or *target_pane*. Those releases
+            send its output to the pane's copy mode instead of returning it.
 
         Examples
         --------
-        >>> result = server.run_shell('true')
-        >>> isinstance(result, list)
+        >>> server.run_shell('true', background=True) is None
         True
         """
+        captures_output = not (background or as_tmux_command or target_pane)
+        output_since = capability_since("run-shell-output-in-copy-mode")
+        if captures_output and not has_gte_version(
+            output_since, tmux_bin=self.tmux_bin
+        ):
+            # tmux 3.3a and 3.4 send a foreground run-shell's output to the
+            # pane's copy mode, not back to the caller.
+            msg = f"run_shell output requires tmux {output_since}+"
+            raise exc.VersionTooLow(msg)
+
         tmux_args: tuple[str, ...] = ()
 
         if background:
@@ -1559,10 +1574,11 @@ class Server(
         numeric: bool | None = None,
         prompt_type: t.Literal["command", "search", "target", "window-target"]
         | None = None,
-        expand_format: bool | None = None,
+        expand_formats: bool | None = None,
         literal: bool | None = None,
         bspace_exit: bool | None = None,
         no_freeze: bool | None = None,
+        expand_format: bool | None = None,
     ) -> None:
         """Open a command prompt via ``$ tmux command-prompt``.
 
@@ -1589,7 +1605,7 @@ class Server(
             Accept only numeric input (``-N`` flag).
         prompt_type : str, optional
             Prompt type (``-T`` flag).
-        expand_format : bool, optional
+        expand_formats : bool, optional
             Pass the template through ``args_make_commands_prepare``
             (``-F`` flag) so format strings expand.
         literal : bool, optional
@@ -1638,7 +1654,15 @@ class Server(
         if numeric:
             tmux_args += ("-N",)
 
-        if expand_format:
+        if expand_format is not None:
+            warnings.warn(
+                "expand_format is deprecated in favor of expand_formats",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            if expand_formats is None:
+                expand_formats = expand_format
+        if expand_formats:
             tmux_args += ("-F",)
 
         if literal:

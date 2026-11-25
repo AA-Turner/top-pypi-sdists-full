@@ -365,7 +365,8 @@ const watchEmailTops = () => document.querySelectorAll(".email-top").forEach((to
   };
   new ResizeObserver(measure).observe(title);
   window.addEventListener("resize", measure);
-  const back = title.querySelector(".icon-btn");
+  // The way back or the ×, not the ‹ › beside it, which a phone hides.
+  const back = title.querySelector("[data-close-view], a.icon-btn");
   if (back) {
     new IntersectionObserver(([entry]) => {
       top.classList.toggle("is-scrolled", !entry.isIntersecting);

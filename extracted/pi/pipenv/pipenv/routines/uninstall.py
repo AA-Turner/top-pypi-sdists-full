@@ -38,9 +38,13 @@ def _uninstall_from_environment(project: Project, package, system=False):
             package,
             "-y",
         ]
-        c = run_command(cmd, is_verbose=project.s.is_verbose())
+        c = run_command(
+            cmd, is_verbose=project.s.is_verbose(), catch_exceptions=False
+        )
         console.print(c.stdout, style="cyan")
         if c.returncode != 0:
+            if c.stderr:
+                console.print(c.stderr, style="yellow")
             console.print(f"Error occurred while uninstalling package {package}.")
             return False
     return True
@@ -119,6 +123,7 @@ def do_uninstall(project: Project, ctx: RoutineContext):
         return
 
     package_args = list(packages) + [f"-e {pkg}" for pkg in editable_packages]
+    package_names = {}
 
     # Determine packages and their dependencies for removal
     for category in categories:
@@ -132,6 +137,8 @@ def do_uninstall(project: Project, ctx: RoutineContext):
             name, normalized_name, _ = project.pipfile.generate_entry(
                 install_req, package, category=pipfile_category
             )
+            # pip uninstall accepts distribution names, not editable install arguments.
+            package_names[package] = normalized_name
 
             # Remove the package from the Pipfile
             if project.pipfile.remove_package(
@@ -177,7 +184,7 @@ def do_uninstall(project: Project, ctx: RoutineContext):
     project.lockfile.write(lockfile_content)
 
     # Perform uninstallation of packages and dependencies
-    for package in package_args:
+    for package in package_names.values():
         if not _uninstall_from_environment(project, package, system=system):
             failure = True
 

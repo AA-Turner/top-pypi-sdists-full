@@ -107,7 +107,7 @@ void AlgorithmFormatter::print_header()
                 << std::setw(32) << "-------"
                 << std::endl;
         break;
-    } case Objective::VariableSizedBinPacking: {
+    } case Objective::VariableSizedBinPacking: case Objective::VariableSizedBinPackingWithLeftovers: {
         *os_
                 << std::setw(12) << "Time"
                 << std::setw(14) << "Cost"
@@ -186,7 +186,7 @@ void AlgorithmFormatter::print(
                 << std::setw(32) << s
                 << std::endl;
         break;
-    } case Objective::VariableSizedBinPacking: {
+    } case Objective::VariableSizedBinPacking: case Objective::VariableSizedBinPackingWithLeftovers: {
         *os_
                 << std::setw(12) << std::fixed << std::setprecision(3) << output_.time << std::defaultfloat << std::setprecision(precision)
                 << std::setw(14) << output_.solution_pool.best().cost()
@@ -213,6 +213,32 @@ void AlgorithmFormatter::update_solution(
     output_.time = parameters_.timer.elapsed_time();
     int new_best = output_.solution_pool.add(solution, s);
     if (new_best == 1) {
+        print(s);
+        if (parameters_.write_json_output)
+            output_.json["IntermediaryOutputs"].push_back(output_.to_json());
+        parameters_.new_solution_callback(output_);
+
+        if (output_.is_proven_optimal())
+            end_ = true;
+    }
+    mutex_.unlock();
+}
+
+void AlgorithmFormatter::update_solution_leftovers(
+        const Solution& solution,
+        const std::string& s)
+{
+    mutex_.lock();
+    output_.time = parameters_.timer.elapsed_time();
+    const Solution& solution_best = output_.solution_pool.best();
+    bool updated = false;
+    if (solution_best < solution) {
+        updated = (output_.solution_pool.add(solution, s) == 1);
+    } else if (!(solution < solution_best)
+            && solution.leftovers_better(solution_best)) {
+        updated = output_.solution_pool.replace_best(solution, s);
+    }
+    if (updated) {
         print(s);
         if (parameters_.write_json_output)
             output_.json["IntermediaryOutputs"].push_back(output_.to_json());
@@ -303,7 +329,7 @@ void AlgorithmFormatter::update_bounds(
     case Objective::BinPacking:
         update_bin_packing_bound(output.bin_packing_bound);
         break;
-    case Objective::VariableSizedBinPacking:
+    case Objective::VariableSizedBinPacking: case Objective::VariableSizedBinPackingWithLeftovers:
         update_variable_sized_bin_packing_bound(output.variable_sized_bin_packing_bound);
         break;
     default:

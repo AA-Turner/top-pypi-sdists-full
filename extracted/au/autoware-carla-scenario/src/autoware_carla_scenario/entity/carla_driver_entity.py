@@ -198,8 +198,8 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
         self._lidars: List[Tuple[str, "CarlaLidarSensor", Pose]] = []
         #: The frame of the sweep last written into the LiDAR recording, by LiDAR.
         self._recorded_lidar: Dict[str, int] = {}
-        #: The ego's pose (the rig's, in the local frame) on the last ticks, by
-        #: simulator frame, kept while there are LiDARs and only as far back as
+        #: The ego's pose (the rig's, in the local frame, with its pitch and
+        #: roll) on the last ticks, by simulator frame, kept while there are LiDARs and only as far back as
         #: their longest sweep interval: a sweep is recorded on the pose of the
         #: tick it was taken on, which can be before the policy step (#950).
         self._pose_history: Dict[int, Pose] = {}
@@ -212,6 +212,10 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
         #: The plan as debug markers, built once per plan.
         self._plan_markers: DebugMarkers = DebugMarkers()
         self._sim_time_us: int = 0
+        #: The simulator frame the policy's clock starts on (its time 0), once
+        #: it does: a camera frame or sweep rendered before it -- while a
+        #: bridged stack was awaited -- is no observation of the session.
+        self._session_start_frame: Optional[int] = None
         self._last_policy_time_us: Optional[int] = None
         #: Every tick's ego state since the last policy step, sent as one egomotion
         #: history -- as the upstream runtime does -- rather than only the newest.
@@ -343,6 +347,7 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
         # at simulation time 0 and asks the policy on its first tick, as the
         # first attempt did.
         self._sim_time_us = 0
+        self._session_start_frame = None
         self._last_policy_time_us = None
         self._drive_count = 0
         self._pending_egomotion = []
@@ -354,7 +359,9 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
         if self._handshake is not None:
             # Before anything moves the ego: the mission is checked against
             # where it stands.
-            self._handshake.start(actor, type(self).__name__)
+            self._handshake.start(
+                actor, type(self).__name__, not self.attaches_to_existing_actor
+            )
 
         self._rear_axle_offset_m = rear_axle_offset(
             actor, self._config.rear_axle_offset_m
@@ -423,6 +430,8 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
     def _begin_driving(self, world: "carla.World", actor: "carla.Actor") -> None:
         """Start the run-up, or send the first route: the policy's first tick."""
         assert self._map is not None  # noqa: S101 - fetched when the session opened
+        # The policy's clock reads 0 on this frame and counts from here.
+        self._session_start_frame = int(world.get_snapshot().frame)
         if self._config.warmup_s > 0.0:
             # The ego leaves for its run-up before the first tick: its spawn
             # pose is where it arrives, not where its history begins.  Built on a
@@ -460,7 +469,8 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
         # policy step and the controller.
         observation = self._ego_observation(actor)
         self._pending_egomotion.append(observation)
-        self._remember_pose(world, observation.pose)
+        self._remember_pose(world, observation.pose, actor)
+        self._record_tilt(world, actor)
         if self._t4 is not None:
             self._record_t4(world, elapsed, actor, observation)
 
@@ -565,6 +575,13 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
         """Spawn and attach every configured camera to the ego actor."""
         from ..sensor.carla_camera import CarlaCameraSensor  # noqa: PLC0415
 
+        # An F-theta lens's frames are no pinhole: Rerun gets no camera model
+        # for them rather than a wrong one, as the T4 writer gets the lens's.
+        lenses = {
+            camera.logical_id
+            for camera in self._config.cameras
+            if camera.lens is not None
+        }
         for logical_id, sensor_config in self._client.camera_sensor_configs():
             camera = CarlaCameraSensor(sensor_config)
             camera.attach(world, actor)
@@ -579,6 +596,7 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
                     sensor_config.position_z,
                 ),
                 (sensor_config.roll, sensor_config.pitch, sensor_config.yaw),
+                pinhole=logical_id not in lenses,
             )
         logger.info("Attached %d driver camera(s) to the ego", len(self._cameras))
 
@@ -646,16 +664,51 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
             ),
         )
 
-    def _remember_pose(self, world: "carla.World", pose: Pose) -> None:
-        """Keep the ego's *pose* on this tick, for the sweeps taken on it."""
+    def _remember_pose(
+        self, world: "carla.World", pose: Pose, actor: Optional["carla.Actor"] = None
+    ) -> None:
+        """Keep the ego's *pose* on this tick, for the sweeps taken on it: with
+        *actor*, tilted by its pitch and roll (the policy's pose has its yaw
+        alone), so that a recorded sweep is placed as the ego was (#2485)."""
         if not self._lidars:
             return
         frame = int(world.get_snapshot().frame)
-        self._pose_history[frame] = pose
+        self._pose_history[frame] = pose if actor is None else self._tilted(pose, actor)
         # A sweep is at most an interval old when it is read (latest_sweep).
         oldest = frame - max(lidar.sweep_interval_ticks for _, lidar, _ in self._lidars)
         for old in [f for f in self._pose_history if f < oldest]:
             del self._pose_history[old]
+
+    def _tilted(self, pose: Pose, actor: "carla.Actor") -> Pose:
+        """*pose*, the rig's with the ego's yaw alone, with *actor*'s pitch and
+        roll too: CARLA's rotation rebuilt right-handed is ``Rz(-yaw)
+        Ry(-pitch) Rx(roll)``, turned about the actor's origin, from which the
+        rig (the rear axle) is ``rear_axle_offset_m`` along the ego's x."""
+        rotation = actor.get_transform().rotation
+        tilt = Pose.from_axis_angle(1, -math.radians(rotation.pitch)) @ (
+            Pose.from_axis_angle(0, math.radians(rotation.roll))
+        )
+        shift = Pose.from_xyz_yaw(self._rear_axle_offset_m, 0.0, 0.0, 0.0)
+        return pose @ shift.inverse() @ tilt @ shift
+
+    def _record_tilt(self, world: "carla.World", actor: "carla.Actor") -> None:
+        """Write the ego's pitch and roll on this tick into the run's
+        recording, the cameras' parent there, when it records its cameras
+        (``rerun.cameras``): the converter's ego pose has its yaw alone."""
+        if not self._cameras:
+            return
+        recorder = active_recorder()
+        if recorder is None or not recorder.records_cameras:
+            return
+        try:
+            rotation = actor.get_transform().rotation
+            recorder.log_ego_tilt(
+                int(world.get_snapshot().frame),
+                float(rotation.roll),
+                float(rotation.pitch),
+            )
+        except Exception:  # noqa: BLE001 - a lost tilt must not stop the run
+            logger.exception("recording the ego's pitch and roll failed")
 
     def _lidar_sweeps(self, pose: Optional[Pose] = None) -> List[LidarSweep]:
         """Every LiDAR's newest sweep, in the rig frame, stamped with when it was taken.
@@ -664,9 +717,12 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
         sweep from an earlier tick carries that tick's time.  With *pose*, the
         ego's in the local frame, a run recording its LiDARs
         (``rerun.lidar``) is handed each new sweep too, on the ego's pose of the
-        tick it was taken on, and a T4 dataset of the run is fed it as taken
+        tick it was taken on (the one kept, with its pitch and roll; else
+        *pose* for this tick's), and a T4 dataset of the run is fed it as taken
         on that tick (#950).  A sweep older than the poses kept is not
-        recorded (logged at debug level); the policy still gets it.
+        recorded (logged at debug level); the policy still gets it.  A sweep
+        taken before the policy's clock started (while a bridged stack was
+        awaited) is left out, as if the LiDAR had none yet (#2477).
         """
         if not self._lidars or self._world is None:
             return []
@@ -681,6 +737,14 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
             sweep = lidar.latest_sweep(frame)
             if sweep is None:
                 continue
+            if self._before_session(sweep[0]):
+                # Taken before the policy's clock started: none to send.
+                logger.debug(
+                    "LiDAR %s's sweep of frame %d is from before the session",
+                    logical_id,
+                    sweep[0],
+                )
+                continue
             age_ticks = max(frame - sweep[0], 0)
             points = lidar_points_to_rig(sweep[1], mount)
             sweeps.append(
@@ -692,9 +756,9 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
                 )
             )
             if recorder is not None and pose is not None:
-                taken_pose = (
-                    pose if sweep[0] == frame else self._pose_history.get(sweep[0])
-                )
+                taken_pose = self._pose_history.get(sweep[0])
+                if taken_pose is None and sweep[0] == frame:
+                    taken_pose = pose
                 if taken_pose is None:
                     logger.debug(
                         "no ego pose of frame %d for LiDAR %s's sweep; not recorded",
@@ -973,7 +1037,9 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
         ticks, renders before the policy step: such a frame carries its own
         tick's time, goes into the recording under its own frame, and is fed
         to the dataset as rendered on it.  A frame already sent on an earlier
-        step is not sent again.
+        step is not sent again, and one rendered before the policy's clock
+        started (while a bridged stack was awaited) not at all: the camera
+        then has no frame for the step (#2477).
         """
         if not self._cameras or self._world is None:
             return
@@ -985,6 +1051,14 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
                 logger.debug("No frame available from camera %s", logical_id)
                 continue
             rendered, image = latest
+            if self._before_session(rendered):
+                # Rendered before the policy's clock started: as if the camera
+                # had no frame yet.
+                logger.debug(
+                    "No frame available from camera %s since the session started",
+                    logical_id,
+                )
+                continue
             if self._submitted_camera.get(logical_id) == rendered:
                 continue
             self._submitted_camera[logical_id] = rendered
@@ -1002,6 +1076,13 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
             dataset = active_recording()
             if dataset is not None:
                 dataset.feed_camera_jpeg(frame, logical_id, encoded, taken_on=rendered)
+
+    def _before_session(self, frame: int) -> bool:
+        """Whether *frame* was rendered before the policy's clock started, on
+        which it would carry a negative time (#2477)."""
+        return self._session_start_frame is not None and (
+            frame < self._session_start_frame
+        )
 
     def _record_camera(self, logical_id: str, frame: int, encoded: bytes) -> None:
         """Write a frame the policy got, rendered on *frame*, into the run's
@@ -1048,6 +1129,7 @@ class CarlaDriverEntity(ExternallyDrivenEgo):
             if published is not None:
                 velocities = published.velocities
                 accelerations = published.accelerations
+        self._follower.follow_wheel_grip(actor)
         command = self._follower.step(
             plan,
             observation.pose,

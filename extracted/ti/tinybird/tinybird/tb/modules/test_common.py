@@ -16,7 +16,8 @@ from requests import Response
 
 from tinybird.tb.client import TinyB
 from tinybird.tb.modules.build_common import process as build_project
-from tinybird.tb.modules.common import sys_exit
+from tinybird.tb.modules.common import push_data, sys_exit
+from tinybird.tb.modules.datafile.fixture import FixtureExtension
 from tinybird.tb.modules.exceptions import CLITestException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.local_common import get_local_tokens, get_test_workspace_name
@@ -25,10 +26,10 @@ from tinybird.tb.modules.project import Project
 yaml.SafeDumper.org_represent_str = yaml.SafeDumper.represent_str  # type: ignore[attr-defined, unused-ignore]
 
 
-def repr_str(dumper, data):
+def repr_str(dumper: yaml.SafeDumper, data: str) -> yaml.ScalarNode:
     if "\n" in data:
         return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
-    return dumper.org_represent_str(data)
+    return dumper.org_represent_str(data)  # type: ignore[attr-defined]
 
 
 yaml.add_representer(str, repr_str, Dumper=yaml.SafeDumper)
@@ -51,7 +52,43 @@ def generate_test_file(pipe_name: str, tests: List[Dict[str, Any]], folder: Opti
 
 
 def parse_tests(tests_content: str) -> List[Dict[str, Any]]:
-    return yaml.safe_load(tests_content)
+    tests: Optional[List[Dict[str, Any]]] = yaml.safe_load(tests_content)
+    return [] if tests is None else tests
+
+
+def _parse_fixture_options(fixtures: Tuple[str, ...], folder: str) -> List[Tuple[str, Path]]:
+    supported = (FixtureExtension.NDJSON, FixtureExtension.CSV)
+    parsed: List[Tuple[str, Path]] = []
+    for entry in fixtures:
+        datasource, sep, raw_path = entry.partition("=")
+        if not sep or not datasource or not raw_path:
+            raise CLITestException(
+                FeedbackManager.error(message=f"Invalid --fixture value '{entry}'. Expected DATASOURCE=PATH.")
+            )
+        path = Path(raw_path)
+        if not path.is_absolute():
+            path = Path(folder) / path
+        if path.suffix not in supported:
+            raise CLITestException(
+                FeedbackManager.error(
+                    message=f"Unsupported fixture extension '{path.suffix}' for {entry}. Use .ndjson or .csv."
+                )
+            )
+        if not path.exists():
+            raise CLITestException(FeedbackManager.error(message=f"Fixture file not found: {path}"))
+        parsed.append((datasource, path))
+    return parsed
+
+
+def _load_cli_fixtures(client: TinyB, entries: List[Tuple[str, Path]], truncate: bool) -> None:
+    truncated: set[str] = set()
+    for datasource, path in entries:
+        # When auto-fixtures already populated the datasource we must not wipe it here.
+        # Truncation is only for the CLI-only path, to keep repeated runs idempotent.
+        if truncate and datasource not in truncated:
+            client.datasource_truncate(datasource)
+            truncated.add(datasource)
+        push_data(client, datasource, str(path), mode="append", concurrency=1, silent=True)
 
 
 def update_test(pipe: str, project: Project, client: TinyB, config: dict[str, Any]) -> None:
@@ -75,6 +112,9 @@ def update_test(pipe: str, project: Project, client: TinyB, config: dict[str, An
         click.echo(FeedbackManager.highlight(message=f"\n» Updating tests expectations for {pipe_name} endpoint..."))
         pipe_tests_path = Path(project.folder) / pipe_tests_path
         pipe_tests_content = parse_tests(pipe_tests_path.read_text())
+        if not pipe_tests_content:
+            click.echo(FeedbackManager.warning(message=f"No tests in {pipe_tests_path}"))
+            return
         for test in pipe_tests_content:
             test_params = test["parameters"].split("?")[1] if "?" in test["parameters"] else test["parameters"]
             response = None
@@ -104,9 +144,18 @@ def update_test(pipe: str, project: Project, client: TinyB, config: dict[str, An
         cleanup_test_workspace(client, project.folder)
 
 
-def run_tests(name: Tuple[str, ...], project: Project, client: TinyB, config: dict[str, Any]) -> Optional[str]:
+def run_tests(
+    name: Tuple[str, ...],
+    project: Project,
+    client: TinyB,
+    config: dict[str, Any],
+    fixtures: Tuple[str, ...] = (),
+    auto_fixtures: bool = True,
+) -> Optional[str]:
     full_error = ""
     try:
+        parsed_fixtures = _parse_fixture_options(fixtures, project.folder)
+
         click.echo(FeedbackManager.highlight(message="\n» Building test environment"))
         build_error = build_project(
             project=project,
@@ -114,10 +163,13 @@ def run_tests(name: Tuple[str, ...], project: Project, client: TinyB, config: di
             watch=False,
             silent=True,
             exit_on_error=False,
+            load_fixtures=auto_fixtures,
             config=config,
         )
         if build_error:
             raise Exception(build_error)
+        if parsed_fixtures:
+            _load_cli_fixtures(client, parsed_fixtures, truncate=not auto_fixtures)
         click.echo(FeedbackManager.info(message="✓ Done!"))
 
         click.echo(FeedbackManager.highlight(message="\n» Running tests"))
@@ -127,10 +179,14 @@ def run_tests(name: Tuple[str, ...], project: Project, client: TinyB, config: di
             endpoints if len(endpoints) > 0 else glob.glob(f"{project.path}/tests/**/*.y*ml", recursive=True)
         )
 
-        def run_test(test_file) -> Tuple[Optional[str], int, int, bool]:
+        def run_test(test_file: str) -> Tuple[Optional[str], int, int, bool]:
             test_file_path = Path(test_file)
             test_file_content = parse_tests(test_file_path.read_text())
             total_tests = len(test_file_content)
+            if not total_tests:
+                click.echo(FeedbackManager.info(message=f"* {test_file_path.stem}{test_file_path.suffix}"))
+                click.echo(FeedbackManager.warning(message="✗ No tests in file"))
+                return None, 0, 0, True
 
             # Check if pipe exists before processing any tests
             try:

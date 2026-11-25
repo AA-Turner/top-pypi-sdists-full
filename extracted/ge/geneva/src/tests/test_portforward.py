@@ -6,11 +6,19 @@ from collections.abc import Callable
 from contextlib import suppress
 from types import SimpleNamespace
 
+import pytest
+from kubernetes.client.exceptions import ApiException
+from websocket import WebSocketBadStatusException
+
 import geneva.runners.ray._portforward as pf  # this actually uses ray module
 
 
 def _core_api() -> SimpleNamespace:
     return SimpleNamespace(connect_get_namespaced_pod_portforward=object())
+
+
+def _no_refresh() -> None:
+    raise AssertionError("a non-401 failure must not reauthenticate")
 
 
 def changing_resolver_with_recording(prefix="pod") -> Callable[[], tuple[str, str]]:
@@ -57,7 +65,12 @@ def test_connect_pod_socket_handles_pod_rename_then_succeeds(monkeypatch) -> Non
     monkeypatch.setattr(pf.kubernetes.stream, "portforward", flappy_portforward)
     monkeypatch.setattr(pf.time, "sleep", lambda s: None)  # keep retry tight
 
-    fwd = pf.PortForward(port=10001, core_api=_core_api(), pod_resolver=resolver)
+    fwd = pf.PortForward(
+        port=10001,
+        core_api_provider=_core_api,
+        pod_resolver=resolver,
+        refresh_auth=_no_refresh,
+    )
 
     s = fwd._connect_pod_socket(attempts=2, sleep_s=0.0)
     try:
@@ -97,7 +110,12 @@ def test_listener_end_to_end_after_pod_rename(monkeypatch) -> None:
     monkeypatch.setattr(pf.kubernetes.stream, "portforward", flappy_portforward)
     monkeypatch.setattr(pf.time, "sleep", lambda s: None)
 
-    fwd = pf.PortForward(port=10001, core_api=_core_api(), pod_resolver=resolver)
+    fwd = pf.PortForward(
+        port=10001,
+        core_api_provider=_core_api,
+        pod_resolver=resolver,
+        refresh_auth=_no_refresh,
+    )
     with fwd:
         # Single client connect triggers _connect_pod_socket's internal retry
         c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -120,3 +138,102 @@ def test_listener_end_to_end_after_pod_rename(monkeypatch) -> None:
         pod_sock.close()
     with suppress(Exception):
         proxy_side.close()
+
+
+def _handshake_error(status_code: int) -> ApiException:
+    """The exception kubernetes.stream raises for a rejected websocket handshake."""
+    try:
+        try:
+            raise WebSocketBadStatusException(
+                f"Handshake status {status_code}", status_code
+            )
+        except WebSocketBadStatusException as e:
+            # Same shape as kubernetes.stream.ws_client.portforward_call.
+            raise ApiException(status=0, reason=str(e))  # noqa: B904
+    except ApiException as wrapped:
+        return wrapped
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected"),
+    [
+        (_handshake_error(401), True),
+        (ApiException(status=401), True),
+        (_handshake_error(403), False),
+        (ApiException(status=404), False),
+        (BrokenPipeError("head vanished"), False),
+    ],
+    ids=["handshake-401", "rest-401", "handshake-403", "rest-404", "socket-error"],
+)
+def test_is_unauthorized(exc: BaseException, expected: bool) -> None:
+    assert pf._is_unauthorized(exc) is expected
+
+
+def test_connect_pod_socket_reauthenticates_after_rejected_token(
+    monkeypatch,
+) -> None:
+    """A 401 handshake refreshes auth and retries on the refreshed client."""
+    pod_sock, proxy_side = socket.socketpair()
+    expired = _core_api()
+    refreshed = _core_api()
+    clients = SimpleNamespace(core_api=expired, refreshes=0)
+
+    def refresh() -> None:
+        clients.refreshes += 1
+        clients.core_api = refreshed
+
+    connected_with: list[object] = []
+
+    def portforward(connect_fn, pod_name, ns, **kwargs) -> _DummyPF:
+        connected_with.append(connect_fn)
+        if connect_fn is expired.connect_get_namespaced_pod_portforward:
+            raise _handshake_error(401)
+        return _DummyPF(proxy_side)
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(pf.kubernetes.stream, "portforward", portforward)
+    monkeypatch.setattr(pf.time, "sleep", sleeps.append)
+
+    fwd = pf.PortForward(
+        port=10001,
+        core_api_provider=lambda: clients.core_api,
+        pod_resolver=lambda: ("head", "namespace"),
+        refresh_auth=refresh,
+    )
+    s = fwd._connect_pod_socket(attempts=3, sleep_s=1.0)
+    try:
+        assert s is proxy_side
+        assert clients.refreshes == 1
+        assert connected_with == [
+            expired.connect_get_namespaced_pod_portforward,
+            refreshed.connect_get_namespaced_pod_portforward,
+        ]
+        assert sleeps == []
+    finally:
+        with suppress(Exception):
+            pod_sock.close()
+        with suppress(Exception):
+            proxy_side.close()
+
+
+def test_connect_pod_socket_reauthenticates_once_when_token_stays_rejected(
+    monkeypatch,
+) -> None:
+    """A refresh that does not fix the 401 is not repeated on every attempt."""
+    refreshes: list[None] = []
+
+    def portforward(connect_fn, pod_name, ns, **kwargs) -> _DummyPF:
+        raise _handshake_error(401)
+
+    monkeypatch.setattr(pf.kubernetes.stream, "portforward", portforward)
+    monkeypatch.setattr(pf.time, "sleep", lambda s: None)
+
+    fwd = pf.PortForward(
+        port=10001,
+        core_api_provider=_core_api,
+        pod_resolver=lambda: ("head", "namespace"),
+        refresh_auth=lambda: refreshes.append(None),
+    )
+    with pytest.raises(ApiException):
+        fwd._connect_pod_socket(attempts=4, sleep_s=0.0)
+    assert len(refreshes) == 1

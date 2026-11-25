@@ -253,6 +253,11 @@ class OpenShellStub(object):
                 request_serializer=openshell__pb2.RotateProviderCredentialRequest.SerializeToString,
                 response_deserializer=openshell__pb2.RotateProviderCredentialResponse.FromString,
                 _registered_method=True)
+        self.InlineProviderRefreshSecrets = channel.unary_unary(
+                '/openshell.v1.OpenShell/InlineProviderRefreshSecrets',
+                request_serializer=openshell__pb2.InlineProviderRefreshSecretsRequest.SerializeToString,
+                response_deserializer=openshell__pb2.InlineProviderRefreshSecretsResponse.FromString,
+                _registered_method=True)
         self.DeleteProviderRefresh = channel.unary_unary(
                 '/openshell.v1.OpenShell/DeleteProviderRefresh',
                 request_serializer=openshell__pb2.DeleteProviderRefreshRequest.SerializeToString,
@@ -267,6 +272,36 @@ class OpenShellStub(object):
                 '/openshell.v1.OpenShell/DeleteProviderProfile',
                 request_serializer=openshell__pb2.DeleteProviderProfileRequest.SerializeToString,
                 response_deserializer=openshell__pb2.DeleteProviderProfileResponse.FromString,
+                _registered_method=True)
+        self.CreateSecret = channel.unary_unary(
+                '/openshell.v1.OpenShell/CreateSecret',
+                request_serializer=openshell__pb2.CreateSecretRequest.SerializeToString,
+                response_deserializer=openshell__pb2.SecretResponse.FromString,
+                _registered_method=True)
+        self.GetSecret = channel.unary_unary(
+                '/openshell.v1.OpenShell/GetSecret',
+                request_serializer=openshell__pb2.GetSecretRequest.SerializeToString,
+                response_deserializer=openshell__pb2.SecretResponse.FromString,
+                _registered_method=True)
+        self.ListSecrets = channel.unary_unary(
+                '/openshell.v1.OpenShell/ListSecrets',
+                request_serializer=openshell__pb2.ListSecretsRequest.SerializeToString,
+                response_deserializer=openshell__pb2.ListSecretsResponse.FromString,
+                _registered_method=True)
+        self.UpdateSecret = channel.unary_unary(
+                '/openshell.v1.OpenShell/UpdateSecret',
+                request_serializer=openshell__pb2.UpdateSecretRequest.SerializeToString,
+                response_deserializer=openshell__pb2.SecretResponse.FromString,
+                _registered_method=True)
+        self.DeleteSecret = channel.unary_unary(
+                '/openshell.v1.OpenShell/DeleteSecret',
+                request_serializer=openshell__pb2.DeleteSecretRequest.SerializeToString,
+                response_deserializer=openshell__pb2.DeleteSecretResponse.FromString,
+                _registered_method=True)
+        self.RevealSecret = channel.unary_unary(
+                '/openshell.v1.OpenShell/RevealSecret',
+                request_serializer=openshell__pb2.RevealSecretRequest.SerializeToString,
+                response_deserializer=openshell__pb2.RevealSecretResponse.FromString,
                 _registered_method=True)
         self.GetSandboxConfig = channel.unary_unary(
                 '/openshell.v1.OpenShell/GetSandboxConfig',
@@ -322,6 +357,11 @@ class OpenShellStub(object):
                 '/openshell.v1.OpenShell/ExchangeProviderSubjectToken',
                 request_serializer=openshell__pb2.ExchangeProviderSubjectTokenRequest.SerializeToString,
                 response_deserializer=openshell__pb2.ExchangeProviderSubjectTokenResponse.FromString,
+                _registered_method=True)
+        self.GetSandboxProviderAccessToken = channel.unary_unary(
+                '/openshell.v1.OpenShell/GetSandboxProviderAccessToken',
+                request_serializer=openshell__pb2.GetSandboxProviderAccessTokenRequest.SerializeToString,
+                response_deserializer=openshell__pb2.GetSandboxProviderAccessTokenResponse.FromString,
                 _registered_method=True)
         self.GetSandboxLogs = channel.unary_unary(
                 '/openshell.v1.OpenShell/GetSandboxLogs',
@@ -792,6 +832,15 @@ class OpenShellServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def InlineProviderRefreshSecrets(self, request, context):
+        """Copy each workspace secret referenced by one credential's refresh
+        configuration into provider-owned refresh material and remove the
+        references. Other material, including a rotated refresh token, is kept.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DeleteProviderRefresh(self, request, context):
         """Delete gateway-owned refresh configuration for one provider credential.
         """
@@ -808,6 +857,52 @@ class OpenShellServicer(object):
 
     def DeleteProviderProfile(self, request, context):
         """Delete a custom provider type profile by id.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateSecret(self, request, context):
+        """Create a workspace secret. Secrets are credential minting material only:
+        OpenShell never injects them into sandboxes, and Get and List never
+        return their values.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSecret(self, request, context):
+        """Fetch workspace secret metadata by name. The value is never returned.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListSecrets(self, request, context):
+        """List workspace secret metadata. Values are never returned.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateSecret(self, request, context):
+        """Replace a workspace secret's value, description, or labels.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteSecret(self, request, context):
+        """Delete a workspace secret by name.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RevealSecret(self, request, context):
+        """Return a workspace secret's plaintext value to a control-plane caller.
+        Disabled unless the gateway sets enable_secret_reveal. Only directly
+        authenticated mTLS operators may call this method. Every call is audited.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -897,6 +992,14 @@ class OpenShellServicer(object):
     def ExchangeProviderSubjectToken(self, request, context):
         """Exchange a stored provider subject token for an intermediate token scoped
         to the calling supervisor's SPIFFE identity.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSandboxProviderAccessToken(self, request, context):
+        """Obtain the final provider token for the authenticated sandbox session.
+        SPIFFE assertions and intermediate credentials remain in the gateway.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1370,6 +1473,11 @@ def add_OpenShellServicer_to_server(servicer, server):
                     request_deserializer=openshell__pb2.RotateProviderCredentialRequest.FromString,
                     response_serializer=openshell__pb2.RotateProviderCredentialResponse.SerializeToString,
             ),
+            'InlineProviderRefreshSecrets': grpc.unary_unary_rpc_method_handler(
+                    servicer.InlineProviderRefreshSecrets,
+                    request_deserializer=openshell__pb2.InlineProviderRefreshSecretsRequest.FromString,
+                    response_serializer=openshell__pb2.InlineProviderRefreshSecretsResponse.SerializeToString,
+            ),
             'DeleteProviderRefresh': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteProviderRefresh,
                     request_deserializer=openshell__pb2.DeleteProviderRefreshRequest.FromString,
@@ -1384,6 +1492,36 @@ def add_OpenShellServicer_to_server(servicer, server):
                     servicer.DeleteProviderProfile,
                     request_deserializer=openshell__pb2.DeleteProviderProfileRequest.FromString,
                     response_serializer=openshell__pb2.DeleteProviderProfileResponse.SerializeToString,
+            ),
+            'CreateSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateSecret,
+                    request_deserializer=openshell__pb2.CreateSecretRequest.FromString,
+                    response_serializer=openshell__pb2.SecretResponse.SerializeToString,
+            ),
+            'GetSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSecret,
+                    request_deserializer=openshell__pb2.GetSecretRequest.FromString,
+                    response_serializer=openshell__pb2.SecretResponse.SerializeToString,
+            ),
+            'ListSecrets': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListSecrets,
+                    request_deserializer=openshell__pb2.ListSecretsRequest.FromString,
+                    response_serializer=openshell__pb2.ListSecretsResponse.SerializeToString,
+            ),
+            'UpdateSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateSecret,
+                    request_deserializer=openshell__pb2.UpdateSecretRequest.FromString,
+                    response_serializer=openshell__pb2.SecretResponse.SerializeToString,
+            ),
+            'DeleteSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteSecret,
+                    request_deserializer=openshell__pb2.DeleteSecretRequest.FromString,
+                    response_serializer=openshell__pb2.DeleteSecretResponse.SerializeToString,
+            ),
+            'RevealSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.RevealSecret,
+                    request_deserializer=openshell__pb2.RevealSecretRequest.FromString,
+                    response_serializer=openshell__pb2.RevealSecretResponse.SerializeToString,
             ),
             'GetSandboxConfig': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSandboxConfig,
@@ -1439,6 +1577,11 @@ def add_OpenShellServicer_to_server(servicer, server):
                     servicer.ExchangeProviderSubjectToken,
                     request_deserializer=openshell__pb2.ExchangeProviderSubjectTokenRequest.FromString,
                     response_serializer=openshell__pb2.ExchangeProviderSubjectTokenResponse.SerializeToString,
+            ),
+            'GetSandboxProviderAccessToken': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSandboxProviderAccessToken,
+                    request_deserializer=openshell__pb2.GetSandboxProviderAccessTokenRequest.FromString,
+                    response_serializer=openshell__pb2.GetSandboxProviderAccessTokenResponse.SerializeToString,
             ),
             'GetSandboxLogs': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSandboxLogs,
@@ -2744,6 +2887,33 @@ class OpenShell(object):
             _registered_method=True)
 
     @staticmethod
+    def InlineProviderRefreshSecrets(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.OpenShell/InlineProviderRefreshSecrets',
+            openshell__pb2.InlineProviderRefreshSecretsRequest.SerializeToString,
+            openshell__pb2.InlineProviderRefreshSecretsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def DeleteProviderRefresh(request,
             target,
             options=(),
@@ -2814,6 +2984,168 @@ class OpenShell(object):
             '/openshell.v1.OpenShell/DeleteProviderProfile',
             openshell__pb2.DeleteProviderProfileRequest.SerializeToString,
             openshell__pb2.DeleteProviderProfileResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.OpenShell/CreateSecret',
+            openshell__pb2.CreateSecretRequest.SerializeToString,
+            openshell__pb2.SecretResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.OpenShell/GetSecret',
+            openshell__pb2.GetSecretRequest.SerializeToString,
+            openshell__pb2.SecretResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListSecrets(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.OpenShell/ListSecrets',
+            openshell__pb2.ListSecretsRequest.SerializeToString,
+            openshell__pb2.ListSecretsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.OpenShell/UpdateSecret',
+            openshell__pb2.UpdateSecretRequest.SerializeToString,
+            openshell__pb2.SecretResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.OpenShell/DeleteSecret',
+            openshell__pb2.DeleteSecretRequest.SerializeToString,
+            openshell__pb2.DeleteSecretResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RevealSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.OpenShell/RevealSecret',
+            openshell__pb2.RevealSecretRequest.SerializeToString,
+            openshell__pb2.RevealSecretResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3111,6 +3443,33 @@ class OpenShell(object):
             '/openshell.v1.OpenShell/ExchangeProviderSubjectToken',
             openshell__pb2.ExchangeProviderSubjectTokenRequest.SerializeToString,
             openshell__pb2.ExchangeProviderSubjectTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSandboxProviderAccessToken(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.OpenShell/GetSandboxProviderAccessToken',
+            openshell__pb2.GetSandboxProviderAccessTokenRequest.SerializeToString,
+            openshell__pb2.GetSandboxProviderAccessTokenResponse.FromString,
             options,
             channel_credentials,
             insecure,

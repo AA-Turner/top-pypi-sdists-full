@@ -176,3 +176,18 @@ class NoJoint(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___NoJoint: _TypeAlias = NoJoint  # noqa: Y015
+
+@_typing.final
+class GetHomePositionsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetHomePositionsRequest: _TypeAlias = GetHomePositionsRequest  # noqa: Y015

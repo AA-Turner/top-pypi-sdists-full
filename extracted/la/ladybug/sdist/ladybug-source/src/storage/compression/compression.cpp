@@ -74,9 +74,22 @@ auto getTypedMinMax(std::span<const T> data, const NullMask* nullMask, uint64_t 
             }
             fallbackToFirstIfAllNaN(min, max, first);
         } else {
-            auto [minRaw, maxRaw] = std::minmax_element(data.begin(), data.end());
-            min = StorageValue(*minRaw);
-            max = StorageValue(*maxRaw);
+            // NOTE(gh-1447): do not use std::minmax_element here. MSVC's vectorized
+            // implementation returns wrong results for some uint8_t/int8_t inputs, which
+            // then selects CONSTANT compression and silently drops data at checkpoint.
+            // A plain loop never depends on the STL's vectorized path.
+            auto minVal = data[0];
+            auto maxVal = data[0];
+            for (size_t i = 1; i < data.size(); ++i) {
+                if (data[i] < minVal) {
+                    minVal = data[i];
+                }
+                if (data[i] > maxVal) {
+                    maxVal = data[i];
+                }
+            }
+            min = StorageValue(minVal);
+            max = StorageValue(maxVal);
         }
     } else {
         if constexpr (std::floating_point<T>) {
@@ -491,9 +504,12 @@ std::string CompressionMetadata::toString(const PhysicalTypeID physicalType) con
         return "UNCOMPRESSED";
     }
     case CompressionType::ALP: {
+        // NOTE: lambdas need explicit `-> uint8_t` return types. MSVC (C3779)
+        // cannot form `overload`'s `using Funcs::operator()...` when a generic
+        // lambda's `auto` return still has to be deduced from its body.
         uint8_t bitWidth = TypeUtils::visit(
             physicalType,
-            [&]<std::floating_point T>(T) {
+            [&]<std::floating_point T>(T) -> uint8_t {
                 static constexpr common::idx_t BITPACKING_CHILD_IDX = 0;
                 return IntegerBitpacking<typename FloatCompression<T>::EncodedType>::getPackingInfo(
                     getChild(BITPACKING_CHILD_IDX))
@@ -506,12 +522,12 @@ std::string CompressionMetadata::toString(const PhysicalTypeID physicalType) con
     case CompressionType::INTEGER_BITPACKING: {
         uint8_t bitWidth = TypeUtils::visit(
             physicalType,
-            [&](common::internalID_t) {
+            [&](common::internalID_t) -> uint8_t {
                 return IntegerBitpacking<uint64_t>::getPackingInfo(*this).bitWidth;
             },
             [](bool) -> uint8_t { UNREACHABLE_CODE; },
             [&]<numeric_utils::IsIntegral T>(
-                T) { return IntegerBitpacking<T>::getPackingInfo(*this).bitWidth; },
+                T) -> uint8_t { return IntegerBitpacking<T>::getPackingInfo(*this).bitWidth; },
             [](auto) -> uint8_t { UNREACHABLE_CODE; });
         return std::format("INTEGER_BITPACKING[{}]", bitWidth);
     }

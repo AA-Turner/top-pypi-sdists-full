@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -28,7 +28,8 @@ class DataRetrievalData(BaseModel):
     """ # noqa: E501
     content: StrictStr = Field(description="Serialized content.")
     data_schema: Optional[Dict[str, Any]]
-    __properties: ClassVar[List[str]] = ["content", "data_schema"]
+    total_count: Optional[StrictInt] = None
+    __properties: ClassVar[List[str]] = ["content", "data_schema", "total_count"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -74,6 +75,11 @@ class DataRetrievalData(BaseModel):
         if self.data_schema is None and "data_schema" in self.model_fields_set:
             _dict['data_schema'] = None
 
+        # set to None if total_count (nullable) is None
+        # and model_fields_set contains the field
+        if self.total_count is None and "total_count" in self.model_fields_set:
+            _dict['total_count'] = None
+
         return _dict
 
     @classmethod
@@ -87,7 +93,8 @@ class DataRetrievalData(BaseModel):
 
         _obj = cls.model_validate({
             "content": obj.get("content"),
-            "data_schema": obj.get("data_schema")
+            "data_schema": obj.get("data_schema"),
+            "total_count": obj.get("total_count")
         })
         return _obj
 

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -20,8 +20,7 @@ data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
 
 def test_basics():
-    mo_path = os.path.join(data_dir, 'project', 'i18n', 'de',
-                           'LC_MESSAGES', 'messages.mo')
+    mo_path = os.path.join(data_dir, 'project', 'i18n', 'de', 'LC_MESSAGES', 'messages.mo')
     with open(mo_path, 'rb') as mo_file:
         catalog = mofile.read_mo(mo_file)
         assert len(catalog) == 2
@@ -39,7 +38,8 @@ def test_sorting():
     catalog = Catalog(locale='en_US')
     catalog.add('', '''\
 "Content-Type: text/plain; charset=utf-8\n"
-"Content-Transfer-Encoding: 8bit\n''')
+"Content-Transfer-Encoding: 8bit\n''',
+    )
     catalog.add('foo', 'Voh')
     catalog.add(('There is', 'There are'), ('Es gibt', 'Es gibt'))
     catalog.add('Fizz', '')
@@ -84,3 +84,23 @@ def test_empty_translation_with_fallback():
     translations.add_fallback(Translations(fp=buf2))
 
     assert translations.ugettext('Fuzz') == 'Flou'
+
+
+def test_read_mo_decodes_message_context() -> None:
+    catalog = Catalog(locale='fi_FI')
+    catalog.add('', '''\
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n''')
+    catalog.add('x', 'åäöÅÄÖ', context='ほげ')
+    buf = BytesIO()
+    mofile.write_mo(buf, catalog)
+    buf.seek(0)
+    del catalog
+
+    catalog = mofile.read_mo(buf)
+    message = catalog.get('x', context='ほげ')
+    assert message is not None
+    assert message.id == 'x'
+    assert message.context == 'ほげ'
+    assert message.string == 'åäöÅÄÖ'
+    assert not catalog.get('x')  # Not without the context

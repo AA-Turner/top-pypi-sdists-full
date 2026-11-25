@@ -1,5 +1,4 @@
 """Reconstruct exploratory RNA paths around one nominated SV from an indexed BAM."""
-import argparse
 from pathlib import Path
 
 from ..default_parameters import (
@@ -10,28 +9,36 @@ from ..default_parameters import (
     SV_INCLUSION_MIN_SPLICE_ANCHOR_BASES, SV_INCLUSION_MIN_BASE_QUALITY, SV_INCLUSION_MIN_MAPPING_QUALITY,
     SV_INCLUSION_MAPQ_255_IS_UNIQUE,
 )
-from ..sv_rna import reconstruct_sv_rna, sv_rna_input_from_dict
-from ..json_files import read_json, write_json
 from ..logging import configure_cli_logging, get_logger
-from ..sv_rna_orf_export import export_sv_rna_orfs, sv_rna_orf_output_paths, write_sv_rna_orfs
-from .output_args import add_log_level_arg
+from .help import HelpArgumentParser
+from .input_args import add_input_arg, add_scratch_dir_arg, add_source_arg
+from .output_args import add_log_level_arg, add_output_file_arg
 from .rna_args import add_rna_args, alignment_file_from_args, read_collector_from_args
 from .validation import check_outputs, input_error
 
 logger = get_logger(__name__)
 
+# Lazily resolved on first use; kept as module attributes for test monkeypatching.
+reconstruct_sv_rna = None
+sv_rna_input_from_dict = None
+
 
 def make_parser(prog="isovar sv-rna"):
-    parser = argparse.ArgumentParser(prog=prog, description=__doc__)
-    parser.add_argument("--input", required=True,
-                        help="Nominated event, search regions, reference models and event provenance JSON "
-                             "(or .json.gz)")
-    parser.add_argument("--output", required=True,
-                        help="Exploratory candidate paths JSON, gzip-compressed if it ends in .gz")
+    parser = HelpArgumentParser(prog=prog, description=__doc__)
+    add_input_arg(
+        parser,
+        required=True,
+        help="Nominated event, search regions, reference models and event provenance JSON (or .json.gz)",
+    )
+    add_output_file_arg(
+        parser,
+        required=True,
+        help="Exploratory candidate paths JSON file, gzip-compressed if it ends in .gz",
+    )
     parser.add_argument("--orf-output-prefix", help="Also export exploratory ORFs as JSON, TSV and protein/DNA FASTA")
     parser.add_argument("--predictions", type=Path,
                         help="Optional source-identified protein predictions JSON for sequence comparison")
-    parser.add_argument("--source", help="Alignment source identity recorded in the output (default: --bam)")
+    add_source_arg(parser, help="Alignment source identity recorded in the output (default: --bam)")
     add_rna_args(parser)
     add_log_level_arg(parser)
     group = parser.add_argument_group("SV RNA reconstruction")
@@ -55,9 +62,15 @@ def make_parser(prog="isovar sv-rna"):
     group.add_argument("--dense-support", action="store_true",
                        help="Use temporary disk space for large inputs: automatically group equivalent reads "
                             "for search, then count candidate support across all original reads")
-    group.add_argument("--sv-scratch-dir", type=Path,
-                       help="Optional directory for --dense-support temporary files (default: system temporary "
-                            "directory); choose another disk if more space is needed")
+    add_scratch_dir_arg(
+        parser,
+        dest="sv_scratch_dir",
+        type=Path,
+        aliases=("--sv-scratch-dir",),
+        help="Optional directory for --dense-support temporary files (default: system temporary "
+             "directory); choose another disk if more space is needed",
+        group=group,
+    )
     group.add_argument("--max-queries", type=int, default=SV_MAX_QUERIES,
                        help="Region/mate/supplementary lookups; reaching the limit is reported (default: %(default)s)")
     group.add_argument("--max-paths", type=int, default=SV_MAX_PATHS,
@@ -103,13 +116,23 @@ def run(args=None, prog=None):
     options = parser.parse_args(args)
     configure_cli_logging(options.log_level)
     try:
+        from ..json_files import read_json, write_json
+        from ..sv_rna_orf_export import export_sv_rna_orfs, sv_rna_orf_output_paths, write_sv_rna_orfs
+
+        input_loader = sv_rna_input_from_dict
+        if input_loader is None:
+            from ..sv_rna import sv_rna_input_from_dict as input_loader
+        reconstructor = reconstruct_sv_rna
+        if reconstructor is None:
+            from ..sv_rna import reconstruct_sv_rna as reconstructor
+
         orf_outputs = (sv_rna_orf_output_paths(options.orf_output_prefix).values()
                        if options.orf_output_prefix else ())
         check_outputs(options, "output", *orf_outputs)
-        inputs = sv_rna_input_from_dict(read_json(options.input))
+        inputs = input_loader(read_json(options.input))
         predictions = read_json(options.predictions) if options.predictions else None
         with alignment_file_from_args(options) as bam:
-            result = reconstruct_sv_rna(
+            result = reconstructor(
                 bam, source=options.source or options.bam, read_collector=read_collector_from_args(options),
                 min_anchor_bases=options.min_anchor_bases, min_overlap=options.min_overlap,
                 min_alternative_fragments=options.min_alternative_fragments,

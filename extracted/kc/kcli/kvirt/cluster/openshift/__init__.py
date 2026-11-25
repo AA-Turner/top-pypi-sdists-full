@@ -985,10 +985,14 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
         pprint("Using existing openshift-install found in your PATH and skipping version check")
         download = False
     else:
+        while os.path.exists('.openshift-install.downloading'):
+            warning("Waiting 10s for openshift-install to finish downloading")
+            sleep(10)
         download = not same_release_images(version=version, tag=tag, pull_secret=pull_secret, path=openshift_dir)
         if download:
             pprint("Redownloading openshift-install as found version doesn't match requirements")
     if download:
+        open('.openshift-install.downloading', 'w').close()
         if okd:
             run = get_okd_installer(tag, version=version)
         elif version in ['ci', 'nightly'] or '/' in str(tag):
@@ -1001,6 +1005,7 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
         if run != 0:
             return {'result': 'failure', 'reason': "Couldn't download openshift-install"}
         pprint("Move downloaded openshift-install somewhere in your PATH if you want to reuse it")
+        os.remove('.openshift-install.downloading')
     os.environ["PATH"] = f'{os.getcwd()}:{os.environ["PATH"]}'
     INSTALLER_VERSION = get_installer_version()
     pprint(f"Using installer version {INSTALLER_VERSION}")
@@ -1446,7 +1451,11 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
                               {'path': "/etc/kubernetes/Corefile.template", 'data': corefile_data},
                               {"path": "/etc/NetworkManager/dispatcher.d/99-kcli-forcedns", "data": forcedns_data,
                                "mode": int('755', 8)}])
+        sno_extra_args = overrides.get('sno_extra_args')
         if api_ip is not None:
+            if sno_extra_args is not None and api_ip in sno_extra_args:
+                reason = "api_ip cant be set to the same value as the one in sno_extra_args"
+                return {'result': 'failure', 'reason': reason}
             data['virtual_router_id'] = data['virtual_router_id'] or hash(cluster) % 254 + 1
             virtual_router_id = data['virtual_router_id']
             pprint(f"Using keepalived virtual_router_id {virtual_router_id}")
@@ -1488,7 +1497,6 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
         with open("iso.ign", 'w') as f:
             iso_overrides = data.copy()
             iso_overrides['image'] = 'rhcos4000'
-            sno_extra_args = overrides.get('sno_extra_args')
             _files = [{"path": "/root/sno-finish.service", "origin": f"{plandir}/sno-finish.service"},
                       {"path": "/usr/local/bin/sno-finish.sh", "origin": f"{plandir}/sno-finish.sh", "mode": 700}]
             if notify:

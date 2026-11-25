@@ -1,6 +1,8 @@
 use crate::{
-    CompleteNexusError, PollError, prost_dur,
-    replay::canned_histories,
+    CompleteNexusError, PollError,
+    internal_flags::CoreInternalFlags,
+    prost_dur,
+    replay::{TestHistoryBuilder, canned_histories},
     test_help::{
         MockPollCfg, MockWorkerInputs, MocksHolder, QueueResponse, ResponseType, WorkerExt,
         WorkerTestHelpers, build_fake_worker, build_mock_pollers, mock_worker, start_timer_cmd,
@@ -38,7 +40,7 @@ use temporalio_common::{
         },
         temporal::api::{
             common::v1::{ActivityType, WorkflowExecution},
-            enums::v1::NexusHandlerErrorRetryBehavior,
+            enums::v1::{EventType, NexusHandlerErrorRetryBehavior},
             failure::v1::{
                 ApplicationFailureInfo, CanceledFailureInfo, Failure, NexusHandlerFailureInfo,
                 TimeoutFailureInfo, failure::FailureInfo,
@@ -67,6 +69,167 @@ use temporalio_common::{
 use tokio::sync::{Barrier, Notify, watch};
 use uuid::Uuid;
 
+#[rstest::rstest]
+#[tokio::test]
+async fn unchunked_history_skips_jobless_tasks(#[values(false, true)] incremental: bool) {
+    let mut history = TestHistoryBuilder::default();
+    history.add_by_type(EventType::WorkflowExecutionStarted);
+    history.add_full_wf_task();
+    let timer = history.add_timer_started("1".to_owned());
+    history.set_flags_first_wft(&[CoreInternalFlags::DisableWorkflowTaskChunking], &[]);
+    history.add_full_wf_task();
+    history.add_full_wf_task();
+    history.add_timer_fired(timer, "1".to_owned());
+    history.add_workflow_task_scheduled_and_started();
+    let final_started_id = history.current_event_id();
+    let mut events = history.get_full_history_info().unwrap().into_events();
+    for event in &mut events {
+        event.event_time = Some(prost_types::Timestamp {
+            seconds: 100 + event.event_id,
+            nanos: 0,
+        });
+    }
+    let history = TestHistoryBuilder::from_history(events);
+    let tasks = if incremental {
+        vec![1, 2, 3, 4]
+    } else {
+        vec![4]
+    };
+    let mut mocks = build_mock_pollers(MockPollCfg::from_resps(history, tasks));
+    mocks.worker_cfg(|cfg| cfg.max_cached_workflows = 1);
+    mocks.make_wft_stream_interminable();
+    let core = mock_worker(mocks);
+    let first = core.poll_workflow_activation().await.unwrap();
+    let run_id = first.run_id;
+    core.complete_workflow_activation(WorkflowActivationCompletion::from_cmds(
+        run_id.clone(),
+        vec![start_timer_cmd(1, Duration::from_secs(1))],
+    ))
+    .await
+    .unwrap();
+    let activation = core.poll_workflow_activation().await.unwrap();
+    assert_eq!(activation.jobs.len(), 1);
+    assert_matches!(
+        activation.jobs[0].variant,
+        Some(workflow_activation_job::Variant::FireTimer(_))
+    );
+    assert_eq!(i64::from(activation.history_length), final_started_id);
+    assert_eq!(
+        activation.timestamp,
+        Some(prost_types::Timestamp {
+            seconds: 100 + final_started_id,
+            nanos: 0,
+        })
+    );
+    core.complete_execution(&run_id).await;
+    core.request_workflow_eviction(&run_id);
+    let eviction = core.poll_workflow_activation().await.unwrap();
+    assert!(eviction.is_only_eviction());
+    core.complete_workflow_activation(WorkflowActivationCompletion::empty(run_id))
+        .await
+        .unwrap();
+    core.shutdown().await;
+    core.finalize_shutdown().await;
+}
+
+#[rstest::rstest]
+#[case::legacy(false)]
+#[case::unchunked(true)]
+#[tokio::test]
+async fn signals_in_separate_heartbeat_tasks_preserve_live_clocks(#[case] unchunked: bool) {
+    let mut history = TestHistoryBuilder::default();
+    history.add_by_type(EventType::WorkflowExecutionStarted);
+    history.add_full_wf_task();
+    let timer = history.add_timer_started("1".to_owned());
+    if unchunked {
+        history.set_flags_first_wft(&[CoreInternalFlags::DisableWorkflowTaskChunking], &[]);
+    }
+    let mut expected = vec![];
+    for _ in 0..4 {
+        history.add_workflow_task_scheduled();
+        history.add_we_signaled("tick", vec![]);
+        let signal_id = history.current_event_id();
+        history.add_workflow_task_started();
+        let started_id = history.current_event_id();
+        let timestamp = prost_types::Timestamp {
+            seconds: 100 + started_id,
+            nanos: 0,
+        };
+        expected.push((signal_id, started_id as u32, Some(timestamp)));
+        history.add_workflow_task_completed();
+    }
+    history.add_timer_fired(timer, "1".to_owned());
+    history.add_workflow_task_scheduled_and_started();
+    let mut events = history.get_full_history_info().unwrap().into_events();
+    for event in &mut events {
+        event.event_time = Some(prost_types::Timestamp {
+            seconds: 100 + event.event_id,
+            nanos: 0,
+        });
+    }
+    let history = TestHistoryBuilder::from_history(events);
+    let mut mocks =
+        build_mock_pollers(MockPollCfg::from_resps(history, [ResponseType::AllHistory]));
+    mocks.make_wft_stream_interminable();
+    let core = mock_worker(mocks);
+    let mut observed = vec![];
+    let mut exchanges = 0;
+    let run_id = loop {
+        let activation = core.poll_workflow_activation().await.unwrap();
+        exchanges += 1;
+        let mut finished = false;
+        let mut commands = vec![];
+        for job in &activation.jobs {
+            match &job.variant {
+                Some(workflow_activation_job::Variant::InitializeWorkflow(_)) => {
+                    commands.push(start_timer_cmd(1, Duration::from_secs(1)));
+                }
+                Some(workflow_activation_job::Variant::SignalWorkflow(signal)) => {
+                    observed.push((
+                        signal.originating_event_id,
+                        activation.history_length,
+                        activation.timestamp,
+                    ));
+                }
+                Some(workflow_activation_job::Variant::FireTimer(_)) => {
+                    assert!(!activation.is_replaying);
+                    finished = true;
+                    commands.push(CompleteWorkflowExecution { result: None }.into());
+                }
+                _ => panic!("Unexpected heartbeat activation job"),
+            }
+        }
+        core.complete_workflow_activation(WorkflowActivationCompletion::from_cmds(
+            activation.run_id.clone(),
+            commands,
+        ))
+        .await
+        .unwrap();
+        if finished {
+            break activation.run_id;
+        }
+    };
+    assert_eq!(observed.len(), expected.len());
+    if unchunked {
+        assert_eq!(observed, expected);
+        assert_eq!(exchanges, 6);
+    } else {
+        assert_eq!(observed[0], expected[0]);
+        for (actual, original) in observed[1..].iter().zip(&expected[1..]) {
+            assert_eq!(actual, &(original.0, expected[3].1, expected[3].2));
+        }
+        assert_eq!(exchanges, 4);
+    }
+    core.request_workflow_eviction(&run_id);
+    let eviction = core.poll_workflow_activation().await.unwrap();
+    assert!(eviction.is_only_eviction());
+    core.complete_workflow_activation(WorkflowActivationCompletion::empty(run_id))
+        .await
+        .unwrap();
+    core.shutdown().await;
+    core.finalize_shutdown().await;
+}
+
 #[tokio::test]
 async fn after_shutdown_of_worker_get_shutdown_err() {
     let t = canned_histories::single_timer("1");
@@ -88,11 +251,7 @@ async fn after_shutdown_of_worker_get_shutdown_err() {
             .await
             .unwrap();
 
-        // Shutdown proceeds if the only outstanding activations are evictions
-        assert_matches!(
-            worker.poll_workflow_activation().await.unwrap_err(),
-            PollError::ShutDown
-        );
+        worker.drain_workflow_poller().await;
     });
 }
 
@@ -122,11 +281,7 @@ async fn shutdown_worker_can_complete_pending_activation() {
             ))
             .await
             .unwrap();
-        // Shutdown proceeds if the only outstanding activations are evictions
-        assert_matches!(
-            worker.poll_workflow_activation().await.unwrap_err(),
-            PollError::ShutDown
-        );
+        worker.drain_workflow_poller().await;
     });
 }
 
@@ -222,11 +377,7 @@ async fn complete_with_task_not_found_during_shutdown() {
         complete_order.borrow_mut().push(2);
     };
     let poll_fut = async {
-        // This will return shutdown once the completion goes through
-        assert_matches!(
-            core.poll_workflow_activation().await.unwrap_err(),
-            PollError::ShutDown
-        );
+        core.drain_workflow_poller().await;
     };
     let complete_fut = async {
         core.complete_workflow_activation(WorkflowActivationCompletion::from_cmds(
@@ -243,6 +394,30 @@ async fn complete_with_task_not_found_during_shutdown() {
 
 #[tokio::test]
 async fn complete_eviction_after_shutdown_doesnt_panic() {
+    let core = build_fake_worker("fakeid", canned_histories::single_timer("1"), [1]);
+    let activation = core.poll_workflow_activation().await.unwrap();
+    core.complete_workflow_activation(WorkflowActivationCompletion::from_cmd(
+        activation.run_id,
+        start_timer_cmd(1, Duration::from_secs(1)),
+    ))
+    .await
+    .unwrap();
+    let eviction = core.poll_workflow_activation().await.unwrap();
+    assert!(eviction.is_only_eviction());
+    core.complete_workflow_activation(WorkflowActivationCompletion::empty(eviction.run_id.clone()))
+        .await
+        .unwrap();
+    core.shutdown().await;
+
+    assert_matches!(
+        core.complete_workflow_activation(WorkflowActivationCompletion::empty(eviction.run_id))
+            .await,
+        Ok(())
+    );
+}
+
+#[tokio::test]
+async fn shutdown_waits_for_eviction_completion() {
     let t = canned_histories::single_timer("1");
     let mut mh = build_mock_pollers(MockPollCfg::from_resp_batches(
         "fakeid",
@@ -266,10 +441,16 @@ async fn complete_eviction_after_shutdown_doesnt_panic() {
         res.jobs[0].variant,
         Some(workflow_activation_job::Variant::RemoveFromCache(_))
     );
-    core.shutdown().await;
+    let shutdown = core.shutdown();
+    tokio::pin!(shutdown);
+    assert!(futures_util::poll!(&mut shutdown).is_pending());
+    // Round-tripping through the workflow stream after requesting shutdown proves the run is
+    // retained for its uncompleted eviction, independently of the ShutdownWorker RPC handle.
+    assert_eq!(core.cached_workflows().await, 1);
     core.complete_workflow_activation(WorkflowActivationCompletion::empty(res.run_id))
         .await
         .unwrap();
+    shutdown.await;
 }
 
 #[tokio::test]
@@ -369,8 +550,7 @@ async fn worker_shutdown_api(#[case] use_cache: bool, #[case] api_success: bool)
     }
 
     let t = canned_histories::single_timer("1");
-    let mut mh =
-        MockPollCfg::from_resp_batches("fakeid", t, [1.into(), ResponseType::AllHistory], mock);
+    let mut mh = MockPollCfg::from_resp_batches("fakeid", t, [1], mock);
     mh.enforce_correct_number_of_polls = false;
     let mut mock = build_mock_pollers(mh);
     mock.worker_cfg(|w| w.max_cached_workflows = if use_cache { 1 } else { 0 });
@@ -393,11 +573,7 @@ async fn worker_shutdown_api(#[case] use_cache: bool, #[case] api_success: bool)
             .await
             .unwrap();
 
-        // Shutdown proceeds if the only outstanding activations are evictions
-        assert_matches!(
-            worker.poll_workflow_activation().await.unwrap_err(),
-            PollError::ShutDown
-        );
+        worker.drain_pollers_and_shutdown_ref().await;
     });
 }
 

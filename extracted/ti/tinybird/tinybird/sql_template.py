@@ -31,6 +31,14 @@ _STRING_LINE_NUMBER_RE = re.compile(r"\<string\>:(\d*)")
 _ARRAY_TYPE_RE = re.compile(r"Array\((\w+)\)")
 _EMBEDDED_TEMPLATE_EXPRESSION_RE = re.compile(r"\{\{(.*?)\}\}")
 
+# Elements per intermediate string when rendering an array. Joining in chunks keeps the peak
+# memory of a large array close to the size of its rendered SQL.
+_ARRAY_JOIN_CHUNK_SIZE = 4096
+
+
+def _array_elements(x: Union[list, str]) -> list:
+    return x if isinstance(x, list) else x.split(",")
+
 
 def secret_template_key(secret_name: str) -> str:
     return f"{TB_SECRET_PREFIX}{secret_name}"
@@ -234,8 +242,8 @@ class Symbol:
 
 
 class Integer(int):
-    def __new__(self, value, type):
-        return int.__new__(self, value)
+    def __new__(cls, value, type):
+        return int.__new__(cls, value)
 
     def __init__(self, value, type):
         int.__init__(value)
@@ -246,8 +254,8 @@ class Integer(int):
 
 
 class Float(float):
-    def __new__(self, value, type):
-        return float.__new__(self, value)
+    def __new__(cls, value, type):
+        return float.__new__(cls, value)
 
     def __init__(self, value, type):
         float.__init__(value)
@@ -400,20 +408,27 @@ def array_type(types):
                             REQUIRED_PARAM_NOT_DEFINED, documentation="/cli/advanced-templates.html"
                         )
                     return None
-            values = []
-            list_values = x if type(x) == list else x.split(",")  # noqa: E721
-            for i, t in enumerate(list_values):
+            # Convert each element to its final string at once so that only strings stay in memory.
+            chunks: List[str] = []
+            values: List[str] = []
+            for i, t in enumerate(_array_elements(x)):
+                value = str(t)
                 if _type in testers:
-                    if testers[_type](str(t)):
-                        values.append(expression_wrapper(types[_type](t), str(t)))
+                    if testers[_type](value):
+                        values.append(str(expression_wrapper(types[_type](t), value)))
                     else:
                         raise SQLTemplateException(
                             f"Error validating [{x}][{i}] ({'empty string' if t == '' else t}) to type {_type}",
                             documentation="/cli/advanced-templates.html",
                         )
                 else:
-                    values.append(expression_wrapper(types.get(_type, lambda x: x)(t), str(t)))
-            return Expression(f"[{','.join(map(str, values))}]")
+                    values.append(str(expression_wrapper(types.get(_type, lambda x: x)(t), value)))
+                if len(values) >= _ARRAY_JOIN_CHUNK_SIZE:
+                    chunks.append(",".join(values))
+                    values.clear()
+            if values:
+                chunks.append(",".join(values))
+            return Expression("[" + ",".join(chunks) + "]")
         except AttributeError as e:
             logging.warning(f"AttributeError on Array: {e}")
             raise SQLTemplateException(
@@ -1296,9 +1311,15 @@ type_fns_check = get_transform_types(
 
 # from https://github.com/elouajib/sqlescapy/
 # MIT license
-def sqlescape_generator(translations):
-    def sqlscape(str):
-        return str.translate(str.maketrans(translations))
+def sqlescape_generator(translations: Dict[str, str]) -> Callable[[str], str]:
+    """Build an escaping function that reuses one translation table."""
+    table = str.maketrans(translations)
+    escapable = re.compile(f"[{re.escape(''.join(translations))}]")
+
+    def sqlscape(value: str) -> str:
+        if escapable.search(value) is None:
+            return value
+        return value.translate(table)
 
     return sqlscape
 
@@ -1400,8 +1421,6 @@ for p in DEFAULT_PARAM_NAMES:  # we handle these in an specific manner
     reserved_vars.discard(p)  # `format` is part of builtins
 # Allow 'id' as a template parameter name despite being a builtin - https://gitlab.com/tinybird/analytics/-/issues/19119
 reserved_vars.discard("id")
-error_vars = ["error", "custom_error"]
-
 
 _SQL_COMMENT_UNSAFE_CHARS = re.compile(r"[\x00-\x1f\x7f\u2028\u2029]")
 
@@ -2009,23 +2028,7 @@ def get_var_data(content, node_id=None):
                 return str(value)
         return value
 
-    # TODO: Remove this retry logic. It was added in commit 1314a3b120 as a workaround for
-    # a Python 3.11 bug (https://github.com/python/cpython/issues/106905) where AST recursion
-    # depth tracking was broken. However, retrying doesn't actually help since the corrupted
-    # state persists. The bug was fixed in Python 3.11.5+ and 3.12+, so this can be simplified
-    # to just `ast.parse(content)` once we confirm all environments use patched Python versions.
-    def parse_content(content, retries=0):
-        try:
-            return ast.parse(content)
-        except Exception as e:
-            if "AST constructor recursion depth mismatch" not in str(e):
-                raise e
-            retries += 1
-            if retries > 3:
-                raise e
-            return parse_content(content, retries)
-
-    parsed = parse_content(content)
+    parsed = ast.parse(content)
     vars = {}
 
     # Single pass: traverse AST while tracking parent references
@@ -2077,21 +2080,19 @@ def get_var_data(content, node_id=None):
                             "type": f"Array({args[1]})" if len(args) > 1 else "Array(String)",
                             **kwargs,
                         }
-                elif func in parameter_types:
-                    # avoid variable names to be None
-                    if args and args[0] is not None:
-                        # if this is a cast use the function name to get the type
-                        if "default" not in kwargs:
-                            default = kwargs.get("default", args[1] if len(args) > 1 else None)
-                            kwargs["default"] = check_default_value(default)
-                        try:
-                            if isinstance(args[0], list):
-                                raise ValueError(f'"{args[0]}" can not be used as a variable name')
-                            vars[args[0]] = {"type": func, **kwargs}
-                            if "default" in kwargs:
-                                kwargs["default"] = check_default_value(kwargs["default"])
-                        except TypeError as e:
-                            logging.exception(f"pipe parsing problem {content} (node '{node_id}'):  {e}")
+                elif func in parameter_types and args and args[0] is not None:
+                    # if this is a cast use the function name to get the type
+                    if "default" not in kwargs:
+                        default = kwargs.get("default", args[1] if len(args) > 1 else None)
+                        kwargs["default"] = check_default_value(default)
+                    try:
+                        if isinstance(args[0], list):
+                            raise ValueError(f'"{args[0]}" can not be used as a variable name')
+                        vars[args[0]] = {"type": func, **kwargs}
+                        if "default" in kwargs:
+                            kwargs["default"] = check_default_value(kwargs["default"])
+                    except TypeError as e:
+                        logging.exception(f"pipe parsing problem {content} (node '{node_id}'):  {e}")
             except ValueError:
                 raise
             except Exception as e:
@@ -2218,7 +2219,9 @@ def get_var_names_and_types(t: Template, node_id: Optional[str] = None) -> List[
             "except": lambda statement: "try: pass\n" + statement + ": pass",
         }
 
-        def parse_statement_code_if_new_vars(statement_code: str, *, skip_names: set[str]) -> list[dict[str, Any]]:
+        def parse_statement_code_if_new_vars(
+            statement_code: str, *, statement_expr_names: set[str]
+        ) -> list[dict[str, Any]]:
             """Parse statement code and return variables not already typed by expressions."""
             try:
                 # `{{...}}` inside `{% ... %}` is not template syntax in Tornado templates.
@@ -2233,7 +2236,7 @@ def get_var_names_and_types(t: Template, node_id: Optional[str] = None) -> List[
             if not var_data:
                 return []
 
-            return [vd for vd in var_data if vd["name"] not in skip_names]
+            return [vd for vd in var_data if vd["name"] not in typed_names and vd["name"] not in statement_expr_names]
 
         def parse_statement(statement: str, *, wrap: Callable[[str], str] | None) -> list[dict[str, Any]]:
             """Parse a statement and return variables not already typed by expressions."""
@@ -2261,9 +2264,7 @@ def get_var_names_and_types(t: Template, node_id: Optional[str] = None) -> List[
                         vars_out.append(vd)
 
             statement_code = wrap(statement) if wrap else statement
-            vars_out.extend(
-                parse_statement_code_if_new_vars(statement_code, skip_names=typed_names | statement_expr_names)
-            )
+            vars_out.extend(parse_statement_code_if_new_vars(statement_code, statement_expr_names=statement_expr_names))
             # Inside a {% %} statement a type function with a literal first arg
             # (e.g. {% set x = Float32(1.5) %}) is a plain value cast: the
             # assigned variable is the parameter, the literal is not. Drop
@@ -2335,22 +2336,30 @@ def validate_template_parameter_names(sql: str, node_id: Optional[str] = None) -
     raises (e.g. for a list literal used as first argument), which is exactly
     what this validator exists to report.
     """
+    invalid_name_error = _get_invalid_parameter_name_error(sql, node_id)
+    if invalid_name_error:
+        raise ValueError(invalid_name_error)
+
+
+@lru_cache(maxsize=2**10)
+def _get_invalid_parameter_name_error(sql: str, node_id: Optional[str]) -> Optional[str]:
     try:
         params = get_var_names_and_types(Template(sql), node_id=node_id)
     except SQLTemplateException:
         # Template-level problem (e.g. a SecurityException converted by
         # get_var_names_and_types), not an invalid parameter name.
-        return
-    except ValueError:
+        return None
+    except ValueError as e:
         # Extraction itself rejects some invalid names (e.g. a list literal
         # as first argument) with the same ValueError this function raises.
-        raise
+        return str(e)
     except Exception:
-        return
+        return None
     for param in params:
         name = param.get("name")
         if not isinstance(name, str) or not name:
-            raise ValueError(f'"{name}" can not be used as a variable name')
+            return f'"{name}" can not be used as a variable name'
+    return None
 
 
 def wrap_vars(t, escape_arrays: bool = False):
@@ -2467,7 +2476,7 @@ def get_template_and_variables(sql: str, name: Optional[str], escape_arrays: boo
     variable_warnings = []
 
     try:
-        t = Template(sql, name)
+        t = Template(sql, name or "<string>")
         template_variables = get_var_names(t)
 
         for variable in template_variables:
@@ -2499,6 +2508,12 @@ def preprocess_variables(variables: dict, template_variables_with_types: List[di
     {'test': [1, 2, 3]}
     >>> preprocess_variables({"test": "1,2,msg"}, [{"name": "test", "type": "Array(Int32)", "default": None}])
     {}
+    >>> values = [f"a,'{i}" for i in range(2 * _ARRAY_JOIN_CHUNK_SIZE + 1)]
+    >>> preprocess_variables({"test": values}, [{"name": "test", "type": "Array(String)", "default": None}])["test"] == values
+    True
+    >>> values = ",".join(map(str, range(2 * _ARRAY_JOIN_CHUNK_SIZE + 1)))
+    >>> preprocess_variables({"test": values}, [{"name": "test", "type": "Array(Int32)", "default": None}])["test"] == list(range(2 * _ARRAY_JOIN_CHUNK_SIZE + 1))
+    True
     """
     processed_variables = {}
     for variable, value in variables.items():
@@ -2519,8 +2534,12 @@ def preprocess_variables(variables: dict, template_variables_with_types: List[di
 
             array_type = match.group(1)
             array_fn = type_fns.get("Array")
-            parsed_exp = array_fn(value, array_type)
-            processed_variables[variable] = ast.literal_eval(parsed_exp)
+            list_values = _array_elements(value)
+            # Evaluate one chunk at a time to limit the size of the AST that ast.literal_eval builds.
+            parsed: list = []
+            for i in range(0, len(list_values), _ARRAY_JOIN_CHUNK_SIZE):
+                parsed.extend(ast.literal_eval(array_fn(list_values[i : i + _ARRAY_JOIN_CHUNK_SIZE], array_type)))
+            processed_variables[variable] = parsed
         except Exception:
             continue
 
@@ -2870,8 +2889,7 @@ def render_sql_template(
         if variables:
             v.update(variables)
 
-        if secrets:
-            v.update({"tb_secrets": secrets})
+        v["tb_secrets"] = secrets or []
 
         if is_tb_secret and secrets_in_test_mode:
             v.update({TB_SECRET_IN_TEST_MODE: None})
@@ -2893,8 +2911,7 @@ def render_sql_template(
         if variables:
             v.update(variables)
 
-        if secrets:
-            v.update({"tb_secrets": secrets})
+        v["tb_secrets"] = secrets or []
 
         v.update(type_fns)
 
@@ -2971,9 +2988,9 @@ def extract_variables_from_sql(sql: str, params: List[Dict[str, Any]]) -> Dict[s
             return value
 
         # Modify the template by adding capture hooks
-        tracked_template_string = sql
-        for var_name in mock_data.keys():
-            tracked_template_string += f"{{% set __ = capture_variable('{var_name}', {var_name}) %}}"
+        tracked_template_string = sql + "".join(
+            f"{{% set __ = capture_variable('{var_name}', {var_name}) %}}" for var_name in mock_data
+        )
 
         # Define the modified template with tracking
         template = Template(tracked_template_string)

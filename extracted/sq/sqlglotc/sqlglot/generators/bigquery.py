@@ -33,6 +33,7 @@ from sqlglot.dialects.dialect import (
 from sqlglot.errors import ErrorLevel
 from sqlglot.generator import unsupported_args
 from sqlglot.helper import seq_get
+from sqlglot.typing import TIMESTAMP_EXPRESSIONS
 
 if t.TYPE_CHECKING:
     from sqlglot.dialects.dialect import DialectType
@@ -42,6 +43,20 @@ logger = logging.getLogger("sqlglot")
 JSON_EXTRACT_TYPE = t.Union[exp.JSONExtract, exp.JSONExtractScalar, exp.JSONExtractArray]
 
 DQUOTES_ESCAPING_JSON_FUNCTIONS = ("JSON_QUERY", "JSON_VALUE", "JSON_QUERY_ARRAY")
+
+# BigQuery's DATE_ADD, DATE_SUB, TIMESTAMP_TRUNC, TIMESTAMP_ADD and TIMESTAMP_SUB return their first
+# argument's type, as parentheses do
+FIRST_ARG_TYPED = (
+    exp.Paren,
+    exp.DateAdd,
+    exp.DateSub,
+    exp.TimestampTrunc,
+    exp.TimestampAdd,
+    exp.TimestampSub,
+)
+
+# Expressions BigQuery writes as a TIMESTAMP, e.g. AT TIME ZONE as TIMESTAMP(DATETIME(x, zone))
+TIMESTAMP_TYPED = (exp.AtTimeZone, *TIMESTAMP_EXPRESSIONS)
 
 
 def _derived_table_values_to_unnest(self: BigQueryGenerator, expression: exp.Values) -> str:
@@ -116,6 +131,31 @@ def _alias_ordered_group(expression: exp.Expr) -> exp.Expr:
                     grouped.replace(exp.column(alias))
 
     return expression
+
+
+def _is_value_window(window: exp.Window) -> bool:
+    func = window.this
+    if isinstance(func, (exp.IgnoreNulls, exp.RespectNulls)):
+        func = func.this
+    return isinstance(func, (exp.FirstValue, exp.LastValue, exp.NthValue))
+
+
+def _nondefault_null_order(ordered: exp.Expr) -> bool:
+    # BigQuery sorts NULLs first in ascending order and last in descending order.
+    return isinstance(ordered, exp.Ordered) and bool(ordered.args.get("nulls_first")) == bool(
+        ordered.args.get("desc")
+    )
+
+
+def _inline_value_window_order(window: exp.Window, inherited: exp.Window) -> bool:
+    order = inherited.args.get("order") or window.args.get("order")
+    spec = window.args.get("spec") or inherited.args.get("spec")
+    return bool(
+        order
+        and _is_value_window(window)
+        and (not spec or spec.text("kind").upper() == "RANGE")
+        and any(_nondefault_null_order(key) for key in order.expressions)
+    )
 
 
 def _pushdown_cte_column_names(expression: exp.Expr) -> exp.Expr:
@@ -469,11 +509,9 @@ class BigQueryGenerator(generator.Generator):
         exp.CountIf: rename_func("COUNTIF"),
         exp.Create: _create_sql,
         exp.CTE: transforms.preprocess([_pushdown_cte_column_names]),
-        exp.DateAdd: date_add_interval_sql("DATE", "ADD"),
         exp.DateDiff: lambda self, e: self.func("DATE_DIFF", e.this, e.expression, unit_to_var(e)),
         exp.DateFromParts: rename_func("DATE"),
         exp.DateStrToDate: datestrtodate_sql,
-        exp.DateSub: date_add_interval_sql("DATE", "SUB"),
         exp.DatetimeAdd: date_add_interval_sql("DATETIME", "ADD"),
         exp.DatetimeSub: date_add_interval_sql("DATETIME", "SUB"),
         exp.DateFromUnixDate: rename_func("DATE_FROM_UNIX_DATE"),
@@ -542,6 +580,7 @@ class BigQueryGenerator(generator.Generator):
                 transforms.unqualify_unnest,
                 transforms.eliminate_distinct_on,
                 _alias_ordered_group,
+                lambda e: transforms.eliminate_window_clause(e, _inline_value_window_order),
                 transforms.eliminate_semi_and_anti_joins,
             ]
         ),
@@ -821,6 +860,32 @@ class BigQueryGenerator(generator.Generator):
 
         return self.func("WEEK", expression.this)
 
+    def dateadd_sql(self, expression: exp.DateAdd | exp.DateSub) -> str:
+        kind = "SUB" if isinstance(expression, exp.DateSub) else "ADD"
+        this = expression.this
+        if expression.text("unit") in ("WEEK", "MONTH", "QUARTER", "YEAR"):
+            node = this
+            while isinstance(node, FIRST_ARG_TYPED):
+                node = node.this
+            # TIME_STR_TO_TIME is written as CAST(x AS DATETIME) without a zone, whatever its type
+            if (
+                node.args.get("zone")
+                if isinstance(node, exp.TimeStrToTime)
+                else isinstance(node, TIMESTAMP_TYPED) or node.is_type(exp.DType.TIMESTAMPTZ)
+            ):
+                # TIMESTAMP arithmetic only takes units up to DAY, so use the UTC DATETIME instead
+                shifted = (exp.DatetimeSub if kind == "SUB" else exp.DatetimeAdd)(
+                    this=exp.TsOrDsToDatetime(this=this),
+                    expression=expression.expression,
+                    unit=expression.unit,
+                )
+                return self.func("TIMESTAMP", shifted)
+
+        return date_add_interval_sql("DATE", kind)(self, expression)
+
+    def datesub_sql(self, expression: exp.DateSub) -> str:
+        return self.dateadd_sql(expression)
+
     def datetrunc_sql(self, expression: exp.DateTrunc) -> str:
         self._warn_unsupported_arg(expression, "century_from_zero")
         unit = expression.unit
@@ -1001,6 +1066,43 @@ class BigQueryGenerator(generator.Generator):
                 return f"{self.sql(expression, 'to')}{self.sql(this)}"
 
         return super().cast_sql(expression, safe_prefix=safe_prefix)
+
+    def ordered_sql(self, expression: exp.Ordered) -> str:
+        order = expression.parent
+        window = order.parent if isinstance(order, exp.Order) else None
+        if not isinstance(window, exp.Window) or not _nondefault_null_order(expression):
+            return super().ordered_sql(expression)
+
+        # A WINDOW definition can be used with different functions and frames.
+        if isinstance(window.this, exp.Identifier):
+            return super().ordered_sql(expression.copy())
+
+        spec = window.args.get("spec")
+        if not _is_value_window(window) or (spec and spec.text("kind").upper() != "RANGE"):
+            return super().ordered_sql(expression)
+
+        key = expression.this
+        needs_null_key = key not in (window.args.get("partition_by") or [])
+        if spec and any(isinstance(spec.args.get(bound), exp.Expr) for bound in ("start", "end")):
+            # An offset RANGE allows only one key. With finite bounds, NULL keys can
+            # only frame other NULLs, so their position relative to non-NULLs is immaterial.
+            if needs_null_key and any(
+                spec.text(bound).upper() == "UNBOUNDED" for bound in ("start", "end")
+            ):
+                return super().ordered_sql(expression)
+            needs_null_key = False
+
+        desc = expression.args.get("desc")
+        expression = expression.copy()
+        expression.set("nulls_first", not desc)
+        sql = super().ordered_sql(expression)
+        if not needs_null_key:
+            return sql
+
+        if isinstance(key, (exp.Not, exp.Predicate)):
+            key = exp.paren(key)
+        is_null = key.is_(exp.null())
+        return f"{self.sql(is_null)}{' DESC' if desc else ''}, {sql}"
 
     def clusterproperty_sql(self, expression: exp.ClusterProperty) -> str:
         if expression.this:

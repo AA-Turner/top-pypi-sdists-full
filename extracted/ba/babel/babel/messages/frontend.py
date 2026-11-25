@@ -21,9 +21,14 @@ import shutil
 import sys
 import tempfile
 import warnings
+from collections import Counter, defaultdict
+from collections.abc import Iterable
 from configparser import RawConfigParser
-from io import StringIO
-from typing import Any, BinaryIO, Iterable, Literal
+from io import BytesIO, StringIO
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal
+
+if TYPE_CHECKING:
+    from babel.messages.catalog import _MessageID
 
 from babel import Locale, localedata
 from babel import __version__ as VERSION
@@ -40,6 +45,121 @@ from babel.messages.pofile import read_po, write_po
 from babel.util import LOCALTZ
 
 log = logging.getLogger('babel')
+
+
+def _parse_toml(
+    fileobj: BinaryIO,
+    *,
+    style: Literal["standalone", "pyproject.toml"],
+    filename: str = "(unknown)",
+    allow_missing_sections: bool = False,
+) -> dict[str, Any]:
+    """Parse the Babel configuration from the given binary file object.
+
+    :param fileobj: a readable file-like object containing the configuration text
+                    to parse.
+    :param style: whether the file is in the style of a `pyproject.toml` file,
+                    i.e. whether to look for `tool.babel`.
+    :param filename: the name of the file being parsed, for error messages.
+    :param allow_missing_sections: decides if a missing ``[tool.babel]`` section
+                    results in an empty dictionary being returned or a
+                    ``ConfigurationError`` being raised.
+    """
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib
+        except ImportError as ie:  # pragma: no cover
+            raise ImportError(
+                "tomli or tomllib is required to parse TOML files",
+            ) from ie
+
+    try:
+        parsed_data = tomllib.load(fileobj)
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
+        raise ConfigurationError(f"{filename}: Error parsing TOML file: {e}") from e
+
+    if style == "pyproject.toml":
+        try:
+            babel_data = parsed_data["tool"]["babel"]
+        except (TypeError, KeyError) as e:
+            if not allow_missing_sections:
+                raise ConfigurationError(
+                    f"{filename}: No 'tool.babel' section found in file",
+                ) from e
+            else:
+                return {}
+
+        if not isinstance(babel_data, dict):
+            raise ConfigurationError(
+                f"{filename}: 'tool.babel' should be a table, got {type(babel_data).__name__}",
+            )
+
+    elif style == "standalone":
+        babel_data = parsed_data
+        if "babel" in babel_data:
+            raise ConfigurationError(
+                f"{filename}: 'babel' should not be present in a stand-alone configuration file",
+            )
+    else:  # pragma: no cover
+        raise ValueError(f"Unknown TOML style {style!r}")
+
+    return babel_data
+
+
+def _find_pyproject_toml(path: pathlib.Path | None) -> pathlib.Path | None:
+    """Find the "pyproject.toml" file to read configuration from.
+
+    The directory hierarchy is presently deliberately *not* searched upwards,
+    since relative paths in the configuration are resolved relative to the
+    current working directory. This may change in a future version.
+
+    :param path: A path to a file, or a directory containing a ``pyproject.toml``.
+                 If set to ``None``, the current working directory will be used.
+    """
+    if path is None:
+        path = pathlib.Path.cwd()
+
+    if path.is_file():
+        return path
+
+    pyproject_file = path / "pyproject.toml"
+    if pyproject_file.is_file():
+        return pyproject_file
+
+    return None
+
+
+def _parse_pyproject_toml_config(path: pathlib.Path | None, table_name: str | None) -> dict:
+    """Parse the Babel config from a "pyproject.toml" file at the specified path."""
+    if table_name is None:
+        return {}
+
+    path = _find_pyproject_toml(path)
+    if not path:
+        return {}
+
+    data = path.read_bytes()
+    if b"babel" not in data:
+        # Can't possibly contain a `tool.babel` table,
+        # so don't bother parsing at all (or require a TOML library)
+        return {}
+
+    babel_data = _parse_toml(
+        BytesIO(data),
+        style="pyproject.toml",
+        filename=str(path),
+        allow_missing_sections=True,
+    )
+
+    table = babel_data.get(table_name, {})
+    if not isinstance(table, dict):
+        raise ConfigurationError(
+            f"{path}: 'tool.babel.{table_name}' should be a table, got {type(table).__name__}",
+        )
+    # Allow spelling keys like the command line options, e.g. `output-file`
+    return {key.replace("-", "_"): value for key, value in table.items()}
 
 
 class BaseError(Exception):
@@ -129,8 +249,15 @@ class CommandMixin:
     #: list of choices.
     option_choices = {}
 
+    #: The name of the table containing the command's configuration in
+    #: a TOML file.
+    toml_config_table = None
+
     #: Log object. To allow replacement in the script command line runner.
     log = log
+
+    no_wrap: bool
+    width: int | None
 
     def __init__(self, dist=None):
         # A less strict version of distutils' `__init__`.
@@ -142,7 +269,7 @@ class CommandMixin:
         self.help = 0
         self.finalized = 0
 
-    def initialize_options(self):
+    def initialize_options(self):  # pragma: no cover
         pass
 
     def ensure_finalized(self):
@@ -150,10 +277,19 @@ class CommandMixin:
             self.finalize_options()
         self.finalized = 1
 
-    def finalize_options(self):
+    def finalize_options(self):  # pragma: no cover
         raise RuntimeError(
             f"abstract method -- subclass {self.__class__} must override",
         )
+
+    def _finalize_width(self) -> None:
+        """Validate and normalize the `--width` / `--no-wrap` pair."""
+        if self.no_wrap and self.width:
+            raise OptionError("'--no-wrap' and '--width' are mutually exclusive")
+        if not self.no_wrap and not self.width:
+            self.width = 76
+        elif self.width is not None:
+            self.width = int(self.width)
 
 
 class CompileCatalog(CommandMixin):
@@ -176,6 +312,7 @@ class CompileCatalog(CommandMixin):
          'print statistics about translations'),
     ]  # fmt: skip
     boolean_options = ['use-fuzzy', 'statistics']
+    toml_config_table = "compile_catalog"
 
     def initialize_options(self):
         self.domain = 'messages'
@@ -365,6 +502,7 @@ class ExtractMessages(CommandMixin):
     option_choices = {
         'add-location': ('full', 'file', 'never'),
     }
+    toml_config_table = "extract_messages"
 
     def initialize_options(self):
         self.charset = 'utf-8'
@@ -414,14 +552,7 @@ class ExtractMessages(CommandMixin):
 
         if not self.output_file:
             raise OptionError('no output file specified')
-        if self.no_wrap and self.width:
-            raise OptionError(
-                "'--no-wrap' and '--width' are mutually exclusive",
-            )
-        if not self.no_wrap and not self.width:
-            self.width = 76
-        elif self.width is not None:
-            self.width = int(self.width)
+        self._finalize_width()
 
         if self.sort_output and self.sort_by_file:
             raise OptionError(
@@ -561,7 +692,7 @@ class ExtractMessages(CommandMixin):
                         if os.path.basename(self.mapping_file) == "pyproject.toml"
                         else "standalone"
                     )
-                    method_map, options_map = _parse_mapping_toml(
+                    method_map, options_map = _parse_mappings_from_toml(
                         fileobj,
                         filename=self.mapping_file,
                         style=file_style,
@@ -632,6 +763,7 @@ class InitCatalog(CommandMixin):
          'into several lines'),
     ]  # fmt: skip
     boolean_options = ['no-wrap']
+    toml_config_table = "init_catalog"
 
     def initialize_options(self):
         self.output_dir = None
@@ -659,12 +791,7 @@ class InitCatalog(CommandMixin):
             lc_messages_path = pathlib.Path(self.output_dir) / self.locale / "LC_MESSAGES"
             self.output_file = str(lc_messages_path / f"{self.domain}.po")
 
-        if self.no_wrap and self.width:
-            raise OptionError("'--no-wrap' and '--width' are mutually exclusive")
-        if not self.no_wrap and not self.width:
-            self.width = 76
-        elif self.width is not None:
-            self.width = int(self.width)
+        self._finalize_width()
 
     def run(self):
         self.log.info(
@@ -729,6 +856,7 @@ class UpdateCatalog(CommandMixin):
         'check',
         'ignore-pot-creation-date',
     ]
+    toml_config_table = "update_catalog"
 
     def initialize_options(self):
         self.domain = 'messages'
@@ -768,12 +896,7 @@ class UpdateCatalog(CommandMixin):
         else:
             self._locale = None
 
-        if self.no_wrap and self.width:
-            raise OptionError("'--no-wrap' and '--width' are mutually exclusive")
-        if not self.no_wrap and not self.width:
-            self.width = 76
-        elif self.width is not None:
-            self.width = int(self.width)
+        self._finalize_width()
         if self.no_fuzzy_matching and self.previous:
             self.previous = False
 
@@ -887,6 +1010,326 @@ class UpdateCatalog(CommandMixin):
             return
 
 
+def _is_translated(message) -> bool:
+    """Whether a message actually carries a translation.
+
+    An empty msgstr (or a plural tuple of empty msgstrs) is not a definition,
+    it just means the message is known but untranslated.
+    """
+    if isinstance(message.string, (list, tuple)):
+        return any(message.string)
+    return bool(message.string)
+
+
+class ConcatenateCatalog(CommandMixin):
+    description = 'concatenates the specified PO files into single one'
+    user_options = [
+        ('input-files', None, 'input files'),
+        ('output-file=', 'o', 'write output to specified file, the results are written '
+                              'to standard output if no output file is specified or if it is \'-\''),
+        ('less-than=', '<', 'print messages with less than this many '
+                            'definitions, defaults to infinite if not set'),
+        ('more-than=', '>', 'print messages with more than this many '
+                            'definitions, defaults to 0 if not set'),
+        ('unique', 'u', 'shorthand for --less-than=2, requests '
+                        'that only unique messages be printed'),
+        ('use-first', None, 'use first available translation for each '
+                            'message, don\'t merge several translations'),
+        ('no-location', None, 'do not include location comments with filename and line number'),
+        ('width=', 'w', 'set output line width (default 76)'),
+        ('no-wrap', None, 'do not break long message lines, longer than '
+                          'the output line width, into several lines'),
+        ('sort-output', 's', 'generate sorted output'),
+        ('sort-by-file', 'F', 'sort output by file location'),
+    ]
+
+    as_args = 'input-files'
+
+    boolean_options = [
+        'unique',
+        'use-first',
+        'no-location',
+        'strict',
+        'no-wrap',
+        'sort-output',
+        'sort-by-file',
+    ]
+
+    def initialize_options(self):
+        self.input_files = None
+        self.output_file = None
+        self.less_than = None
+        self.more_than = 0
+        self.unique = False
+        self.use_first = False
+        self.no_location = None
+        self.width = None
+        self.no_wrap = False
+        self.sort_output = False
+        self.sort_by_file = False
+
+    def finalize_options(self):
+        if not self.input_files:
+            raise OptionError('you must specify the input files')
+
+        self._finalize_width()
+
+        if self.more_than is None:
+            self.more_than = 0
+        else:
+            self.more_than = int(self.more_than)
+        if self.less_than is not None:
+            self.less_than = int(self.less_than)
+
+        if self.unique:
+            if self.less_than is not None or self.more_than:
+                raise OptionError("'--unique' is mutually exclusive with '--less-than' and '--more-than'")
+            self.less_than = 2
+
+    def _collect_message_info(self):
+        templates: list[tuple[str, Catalog]] = []
+        message_counts: Counter[_MessageID] = Counter()
+        message_strings: dict[_MessageID, set[_MessageID]] = defaultdict(set)
+
+        for filename in self.input_files:
+            with open(filename, 'rb') as pofile:
+                template = read_po(pofile)
+            for message in template:
+                if not message.id:
+                    continue
+                key = template._key_for(message.id, message.context)
+                message_counts[key] += 1
+                if _is_translated(message):
+                    message_strings[key].add(
+                        message.string if isinstance(message.string, str) else tuple(message.string),
+                    )
+            templates.append((filename, template))
+
+        return templates, message_counts, message_strings
+
+    def run(self):
+        templates, message_counts, message_strings = self._collect_message_info()
+
+        # Take the header from the first input preferring one that has a locale.
+        header_source = next(
+            (template for _, template in templates if template.locale is not None),
+            templates[0][1],
+        )
+        catalog = Catalog(fuzzy=False)
+        catalog.header_comment = header_source.header_comment
+        catalog.mime_headers = header_source.mime_headers
+
+        if len({template.charset for _, template in templates}) > 1:
+            # If charsets disagree, use UTF-8 as a common denominator.
+            catalog.charset = 'utf-8'
+
+        for path, template in templates:
+            for message in template:
+                if not message.id:
+                    continue
+
+                key = template._key_for(message.id, message.context)
+                count = message_counts[key]
+                if count <= self.more_than or (self.less_than is not None and count >= self.less_than):
+                    continue
+
+                translated = _is_translated(message)
+                conflicting = translated and not self.use_first and len(message_strings[key]) > 1
+
+                current = catalog.get(message.id, message.context)
+                was_translated = current is not None and _is_translated(current)
+                was_fuzzy = current is not None and current.fuzzy
+                was_singular = current is not None and not current.pluralizable
+                previous_string = current.string if current is not None else None
+                catalog[message.id] = message
+                stored = catalog.get(message.id, message.context)
+
+                if translated and not was_translated:
+                    if stored.pluralizable == message.pluralizable:
+                        stored.string = message.string
+                        was_fuzzy = message.fuzzy
+                    else:
+                        # A singular translation for a plural message: keep it as
+                        # the first form (like GNU msgcat), but mark it fuzzy.
+                        stored.string = (message.string, *([''] * (len(stored.string) - 1)))
+                        was_fuzzy = True
+                elif was_translated and was_singular and stored.pluralizable and (self.use_first or not translated):
+                    # Upgrading to plural would drop the singular translation
+                    # (which also wins over a later one with `--use-first`);
+                    # keep it as the first form, but mark it fuzzy.
+                    # (GNU msgcat keeps the entry singular here instead.)
+                    stored.string = (previous_string, *([''] * (len(stored.string) - 1)))
+                    was_fuzzy = True
+
+                if was_fuzzy:
+                    stored.flags.add('fuzzy')
+                elif current is not None:
+                    stored.flags.discard('fuzzy')
+
+                if conflicting:
+                    filename = os.path.basename(path)
+                    catalog.add_conflict(message, filename, template.project, template.version)
+                    stored.flags.add('fuzzy')
+
+
+        output_file = self.output_file
+        if not output_file or output_file == '-':
+            write_po(
+                sys.stdout.buffer,
+                catalog,
+                width=self.width,
+                sort_by_file=self.sort_by_file,
+                sort_output=self.sort_output,
+                no_location=self.no_location,
+            )
+        else:
+            with open(output_file, 'wb') as outfile:
+                write_po(
+                    outfile,
+                    catalog,
+                    width=self.width,
+                    sort_by_file=self.sort_by_file,
+                    sort_output=self.sort_output,
+                    no_location=self.no_location,
+                )
+
+
+class MergeCatalog(CommandMixin):
+    description = 'update a PO file by merging it with a newer POT template, optionally using a compendium'
+    user_options = [
+        ('input-files', None, 'exactly two input files: def.po (obsolete translations); ref.pot (current template)'),
+        ('compendium=', 'C', 'additional library of message translations, may be specified more than once'),
+        ('compendium-overwrite', None, 'overwrite existing translations with compendium entries'),
+        ('no-compendium-comment', None, 'do not add a comment for translations taken from a compendium'),
+        ('update', 'U', 'update def.po, do nothing if def.po already up to date'),
+        ('output-file=', 'o', 'write output to specified file, the results are written '
+                              'to standard output if no output file is specified'),
+        ('backup', None, 'make a backup of def.po'),
+        ('suffix=', None, 'use SUFFIX as backup suffix instead of ~ (tilde)'),
+        ('no-fuzzy-matching', 'N', 'do not use fuzzy matching'),
+        ('no-location', None, 'do not include location comments with filename and line number'),
+        ('width=', 'w', 'set output line width (default 76)'),
+        ('no-wrap', None, 'do not break long message lines, longer '
+                          'than the output line width, into several lines'),
+        ('sort-output', 's', 'generate sorted output'),
+        ('sort-by-file', 'F', 'sort output by file location'),
+    ]
+
+    as_args = 'input-files'
+
+    multiple_value_options = (
+        'compendium',
+    )
+
+    boolean_options = [
+        'compendium-overwrite',
+        'no-compendium-comment',
+        'update',
+        'backup',
+        'no-fuzzy-matching',
+        'no-location',
+        'no-wrap',
+        'sort-output',
+        'sort-by-file',
+    ]
+
+    def initialize_options(self):
+        self.input_files = None
+        self.compendium: list[str] = []
+        self.compendium_overwrite = False
+        self.no_compendium_comment = False
+        self.update = False
+        self.output_file = None
+        self.backup = False
+        self.suffix = '~'
+        self.no_fuzzy_matching = False
+        self.no_location = False
+        self.width = None
+        self.no_wrap = False
+        self.sort_output = False
+        self.sort_by_file = False
+
+    def finalize_options(self):
+        if not self.input_files or len(self.input_files) != 2:
+            raise OptionError(
+                f'exactly two input files are required (def.po and ref.pot), got: {self.input_files!r}',
+            )
+        if not self.output_file and not self.update:
+            raise OptionError('you must specify the output file or use --update')
+
+        self._finalize_width()
+
+        if self.compendium is None:
+            self.compendium = []
+        elif isinstance(self.compendium, str):
+            self.compendium = [self.compendium]
+
+    def _get_messages_from_compendiums(self, compendium_paths):
+        for file_path in compendium_paths:
+            with open(file_path, 'rb') as pofile:
+                catalog = read_po(pofile)
+                for message in catalog:
+                    yield message, file_path
+
+    def run(self):
+        def_file, ref_file = self.input_files
+
+        with open(def_file, 'rb') as pofile:
+            catalog = read_po(pofile)
+        with open(ref_file, 'rb') as pofile:
+            ref_catalog = read_po(pofile)
+        catalog.update(
+            ref_catalog,
+            no_fuzzy_matching=self.no_fuzzy_matching,
+        )
+
+        for message, compendium_path in self._get_messages_from_compendiums(self.compendium):
+            if not message.id or not _is_translated(message):
+                # Only translated compendium entries are of any use.
+                continue
+
+            current = catalog.get(message.id, message.context)
+            if current is None:
+                # The compendium does not add messages missing from the template.
+                continue
+
+            if current.pluralizable != message.pluralizable:
+                continue
+
+            if _is_translated(current) and not current.fuzzy:
+                if not self.compendium_overwrite:
+                    # Keep existing translations unless explicitly overwriting them.
+                    continue
+
+                # Preserve the translation being replaced as an obsolete message.
+                key = catalog._key_for(current.id, current.context)
+                catalog.obsolete[key] = current.clone()
+
+            current.string = message.string
+            if message.fuzzy:
+                current.flags.add('fuzzy')
+            else:
+                current.flags.discard('fuzzy')
+
+            if not self.no_compendium_comment:
+                current.auto_comments.append(compendium_path)
+
+        output_path = def_file if self.update else self.output_file
+
+        if self.update and self.backup:
+            shutil.copy(def_file, def_file + self.suffix)
+
+        with open(output_path, 'wb') as outfile:
+            write_po(
+                outfile,
+                catalog,
+                no_location=self.no_location,
+                width=self.width,
+                sort_by_file=self.sort_by_file,
+                sort_output=self.sort_output,
+            )
+
+
 class CommandLineInterface:
     """Command-line interface.
 
@@ -901,6 +1344,8 @@ class CommandLineInterface:
         'extract': 'extract messages from source files and generate a POT file',
         'init': 'create new message catalogs from a POT file',
         'update': 'update existing message catalogs from a POT file',
+        'concat': 'concatenates and merges the specified PO files',
+        'merge': 'combines two PO files into one',
     }
 
     command_classes = {
@@ -908,6 +1353,8 @@ class CommandLineInterface:
         'extract': ExtractMessages,
         'init': InitCatalog,
         'update': UpdateCatalog,
+        'concat': ConcatenateCatalog,
+        'merge': MergeCatalog,
     }
 
     log = None  # Replaced on instance level
@@ -997,11 +1444,34 @@ class CommandLineInterface:
         for name, description in sorted(self.commands.items()):
             print(f"  {name:<{cmd_width}} {description}")
 
-    def _configure_command(self, cmdname, argv):
-        """
-        :type cmdname: str
-        :type argv: list[str]
-        """
+    def _parse_config_from_pyproject_toml(self, cmdinst) -> dict:
+        pyproject_toml_path_override = os.getenv("BABEL_PYPROJECT_TOML", None)
+
+        if pyproject_toml_path_override in ["none", "skip"]:
+            return {}
+
+        elif not pyproject_toml_path_override:
+            # The user is relying on default behavior;
+            # let's handle config parsing errors gracefully (by logging)
+            try:
+                return _parse_pyproject_toml_config(None, cmdinst.toml_config_table)
+
+            except ImportError as ie:
+                self.log.warning("Could not load TOML parsing library: %s", ie)
+                return {}
+
+            except (ConfigurationError, OSError) as e:
+                self.log.warning("Ignoring pyproject.toml configuration: %s", e)
+                return {}
+
+        # The user specified a pyproject.toml path explicitly;
+        # let's crash loudly in case of errors
+        path = pathlib.Path(pyproject_toml_path_override)
+        if not path.is_file():
+            raise ConfigurationError(f"BABEL_PYPROJECT_TOML: {pyproject_toml_path_override} is not a file")
+        return _parse_pyproject_toml_config(path, cmdinst.toml_config_table)
+
+    def _configure_command(self, cmdname: str, argv: list[str]) -> CommandMixin:
         cmdclass = self.command_classes[cmdname]
         cmdinst = cmdclass()
         if self.log:
@@ -1009,6 +1479,7 @@ class CommandLineInterface:
         assert isinstance(cmdinst, CommandMixin)
         cmdinst.initialize_options()
 
+        toml_config = self._parse_config_from_pyproject_toml(cmdinst)
         parser = optparse.OptionParser(
             usage=self.usage % (cmdname, ''),
             description=self.commands[cmdname],
@@ -1016,7 +1487,8 @@ class CommandLineInterface:
         as_args: str | None = getattr(cmdclass, "as_args", None)
         for long, short, help in cmdclass.user_options:
             name = long.strip("=")
-            default = getattr(cmdinst, name.replace("-", "_"))
+            normalized_name = name.replace("-", "_")
+            default = toml_config.get(normalized_name, getattr(cmdinst, normalized_name))
             strs = [f"--{name}"]
             if short:
                 strs.append(f"-{short}")
@@ -1025,14 +1497,20 @@ class CommandLineInterface:
             if name == as_args:
                 parser.usage += f"<{name}>"
             elif name in cmdclass.boolean_options:
-                parser.add_option(*strs, action="store_true", help=help)
+                parser.add_option(*strs, action="store_true", default=default, help=help)
             elif name in cmdclass.multiple_value_options:
-                parser.add_option(*strs, action="append", help=help, choices=choices)
+                default_list = [default] if isinstance(default, str) else default
+                parser.add_option(*strs, action="append", default=default_list, help=help, choices=choices)
             else:
                 parser.add_option(*strs, help=help, default=default, choices=choices)
+
         options, args = parser.parse_args(argv)
 
         if as_args:
+            # Read `args` from TOML; `as_args` is the key name, e.g.
+            # `input_paths = ...` in `[tool.babel.extract_messages]`
+            toml_args = toml_config.get(as_args.replace("-", "_"), [])
+            args = args or ([toml_args] if isinstance(toml_args, str) else toml_args)
             setattr(options, as_args.replace('-', '_'), args)
 
         for key, value in vars(options).items():
@@ -1194,7 +1672,7 @@ def _parse_config_object(config: dict, *, filename="(unknown)"):
     return method_map, options_map
 
 
-def _parse_mapping_toml(
+def _parse_mappings_from_toml(
     fileobj: BinaryIO,
     filename: str = "(unknown)",
     style: Literal["standalone", "pyproject.toml"] = "standalone",
@@ -1207,36 +1685,8 @@ def _parse_mapping_toml(
     :param filename: the name of the file being parsed, for error messages
     :param style: whether the file is in the style of a `pyproject.toml` file, i.e. whether to look for `tool.babel`.
     """
-    try:
-        import tomllib
-    except ImportError:
-        try:
-            import tomli as tomllib
-        except ImportError as ie:  # pragma: no cover
-            raise ImportError("tomli or tomllib is required to parse TOML files") from ie
-
-    try:
-        parsed_data = tomllib.load(fileobj)
-    except tomllib.TOMLDecodeError as e:
-        raise ConfigurationError(f"{filename}: Error parsing TOML file: {e}") from e
-
-    if style == "pyproject.toml":
-        try:
-            babel_data = parsed_data["tool"]["babel"]
-        except (TypeError, KeyError) as e:
-            raise ConfigurationError(
-                f"{filename}: No 'tool.babel' section found in file",
-            ) from e
-    elif style == "standalone":
-        babel_data = parsed_data
-        if "babel" in babel_data:
-            raise ConfigurationError(
-                f"{filename}: 'babel' should not be present in a stand-alone configuration file",
-            )
-    else:  # pragma: no cover
-        raise ValueError(f"Unknown TOML style {style!r}")
-
-    return _parse_config_object(babel_data, filename=filename)
+    parsed_data = _parse_toml(fileobj, style=style, filename=filename)
+    return _parse_config_object(parsed_data, filename=filename)
 
 
 def _parse_spec(s: str) -> tuple[int | None, tuple[int | tuple[int, str], ...]]:

@@ -557,6 +557,7 @@ cdef class ConnectParamsNode:
     cdef int _copy(self, ConnectParamsNode source) except -1
     cdef list _get_initial_connect_string_parts(self)
     cdef int _set_active_children(self, list children) except -1
+    cdef bint _uses_tcps(self)
 
 
 cdef class Address(ConnectParamsNode):
@@ -569,15 +570,17 @@ cdef class Address(ConnectParamsNode):
         str ip_address
         int ip_family
 
+    cdef bint _uses_tcps(self)
     cdef str build_connect_string(self)
+    cdef Address copy(self)
     cdef int set_protocol(self, str value) except -1
     cdef list resolve_host_name(self)
 
 
 cdef class AddressList(ConnectParamsNode):
 
-    cdef bint _uses_tcps(self)
     cdef str build_connect_string(self)
+    cdef AddressList copy(self)
 
 
 cdef class Description(ConnectParamsNode):
@@ -602,6 +605,16 @@ cdef class Description(ConnectParamsNode):
         public str ssl_server_cert_dn
         public object ssl_version
         public str wallet_location
+        public str token_auth
+        public str token_location
+        public str oci_config_file
+        public str oci_profile
+        public str oci_compartment
+        public str oci_database
+        public str azure_db_app_id_uri
+        public str tenant_id
+        public str client_id
+        public str client_secret
         dict extra_connect_data_args
         dict extra_security_args
         dict extra_args
@@ -610,12 +623,14 @@ cdef class Description(ConnectParamsNode):
     cdef str _build_duration_str(self, double value)
     cdef str _value_repr(self, object value)
     cdef str build_connect_string(self, str cid=*)
+    cdef Description copy(self, bint copy_children=*)
     cdef int set_server_type(self, str value) except -1
 
 
 cdef class DescriptionList(ConnectParamsNode):
 
     cdef str build_connect_string(self)
+    cdef DescriptionList copy(self)
     cdef list get_addresses(self)
     cdef int set_active_children(self) except -1
 
@@ -707,6 +722,7 @@ cdef class BaseConnImpl:
     cdef:
         readonly bint thin
         readonly str dsn
+        EndUserSecurityContextImpl security_context
         public object inputtypehandler
         public object operation_callback
         public object outputtypehandler
@@ -1022,6 +1038,13 @@ cdef class SecretValueImpl:
     cpdef bool has_expired(self)
     cpdef int set_value(self, object secret_value, object expires=*) except -1
 
+
+cdef class EndUserSecurityContextImpl:
+    cdef:
+        SecretValueImpl full_payload_oson_bytes
+        SecretValueImpl partial_payload_oson_bytes
+        SecretValueImpl hash_value
+        bint is_localuser
 
 cdef class SparseVectorImpl:
     cdef:

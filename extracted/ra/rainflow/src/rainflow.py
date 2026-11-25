@@ -7,7 +7,7 @@ from __future__ import division
 from collections import deque, defaultdict
 import math
 
-__version__ = "3.2.0"
+__version__ = "3.3.0"
 
 
 def _get_round_function(ndigits=None):
@@ -55,7 +55,9 @@ def reversals(series):
         x_last, x = x, x_next
         d_last = d_next
 
-    if index is not None:
+    if index is None:
+        yield 1, x
+    else:
         yield index + 1, x_next
 
 

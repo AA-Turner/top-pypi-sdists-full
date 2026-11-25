@@ -236,6 +236,7 @@ class _Reading:
     lists: dict[str, dict[str, Any]] = field(default_factory=dict)
     refs: dict[str, tuple[str, str]] = field(default_factory=dict)
     full: set[str] = field(default_factory=set)
+    asked: set[str] = field(default_factory=set)
     issue_id: str | None = None
     complete: bool = True
     sent: int = 0
@@ -427,12 +428,29 @@ class _Reading:
             "variables": variables,
         }, roots
 
-    def read_lookups(self) -> Reads:
-        wanted = [
+    def unread_refs(self, with_issues: bool) -> list[tuple[str, str]]:
+        return [
             ref
             for key, ref in self.refs.items()
-            if key not in self.full and ref[0] in self.schema.lookups
+            if key not in self.full
+            and key not in self.asked
+            and ref[0] in self.schema.lookups
+            and (with_issues or ref[0] != ISSUE)
         ]
+
+    def read_lookups(self) -> Reads:
+        with_issues = True
+        while True:
+            wanted = self.unread_refs(with_issues)
+            if not wanted:
+                return
+            self.asked.update(
+                f"{typename}:{entity_id}" for typename, entity_id in wanted
+            )
+            yield from self.read_lookup_round(wanted)
+            with_issues = False
+
+    def read_lookup_round(self, wanted: list[tuple[str, str]]) -> Reads:
         size = LOOKUP_BATCH
         while wanted:
             if self.sent >= MAX_REQUESTS:
@@ -466,9 +484,7 @@ class _Reading:
                 wanted = wanted[len(batch) :]
                 continue
             self.exchanges.append({"request": body, "response": answer})
-            for value in data.values():
-                if isinstance(value, dict):
-                    self.full.add(f"{value.get('__typename')}:{value.get('id')}")
+            self.note(list(data.values()))
             wanted = wanted[len(batch) :]
 
     def result(self) -> dict[str, Any]:

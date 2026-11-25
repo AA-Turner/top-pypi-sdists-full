@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -580,3 +580,18 @@ def test_invalid_pofile_with_abort_flag():
     msg = 'invalid file'
     with pytest.raises(pofile.PoFileError):
         parser._invalid_pofile(line, lineno, msg)
+
+
+def test_read_po_charset_placeholder():
+    """Gettext templates declare `charset=CHARSET`; that's not an encoding to decode with."""
+    buf = BytesIO(b"""#, fuzzy
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=CHARSET\\n"
+
+msgid "h\xc3\xa9llo"
+msgstr ""
+""")
+    catalog = pofile.read_po(buf)
+    assert catalog.charset == 'utf-8'
+    assert 'h\xe9llo' in catalog

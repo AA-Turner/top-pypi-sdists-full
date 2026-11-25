@@ -80,8 +80,9 @@ def run(ctx: InstallContext) -> None:
         if ctx.existing_lockfile is not None and lock_path.is_file()
         else None
     )
+    retired = _retired_harnesses(ctx)
     if ctx.claude_native_plugins or previous_owned:
-        planned = _planned_declarations(ctx, lock_path, previous_owned)
+        planned = _planned_declarations(ctx, lock_path, previous_owned, retired)
         if planned is not None:
             planned.write(lock_path)
         # Claude's declarations never run ahead of the lock they follow.
@@ -99,6 +100,7 @@ def run(ctx: InstallContext) -> None:
             logger=ctx.logger,
             dry_run=ctx.dry_run,
             rejected=frozenset(ctx.native_rejected_names),
+            retired_harnesses=retired,
         )
     except ClaudeNativePluginError:
         previous = _with_reconciled_services(ctx.existing_lockfile, committed)
@@ -113,14 +115,44 @@ def run(ctx: InstallContext) -> None:
         raise
     from apm_cli.install.service import InstallService
 
-    if ctx.dry_run or InstallService.frozen_disposition(ctx).withhold_lockfile_writes:
+    if ctx.dry_run:
+        return
+    _note_native_route(ctx)
+    if InstallService.frozen_disposition(ctx).withhold_lockfile_writes:
         return
     stamped = _record_declared(LockFile.read(lock_path), declared)
     if stamped is not None:
         stamped.write(lock_path)
 
 
-def _planned_declarations(ctx: InstallContext, lock_path, previous_owned) -> LockFile | None:
+def _note_native_route(ctx: InstallContext) -> None:
+    """Name each dependency this install deployed through the native plugin route."""
+    if ctx.diagnostics is None:
+        return
+    from apm_cli.claude_plugins.admission import has_loose_route, native_route_notice
+    from apm_cli.core.scope import is_user_scope
+
+    user_scope = is_user_scope(ctx.scope)
+    for package_name, plugin in ctx.claude_native_plugins.items():
+        loose_route = has_loose_route(plugin, user_scope=user_scope)
+        ctx.diagnostics.warn(native_route_notice(loose_route=loose_route), package=package_name)
+
+
+def _retired_harnesses(ctx: InstallContext) -> frozenset[str]:
+    """Harnesses whose APM enable entries target contraction retires (#4874).
+
+    The same rule that retires a plugin every harness of which is dropped
+    (#4744): apm.yml declares targets and neither they nor this run name it.
+    """
+    from apm_cli.install.phases.targets import declared_target_profiles
+    from apm_cli.install.target_governance import retired_native_harnesses
+
+    return retired_native_harnesses(ctx.targets or (), declared_target_profiles(ctx))
+
+
+def _planned_declarations(
+    ctx: InstallContext, lock_path, previous_owned, retired: frozenset[str]
+) -> LockFile | None:
     """The lock with the planned ``native_declared``, so the flush commits once (#4329).
 
     A failed declaration restores the previous lock, so a stamp ahead of the
@@ -139,6 +171,7 @@ def _planned_declarations(ctx: InstallContext, lock_path, previous_owned) -> Loc
         prepared=ctx.claude_native_plugins,
         deploy_root=ctx.project_root,
         run_targets=frozenset(target.name for target in ctx.targets or ()),
+        retired_harnesses=retired,
     )
     return _record_declared(staged, planned)
 

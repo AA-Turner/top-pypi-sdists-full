@@ -535,6 +535,25 @@ VT_BURIED: ViaType.ValueType
 'Buried vias start and end on inner layers\nSince V10\n'
 global___ViaType = ViaType
 
+class _ZoneLayerOverride:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _ZoneLayerOverrideEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_ZoneLayerOverride.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    ZLO_UNKNOWN: _ZoneLayerOverride.ValueType
+    ZLO_NONE: _ZoneLayerOverride.ValueType
+    ZLO_FORCE_FLASHED: _ZoneLayerOverride.ValueType
+    ZLO_FORCE_NO_ZONE_CONNECTION: _ZoneLayerOverride.ValueType
+
+class ZoneLayerOverride(_ZoneLayerOverride, metaclass=_ZoneLayerOverrideEnumTypeWrapper):
+    """Internal: this enum is not subject to API stability."""
+ZLO_UNKNOWN: ZoneLayerOverride.ValueType
+ZLO_NONE: ZoneLayerOverride.ValueType
+ZLO_FORCE_FLASHED: ZoneLayerOverride.ValueType
+ZLO_FORCE_NO_ZONE_CONNECTION: ZoneLayerOverride.ValueType
+global___ZoneLayerOverride = ZoneLayerOverride
+
 class _BarcodeKind:
     ValueType = typing.NewType('ValueType', builtins.int)
     V: typing_extensions.TypeAlias = ValueType
@@ -605,6 +624,37 @@ PT_EDGE_CONNECTOR: PadType.ValueType
 PT_NPTH: PadType.ValueType
 global___PadType = PadType
 
+class _PadFabricationProperty:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _PadFabricationPropertyEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_PadFabricationProperty.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    PFP_UNKNOWN: _PadFabricationProperty.ValueType
+    PFP_NONE: _PadFabricationProperty.ValueType
+    PFP_BGA: _PadFabricationProperty.ValueType
+    PFP_FIDUCIAL_GLOBAL: _PadFabricationProperty.ValueType
+    PFP_FIDUCIAL_LOCAL: _PadFabricationProperty.ValueType
+    PFP_TESTPOINT: _PadFabricationProperty.ValueType
+    PFP_HEATSINK: _PadFabricationProperty.ValueType
+    PFP_CASTELLATED: _PadFabricationProperty.ValueType
+    PFP_MECHANICAL: _PadFabricationProperty.ValueType
+    PFP_PRESSFIT: _PadFabricationProperty.ValueType
+
+class PadFabricationProperty(_PadFabricationProperty, metaclass=_PadFabricationPropertyEnumTypeWrapper):
+    ...
+PFP_UNKNOWN: PadFabricationProperty.ValueType
+PFP_NONE: PadFabricationProperty.ValueType
+PFP_BGA: PadFabricationProperty.ValueType
+PFP_FIDUCIAL_GLOBAL: PadFabricationProperty.ValueType
+PFP_FIDUCIAL_LOCAL: PadFabricationProperty.ValueType
+PFP_TESTPOINT: PadFabricationProperty.ValueType
+PFP_HEATSINK: PadFabricationProperty.ValueType
+PFP_CASTELLATED: PadFabricationProperty.ValueType
+PFP_MECHANICAL: PadFabricationProperty.ValueType
+PFP_PRESSFIT: PadFabricationProperty.ValueType
+global___PadFabricationProperty = PadFabricationProperty
+
 class _CustomPadShapeZoneFillStrategy:
     ValueType = typing.NewType('ValueType', builtins.int)
     V: typing_extensions.TypeAlias = ValueType
@@ -643,26 +693,26 @@ ZT_RULE_AREA: ZoneType.ValueType
 ZT_TEARDROP: ZoneType.ValueType
 global___ZoneType = ZoneType
 
-class _TeardropType:
+class _ZoneTeardropType:
     ValueType = typing.NewType('ValueType', builtins.int)
     V: typing_extensions.TypeAlias = ValueType
 
-class _TeardropTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_TeardropType.ValueType], builtins.type):
+class _ZoneTeardropTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_ZoneTeardropType.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
-    TDT_UNKNOWN: _TeardropType.ValueType
-    TDT_NONE: _TeardropType.ValueType
-    TDT_UNSPECIFIED: _TeardropType.ValueType
-    TDT_VIA_PAD: _TeardropType.ValueType
-    TDT_TRACK_END: _TeardropType.ValueType
+    ZTDT_UNKNOWN: _ZoneTeardropType.ValueType
+    ZTDT_NONE: _ZoneTeardropType.ValueType
+    ZTDT_UNSPECIFIED: _ZoneTeardropType.ValueType
+    ZTDT_VIA_PAD: _ZoneTeardropType.ValueType
+    ZTDT_TRACK_END: _ZoneTeardropType.ValueType
 
-class TeardropType(_TeardropType, metaclass=_TeardropTypeEnumTypeWrapper):
+class ZoneTeardropType(_ZoneTeardropType, metaclass=_ZoneTeardropTypeEnumTypeWrapper):
     ...
-TDT_UNKNOWN: TeardropType.ValueType
-TDT_NONE: TeardropType.ValueType
-TDT_UNSPECIFIED: TeardropType.ValueType
-TDT_VIA_PAD: TeardropType.ValueType
-TDT_TRACK_END: TeardropType.ValueType
-global___TeardropType = TeardropType
+ZTDT_UNKNOWN: ZoneTeardropType.ValueType
+ZTDT_NONE: ZoneTeardropType.ValueType
+ZTDT_UNSPECIFIED: ZoneTeardropType.ValueType
+ZTDT_VIA_PAD: ZoneTeardropType.ValueType
+ZTDT_TRACK_END: ZoneTeardropType.ValueType
+global___ZoneTeardropType = ZoneTeardropType
 
 class _IslandRemovalMode:
     ValueType = typing.NewType('ValueType', builtins.int)
@@ -737,6 +787,42 @@ ZHFBM_UNKNOWN: ZoneHatchFillBorderMode.ValueType
 ZHFBM_USE_MIN_ZONE_THICKNESS: ZoneHatchFillBorderMode.ValueType
 ZHFBM_USE_HATCH_THICKNESS: ZoneHatchFillBorderMode.ValueType
 global___ZoneHatchFillBorderMode = ZoneHatchFillBorderMode
+
+class _PadTeardropMode:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _PadTeardropModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_PadTeardropMode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    PTM_UNKNOWN: _PadTeardropMode.ValueType
+    PTM_DISABLED: _PadTeardropMode.ValueType
+    PTM_ENABLED: _PadTeardropMode.ValueType
+
+class PadTeardropMode(_PadTeardropMode, metaclass=_PadTeardropModeEnumTypeWrapper):
+    ...
+PTM_UNKNOWN: PadTeardropMode.ValueType
+PTM_DISABLED: PadTeardropMode.ValueType
+PTM_ENABLED: PadTeardropMode.ValueType
+global___PadTeardropMode = PadTeardropMode
+
+class _ZoneCornerSmoothingMode:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _ZoneCornerSmoothingModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_ZoneCornerSmoothingMode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    ZCSM_UNKNOWN: _ZoneCornerSmoothingMode.ValueType
+    ZCSM_NONE: _ZoneCornerSmoothingMode.ValueType
+    ZCSM_CHAMFER: _ZoneCornerSmoothingMode.ValueType
+    ZCSM_FILLET: _ZoneCornerSmoothingMode.ValueType
+
+class ZoneCornerSmoothingMode(_ZoneCornerSmoothingMode, metaclass=_ZoneCornerSmoothingModeEnumTypeWrapper):
+    ...
+ZCSM_UNKNOWN: ZoneCornerSmoothingMode.ValueType
+ZCSM_NONE: ZoneCornerSmoothingMode.ValueType
+ZCSM_CHAMFER: ZoneCornerSmoothingMode.ValueType
+ZCSM_FILLET: ZoneCornerSmoothingMode.ValueType
+global___ZoneCornerSmoothingMode = ZoneCornerSmoothingMode
 
 class _PlacementRuleSourceType:
     ValueType = typing.NewType('ValueType', builtins.int)
@@ -949,6 +1035,23 @@ FMS_SMD: FootprintMountingStyle.ValueType
 FMS_UNSPECIFIED: FootprintMountingStyle.ValueType
 global___FootprintMountingStyle = FootprintMountingStyle
 
+class _TableStrokeMode:
+    ValueType = typing.NewType('ValueType', builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _TableStrokeModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_TableStrokeMode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    TSM_UNKNOWN: _TableStrokeMode.ValueType
+    TSM_DISABLED: _TableStrokeMode.ValueType
+    TSM_ENABLED: _TableStrokeMode.ValueType
+
+class TableStrokeMode(_TableStrokeMode, metaclass=_TableStrokeModeEnumTypeWrapper):
+    """Since: 10.0.7"""
+TSM_UNKNOWN: TableStrokeMode.ValueType
+TSM_DISABLED: TableStrokeMode.ValueType
+TSM_ENABLED: TableStrokeMode.ValueType
+global___TableStrokeMode = TableStrokeMode
+
 @typing.final
 class NetCode(google.protobuf.message.Message):
     """Deprecated: Use Net with the name property only"""
@@ -998,6 +1101,7 @@ class Track(google.protobuf.message.Message):
     LAYER_FIELD_NUMBER: builtins.int
     NET_FIELD_NUMBER: builtins.int
     PARENT_FIELD_NUMBER: builtins.int
+    SOLDER_MASK_FIELD_NUMBER: builtins.int
     locked: common.types.base_types_pb2.LockedState.ValueType
     layer: global___BoardLayer.ValueType
 
@@ -1028,13 +1132,20 @@ class Track(google.protobuf.message.Message):
         Since: 10.0.6
         """
 
-    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., start: common.types.base_types_pb2.Vector2 | None=..., end: common.types.base_types_pb2.Vector2 | None=..., width: common.types.base_types_pb2.Distance | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., layer: global___BoardLayer.ValueType=..., net: global___Net | None=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+    @property
+    def solder_mask(self) -> global___SolderMaskOverrides:
+        """Whether to show this shape on the solder mask layer and how much mask to expose if so.
+        This field only applies to shapes on outer copper layers and is ignored otherwise.
+        Since: 10.0.7
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., start: common.types.base_types_pb2.Vector2 | None=..., end: common.types.base_types_pb2.Vector2 | None=..., width: common.types.base_types_pb2.Distance | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., layer: global___BoardLayer.ValueType=..., net: global___Net | None=..., parent: common.types.base_types_pb2.KIID | None=..., solder_mask: global___SolderMaskOverrides | None=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['end', b'end', 'id', b'id', 'net', b'net', 'parent', b'parent', 'start', b'start', 'width', b'width']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['end', b'end', 'id', b'id', 'net', b'net', 'parent', b'parent', 'solder_mask', b'solder_mask', 'start', b'start', 'width', b'width']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['end', b'end', 'id', b'id', 'layer', b'layer', 'locked', b'locked', 'net', b'net', 'parent', b'parent', 'start', b'start', 'width', b'width']) -> None:
+    def ClearField(self, field_name: typing.Literal['end', b'end', 'id', b'id', 'layer', b'layer', 'locked', b'locked', 'net', b'net', 'parent', b'parent', 'solder_mask', b'solder_mask', 'start', b'start', 'width', b'width']) -> None:
         ...
 global___Track = Track
 
@@ -1054,6 +1165,7 @@ class Arc(google.protobuf.message.Message):
     LAYER_FIELD_NUMBER: builtins.int
     NET_FIELD_NUMBER: builtins.int
     PARENT_FIELD_NUMBER: builtins.int
+    SOLDER_MASK_FIELD_NUMBER: builtins.int
     locked: common.types.base_types_pb2.LockedState.ValueType
     layer: global___BoardLayer.ValueType
 
@@ -1088,13 +1200,20 @@ class Arc(google.protobuf.message.Message):
         Since: 10.0.6
         """
 
-    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., start: common.types.base_types_pb2.Vector2 | None=..., mid: common.types.base_types_pb2.Vector2 | None=..., end: common.types.base_types_pb2.Vector2 | None=..., width: common.types.base_types_pb2.Distance | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., layer: global___BoardLayer.ValueType=..., net: global___Net | None=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+    @property
+    def solder_mask(self) -> global___SolderMaskOverrides:
+        """Whether to show this shape on the solder mask layer and how much mask to expose if so.
+        This field only applies to shapes on outer copper layers and is ignored otherwise.
+        Since: 10.0.7
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., start: common.types.base_types_pb2.Vector2 | None=..., mid: common.types.base_types_pb2.Vector2 | None=..., end: common.types.base_types_pb2.Vector2 | None=..., width: common.types.base_types_pb2.Distance | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., layer: global___BoardLayer.ValueType=..., net: global___Net | None=..., parent: common.types.base_types_pb2.KIID | None=..., solder_mask: global___SolderMaskOverrides | None=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['end', b'end', 'id', b'id', 'mid', b'mid', 'net', b'net', 'parent', b'parent', 'start', b'start', 'width', b'width']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['end', b'end', 'id', b'id', 'mid', b'mid', 'net', b'net', 'parent', b'parent', 'solder_mask', b'solder_mask', 'start', b'start', 'width', b'width']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['end', b'end', 'id', b'id', 'layer', b'layer', 'locked', b'locked', 'mid', b'mid', 'net', b'net', 'parent', b'parent', 'start', b'start', 'width', b'width']) -> None:
+    def ClearField(self, field_name: typing.Literal['end', b'end', 'id', b'id', 'layer', b'layer', 'locked', b'locked', 'mid', b'mid', 'net', b'net', 'parent', b'parent', 'solder_mask', b'solder_mask', 'start', b'start', 'width', b'width']) -> None:
         ...
 global___Arc = Arc
 
@@ -1144,18 +1263,23 @@ global___ZoneConnectionSettings = ZoneConnectionSettings
 class SolderMaskOverrides(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
     SOLDER_MASK_MARGIN_FIELD_NUMBER: builtins.int
+    EXPOSE_COPPER_FIELD_NUMBER: builtins.int
+    expose_copper: builtins.bool
+    'When set to true, this shape will also appear on the solder mask layer, meaning the shape will be exposed\n    copper.  This setting only has meaning for tracks and graphic shapes.  It is ignored for pads and footprints.\n    Since: 10.0.7\n    '
 
     @property
     def solder_mask_margin(self) -> common.types.base_types_pb2.Distance:
-        """Solder mask expansion/contraction"""
+        """Solder mask expansion/contraction.  Absence of this field means the margin will be taken from this object's
+        parent or the board design rules.
+        """
 
-    def __init__(self, *, solder_mask_margin: common.types.base_types_pb2.Distance | None=...) -> None:
+    def __init__(self, *, solder_mask_margin: common.types.base_types_pb2.Distance | None=..., expose_copper: builtins.bool=...) -> None:
         ...
 
     def HasField(self, field_name: typing.Literal['solder_mask_margin', b'solder_mask_margin']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['solder_mask_margin', b'solder_mask_margin']) -> None:
+    def ClearField(self, field_name: typing.Literal['expose_copper', b'expose_copper', 'solder_mask_margin', b'solder_mask_margin']) -> None:
         ...
 global___SolderMaskOverrides = SolderMaskOverrides
 
@@ -1407,6 +1531,22 @@ class PadStack(google.protobuf.message.Message):
 global___PadStack = PadStack
 
 @typing.final
+class ZoneLayerOverrideEntry(google.protobuf.message.Message):
+    """Internal: this message is not subject to API stability."""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    LAYER_FIELD_NUMBER: builtins.int
+    OVERRIDE_FIELD_NUMBER: builtins.int
+    layer: global___BoardLayer.ValueType
+    override: global___ZoneLayerOverride.ValueType
+
+    def __init__(self, *, layer: global___BoardLayer.ValueType=..., override: global___ZoneLayerOverride.ValueType=...) -> None:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['layer', b'layer', 'override', b'override']) -> None:
+        ...
+global___ZoneLayerOverrideEntry = ZoneLayerOverrideEntry
+
+@typing.final
 class Via(google.protobuf.message.Message):
     """Represents a via"""
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -1417,8 +1557,13 @@ class Via(google.protobuf.message.Message):
     NET_FIELD_NUMBER: builtins.int
     TYPE_FIELD_NUMBER: builtins.int
     PARENT_FIELD_NUMBER: builtins.int
+    TEARDROP_FIELD_NUMBER: builtins.int
+    ZONE_LAYER_OVERRIDES_FIELD_NUMBER: builtins.int
+    IS_FREE_FIELD_NUMBER: builtins.int
     locked: common.types.base_types_pb2.LockedState.ValueType
     type: global___ViaType.ValueType
+    is_free: builtins.bool
+    'True if this is a "free" via that is not automatically updated by netlist changes\n    Since: 10.0.7\n    '
 
     @property
     def id(self) -> common.types.base_types_pb2.KIID:
@@ -1443,13 +1588,26 @@ class Via(google.protobuf.message.Message):
         Since: 10.0.6
         """
 
-    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., position: common.types.base_types_pb2.Vector2 | None=..., pad_stack: global___PadStack | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., net: global___Net | None=..., type: global___ViaType.ValueType=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+    @property
+    def teardrop(self) -> global___PadTeardropSettings:
+        """Since: 10.0.7"""
+
+    @property
+    def zone_layer_overrides(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ZoneLayerOverrideEntry]:
+        """Layer-specific overrides for zone connection behavior
+        Unstable: zone layer overrides are a KiCad implementation detail and the contents of this field are not
+        subject to API stability guarantees.  API clients should not depend on the contents of this field.  It
+        is exposed here to allow for full round-tripping of objects.
+        Since: 10.0.7
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., position: common.types.base_types_pb2.Vector2 | None=..., pad_stack: global___PadStack | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., net: global___Net | None=..., type: global___ViaType.ValueType=..., parent: common.types.base_types_pb2.KIID | None=..., teardrop: global___PadTeardropSettings | None=..., zone_layer_overrides: collections.abc.Iterable[global___ZoneLayerOverrideEntry] | None=..., is_free: builtins.bool=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['id', b'id', 'net', b'net', 'pad_stack', b'pad_stack', 'parent', b'parent', 'position', b'position']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['id', b'id', 'net', b'net', 'pad_stack', b'pad_stack', 'parent', b'parent', 'position', b'position', 'teardrop', b'teardrop']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['id', b'id', 'locked', b'locked', 'net', b'net', 'pad_stack', b'pad_stack', 'parent', b'parent', 'position', b'position', 'type', b'type']) -> None:
+    def ClearField(self, field_name: typing.Literal['id', b'id', 'is_free', b'is_free', 'locked', b'locked', 'net', b'net', 'pad_stack', b'pad_stack', 'parent', b'parent', 'position', b'position', 'teardrop', b'teardrop', 'type', b'type', 'zone_layer_overrides', b'zone_layer_overrides']) -> None:
         ...
 global___Via = Via
 
@@ -1462,6 +1620,7 @@ class BoardGraphicShape(google.protobuf.message.Message):
     ID_FIELD_NUMBER: builtins.int
     LOCKED_FIELD_NUMBER: builtins.int
     PARENT_FIELD_NUMBER: builtins.int
+    SOLDER_MASK_FIELD_NUMBER: builtins.int
     layer: global___BoardLayer.ValueType
     locked: common.types.base_types_pb2.LockedState.ValueType
 
@@ -1484,13 +1643,20 @@ class BoardGraphicShape(google.protobuf.message.Message):
         Since: 10.0.6
         """
 
-    def __init__(self, *, shape: common.types.base_types_pb2.GraphicShape | None=..., layer: global___BoardLayer.ValueType=..., net: global___Net | None=..., id: common.types.base_types_pb2.KIID | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+    @property
+    def solder_mask(self) -> global___SolderMaskOverrides:
+        """Whether to show this shape on the solder mask layer and how much mask to expose if so.
+        This field only applies to shapes on outer copper layers and is ignored otherwise.
+        Since: 10.0.7
+        """
+
+    def __init__(self, *, shape: common.types.base_types_pb2.GraphicShape | None=..., layer: global___BoardLayer.ValueType=..., net: global___Net | None=..., id: common.types.base_types_pb2.KIID | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., parent: common.types.base_types_pb2.KIID | None=..., solder_mask: global___SolderMaskOverrides | None=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['id', b'id', 'net', b'net', 'parent', b'parent', 'shape', b'shape']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['id', b'id', 'net', b'net', 'parent', b'parent', 'shape', b'shape', 'solder_mask', b'solder_mask']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['id', b'id', 'layer', b'layer', 'locked', b'locked', 'net', b'net', 'parent', b'parent', 'shape', b'shape']) -> None:
+    def ClearField(self, field_name: typing.Literal['id', b'id', 'layer', b'layer', 'locked', b'locked', 'net', b'net', 'parent', b'parent', 'shape', b'shape', 'solder_mask', b'solder_mask']) -> None:
         ...
 global___BoardGraphicShape = BoardGraphicShape
 
@@ -1613,8 +1779,11 @@ class BoardTextBox(google.protobuf.message.Message):
     LAYER_FIELD_NUMBER: builtins.int
     LOCKED_FIELD_NUMBER: builtins.int
     PARENT_FIELD_NUMBER: builtins.int
+    KNOCKOUT_FIELD_NUMBER: builtins.int
     layer: global___BoardLayer.ValueType
     locked: common.types.base_types_pb2.LockedState.ValueType
+    knockout: builtins.bool
+    'Since: 10.0.7'
 
     @property
     def id(self) -> common.types.base_types_pb2.KIID:
@@ -1631,13 +1800,13 @@ class BoardTextBox(google.protobuf.message.Message):
         Since: 10.0.6
         """
 
-    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., textbox: common.types.base_types_pb2.TextBox | None=..., layer: global___BoardLayer.ValueType=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., textbox: common.types.base_types_pb2.TextBox | None=..., layer: global___BoardLayer.ValueType=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., parent: common.types.base_types_pb2.KIID | None=..., knockout: builtins.bool=...) -> None:
         ...
 
     def HasField(self, field_name: typing.Literal['id', b'id', 'parent', b'parent', 'textbox', b'textbox']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['id', b'id', 'layer', b'layer', 'locked', b'locked', 'parent', b'parent', 'textbox', b'textbox']) -> None:
+    def ClearField(self, field_name: typing.Literal['id', b'id', 'knockout', b'knockout', 'layer', b'layer', 'locked', b'locked', 'parent', b'parent', 'textbox', b'textbox']) -> None:
         ...
 global___BoardTextBox = BoardTextBox
 
@@ -1705,9 +1874,14 @@ class Pad(google.protobuf.message.Message):
     SYMBOL_PIN_FIELD_NUMBER: builtins.int
     PAD_TO_DIE_DELAY_FIELD_NUMBER: builtins.int
     PARENT_FIELD_NUMBER: builtins.int
+    TEARDROP_FIELD_NUMBER: builtins.int
+    ZONE_LAYER_OVERRIDES_FIELD_NUMBER: builtins.int
+    FAB_PROPERTY_FIELD_NUMBER: builtins.int
     locked: common.types.base_types_pb2.LockedState.ValueType
     number: builtins.str
     type: global___PadType.ValueType
+    fab_property: global___PadFabricationProperty.ValueType
+    'Since: 10.0.7'
 
     @property
     def id(self) -> common.types.base_types_pb2.KIID:
@@ -1752,13 +1926,26 @@ class Pad(google.protobuf.message.Message):
         Since: 10.0.6
         """
 
-    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., number: builtins.str=..., net: global___Net | None=..., type: global___PadType.ValueType=..., pad_stack: global___PadStack | None=..., position: common.types.base_types_pb2.Vector2 | None=..., copper_clearance_override: common.types.base_types_pb2.Distance | None=..., pad_to_die_length: common.types.base_types_pb2.Distance | None=..., symbol_pin: global___SymbolPinInfo | None=..., pad_to_die_delay: common.types.base_types_pb2.Time | None=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+    @property
+    def teardrop(self) -> global___PadTeardropSettings:
+        """Since: 10.0.7"""
+
+    @property
+    def zone_layer_overrides(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ZoneLayerOverrideEntry]:
+        """Layer-specific overrides for zone connection behavior
+        Unstable: zone layer overrides are a KiCad implementation detail and the contents of this field are not
+        subject to API stability guarantees.  API clients should not depend on the contents of this field.  It
+        is exposed here to allow for full round-tripping of objects.
+        Since: 10.0.7
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., number: builtins.str=..., net: global___Net | None=..., type: global___PadType.ValueType=..., pad_stack: global___PadStack | None=..., position: common.types.base_types_pb2.Vector2 | None=..., copper_clearance_override: common.types.base_types_pb2.Distance | None=..., pad_to_die_length: common.types.base_types_pb2.Distance | None=..., symbol_pin: global___SymbolPinInfo | None=..., pad_to_die_delay: common.types.base_types_pb2.Time | None=..., parent: common.types.base_types_pb2.KIID | None=..., teardrop: global___PadTeardropSettings | None=..., zone_layer_overrides: collections.abc.Iterable[global___ZoneLayerOverrideEntry] | None=..., fab_property: global___PadFabricationProperty.ValueType=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['copper_clearance_override', b'copper_clearance_override', 'id', b'id', 'net', b'net', 'pad_stack', b'pad_stack', 'pad_to_die_delay', b'pad_to_die_delay', 'pad_to_die_length', b'pad_to_die_length', 'parent', b'parent', 'position', b'position', 'symbol_pin', b'symbol_pin']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['copper_clearance_override', b'copper_clearance_override', 'id', b'id', 'net', b'net', 'pad_stack', b'pad_stack', 'pad_to_die_delay', b'pad_to_die_delay', 'pad_to_die_length', b'pad_to_die_length', 'parent', b'parent', 'position', b'position', 'symbol_pin', b'symbol_pin', 'teardrop', b'teardrop']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['copper_clearance_override', b'copper_clearance_override', 'id', b'id', 'locked', b'locked', 'net', b'net', 'number', b'number', 'pad_stack', b'pad_stack', 'pad_to_die_delay', b'pad_to_die_delay', 'pad_to_die_length', b'pad_to_die_length', 'parent', b'parent', 'position', b'position', 'symbol_pin', b'symbol_pin', 'type', b'type']) -> None:
+    def ClearField(self, field_name: typing.Literal['copper_clearance_override', b'copper_clearance_override', 'fab_property', b'fab_property', 'id', b'id', 'locked', b'locked', 'net', b'net', 'number', b'number', 'pad_stack', b'pad_stack', 'pad_to_die_delay', b'pad_to_die_delay', 'pad_to_die_length', b'pad_to_die_length', 'parent', b'parent', 'position', b'position', 'symbol_pin', b'symbol_pin', 'teardrop', b'teardrop', 'type', b'type', 'zone_layer_overrides', b'zone_layer_overrides']) -> None:
         ...
 global___Pad = Pad
 
@@ -1798,17 +1985,64 @@ class HatchFillSettings(google.protobuf.message.Message):
 global___HatchFillSettings = HatchFillSettings
 
 @typing.final
-class TeardropSettings(google.protobuf.message.Message):
+class ZoneTeardropSettings(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
     TYPE_FIELD_NUMBER: builtins.int
-    type: global___TeardropType.ValueType
+    type: global___ZoneTeardropType.ValueType
 
-    def __init__(self, *, type: global___TeardropType.ValueType=...) -> None:
+    def __init__(self, *, type: global___ZoneTeardropType.ValueType=...) -> None:
         ...
 
     def ClearField(self, field_name: typing.Literal['type', b'type']) -> None:
         ...
-global___TeardropSettings = TeardropSettings
+global___ZoneTeardropSettings = ZoneTeardropSettings
+
+@typing.final
+class PadTeardropSettings(google.protobuf.message.Message):
+    """Settings for teardrops applied to pads and vias
+    Since: 10.0.7
+    """
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    MODE_FIELD_NUMBER: builtins.int
+    CURVED_EDGES_FIELD_NUMBER: builtins.int
+    ALLOW_MULTIPLE_TRACK_SEGMENTS_FIELD_NUMBER: builtins.int
+    PREFER_ZONE_CONNECTION_FIELD_NUMBER: builtins.int
+    MAX_LENGTH_FIELD_NUMBER: builtins.int
+    MAX_WIDTH_FIELD_NUMBER: builtins.int
+    BEST_LENGTH_RATIO_FIELD_NUMBER: builtins.int
+    BEST_WIDTH_RATIO_FIELD_NUMBER: builtins.int
+    MAX_TRACK_WIDTH_RATIO_FIELD_NUMBER: builtins.int
+    mode: global___PadTeardropMode.ValueType
+    'Whether to enable teardrops'
+    curved_edges: builtins.bool
+    allow_multiple_track_segments: builtins.bool
+    'True to allow a teardrop to extend over multiple (currently up to two) connected track segments if the first\n    segment is too short to achieve the best teardrop length.\n    '
+    prefer_zone_connection: builtins.bool
+    'True to prefer zone connections instead of teardrops for pads that are also connected to a copper zone.'
+    best_length_ratio: builtins.float
+    'Preferred teardrop length as ratio of the pad/via size.'
+    best_width_ratio: builtins.float
+    'Preferred teardrop width as a ratio of the pad/via size.'
+    max_track_width_ratio: builtins.float
+    'Maximum ratio between the pad/via size and connected track width that will create a teardrop.\n    1.0 always creates a teardrop; 0.0 never does.\n    '
+
+    @property
+    def max_length(self) -> common.types.base_types_pb2.Distance:
+        """If absent, no maximum length constraint is applied"""
+
+    @property
+    def max_width(self) -> common.types.base_types_pb2.Distance:
+        """If absent, no maximum width constraint is applied"""
+
+    def __init__(self, *, mode: global___PadTeardropMode.ValueType=..., curved_edges: builtins.bool=..., allow_multiple_track_segments: builtins.bool=..., prefer_zone_connection: builtins.bool=..., max_length: common.types.base_types_pb2.Distance | None=..., max_width: common.types.base_types_pb2.Distance | None=..., best_length_ratio: builtins.float=..., best_width_ratio: builtins.float=..., max_track_width_ratio: builtins.float=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['max_length', b'max_length', 'max_width', b'max_width']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['allow_multiple_track_segments', b'allow_multiple_track_segments', 'best_length_ratio', b'best_length_ratio', 'best_width_ratio', b'best_width_ratio', 'curved_edges', b'curved_edges', 'max_length', b'max_length', 'max_track_width_ratio', b'max_track_width_ratio', 'max_width', b'max_width', 'mode', b'mode', 'prefer_zone_connection', b'prefer_zone_connection']) -> None:
+        ...
+global___PadTeardropSettings = PadTeardropSettings
 
 @typing.final
 class CopperZoneSettings(google.protobuf.message.Message):
@@ -1822,9 +2056,13 @@ class CopperZoneSettings(google.protobuf.message.Message):
     HATCH_SETTINGS_FIELD_NUMBER: builtins.int
     NET_FIELD_NUMBER: builtins.int
     TEARDROP_FIELD_NUMBER: builtins.int
+    CORNER_SMOOTHING_FIELD_NUMBER: builtins.int
+    CORNER_RADIUS_FIELD_NUMBER: builtins.int
     island_mode: global___IslandRemovalMode.ValueType
     min_island_area: builtins.int
     fill_mode: global___ZoneFillMode.ValueType
+    corner_smoothing: global___ZoneCornerSmoothingMode.ValueType
+    'Since: 10.0.7'
 
     @property
     def connection(self) -> global___ZoneConnectionSettings:
@@ -1847,16 +2085,20 @@ class CopperZoneSettings(google.protobuf.message.Message):
         ...
 
     @property
-    def teardrop(self) -> global___TeardropSettings:
+    def teardrop(self) -> global___ZoneTeardropSettings:
         ...
 
-    def __init__(self, *, connection: global___ZoneConnectionSettings | None=..., clearance: common.types.base_types_pb2.Distance | None=..., min_thickness: common.types.base_types_pb2.Distance | None=..., island_mode: global___IslandRemovalMode.ValueType=..., min_island_area: builtins.int=..., fill_mode: global___ZoneFillMode.ValueType=..., hatch_settings: global___HatchFillSettings | None=..., net: global___Net | None=..., teardrop: global___TeardropSettings | None=...) -> None:
+    @property
+    def corner_radius(self) -> common.types.base_types_pb2.Distance:
+        """Since: 10.0.7"""
+
+    def __init__(self, *, connection: global___ZoneConnectionSettings | None=..., clearance: common.types.base_types_pb2.Distance | None=..., min_thickness: common.types.base_types_pb2.Distance | None=..., island_mode: global___IslandRemovalMode.ValueType=..., min_island_area: builtins.int=..., fill_mode: global___ZoneFillMode.ValueType=..., hatch_settings: global___HatchFillSettings | None=..., net: global___Net | None=..., teardrop: global___ZoneTeardropSettings | None=..., corner_smoothing: global___ZoneCornerSmoothingMode.ValueType=..., corner_radius: common.types.base_types_pb2.Distance | None=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['clearance', b'clearance', 'connection', b'connection', 'hatch_settings', b'hatch_settings', 'min_thickness', b'min_thickness', 'net', b'net', 'teardrop', b'teardrop']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['clearance', b'clearance', 'connection', b'connection', 'corner_radius', b'corner_radius', 'hatch_settings', b'hatch_settings', 'min_thickness', b'min_thickness', 'net', b'net', 'teardrop', b'teardrop']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['clearance', b'clearance', 'connection', b'connection', 'fill_mode', b'fill_mode', 'hatch_settings', b'hatch_settings', 'island_mode', b'island_mode', 'min_island_area', b'min_island_area', 'min_thickness', b'min_thickness', 'net', b'net', 'teardrop', b'teardrop']) -> None:
+    def ClearField(self, field_name: typing.Literal['clearance', b'clearance', 'connection', b'connection', 'corner_radius', b'corner_radius', 'corner_smoothing', b'corner_smoothing', 'fill_mode', b'fill_mode', 'hatch_settings', b'hatch_settings', 'island_mode', b'island_mode', 'min_island_area', b'min_island_area', 'min_thickness', b'min_thickness', 'net', b'net', 'teardrop', b'teardrop']) -> None:
         ...
 global___CopperZoneSettings = CopperZoneSettings
 
@@ -2339,7 +2581,11 @@ class Group(google.protobuf.message.Message):
     NAME_FIELD_NUMBER: builtins.int
     ITEMS_FIELD_NUMBER: builtins.int
     PARENT_FIELD_NUMBER: builtins.int
+    LOCKED_FIELD_NUMBER: builtins.int
+    LIB_ID_FIELD_NUMBER: builtins.int
     name: builtins.str
+    locked: common.types.base_types_pb2.LockedState.ValueType
+    'Since: 10.0.7'
 
     @property
     def id(self) -> common.types.base_types_pb2.KIID:
@@ -2356,13 +2602,19 @@ class Group(google.protobuf.message.Message):
         Since: 10.0.6
         """
 
-    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., name: builtins.str=..., items: collections.abc.Iterable[common.types.base_types_pb2.KIID] | None=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+    @property
+    def lib_id(self) -> common.types.base_types_pb2.LibraryIdentifier:
+        """Optional design block identifier used for groups that have design block library links.
+        Since: 10.0.7
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., name: builtins.str=..., items: collections.abc.Iterable[common.types.base_types_pb2.KIID] | None=..., parent: common.types.base_types_pb2.KIID | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., lib_id: common.types.base_types_pb2.LibraryIdentifier | None=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['id', b'id', 'parent', b'parent']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['id', b'id', 'lib_id', b'lib_id', 'parent', b'parent']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['id', b'id', 'items', b'items', 'name', b'name', 'parent', b'parent']) -> None:
+    def ClearField(self, field_name: typing.Literal['id', b'id', 'items', b'items', 'lib_id', b'lib_id', 'locked', b'locked', 'name', b'name', 'parent', b'parent']) -> None:
         ...
 global___Group = Group
 
@@ -2437,6 +2689,71 @@ class FootprintAttributes(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal['allow_soldermask_bridges', b'allow_soldermask_bridges', 'description', b'description', 'do_not_populate', b'do_not_populate', 'exclude_from_bill_of_materials', b'exclude_from_bill_of_materials', 'exclude_from_position_files', b'exclude_from_position_files', 'exempt_from_courtyard_requirement', b'exempt_from_courtyard_requirement', 'keywords', b'keywords', 'mounting_style', b'mounting_style', 'not_in_schematic', b'not_in_schematic']) -> None:
         ...
 global___FootprintAttributes = FootprintAttributes
+
+@typing.final
+class FootprintVariant(google.protobuf.message.Message):
+    """Per-variant overrides for a footprint instance
+    Since: 10.0.7
+    """
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    @typing.final
+    class FieldsEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+
+        def __init__(self, *, key: builtins.str=..., value: builtins.str=...) -> None:
+            ...
+
+        def ClearField(self, field_name: typing.Literal['key', b'key', 'value', b'value']) -> None:
+            ...
+    NAME_FIELD_NUMBER: builtins.int
+    DO_NOT_POPULATE_FIELD_NUMBER: builtins.int
+    EXCLUDE_FROM_BILL_OF_MATERIALS_FIELD_NUMBER: builtins.int
+    EXCLUDE_FROM_POSITION_FILES_FIELD_NUMBER: builtins.int
+    FIELDS_FIELD_NUMBER: builtins.int
+    name: builtins.str
+    'Variant name that these overrides apply to.'
+    do_not_populate: builtins.bool
+    exclude_from_bill_of_materials: builtins.bool
+    exclude_from_position_files: builtins.bool
+
+    @property
+    def fields(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """Map of field name to override value in this variant"""
+
+    def __init__(self, *, name: builtins.str=..., do_not_populate: builtins.bool=..., exclude_from_bill_of_materials: builtins.bool=..., exclude_from_position_files: builtins.bool=..., fields: collections.abc.Mapping[builtins.str, builtins.str] | None=...) -> None:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['do_not_populate', b'do_not_populate', 'exclude_from_bill_of_materials', b'exclude_from_bill_of_materials', 'exclude_from_position_files', b'exclude_from_position_files', 'fields', b'fields', 'name', b'name']) -> None:
+        ...
+global___FootprintVariant = FootprintVariant
+
+@typing.final
+class FootprintUnitInfo(google.protobuf.message.Message):
+    """Unit information copied from the symbol associated with a footprint.  This information is
+    refreshed when the board is updated from the schematic.
+    Since: 10.0.8
+    """
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    NAME_FIELD_NUMBER: builtins.int
+    PIN_NUMBERS_FIELD_NUMBER: builtins.int
+    name: builtins.str
+    'The unit name, e.g. "A" '
+
+    @property
+    def pin_numbers(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """The symbol pin numbers belonging to this unit"""
+
+    def __init__(self, *, name: builtins.str=..., pin_numbers: collections.abc.Iterable[builtins.str] | None=...) -> None:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['name', b'name', 'pin_numbers', b'pin_numbers']) -> None:
+        ...
+global___FootprintUnitInfo = FootprintUnitInfo
 
 @typing.final
 class NetTieDefinition(google.protobuf.message.Message):
@@ -2651,6 +2968,9 @@ class FootprintInstance(google.protobuf.message.Message):
     SYMBOL_SHEET_FILENAME_FIELD_NUMBER: builtins.int
     SYMBOL_FOOTPRINT_FILTERS_FIELD_NUMBER: builtins.int
     PARENT_FIELD_NUMBER: builtins.int
+    EMBEDDED_FILES_FIELD_NUMBER: builtins.int
+    VARIANTS_FIELD_NUMBER: builtins.int
+    SYMBOL_UNITS_FIELD_NUMBER: builtins.int
     layer: global___BoardLayer.ValueType
     locked: common.types.base_types_pb2.LockedState.ValueType
     symbol_sheet_name: builtins.str
@@ -2711,12 +3031,159 @@ class FootprintInstance(google.protobuf.message.Message):
         Since: 10.0.6
         """
 
-    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., position: common.types.base_types_pb2.Vector2 | None=..., orientation: common.types.base_types_pb2.Angle | None=..., layer: global___BoardLayer.ValueType=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., definition: global___Footprint | None=..., reference_field: global___Field | None=..., value_field: global___Field | None=..., datasheet_field: global___Field | None=..., description_field: global___Field | None=..., attributes: global___FootprintAttributes | None=..., overrides: global___FootprintDesignRuleOverrides | None=..., symbol_path: common.types.base_types_pb2.SheetPath | None=..., symbol_sheet_name: builtins.str=..., symbol_sheet_filename: builtins.str=..., symbol_footprint_filters: builtins.str=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+    @property
+    def embedded_files(self) -> common.types.embedded_files_pb2.EmbeddedFiles:
+        """Since: 10.0.7"""
+
+    @property
+    def variants(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FootprintVariant]:
+        """Per-variant data for this footprint instance
+        Since: 10.0.7
+        """
+
+    @property
+    def symbol_units(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FootprintUnitInfo]:
+        """Unit metadata copied from the associated symbol
+        Since: 10.0.8
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., position: common.types.base_types_pb2.Vector2 | None=..., orientation: common.types.base_types_pb2.Angle | None=..., layer: global___BoardLayer.ValueType=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., definition: global___Footprint | None=..., reference_field: global___Field | None=..., value_field: global___Field | None=..., datasheet_field: global___Field | None=..., description_field: global___Field | None=..., attributes: global___FootprintAttributes | None=..., overrides: global___FootprintDesignRuleOverrides | None=..., symbol_path: common.types.base_types_pb2.SheetPath | None=..., symbol_sheet_name: builtins.str=..., symbol_sheet_filename: builtins.str=..., symbol_footprint_filters: builtins.str=..., parent: common.types.base_types_pb2.KIID | None=..., embedded_files: common.types.embedded_files_pb2.EmbeddedFiles | None=..., variants: collections.abc.Iterable[global___FootprintVariant] | None=..., symbol_units: collections.abc.Iterable[global___FootprintUnitInfo] | None=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['attributes', b'attributes', 'datasheet_field', b'datasheet_field', 'definition', b'definition', 'description_field', b'description_field', 'id', b'id', 'orientation', b'orientation', 'overrides', b'overrides', 'parent', b'parent', 'position', b'position', 'reference_field', b'reference_field', 'symbol_path', b'symbol_path', 'value_field', b'value_field']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['attributes', b'attributes', 'datasheet_field', b'datasheet_field', 'definition', b'definition', 'description_field', b'description_field', 'embedded_files', b'embedded_files', 'id', b'id', 'orientation', b'orientation', 'overrides', b'overrides', 'parent', b'parent', 'position', b'position', 'reference_field', b'reference_field', 'symbol_path', b'symbol_path', 'value_field', b'value_field']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['attributes', b'attributes', 'datasheet_field', b'datasheet_field', 'definition', b'definition', 'description_field', b'description_field', 'id', b'id', 'layer', b'layer', 'locked', b'locked', 'orientation', b'orientation', 'overrides', b'overrides', 'parent', b'parent', 'position', b'position', 'reference_field', b'reference_field', 'symbol_footprint_filters', b'symbol_footprint_filters', 'symbol_path', b'symbol_path', 'symbol_sheet_filename', b'symbol_sheet_filename', 'symbol_sheet_name', b'symbol_sheet_name', 'value_field', b'value_field']) -> None:
+    def ClearField(self, field_name: typing.Literal['attributes', b'attributes', 'datasheet_field', b'datasheet_field', 'definition', b'definition', 'description_field', b'description_field', 'embedded_files', b'embedded_files', 'id', b'id', 'layer', b'layer', 'locked', b'locked', 'orientation', b'orientation', 'overrides', b'overrides', 'parent', b'parent', 'position', b'position', 'reference_field', b'reference_field', 'symbol_footprint_filters', b'symbol_footprint_filters', 'symbol_path', b'symbol_path', 'symbol_sheet_filename', b'symbol_sheet_filename', 'symbol_sheet_name', b'symbol_sheet_name', 'symbol_units', b'symbol_units', 'value_field', b'value_field', 'variants', b'variants']) -> None:
         ...
 global___FootprintInstance = FootprintInstance
+
+@typing.final
+class TableCell(google.protobuf.message.Message):
+    """Since: 10.0.7"""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    TEXT_BOX_FIELD_NUMBER: builtins.int
+    COLUMN_SPAN_FIELD_NUMBER: builtins.int
+    ROW_SPAN_FIELD_NUMBER: builtins.int
+    column_span: builtins.int
+    row_span: builtins.int
+
+    @property
+    def text_box(self) -> global___BoardTextBox:
+        ...
+
+    def __init__(self, *, text_box: global___BoardTextBox | None=..., column_span: builtins.int=..., row_span: builtins.int=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['text_box', b'text_box']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['column_span', b'column_span', 'row_span', b'row_span', 'text_box', b'text_box']) -> None:
+        ...
+global___TableCell = TableCell
+
+@typing.final
+class Table(google.protobuf.message.Message):
+    """Since: 10.0.7"""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    ID_FIELD_NUMBER: builtins.int
+    COLUMN_COUNT_FIELD_NUMBER: builtins.int
+    COLUMN_WIDTHS_FIELD_NUMBER: builtins.int
+    ROW_HEIGHTS_FIELD_NUMBER: builtins.int
+    LAYER_FIELD_NUMBER: builtins.int
+    LOCKED_FIELD_NUMBER: builtins.int
+    CELLS_FIELD_NUMBER: builtins.int
+    EXTERNAL_BORDER_FIELD_NUMBER: builtins.int
+    HEADER_SEPARATOR_FIELD_NUMBER: builtins.int
+    BORDER_STROKE_FIELD_NUMBER: builtins.int
+    ROW_SEPARATORS_FIELD_NUMBER: builtins.int
+    COLUMN_SEPARATORS_FIELD_NUMBER: builtins.int
+    SEPARATORS_STROKE_FIELD_NUMBER: builtins.int
+    PARENT_FIELD_NUMBER: builtins.int
+    column_count: builtins.int
+    layer: global___BoardLayer.ValueType
+    locked: common.types.base_types_pb2.LockedState.ValueType
+    external_border: global___TableStrokeMode.ValueType
+    header_separator: global___TableStrokeMode.ValueType
+    row_separators: global___TableStrokeMode.ValueType
+    column_separators: global___TableStrokeMode.ValueType
+
+    @property
+    def id(self) -> common.types.base_types_pb2.KIID:
+        ...
+
+    @property
+    def column_widths(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+        ...
+
+    @property
+    def row_heights(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+        ...
+
+    @property
+    def cells(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___TableCell]:
+        ...
+
+    @property
+    def border_stroke(self) -> common.types.base_types_pb2.StrokeAttributes:
+        ...
+
+    @property
+    def separators_stroke(self) -> common.types.base_types_pb2.StrokeAttributes:
+        ...
+
+    @property
+    def parent(self) -> common.types.base_types_pb2.KIID:
+        """The ID of the parent container for this item (if any).  This is a read-only property; changing
+        it will not change the object's parent
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., column_count: builtins.int=..., column_widths: collections.abc.Iterable[builtins.int] | None=..., row_heights: collections.abc.Iterable[builtins.int] | None=..., layer: global___BoardLayer.ValueType=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., cells: collections.abc.Iterable[global___TableCell] | None=..., external_border: global___TableStrokeMode.ValueType=..., header_separator: global___TableStrokeMode.ValueType=..., border_stroke: common.types.base_types_pb2.StrokeAttributes | None=..., row_separators: global___TableStrokeMode.ValueType=..., column_separators: global___TableStrokeMode.ValueType=..., separators_stroke: common.types.base_types_pb2.StrokeAttributes | None=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['border_stroke', b'border_stroke', 'id', b'id', 'parent', b'parent', 'separators_stroke', b'separators_stroke']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['border_stroke', b'border_stroke', 'cells', b'cells', 'column_count', b'column_count', 'column_separators', b'column_separators', 'column_widths', b'column_widths', 'external_border', b'external_border', 'header_separator', b'header_separator', 'id', b'id', 'layer', b'layer', 'locked', b'locked', 'parent', b'parent', 'row_heights', b'row_heights', 'row_separators', b'row_separators', 'separators_stroke', b'separators_stroke']) -> None:
+        ...
+global___Table = Table
+
+@typing.final
+class ReferencePoint(google.protobuf.message.Message):
+    """Since: 10.0.7"""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    ID_FIELD_NUMBER: builtins.int
+    LAYER_FIELD_NUMBER: builtins.int
+    POSITION_FIELD_NUMBER: builtins.int
+    SIZE_FIELD_NUMBER: builtins.int
+    LOCKED_FIELD_NUMBER: builtins.int
+    PARENT_FIELD_NUMBER: builtins.int
+    layer: global___BoardLayer.ValueType
+    locked: common.types.base_types_pb2.LockedState.ValueType
+
+    @property
+    def id(self) -> common.types.base_types_pb2.KIID:
+        ...
+
+    @property
+    def position(self) -> common.types.base_types_pb2.Vector2:
+        ...
+
+    @property
+    def size(self) -> common.types.base_types_pb2.Distance:
+        ...
+
+    @property
+    def parent(self) -> common.types.base_types_pb2.KIID:
+        """The ID of the parent container for this item (if any).  This is a read-only property;
+        changing it will not change the object's parent
+        """
+
+    def __init__(self, *, id: common.types.base_types_pb2.KIID | None=..., layer: global___BoardLayer.ValueType=..., position: common.types.base_types_pb2.Vector2 | None=..., size: common.types.base_types_pb2.Distance | None=..., locked: common.types.base_types_pb2.LockedState.ValueType=..., parent: common.types.base_types_pb2.KIID | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['id', b'id', 'parent', b'parent', 'position', b'position', 'size', b'size']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['id', b'id', 'layer', b'layer', 'locked', b'locked', 'parent', b'parent', 'position', b'position', 'size', b'size']) -> None:
+        ...
+global___ReferencePoint = ReferencePoint

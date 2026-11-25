@@ -25,12 +25,13 @@
 # -----------------------------------------------------------------------------
 # oci_tokens.py
 #
-# Methods that generates an OCI access token using the OCI SDK
+# OCI token authentication methods and token-file handling
 # -----------------------------------------------------------------------------
 
 import base64
 import datetime
 import enum
+import os
 import pathlib
 
 from cryptography.hazmat.primitives import serialization
@@ -42,11 +43,13 @@ import requests
 
 class AuthType(str, enum.Enum):
     ConfigFileAuthentication = "ConfigFileAuthentication".lower()
+    DelegationToken = "DelegationToken".lower()
     InstancePrincipal = "InstancePrincipal".lower()
     ResourcePrincipal = "ResourcePrincipal".lower()
     SecurityToken = "SecurityToken".lower()
     SecurityTokenSimple = "SecurityTokenSimple".lower()
     SimpleAuthentication = "SimpleAuthentication".lower()
+    TokenFile = "TokenFile".lower()
 
 
 def _config_file_based_authentication(token_auth_config):
@@ -57,6 +60,49 @@ def _config_file_based_authentication(token_auth_config):
     config = _load_oci_config(token_auth_config)
     client = oci.identity_data_plane.DataplaneClient(config)
     return _generate_access_token(client, token_auth_config)
+
+
+def _delegation_token_authentication(token_auth_config):
+    """
+    Delegation-token authentication using an OCI instance principal.
+    """
+    token_file = token_auth_config.get(
+        "delegation_token_file",
+        os.environ.get("OCI_DELEGATION_TOKEN_FILE"),
+    )
+    if not token_file:
+        raise ValueError(
+            "A delegation token file must be specified with "
+            "'delegation_token_file' or OCI_DELEGATION_TOKEN_FILE"
+        )
+
+    token_path = pathlib.Path(token_file).expanduser()
+    delegation_token = token_path.read_text().strip()
+    if not delegation_token:
+        raise ValueError(f"OCI delegation token file is empty: {token_path}")
+
+    signer = oci.auth.signers.InstancePrincipalsDelegationTokenSigner(
+        delegation_token=delegation_token
+    )
+    client = oci.identity_data_plane.DataplaneClient(config={}, signer=signer)
+    return _generate_access_token(client, token_auth_config)
+
+
+def _file_based_authentication(token_auth_config):
+    """
+    Returns the token and private key stored in the specified file.
+    """
+    token_location = token_auth_config.get("token_location", "~/.oci/db-token")
+    token_dir = pathlib.Path(token_location).expanduser()
+    token_file = token_dir / "token"
+    private_key_file = token_dir / "oci_db_key.pem"
+    token = token_file.read_text().strip()
+    if not token:
+        raise ValueError("File {token_file} is empty")
+    private_key = private_key_file.read_text().strip()
+    if not private_key:
+        raise ValueError("File {private_key_file} is empty")
+    return token, private_key
 
 
 def _generate_access_token(client, token_auth_config):
@@ -214,52 +260,17 @@ def _simple_authentication(token_auth_config):
     return _generate_access_token(client, token_auth_config)
 
 
-def get_database_access_token(deepsec_params, user_token):
-    auth_flow = deepsec_params.get("auth_flow")
-    if auth_flow == "client_credentials":
-        return get_database_access_token_client_cred_flow(deepsec_params)
-    else:
-        raise ValueError(f"Incorrect value for auth_flow: {auth_flow}.")
-
-
-# Function to get mid-tier app access token (OCI-IAM)
-def get_database_access_token_client_cred_flow(end_user_sec_params):
-    key = (
-        end_user_sec_params["authority"],
-        end_user_sec_params["client_id"],
-        end_user_sec_params["client_credential"],
-        end_user_sec_params["scopes"],
-    )
-    secret_value = oracledb.get_secret(key)
-    if secret_value is not None:
-        return secret_value.value
-
-    # fetch fresh token, if not present in cache
-    auth_str = f"{end_user_sec_params.get('client_id')}:{end_user_sec_params.get('client_credential')}"
-    b64_auth = base64.b64encode(auth_str.encode()).decode()
-    headers = {
-        "Authorization": f"Basic {b64_auth}",
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-    payload = {
-        "grant_type": "client_credentials",
-        "scope": end_user_sec_params.get("scopes"),
-    }
-    response = requests.post(
-        end_user_sec_params.get("authority"), headers=headers, data=payload
-    )
-    if response.status_code != 200:
-        raise RuntimeError(f"Token request failed: {response.status_code}")
-    return _get_token(key, response.json())
-
-
 def generate_token(token_auth_config, refresh=False):
     """
-    Generates an OCI access token based on provided credentials.
+    Generates or reads an access token based on the provided configuration.
     """
     auth_type = token_auth_config["auth_type"].lower()
-    if auth_type == AuthType.ConfigFileAuthentication:
+    if auth_type == AuthType.TokenFile:
+        return _file_based_authentication(token_auth_config)
+    elif auth_type == AuthType.ConfigFileAuthentication:
         return _config_file_based_authentication(token_auth_config)
+    elif auth_type == AuthType.DelegationToken:
+        return _delegation_token_authentication(token_auth_config)
     elif auth_type == AuthType.InstancePrincipal:
         return _instance_principal_authentication(token_auth_config)
     elif auth_type == AuthType.ResourcePrincipal:
@@ -272,6 +283,42 @@ def generate_token(token_auth_config, refresh=False):
         return _simple_authentication(token_auth_config)
 
 
+def get_database_access_token(deepsec_params, user_token):
+    auth_flow = deepsec_params.get("auth_flow")
+    if auth_flow == "client_credentials":
+        return get_database_access_token_client_cred_flow(deepsec_params)
+    else:
+        raise ValueError(f"Incorrect value for auth_flow: {auth_flow}.")
+
+
+# Function to get mid-tier app access token (OCI-IAM)
+def get_database_access_token_client_cred_flow(end_user_sec_params):
+    authority = end_user_sec_params["authority"]
+    client_id = end_user_sec_params["client_id"]
+    client_credential = end_user_sec_params["client_credential"]
+    scopes = end_user_sec_params["scopes"]
+    key = (authority, client_id, client_credential, scopes)
+    secret_value = oracledb.get_secret(key)
+    if secret_value is not None:
+        return secret_value.value
+
+    # fetch fresh token, if not present in cache
+    auth_str = f"{client_id}:{client_credential}"
+    b64_auth = base64.b64encode(auth_str.encode()).decode()
+    headers = {
+        "Authorization": f"Basic {b64_auth}",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+    payload = {
+        "grant_type": "client_credentials",
+        "scope": scopes,
+    }
+    response = requests.post(authority, headers=headers, data=payload)
+    if response.status_code != 200:
+        raise RuntimeError(f"Token request failed: {response.status_code}")
+    return _get_token(key, response.json())
+
+
 def has_oci_auth_type(extra_auth_params):
     """
     Validates that extra_auth_params contains a valid 'auth_type'
@@ -282,7 +329,7 @@ def has_oci_auth_type(extra_auth_params):
     return auth_type is not None and auth_type.lower() in AuthType
 
 
-def oci_token_hook(params: oracledb.ConnectParams):
+def params_hook(params: oracledb.ConnectParams):
     """
     OCI-specific hook for generating a token.
     """
@@ -295,4 +342,4 @@ def oci_token_hook(params: oracledb.ConnectParams):
 
 
 # Register the token hook for OCI
-oracledb.register_params_hook(oci_token_hook)
+oracledb.register_params_hook(params_hook)

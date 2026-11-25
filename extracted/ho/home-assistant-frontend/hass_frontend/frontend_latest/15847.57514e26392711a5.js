@@ -1,0 +1,2 @@
+export const __rspack_esm_ids=[15847];export const __webpack_modules__={96890(e,t,r){r.r(t);var s=r(83316),a=r(63560),i=r(98933);class _ extends a.mN{static async generate(e){return{type:"panel",title:e.title,cards:[{type:"iframe",url:e.url}]}}}_.registryDependencies=[],_=(0,s._)([(0,i.EM)("iframe-view-strategy")],_),r.d(t,{IframeViewStrategy:()=>_})}};
+//# sourceMappingURL=15847.57514e26392711a5.js.map

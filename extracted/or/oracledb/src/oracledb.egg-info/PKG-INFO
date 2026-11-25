@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oracledb
-Version: 26.1.0
+Version: 26.2.0
 Summary: Python interface to Oracle Database
 Author-email: Anthony Tuininga <anthony.tuininga@oracle.com>
 License-Expression: UPL-1.0 OR Apache-2.0
@@ -53,6 +53,7 @@ Requires-Dist: azure-identity; extra == "azure-config"
 Requires-Dist: azure-keyvault-secrets; extra == "azure-config"
 Provides-Extra: azure-auth
 Requires-Dist: msal; extra == "azure-auth"
+Requires-Dist: requests; extra == "azure-auth"
 Provides-Extra: aws-config
 Requires-Dist: boto3; extra == "aws-config"
 Provides-Extra: gcp-config

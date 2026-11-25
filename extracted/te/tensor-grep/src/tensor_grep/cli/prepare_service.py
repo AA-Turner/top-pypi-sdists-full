@@ -22,6 +22,7 @@ module already produces, without that future work needing to re-parse `_build_pr
 untyped dict shape by hand.
 """
 
+import sqlite3
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -329,6 +330,33 @@ def _build_prepare_payload(
         related_call_sites=related_call_sites,
         deadline_monotonic=deadline_monotonic,
     )
+    if target.get("file") and Path(resolved_path).is_dir():
+        try:
+            from tensor_grep.cli.symbol_graph_index import sync_incremental_ego_subgraph
+
+            seed_file = str(target["file"])
+            edges_by_file: dict[str, list[tuple[str, str]]] = {}
+            for entry in rm.get("imports") or []:
+                if not isinstance(entry, dict):
+                    continue
+                src = str(entry.get("file") or "")
+                raw_imps = entry.get("imports") or []
+                if src and isinstance(raw_imps, list):
+                    edges_by_file[src] = [(str(dst), "import") for dst in raw_imps if dst]
+            repo_files: dict[str, bytes] = {}
+            for f_str in rm.get("files") or [seed_file]:
+                fp = Path(str(f_str))
+                repo_files[str(f_str)] = fp.read_bytes() if fp.is_file() else b""
+            sync_incremental_ego_subgraph(
+                Path(resolved_path),
+                repo_files,
+                lambda p, _c: edges_by_file.get(p, []),
+                seed_file,
+                max_hops=1,
+                max_nodes=16,
+            )
+        except (OSError, ValueError, sqlite3.Error):
+            pass
 
     symbol = str(target.get("symbol") or "")
     claim_argv: list[object] = ["tg", "ledger", "claim", resolved_path]

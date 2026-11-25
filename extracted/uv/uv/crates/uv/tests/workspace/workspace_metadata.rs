@@ -8,6 +8,7 @@ use async_zip::{Compression, ZipEntryBuilder};
 use futures::executor::block_on;
 use indoc::{formatdoc, indoc};
 
+use uv_cache::CacheBucket;
 use uv_redacted::SafeUrl;
 use uv_static::EnvVars;
 use uv_test::{copy_dir_ignore, uv_snapshot};
@@ -453,6 +454,7 @@ fn workspace_metadata_lockfile() -> Result<()> {
     warning: The `uv workspace metadata` command is experimental and may change without warning. Pass `--preview-features workspace-metadata` to disable this warning.
     Resolved 1 package in [TIME]
     error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+      cause: Package `project` has version `0.2.0`, but the lockfile records `0.1.0`
 
     hint: To update the lockfile, run `uv lock`.
     ");
@@ -519,9 +521,9 @@ import iniconfig
       },
       "workspace_root": "[TEMP_DIR]/",
       "environment": {
-        "root": "[CACHE_DIR]/environments-v2/script-[HASH]",
+        "root": "[CACHE_DIR]/environments-[VERSION]/script-[HASH]",
         "python": {
-          "path": "[CACHE_DIR]/environments-v2/script-[HASH]/[BIN]/[PYTHON]",
+          "path": "[CACHE_DIR]/environments-[VERSION]/script-[HASH]/[BIN]/[PYTHON]",
           "version": "3.12.[X]",
           "implementation": "cpython"
         },
@@ -529,7 +531,7 @@ import iniconfig
           "iniconfig==2.0.0@registry+https://pypi.org/simple": {
             "name": "iniconfig",
             "version": "2.0.0",
-            "path": "[CACHE_DIR]/environments-v2/script-[HASH]/[PYTHON-LIB]/site-packages/iniconfig-2.0.0.dist-info",
+            "path": "[CACHE_DIR]/environments-[VERSION]/script-[HASH]/[PYTHON-LIB]/site-packages/iniconfig-2.0.0.dist-info",
             "editable": false
           }
         }
@@ -719,10 +721,10 @@ fn workspace_metadata_script_includes_existing_environment() -> Result<()> {
           "packages": {},
           "python": {
             "implementation": "cpython",
-            "path": "[CACHE_DIR]/environments-v2/script-[HASH]/[BIN]/[PYTHON]",
+            "path": "[CACHE_DIR]/environments-[VERSION]/script-[HASH]/[BIN]/[PYTHON]",
             "version": "3.12.[X]"
           },
-          "root": "[CACHE_DIR]/environments-v2/script-[HASH]"
+          "root": "[CACHE_DIR]/environments-[VERSION]/script-[HASH]"
         }
         "#);
     });
@@ -1090,7 +1092,7 @@ fn workspace_metadata_sync_centralized_environment() -> Result<()> {
     );
     assert_eq!(
         target.parent(),
-        Some(context.cache_dir.child("environments-v2").path())
+        Some(context.cache_bucket(CacheBucket::Environments).path())
     );
 
     let assert = context
@@ -1123,13 +1125,11 @@ fn workspace_metadata_sync_centralized_environment() -> Result<()> {
             .map(Path::new),
         Some(target.as_path())
     );
-    let mut filters = context.filters();
-    filters.push((
-        r#"(\[CACHE_DIR\]/environments-v2/)[^/" ]+"#,
-        "$1[ENVIRONMENT]",
-    ));
-    insta::with_settings!({ filters => filters }, {
-        insta::assert_json_snapshot!(lockfile_metadata["environment"]["root"], @r#""[CACHE_DIR]/environments-v2/[ENVIRONMENT]""#);
+    insta::with_settings!({ filters => context.filters() }, {
+        insta::assert_json_snapshot!(
+            lockfile_metadata["environment"]["root"],
+            @r#""[CACHE_DIR]/environments-[VERSION]/project-cp3.12.[X]-[HASH]""#
+        );
     });
 
     Ok(())

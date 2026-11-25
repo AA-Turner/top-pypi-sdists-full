@@ -8,16 +8,15 @@ row per translation. All proteins are kept unless
 import json
 import sys
 
-from ..cell_reconstruction import MODES, reconstruct_cell_groups
+from ..default_parameters import CELL_RECONSTRUCTION_MODES as MODES
 from ..logging import configure_cli_logging, get_logger
-from ..protein_hypotheses import export_protein_hypotheses, write_protein_hypotheses
 from .commands import parser_for_program
 from .base_quality_args import add_base_quality_args, base_quality_policy_from_args
 from .filter_args import filter_threshold_dict_from_args
+from .input_args import add_sample_id_arg, add_source_arg
 from .main_args import make_isovar_arg_parser, run_isovar_from_parsed_args
-from .output_args import add_log_level_arg
+from .output_args import add_log_level_arg, add_output_file_arg
 from .rna_args import alignment_file_from_args, read_collector_from_args
-from ..protein_hypotheses import protein_hypotheses_tsv_path
 from .validation import CommandInputError, check_outputs, input_error
 
 logger = get_logger(__name__)
@@ -27,17 +26,22 @@ add_base_quality_args(parser)
 parser.set_defaults(max_protein_sequences_per_variant=0)
 add_log_level_arg(parser)
 _group = parser.add_argument_group("Protein hypothesis export")
-_group.add_argument("--sample-id", required=True, help="Sample the reads came from")
-_group.add_argument(
-    "--source",
-    help="Identity of the read set, which scopes read IDs with --sample-id (default: --bam)")
+add_sample_id_arg(parser, required=True, group=_group)
+add_source_arg(
+    parser,
+    help="Identity of the read set, which scopes read IDs with --sample-id (default: --bam)",
+    group=_group,
+)
 _group.add_argument(
     "--cell-umi-labels", action="store_true",
     help="Also report cell barcode/UMI labels behind each allele and protein (single-cell data)")
-_group.add_argument(
-    "--output", default="isovar-protein-hypotheses.json",
-    help="JSON output, gzip-compressed if it ends in .gz; the TSV is written beside it "
-         "with .tsv in place of .json (default: %(default)s)")
+add_output_file_arg(
+    parser,
+    default="isovar-protein-hypotheses.json",
+    help="JSON output file, gzip-compressed if it ends in .gz; the TSV is written beside it "
+         "with .tsv in place of .json (default: %(default)s)",
+    group=_group,
+)
 
 _group.add_argument(
     "--cell-reconstruction", choices=MODES,
@@ -56,6 +60,13 @@ def run(args=None, *, prog=None):
     args = command.parse_args(sys.argv[1:] if args is None else args)
     configure_cli_logging(args.log_level)
     try:
+        from ..cell_reconstruction import reconstruct_cell_groups
+        from ..protein_hypotheses import (
+            export_protein_hypotheses,
+            protein_hypotheses_tsv_path,
+            write_protein_hypotheses,
+        )
+
         check_outputs(args, "output", protein_hypotheses_tsv_path(args.output))
         quality_policy = base_quality_policy_from_args(args)
         if not args.cell_reconstruction and (args.cell_groups is not None or (

@@ -1,1 +1,0 @@
-export{w as createInfoServices}from"./vendor-mermaid-DZXN5VZG.js";

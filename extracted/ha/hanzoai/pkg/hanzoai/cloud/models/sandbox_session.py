@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from hanzoai.cloud.models.sandbox_execution import SandboxExecution
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -26,11 +27,14 @@ class SandboxSession(BaseModel):
     """
     SandboxSession
     """ # noqa: E501
-    id: Optional[StrictStr] = Field(default=None, description="ID is the sandbox id; it keys the thread list and local caches, and names the cell in every later call.")
+    execution: Optional[SandboxExecution] = Field(default=None, description="Execution is the resolved execution route when the caller requested one.")
+    expires: Optional[StrictStr] = Field(default=None, description="Expires is when Lease lapses by itself, RFC 3339 UTC. Set when Lease is set.")
+    id: Optional[StrictStr] = Field(default=None, description="ID is the sandbox id (or linked source id when Execution.Via is \"desktop\"); it keys the thread list and local caches, and names the session in later calls.")
     label: Optional[StrictStr] = Field(default=None, description="Label is shown beside the thread list.")
-    sandbox: Optional[StrictStr] = Field(default=None, description="Sandbox is the sandbox backing the terminal and browser dock. It equals ID.")
-    zap: Optional[StrictStr] = Field(default=None, description="Zap is the https endpoint that accepts WebTransport sessions for this cell. A session is one bidirectional stream of ZAP envelopes, authenticated by the caller's IAM bearer as the first envelope's cap.")
-    __properties: ClassVar[List[str]] = ["id", "label", "sandbox", "zap"]
+    lease: Optional[StrictStr] = Field(default=None, description="Lease is the dispatch hold on the linked desktop's login instance when Execution.Via is \"desktop\". Release it when the run ends.")
+    sandbox: Optional[StrictStr] = Field(default=None, description="Sandbox is the sandbox backing the terminal and browser dock. It equals ID for a sandbox session and is absent for a wasm or linked-desktop session that holds no cloud cell.")
+    zap: Optional[StrictStr] = Field(default=None, description="Zap is the https endpoint that accepts WebTransport sessions for this cell or linked desktop. A session is one bidirectional stream of ZAP envelopes, authenticated by the caller's IAM bearer as the first envelope's cap.")
+    __properties: ClassVar[List[str]] = ["execution", "expires", "id", "label", "lease", "sandbox", "zap"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -71,6 +75,9 @@ class SandboxSession(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of execution
+        if self.execution:
+            _dict['execution'] = self.execution.to_dict()
         return _dict
 
     @classmethod
@@ -83,8 +90,11 @@ class SandboxSession(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "execution": SandboxExecution.from_dict(obj["execution"]) if obj.get("execution") is not None else None,
+            "expires": obj.get("expires"),
             "id": obj.get("id"),
             "label": obj.get("label"),
+            "lease": obj.get("lease"),
             "sandbox": obj.get("sandbox"),
             "zap": obj.get("zap")
         })

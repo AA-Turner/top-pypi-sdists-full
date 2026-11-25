@@ -2,11 +2,14 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
 import itertools
+import logging
 import random
 import threading
 import time
+from collections.abc import Iterable
 from concurrent.futures import Future, ThreadPoolExecutor
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 import ray
@@ -15,12 +18,14 @@ from ray.core.generated import common_pb2
 
 from geneva.errors import FatalWorkerHardwareError
 from geneva.runners.ray import actor_pool as actor_pool_mod
+from geneva.runners.ray import jobtracker as jobtracker_mod
 from geneva.runners.ray.actor_pool import (
     ActorLostError,
     ActorPool,
     ActorPoolTaskError,
     ActorStateSnapshot,
 )
+from geneva.runners.ray.jobtracker import _JobTracker
 
 
 class _InlineExecutor:
@@ -80,6 +85,18 @@ def _dead_oom_actor_state(actor_id: str) -> SimpleNamespace:
 
 def _alive_actor_state(actor_id: str) -> SimpleNamespace:
     return SimpleNamespace(actor_id=actor_id, state="ALIVE")
+
+
+def _record_worker_metric(pool: ActorPool) -> list[tuple[str, int]]:
+    """Give a bare pool a job tracker that records worker-metric deltas."""
+    updates: list[tuple[str, int]] = []
+    pool.worker_metric = "workers"
+    pool.job_tracker = SimpleNamespace(
+        increment=SimpleNamespace(
+            remote=lambda metric, delta: updates.append((metric, delta))
+        )
+    )
+    return updates
 
 
 @ray.remote
@@ -254,6 +271,7 @@ def test_actor_pool_detects_dead_busy_actor_before_future_ready(
     pool._liveness_scan_cancelled = threading.Event()
     pool._liveness_scan_executor = _InlineExecutor()
     pool._queue_actor_startup = lambda: queued_replacements.append(True)
+    metric_updates = _record_worker_metric(pool)
     pool._get_next_by_fut = lambda _futs, _timeout=None: (_ for _ in ()).throw(
         actor_pool_mod.PollTimeoutError("not ready")
     )
@@ -290,6 +308,8 @@ def test_actor_pool_detects_dead_busy_actor_before_future_ready(
     assert pool._future_to_actor_id == {}
     assert pool._index_to_future == {}
     assert queued_replacements == [True]
+    # The lost actor leaves the worker count; its replacement adds itself back.
+    assert metric_updates == [("workers", -1)]
 
 
 def test_actor_pool_resubmits_transient_dead_busy_actor(
@@ -319,6 +339,7 @@ def test_actor_pool_resubmits_transient_dead_busy_actor(
     pool.resubmit_on_actor_failure = True
     pool._queue_actor_startup = lambda: queued_replacements.append(True)
     pool.submit = submit
+    metric_updates = _record_worker_metric(pool)
 
     def list_alive_actors(**kwargs: object) -> list[SimpleNamespace]:
         filters = kwargs["filters"]
@@ -346,6 +367,7 @@ def test_actor_pool_resubmits_transient_dead_busy_actor(
     # First poll starts the background scan; nothing is cleaned up yet.
     assert pool._pop_dead_actor_task() is pool.NoResult
     assert resubmitted == []
+    assert metric_updates == []
     # Second poll consumes the finished scan and resubmits the lost task.
     assert pool._pop_dead_actor_task() is pool.NoResult
     assert pool._future_to_actor == {}
@@ -354,6 +376,7 @@ def test_actor_pool_resubmits_transient_dead_busy_actor(
     assert pool._index_to_future == {}
     assert queued_replacements == [True]
     assert resubmitted == [task]
+    assert metric_updates == [("workers", -1)]
 
 
 def test_node_died_reason_is_transient_without_optional_node_death_info() -> None:
@@ -407,6 +430,7 @@ def test_actor_pool_rehydrates_ready_actor_death_from_state(
     pool._future_to_actor_id = {future: "actor-dead"}
     pool.resubmit_on_actor_failure = False
     pool._queue_actor_startup = lambda: queued_replacements.append(True)
+    metric_updates = _record_worker_metric(pool)
 
     actor_died = ray.exceptions.ActorDiedError(None)
 
@@ -438,6 +462,7 @@ def test_actor_pool_rehydrates_ready_actor_death_from_state(
     )
     assert exc_info.value.cause.is_transient_infra_loss is expected_transient
     assert queued_replacements == [True]
+    assert metric_updates == [("workers", -1)]
 
 
 def test_actor_pool_keeps_raw_ready_actor_error_when_state_lookup_fails(
@@ -455,6 +480,7 @@ def test_actor_pool_keeps_raw_ready_actor_error_when_state_lookup_fails(
     pool._future_to_actor_id = {future: "actor-dead"}
     pool.resubmit_on_actor_failure = False
     pool._queue_actor_startup = lambda: None
+    metric_updates = _record_worker_metric(pool)
 
     def raise_actor_died(_future: object) -> None:
         raise actor_died
@@ -468,6 +494,7 @@ def test_actor_pool_keeps_raw_ready_actor_error_when_state_lookup_fails(
         pool._get_next_by_fut([future])
 
     assert exc_info.value.cause is actor_died
+    assert metric_updates == [("workers", -1)]
 
 
 def test_actor_liveness_scan_batches_alive_state_query_and_checks_missing_actor(
@@ -673,6 +700,7 @@ def test_get_next_unordered_consumes_completed_scan_even_when_results_ready(
     pool.resubmit_on_actor_failure = False
     pool._collect_ready_actors = lambda: None
     pool._queue_actor_startup = lambda: None
+    metric_updates = _record_worker_metric(pool)
 
     scan_future: Future = Future()
     scan_future.set_result(
@@ -699,6 +727,7 @@ def test_get_next_unordered_consumes_completed_scan_even_when_results_ready(
     assert exc_info.value.task == task
     assert pool._liveness_scan_future is None
     assert pool._future_to_actor_id == {}
+    assert metric_updates == [("workers", -1)]
 
 
 def test_handle_dead_actor_states_skips_future_with_ready_result(
@@ -796,6 +825,7 @@ def test_actor_pool_does_not_resubmit_non_transient_dead_busy_actor(
     pool.resubmit_on_actor_failure = True
     pool._queue_actor_startup = lambda: queued_replacements.append(True)
     pool.submit = lambda _fn, submitted_task: resubmitted.append(submitted_task)
+    metric_updates = _record_worker_metric(pool)
 
     def list_alive_actors(**kwargs: object) -> list[SimpleNamespace]:
         filters = kwargs["filters"]
@@ -836,6 +866,7 @@ def test_actor_pool_does_not_resubmit_non_transient_dead_busy_actor(
     assert pool._index_to_future == {}
     assert queued_replacements == [True]
     assert resubmitted == []
+    assert metric_updates == [("workers", -1)]
 
 
 def test_liveness_scan_runs_off_main_thread_without_blocking() -> None:
@@ -969,6 +1000,7 @@ def test_actor_pool_wraps_memory_monitor_oom_as_task_error(
     pool.resubmit_on_actor_failure = True
     pool._queue_actor_startup = lambda: queued_replacements.append(True)
     pool.submit = lambda _fn, task: resubmitted.append(task)
+    metric_updates = _record_worker_metric(pool)
 
     oom = ray.exceptions.OutOfMemoryError(
         "Task was killed due to the node running low on memory"
@@ -989,11 +1021,12 @@ def test_actor_pool_wraps_memory_monitor_oom_as_task_error(
     assert killed == [actor]
     assert queued_replacements == [True]
     assert resubmitted == []
+    assert metric_updates == [("workers", -1)]
 
 
 def _pool_with_one_busy_actor(
     monkeypatch: pytest.MonkeyPatch, error: Exception, *, num_gpus: float | None
-) -> tuple[ActorPool, object, object, list[object], list[bool]]:
+) -> tuple[ActorPool, object, object, list[object], list[bool], list[tuple[str, int]]]:
     pool = object.__new__(ActorPool)
     future = object()
     actor = SimpleNamespace(name="actor-gpu")
@@ -1010,6 +1043,7 @@ def _pool_with_one_busy_actor(
     pool.last_hardware_fault = None
     pool._queue_actor_startup = lambda: queued_replacements.append(True)
     pool.submit = lambda _fn, _task: pytest.fail("must not resubmit")
+    metric_updates = _record_worker_metric(pool)
 
     def _raise(_future: object) -> None:
         raise error
@@ -1017,7 +1051,7 @@ def _pool_with_one_busy_actor(
     monkeypatch.setattr(ray, "wait", lambda futures, **_kwargs: ([future], []))
     monkeypatch.setattr(ray, "get", _raise)
     monkeypatch.setattr(ray, "kill", lambda a: killed.append(a))
-    return pool, future, actor, killed, queued_replacements
+    return pool, future, actor, killed, queued_replacements, metric_updates
 
 
 def test_actor_pool_parks_whole_gpu_actor_after_hardware_fault(
@@ -1026,7 +1060,7 @@ def test_actor_pool_parks_whole_gpu_actor_after_hardware_fault(
     """A parked actor stays alive so its GPU allocation is never handed to
     the replacement; the task still surfaces for driver-managed recovery."""
     fault = FatalWorkerHardwareError("GPU 0 requires reset")
-    pool, future, actor, killed, queued = _pool_with_one_busy_actor(
+    pool, future, actor, killed, queued, metric_updates = _pool_with_one_busy_actor(
         monkeypatch, fault, num_gpus=1.0
     )
 
@@ -1039,6 +1073,8 @@ def test_actor_pool_parks_whole_gpu_actor_after_hardware_fault(
     assert pool._parked_actors == [actor]
     assert pool.last_hardware_fault is fault
     assert queued == [True]
+    # Still alive and holding its GPU: it stays counted until shutdown.
+    assert metric_updates == []
 
 
 def test_actor_pool_kills_shared_gpu_actor_after_hardware_fault(
@@ -1047,7 +1083,7 @@ def test_actor_pool_kills_shared_gpu_actor_after_hardware_fault(
     """Without a whole-GPU allocation there is nothing to withhold, so the
     actor is retired the ordinary way."""
     fault = FatalWorkerHardwareError("GPU 0 requires reset")
-    pool, future, actor, killed, queued = _pool_with_one_busy_actor(
+    pool, future, actor, killed, queued, metric_updates = _pool_with_one_busy_actor(
         monkeypatch, fault, num_gpus=0.5
     )
 
@@ -1059,6 +1095,149 @@ def test_actor_pool_kills_shared_gpu_actor_after_hardware_fault(
     assert pool._parked_actors == []
     assert pool.last_hardware_fault is fault
     assert queued == [True]
+    assert metric_updates == [("workers", -1)]
+
+
+def _bare_pool_with_fake_actors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[ActorPool, list[tuple[str, int]], set[object], dict[object, Exception]]:
+    """A pool whose real startup, collect, resolve and shutdown run on fakes.
+
+    Returns the pool, its recorded worker-metric deltas, the ready futures
+    whose startup fails, and task futures mapped to the error they raise.
+    """
+    pool = object.__new__(ActorPool)
+    metric_updates = _record_worker_metric(pool)
+    failing_startups: set[object] = set()
+    task_errors: dict[object, Exception] = {}
+
+    def factory() -> SimpleNamespace:
+        ready = object()
+        return SimpleNamespace(__ray_ready__=SimpleNamespace(remote=lambda: ready))
+
+    def fake_get(future: object) -> str:
+        if future in failing_startups:
+            raise ray.exceptions.ActorDiedError(None)
+        if future in task_errors:
+            raise task_errors[future]
+        return "ok"
+
+    pool._actor_factory = factory
+    pool._actor_num_gpus = 1.0
+    pool.last_hardware_fault = None
+    pool.resubmit_on_actor_failure = False
+    pool._ready_fut_to_actor = {}
+    pool._idle_actors = []
+    pool._parked_actors = []
+    pool._future_to_actor = {}
+    pool._index_to_future = {}
+    pool._future_to_task = {}
+    pool._future_to_actor_id = {}
+    pool._pending_submits = []
+    pool._drained_buffer = []
+    pool._next_task_index = 0
+    pool._last_actor_liveness_scan_at = None
+    pool._liveness_scan_future = None
+    pool._liveness_scan_cancelled = threading.Event()
+    pool._liveness_scan_executor = _InlineExecutor()
+    monkeypatch.setattr(
+        ray, "wait", lambda futures, **_kwargs: (list(futures)[:1], list(futures)[1:])
+    )
+    monkeypatch.setattr(ray, "get", fake_get)
+    monkeypatch.setattr(ray, "kill", lambda _actor: None)
+    return pool, metric_updates, failing_startups, task_errors
+
+
+def _submit_tracked(pool: ActorPool, count: int) -> list[object]:
+    """Submit ``count`` tasks to idle actors and return their futures."""
+    futures: list[object] = []
+
+    def run(_actor: object, _value: int) -> object:
+        future = object()
+        futures.append(future)
+        return future
+
+    for value in range(count):
+        pool.submit(run, value)
+    return futures
+
+
+def test_actor_pool_failed_startup_leaves_worker_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An actor whose startup fails was counted when queued, so it is
+    subtracted when dropped; its replacement counts itself."""
+    pool, metric_updates, failing_startups, _ = _bare_pool_with_fake_actors(monkeypatch)
+    for _ in range(2):
+        pool._queue_actor_startup()
+    failing_startups.add(next(iter(pool._ready_fut_to_actor)))
+
+    pool._collect_ready_actors()
+
+    assert len(pool._idle_actors) == 2
+    assert pool._ready_fut_to_actor == {}
+    assert metric_updates == [
+        ("workers", 1),
+        ("workers", 1),
+        ("workers", -1),
+        ("workers", 1),
+    ]
+
+
+def test_actor_pool_worker_count_unchanged_when_no_actor_dies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pool, metric_updates, _, _ = _bare_pool_with_fake_actors(monkeypatch)
+    for _ in range(2):
+        pool._queue_actor_startup()
+    pool._collect_ready_actors()
+    for future in _submit_tracked(pool, 2):
+        assert pool._resolve_future(future) == "ok"
+
+    assert metric_updates == [("workers", 1), ("workers", 1)]
+    pool.shutdown()
+    assert metric_updates == [("workers", 1), ("workers", 1), ("workers", -2)]
+
+
+def test_actor_pool_worker_count_ends_at_zero_after_actor_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Started minus gone: each death subtracts once, replacements add back,
+    and shutdown subtracts only actors it still owns, parked ones included."""
+    pool, metric_updates, failing_startups, task_errors = _bare_pool_with_fake_actors(
+        monkeypatch
+    )
+    for _ in range(3):
+        pool._queue_actor_startup()
+    failing_startups.add(next(iter(pool._ready_fut_to_actor)))
+    pool._collect_ready_actors()
+
+    crashed, oom, gpu_fault = _submit_tracked(pool, 3)
+    task_errors[crashed] = ray.exceptions.ActorDiedError(None)
+    task_errors[oom] = ray.exceptions.OutOfMemoryError("node low on memory")
+    task_errors[gpu_fault] = FatalWorkerHardwareError("GPU 0 requires reset")
+    for future in (crashed, oom, gpu_fault):
+        with pytest.raises(ActorPoolTaskError):
+            pool._resolve_future(future)
+    assert len(pool._parked_actors) == 1
+
+    # Replacements come up; one busy actor is then lost to a liveness scan.
+    pool._collect_ready_actors()
+    [lost] = _submit_tracked(pool, 1)
+    pool._cleanup_lost_actor_future(
+        lost,
+        ActorStateSnapshot.from_ray_state(
+            "actor-lost", _dead_actor_state("actor-lost")
+        ),
+    )
+    pool._collect_ready_actors()
+
+    owned = len(pool._idle_actors) + len(pool._parked_actors)
+    assert owned == 4
+    assert sum(delta for _, delta in metric_updates) == owned
+    pool.shutdown()
+    assert metric_updates[-1] == ("workers", -owned)
+    assert sum(delta for _, delta in metric_updates) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -1408,3 +1587,642 @@ def test_udtf_processor_actor_exposes_flush_telemetry() -> None:
 
     actor_cls = _make_udtf_processor_actor()
     assert "flush_telemetry" in actor_cls.__ray_metadata__.method_meta.methods
+
+
+# ---------------------------------------------------------------------------
+# Releasing actors with no work left (GEN-1018). A long-tail backfill releases
+# idle appliers so their resources free before the job ends; late replacement
+# work restarts actors, never past the pool's original size.
+# ---------------------------------------------------------------------------
+
+
+class _ReleasableActor:
+    """Ray-handle double that records ``flush_telemetry`` calls in ``events``."""
+
+    def __init__(self, name: str, events: list[tuple[str, str]]) -> None:
+        self.name = name
+        self._events = events
+        self.__ray_ready__ = SimpleNamespace(remote=lambda: f"ready-{name}")
+
+    @property
+    def flush_telemetry(self) -> SimpleNamespace:
+        return SimpleNamespace(remote=lambda: self._events.append(("flush", self.name)))
+
+
+class _FakeClock:
+    """Monotonic clock double; tests advance ``now`` by hand."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _releasable_pool(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    num_actors: int = 4,
+    clock: _FakeClock | None = None,
+) -> tuple[ActorPool, list[tuple[str, str]], list[tuple[str, int]]]:
+    """An empty pool double whose cleanup calls and kills land in ``events``.
+
+    Actors started by the pool (late work into released slots) are named
+    ``new-<n>``, so a test can tell a restart from a reused actor.
+    """
+    events: list[tuple[str, str]] = []
+    metric_updates: list[tuple[str, int]] = []
+    started: list[_ReleasableActor] = []
+
+    def _factory() -> _ReleasableActor:
+        actor = _ReleasableActor(f"new-{len(started)}", events)
+        started.append(actor)
+        return actor
+
+    pool = object.__new__(ActorPool)
+    pool._actor_factory = _factory
+    pool._num_actors = num_actors
+    pool._clock = clock or _FakeClock()
+    pool._idle_actors = []
+    pool._idle_since = {}
+    pool._ready_fut_to_actor = {}
+    pool._future_to_actor = {}
+    pool._index_to_future = {}
+    pool._future_to_task = {}
+    pool._future_to_actor_id = {}
+    pool._pending_submits = []
+    pool._parked_actors = []
+    pool._drained_buffer = []
+    pool._next_task_index = 0
+    pool._released_slots = 0
+    pool.worker_metric = "workers"
+    pool.job_tracker = SimpleNamespace(
+        increment=SimpleNamespace(
+            remote=lambda metric, delta: metric_updates.append((metric, delta))
+        )
+    )
+    monkeypatch.setattr(ray, "kill", lambda actor: events.append(("kill", actor.name)))
+    monkeypatch.setattr(ray, "get", lambda *_args, **_kwargs: None)
+    return pool, events, metric_updates
+
+
+def test_release_idle_actors_cleans_up_then_kills_actors_without_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Idle and starting actors go; busy and parked actors stay. Cleanup runs on
+    every idle actor before any kill, because ray.kill skips exit hooks."""
+    pool, events, metrics = _releasable_pool(monkeypatch)
+    busy = _ReleasableActor("busy", events)
+    parked = _ReleasableActor("parked", events)
+    busy_future = object()
+    pool._idle_actors = [
+        _ReleasableActor("idle-0", events),
+        _ReleasableActor("idle-1", events),
+    ]
+    pool._ready_fut_to_actor = {object(): _ReleasableActor("starting", events)}
+    pool._future_to_actor = {busy_future: (0, busy)}
+    pool._future_to_actor_id = {busy_future: "busy-id"}
+    pool._parked_actors = [parked]
+
+    assert pool.release_idle_actors(cleanup_method="flush_telemetry") == 3
+
+    assert events == [
+        ("flush", "idle-0"),
+        ("flush", "idle-1"),
+        ("kill", "idle-0"),
+        ("kill", "idle-1"),
+        ("kill", "starting"),
+    ]
+    assert pool._idle_actors == []
+    assert pool._ready_fut_to_actor == {}
+    assert pool._future_to_actor == {busy_future: (0, busy)}
+    assert pool._parked_actors == [parked]
+    assert pool._released_slots == 3
+    assert metrics == [("workers", -3)]
+
+
+_TrackerCall = tuple[str, tuple[object, ...]]
+
+
+class _RecordingTracker:
+    """Job-tracker handle double that records every ``.remote`` call in order.
+
+    The pool sends these without waiting. The real tracker usually applies
+    one caller's calls in the order recorded here, but Ray does not guarantee
+    that for async actors.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[_TrackerCall] = []
+
+    def __getattr__(self, method: str) -> SimpleNamespace:
+        def remote(*args: object) -> _TrackerCall:
+            call = (method, args)
+            self.calls.append(call)
+            return call
+
+        return SimpleNamespace(remote=remote)
+
+
+def _start_pools_without_ray(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(actor_pool_mod, "_current_job_id_hex", lambda: None)
+    monkeypatch.setattr(actor_pool_mod, "_current_gcs_address", lambda: None)
+    monkeypatch.setattr(ray, "kill", lambda _actor: None)
+
+
+async def _replay_workers(
+    ledger: _JobTracker, calls: Iterable[_TrackerCall]
+) -> list[int]:
+    """Apply tracker calls to an in-process ledger; the workers count after each."""
+    counts = []
+    for method, args in calls:
+        await getattr(ledger, method)(*args)
+        counts.append(ledger.metrics.get("workers", {}).get("n", 0))
+    return counts
+
+
+class _RestoredTracker(_JobTracker):
+    """In-process tracker whose hydration restores a saved workers count of 5
+    and 40 checkpointed rows, as a tracker for a recovered job does. Saves are
+    no-ops."""
+
+    async def _load_persisted_state(self) -> tuple[dict[str, dict], None]:
+        workers = {"n": 5, "total": 3, "done": True, "desc": "Workers started"}
+        rows = {"n": 40, "total": 100, "done": False, "desc": "Rows checkpointed"}
+        return {"workers": workers, "rows_checkpointed": rows}, None
+
+    async def _save_with_throttle(self, force: bool = False) -> None:
+        return None
+
+
+def _fresh_ledger(*, restored: bool) -> _JobTracker:
+    if restored:
+        return _RestoredTracker(job_id="job", table_ref=cast("Any", object()))
+    return _JobTracker(job_id="job", table_ref=None, enable_saves=False)
+
+
+async def test_worker_count_is_exact_in_any_tracker_execution_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Each actor the pool starts (at init or for late work) and each one it
+    kills (release or shutdown) moves the workers count by one, so on a fresh
+    tracker the count ends at zero whatever order the calls are applied in."""
+    _start_pools_without_ray(monkeypatch)
+    events: list[tuple[str, str]] = []
+    ids = itertools.count()
+    tracker = _RecordingTracker()
+
+    pool = ActorPool(
+        lambda: _ReleasableActor(f"actor-{next(ids)}", events),
+        3,
+        job_tracker=tracker,
+    )
+    assert pool.release_idle_actors() == 3
+    pool.submit(lambda _a, _v: None, "late-task")
+    pool.shutdown()
+    assert next(ids) == 4  # 3 initial actors + 1 restarted for the late task
+
+    for order in set(itertools.permutations(tracker.calls)):
+        ledger = _fresh_ledger(restored=False)
+        counts = await _replay_workers(ledger, order)
+        assert counts[-1] == 0, order
+
+
+@pytest.mark.parametrize(
+    ("restored", "startup"), [(False, [0, 1, 2, 3]), (True, [5, 1, 2, 3])]
+)
+async def test_pool_counts_workers_from_zero_after_a_restore(
+    monkeypatch: pytest.MonkeyPatch, restored: bool, startup: list[int]
+) -> None:
+    """A recovered job's tracker restores the workers count of the run that
+    crashed (5). The pool's first increment drops it, so a pool of 3 reads
+    1, 2, 3 and ends at 0, as a job that never crashed does. The pool only
+    calls tracker methods that Geneva 0.18.0 workers have."""
+    _start_pools_without_ray(monkeypatch)
+    ids = itertools.count()
+    tracker = _RecordingTracker()
+
+    pool = ActorPool(
+        lambda: _ReleasableActor(f"actor-{next(ids)}", []),
+        3,
+        job_tracker=tracker,
+    )
+    assert pool.release_idle_actors() == 3
+    pool.submit(lambda _a, _v: None, "late-task")
+    pool.shutdown()
+    assert {method for method, _ in tracker.calls} == {"set_total", "increment"}
+
+    counts = await _replay_workers(_fresh_ledger(restored=restored), tracker.calls)
+    assert counts[:4] == startup
+    assert counts[-1] == 0
+    assert min(counts) >= 0
+
+
+@pytest.mark.parametrize("restored", [False, True], ids=["fresh", "restored"])
+async def test_two_pools_on_one_tracker_keep_the_count_exact(
+    monkeypatch: pytest.MonkeyPatch, restored: bool
+) -> None:
+    """Two pools share a tracker, with their updates landing in any
+    interleaving. Whichever pool adds first marks the count live, so the
+    other pool's adds reset nothing and the count ends at exactly 0."""
+    _start_pools_without_ray(monkeypatch)
+    tracker = _RecordingTracker()
+    ids = itertools.count()
+
+    def _factory() -> _ReleasableActor:
+        return _ReleasableActor(f"actor-{next(ids)}", [])
+
+    ActorPool(_factory, 2, job_tracker=tracker).shutdown()
+    first = list(tracker.calls)
+    ActorPool(_factory, 1, job_tracker=tracker).shutdown()
+    second = tracker.calls[len(first) :]
+
+    total = len(first) + len(second)
+    for slots in itertools.combinations(range(total), len(first)):
+        first_iter, second_iter = iter(first), iter(second)
+        order = [
+            next(first_iter) if i in slots else next(second_iter) for i in range(total)
+        ]
+        counts = await _replay_workers(_fresh_ledger(restored=restored), order)
+        assert counts[-1] == 0, order
+        assert min(counts) >= 0, order
+        first_add = order.index(("increment", ("workers", 1)))
+        assert max(counts[first_add:]) <= 3, order
+
+
+@pytest.mark.parametrize("path", ["increment", "batch_increment"])
+async def test_tracker_drops_only_a_restored_worker_count(
+    path: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The first add to a restored workers count drops it, once, with an info
+    log; a restored progress count keeps its value."""
+    ledger = _fresh_ledger(restored=True)
+
+    async def add(name: str, delta: int) -> None:
+        if path == "increment":
+            await ledger.increment(name, delta)
+        else:
+            await ledger.batch_increment({name: delta})
+
+    with caplog.at_level(logging.INFO, logger=jobtracker_mod.__name__):
+        await add("workers", 1)
+        await add("workers", 1)
+        await add("rows_checkpointed", 10)
+
+    assert ledger.metrics["workers"]["n"] == 2
+    assert ledger.metrics["workers"]["done"] is False
+    assert ledger.metrics["rows_checkpointed"]["n"] == 50
+    drops = [r for r in caplog.records if "stale restored count" in r.message]
+    assert [r.getMessage() for r in drops] == [
+        "Discarding stale restored count of workers: 5"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("first_call", "expected"),
+    [
+        # A 0.18.0 client starts each pool with set(workers, 0).
+        (("set", ("workers", 0)), [0, 1, 2]),
+        # The tracker restarted under a live pool, whose next update is a
+        # release; the restored count is real, so it is kept.
+        (("increment", ("workers", -1)), [4, 5, 6]),
+    ],
+    ids=["old-client-set-zero", "live-pool-decrement"],
+)
+async def test_tracker_keeps_a_restored_worker_count_after_other_updates(
+    first_call: _TrackerCall, expected: list[int]
+) -> None:
+    calls = [first_call, ("increment", ("workers", 1)), ("increment", ("workers", 1))]
+    assert await _replay_workers(_fresh_ledger(restored=True), calls) == expected
+
+
+def test_pool_start_does_not_wait_on_the_tracker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A slow or failing tracker never blocks the pool from starting: the
+    pool sends its updates and never waits on them."""
+    _start_pools_without_ray(monkeypatch)
+    waits: list[tuple[object, ...]] = []
+
+    def _timeout(*args: object, **_kwargs: object) -> None:
+        waits.append(args)
+        raise ray.exceptions.GetTimeoutError("tracker busy")
+
+    monkeypatch.setattr(ray, "get", _timeout)
+    ids = itertools.count()
+    tracker = _RecordingTracker()
+    pool = ActorPool(
+        lambda: _ReleasableActor(f"actor-{next(ids)}", []), 2, job_tracker=tracker
+    )
+
+    assert waits == []
+    assert len(pool._ready_fut_to_actor) == 2
+    pool.shutdown()
+
+
+def test_release_idle_actors_keeps_actors_while_work_is_queued(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pool, events, metrics = _releasable_pool(monkeypatch)
+    pool._ready_fut_to_actor = {object(): _ReleasableActor("starting", events)}
+    pool._pending_submits = [(object(), "queued-task")]
+
+    assert pool.release_idle_actors(cleanup_method="flush_telemetry") == 0
+    assert len(pool._ready_fut_to_actor) == 1
+
+    pool._pending_submits = []
+    pool._ready_fut_to_actor = {}
+    assert pool.release_idle_actors(cleanup_method="flush_telemetry") == 0
+    assert events == []
+    assert metrics == []
+    assert pool._released_slots == 0
+
+
+def test_submit_restarts_released_actors_up_to_original_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Late work starts one actor per queued task, until the released slots are
+    refilled: busy plus starting actors never exceed the original pool size."""
+    pool, events, metrics = _releasable_pool(monkeypatch, num_actors=4)
+    pool._future_to_actor = {object(): (0, _ReleasableActor("busy", events))}
+    pool._idle_actors = [_ReleasableActor(f"idle-{i}", events) for i in range(3)]
+    assert pool.release_idle_actors() == 3
+    metrics.clear()
+
+    for i in range(6):
+        pool.submit(lambda _a, _v: pytest.fail("no idle actor to run on"), i)
+
+    assert len(pool._pending_submits) == 6
+    assert len(pool._ready_fut_to_actor) == 3
+    assert pool._released_slots == 0
+    assert metrics == [("workers", 1)] * 3
+
+
+def test_submit_counts_starting_actors_before_restarting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed task's replacement actor is already starting; only queued work
+    beyond the starting actors restarts released slots."""
+    pool, events, _metrics = _releasable_pool(monkeypatch)
+    pool._released_slots = 3
+    pool._ready_fut_to_actor = {object(): _ReleasableActor("replacement", events)}
+
+    pool.submit(lambda _a, _v: None, "first")
+    assert len(pool._ready_fut_to_actor) == 1
+    assert pool._released_slots == 3
+
+    pool.submit(lambda _a, _v: None, "second")
+    assert len(pool._ready_fut_to_actor) == 2
+    assert pool._released_slots == 2
+
+
+def test_submit_never_starts_actors_when_none_were_released(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With release off the pool keeps its fixed size: queued work just waits."""
+    pool, events, metrics = _releasable_pool(monkeypatch)
+    pool._future_to_actor = {object(): (0, _ReleasableActor("busy", events))}
+
+    pool.submit(lambda _a, _v: None, "queued")
+
+    assert pool._pending_submits != []
+    assert pool._ready_fut_to_actor == {}
+    assert metrics == []
+
+
+# Idle grace: an idle actor is released only once it has been idle for
+# ``idle_grace_s``, so late work that arrives sooner runs on a warm actor.
+
+
+def _idle_at(
+    pool: ActorPool, clock: _FakeClock, at: float, *actors: _ReleasableActor
+) -> None:
+    """Hand ``actors`` back to the pool as idle at time ``at``."""
+    clock.now = at
+    for actor in actors:
+        pool._return_actor(actor)
+
+
+def test_release_keeps_actors_idle_for_less_than_the_grace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = _FakeClock()
+    pool, events, metrics = _releasable_pool(monkeypatch, clock=clock)
+    idle = _ReleasableActor("idle", events)
+    _idle_at(pool, clock, 0.0, idle)
+
+    clock.now = 59.9
+    released = pool.release_idle_actors(
+        idle_grace_s=60, cleanup_method="flush_telemetry"
+    )
+
+    assert released == 0
+    assert pool._idle_actors == [idle]
+    assert events == []
+    assert metrics == []
+    assert pool._released_slots == 0
+
+
+def test_release_frees_actors_once_idle_for_the_grace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Actors idle for the whole grace are flushed, then killed. One that went
+    idle later stays until its own grace ends."""
+    clock = _FakeClock()
+    pool, events, metrics = _releasable_pool(monkeypatch, clock=clock)
+    early = [_ReleasableActor(f"early-{i}", events) for i in range(2)]
+    late = _ReleasableActor("late", events)
+    _idle_at(pool, clock, 0.0, *early)
+    _idle_at(pool, clock, 40.0, late)
+
+    clock.now = 60.0
+    released = pool.release_idle_actors(
+        idle_grace_s=60, cleanup_method="flush_telemetry"
+    )
+
+    assert released == 2
+    assert events == [
+        ("flush", "early-0"),
+        ("flush", "early-1"),
+        ("kill", "early-0"),
+        ("kill", "early-1"),
+    ]
+    assert pool._idle_actors == [late]
+    assert metrics == [("workers", -2)]
+    assert pool._released_slots == 2
+
+    clock.now = 100.0
+    assert pool.release_idle_actors(idle_grace_s=60) == 1
+    assert pool._idle_actors == []
+    assert pool._idle_since == {}
+    assert metrics == [("workers", -2), ("workers", -1)]
+
+
+def test_work_within_the_grace_reuses_an_idle_actor_without_a_restart(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Late work (a retry, an OOM split) arriving within the grace runs on the
+    idle actor: nothing is released or restarted. The actor's idle time
+    starts over when it finishes that work."""
+    clock = _FakeClock()
+    pool, events, metrics = _releasable_pool(monkeypatch, clock=clock)
+    warm = _ReleasableActor("warm", events)
+    _idle_at(pool, clock, 0.0, warm)
+    clock.now = 10.0
+    assert pool.release_idle_actors(idle_grace_s=60) == 0
+
+    ran_on: list[_ReleasableActor] = []
+
+    def _run(actor: _ReleasableActor, _task: str) -> object:
+        ran_on.append(actor)
+        return object()
+
+    clock.now = 50.0
+    pool.submit(_run, "retry")
+
+    assert ran_on == [warm]
+    assert pool._pending_submits == []
+    assert pool._ready_fut_to_actor == {}
+    assert pool._released_slots == 0
+    assert pool._idle_since == {}
+    assert events == []
+    assert metrics == []
+
+    (future,) = pool._future_to_actor
+    pool._pop_future_state(future)
+    _idle_at(pool, clock, 70.0, warm)
+    clock.now = 129.0
+    assert pool.release_idle_actors(idle_grace_s=60) == 0
+    clock.now = 130.0
+    assert pool.release_idle_actors(idle_grace_s=60) == 1
+    assert events == [("kill", "warm")]
+
+
+def test_release_frees_starting_actors_without_waiting_for_the_grace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An actor still starting holds no warm state: once no work is left it goes
+    at once, while an idle actor within the grace stays."""
+    clock = _FakeClock()
+    pool, events, metrics = _releasable_pool(monkeypatch, clock=clock)
+    idle = _ReleasableActor("idle", events)
+    _idle_at(pool, clock, 0.0, idle)
+    pool._ready_fut_to_actor = {object(): _ReleasableActor("starting", events)}
+
+    released = pool.release_idle_actors(
+        idle_grace_s=60, cleanup_method="flush_telemetry"
+    )
+
+    assert released == 1
+    assert events == [("kill", "starting")]
+    assert pool._idle_actors == [idle]
+    assert pool._ready_fut_to_actor == {}
+    assert pool._released_slots == 1
+    assert metrics == [("workers", -1)]
+
+
+def test_zero_grace_releases_an_actor_as_soon_as_it_goes_idle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = _FakeClock()
+    pool, events, metrics = _releasable_pool(monkeypatch, clock=clock)
+    _idle_at(pool, clock, 5.0, _ReleasableActor("idle", events))
+
+    released = pool.release_idle_actors(
+        idle_grace_s=0, cleanup_method="flush_telemetry"
+    )
+
+    assert released == 1
+    assert events == [("flush", "idle"), ("kill", "idle")]
+    assert metrics == [("workers", -1)]
+
+
+@pytest.mark.parametrize("idle_grace_s", [0.0, 60.0])
+def test_release_keeps_every_actor_while_work_is_queued(
+    monkeypatch: pytest.MonkeyPatch, idle_grace_s: float
+) -> None:
+    clock = _FakeClock()
+    pool, events, metrics = _releasable_pool(monkeypatch, clock=clock)
+    _idle_at(pool, clock, 0.0, _ReleasableActor("idle", events))
+    pool._ready_fut_to_actor = {object(): _ReleasableActor("starting", events)}
+    pool._pending_submits = [(object(), "queued-task")]
+    clock.now = 600.0
+
+    assert pool.release_idle_actors(idle_grace_s=idle_grace_s) == 0
+    assert len(pool._idle_actors) == 1
+    assert len(pool._ready_fut_to_actor) == 1
+    assert events == []
+    assert metrics == []
+
+
+def test_pool_times_idle_actors_on_the_injected_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _start_pools_without_ray(monkeypatch)
+    tracker = _RecordingTracker()
+    clock = _FakeClock()
+    clock.now = 42.0
+    pool = ActorPool(
+        lambda: _ReleasableActor("new", []), 1, job_tracker=tracker, clock=clock
+    )
+    idle = _ReleasableActor("idle", [])
+
+    pool._return_actor(idle)
+
+    assert pool._idle_since == {ActorPool._actor_key(idle): 42.0}
+    pool.shutdown()
+
+
+def test_liveness_scan_ignores_actor_released_after_scan_started(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A scan snapshotted while an actor was busy can report it DEAD after it
+    finished its task and was released. A released actor is not lost: no
+    task error, no resubmit."""
+    pool, events, _metrics = _releasable_pool(monkeypatch)
+    actor = _ReleasableActor("finished", events)
+    future = object()
+    pool._future_to_actor = {future: (0, actor)}
+    pool._index_to_future = {0: future}
+    pool._future_to_task = {future: (lambda _a, _t: None, "task")}
+    pool._future_to_actor_id = {future: "actor-finished"}
+    pool.resubmit_on_actor_failure = False
+    pool._last_actor_liveness_scan_at = None
+    pool._liveness_scan_future = None
+    pool._liveness_scan_cancelled = threading.Event()
+    scanned: list[set[str]] = []
+    scan_future: Future = Future()
+
+    class _DeferredExecutor:
+        def submit(self, _fn: object, actor_ids: set[str]) -> Future:
+            scanned.append(set(actor_ids))
+            return scan_future
+
+    pool._liveness_scan_executor = _DeferredExecutor()
+    pool._maybe_start_liveness_scan()
+    assert scanned == [{"actor-finished"}]
+
+    monkeypatch.setattr(ray, "get", lambda *_args, **_kwargs: "result")
+    assert pool._resolve_future(future) == "result"
+    assert pool.release_idle_actors(cleanup_method="flush_telemetry") == 1
+
+    scan_future.set_result(
+        {
+            "actor-finished": ActorStateSnapshot.from_ray_state(
+                "actor-finished", _dead_actor_state("actor-finished")
+            )
+        }
+    )
+    pool._cleanup_lost_actor_future = lambda *_a: pytest.fail(
+        "a released actor is not a lost actor"
+    )
+    assert pool._consume_liveness_scan() is pool.NoResult
+    assert pool._pending_submits == []
+
+
+def test_applier_actor_exposes_flush_telemetry() -> None:
+    """Releasing an idle applier calls ``flush_telemetry`` before ``ray.kill``;
+    the actor must define it or the flush is a silent no-op."""
+    from geneva.runners.ray.pipeline import ApplierActor
+
+    assert "flush_telemetry" in ApplierActor.__ray_metadata__.method_meta.methods

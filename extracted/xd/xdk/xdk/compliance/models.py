@@ -17,16 +17,8 @@ from pydantic import BaseModel, Field, ConfigDict, RootModel
 
 from .. import schemas
 
-# Response model for get_jobs
-GetJobsResponse = schemas.GetComplianceJobsResponse
-
-
-# Request model for create_jobs
-CreateJobsRequest = schemas.CreateComplianceJobsRequest
-
-
-# Response model for create_jobs
-CreateJobsResponse = schemas.CreateComplianceJobsResponse
+# Response model for upload_job_submission
+UploadJobSubmissionResponse = schemas.UploadComplianceJobSubmissionResponse
 
 
 # Response model for get_jobs_by_id
@@ -37,5 +29,13 @@ GetJobsByIdResponse = schemas.GetComplianceJobsByIdResponse
 DeleteJobsByIdResponse = schemas.DeleteComplianceJobsByIdResponse
 
 
-# Response model for upload_job_submission
-UploadJobSubmissionResponse = schemas.UploadComplianceJobSubmissionResponse
+# Response model for get_jobs
+GetJobsResponse = schemas.GetComplianceJobsResponse
+
+
+# Request model for create_jobs
+CreateJobsRequest = schemas.CreateComplianceJobsRequest
+
+
+# Response model for create_jobs
+CreateJobsResponse = schemas.CreateComplianceJobsResponse

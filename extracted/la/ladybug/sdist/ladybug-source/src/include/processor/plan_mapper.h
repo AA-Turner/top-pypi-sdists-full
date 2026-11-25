@@ -22,14 +22,16 @@ class MapperExtension;
 }
 
 namespace binder {
+class NodeExpression;
 struct BoundCopyFromInfo;
 struct BoundDeleteInfo;
 struct BoundSetPropertyInfo;
 } // namespace binder
 
 namespace catalog {
+class NodeTableCatalogEntry;
 class TableCatalogEntry;
-}
+} // namespace catalog
 
 namespace planner {
 class LogicalSemiMasker;
@@ -104,6 +106,10 @@ public:
     std::unique_ptr<PhysicalOperator> mapCreateTable(
         const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapCreateIndex(
+        const planner::LogicalOperator* logicalOperator);
+    std::unique_ptr<PhysicalOperator> mapCreateConstraint(
+        const planner::LogicalOperator* logicalOperator);
+    std::unique_ptr<PhysicalOperator> mapDropConstraint(
         const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapCreateType(
         const planner::LogicalOperator* logicalOperator);
@@ -234,6 +240,8 @@ public:
         planner::Schema* inSchema, planner::Schema* outSchema,
         std::unique_ptr<PhysicalOperator> prevOperator);
 
+    const catalog::NodeTableCatalogEntry* getPartitionParent(
+        const binder::NodeExpression& node) const;
     NodeInsertExecutor getNodeInsertExecutor(const planner::LogicalInsertInfo* boundInfo,
         const planner::Schema& inSchema, const planner::Schema& outSchema) const;
     RelInsertExecutor getRelInsertExecutor(const planner::LogicalInsertInfo* boundInfo,
@@ -246,8 +254,6 @@ public:
         const binder::BoundDeleteInfo& boundInfo, const planner::Schema& schema) const;
     std::unique_ptr<RelDeleteExecutor> getRelDeleteExecutor(
         const binder::BoundDeleteInfo& boundInfo, const planner::Schema& schema) const;
-    NodeTableDeleteInfo getNodeTableDeleteInfo(const catalog::TableCatalogEntry& entry,
-        DataPos pkPos) const;
 
     static void mapSIPJoin(PhysicalOperator* joinRoot);
 
@@ -255,7 +261,9 @@ public:
         const planner::Schema& schema);
     static FactorizedTableSchema createFlatFTableSchema(
         const binder::expression_vector& expressions, const planner::Schema& schema);
-    std::unique_ptr<common::SemiMask> createSemiMask(common::table_id_t tableID) const;
+    // dbName names the attached database that owns tableID. Empty means the current database.
+    std::unique_ptr<common::SemiMask> createSemiMask(common::table_id_t tableID,
+        const std::string& dbName = {}) const;
 
     void addOperatorMapping(const planner::LogicalOperator* logicalOp,
         PhysicalOperator* physicalOp) {

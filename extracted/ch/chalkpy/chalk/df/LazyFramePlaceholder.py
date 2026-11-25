@@ -55,6 +55,7 @@ _DATAFRAME_PLAN_OPERATIONS: dict[str, tuple[_DataFrameOperation, ...]] = {
     "from_arrow": (("root", "frame"),),
     "from_catalog_table": (("root", "frame"),),
     "from_datasource": (("root", "frame"),),
+    "from_datasource_query": (("root", "frame"),),
     "from_pandas": (("root", "frame"),),
     "from_python_udf": (("root", "frame"),),
     "from_sql": (("root", "frame"),),
@@ -941,6 +942,42 @@ class LazyFramePlaceholder:
             source=source,
             query=query,
             expected_output_schema=expected_output_schema,
+        )
+
+    @classmethod
+    def from_datasource_query(
+        cls, source: typing.Any, query: str, expected_output_schema: pyarrow.Schema | None = None
+    ) -> "LazyFramePlaceholder":
+        """Create a DataFrame from a SQL data source query run by Chalk's native SQL drivers.
+
+        The source is recorded by kind and name; the engine replays the query on its own connection
+        pool for the deployed source of that name. A ``chalkdf`` call that passes ``pool=`` is not
+        recorded, since a caller's pool cannot leave its process.
+
+        Parameters
+        ----------
+        source
+            SQL source to query. Its ``name`` must match a data source in the target deployment.
+        query
+            SELECT statement to execute against the data source.
+        expected_output_schema
+            Output schema of the query result. When omitted, the engine discovers it from the
+            database.
+
+        Returns
+        -------
+        LazyFramePlaceholder containing the query results from the data source.
+        """
+        # Omitted rather than recorded as None, so the call lists only what the caller gave.
+        schema_kwargs: dict[str, Any] = {}
+        if expected_output_schema is not None:
+            schema_kwargs["expected_output_schema"] = expected_output_schema
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="from_datasource_query",
+            source=source,
+            query=query,
+            **schema_kwargs,
         )
 
     @classmethod
@@ -2304,7 +2341,7 @@ def _convert_to_dataframe_proto(
 
         args = list(df_constructor.args)
         kwargs = dict(df_constructor.kwargs)
-        if df_constructor.function_name == "from_datasource":
+        if df_constructor.function_name in ("from_datasource", "from_datasource_query"):
             if "source" in kwargs:
                 kwargs["source"] = _serialize_sql_source_reference(kwargs["source"])
             elif args:

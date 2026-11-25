@@ -573,7 +573,7 @@ async def test_pool_1134(test_env):
 
 async def test_pool_1135(test_env):
     "1135 - test register_parameter with pooled connection"
-    sdu = 4096
+    cache_size = 100
     params = test_env.get_pool_params()
     protocol = "proto-test"
     orig_connect_string = test_env.connect_string
@@ -583,12 +583,12 @@ async def test_pool_1135(test_env):
         assert passed_protocol == protocol
         assert passed_protocol_arg == orig_connect_string
         passed_params.parse_connect_string(passed_protocol_arg)
-        passed_params.set(sdu=sdu)
+        passed_params.set(stmtcachesize=cache_size)
 
     try:
         oracledb.register_protocol(protocol, hook)
         pool = oracledb.create_pool_async(dsn=connect_string, params=params)
-        assert params.sdu == sdu
+        assert pool.stmtcachesize == cache_size
         async with pool.acquire():
             pass
         await pool.close()
@@ -766,3 +766,29 @@ async def test_pool_1150(test_env):
     conn = await pool.acquire()
     await asyncio.gather(waiter(), pool.close(force=True))
     await conn.close()
+
+
+async def test_pool_1151(test_env):
+    "1151 - failed session callback does not keep a connection busy"
+    calls = 0
+
+    async def callback(conn, tag):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("refused")
+
+    pool = test_env.get_pool_async(
+        min=0,
+        max=1,
+        increment=1,
+        session_callback=callback,
+    )
+    with pytest.raises(RuntimeError, match="refused"):
+        await pool.acquire()
+    assert pool.busy == 0
+    async with pool.acquire() as conn:
+        await conn.ping()
+        assert calls == 2
+    assert pool.busy == 0
+    await pool.close()

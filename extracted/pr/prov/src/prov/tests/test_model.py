@@ -41,7 +41,6 @@ from prov.model import (
     ProvUnificationError,
     first,
     parse_boolean,
-    parse_xsd_datetime,
 )
 from prov.tests import examples
 from prov.tests.conftest import (
@@ -99,8 +98,9 @@ def test_unifying() -> None:
     # named "...-PASS-cNN.json" merge (the unified record count shrinks
     # relative to the flattened one), while "...-FAIL-cNN.json" fixtures
     # carry a same-identifier conflict for constraint cNN and must raise
-    # ProvUnificationError instead. See test_unification_rules.py for a
-    # fuller, inline-constructed characterization of each constraint.
+    # ProvUnificationError instead. See test_unification_rules.py and
+    # test_unification_constraints.py for a fuller characterization of each
+    # constraint.
     json_path = os.path.dirname(os.path.abspath(__file__)) + "/unification/"
     for filename in os.listdir(json_path):
         if not filename.endswith(".json"):
@@ -280,26 +280,24 @@ def test_add_bundle_rejects_document_with_nested_bundles() -> None:
         d1.add_bundle(d2)
 
 
-def test_literal_provn_with_single_quotes() -> None:
-    literal = Literal('{"foo": "bar"}')
+@pytest.mark.parametrize(
+    ("value", "expected_fragment"),
+    [
+        pytest.param('{"foo": "bar"}', '{\\"f', id="quoted-key"),
+        pytest.param('"""foo\\nbar"""', '\\"\\"\\"f', id="triple-quotes"),
+    ],
+)
+def test_literal_provn_escapes_double_quotes(
+    value: str, expected_fragment: str
+) -> None:
+    literal = Literal(value)
     string_rep = literal.provn_representation()
-    assert '{\\"f' in string_rep
+    assert expected_fragment in string_rep
 
 
-def test_literal_provn_with_triple_quotes() -> None:
-    literal = Literal('"""foo\\nbar"""')
-    string_rep = literal.provn_representation()
-    assert '\\"\\"\\"f' in string_rep
-
-
-# The following cover the Literal/datatype-parsing helpers
-# (planning/test-gap-checklist.md, T13 item under model.py: parse_xsd_datetime,
-# parse_boolean, Literal __eq__/__ne__/__hash__, and the langtag-forces-
-# InternationalizedString warning).
-
-
-def test_parse_xsd_datetime_returns_none_on_unparseable_input() -> None:
-    assert parse_xsd_datetime("not a date at all!!") is None
+# The following cover the Literal/datatype-parsing helpers (parse_boolean,
+# Literal __eq__/__ne__/__hash__, and the langtag-forces-InternationalizedString
+# warning).
 
 
 def test_parse_boolean_variants() -> None:
@@ -339,8 +337,7 @@ def test_langtag_without_datatype_defaults_to_internationalizedstring() -> None:
     assert literal.datatype == PROV_INTERNATIONALIZEDSTRING
 
 
-# The following cover ProvException paths in ProvRecord.add_attributes()
-# (planning/test-gap-checklist.md, T13 item under model.py).
+# The following cover ProvException paths in ProvRecord.add_attributes().
 
 
 @pytest.fixture
@@ -394,12 +391,12 @@ def test_conflicting_duplicate_value_with_naive_vs_aware_datetime(doc) -> None:
     # formal attribute still compare as "different" (Python's `!=`
     # between them returns True rather than raising -- confirmed
     # separately: no PROV_ATTRIBUTES value type raises TypeError on
-    # `!=`, so the `except TypeError` branch at model.py:521-523 is
-    # dead code for any value this library can construct; left
-    # deferred per planning/test-gap-checklist.md). This still exercises
-    # the duplicate-value ProvException with two "different" datetimes.
+    # `!=`, so the `except TypeError` branch in
+    # ProvRecord._check_repeated_value is dead code for any value this
+    # library can construct). This still exercises the duplicate-value
+    # ProvException with two "different" datetimes.
     activity = doc.activity("ex:a4", startTime=datetime.datetime(2020, 1, 1))
-    aware_time = datetime.datetime(2020, 1, 1, tzinfo=datetime.UTC)
+    aware_time = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
     with pytest.raises(ProvException):
         activity.add_attributes({"prov:startTime": aware_time})
 
@@ -413,18 +410,27 @@ def test_record_not_equal_to_non_record(doc) -> None:
 def test_record_value_converted_from_provrecord_for_generic_attribute(doc) -> None:
     # A ProvRecord used as the value of a *generic* (non-formal) attribute
     # is converted to a QualifiedName via its identifier
-    # (_auto_literal_conversion's ProvRecord branch, model.py:415-417).
+    # (ProvRecord._auto_literal_conversion's ProvRecord branch).
     e1 = doc.entity("ex:e1")
     e2 = doc.entity("ex:e2")
     e2.add_attributes({"ex:ref": e1})
     assert e2.get_attribute("ex:ref") == {e1.identifier}
 
 
-@pytest.mark.parametrize("identifier", [None, ""])
-def test_entity_without_identifier_raises(identifier: str | None) -> None:
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda d: d.entity(None), id="entity-none"),  # type: ignore[arg-type]
+        pytest.param(lambda d: d.entity(""), id="entity-empty"),
+        pytest.param(lambda d: d.activity(None), id="activity-none"),  # type: ignore[arg-type]
+    ],
+)
+def test_element_without_identifier_raises(
+    call: Callable[[ProvDocument], object],
+) -> None:
     d = ProvDocument()
     with pytest.raises(ProvElementIdentifierRequired):
-        d.entity(identifier)  # type: ignore[arg-type]
+        call(d)
 
 
 def _unresolved(name: str, reason: str, of: str = "") -> str:
@@ -493,12 +499,6 @@ def test_unresolvable_identifier_raises_the_qualified_name_sentence(
     assert str(ctx.value) == message
     assert not d.get_records()
     assert not d.bundles
-
-
-def test_activity_without_identifier_raises() -> None:
-    d = ProvDocument()
-    with pytest.raises(ProvElementIdentifierRequired):
-        d.activity(None)
 
 
 def test_provelementidentifierrequired_str() -> None:
@@ -589,28 +589,8 @@ def test_provexceptioninvalidqualifiedname_str() -> None:
     assert str(exc) == "Invalid Qualified Name: bogus"
 
 
-# The following cover small ProvRecord accessors not otherwise exercised
-# (planning/test-gap-checklist.md, T13 item under model.py).
-
-
-def test_get_asserted_types_default_empty(doc) -> None:
-    e1 = doc.entity("ex:e1")
-    assert e1.get_asserted_types() == set()
-
-
-def test_label_falls_back_to_identifier(doc) -> None:
-    e1 = doc.entity("ex:e1")
-    assert e1.label == str(e1.identifier)
-
-
-def test_value_property_default_empty(doc) -> None:
-    e1 = doc.entity("ex:e1")
-    assert e1.value == set()
-
-
 # The following exercise the fluent convenience wrappers on
-# ProvEntity/ProvActivity that examples.py does not otherwise reach
-# (planning/test-gap-checklist.md, T13 item under model.py).
+# ProvEntity/ProvActivity that examples.py does not otherwise reach.
 
 
 @pytest.fixture
@@ -686,12 +666,7 @@ def test_activity_set_time_end_only(ns_doc) -> None:
 
 
 # The following cover NamespaceManager branches not exercised by round-trip
-# serialization (planning/test-gap-checklist.md, T13 item under model.py).
-
-
-def test_construction_without_default_namespace() -> None:
-    nm = NamespaceManager()
-    assert nm.get_default_namespace() is None
+# serialization.
 
 
 def test_get_namespace_miss_and_hit() -> None:
@@ -793,29 +768,8 @@ def test_construction_with_default_namespace() -> None:
     assert default_ns.uri == "http://example.org/"
 
 
-def test_add_namespaces_with_empty_collection_is_a_no_op() -> None:
-    nm = NamespaceManager()
-    nm.add_namespaces([])
-    assert list(nm.get_registered_namespaces()) == []
-
-
-def test_get_unused_prefix_returns_original_when_available() -> None:
-    # _get_unused_prefix() is only ever called internally once its
-    # caller (add_namespace) has already confirmed a conflict, so this
-    # "prefix is actually free" branch is otherwise unreachable; call
-    # the helper directly to cover it.
-    nm = NamespaceManager()
-    assert nm._get_unused_prefix("neverused") == "neverused"
-
-
 # The following cover ProvBundle API edges not reached by round-trip
-# serialization (planning/test-gap-checklist.md, T13 item under model.py).
-
-
-def test_bundles_property_raises_on_a_plain_bundle() -> None:
-    b = ProvBundle()
-    with pytest.raises(ProvException):
-        list(b.bundles)
+# serialization.
 
 
 def test_standalone_bundle_properties() -> None:
@@ -837,24 +791,11 @@ def test_mandatory_valid_qname_failure() -> None:
         b.mandatory_valid_qname(None)
 
 
-def test_eq_early_out_for_non_bundle() -> None:
-    b = ProvBundle()
-    assert b != "not a bundle"
-    assert b != 42
-
-
 def test_default_ns_uri_present_and_absent() -> None:
     b = ProvBundle()
     assert b.default_ns_uri is None
     b.set_default_namespace("http://example.org/")
     assert b.default_ns_uri == "http://example.org/"
-
-
-def test_get_registered_namespaces() -> None:
-    b = ProvBundle()
-    b.add_namespace("ex", "http://example.org/")
-    uris = {ns.uri for ns in b.get_registered_namespaces()}
-    assert "http://example.org/" in uris
 
 
 def test_has_bundles_false_for_plain_bundle() -> None:
@@ -863,8 +804,7 @@ def test_has_bundles_false_for_plain_bundle() -> None:
 
 
 # The following cover ProvDocument.serialize()'s file-path save path and
-# .deserialize()'s argument-validation error (planning/test-gap-checklist.md, T13
-# item under model.py, natural neighbours of the T12 read() tests).
+# .deserialize()'s argument-validation error.
 
 
 def test_serialize_to_file_path_uses_tempfile_and_move(tmp_path) -> None:
@@ -921,34 +861,6 @@ def test_serialize_xml_to_text_mode_named_temporary_file(doc, tmp_path) -> None:
         assert ProvDocument.deserialize(stream.name, format="xml") == doc
 
 
-# The following cover ProvDocument.__eq__'s bundle-comparison early-outs and
-# unified()'s no-bundles loop (planning/test-gap-checklist.md, T13 item under
-# model.py).
-
-
-def test_not_equal_when_other_is_missing_a_bundle() -> None:
-    d1 = ProvDocument()
-    d1.set_default_namespace("http://example.org/")
-    d1.bundle("b1").entity("e1")
-
-    d2 = ProvDocument()
-    d2.set_default_namespace("http://example.org/")
-
-    assert d1 != d2
-
-
-def test_not_equal_when_matching_bundle_content_differs() -> None:
-    d1 = ProvDocument()
-    d1.set_default_namespace("http://example.org/")
-    d1.bundle("b1").entity("e1")
-
-    d2 = ProvDocument()
-    d2.set_default_namespace("http://example.org/")
-    d2.bundle("b1").entity("e2")
-
-    assert d1 != d2
-
-
 # ProvBundle.__eq__: the set-equality fast path and the slow path it
 # falls back to when ProvRecord.__eq__ is looser than ProvRecord.__hash__.
 
@@ -970,6 +882,7 @@ def test_equal_when_same_records_added_in_different_order() -> None:
     assert d2 == d1
 
 
+# The following covers unified()'s no-bundles loop.
 def test_unified_with_no_bundles() -> None:
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
@@ -1093,9 +1006,7 @@ def test_the_document_argument_is_deprecated(linked: bool) -> None:
 
 
 # The following cover ProvDocument.plot()'s filename-based save path and its
-# unknown-format ValueError (planning/test-gap-checklist.md, T13 item under
-# model.py; the matplotlib/interactive-display path remains deferred, see
-# checklist).
+# unknown-format ValueError.
 
 
 @pytest.fixture

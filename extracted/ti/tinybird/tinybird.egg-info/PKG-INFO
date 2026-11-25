@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 5.0.3
+Version: 5.0.4
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -8,6 +8,7 @@ Author-email: support@tinybird.co
 Requires-Python: >=3.11, <3.14
 Description-Content-Type: text/x-rst
 Requires-Dist: aiofiles==24.1.0
+Requires-Dist: asgiref<4,>=3.9
 Requires-Dist: boto3
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: click<8.2,>=8.1.6
@@ -29,7 +30,7 @@ Requires-Dist: shandy-sqlfmt==0.29.0
 Requires-Dist: shandy-sqlfmt[jinjafmt]==0.29.0
 Requires-Dist: toposort==1.10
 Requires-Dist: tornado~=6.5.5
-Requires-Dist: urllib3<2,>=1.26.14
+Requires-Dist: urllib3~=2.8
 Requires-Dist: watchdog==6.0.0
 Requires-Dist: wheel
 Requires-Dist: packaging<24,>=23.1
@@ -52,6 +53,34 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+5.0.4
+*******
+
+- `Changed` ``tb test run`` loads auto-detected fixtures in a stable, name-sorted order so runs are reproducible across platforms.
+- `Added` ``tb test run --fixture DATASOURCE=PATH`` (repeatable) to load extra fixture files in a controlled order, and ``--no-auto-fixtures`` to skip the name-matching auto-load step.
+- `Fixed` ``tb endpoint ls --format json`` prints the endpoints instead of failing with ``echo() got an unexpected keyword argument 'force_output'`` when the global ``--output`` is ``human``.
+- `Fixed` ``tb test run`` skips a test file that is empty or has only comments instead of failing with ``object of type 'NoneType' has no len()``. ``tb test update`` leaves such a file unchanged instead of failing with ``'NoneType' object is not iterable``.
+- `Fixed` ``tb deploy`` stops waiting and reports how to promote manually when the server reports an auto-promotion error.
+- `Fixed` ``tb --branch=NAME deploy`` and ``tb preview`` print ``tb --branch=NAME deployment ...`` in their follow-up hints instead of ``tb --cloud deployment ...``.
+- `Fixed` ``tb deployment promote`` and ``tb deployment discard`` pick the live deployment by its ``live`` flag instead of its position in the list, and fail when no deployment is live.
+- `Changed` Send the client token in the ``Authorization: Bearer`` header instead of adding it to the URL, so retry warnings and request logs do not show it. A ``token`` query parameter given explicitly, such as ``tb endpoint data --token``, takes precedence.
+- `Changed` SQL templates that use ``**`` keyword unpacking log the warning ``Template uses ** keyword unpacking``. This syntax will become invalid.
+- `Changed` Add type annotations to the parameters of the shared datafile parser. No user-facing behavior changes.
+- `Changed` Add type annotations to the parameters of the remaining CLI modules. No user-facing behavior changes.
+- `Changed` Upgrade ``urllib3`` from ``>=1.26.14,<2`` to ``~=2.8``. HTTPS connections to custom hosts and proxies need TLS 1.2 or later and a certificate with a ``subjectAltName``. On Python 3.13, the CA chain must also pass strict X.509 checks.
+- `Fixed` ``tb sql`` queries longer than 4096 characters that contain non-Latin-1 characters (for example ``€``) no longer fail with ``UnicodeEncodeError``.
+- `Fixed` ``tb deploy --template`` rejects template paths outside the cloned repository (absolute paths, ``..`` segments or symlinks) instead of copying local files into the project folder.
+- `Fixed` ``tb token create jwt`` fails when a ``--filter`` or ``--fixed-params`` lands, by position, on a scope that does not accept it, instead of creating the token without that restriction.
+- `Improved` Workspace listing skips member notification settings.
+- `Improved` Workspace listing skips dedicated-cluster detection.
+- `Fixed` Parsing large multiline datafile blocks avoids quadratic memory allocations.
+- `Fixed` Printing large branch regression test summaries avoids quadratic memory allocations.
+- `Fixed` Parsing large multiline datafile blocks with the legacy parser avoids quadratic memory allocations.
+- `Fixed` The CLI depends on ``asgiref`` (``>=3.9``) instead of bundling an old copy of its ``async_to_sync``/``sync_to_async`` helpers, which avoids ``RuntimeError: Event loop is closed``.
+- `Fixed` ``tb token create static`` keeps ``+``, ``&`` and ``#`` in ``--filter`` when it updates an existing token.
+- `Fixed` Building token filter parameters and SQL schemas avoids quadratic memory allocations.
+- `Changed` Remove unused ``Project`` helpers and the unused ``organization_subscription`` client method.
 
 5.0.3
 *******

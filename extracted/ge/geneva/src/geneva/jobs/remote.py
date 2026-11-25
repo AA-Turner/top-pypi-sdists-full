@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import attrs
 
+from geneva.jobs.heartbeat import DriverLiveness
 from geneva.jobs.jobs import (
     JobRecord,
     JobStatus,
@@ -21,6 +22,13 @@ if TYPE_CHECKING:
     from geneva.db import Connection
 
 _LOG = logging.getLogger(__name__)
+
+# How long a job's row may stay unfinished after its driver's heartbeat reads
+# EXITED before waiting stops (GEN-1012). Long enough for the driver's submitter
+# to record the final status, and many heartbeat intervals, so a delayed exit
+# heartbeat from an earlier driver of the same job id is overwritten by the
+# running driver's next beat before it could end a wait.
+DRIVER_EXIT_GRACE_S = 300.0
 
 # Metric names to display in remote progress bars. Sources:
 #   Planning: _plan_read / _plan_copy emit plan_fragments (sub-step desc + n/M).
@@ -165,6 +173,13 @@ class _ServerJobError(RuntimeError):
     """
 
 
+class _DriverExitedError(RuntimeError):
+    """The job's driver exited, but no final status was recorded for the job.
+
+    Raised instead of waiting forever; it makes no claim about the outcome.
+    """
+
+
 @attrs.define
 class RemoteJob:
     """Handle for an asynchronous remote job dispatched via phalanx.
@@ -180,6 +195,9 @@ class RemoteJob:
     column_name: str | None = None
     job_type: str = "backfill"
     launched_at: datetime = attrs.Factory(lambda: datetime.now(tz=None))
+    # When this handle first saw the unfinished job's driver heartbeat read
+    # EXITED, by the monotonic clock; None while it does not.
+    _exited_since: float | None = attrs.field(default=None, init=False, repr=False)
 
     @classmethod
     def from_job(cls, conn: Connection, job_id: str) -> RemoteJob:
@@ -235,8 +253,31 @@ class RemoteJob:
     )
 
     def done(self) -> bool:
-        """True if job has reached a terminal state (DONE, FAILED, or CANCELLED)."""
-        return self.status in self._TERMINAL_STATUSES
+        """True if job has reached a terminal state (DONE, FAILED, or CANCELLED),
+        or its driver has exited without one being recorded; :meth:`result`
+        then raises."""
+        record = self._read_job_record()
+        if _status_str(record.status) in self._TERMINAL_STATUSES:
+            return True
+        return self._exited_without_status(record, DRIVER_EXIT_GRACE_S)
+
+    def _exited_without_status(self, record: JobRecord, grace_s: float) -> bool:
+        """True once this handle has seen the unfinished job's driver heartbeat
+        read EXITED for ``grace_s`` seconds."""
+        try:
+            exited = (
+                self._conn._history.driver_liveness(record) is DriverLiveness.EXITED
+            )
+        except Exception:
+            _LOG.debug("Cannot read the driver heartbeat of job %s", self.job_id)
+            exited = False
+        if not exited:
+            self._exited_since = None
+            return False
+        now = time.monotonic()
+        if self._exited_since is None:
+            self._exited_since = now
+        return now - self._exited_since >= grace_s
 
     def result(
         self,
@@ -265,8 +306,8 @@ class RemoteJob:
         _LOG.info("Polling remote job: %s", self.job_id)
         try:
             return self._poll_until_done(timeout=timeout, bars=bars)
-        except _ServerJobError:
-            # The job failed/was cancelled server-side; nothing to resume.
+        except (_ServerJobError, _DriverExitedError):
+            # The job ended server-side; there is no running job to resume.
             raise
         except BaseException:
             # Client-side failure (lost connection, timeout, Ctrl-C): the server
@@ -287,8 +328,12 @@ class RemoteJob:
         timeout: float | None = None,
         refresh_secs: float = 2.0,
         bars: _RemoteProgressBars | None = None,
+        exit_grace_s: float | None = None,
     ) -> JobRecord:
         """Poll ``_geneva_jobs`` until terminal state, rendering tqdm bars.
+
+        Stops with an error once the driver has exited for ``exit_grace_s``
+        (default :data:`DRIVER_EXIT_GRACE_S`) without a final status recorded.
 
         ``bars`` lets a caller share one renderer across drivers — e.g. a sync
         ``Table.backfill`` loop that already rendered live via ``status()``
@@ -325,6 +370,13 @@ class RemoteJob:
                     detail = events[-1] if events else "no details available"
                     raise _ServerJobError(
                         f"Job {self.job_id} {status.lower()}: {detail}"
+                    )
+                grace_s = DRIVER_EXIT_GRACE_S if exit_grace_s is None else exit_grace_s
+                if self._exited_without_status(record, grace_s):
+                    raise _DriverExitedError(
+                        f"Job {self.job_id} has no final status, but its driver "
+                        "exited. Check the table for the job's output before "
+                        "running it again."
                     )
 
                 time.sleep(refresh_secs)

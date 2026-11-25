@@ -1,5 +1,7 @@
+import gc
 import pathlib
 import re
+import weakref
 from io import StringIO
 from types import SimpleNamespace
 
@@ -9,6 +11,8 @@ import panel_material_ui as pmui
 from bokeh.document import Document
 from panel.config import config
 from panel.io.resources import CDN_DIST
+from panel.io.state import state
+from panel.util import edit_readonly
 from panel_material_ui.base import _env
 from panel_material_ui.theme import PANEL_DESIGN_HOOKS
 
@@ -169,3 +173,76 @@ def test_page_site_url_links_default_only_when_served(site_url, served, expected
     root = pmui.Page(title="Atlas", site_url=site_url).get_root(_document(served))
 
     assert root.data.site_url == expected
+
+
+def test_page_busy_follows_state():
+    page = pmui.Page()
+    with edit_readonly(state):
+        state.busy = True
+    assert page.busy
+    with edit_readonly(state):
+        state.busy = False
+    assert not page.busy
+
+
+def _busy_watchers():
+    return state.param.watchers.get('busy', {}).get('value', [])
+
+
+def test_page_stops_following_busy_after_cleanup():
+    page = pmui.Page()
+    watcher = page._busy_watchers[0]
+    assert watcher in _busy_watchers()
+    root = page.get_root(Document())
+    page._cleanup(root)
+    assert watcher not in _busy_watchers()
+    assert not page._busy_watchers
+    with edit_readonly(state):
+        state.busy = True
+    try:
+        assert not page.busy
+        page.get_root(Document())
+        assert page.busy
+        assert page._busy_watchers[0] in _busy_watchers()
+    finally:
+        with edit_readonly(state):
+            state.busy = False
+    assert not page.busy
+
+
+def test_page_does_not_leak_through_state_busy():
+    gc.collect()
+    n_watchers = len(state.param.watchers.get('busy', {}).get('value', []))
+    refs = []
+    for _ in range(5):
+        page = pmui.Page()
+        refs.append(weakref.ref(page))
+        del page
+    gc.collect()
+    assert all(ref() is None for ref in refs)
+    assert len(state.param.watchers.get('busy', {}).get('value', [])) == n_watchers
+
+
+def test_page_header_color_and_rail_defaults():
+    page = pmui.Page()
+    assert page.header_color == "primary"
+    assert page.rail == []
+    assert page.rail_width == 80
+
+
+def test_page_header_color_rejects_unknown_value():
+    with pytest.raises(ValueError):
+        pmui.Page(header_color="secondary")
+
+
+def test_page_rail_children_synced(document, comm):
+    nav = pmui.MenuList(items=[{"label": "Home", "icon": "home"}])
+    page = pmui.Page(rail=[nav], rail_width=96, header_color="paper")
+    model = page.get_root(document, comm=comm)
+    assert model.data.rail == [nav._models[model.ref["id"]][0]]
+    assert model.data.rail_width == 96
+    assert model.data.header_color == "paper"
+    assert model.data.sidebar == []
+
+    page.rail = []
+    assert model.data.rail == []

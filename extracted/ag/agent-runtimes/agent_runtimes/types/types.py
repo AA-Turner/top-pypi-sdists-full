@@ -5,7 +5,7 @@
 
 import json
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import (
     AliasChoices,
@@ -479,6 +479,29 @@ class UiRendererSpec(BaseModel):
         default=True,
         description="Whether an application may be exposed through it today",
     )
+
+
+class RuntimeEngineSpec(BaseModel):
+    """A runtime engine (`agentspecs/runtime-engines`): what runs and hosts
+    an agent, named by its spec's `runtime_engine`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(
+        ..., description="What an agent's `runtime_engine` says (e.g. 'kagent')"
+    )
+    version: str = Field(..., description="Specification version")
+    name: str = Field(..., description="Its name, as a person reads it")
+    description: str = Field(..., description="What it is")
+    docs_url: str = Field(..., description="Its own documentation")
+    position: int = Field(
+        ..., description="Its place where the engines are offered; 1 is the default"
+    )
+    harnesses: Optional[List[str]] = Field(
+        ..., description="The harnesses it runs, by id; None when it runs any"
+    )
+    enabled: bool = Field(..., description="Whether an agent may run on it today")
 
 
 class UiChoiceSpec(BaseModel):
@@ -2146,10 +2169,6 @@ class AppVoiceSpec(BaseModel):
         return self.enabled and self.output != "off"
 
 
-#: What runs and hosts an agent (``runtime_engine``), the default first.
-RUNTIME_ENGINES: tuple[str, ...] = ("datalayer", "kagent", "agentcore")
-
-
 class AgentspecOptional(BaseModel):
     """What an agent starts without (agentspecs 0.0.188, the user, 14 November 2026).
 
@@ -2246,6 +2265,19 @@ class Agentspec(BaseModel):
                 f"an agent spec says `ui`, not `{old[0]}`: one of agentspecs/ui"
             )
         return data
+
+    @field_validator("runtime_engine")
+    @classmethod
+    def _runtime_engine_in_catalogue(cls, value: str) -> str:
+        """An engine the runtime engine catalogue does not have is refused."""
+        from agent_runtimes.specs.runtime_engines import RUNTIME_ENGINES
+
+        if value not in RUNTIME_ENGINES:
+            raise ValueError(
+                f"there is no runtime_engine named {value!r}: one of "
+                f"{', '.join(RUNTIME_ENGINES)}"
+            )
+        return value
 
     @field_validator("model_additionals")
     @classmethod
@@ -2398,14 +2430,14 @@ class Agentspec(BaseModel):
         ),
         alias="harness",
     )
-    runtime_engine: Literal["datalayer", "kagent", "agentcore"] = Field(
+    runtime_engine: str = Field(
         default="datalayer",
         description=(
             "What runs and hosts this agent. 'datalayer' (default): a Datalayer "
             "agent runtime, from the platform's pools or on your own machine. "
-            "'kagent': kagent, a Kubernetes control plane for agents — a kagent "
+            "'kagent': Kagent, a Kubernetes control plane for agents — a Kagent "
             "Agent (an AgentTemplate and a Harness running "
-            "`agent-runtimes serve --target kagent`), reached through kagent's "
+            "`agent-runtimes serve --target kagent`), reached through Kagent's "
             "A2A gateway at /agents/{namespace}/{name}, each conversation a "
             "session actor of Agent Substrate, suspended when idle and resumed "
             "on the next message. 'agentcore': Amazon Bedrock AgentCore Runtime "
@@ -4821,3 +4853,28 @@ class SceneSpec(BaseModel):
     live: str = Field(
         default="", description="A scripted scene: what of it runs on Datalayer today"
     )
+
+
+# -- names that moved to the generated runtime engine catalogue ------------------------------
+
+#: Read from here until 1.8.5, generated since into ``agent_runtimes.specs.runtime_engines``,
+#: which imports this module: they are looked up there when first asked for (PEP 562), so
+#: ``from agent_runtimes.types.types import RUNTIME_ENGINES`` still holds.
+_FROM_RUNTIME_ENGINES = frozenset({"RUNTIME_ENGINES"})
+
+if TYPE_CHECKING:
+    RUNTIME_ENGINES: tuple[str, ...]
+else:
+
+    def __getattr__(name: str) -> Any:
+        """A name the runtime engine catalogue has now, read from it."""
+        if name in _FROM_RUNTIME_ENGINES:
+            from agent_runtimes.specs import runtime_engines
+
+            return getattr(runtime_engines, name)
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    """The module's names, those read from the runtime engine catalogue included."""
+    return sorted({*globals(), *_FROM_RUNTIME_ENGINES})

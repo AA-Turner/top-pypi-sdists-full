@@ -1,5 +1,10 @@
-from paddle_billing.ResponseParser import ResponseParser
-from paddle_billing.Entities.Collections import Paginator, CurrencyDefinitionCollection
+from requests import Response
+
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
+from paddle_billing.Entities.Collections import (
+    Paginator as Paginator,
+    CurrencyDefinitionCollection as CurrencyDefinitionCollection,
+)
 
 from typing import TYPE_CHECKING
 
@@ -10,7 +15,7 @@ if TYPE_CHECKING:
 class CurrenciesClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(self) -> CurrencyDefinitionCollection:
         self.response = self.client.get_raw("/currencies")

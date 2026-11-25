@@ -4705,6 +4705,35 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
+    def csic(self, symbols: typing.List[QuantConnect.Symbol], signal_factory: typing.Any, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.IBaseData] = None) -> QuantConnect.Indicators.CrossSectionalInformationCoefficient:
+        """
+        Creates a new Cross-Sectional Information Coefficient (CSIC) indicator for a Python signal factory, which may create
+        custom indicators. The indicator will be automatically updated on the given resolution.
+        
+        :param symbols: The assets to correlate across. A period needs at least three. The indicator's Add and Remove methods change them
+        :param signal_factory: Creates the signal of each asset from its symbol. The indicator updates them, so they must not be updated elsewhere
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator and its signals, if null defaults to the BaseData itself
+        :returns: The CrossSectionalInformationCoefficient indicator for the given parameters.
+        """
+        ...
+
+    @overload
+    def csic(self, symbols: typing.List[QuantConnect.Symbol], signal_factory: typing.Callable[[QuantConnect.Symbol], QuantConnect.Indicators.IIndicator], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.IBaseData] = None) -> QuantConnect.Indicators.CrossSectionalInformationCoefficient:
+        """
+        Creates a new Cross-Sectional Information Coefficient (CSIC) indicator: each period, the Spearman correlation across
+        the assets between their signal values at the end of the previous period and their returns over this period.
+        The indicator will be automatically updated on the given resolution.
+        
+        :param symbols: The assets to correlate across. A period needs at least three. The indicator's Add and Remove methods change them
+        :param signal_factory: Creates the signal of each asset. The indicator updates them, so they must not be updated elsewhere
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator and its signals, if null defaults to the BaseData itself
+        :returns: The CrossSectionalInformationCoefficient indicator for the given parameters.
+        """
+        ...
+
+    @overload
     def cusip(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
         """
         Converts a symbol into a CUSIP identifier
@@ -8321,6 +8350,37 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         :returns: The TrueStrengthIndex indicator for the given parameters.
+        """
+        ...
+
+    @overload
+    def tsic(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], signal: typing.Any, period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.IBaseData] = None) -> QuantConnect.Indicators.TimeSeriesInformationCoefficient:
+        """
+        Creates a new Time-Series Information Coefficient (TSIC) indicator for a Python signal, such as a custom indicator.
+        The indicator will be automatically updated on the given resolution.
+        
+        :param symbol: The asset whose returns the signal times
+        :param signal: The signal whose information coefficient to measure. The indicator updates it, so it must not be updated elsewhere
+        :param period: The number of signal values and next returns to correlate
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator and its signal, if null defaults to the BaseData itself
+        :returns: The TimeSeriesInformationCoefficient indicator for the given parameters.
+        """
+        ...
+
+    @overload
+    def tsic(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], signal: QuantConnect.Indicators.IIndicator, period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.IBaseData] = None) -> QuantConnect.Indicators.TimeSeriesInformationCoefficient:
+        """
+        Creates a new Time-Series Information Coefficient (TSIC) indicator: the Spearman correlation, over a window of periods,
+        between the signal's value at the end of each period and the asset's return over the next period.
+        The indicator will be automatically updated on the given resolution.
+        
+        :param symbol: The asset whose returns the signal times
+        :param signal: The signal whose information coefficient to measure. The indicator updates it, so it must not be updated elsewhere
+        :param period: The number of signal values and next returns to correlate
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator and its signal, if null defaults to the BaseData itself
+        :returns: The TimeSeriesInformationCoefficient indicator for the given parameters.
         """
         ...
 

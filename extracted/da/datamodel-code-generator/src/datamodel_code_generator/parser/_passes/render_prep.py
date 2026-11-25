@@ -35,6 +35,7 @@ from datamodel_code_generator.model.base import (
     _default_state,
     _effective_field_owners,
     _model_key_of_model,
+    _model_of_reference,
     ordering_constructor_fields,
     set_item_models_keeping_builtin_hash,
 )
@@ -476,7 +477,7 @@ def set_validate_default_on_fields(
             if not _applies_default(model_field):
                 continue
             if model_field.VALIDATES_STRUCTURED_DEFAULTS and (
-                lacks := required_fields_a_default_lacks(model_field, _model_named)
+                lacks := required_fields_a_default_lacks(model_field, _model_of_reference)
             ):
                 incomplete.append(_incomplete_model_default(model, model_field, *lacks))
             if (
@@ -520,11 +521,6 @@ def _incomplete_model_defaults_message(fields: list[str]) -> str:
         f"{for_count(count, 'the property', 'such a property')} out fails (JSON Schema does not validate a default). "
         "--omit-incomplete-model-defaults writes such a property without its default."
     )
-
-
-def _model_named(reference: Any) -> DataModel | None:
-    """Return the model a reference names, or None for a reference that names none."""
-    return source if isinstance(source := reference.source, DataModel) else None
 
 
 def deserialize_default_value(
@@ -668,7 +664,7 @@ def _validated_default_value(
 
     def read(node: DataType, value: object, holder: DataModel) -> object:
         if (reference := node.reference) is not None:
-            return model_value(_model_named(reference), value, holder)
+            return model_value(_model_of_reference(reference), value, holder)
         if node in ARRAYS and isinstance(value, _ARRAY_VALUES):
             return array_value(node, value, holder)
         if node in MAPPINGS and isinstance(value, dict):
@@ -771,18 +767,22 @@ def record_decimal_default_warning(parser: RenderPrepHost, model: DataModel, fie
         examples.append(f"{model.class_name}.{field.name or '<root>'}")
 
 
-def fix_tag_opt_out_field_ordering(parser: RenderPrepHost, opted_out: list[DataModel], models: list[DataModel]) -> None:
+def fix_tag_opt_out_field_ordering(
+    parser: RenderPrepHost, opted_out: list[DataModel], contexts: Sequence[ModuleContextView]
+) -> None:
     """Make keyword-only the structs that opted out of a tag, and those inheriting from them, when they need it.
 
     A field named like the inherited tag field is then a field of its own after the inherited ones, as the base
     declares the tag field as a class variable instead, so a required one can follow a default. Bases are fixed
     before the structs inheriting from them, as their keyword-only fields are not positional there.
     """
+    if not opted_out:
+        return
     opted_out_ids = {id(model) for model in opted_out}
     for model, ancestors in sorted(
         (
             (model, ancestors)
-            for model in models
+            for model in _context_models(contexts)
             if (ancestors := constructor_base_models(parser, model, bases="parsed"))
             and not opted_out_ids.isdisjoint(map(id, (model, *ancestors)))
         ),
@@ -1379,6 +1379,8 @@ def settle_module_unused_models(
 
     One that removal leaves written in a merged module (``run_unused_models``) stays live there (#5905).
     """
+    if not run.unused_models:
+        return
     leaving = run_unused_models(parser, run)
     for prepared in prepared_modules:
         if prepared.current_unused_models:

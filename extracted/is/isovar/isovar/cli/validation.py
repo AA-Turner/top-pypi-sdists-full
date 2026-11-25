@@ -20,7 +20,7 @@ from argparse import ArgumentTypeError
 import logging
 import os
 
-from varcode.cli import variant_collection_from_args as _varcode_variant_collection_from_args
+_varcode_variant_collection_from_args = None
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +56,11 @@ def variant_collection_from_args(args):
     Structural-variant records (symbolic or breakend ALTs) are skipped with a
     warning: they need ``isovar sv-source`` and ``isovar sv-audit``.
     """
+    loader = _varcode_variant_collection_from_args
+    if loader is None:
+        from varcode.cli import variant_collection_from_args as loader
     try:
-        variants = _varcode_variant_collection_from_args(args)
+        variants = loader(args)
     except (OSError, ValueError) as error:
         message = str(error)
         if "genome" in message.lower() and "--genome" not in message:
@@ -90,7 +93,9 @@ def germline_variants_from_args(args, variants):
         raise CommandInputError("Cannot load --germline-vcf %s: %s" % (path, error)) from error
 
 
-def check_output_path(path):
+def check_output_path(path, *, allow_stdout=False):
+    if allow_stdout and str(path) == "-":
+        return
     directory = os.path.dirname(os.path.abspath(path))
     if not os.path.isdir(directory):
         raise CommandInputError("Output directory does not exist: %s" % directory)
@@ -103,13 +108,14 @@ def _named_files(value):
     return [str(v) for v in values if isinstance(v, (str, os.PathLike)) and os.path.isfile(v)]
 
 
-def check_outputs(args, *outputs, directories=()):
+def check_outputs(args, *outputs, directories=(), allow_stdout=False):
     """Check output paths before any work, so a run never fails or clobbers at the end.
 
     ``outputs`` are file paths (or ``args`` attribute names holding them) and
     ``directories`` output directories. Each file's directory must exist, no
     output may be an existing directory (or a directory an existing file), the
     outputs must be distinct, and none may be a file given in any other option.
+    When ``allow_stdout`` is True, ``"-"`` is accepted as standard output.
     """
     def resolve(value):
         return getattr(args, value) if isinstance(value, str) and hasattr(args, value) else value
@@ -118,16 +124,17 @@ def check_outputs(args, *outputs, directories=()):
     files = [str(path) for path in map(resolve, outputs) if path is not None]
     folders = [str(path) for path in map(resolve, directories) if path is not None]
     for path in files:
-        check_output_path(path)
+        check_output_path(path, allow_stdout=allow_stdout)
     for path in folders:
         if os.path.exists(path) and not os.path.isdir(path):
             raise CommandInputError("Output directory is an existing file: %s" % path)
-    absolute = [os.path.abspath(path) for path in files + folders]
+    disk_files = [path for path in files if not (allow_stdout and path == "-")]
+    absolute = [os.path.abspath(path) for path in disk_files + folders]
     if len(set(absolute)) != len(absolute):
-        raise CommandInputError("Outputs must be distinct files: %s" % ", ".join(files + folders))
+        raise CommandInputError("Outputs must be distinct files: %s" % ", ".join(disk_files + folders))
     inputs = [path for name, value in sorted(vars(args).items()) if name not in names
               for path in _named_files(value)]
-    for output in files:
+    for output in disk_files:
         if os.path.exists(output) and any(os.path.samefile(output, path) for path in inputs):
             raise CommandInputError("Output %s would overwrite an input file" % output)
 

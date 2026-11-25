@@ -9,7 +9,7 @@ import re
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional, Sequence, Tuple
 from urllib.parse import urlparse
 
 import click
@@ -143,7 +143,7 @@ def _dynamodb_key_schema_sort_key(key_schema: dict[str, str]) -> int:
     return 2
 
 
-def _dynamodb_attribute_type(attribute_name: str, validation_result: dict) -> str:
+def _dynamodb_attribute_type(attribute_name: str, validation_result: dict[str, Any]) -> str:
     attribute_type_by_name = {
         str(attribute.get("name")): attribute.get("type")
         for attribute in validation_result.get("attribute_definitions", [])
@@ -153,7 +153,7 @@ def _dynamodb_attribute_type(attribute_name: str, validation_result: dict) -> st
     return "String"
 
 
-def _dynamodb_key_columns(validation_result: dict) -> list[str]:
+def _dynamodb_key_columns(validation_result: dict[str, Any]) -> list[str]:
     return [
         str(key_schema["attribute_name"])
         for key_schema in sorted(validation_result.get("key_schema", []), key=_dynamodb_key_schema_sort_key)
@@ -202,7 +202,7 @@ def _resolve_dynamodb_role_arn(connection_content: str, project: Project) -> Opt
 
 @cli.group()
 @click.pass_context
-def datasource(ctx):
+def datasource(ctx: Context) -> None:
     """Data source commands."""
 
 
@@ -483,12 +483,12 @@ def datasource_append(
 @click.pass_context
 def datasource_replace(
     ctx: Context,
-    datasource_name,
-    url,
-    sql_condition,
-    skip_incompatible_partition_key,
+    datasource_name: str,
+    url: Tuple[str, ...],
+    sql_condition: Optional[str],
+    skip_incompatible_partition_key: bool,
     wait: bool,
-):
+) -> None:
     """
     Replaces the data in a data source from a URL, local file or a connector
 
@@ -522,11 +522,11 @@ def datasource_replace(
 @datasource.command(name="analyze")
 @click.argument("url_or_file")
 @click.pass_context
-def datasource_analyze(ctx, url_or_file):
+def datasource_analyze(ctx: Context, url_or_file: str) -> None:
     """Analyze a URL or a file before creating a new data source"""
     client = ctx.obj["client"]
 
-    def _table(title, columns, data):
+    def _table(title: str, columns: Sequence[str], data: Iterable[Sequence[Any]]) -> None:
         row_format = "{:<25}" * len(columns)
         click.echo(FeedbackManager.info_datasource_title(title=title))
         click.echo(FeedbackManager.info_datasource_row(row=row_format.format(*columns)))
@@ -570,7 +570,7 @@ def datasource_analyze(ctx, url_or_file):
     "--cascade", is_flag=True, default=False, help="Truncate dependent DS attached in cascade to the given DS"
 )
 @click.pass_context
-def datasource_truncate(ctx, datasource_name, yes, cascade):
+def datasource_truncate(ctx: Context, datasource_name: str, yes: bool, cascade: bool) -> None:
     """Truncate a data source"""
 
     client = ctx.obj["client"]
@@ -711,8 +711,16 @@ def datasource_start(ctx: Context, datasource_name: str) -> None:
 )
 @click.pass_context
 def datasource_delete_rows(
-    ctx, datasource_name, sql_condition, yes, wait, dry_run, lightweight, partition, projection_mode
-):
+    ctx: Context,
+    datasource_name: str,
+    sql_condition: str,
+    yes: bool,
+    wait: Optional[bool],
+    dry_run: bool,
+    lightweight: bool,
+    partition: Optional[str],
+    projection_mode: Optional[str],
+) -> None:
     """
     Delete rows from a datasource
 
@@ -788,7 +796,7 @@ def datasource_delete_rows(
                 # TODO: Use click.echo instead of print and see if the behavior is the same
                 print(f"\n{progress_str}", end="")  # noqa: T201
 
-                def progress_line(n):
+                def progress_line(n: int) -> None:
                     print(f"\r{progress_str} {progress_symbols[n % len(progress_symbols)]}", end="")  # noqa: T201
 
                 i = 0

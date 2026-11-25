@@ -103,12 +103,14 @@ class TestJig:
                     "revision_id": "rv_8kQ2mN4pL7xR9tV1wY3zA",
                 }
             ],
+            model_name="xxxx",
             name="x",
             placement_group="placement_group",
             port=1,
             regions=["string"],
             storage=400,
             termination_grace_period_seconds=0,
+            traffic_weight=0,
             volumes=[
                 {
                     "mount_path": "mount_path",
@@ -219,11 +221,13 @@ class TestJig:
                     "revision_id": "rv_8kQ2mN4pL7xR9tV1wY3zA",
                 }
             ],
+            model_name="xxxx",
             placement_group="placement_group",
             port=1,
             regions=["string"],
             storage=400,
             termination_grace_period_seconds=0,
+            traffic_weight=0,
             volumes=[
                 {
                     "mount_path": "mount_path",
@@ -571,12 +575,14 @@ class TestAsyncJig:
                     "revision_id": "rv_8kQ2mN4pL7xR9tV1wY3zA",
                 }
             ],
+            model_name="xxxx",
             name="x",
             placement_group="placement_group",
             port=1,
             regions=["string"],
             storage=400,
             termination_grace_period_seconds=0,
+            traffic_weight=0,
             volumes=[
                 {
                     "mount_path": "mount_path",
@@ -687,11 +693,13 @@ class TestAsyncJig:
                     "revision_id": "rv_8kQ2mN4pL7xR9tV1wY3zA",
                 }
             ],
+            model_name="xxxx",
             placement_group="placement_group",
             port=1,
             regions=["string"],
             storage=400,
             termination_grace_period_seconds=0,
+            traffic_weight=0,
             volumes=[
                 {
                     "mount_path": "mount_path",

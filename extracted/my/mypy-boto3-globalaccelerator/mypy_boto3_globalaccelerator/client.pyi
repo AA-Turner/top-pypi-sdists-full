@@ -592,7 +592,7 @@ class GlobalAcceleratorClient(BaseClient):
     ) -> ListCustomRoutingPortMappingsResponseTypeDef:
         """
         Provides a complete mapping from the public accelerator IP address and port to
-        destination EC2 instance IP addresses and ports in the virtual public cloud
+        destination EC2 instance IP addresses and ports in the virtual private cloud
         (VPC) subnet endpoint for a custom routing accelerator.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/globalaccelerator/client/list_custom_routing_port_mappings.html)

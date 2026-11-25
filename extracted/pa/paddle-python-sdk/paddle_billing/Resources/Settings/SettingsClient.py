@@ -1,27 +1,29 @@
-from paddle_billing.ResponseParser import ResponseParser
+from requests import Response
+
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
 
 from paddle_billing.Entities.Settings import (
-    BalanceCurrency,
-    CheckoutFeatures,
-    CheckoutPaymentMethodSettings,
-    CheckoutRecovery,
-    CheckoutStylesOverlay,
-    CheckoutUrl,
-    CurrencyConversions,
-    StatementDescriptorSettings,
-    TaxSettings,
+    BalanceCurrency as BalanceCurrency,
+    CheckoutFeatures as CheckoutFeatures,
+    CheckoutPaymentMethodSettings as CheckoutPaymentMethodSettings,
+    CheckoutRecovery as CheckoutRecovery,
+    CheckoutStylesOverlay as CheckoutStylesOverlay,
+    CheckoutUrl as CheckoutUrl,
+    CurrencyConversions as CurrencyConversions,
+    StatementDescriptorSettings as StatementDescriptorSettings,
+    TaxSettings as TaxSettings,
 )
 
 from paddle_billing.Resources.Settings.Operations import (
-    UpdateBalanceCurrency,
-    UpdateCheckoutFeatures,
-    UpdateCheckoutPaymentMethodSettings,
-    UpdateCheckoutRecovery,
-    UpdateCheckoutStylesOverlay,
-    UpdateCheckoutUrl,
-    UpdateCurrencyConversions,
-    UpdateStatementDescriptorSettings,
-    UpdateTaxSettings,
+    UpdateBalanceCurrency as UpdateBalanceCurrency,
+    UpdateCheckoutFeatures as UpdateCheckoutFeatures,
+    UpdateCheckoutPaymentMethodSettings as UpdateCheckoutPaymentMethodSettings,
+    UpdateCheckoutRecovery as UpdateCheckoutRecovery,
+    UpdateCheckoutStylesOverlay as UpdateCheckoutStylesOverlay,
+    UpdateCheckoutUrl as UpdateCheckoutUrl,
+    UpdateCurrencyConversions as UpdateCurrencyConversions,
+    UpdateStatementDescriptorSettings as UpdateStatementDescriptorSettings,
+    UpdateTaxSettings as UpdateTaxSettings,
 )
 
 from typing import TYPE_CHECKING
@@ -33,7 +35,7 @@ if TYPE_CHECKING:
 class SettingsClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def get_balance_currency(self) -> BalanceCurrency:
         self.response = self.client.get_raw("/settings/balance-currency")

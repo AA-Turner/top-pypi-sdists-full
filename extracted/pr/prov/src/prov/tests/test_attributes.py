@@ -1,10 +1,10 @@
 """Shared attribute round-trip tests.
 
 The ``ATTRIBUTE_VALUES`` corpus (``attribute_values.py``) runs once per target
-in ``SHARED_TARGETS``: each value alone on ``prov:type`` (node ids ``attr-N``,
-with the ``xsd:decimal`` case, index 8, as its own test), every value as a
-separate attribute of one entity, and every value on ``prov:value`` of one
-entity. The tests after the corpus cover values the corpus cannot hold.
+in ``SHARED_TARGETS``: each value alone on ``prov:type`` (node ids ``attr-N``),
+every value as a separate attribute of one entity, and every value on
+``prov:value`` of one entity. The tests after the corpus cover values the corpus
+cannot hold.
 """
 
 import datetime
@@ -21,17 +21,11 @@ from prov.tests.conftest import ROUNDTRIP_FORMATS, Roundtrip, roundtrip_document
 
 @pytest.mark.parametrize(
     "value",
-    [pytest.param(v, id=f"attr-{i}") for i, v in enumerate(ATTRIBUTE_VALUES) if i != 8],
+    [pytest.param(v, id=f"attr-{i}") for i, v in enumerate(ATTRIBUTE_VALUES)],
 )
 def test_entity_with_one_type_attribute(roundtrip: Roundtrip, value: Any) -> None:
     document = ProvDocument()
     document.entity(EX_NS["et"], {"prov:type": value})
-    roundtrip(document)
-
-
-def test_entity_with_one_type_attribute_decimal(roundtrip: Roundtrip) -> None:
-    document = ProvDocument()
-    document.entity(EX_NS["et"], {"prov:type": ATTRIBUTE_VALUES[8]})
     roundtrip(document)
 
 
@@ -67,7 +61,9 @@ def test_sub_minute_utc_offset_round_trips_as_utc(fmt: str) -> None:
     expected = ProvDocument()
     expected.activity(
         EX_NS["a"],
-        startTime=datetime.datetime(2026, 9, 12, 10, 0, 0, tzinfo=datetime.UTC),
+        startTime=datetime.datetime(
+            2026, 9, 12, 10, 0, 0, tzinfo=datetime.timezone.utc
+        ),
     )
     assert "+00:00:30" not in document.serialize(format=fmt)
     assert roundtrip_document(document, fmt) == expected

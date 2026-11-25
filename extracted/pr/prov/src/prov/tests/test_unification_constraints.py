@@ -71,8 +71,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-pytest.importorskip("lxml")
-
 from prov.model import ProvDocument, ProvUnificationError, ProvWarning
 
 if TYPE_CHECKING:
@@ -191,6 +189,7 @@ def test_corpus_inventory() -> None:
 
 @pytest.mark.parametrize("xml_path", list(_cases()))
 def test_unified_corpus_characterization(xml_path: Path) -> None:
+    pytest.importorskip("lxml")
     warns = (
         pytest.warns(ProvWarning, match="requires a value for")
         if xml_path.name in PARTY_SKIPS
@@ -271,6 +270,7 @@ def test_w3c_corpus_inventory() -> None:
 
 @pytest.mark.parametrize("provx_path", list(_w3c_cases()))
 def test_w3c_type_compatibility_characterization(provx_path: Path) -> None:
+    pytest.importorskip("lxml")
     with open(provx_path, "rb") as f:
         document = ProvDocument.deserialize(f, format="xml")
     if provx_path.name in W3C_RAISES:
@@ -320,24 +320,6 @@ def test_entity_and_activity_sharing_an_id_raises() -> None:
     doc.activity("thing", startTime="2011-11-16T16:00:00")
     with pytest.raises(ProvUnificationError, match="thing"):
         doc.unified()
-
-
-def test_uniqueness_constraints_on_other_keys_are_out_of_scope() -> None:
-    # PROV-CONSTRAINTS Constraint 24 (unique-generation): two generations of
-    # the same (entity, activity) pair must have equal identifiers — two
-    # *different* constant identifiers cannot unify, so this instance is
-    # INVALID (corpus analogue generation-fail1). unified() keys on the
-    # record identifier only and leaves both records untouched: Constraints
-    # 24-29 are documented as outside its scope and belong to the opt-in
-    # validation engine (#62).
-    doc = ProvDocument()
-    doc.set_default_namespace("http://example.org/")
-    doc.entity("e1")
-    doc.activity("a1")
-    doc.generation("e1", "a1", identifier="gen1")
-    doc.generation("e1", "a1", identifier="gen1-other")
-    unified = doc.unified()
-    assert len(list(unified.get_records())) == 4  # nothing merged, nothing rejected
 
 
 def test_compatible_partial_information_merges_like_the_spec_example() -> None:

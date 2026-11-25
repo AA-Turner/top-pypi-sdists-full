@@ -29,9 +29,13 @@ from .alexalogin import AlexaLogin
 from .const import (
     ALEXA_API_BASE,
     DEFAULT_LOCALE,
+    GQL_FORGET_ENDPOINT,
+    GQL_SET_ENDPOINT_ENABLEMENT,
+    GQL_SET_ENDPOINT_FRIENDLY_NAME,
     GQL_SMARTHOME_QUERY,
     GQL_SMARTHOME_QUERY_LEGACY,
     LOGIN_APP_VERSION,
+    SKILLS_STORE_ACCEPT,
 )
 from .errors import (
     AlexapyConnectionError,
@@ -1508,6 +1512,82 @@ class AlexaAPI:
 
     @staticmethod
     @_catch_all_exceptions
+    async def rename_device(
+        login: AlexaLogin,
+        serial: str,
+        device_type: str,
+        device_account_id: str,
+        name: str,
+    ) -> bool:
+        """Rename an Alexa device such as an Echo.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+            serial (str): ``serialNumber`` from ``get_devices``
+            device_type (str): ``deviceType`` from ``get_devices``
+            device_account_id (str): ``deviceAccountId`` from ``get_devices``
+            name (str): New name
+
+        Returns:
+            True if Amazon accepted the new name.
+
+        """
+        if not serial or not name:
+            return False
+        response = await AlexaAPI._static_request(
+            "put",
+            login,
+            f"/api/devices-v2/device/{urllib.parse.quote(serial, safe='')}",
+            data={
+                "accountName": name,
+                "serialNumber": serial,
+                "deviceAccountId": device_account_id,
+                "deviceType": device_type,
+            },
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_skills(login: AlexaLogin) -> list[dict[str, Any]] | None:
+        """Get the skills enabled for the account.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+
+        Returns:
+            The skill records of the skills store, or None if the page has no
+            skill list. Each record has ``title``, ``asin``,
+            ``productMetadata.skillId`` and ``productDetails.skillTypes``.
+
+        """
+        response = await AlexaAPI._static_request(
+            "get",
+            login,
+            "/app/secure/your-skills-page",
+            additional_headers={"Accept": SKILLS_STORE_ACCEPT},
+            query={"deviceType": "app"},
+            sub_domain="skills-store",
+        )
+        blocks, valid = await get_json_value(response, None, list)
+        if not valid:
+            return None
+        for block in blocks:
+            contents = block.get("contents") if isinstance(block, dict) else None
+            if not isinstance(contents, list) or block.get("block") != "data":
+                continue
+            for content in contents:
+                if (
+                    isinstance(content, dict)
+                    and content.get("id") == "skillsPageData"
+                    and isinstance(content.get("contents"), dict)
+                    and isinstance(content["contents"].get("products"), list)
+                ):
+                    return content["contents"]["products"]
+        return None
+
+    @staticmethod
+    @_catch_all_exceptions
     async def get_child_mode(
         login: AlexaLogin, serial: str, device_type: str
     ) -> bool | None:
@@ -1818,7 +1898,8 @@ class AlexaAPI:
         ``allCuratedStyles``, or None if the response is invalid.
         """
         response = await AlexaAPI._static_request(
-            "get", login,
+            "get",
+            login,
             "/api/personality/v1/getstyle/"
             + urllib.parse.quote(device_account_id, safe=""),
             additional_headers={"Accept-Language": locale},
@@ -1851,7 +1932,8 @@ class AlexaAPI:
         if current is None:
             return False
         if not any(
-            isinstance(style, dict) and style.get("id") == style_id
+            isinstance(style, dict)
+            and style.get("id") == style_id
             and not style.get("restrictedAccess")
             for style in current["allCuratedStyles"]
         ):
@@ -1859,7 +1941,9 @@ class AlexaAPI:
         if current["curatedStyle"] == style_id:
             return True
         response = await AlexaAPI._static_request(
-            "post", login, "/api/personality/v1/setstyle",
+            "post",
+            login,
+            "/api/personality/v1/setstyle",
             data={"deviceAccountId": device_account_id, "curatedStyle": style_id},
             additional_headers={"Accept-Language": locale},
         )
@@ -2581,14 +2665,16 @@ class AlexaAPI:
         login (AlexaLogin): Successfully logged in AlexaLogin
 
         Returns:
-            Endpoint dictionaries containing model, dmsIdentifier and legacyAppliance,
-            or None when the response has no endpoint list. Model and identifier
+            Endpoint dictionaries containing id, model, dmsIdentifier and
+            legacyAppliance, or None when the response has no endpoint list. The
+            id is the endpoint ID that the smart-home mutations such as
+            set_endpoint_friendly_name take. Model and identifier
             metadata may be null. Only PLAIN model values are readable descriptions;
             a model description does not necessarily include a hardware generation.
             Match dmsIdentifier.deviceType and dsn to the REST deviceType and
             serialNumber rather than matching by a customer-assigned device name.
             If Amazon rejects the expanded query, the original legacy-only query is
-            used instead and the model and dmsIdentifier keys are absent.
+            used instead and the id, model and dmsIdentifier keys are absent.
 
         """
         email = login.email
@@ -2668,6 +2754,313 @@ class AlexaAPI:
 
         _LOGGER.debug("%s: get_devices_gql raw response: %s", email, network_detail)
         return details or None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_appliance_groups(login: AlexaLogin) -> list[dict[str, Any]] | None:
+        """Get the smart-home groups (rooms) of the account.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+
+        Returns:
+            The group documents as Amazon returns them, or None if the response
+            has no group list. Each document has at least ``groupId``, ``name``
+            and ``applianceIds``; the members are the ``applianceId`` values of
+            ``get_network_details``.
+
+        """
+        response = await AlexaAPI._static_request("get", login, "/api/phoenix/group")
+        result, *_ = await get_json_value(response, "applianceGroups", list)
+        return result
+
+    @staticmethod
+    def _appliance_group_uri(group_id: str) -> str:
+        """Return the URI of one smart-home group."""
+        return f"/api/phoenix/group/{urllib.parse.quote(group_id, safe='')}"
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def create_appliance_group(
+        login: AlexaLogin, name: str, appliance_ids: list[str] | None = None
+    ) -> dict[str, Any] | None:
+        """Create a smart-home group (room).
+
+        Amazon answers without a body, so the groups are read before and after
+        the request. The new group is the one with the given name that was not
+        there before.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+            name (str): Name of the new group
+            appliance_ids (list[str] | None): Members, as ``applianceId``
+                values. Duplicates are dropped, the order is kept.
+
+        Returns:
+            The document of the new group, or None if the name is empty, the
+            groups cannot be read, the request failed or the new group is not
+            in the list afterwards.
+
+        """
+        if not name:
+            return None
+        before = await AlexaAPI.get_appliance_groups(login)
+        if before is None:
+            return None
+        known = {group.get("groupId") for group in before}
+        response = await AlexaAPI._static_request(
+            "post",
+            login,
+            "/api/phoenix/group",
+            data={
+                "name": name,
+                "type": "SPACE",
+                "applianceIds": list(dict.fromkeys(appliance_ids or [])),
+                "defaults": [],
+                "childIds": [],
+            },
+        )
+        if response is None:
+            return None
+        after = await AlexaAPI.get_appliance_groups(login)
+        return next(
+            (
+                group
+                for group in after or []
+                if group.get("name") == name and group.get("groupId") not in known
+            ),
+            None,
+        )
+
+    @staticmethod
+    async def _update_appliance_group(
+        login: AlexaLogin, group_id: str, changes: dict[str, Any]
+    ) -> bool:
+        """Write changed fields of a group and send the rest back unchanged."""
+        groups = await AlexaAPI.get_appliance_groups(login)
+        group = next((g for g in groups or [] if g.get("groupId") == group_id), None)
+        if group is None:
+            _LOGGER.debug(
+                "%s: Smart-home group %s not found", hide_email(login.email), group_id
+            )
+            return False
+        response = await AlexaAPI._static_request(
+            "put",
+            login,
+            AlexaAPI._appliance_group_uri(group_id),
+            data={**group, **changes},
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_appliance_group_members(
+        login: AlexaLogin, group_id: str, appliance_ids: list[str]
+    ) -> bool:
+        """Replace the members of a smart-home group (room).
+
+        The group is read again right before writing, and only ``applianceIds``
+        changes; the rest of Amazon's group document is sent back as it came.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+            group_id (str): ``groupId`` of the group
+            appliance_ids (list[str]): New members, as ``applianceId`` values.
+                Duplicates are dropped, the order is kept.
+
+        Returns:
+            True if Amazon accepted the change, False if the group does not
+            exist or the request failed.
+
+        """
+        if not group_id:
+            return False
+        return await AlexaAPI._update_appliance_group(
+            login, group_id, {"applianceIds": list(dict.fromkeys(appliance_ids))}
+        )
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def rename_appliance_group(
+        login: AlexaLogin, group_id: str, name: str
+    ) -> bool:
+        """Rename a smart-home group (room) and keep its members.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+            group_id (str): ``groupId`` of the group
+            name (str): New name
+
+        Returns:
+            True if Amazon accepted the change, False if the name is empty, the
+            group does not exist or the request failed.
+
+        """
+        if not group_id or not name:
+            return False
+        return await AlexaAPI._update_appliance_group(login, group_id, {"name": name})
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def delete_appliance_group(login: AlexaLogin, group_id: str) -> bool:
+        """Delete a smart-home group (room). Its devices are kept.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+            group_id (str): ``groupId`` of the group
+
+        Returns:
+            True if Amazon accepted the request.
+
+        """
+        if not group_id:
+            return False
+        response = await AlexaAPI._static_request(
+            "delete", login, AlexaAPI._appliance_group_uri(group_id)
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def discover_appliances(login: AlexaLogin) -> bool:
+        """Ask Alexa to search for new smart-home devices.
+
+        This is the device search of the Alexa app. Echo devices with a
+        built-in Zigbee hub search as well, so the search can add devices
+        that were not in the account before, for example lamps paired with
+        an Echo. New devices are not in any group.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+
+        Returns:
+            True if Amazon started the discovery. New devices appear later in
+            ``get_devices_gql``.
+
+        """
+        response = await AlexaAPI._static_request(
+            "post", login, "/api/phoenix/discovery"
+        )
+        return response is not None
+
+    @staticmethod
+    async def _endpoint_mutation(
+        login: AlexaLogin, query: str, variables: dict[str, Any], field: str
+    ) -> dict[str, Any] | None:
+        """Run a smart-home GraphQL mutation and return its result object.
+
+        Amazon reports rejected mutations with HTTP 200 and an ``errors`` list,
+        so a response with errors counts as failed.
+        """
+        response = await AlexaAPI._static_request(
+            "post",
+            login,
+            "/nexus/v1/graphql",
+            data={"query": query, "variables": variables},
+        )
+        body, valid = await get_json_value(response, None, dict)
+        if not valid:
+            return None
+        if body.get("errors"):
+            _LOGGER.debug(
+                "%s: GraphQL %s failed: %s",
+                hide_email(login.email),
+                field,
+                body["errors"],
+            )
+            return None
+        data = body.get("data")
+        result = data.get(field) if isinstance(data, dict) else None
+        return result if isinstance(result, dict) else None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_endpoint_friendly_name(
+        login: AlexaLogin, endpoint_id: str, name: str
+    ) -> bool:
+        """Rename a smart-home device.
+
+        Amazon rejects some names, for example names with an underscore; the
+        device then keeps its old name.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+            endpoint_id (str): Endpoint ``id`` from ``get_devices_gql``
+                (``amzn1.alexa.endpoint...``), not the ``applianceId``
+            name (str): New name
+
+        Returns:
+            True if Amazon accepted the new name.
+
+        """
+        if not endpoint_id or not name:
+            return False
+        result = await AlexaAPI._endpoint_mutation(
+            login,
+            GQL_SET_ENDPOINT_FRIENDLY_NAME,
+            {"input": {"endpointId": endpoint_id, "friendlyName": name}},
+            "setEndpointFriendlyName",
+        )
+        return result is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_endpoint_enabled(
+        login: AlexaLogin, endpoint_id: str, enabled: bool
+    ) -> bool:
+        """Enable or disable a smart-home device.
+
+        A disabled device stays in the account, but Alexa does not control it.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+            endpoint_id (str): Endpoint ``id`` from ``get_devices_gql``
+            enabled (bool): True to enable, False to disable
+
+        Returns:
+            True if Amazon accepted the change.
+
+        """
+        if not endpoint_id:
+            return False
+        result = await AlexaAPI._endpoint_mutation(
+            login,
+            GQL_SET_ENDPOINT_ENABLEMENT,
+            {
+                "input": {
+                    "endpointId": endpoint_id,
+                    "enablement": "ENABLED" if enabled else "DISABLED_BY_CUSTOMER",
+                }
+            },
+            "setEndpointEnablement",
+        )
+        return result is not None and not result.get("error")
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def forget_endpoint(login: AlexaLogin, endpoint_id: str) -> bool:
+        """Delete (forget) a smart-home device from the account.
+
+        The request does not set ``allowDmsBackedEndpoint``, so it is not meant
+        for Echo devices and other endpoints registered with Amazon.
+
+        Args:
+            login (AlexaLogin): Successfully logged in AlexaLogin
+            endpoint_id (str): Endpoint ``id`` from ``get_devices_gql``
+
+        Returns:
+            True if Amazon accepted the request.
+
+        """
+        if not endpoint_id:
+            return False
+        result = await AlexaAPI._endpoint_mutation(
+            login,
+            GQL_FORGET_ENDPOINT,
+            {"input": {"endpointId": endpoint_id}},
+            "forgetEndpoint",
+        )
+        return result is not None
 
     @staticmethod
     def _should_skip_notifications(email: str, now: float) -> bool:

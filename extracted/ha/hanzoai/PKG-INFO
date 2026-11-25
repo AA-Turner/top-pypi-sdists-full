@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: hanzoai
-Version: 8.5.1330
+Version: 8.5.1428
 Summary: The official Python library for the Hanzo API
 Project-URL: Homepage, https://github.com/hanzoai/python-sdk
 Project-URL: Repository, https://github.com/hanzoai/python-sdk
@@ -30,6 +30,8 @@ Requires-Dist: httpx>=0.27.0; extra == 'zap'
 Description-Content-Type: text/markdown
 
 # Hanzo Python SDK
+
+[![Open in Hanzo](https://hanzo.app/badges/open-in-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/python-sdk&ref=main&action=open) [![Edit with Hanzo](https://hanzo.app/badges/edit-with-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/python-sdk&ref=main&action=edit) [![Deploy with Hanzo](https://hanzo.app/badges/deploy-with-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/python-sdk&ref=main&action=deploy)
 
 `hanzoai` is the Python client for the Hanzo API, generated from the API's own
 OpenAPI document. Every `/v1` route is in it, and the names it exposes are the

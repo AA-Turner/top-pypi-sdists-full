@@ -370,7 +370,7 @@ def agent_history(writer, manifest):
     events, complete = [], assessment["status"] != "history_incomplete"
     control_release = {}
     field_plan = writer._operation.field_plan(manifest)
-    if not field_plan.owner and field_plan.whole_fields != set(manifest.schema.fields):
+    if not field_plan.holds_every_field(manifest):
         return {"status": "history_incomplete", "complete": False, "truncated": False, "events": []}
 
     def released(row_id):
@@ -614,6 +614,11 @@ def _file_inputs(root):
 
     loaded, tombstones = policy.load(root), lifecycle.tombstoned_paths(root)
     access_fingerprint, rules, blocked = access._policy_state(root)
+    return inputs_of(loaded, tombstones, access_fingerprint, rules, blocked)
+
+
+def inputs_of(loaded, tombstones, access_fingerprint, rules, blocked):
+    """The file-held inputs of a history release from inputs already read, such as an operation's snapshot."""
     return _FileInputs(loaded, tombstones, rules, blocked, (access_fingerprint, blocked, tuple(sorted(tombstones))))
 
 

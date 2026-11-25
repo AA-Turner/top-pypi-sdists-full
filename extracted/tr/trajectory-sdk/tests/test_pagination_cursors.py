@@ -65,11 +65,11 @@ def test_list_cursor_on_wire(
 def test_findings_list_omits_null_cursor_and_preserves_scope() -> None:
   with client_for({"items": [], "has_more": False}, 200) as (client, requests):
     client.specs.diagnostics.findings.list(
-      bench_id="bench-id", cursor=None, include_descendants=True, state="all"
+      spec_id="bench-id", cursor=None, include_descendants=True, state="all"
     )
 
   assert [dict(request.url.params) for request in requests] == [
-    {"bench_id": "bench-id", "include_descendants": "true", "state": "all"}
+    {"spec_id": "bench-id", "include_descendants": "true", "state": "all"}
   ]
 
 

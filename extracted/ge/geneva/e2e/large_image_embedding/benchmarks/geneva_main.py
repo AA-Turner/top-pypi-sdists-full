@@ -425,7 +425,9 @@ def main() -> None:
             )
         bucket = dataset_bucket
         if args.fresh_run:
-            delete_checkpoint_dir(checkpoint_uri(bucket, table_name))
+            flat_uri = checkpoint_uri(bucket, table_name)
+            delete_checkpoint_dir(flat_uri)
+            delete_checkpoint_dir(flat_uri + "v2")
         conn = geneva.connect(bucket)
         tbl = conn.open_table(table_name)
         print(f"Using existing table {table_name} in {bucket} with {len(tbl)} rows")

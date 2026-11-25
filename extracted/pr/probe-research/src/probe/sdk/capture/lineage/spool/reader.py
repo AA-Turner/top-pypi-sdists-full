@@ -154,15 +154,54 @@ class _SpooledWrites:
             self.rows[path] = row
 
 
+#: At most this many ``object_store`` coverage lines are taken from one run's spools.
+MAX_OBJECT_COVERAGE_LINES = 16
+
+
+class _SpooledObjects:
+    """What a run's spools say about the cloud OBJECTS it read and wrote
+    (`object_store`, ``{"obj": "r"|"w", "u", "h", "f", "s", "t"}``): (kind, uri,
+    endpoint, identity) -> the EARLIEST note, so two versions of one object stay
+    two rows; and the ``object_store`` coverage lines a child hook spooled
+    (``{"objcov": ...}``). An older SDK's reader skips both lines (no ``"p"``)."""
+
+    def __init__(self) -> None:
+        self.rows: dict[tuple, dict] = {}
+        self.coverage: set[str] = set()
+        #: The kinds ("r", "w") the cap below dropped a row of: their list was cut.
+        self.cut: set[str] = set()
+
+    def add(self, row: dict) -> None:
+        line = row.get("objcov")
+        if isinstance(line, str):
+            if len(self.coverage) < MAX_OBJECT_COVERAGE_LINES:
+                self.coverage.add(line[:200])
+            return
+        key = (row.get("obj"), row.get("u"), row.get("h"), row.get("f"))
+        if key[0] not in ("r", "w") or not all(isinstance(part, str) and part for part in key[1:]):
+            return
+        prior = self.rows.get(key)
+        if prior is None:
+            if len(self.rows) < 2 * MAX_PATHS:  # each side is capped at MAX_PATHS by its recorder
+                self.rows[key] = row
+            else:
+                self.cut.add(key[0])
+        elif str(row.get("t", "")) < str(prior.get("t", "")):
+            self.rows[key] = row
+
+
 def _read_spools(
-    spools: list[Path], handed: list[Any] | None = None, writes: _SpooledWrites | None = None
+    spools: list[Path],
+    handed: list[Any] | None = None,
+    writes: _SpooledWrites | None = None,
+    objects: _SpooledObjects | None = None,
 ) -> tuple[dict[tuple, dict], bool]:
     """Every observation in these spools, earliest per (path, identity), read
     line by line. True when a recorder hit its cap (it says so in its spool) or
     the spools hold more than MAX_PATHS observations. The ``.probeignore`` rules
     a recorder handed over in its spool (:func:`hand_to_launcher`) are appended
     to ``handed`` when given; the noted WRITES go to ``writes`` when given (and
-    are skipped otherwise).
+    are skipped otherwise); the cloud objects to ``objects`` likewise.
 
     Lines under a header binding them to ANOTHER run are not this run's and
     are skipped. A worker's lines bound through an owner that has since
@@ -193,6 +232,16 @@ def _read_spools(
                         cut = marks[spool.parent].get(owner) if isinstance(owner, int) else None
                         continue
                     if not this_run:
+                        continue
+                    if raw.startswith('{"obj'):  # cloud objects (`object_store`)
+                        if objects is None:
+                            continue
+                        try:
+                            row = json.loads(raw)
+                        except ValueError:
+                            continue
+                        if isinstance(row, dict) and not _after(row.get("t"), cut):
+                            objects.add(row)
                         continue
                     if raw.startswith(('{"w', '{"reads_off"')):  # write notes, opt-outs
                         if writes is None:

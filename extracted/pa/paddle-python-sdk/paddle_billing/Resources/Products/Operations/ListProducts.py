@@ -1,12 +1,19 @@
-from paddle_billing.EnumStringify import enum_stringify
-from paddle_billing.HasParameters import HasParameters
+from typing import Any
 
-from paddle_billing.Entities.Shared import CatalogType, Status, TaxCategory
+from paddle_billing.EnumStringify import enum_stringify as enum_stringify
+from paddle_billing.HasParameters import HasParameters as HasParameters
 
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
+from paddle_billing.Entities.Shared import CatalogType as CatalogType, Status as Status, TaxCategory as TaxCategory
 
-from paddle_billing.Resources.Products.Operations.List.Includes import Includes as ProductIncludes
-from paddle_billing.Resources.Shared.Operations import Pager
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
+
+from paddle_billing.Resources.Products.Operations.List.Includes import Includes as _ProductIncludes
+from paddle_billing.Resources.Shared.Operations import Pager as Pager
+
+# Assigned rather than imported under this name, because type checkers don't treat renamed imports as public.
+ProductIncludes = _ProductIncludes
 
 
 class ListProducts(HasParameters):
@@ -29,13 +36,14 @@ class ListProducts(HasParameters):
         self.tax_categories = tax_categories if tax_categories is not None else []
 
         # Validation
-        for field_name, field_value, field_type in [
+        validations: list[tuple[str, list[Any], type]] = [
             ("ids", self.ids, str),
             ("includes", self.includes, ProductIncludes),
             ("statuses", self.statuses, Status),
             ("tax_categories", self.tax_categories, TaxCategory),
             ("types", self.types, CatalogType),
-        ]:
+        ]
+        for field_name, field_value, field_type in validations:
             invalid_items = [item for item in field_value if not isinstance(item, field_type)]
             if invalid_items:
                 raise InvalidArgumentException.array_contains_invalid_types(

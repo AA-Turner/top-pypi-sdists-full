@@ -5,7 +5,7 @@
 
 import os
 from os import getcwd
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import aiofiles
 import click
@@ -556,7 +556,9 @@ async def data_branch(last_partition: bool, all: bool, wait: bool) -> None:
 )
 @click.pass_context
 @coro
-async def regression_tests(ctx, filename: str, wait: bool, skip_regression_tests: Optional[bool] = False):
+async def regression_tests(
+    ctx: click.Context, filename: str, wait: bool, skip_regression_tests: Optional[bool] = False
+) -> None:
     """Regression test commands for Branches"""
     if skip_regression_tests:
         click.echo(FeedbackManager.warning_regression_skipped())
@@ -590,7 +592,7 @@ async def regression_tests(ctx, filename: str, wait: bool, skip_regression_tests
             click.echo(FeedbackManager.info_regression_tests_branch_job_url(url=job_url))
             if wait:
                 await wait_job(client, job_id, job_url, "Regression tests")
-                await print_branch_regression_tests_summary(client, job_id, config["host"])
+                await print_branch_regression_tests_summary(client, job_id)
         except Exception as e:
             raise CLIBranchException(FeedbackManager.error_exception(error=str(e)))
     elif not ctx.invoked_subcommand:
@@ -610,8 +612,8 @@ async def _run_regression(
     failfast: Optional[bool] = False,
     wait: Optional[bool] = False,
     skip: Optional[bool] = False,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> None:
     if skip:
         click.echo(FeedbackManager.warning_regression_skipped())
         return
@@ -646,7 +648,7 @@ async def _run_regression(
         click.echo(FeedbackManager.info_regression_tests_branch_job_url(url=job_url))
         if wait:
             await wait_job(client, job_id, job_url, "Regression tests")
-            await print_branch_regression_tests_summary(client, job_id, config["host"])
+            await print_branch_regression_tests_summary(client, job_id)
     except Exception as e:
         raise CLIBranchException(FeedbackManager.error_exception(error=str(e)))
 

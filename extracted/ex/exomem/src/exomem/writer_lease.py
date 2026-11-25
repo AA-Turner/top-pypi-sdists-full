@@ -1,4 +1,4 @@
-"""Single-writer lease coordination for replicated Exomem vaults.
+"""Single-writer lease coordination for replicated Evermatter vaults.
 
 The coordinator carries identity and timing metadata only. Vault content never
 leaves the replica. Coordination is opt-in through ``EXOMEM_WRITER_LEASE_URL``;
@@ -80,7 +80,7 @@ from .mutation_terminal import (
 from .privacy_log import content_private_logging_enabled
 
 _COORDINATOR_USER_AGENT = (
-    "Mozilla/5.0 (compatible; Exomem-Coordinator/1.0; +https://github.com/Artexis10/exomem)"
+    "Mozilla/5.0 (compatible; Exomem-Coordinator/1.0; +https://github.com/substrate-systems/evermatter)"
 )
 # The implicit replay window is the acknowledgement-loss recovery budget: when
 # the edge abandons a slow write that the origin then commits, retrying the
@@ -364,6 +364,12 @@ def defer_until_terminal_persisted(work: Callable[[], list[object]]) -> bool:
         return False
     queue.append(work)
     return True
+
+
+def terminal_follows() -> bool:
+    """Whether this context runs a mutation whose terminal can carry deferred work and report it
+    (``defer_until_terminal_persisted`` would accept work)."""
+    return _ACTIVE_POST_TERMINAL_FANOUT.get() is not None
 
 
 def _drain_post_terminal_fanout(queue: list[Any]) -> tuple[list[Any], bool]:
@@ -5086,6 +5092,8 @@ def _capture_wait_seconds(guard_seconds: float = 0.0) -> float:
 
 
 _WARMUP_POLL_SECONDS = 0.25
+#: How often a queued save's replay that waits for its turn checks whether its drainer stopped.
+_REPLAY_STOP_POLL_SECONDS = 0.25
 
 
 def _wait_out_write_warmup(
@@ -5124,10 +5132,12 @@ def _wait_out_write_warmup(
     if counted and not _take_capture_waiter_slot():
         return warming, "capture_waiters_full", 0.0
     started = time.monotonic()
+    from . import write_intake
+
     try:
         while warming is not None:
             remaining = deadline - time.monotonic()
-            if remaining <= 0:
+            if remaining <= 0 or write_intake.replay_stopping():
                 break
             # Polled, not one long wait: a warm that finishes without marking
             # this component also ends the gate (should_defer turns false).
@@ -5215,13 +5225,20 @@ class _FairCaptureQueue:
         return ticket
 
     def wait_turn(self, ticket: object, deadline: float) -> bool:
+        from . import write_intake
+
+        # A queued save's replay also stops waiting when its drainer stops, checked once per poll.
+        replay_stop = write_intake.replay_stop_event()
         with self._condition:
-            while self._line[0] is not ticket:
+            while True:
+                if write_intake.replay_stopping():
+                    return False
+                if self._line[0] is ticket:
+                    return True
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     return False
-                self._condition.wait(remaining)
-            return True
+                self._condition.wait(remaining if replay_stop is None else min(remaining, _REPLAY_STOP_POLL_SECONDS))
 
     def leave(self, ticket: object) -> None:
         with self._condition:
@@ -6428,7 +6445,8 @@ class LeaseManager:
         # a write admitted before its delta origin exists does not merely run
         # slower, it registers a whole-vault rebuild for a lineage it could
         # have adopted in the first seconds of the warm. Both refusals are the
-        # same retryable shape, and reads are untouched either way.
+        # same retryable shape, and reads are untouched either way. A store-mode
+        # warm settles the handoff at once (`warmup.warm_all`): it has no origin.
         # One clock for every wait this write makes before it runs: warm-up here,
         # then a busy boundary, so neither restarts the bound or under-reports it.
         wait_started = time.monotonic()
@@ -7939,12 +7957,18 @@ class LeaseManager:
 
         def extend(completion_deadline: float) -> float | None:
             # The store has not taken the write, so it never ran: it keeps its place while its wait allows.
-            if not wait.take_slot():
+            from . import write_intake
+
+            if write_intake.replay_stopping() or not wait.take_slot():
                 return None
-            return min(
+            later = min(
                 wait.deadline,
                 completion_deadline - max(wait.last_attempt_seconds, self._mutation_timeout_seconds),
             )
+            if write_intake.replay_stop_event() is not None:
+                # A replay extends one poll at a time, so the queue asks again soon and sees a stop.
+                later = min(later, time.monotonic() + _REPLAY_STOP_POLL_SECONDS)
+            return later
 
         def run() -> Any:
             return func(command, *injected, **call_kwargs)
@@ -9351,7 +9375,7 @@ def invoke_command(
         if cloud_cell.cloud_read_only_enabled():
             raise OpError(
                 "CLOUD_CELL_READ_ONLY",
-                "this Exomem Cloud cell is serving read-only",
+                "this Evermatter Cloud cell is serving read-only",
                 "wait for the cell to leave read-only mode, or read instead of write",
             )
 
@@ -9573,7 +9597,7 @@ def invoke_command(
         try:
             try:
                 if vault_store_mode.store_mode_for_reads(injected[0]):
-                    snapshot_scope.enter_context(vault_store_read.request_snapshot(injected[0]))
+                    snapshot_scope.enter_context(vault_store_read.request_snapshot(injected[0], catch_up=True))
                 # Fixed phase labels carry timing only, never caller or vault data.
                 with body_meter as measured, call_spans.span("command.body", measured):
                     result = _invoke()

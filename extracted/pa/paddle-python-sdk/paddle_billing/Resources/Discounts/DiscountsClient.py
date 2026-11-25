@@ -1,10 +1,17 @@
-from paddle_billing.ResponseParser import ResponseParser
+from requests import Response
 
-from paddle_billing.Entities.Collections import Paginator, DiscountCollection
-from paddle_billing.Entities.Discount import Discount
-from paddle_billing.Entities.Discounts import DiscountStatus
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
 
-from paddle_billing.Resources.Discounts.Operations import CreateDiscount, GetDiscount, ListDiscounts, UpdateDiscount
+from paddle_billing.Entities.Collections import Paginator as Paginator, DiscountCollection as DiscountCollection
+from paddle_billing.Entities.Discount import Discount as Discount
+from paddle_billing.Entities.Discounts import DiscountStatus as DiscountStatus
+
+from paddle_billing.Resources.Discounts.Operations import (
+    CreateDiscount as CreateDiscount,
+    GetDiscount as GetDiscount,
+    ListDiscounts as ListDiscounts,
+    UpdateDiscount as UpdateDiscount,
+)
 
 from typing import TYPE_CHECKING
 
@@ -15,7 +22,7 @@ if TYPE_CHECKING:
 class DiscountsClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(self, operation: ListDiscounts | None = None) -> DiscountCollection:
         if operation is None:

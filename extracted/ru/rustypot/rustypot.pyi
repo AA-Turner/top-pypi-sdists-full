@@ -209,6 +209,11 @@ class AxPyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -408,6 +413,16 @@ class Bus:
         r"""
         Same as `sync_read_register`, plus each motor's error field.
         """
+    def sync_read_block(self, ids: typing.Sequence[builtins.int], names: typing.Sequence[builtins.str], retries: builtins.int = 0) -> builtins.list[builtins.list[builtins.int]]:
+        r"""
+        Read contiguous named registers from each motor, in the order asked.
+        Registers must be listed in address order with no gaps.
+        """
+    def sync_read_block_with_error(self, ids: typing.Sequence[builtins.int], names: typing.Sequence[builtins.str], retries: builtins.int = 0) -> builtins.list[tuple[builtins.list[builtins.int], builtins.int]]:
+        r"""
+        Read contiguous named registers and each motor's status error byte.
+        Registers must be listed in address order with no gaps.
+        """
     def sync_read_raw_with_error(self, ids: typing.Sequence[builtins.int], addr: builtins.int, length: builtins.int, retries: builtins.int = 0) -> builtins.list[tuple[builtins.list[builtins.int], builtins.int]]:
         r"""
         Read `length` raw bytes at `addr` and each motor's status error byte, in
@@ -443,6 +458,12 @@ class Bus:
         from its limits and, once the torque is on, drives a whole turn to a goal. The
         other registers are kept; a power cycle clears the count as well. Send this
         with the torque off.
+        """
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults on one supported servo, keeping its ID.
+        Back up calibration and other settings first. On Feetech,
+        `set_torque([id], False)` turns torque off and unlocks EEPROM.
         """
     def change_id(self, definition: ServoDefinition, id: builtins.int, new_id: builtins.int) -> None:
         r"""
@@ -627,6 +648,11 @@ class MxPyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -948,6 +974,11 @@ class Orbita2dFocPyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -1305,6 +1336,11 @@ class Orbita2dPoulpePyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -1557,6 +1593,11 @@ class Orbita3dFocPyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -1854,6 +1895,11 @@ class Orbita3dPoulpePyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -2178,6 +2224,11 @@ class Scs0009PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -2527,6 +2578,11 @@ class Scs0043PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -2867,6 +2923,11 @@ class ServoDefinition:
         it keeps past its encoder's zero (Feetech's RESET, 0x0A, or Dynamixel's Clear,
         0x10); `Bus.reset_turn_count` relies on it.
         """
+    @property
+    def supports_parameter_restore(self) -> builtins.bool:
+        r"""
+        Whether any model using this definition is verified for parameter reset.
+        """
     def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
     def __hash__(self) -> builtins.int: ...
     def refuses(self, status: builtins.int) -> builtins.bool:
@@ -3041,6 +3102,11 @@ class Sts3215PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -3522,6 +3588,11 @@ class Xl320PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -3806,6 +3877,11 @@ class Xl330PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,
@@ -4282,6 +4358,11 @@ class Xl430PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_parameters_keep_id(self, id: builtins.int) -> None:
+        r"""
+        Reset parameters to factory defaults, keeping the motor's ID.
+        Back up calibration first. Turn torque off and unlock EEPROM before calling.
+        """
     def reset_turn_count(self, id: builtins.int) -> builtins.int:
         r"""
         Zero the turn count of motor `id` with its torque off (Feetech's RESET,

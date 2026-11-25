@@ -1,60 +1,46 @@
-from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, NamedTuple, Optional
-
-from tinybird.tb_cli_modules.cicd import (
-    APPEND_FIXTURES_SH,
-    DEFAULT_REQUIREMENTS_FILE,
-    EXEC_TEST_SH,
-    GITHUB_CD_YML,
-    GITHUB_CI_YML,
-    GITHUB_RELEASES_YML,
-    WORKFLOW_VERSION,
-)
-
-
-class GitProviders(Enum):
-    GITHUB = "github"
-
-
-class GitHubResource(NamedTuple):
-    resource_id: str
-    resource_name: str
-    resource_type: str
-    path: str
-    sha: str
-    mode: str = "100644"
-    type: str = "blob"
-    origin: Optional[str] = ""
+from typing import Dict, Optional
 
 
 class GitHubSettingsStatus(Enum):
-    IDLE = "idle"  # Nothing yet
-    LINKED = "linked"  # Connection flow has started
-    SYNCED = "synced"  # Repository is synced
-    SYNCING = "syncing"  # Repository is syncing
-    UNLINKED = "unlinked"  # Connection has been removed
-    CLI = "cli"  # Connection has been made through the CLI
+    IDLE = "idle"
+    LINKED = "linked"
+    SYNCED = "synced"
+    SYNCING = "syncing"
+    UNLINKED = "unlinked"
+    CLI = "cli"
 
 
-@dataclass
-class GitHubSettings:
-    provider: Optional[str] = ""
-    owner: Optional[str] = ""
-    owner_type: Optional[str] = ""
-    remote: Optional[str] = ""
-    access_token: Optional[str] = ""
-    branch: Optional[str] = ""
-    project_path: Optional[str] = ""
-    name: Optional[str] = ""
-    status: Optional[str] = GitHubSettingsStatus.IDLE.value
+def has_legacy_git_remote(remote: Optional[Dict[str, str]]) -> bool:
+    return bool(
+        remote
+        and (
+            remote.get("provider")
+            or remote.get("status")
+            in {
+                GitHubSettingsStatus.LINKED.value,
+                GitHubSettingsStatus.SYNCING.value,
+                GitHubSettingsStatus.SYNCED.value,
+            }
+        )
+    )
 
 
-AVAILABLE_GIT_PROVIDERS = [GitProviders.GITHUB.value]
+def unlinked_remote() -> Dict[str, str]:
+    """Return the workspace `remote` value for a workspace that is not connected to a Git provider."""
+    return {
+        "provider": "",
+        "owner": "",
+        "owner_type": "",
+        "remote": "",
+        "name": "",
+        "access_token": "",
+        "branch": "",
+        "project_path": "",
+        "last_commit_sha": "",
+        "status": GitHubSettingsStatus.UNLINKED.value,
+    }
 
-DEFAULT_BRANCH = "main"
-
-CI_WORKFLOW_VERSION = WORKFLOW_VERSION
 
 DEFAULT_TINYENV_FILE = """
 VERSION=0.0.0
@@ -75,69 +61,3 @@ VERSION=0.0.0
 # OBFUSCATE_PATTERN_SEPARATOR=||
 ##########
 """
-
-GITHUB_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-
-GITHUB_DEFAULT_EMPTY_TREE_HASH = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-
-DEFAULT_INIT_FILES = {
-    "requirements.txt": DEFAULT_REQUIREMENTS_FILE,
-    ".tinyenv": DEFAULT_TINYENV_FILE,
-    "scripts/exec_test.sh": EXEC_TEST_SH,
-    "scripts/append_fixtures.sh": APPEND_FIXTURES_SH,
-    "datasources/.gitkeep": "",
-    "datasources/fixtures/.gitkeep": "",
-    "pipes/.gitkeep": "",
-    "endpoints/.gitkeep": "",
-    "deploy/.gitkeep": "",
-    "tests/.gitkeep": "",
-}
-
-GITHUB_CI_YML_PATH = ".github/workflows/tinybird_ci.yml"
-GITHUB_CD_YML_PATH = ".github/workflows/tinybird_cd.yml"
-GITHUB_RELEASES_YML_PATH = ".github/workflows/tinybird_release.yml"
-
-DEFAULT_INIT_FILES_DEPLOY = {
-    GITHUB_CI_YML_PATH: GITHUB_CI_YML,
-    GITHUB_CD_YML_PATH: GITHUB_CD_YML,
-    GITHUB_RELEASES_YML_PATH: GITHUB_RELEASES_YML,
-}
-
-
-class SemverVersions(Enum):
-    MAJOR = "major"
-    MINOR = "minor"
-    PATCH = "patch"
-    CURRENT = "current"
-
-
-def bump_version(version: str, next_version: Optional[str]) -> str:
-    if not next_version:
-        return version
-
-    parts = version.split(".")
-    is_valid_semver = len(parts) == 3
-
-    if is_valid_semver and next_version in [
-        SemverVersions.MAJOR.value,
-        SemverVersions.MINOR.value,
-        SemverVersions.PATCH.value,
-    ]:
-        major, minor, patch = map(int, parts)
-        if next_version == SemverVersions.MAJOR.value:
-            major += 1
-        elif next_version == SemverVersions.MINOR.value:
-            minor += 1
-        elif next_version == SemverVersions.PATCH.value:
-            patch += 1
-
-        return f"{major}.{minor}.{patch}"
-    # TODO validate next version
-    return next_version
-
-
-def get_default_init_files_deploy(workspace_name: str) -> Dict[str, str]:
-    return {
-        path.replace("tinybird_", f"tinybird_{workspace_name.lower()}_"): content
-        for path, content in DEFAULT_INIT_FILES_DEPLOY.items()
-    }

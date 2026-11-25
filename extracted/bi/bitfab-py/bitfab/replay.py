@@ -37,6 +37,8 @@ from bitfab.mock_override import (
     MockOverrideInput,
     normalize_mock_overrides,
 )
+from bitfab.postgres_calls import install as install_postgres_interception
+from bitfab.postgres_calls import postgres_live_sandbox
 from bitfab.replay_branch import DbBranchOptions
 from bitfab.replay_heartbeat import replay_heartbeat
 from bitfab.replay_interrupt import (
@@ -50,6 +52,7 @@ from bitfab.replay_invocation import (
     safe_replay_invocation,
 )
 from bitfab.sandbox import (
+    POSTGRES_SANDBOX_NAME,
     SANDBOX_FIXTURE_PREFIX,
     SANDBOX_SESSION_KEY,
     RecordedSpan,
@@ -3102,6 +3105,18 @@ def _sandbox_session(
     )
 
 
+def _with_postgres_live_sandbox(
+    sandboxes: list[Sandbox] | None, lease: dict[str, Any] | None
+) -> list[Sandbox] | None:
+    if not lease:
+        return sandboxes
+    install_postgres_interception()
+    return [
+        *(s for s in sandboxes or [] if s.name != POSTGRES_SANDBOX_NAME),
+        postgres_live_sandbox(lease),
+    ]
+
+
 def _sandbox_store_binding(
     client: Any, start_from: str | None, save_to: str
 ) -> SandboxStoreBinding | None:
@@ -3301,6 +3316,7 @@ async def _execute_item_async(
         replay_ctx["db_branch_timings"] = db_branch_timings
     if source_bitfab_trace_id is not None:
         replay_ctx["source_bitfab_trace_id"] = source_bitfab_trace_id
+    sandboxes = _with_postgres_live_sandbox(sandboxes, db_branch_lease)
     if sandboxes:
         replay_ctx[SANDBOX_SESSION_KEY] = _sandbox_session(
             sandboxes,

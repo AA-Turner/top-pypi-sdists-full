@@ -1059,11 +1059,11 @@ def __patch_click_output():
                 msg = re.sub(pattern, lambda m: substitution(m.group(0)), str(msg))  # noqa: B023
         return msg
 
-    def _obfuscate_echo(msg: Any, *args: Any, **kwargs: Any) -> None:
+    def _obfuscate_echo(msg: Any, *args: Any, force_output: bool = False, **kwargs: Any) -> None:
         msg = _obfuscate(msg, *args, **kwargs)
         __old_click_echo(msg, *args, **kwargs)
 
-    def _obfuscate_secho(msg: Any, *args: Any, **kwargs: Any) -> None:
+    def _obfuscate_secho(msg: Any, *args: Any, force_output: bool = False, **kwargs: Any) -> None:
         msg = _obfuscate(msg, *args, **kwargs)
         __old_click_secho(msg, *args, **kwargs)
 
@@ -1071,9 +1071,17 @@ def __patch_click_output():
     click.secho = lambda msg, *args, **kwargs: _obfuscate_secho(msg, *args, **kwargs)
 
 
-def __unpatch_click_output():
-    click.echo = __old_click_echo
-    click.secho = __old_click_secho
+def __unpatch_click_output() -> None:
+    """Restore the default click output, keeping the 'force_output' parameter that force_echo uses."""
+
+    def echo(*args: Any, force_output: bool = False, **kwargs: Any) -> None:
+        __old_click_echo(*args, **kwargs)
+
+    def secho(*args: Any, force_output: bool = False, **kwargs: Any) -> None:
+        __old_click_secho(*args, **kwargs)
+
+    click.echo = echo
+    click.secho = secho
 
 
 def __hide_click_output() -> None:
@@ -1090,8 +1098,8 @@ def __hide_click_output() -> None:
         if force_output:
             __old_click_secho(msg, *args, **kwargs)
 
-    click.echo = silent_echo  # type: ignore
-    click.secho = silent_secho  # type: ignore
+    click.echo = silent_echo  # type: ignore[assignment]
+    click.secho = silent_secho  # type: ignore[assignment]
 
 
 def create_ctx_client(

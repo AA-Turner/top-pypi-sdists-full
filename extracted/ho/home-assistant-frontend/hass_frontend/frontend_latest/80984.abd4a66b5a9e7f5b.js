@@ -1,0 +1,2 @@
+export const __rspack_esm_ids=[80984];export const __webpack_modules__={58859(o,t,r){r.r(t);var e=r(83316),s=r(98933),L=r(17249),c=r(89404);class _ extends c.HaSvgIcon{constructor(...o){super(...o),this.path="rtl"===L.G.document.dir?"M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z":"M4,11V13H16L10.5,18.5L11.92,19.92L19.84,12L11.92,4.08L10.5,5.5L16,11H4Z"}}(0,e._)([(0,s.MZ)()],_.prototype,"path",void 0),_=(0,e._)([(0,s.EM)("ha-icon-arrow-next")],_),r.d(t,{HaIconArrowNext:()=>_})}};
+//# sourceMappingURL=80984.abd4a66b5a9e7f5b.js.map

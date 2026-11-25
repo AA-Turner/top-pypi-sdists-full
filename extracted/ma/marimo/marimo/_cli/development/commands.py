@@ -232,7 +232,6 @@ def print_routes() -> None:
                 print_all_routes(route.app, new_base_path)
 
     print_all_routes(app)
-    return
 
 
 @click.command(cls=ColoredCommand, help="Preview a marimo file as static HTML")
@@ -247,7 +246,7 @@ def print_routes() -> None:
     "--port",
     default=8080,
     help="Port to serve the preview on",
-    type=int,
+    type=click.IntRange(0, 65535),
 )
 @click.option(
     "--host",
@@ -331,6 +330,7 @@ def preview(file_path: Path, port: int, host: str, headless: bool) -> None:
         session_snapshot = serialize_session_view(
             session_view,
             cell_ids=list(file_manager.app.cell_manager.cell_ids()),
+            for_display=True,
             drop_virtual_file_outputs=False,
         )
 

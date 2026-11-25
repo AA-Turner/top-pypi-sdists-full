@@ -278,11 +278,11 @@ void Checkpointer::beginCheckpoint(common::transaction_t snapshotTimestamp,
     // snapshot may still need, and the next checkpoint refuses to overwrite a leftover
     // frozen WAL. The checkpoint proceeds without rotation; the CHECKPOINT record lands in
     // the active WAL and retirement below is skipped the same way.
-    // Independently, an active WAL that already holds a CHECKPOINT record (left by an
-    // earlier pinned checkpoint) is never rotated into a frozen WAL: the frozen recovery
-    // path requires the CHECKPOINT record to be final, so a rotated mid-file CHECKPOINT
-    // would break crash recovery. The record stays in the active WAL, whose recovery
-    // replays the suffix after the last CHECKPOINT.
+    // Independently, an active WAL holding a CHECKPOINT record this process logged (left by
+    // an earlier pinned checkpoint) is not rotated either: the record stays in the active
+    // WAL, whose recovery replays only the suffix after the last CHECKPOINT. The flag does
+    // not survive a restart, after which such a WAL can be rotated; frozen recovery then
+    // skips through its last CHECKPOINT the same way (see replayFrozenWAL).
     const bool pinWAL = retentionHorizon != common::INVALID_TRANSACTION;
     const bool activeWALHasCheckpoint = mainStorageManager->getWAL().mayHaveCheckpointRecord();
     for (const auto& target : checkpointTargets) {
@@ -393,11 +393,13 @@ void Checkpointer::postCheckpointCleanup(bool canResetPageManagerToCurrent) try 
         }
         target.storageManager->finalizeCheckpoint(clientContext);
     }
-    // Finalize partition children's page managers: their allocations were committed when the
-    // main header was written and their shadow pages applied.
+    // Finalize partition children: their allocations were committed when the main header was
+    // written and their shadow pages applied. This also publishes the staged state of children
+    // whose shadow pages were not applied above (no shadow file); for the others it is already
+    // published.
     if (auto* dbManager = main::DatabaseManager::Get(clientContext)) {
         for (auto* sm : dbManager->getPartitionStorageRegistry()->getAllManagers()) {
-            sm->getDataFH()->getPageManager()->finalizeCheckpoint();
+            sm->finalizeCheckpoint(clientContext);
         }
     }
     auto bufferManager = MemoryManager::Get(clientContext)->getBufferManager();
@@ -423,11 +425,13 @@ void Checkpointer::postCheckpointCleanup(bool canResetPageManagerToCurrent) try 
     // skipped while a reader is open and resumes at the next unpinned checkpoint. With no
     // transaction open every path below is exactly as before.
     const bool pinWALRetirement = retentionHorizon != common::INVALID_TRANSACTION;
+    // Graph WALs are retired even while pinned, but only for checkpoint targets (loaded graphs):
+    // a named graph's commits go to the main WAL, and a graph WAL holds only records of a session
+    // that opened the graph's file on its own, which this checkpoint has applied. Kept, they would
+    // replay again after a crash. Standalone sessions must not be open concurrently with the
+    // checkpoint; their unapplied records would be retired here before they are applied.
     for (const auto& target : checkpointTargets) {
         if (target.storageManager == mainStorageManager) {
-            continue;
-        }
-        if (pinWALRetirement) {
             continue;
         }
         target.storageManager->getWAL().retireFrozenWAL();
@@ -443,6 +447,13 @@ void Checkpointer::postCheckpointCleanup(bool canResetPageManagerToCurrent) try 
         }
         onWALRetired(mainWALRotated);
     }
+    // A pinned checkpoint keeps its CHECKPOINT record in the active WAL. The marker must be
+    // durable before any shadow is removed: recovery then discards the shadows instead of
+    // replaying a half-removed one.
+    if (pinWALRetirement) {
+        mainStorageManager->getWAL().writePinnedCheckpointMarker(&clientContext);
+    }
+    beforeShadowRemoval();
     for (const auto& target : checkpointTargets) {
         target.storageManager->getShadowFile().clear(*bufferManager, false);
         target.storageManager->getShadowFile().reset();
@@ -458,29 +469,9 @@ void Checkpointer::postCheckpointCleanup(bool canResetPageManagerToCurrent) try 
     common::VirtualFileSystem::GetUnsafe(clientContext)
         ->syncParentDirectory(
             StorageUtils::getShadowFilePath(mainStorageManager->getDatabasePath()));
-    // Durability marker for pinned checkpoints: the active WAL holds CHECKPOINT records
-    // with no rotation, and cleanup above removed the shadow. Recovery treats such
-    // CHECKPOINTs as durable only when this marker exists; a missing shadow without the
-    // marker is an out-of-band loss and must throw, never silently delete the WAL.
-    if (!isInMemory) {
-        auto* vfs = common::VirtualFileSystem::GetUnsafe(clientContext);
-        const auto markerPath =
-            StorageUtils::getPinnedCheckpointMarkerPath(mainStorageManager->getDatabasePath());
-        if (pinWALRetirement) {
-            auto markerFile = vfs->openFile(markerPath,
-                common::FileOpenFlags(
-                    common::FileFlags::WRITE | common::FileFlags::CREATE_IF_NOT_EXISTS),
-                &clientContext);
-            const uint8_t done = 1;
-            markerFile->writeFile(&done, 1, 0);
-            markerFile->truncate(1);
-            markerFile->syncFile();
-            markerFile.reset();
-            vfs->syncParentDirectory(markerPath);
-        } else {
-            vfs->removeFileIfExists(markerPath, &clientContext);
-            vfs->syncParentDirectory(markerPath);
-        }
+    // An unpinned checkpoint retired the WAL above, so no CHECKPOINT record is left to vouch for.
+    if (!pinWALRetirement) {
+        mainStorageManager->getWAL().removePinnedCheckpointMarker(&clientContext);
     }
     bufferManager->removeEvictedCandidates();
     releaseCheckpointLocks();
@@ -576,7 +567,11 @@ void Checkpointer::beforeWALRetirement(bool) {}
 
 void Checkpointer::onWALRetired(bool) {}
 
+void Checkpointer::beforeShadowRemoval() {}
+
 void Checkpointer::beforeGraphShadowApply(StorageManager&) {}
+
+void Checkpointer::beforeRollback() {}
 
 void Checkpointer::logCheckpointAndApplyShadowPages(bool walRotated_) {
     auto& shadowFile = mainStorageManager->getShadowFile();
@@ -590,7 +585,7 @@ void Checkpointer::logCheckpointAndApplyShadowPages(bool walRotated_) {
     } else {
         wal.logAndFlushCheckpoint(&clientContext);
     }
-    shadowFile.applyShadowPages(*mainStorageManager, clientContext);
+    mainStorageManager->applyShadowPagesAndPublish(clientContext);
     applyShadowPagesForPartitionChildren();
 }
 
@@ -607,8 +602,7 @@ void Checkpointer::applyGraphShadowPages() {
     for (const auto& target : checkpointTargets) {
         if (target.storageManager != mainStorageManager) {
             beforeGraphShadowApply(*target.storageManager);
-            target.storageManager->getShadowFile().applyShadowPages(*target.storageManager,
-                clientContext);
+            target.storageManager->applyShadowPagesAndPublish(clientContext);
         }
     }
 }
@@ -628,15 +622,28 @@ void Checkpointer::applyShadowPagesForPartitionChildren() {
         if (!shadowFile.hasShadowingFH()) {
             continue;
         }
-        shadowFile.applyShadowPages(*sm, clientContext);
+        // Publish the child's staged primary-key index state together with its pages, as for
+        // the main database (#1052).
+        sm->applyShadowPagesAndPublish(clientContext);
         sm->getDataFH()->flushAllDirtyPagesInFrames();
     }
 }
 
-void Checkpointer::rollback() {
+void Checkpointer::rollback() try {
     if (isInMemory) {
         return;
     }
+    // A failed savepoint restore can leave a failed node group's bytes in a shadow page that
+    // completed groups also own (see ShadowFile::recordSavepointRollbackFailure). Partition
+    // children are not checkpoint targets; their shadow files are cleared below.
+    std::string savepointRollbackFailures;
+    for (const auto& target : checkpointTargets) {
+        if (const auto& failure =
+                target.storageManager->getShadowFile().getSavepointRollbackFailure()) {
+            savepointRollbackFailures += (savepointRollbackFailures.empty() ? "" : "; ") + *failure;
+        }
+    }
+    beforeRollback();
     // Any pages freed during the checkpoint are no longer freed
     for (const auto& target : checkpointTargets) {
         target.storageManager->rollbackCheckpoint(*target.catalog, &clientContext);
@@ -660,7 +667,27 @@ void Checkpointer::rollback() {
             storageManager->getWAL().undoRotationForCheckpoint();
         }
     }
+    if (!savepointRollbackFailures.empty()) {
+        // Poisoned by the handler below: a retried checkpoint would apply those pages.
+        throw common::RuntimeException(std::format(
+            "a node group could not restore its shadow pages after a failed checkpoint: {}",
+            savepointRollbackFailures));
+    }
     releaseCheckpointLocks();
+} catch (const std::exception& e) {
+    // A half-undone checkpoint leaves page and WAL state that later writes must not build on.
+    releaseCheckpointLocks();
+    mainStorageManager->getWAL().poison(std::format("Checkpoint rollback failed: {}", e.what()));
+    throw common::RuntimeException(std::format(
+        "Checkpoint rollback failed; the database refuses further writes until restart. Original "
+        "error: {}",
+        e.what()));
+} catch (...) {
+    releaseCheckpointLocks();
+    mainStorageManager->getWAL().poison("Checkpoint rollback failed: unknown exception");
+    throw common::RuntimeException(
+        "Checkpoint rollback failed; the database refuses further writes until restart. Original "
+        "error: unknown exception");
 }
 
 bool Checkpointer::canAutoCheckpoint(const main::ClientContext& clientContext,

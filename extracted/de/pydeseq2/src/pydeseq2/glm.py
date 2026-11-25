@@ -40,19 +40,20 @@ def irls_solver(
     disp
         Gene-wise dispersion prior.
     min_mu
-        Lower bound on estimated means, to ensure numerical stability. (default: ``0.5``).
+        Lower bound on estimated means, to ensure numerical stability.
     beta_tol
-        Stopping criterion for IRWLS: :math:`\vert dev - dev_{old}\vert / \vert dev + 0.1 \vert < \beta_{tol}`. (default: ``1e-8``).
+        Stopping criterion for IRWLS: :math:`\vert dev - dev_{old}\vert / \vert dev + 0.1 \vert < \beta_{tol}`.
     min_beta
-        Lower-bound on LFC. (default: ``-30``).
+        Lower bound on the log2 fold changes found by the optimizer.
     max_beta
-        Upper-bound on LFC. (default: ``-30``).
+        Upper bound on the log2 fold changes found by the optimizer.
+        IRLS switches to the optimizer once a natural log coefficient exceeds it in absolute value.
     optimizer
         Optimizing method to use in case IRLS starts diverging.
         Accepted values: 'BFGS' or 'L-BFGS-B'.
-        NB: only 'L-BFGS-B' ensures that LFCS will lay in the [min_beta, max_beta] range. (default: ``'L-BFGS-B'``).
+        NB: only 'L-BFGS-B' ensures that LFCS will lay in the [min_beta, max_beta] range.
     maxiter
-        Maximum number of IRLS iterations to perform before switching to L-BFGS-B. (default: ``250``).
+        Maximum number of IRLS iterations to perform before switching to L-BFGS-B.
 
     Returns
     -------
@@ -101,11 +102,11 @@ def irls_solver(
             # If IRLS starts diverging, use L-BFGS-B
             def f(beta: np.ndarray) -> float:
                 # closure to minimize
-                mu_ = np.maximum(size_factors * np.exp(X @ beta), min_mu)
+                mu_ = size_factors * np.exp(X @ beta)
                 return nb_nll(counts, mu_, disp) + 0.5 * (ridge_factor @ beta**2).sum()
 
             def df(beta: np.ndarray) -> np.ndarray:
-                mu_ = np.maximum(size_factors * np.exp(X @ beta), min_mu)
+                mu_ = size_factors * np.exp(X @ beta)
                 return -X.T @ counts + ((1 / disp + counts) * mu_ / (1 / disp + mu_)) @ X + ridge_factor @ beta
 
             res = minimize(
@@ -113,7 +114,7 @@ def irls_solver(
                 beta_init,
                 jac=df,
                 method=optimizer,
-                bounds=([(min_beta, max_beta)] * num_vars if optimizer == "L-BFGS-B" else None),
+                bounds=([(min_beta * np.log(2), max_beta * np.log(2))] * num_vars if optimizer == "L-BFGS-B" else None),
             )
 
             beta = res.x
@@ -173,7 +174,7 @@ def fit_lin_mu(
     design_matrix
         Design matrix.
     min_mu
-        Lower threshold for fitted means, for numerical stability. (default: ``0.5``).
+        Lower threshold for fitted means, for numerical stability.
 
     Returns
     -------

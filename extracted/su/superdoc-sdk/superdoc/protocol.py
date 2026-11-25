@@ -324,6 +324,15 @@ def build_operation_argv(
     payload = apply_default_change_mode(operation, params, default_change_mode)
     payload = apply_default_user(operation, payload, user)
     payload = apply_operation_param_aliases(operation, payload)
+    if operation.get('operationId') == 'doc.comments.patch':
+        known_params = {spec['name'] for spec in operation['params']}
+        for field in payload:
+            if field not in known_params:
+                raise SuperDocError(
+                    f'Unknown field "{field}" on comments.patch input.',
+                    code='INVALID_INPUT',
+                    details={'field': field},
+                )
     argv: List[str] = list(operation['commandTokens'])
     for spec in operation['params']:
         if spec['name'] not in payload:

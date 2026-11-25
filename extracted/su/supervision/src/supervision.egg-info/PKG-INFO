@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: supervision
-Version: 0.32.1
-Summary: A set of easy-to-use utils that will come in handy in any Computer Vision project
+Version: 0.32.2
+Summary: Model-agnostic computer vision toolkit: load detections, annotate, filter, count, evaluate, manage data
 Author-email: "Roboflow et al." <develop@roboflow.com>
-Maintainer-email: Piotr Skalski <piotr@roboflow.com>
+Maintainer-email: Piotr Skalski <piotr@roboflow.com>, Jiri Borovec <jiri@roboflow.com>
 License-Expression: MIT
 Project-URL: Documentation, https://supervision.roboflow.com/latest/
 Project-URL: Homepage, https://github.com/roboflow/supervision
 Project-URL: Repository, https://github.com/roboflow/supervision
-Keywords: AI,deep-learning,DL,machine-learning,ML,Roboflow,vision
+Keywords: AI,annotation,bounding-box,computer-vision,dataset,deep-learning,detection,image-processing,instance-segmentation,keypoints,machine-learning,metrics,object-detection,pose-estimation,Roboflow,segmentation,video,vision,vision-language-models,visualization
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -287,7 +287,7 @@ for path, image, annotation in ds:
 
 ## 🎬 Tutorials
 
-Want to learn how to use Supervision? Explore our [how-to guides](https://supervision.roboflow.com/develop/how_to/detect_and_annotate/), [end-to-end examples](https://github.com/roboflow/supervision/tree/0.32.1/examples), [cheatsheet](https://roboflow.github.io/cheatsheet-supervision/), and [cookbooks](https://supervision.roboflow.com/develop/cookbooks/)!
+Want to learn how to use Supervision? Explore our [how-to guides](https://supervision.roboflow.com/develop/how_to/detect_and_annotate/), [end-to-end examples](https://github.com/roboflow/supervision/tree/0.32.2/examples), [cheatsheet](https://roboflow.github.io/cheatsheet-supervision/), and [cookbooks](https://supervision.roboflow.com/develop/cookbooks/)!
 
 <br/>
 
@@ -321,7 +321,7 @@ Visit our [documentation](https://supervision.roboflow.com/) page to learn how s
 
 ## 🏆 Contribution
 
-We love your input! Please see our [contributing guide](https://github.com/roboflow/supervision/blob/0.32.1/.github/CONTRIBUTING.md) to get started. Thank you 🙏 to all our contributors!
+We love your input! Please see our [contributing guide](https://github.com/roboflow/supervision/blob/0.32.2/.github/CONTRIBUTING.md) to get started. Thank you 🙏 to all our contributors!
 
 <p align="center">
     <a href="https://github.com/roboflow/supervision/graphs/contributors">

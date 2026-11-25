@@ -160,7 +160,7 @@ def dev(ctx: click.Context, with_connections: Optional[bool]) -> None:
     )
 
 
-def run_watch(project: Project, process: Callable, config: dict[str, Any]) -> None:
+def run_watch(project: Project, process: Callable[..., object], config: dict[str, Any]) -> None:
     click.echo(FeedbackManager.gray(message="\nWatching for changes..."))
     watch_project(process=process, project=project, config=config)
 

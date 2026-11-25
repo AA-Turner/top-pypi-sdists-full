@@ -111,7 +111,12 @@ from bitfab.replay import (  # noqa: F401 - re-export
 from bitfab.replay import replay as _run_replay
 from bitfab.replay_branch import DbBranchOptions, ReplayBranch
 from bitfab.replay_interrupt import ReplayInterrupt
-from bitfab.sandbox import SANDBOX_FIXTURE_PREFIX, SANDBOX_SESSION_KEY, Sandbox
+from bitfab.sandbox import (
+    SANDBOX_FIXTURE_PREFIX,
+    SANDBOX_SESSION_KEY,
+    Sandbox,
+    is_live_sandbox,
+)
 from bitfab.sandbox_modes import SandboxModeSetting
 from bitfab.sandbox_stores import SandboxStoresClient
 from bitfab.selective_replay import SelectiveReplayOptions, json_fingerprint
@@ -3253,6 +3258,7 @@ class Bitfab:
                 replay_ctx: dict[str, Any] | None,
                 is_root_span: bool,
                 variant: str | None,
+                live: bool = False,
             ) -> tuple[Any, ...] | None:
                 session = (replay_ctx or {}).get(SANDBOX_SESSION_KEY)
                 if session is None or is_root_span:
@@ -3264,9 +3270,136 @@ class Bitfab:
                     variant=variant,
                 )
                 sandbox = session.find(node)
-                if sandbox is None:
+                if sandbox is None or is_live_sandbox(sandbox) != live:
                     return None
                 return ("sandbox", session, sandbox, node)
+
+            def _plan_live_sandbox(
+                is_root_span: bool, variant: str | None
+            ) -> tuple[Any, ...] | None:
+                replay_ctx = _replay_context.get()
+                if replay_ctx is None:
+                    return None
+                return _plan_sandbox(replay_ctx, is_root_span, variant, live=True)
+
+            def _live_sandbox_call(
+                plan: tuple[Any, ...],
+                new_stack: list[SpanContext],
+                args: tuple[Any, ...],
+                kwargs: dict[str, Any],
+            ) -> tuple[Any, Any, MockOverrideCtx, Callable[[dict[str, Any]], None]]:
+                _, session, sandbox, node = plan
+
+                def no_original_output() -> Any:
+                    raise RuntimeError(
+                        f"The {sandbox.name} sandbox runs each call for real; "
+                        "there is no recorded output to read."
+                    )
+
+                def attach_access(access: dict[str, Any]) -> None:
+                    new_stack[-1]["sandboxAccess"] = access
+
+                CurrentSpan(new_stack[-1]).add_context({"sandbox": sandbox.name})
+                call = MockOverrideCtx(
+                    node=node,
+                    inputs=list(args),
+                    kwargs=dict(kwargs),
+                    get_original_output=no_original_output,
+                )
+                return session, sandbox, call, attach_access
+
+            def _send_live_sandbox_span(
+                new_stack: list[SpanContext],
+                base_params: dict[str, Any],
+                result: Any,
+                error: str | None,
+            ) -> None:
+                _safe_send_span(
+                    new_stack[-1],
+                    **base_params,
+                    result=result,
+                    error=error,
+                    ended_at=_get_ended_at(),
+                    mocked=True,
+                    mock_target="output",
+                    mock_source="sandbox",
+                )
+
+            def _send_live_sandbox_failure(
+                new_stack: list[SpanContext],
+                base_params: dict[str, Any],
+                error: BaseException,
+            ) -> None:
+                _send_live_sandbox_span(
+                    new_stack,
+                    base_params,
+                    None,
+                    str(error) or error.__class__.__name__,
+                )
+
+            def _answer_live_sandbox(
+                plan: tuple[Any, ...],
+                new_stack: list[SpanContext],
+                base_params: dict[str, Any],
+                args: tuple[Any, ...],
+                kwargs: dict[str, Any],
+            ) -> Any:
+                session, sandbox, call, attach_access = _live_sandbox_call(
+                    plan, new_stack, args, kwargs
+                )
+                try:
+                    result = session.answer_live(
+                        sandbox,
+                        call,
+                        lambda: _run_with_span_stack(
+                            new_stack, lambda: fn(*args, **kwargs)
+                        ),
+                        _attach_to_trace_root,
+                        attach_access,
+                    )
+                except BaseException as error:
+                    _send_live_sandbox_failure(new_stack, base_params, error)
+                    raise
+                output, finalize_error = (
+                    _run_finalize(finalize, result)
+                    if finalize is not None
+                    else (result, None)
+                )
+                _send_live_sandbox_span(new_stack, base_params, output, finalize_error)
+                return result
+
+            async def _answer_live_sandbox_async(
+                plan: tuple[Any, ...],
+                new_stack: list[SpanContext],
+                base_params: dict[str, Any],
+                args: tuple[Any, ...],
+                kwargs: dict[str, Any],
+            ) -> Any:
+                session, sandbox, call, attach_access = _live_sandbox_call(
+                    plan, new_stack, args, kwargs
+                )
+
+                async def run() -> Any:
+                    token = _span_stack.set(new_stack)
+                    try:
+                        return await fn(*args, **kwargs)  # type: ignore[misc]
+                    finally:
+                        _span_stack.reset(token)
+
+                try:
+                    result = await session.answer_live_async(
+                        sandbox, call, run, _attach_to_trace_root, attach_access
+                    )
+                except BaseException as error:
+                    _send_live_sandbox_failure(new_stack, base_params, error)
+                    raise
+                output, finalize_error = (
+                    await _run_finalize_async(finalize, result)
+                    if finalize is not None
+                    else (result, None)
+                )
+                _send_live_sandbox_span(new_stack, base_params, output, finalize_error)
+                return result
 
             def _plan_mock_replay(
                 is_root_span: bool, variant: str | None, variant_chain: VariantChain
@@ -3944,6 +4077,12 @@ class Bitfab:
                     new_stack, base_params, is_root_span = setup
                     span_ctx = new_stack[-1]
 
+                    live_plan = _plan_live_sandbox(is_root_span, base_params["variant"])
+                    if live_plan is not None:
+                        return await _answer_live_sandbox_async(  # type: ignore[no-any-return]
+                            live_plan, new_stack, base_params, args, kwargs
+                        )
+
                     # Executing a mock plan can block on HTTP (the lazy
                     # recorded-output fetch for a non-"all" replay tree, or an
                     # async override value function). An async root is awaited directly
@@ -4081,6 +4220,12 @@ class Bitfab:
                         return fn(*args, **kwargs)
                     new_stack, base_params, is_root_span = setup
                     span_ctx = new_stack[-1]
+
+                    live_plan = _plan_live_sandbox(is_root_span, base_params["variant"])
+                    if live_plan is not None:
+                        return _answer_live_sandbox(  # type: ignore[no-any-return]
+                            live_plan, new_stack, base_params, args, kwargs
+                        )
 
                     mocked, mocked_output = _safe_check_mock_replay(
                         new_stack, base_params, is_root_span, args, kwargs

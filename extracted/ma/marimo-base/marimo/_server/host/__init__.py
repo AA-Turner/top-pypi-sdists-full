@@ -10,10 +10,19 @@ OPERATIONS = [
     "notebook.delete",
     "notebook.open",
     "notebook.edit",
+    "notebook.emit",
     "notebook.save",
     "runtime.start",
     "runtime.stop",
     "runtime.restart",
     "runtime.run",
+    "input.reply",
+    "runtime.execute",
+    "runtime.interrupt",
+    "runtime.cancel",
 ]
 """Supported operations advertised in the `host` object."""
+
+ATTACHMENT_IDENTITY = "Marimo-Attachment-Identity"
+ATTACHMENT_KIND = "Marimo-Attachment-Kind"
+ATTACHMENT_NAME = "Marimo-Attachment-Name"

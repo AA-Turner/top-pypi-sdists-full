@@ -20,11 +20,12 @@ import sys
 import threading
 from collections import abc
 from collections.abc import Iterator, Mapping, MutableMapping
-from functools import lru_cache
+from functools import cache
 from itertools import chain
 from typing import Any
 
 _cache: dict[str, Any] = {}
+_dict_cache: dict[str, LocaleDataDict] = {}
 _cache_lock = threading.RLock()
 _dirname = os.path.join(os.path.dirname(__file__), 'locale-data')
 _windows_reserved_name_re = re.compile("^(con|prn|aux|nul|com[0-9]|lpt[0-9])$", re.I)
@@ -60,6 +61,7 @@ def resolve_locale_filename(name: os.PathLike[str] | str) -> str:
     return os.path.join(_dirname, f"{name}.dat")
 
 
+@cache
 def exists(name: str) -> bool:
     """Check whether locale data is available for the given locale.
 
@@ -72,10 +74,10 @@ def exists(name: str) -> bool:
     if name in _cache:
         return True
     file_found = os.path.exists(resolve_locale_filename(name))
-    return True if file_found else bool(normalize_locale(name))
+    return file_found or bool(normalize_locale(name))
 
 
-@lru_cache(maxsize=None)
+@cache
 def locale_identifiers() -> list[str]:
     """Return a list of all locale identifiers for which locale data is
     available.
@@ -173,6 +175,29 @@ def load(name: os.PathLike[str] | str, merge_inherited: bool = True) -> dict[str
         _cache_lock.release()
 
 
+def clear_caches() -> None:
+    """
+    Clear locale data caches.
+    """
+    with _cache_lock:
+        _cache.clear()
+        _dict_cache.clear()
+
+
+def get_locale_data(name: str) -> LocaleDataDict:
+    """Return an alias-resolving `LocaleDataDict` over the merged data for
+    the given locale.
+
+    The wrapper is cached and shared: repeated requests for the same locale
+    return the same object. Alias resolutions memoized within it are
+    locale-specific.
+    """
+    try:
+        return _dict_cache[name]
+    except KeyError:
+        return _dict_cache.setdefault(name, LocaleDataDict(load(name)))
+
+
 def merge(dict1: MutableMapping[Any, Any], dict2: Mapping[Any, Any]) -> None:
     """Merge the data from `dict2` into the `dict1` dictionary, making copies
     of nested dictionaries.
@@ -192,6 +217,8 @@ def merge(dict1: MutableMapping[Any, Any], dict2: Mapping[Any, Any]) -> None:
                 if val1 is None:
                     val1 = {}
                 if isinstance(val1, Alias):
+                    # A dict overriding an alias becomes an `(alias, overrides)` tuple
+                    # resolved in `Alias.resolve` or `LocaleDataDict.__getitem__`.
                     val1 = (val1, val2)
                 elif isinstance(val1, tuple):
                     alias, others = val1
@@ -226,7 +253,6 @@ class Alias:
         that second alias will also be resolved.
 
         :param data: the locale data
-        :type data: `dict`
         """
         base = data
         for key in self.keys:
@@ -236,7 +262,14 @@ class Alias:
         elif isinstance(data, tuple):
             alias, others = data
             data = alias.resolve(base)
+            if others:  # Apply overrides on a copy.
+                data = data.copy()
+                merge(data, others)
+
         return data
+
+
+_sentinel = object()
 
 
 class LocaleDataDict(abc.MutableMapping):
@@ -249,7 +282,10 @@ class LocaleDataDict(abc.MutableMapping):
         data: MutableMapping[str | int | None, Any],
         base: Mapping[str | int | None, Any] | None = None,
     ):
+        # May be shared between locales.
         self._data = data
+        # Per-instance memoization of resolved values.
+        self._resolved: dict[str | int | None, Any] = {}
         if base is None:
             base = data
         self.base = base
@@ -261,6 +297,9 @@ class LocaleDataDict(abc.MutableMapping):
         return iter(self._data)
 
     def __getitem__(self, key: str | int | None) -> Any:
+        val = self._resolved.get(key, _sentinel)
+        if val is not _sentinel:
+            return val
         orig = val = self._data[key]
         if isinstance(val, Alias):  # resolve an alias
             val = val.resolve(self.base)
@@ -271,13 +310,19 @@ class LocaleDataDict(abc.MutableMapping):
         if isinstance(val, dict):  # Return a nested alias-resolving dict
             val = LocaleDataDict(val, base=self.base)
         if val is not orig:
-            self._data[key] = val
+            # Only resolved/wrapped values are memoized.
+            # Scalars are always read from `self._data`, so that
+            # manual writes into the backing data (possibly shared)
+            # stay visible.
+            self._resolved[key] = val
         return val
 
     def __setitem__(self, key: str | int | None, value: Any) -> None:
+        self._resolved.pop(key, None)
         self._data[key] = value
 
     def __delitem__(self, key: str | int | None) -> None:
+        self._resolved.pop(key, None)
         del self._data[key]
 
     def copy(self) -> LocaleDataDict:

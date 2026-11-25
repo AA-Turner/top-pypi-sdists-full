@@ -149,7 +149,7 @@ def get_env_info(
     api_host: str,
     ui_host: str,
     ch_host: str,
-    is_local=False,
+    is_local: bool = False,
 ) -> Tuple[List[Any], List[str]]:
     user_workspaces = client.user_workspaces(version="v1")
     current_workspace = client.workspace_info(version="v1")

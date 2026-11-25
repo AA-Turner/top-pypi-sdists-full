@@ -26,6 +26,7 @@
 Module for testing other cursor methods and attributes.
 """
 
+import datetime
 import decimal
 
 import oracledb
@@ -913,17 +914,33 @@ def test_cursor_1860(skip_unless_json_supported, cursor, test_env):
     assert cursor.fetchall() == expected_data
 
 
-def test_cursor_1861(skip_unless_domains_supported, cursor, test_env):
-    "1861 - fetch table with domain and annotations"
-    cursor.execute("select * from TableWithDomainAndAnnotations")
-    assert cursor.fetchall() == [(1, 25)]
+def test_cursor_1861(
+    skip_unless_domains_supported, db_object_manager, cursor, test_env
+):
+    "1861 - metadata of table with domain and annotations"
+    domain = db_object_manager.create_domain(
+        "test_1861_domain", "number(3, 0) not null"
+    )
+    db_object_manager.create_table(
+        "test_1861",
+        """
+        id number(9) not null,
+        age number(3, 0) domain test_1861_domain
+        annotations (
+           Anno_1 'first annotation',
+           Anno_2 'second annotation',
+           Anno_3
+        )
+        """,
+    )
+    cursor.execute("select * from test_1861")
     column_1 = cursor.description[0]
     assert column_1.domain_schema is None
     assert column_1.domain_name is None
     assert column_1.annotations is None
     column_2 = cursor.description[1]
     assert column_2.domain_schema == test_env.main_user.upper()
-    assert column_2.domain_name == "SIMPLEDOMAIN"
+    assert column_2.domain_name == domain.name.upper()
     expected_annotations = {
         "ANNO_1": "first annotation",
         "ANNO_2": "second annotation",
@@ -1052,3 +1069,25 @@ def test_cursor_1872(cursor):
     cursor.parse("select to_clob('some_value') from dual")
     fetch_info = cursor.description[0]
     assert fetch_info.type is oracledb.DB_TYPE_CLOB
+
+
+def test_cursor_1873(conn, skip_unless_thin_mode):
+    "1873 - test changing type handler for cached statement with LOB column"
+
+    def type_handler(cursor, metadata):
+        if metadata.type_code is oracledb.DB_TYPE_CLOB:
+            return cursor.var(
+                oracledb.DB_TYPE_LONG, arraysize=cursor.arraysize
+            )
+
+    sql = "select to_clob('test_1873'), date '2026-11-18' from dual"
+    for handler in (None, type_handler, None):
+        with conn.cursor() as cursor:
+            cursor.outputtypehandler = handler
+            cursor.execute(sql)
+            clob_value, date_value = cursor.fetchone()
+            if handler is None:
+                assert isinstance(clob_value, oracledb.LOB)
+                clob_value = clob_value.read()
+            assert clob_value == "test_1873"
+            assert date_value == datetime.datetime(2026, 11, 18)

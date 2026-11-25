@@ -2,7 +2,8 @@
 
 Offline and without a model or login: every row comes from the catalogs `dreamscale sim`
 validates against (`benchmarks.py` and the per-benchmark catalogs). Each row's id is exactly
-what `--task-suite` or `--task-id` accepts.
+what `--task-suite` or `--task-id` accepts; a task's id is unique across its benchmark
+(DSL-611), so `--task-id` never needs a suite.
 
 MolmoSpaces episodes are the one exception: they live in benchmark files MolmoSpaces downloads
 on its first run, so its tasks list once they are on disk.
@@ -24,21 +25,18 @@ from rich.text import Text
 from dreamscale import tables
 
 from .benchmarks import BENCHMARK_LABELS as LOCAL_LABELS
-from .benchmarks import DEFAULT_SUITES as LOCAL_DEFAULT_SUITES
 from .benchmarks import robocasa_tasks
 
 # The benchmarks `dreamscale sim` runs on this computer, then RoboLab, which runs on
 # Dreamscale's simulators.
 BENCHMARK_LABELS = {**LOCAL_LABELS, "robolab": "RoboLab (hosted)"}
-DEFAULT_SUITES = {**LOCAL_DEFAULT_SUITES, "robolab": "smoke10"}
 
 
 @dataclass(frozen=True)
 class Suite:
     id: str  # the --task-suite
-    tasks: int | None  # None: not known offline (MolmoSpaces before download, ABC's episodes)
+    tasks: int | None  # None: not known offline (MolmoSpaces before its download)
     description: str = ""
-    default: bool = False
 
 
 @dataclass(frozen=True)
@@ -96,8 +94,8 @@ def _libero_tasks(suite: str) -> list[Task]:
     names = _libero_names()
     if suite not in names:
         raise ValueError(f"LIBERO --task-suite must be one of {', '.join(names)}.")
-    # The SDK loads each suite in LIBERO's default task order, so --task-id i is the i-th name.
-    return [Task(str(i), libero_language(name)) for i, name in enumerate(names[suite])]
+    # The SDK loads each suite in LIBERO's default task order: <suite>/i is the i-th name.
+    return [Task(f"{suite}/{i}", libero_language(name)) for i, name in enumerate(names[suite])]
 
 
 # --- RoboCasa365: the task names its suites take (robocasa365_tasks.json).
@@ -111,7 +109,6 @@ def _robocasa_suites() -> list[Suite]:
 
 
 def _robocasa_tasks(suite: str) -> list[Task]:
-    # --task-id takes the name or its index; the name says what the task is.
     return [Task(task["name"], _words(task["name"])) for task in robocasa_tasks(suite)]
 
 
@@ -130,7 +127,7 @@ def _roboeval_tasks(suite: str) -> list[Task]:
 
     if suite not in FAMILIES:
         raise ValueError(f"RoboEval --task-suite must be one of {', '.join(FAMILIES)}.")
-    return [Task(str(i), variant) for i, variant in enumerate(FAMILIES[suite].variants)]
+    return [Task(variant, _words(variant)) for variant in FAMILIES[suite].variants]
 
 
 # --- MolmoSpaces: benchmarks whose episodes download on the first run.
@@ -156,7 +153,7 @@ def _molmospaces_episodes(suite: str) -> list[dict] | None:
 def _molmospaces_suites() -> list[Suite]:
     from .molmospaces_catalog import BENCHMARKS
 
-    rows = [Suite("all", None, "Every benchmark below")]
+    rows = []
     for name, benchmark in BENCHMARKS.items():
         episodes = _molmospaces_episodes(name)
         rows.append(Suite(name, None if episodes is None else len(episodes),
@@ -165,55 +162,55 @@ def _molmospaces_suites() -> list[Suite]:
 
 
 def _molmospaces_tasks(suite: str) -> list[Task]:
-    from .molmospaces_catalog import selected_suites
+    from .molmospaces_catalog import BENCHMARKS
 
-    if suite.lower() == "all":
-        raise TasksUnavailable(
-            "MolmoSpaces --task-suite all runs the same --task-id (an episode number, or all) "
-            "in every benchmark. List one benchmark's episodes with --task-suite <benchmark>.")
-    (name,) = selected_suites(suite)
-    episodes = _molmospaces_episodes(name)
+    if suite not in BENCHMARKS:
+        raise ValueError(f"MolmoSpaces --task-suite must be one of {', '.join(BENCHMARKS)}.")
+    episodes = _molmospaces_episodes(suite)
     if episodes is None:
         raise TasksUnavailable(
-            f"MolmoSpaces downloads {name}'s episodes on its first run; list them after "
-            f"`dreamscale sim molmospaces --task-suite {name}` has run once. --task-id is an "
-            "episode number, or all.")
-    return [Task(str(i), _sentence(episode["language"]["task_description"]))
+            f"MolmoSpaces downloads {suite}'s episodes on its first run; list them after "
+            f"`dreamscale sim molmospaces --task-id {suite}/0` has run once. A task's id is "
+            f"{suite}/<episode number>.")
+    return [Task(f"{suite}/{i}", _sentence(episode["language"]["task_description"]))
             for i, episode in enumerate(episodes)]
 
 
-# --- ABC: the station's tasks; --task-id is an episode (a seeded scene), any number.
+# --- RoboLab (hosted): suites are its competency axes; a task can be in several.
 
 
 def _robolab_suites() -> list[Suite]:
     from .robolab_catalog import SUITES
 
-    described = {"smoke10": "ten single-object tasks", "all": "every RoboLab task"}
-    return [Suite(name, len(names), described.get(name, "")) for name, names in SUITES.items()]
+    described = {"visual": "Color, semantics and size",
+                 "relational": "Spatial, counting and conjunction",
+                 "procedural": "Affordance, reorientation, sorting and stacking"}
+    return [Suite(name, len(SUITES[name]), text) for name, text in described.items()]
 
 
 def _robolab_tasks(suite: str) -> list[Task]:
     from .robolab_catalog import SUITES
 
-    if suite not in SUITES:
-        raise ValueError(f"RoboLab --task-suite must be one of {', '.join(SUITES)}.")
-    return [Task(name, _words(name.removesuffix("Task"))) for name in SUITES[suite]]
+    if suite not in SUITES or suite == "all":
+        raise ValueError("RoboLab --task-suite must be one of visual, relational, procedural.")
+    return [Task(name, _words(name)) for name in SUITES[suite]]
+
+
+# --- ABC: the station's tasks, in no suite; --task-seed picks the scene.
 
 
 def _abc_suites() -> list[Suite]:
-    from .abc_catalog import TASKS
-
-    return [Suite(name, None, _words(name)) for name in TASKS]
+    return []
 
 
 def _abc_tasks(suite: str) -> list[Task]:
-    from .abc_catalog import SEED, TASKS
+    raise ValueError("ABC has no suites: --task-id is one of its tasks, or use --all.")
 
-    if suite not in TASKS:
-        raise ValueError(f"ABC --task-suite must be one of {', '.join(TASKS)}.")
-    raise TasksUnavailable(
-        f"ABC's --task-id is an episode number, 0 or more: episode N is {suite} in the scene "
-        f"seeded {SEED} + N.")
+
+def _abc_all() -> list[Task]:
+    from .abc_catalog import TASKS
+
+    return [Task(name, _words(name)) for name in TASKS]
 
 
 _SUITES: dict[str, Callable[[], list[Suite]]] = {
@@ -228,23 +225,35 @@ _TASKS: dict[str, Callable[[str], list[Task]]] = {
 }
 # What each benchmark's --task-id is, for the suite list's footer.
 _TASK_ID = {
-    "libero": "the task's number in its suite",
-    "robocasa365": "a task's name, or its number in the suite",
-    "molmospaces": "an episode number, or all",
-    "roboeval": "the variant's number or name",
-    "abc": "an episode number, 0 or more",
+    "libero": "<suite>/<number>, such as libero_spatial/0",
+    "robocasa365": "a task's name",
+    "molmospaces": "<benchmark>/<episode>, such as pick-v1.5/0",
+    "roboeval": "a variant's name",
+    "abc": "a task's name",
     "robolab": "a task's name",
 }
 
 
 def suites(benchmark: str) -> list[Suite]:
-    default = DEFAULT_SUITES.get(benchmark)
-    return [Suite(s.id, s.tasks, s.description, s.id == default) for s in _SUITES[benchmark]()]
+    return _SUITES[benchmark]()
 
 
 def tasks(benchmark: str, suite: str) -> list[Task]:
     """Raises ValueError for an unknown suite, TasksUnavailable when they can't be listed."""
     return _TASKS[benchmark](suite)
+
+
+def all_tasks(benchmark: str) -> list[Task]:
+    """Every task in the benchmark, each once, in suite order. MolmoSpaces raises
+    TasksUnavailable for a benchmark whose episodes aren't downloaded yet."""
+    if benchmark == "abc":
+        return _abc_all()
+    if benchmark == "robolab":
+        from .robolab_catalog import ROBOLAB_TASKS
+
+        return [Task(name, _words(name)) for name in ROBOLAB_TASKS]
+    listed = [task for suite in suites(benchmark) for task in tasks(benchmark, suite.id)]
+    return list({task.id: task for task in listed}.values())
 
 
 # --- Rendering.
@@ -254,17 +263,14 @@ _SUITE_COLUMNS = [tables.Column("--task-suite"), tables.Column("Tasks", justify=
 _TASK_COLUMNS = [tables.Column("--task-id"), tables.Column("Task", shrink=True)]
 
 
-def _count(suite: Suite, benchmark: str) -> str | None:
-    if suite.tasks is not None:
-        return str(suite.tasks)
-    return "any" if benchmark == "abc" else None  # MolmoSpaces before its download: —
+def _count(suite: Suite) -> str | None:
+    return None if suite.tasks is None else str(suite.tasks)  # MolmoSpaces before download: —
 
 
 def render_benchmarks(*, color: bool | None = None, width: int | None = None) -> list[str]:
     rows = []
     for benchmark, label in BENCHMARK_LABELS.items():
-        listed = suites(benchmark)
-        rows.append([benchmark, label, str(len([s for s in listed if s.id != "all"]))])
+        rows.append([benchmark, label, str(len(suites(benchmark)))])
     columns = [tables.Column("Benchmark"), tables.Column("Name"),
                tables.Column("Suites", justify="right")]
     footer = [tables.hint("Suites: ", tables.command("dreamscale sim <benchmark> --list"))]
@@ -275,10 +281,9 @@ def render_benchmarks(*, color: bool | None = None, width: int | None = None) ->
 def render_suites(benchmark: str, *, color: bool | None = None,
                   width: int | None = None) -> list[str]:
     listed = suites(benchmark)
-    rows = [[s.id, _count(s, benchmark),
-             Text(s.description).append("  (default)" if s.default else "",
-                                               style=tables.DIM)]
-            for s in listed]
+    if not listed:  # ABC: no suites, so its tasks
+        return render_all_tasks(benchmark, color=color, width=width)
+    rows = [[s.id, _count(s), Text(s.description)] for s in listed]
     footer = [
         tables.hint("Tasks: ", tables.command(
             f"dreamscale sim {benchmark} --task-suite <suite> --list")),
@@ -292,14 +297,30 @@ def render_tasks(benchmark: str, suite: str, *, color: bool | None = None,
                  width: int | None = None) -> list[str]:
     listed = tasks(benchmark, suite)
     footer = [tables.hint("Run one: ", tables.command(
-        f"dreamscale sim {benchmark} --task-suite {suite} --task-id <id> --model <model>"))]
+        f"dreamscale sim {benchmark} --task-id <id> --model <model>")),
+              tables.hint("Run them all: ", tables.command(
+        f"dreamscale sim {benchmark} --task-suite {suite} --model <model>"))]
     return tables.render(f"{BENCHMARK_LABELS[benchmark]} {suite}", str(len(listed)),
                          _TASK_COLUMNS, [[t.id, t.task] for t in listed], footer=footer,
                          color=color, width=width)
 
 
+def render_all_tasks(benchmark: str, *, color: bool | None = None,
+                     width: int | None = None) -> list[str]:
+    listed = all_tasks(benchmark)
+    footer = [tables.hint("Run one: ", tables.command(
+        f"dreamscale sim {benchmark} --task-id <id> --model <model>")),
+              tables.hint("Run them all: ", tables.command(
+        f"dreamscale sim {benchmark} --all --model <model>"))]
+    return tables.render(f"{BENCHMARK_LABELS[benchmark]} tasks", str(len(listed)),
+                         _TASK_COLUMNS, [[t.id, t.task] for t in listed], footer=footer,
+                         color=color, width=width)
+
+
 def run_list(benchmark: str | None, suite: str | None, *, json_output: bool = False,
-             print_fn: Callable[[str], None] = print) -> None:
+             every: bool = False, print_fn: Callable[[str], None] = print) -> None:
+    """``every``: the benchmark's tasks (``--list --all``); a benchmark with no suites lists
+    its tasks in place of them."""
     if benchmark is None:
         if json_output:
             print_fn(json.dumps({"benchmarks": [
@@ -309,17 +330,20 @@ def run_list(benchmark: str | None, suite: str | None, *, json_output: bool = Fa
         for line in render_benchmarks():
             print_fn(line)
         return
-    if suite is None:
-        if json_output:
-            print_fn(json.dumps({"benchmark": benchmark,
-                                 "suites": [asdict(s) for s in suites(benchmark)]}, indent=2))
-            return
-        for line in render_suites(benchmark):
-            print_fn(line)
-        return
     try:
-        lines = render_tasks(benchmark, suite) if not json_output else None
-        listed = tasks(benchmark, suite) if json_output else None
+        if suite is not None:
+            listed, render = tasks(benchmark, suite), lambda: render_tasks(benchmark, suite)
+        elif every or not suites(benchmark):
+            listed, render = all_tasks(benchmark), lambda: render_all_tasks(benchmark)
+        else:
+            if json_output:
+                print_fn(json.dumps({"benchmark": benchmark,
+                                     "suites": [asdict(s) for s in suites(benchmark)]},
+                                    indent=2))
+                return
+            for line in render_suites(benchmark):
+                print_fn(line)
+            return
     except TasksUnavailable as exc:
         if json_output:
             print_fn(json.dumps({"benchmark": benchmark, "suite": suite, "tasks": None,
@@ -327,9 +351,9 @@ def run_list(benchmark: str | None, suite: str | None, *, json_output: bool = Fa
         else:
             print_fn(str(exc))
         return
-    if listed is not None:
+    if json_output:
         print_fn(json.dumps({"benchmark": benchmark, "suite": suite,
                              "tasks": [asdict(t) for t in listed]}, indent=2))
         return
-    for line in lines:
+    for line in render():
         print_fn(line)

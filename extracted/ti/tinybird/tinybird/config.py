@@ -21,7 +21,6 @@ VERSION = f"{__cli__.__version__} (rev {__revision__})"
 DEFAULT_UI_HOST = "https://app.tinybird.co"
 PROJECT_PATHS = ["datasources", "datasources/fixtures", "endpoints", "pipes", "tests", "scripts", "deploy"]
 DEPRECATED_PROJECT_PATHS = ["endpoints"]
-MIN_WORKSPACE_ID_LENGTH = 36
 LEGACY_HOSTS = {
     "https://api.tinybird.co": "https://app.tinybird.co/gcp/europe-west3",
     "https://api.us-east.tinybird.co": "https://app.tinybird.co/gcp/us-east4",
@@ -32,15 +31,12 @@ LEGACY_HOSTS = {
     "https://api.europe-west2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west2",
     "https://api.ap-east.aws.tinybird.co": "https://app.tinybird.co/aws/ap-east-1",
     "https://api.ap-east-1.aws.tinybird.co": "https://app.tinybird.co/aws/ap-east-1",
+    "https://api.ap-southeast-2.aws.tinybird.co": "https://app.tinybird.co/aws/ap-southeast-2",
     "https://api.northamerica-northeast2.gcp.tinybird.co": "https://app.tinybird.co/gcp/northamerica-northeast2",
     "https://api.wadus1.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus1",
     "https://api.wadus2.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus2",
-    "https://api.wadus3.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus3",
-    "https://api.wadus4.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus4",
     "https://api.wadus1.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus1",
     "https://api.wadus2.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus2",
-    "https://api.wadus3.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus3",
-    "https://api.wadus4.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus4",
     "https://ui.tinybird.co": "https://app.tinybird.co/gcp/europe-west3",
     "https://ui.us-east.tinybird.co": "https://app.tinybird.co/gcp/us-east4",
     "https://ui.us-east.aws.tinybird.co": "https://app.tinybird.co/aws/us-east-1",
@@ -52,38 +48,13 @@ LEGACY_HOSTS = {
     "https://ui.northamerica-northeast2.gcp.tinybird.co": "https://app.tinybird.co/gcp/northamerica-northeast2",
     "https://ui.wadus1.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus1",
     "https://ui.wadus2.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus2",
-    "https://ui.wadus3.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus3",
-    "https://ui.wadus4.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus4",
     "https://ui.wadus1.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus1",
     "https://ui.wadus2.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus2",
-    "https://ui.wadus3.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus3",
-    "https://ui.wadus4.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus4",
-}
-
-
-CLOUD_HOSTS = {
-    "https://api.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west3",
-    "https://api.us-east.tinybird.co": "https://cloud.tinybird.co/gcp/us-east4",
-    "https://api.us-east.aws.tinybird.co": "https://cloud.tinybird.co/aws/us-east-1",
-    "https://api.us-west-2.aws.tinybird.co": "https://cloud.tinybird.co/aws/us-west-2",
-    "https://api.eu-central-1.aws.tinybird.co": "https://cloud.tinybird.co/aws/eu-central-1",
-    "https://api.eu-west-1.aws.tinybird.co": "https://cloud.tinybird.co/aws/eu-west-1",
-    "https://api.europe-west2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west2",
-    "https://api.northamerica-northeast2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/northamerica-northeast2",
-    "https://api.ap-east.aws.tinybird.co": "https://cloud.tinybird.co/aws/ap-east-1",
-    "https://api.ap-east-1.aws.tinybird.co": "https://cloud.tinybird.co/aws/ap-east-1",
-    "https://ui.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west3",
-    "https://ui.us-east.tinybird.co": "https://cloud.tinybird.co/gcp/us-east4",
-    "https://ui.us-east.aws.tinybird.co": "https://cloud.tinybird.co/aws/us-east-1",
-    "https://ui.us-west-2.aws.tinybird.co": "https://cloud.tinybird.co/aws/us-west-2",
-    "https://ui.eu-central-1.aws.tinybird.co": "https://cloud.tinybird.co/aws/eu-central-1",
-    "https://ui.europe-west2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west2",
-    "https://ui.northamerica-northeast2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/northamerica-northeast2",
 }
 
 
 async def get_config(
-    host: str, token: Optional[str], semver: Optional[str] = None, config_file: Optional[str] = None
+    host: Optional[str], token: Optional[str], semver: Optional[str] = None, config_file: Optional[str] = None
 ) -> Dict[str, Any]:
     if host:
         host = host.rstrip("/")
@@ -108,16 +79,8 @@ async def get_config(
     return config
 
 
-def get_display_host(ui_host: str):
+def get_display_host(ui_host: str) -> str:
     return LEGACY_HOSTS.get(ui_host, ui_host)
-
-
-def get_display_cloud_host(api_host: str) -> str:
-    is_local = "localhost" in api_host
-    if is_local:
-        port = api_host.rsplit(":", maxsplit=1)[-1]
-        return f"http://cloud.tinybird.co/local/{port}"
-    return CLOUD_HOSTS.get(api_host, api_host)
 
 
 class FeatureFlags:

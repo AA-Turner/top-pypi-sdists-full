@@ -66,6 +66,8 @@ public:
     void nextKVal(transaction::Transaction* transaction, const uint64_t& count);
     void nextKVal(transaction::Transaction* transaction, const uint64_t& count,
         common::ValueVector& resultVector);
+    // Moves the sequence forward so that currval() returns `value`. Returns `value`.
+    int64_t setVal(transaction::Transaction* transaction, int64_t value);
     void rollbackVal(const uint64_t& usageCount, const int64_t& currVal);
 
     //===--------------------------------------------------------------------===//
@@ -75,6 +77,9 @@ public:
     static std::unique_ptr<SequenceCatalogEntry> deserialize(common::Deserializer& deserializer);
 
     std::string toCypher(const ToCypherInfo& info) const override;
+    // A RETURN setval(...) statement that restores the counter of a sequence that already exists,
+    // or an empty string if the sequence was never used.
+    std::string toSetvalCypher() const;
 
     binder::BoundCreateSequenceInfo getBoundCreateSequenceInfo(bool isInternal) const;
 
@@ -85,6 +90,7 @@ public:
 
 private:
     void nextValNoLock();
+    bool tryAdvanceNoLock(uint64_t count);
 
 private:
     std::mutex mtx;

@@ -2,22 +2,24 @@
 
 import gzip
 import hashlib
-import json
 import logging
 import os
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 
 from datacache import FileValidationError, fetch_file
 
 from .common import (
-    _atomic_output,
-    _publish,
-    _read_progress,
-    _remove,
-    _staging_path,
+    atomic_output,
     file_digest,
     file_fingerprint,
+    publish_file,
+    read_json,
+    read_progress,
+    remove_if_exists,
+    staging_path,
+    write_json,
 )
 from .download_cache import DOWNLOAD_TIMEOUT
 from .normalization import normalize_chromosome
@@ -25,22 +27,114 @@ from .normalization import normalize_chromosome
 logger = logging.getLogger(__name__)
 _CHUNK_SIZE = 1024 * 1024
 
+_UCSC_UNPLACED_RE = re.compile(r"^chrun_([a-z0-9]+)v(\d+)$")
+_UCSC_SCAFFOLD_RE = re.compile(r"^chr[a-z0-9]+_([a-z0-9]+)v(\d+)_(?:random|alt|fix)$")
+_MITO_ALIASES = frozenset({"m", "mt", "mito"})
+
+
+def contig_alias_key(contig):
+    """Return a canonical syntactic alias key for comparing FASTA contig names.
+
+    Recognizes common Ensembl/UCSC/GENCODE naming conventions without altering
+    accession versions or assuming assembly identity:
+
+    - Optional case-insensitive ``chr`` prefix (e.g. ``1`` <-> ``chr1``,
+      ``X`` <-> ``chrX``) when followed by a non-underscore character.
+    - Mitochondrial synonyms (``M``, ``MT``, ``Mito``, ``chrM``, ``chrMT``,
+      ``chrMito`` -> ``"mt"``).
+    - Version-preserving UCSC unplaced/unlocalized/alt/fix scaffold names
+      (e.g. ``chrUn_KI270728v1`` <-> ``KI270728.1``,
+      ``chr4_GL000194v1_random`` <-> ``GL000194.1``,
+      ``chr1_KI270758v1_alt`` <-> ``KI270758.1``).
+
+    Parameters
+    ----------
+    contig : str or int
+        Contig or chromosome name.
+
+    Returns
+    -------
+    str
+        Lowercase alias key suitable for grouping syntactically equivalent
+        contig spellings.
+    """
+    name = str(contig).strip().lower()
+    unplaced = _UCSC_UNPLACED_RE.fullmatch(name)
+    if unplaced is not None:
+        return "%s.%s" % (unplaced.group(1), unplaced.group(2))
+    scaffold = _UCSC_SCAFFOLD_RE.fullmatch(name)
+    if scaffold is not None:
+        return "%s.%s" % (scaffold.group(1), scaffold.group(2))
+    if name.startswith("chr") and len(name) > 3 and name[3] != "_":
+        name = name[3:]
+    if name in _MITO_ALIASES:
+        return "mt"
+    return name
+
+
+def format_contig_coverage_warning(coverage):
+    """Format a user warning for genuinely missing or ambiguous FASTA contigs.
+
+    Contigs that match unambiguously via naming aliases (e.g. ``1`` -> ``chr1``
+    or ``MT`` -> ``chrM``) do not trigger a warning by themselves, while
+    genuinely unavailable or ambiguously aliased contigs produce a clear
+    warning that distinguishes them from alias-compatible naming differences.
+
+    Parameters
+    ----------
+    coverage : dict
+        Result dictionary returned by :meth:`GenomeFasta.classify_contigs` with
+        keys ``"matched"``, ``"aliased"``, ``"ambiguous"``, and ``"missing"``.
+
+    Returns
+    -------
+    str or None
+        Warning message to emit, or ``None`` if no contigs are missing or
+        ambiguous.
+    """
+    missing = sorted(coverage["missing"])
+    ambiguous = coverage["ambiguous"]
+    aliased = coverage["aliased"]
+    if not missing and not ambiguous:
+        return None
+    parts = []
+    if missing:
+        parts.append(
+            "Local genome FASTA lacks %d annotation contigs (e.g. %s)"
+            % (len(missing), ", ".join(missing[:5]))
+        )
+    if ambiguous:
+        ambiguous_examples = ", ".join(
+            "%s (%s)" % (name, "/".join(ambiguous[name]))
+            for name in sorted(ambiguous)[:5]
+        )
+        if missing:
+            parts.append(
+                "%d annotation contigs match multiple FASTA aliases ambiguously (e.g. %s)"
+                % (len(ambiguous), ambiguous_examples)
+            )
+        else:
+            parts.append(
+                "Local genome FASTA has %d ambiguously aliased annotation contigs (e.g. %s)"
+                % (len(ambiguous), ambiguous_examples)
+            )
+    if aliased:
+        alias_examples = ", ".join(
+            "%s->%s" % (name, aliased[name]) for name in sorted(aliased)[:3]
+        )
+        parts.append(
+            "%d other annotation contigs match only via naming aliases (e.g. %s)"
+            % (len(aliased), alias_examples)
+        )
+    return (
+        "; ".join(parts)
+        + ". Check assembly and contig naming; matching names or aliases alone "
+        "do not verify assembly identity."
+    )
+
 
 class MissingGenomeFastaError(ValueError):
     """Reference DNA was not configured or has not been downloaded."""
-
-
-def _read_json(path):
-    try:
-        with open(path) as handle:
-            return json.load(handle)
-    except (OSError, ValueError):
-        return None
-
-
-def _write_json(path, value):
-    with _atomic_output(path, "w") as handle:
-        json.dump(value, handle)
 
 
 class GenomeFasta:
@@ -66,9 +160,9 @@ class GenomeFasta:
         self._attachment_known = self.materialized_path.is_file() or self.index_path.is_file()
         if not self._attachment_known:
             state = {"source": self.source}
-            manifest = _read_json(self.manifest_path)
+            manifest = read_json(self.manifest_path)
             self._attachment_known = (
-                _read_json(self.directory / "attachment.json") == state
+                read_json(self.directory / "attachment.json") == state
                 or isinstance(manifest, dict) and manifest.get("source") == self.source
             )
         self._forget_reader()
@@ -108,7 +202,7 @@ class GenomeFasta:
         if not os.path.isfile(path) or os.path.getsize(path) == 0:
             return None
         if not self.remote and path != self.source:
-            if _read_json(self.source_state_path) != file_fingerprint(self.source):
+            if read_json(self.source_state_path) != file_fingerprint(self.source):
                 return None
         return path
 
@@ -123,7 +217,7 @@ class GenomeFasta:
     def _write_uncompressed(self, source_path, destination, show_progress=False):
         """Publish plain FASTA from a plain or gzip file, or nothing on failure."""
         description = "Decompressing " + os.path.basename(urlsplit(self.source).path)
-        with open(source_path, "rb") as raw, _read_progress(
+        with open(source_path, "rb") as raw, read_progress(
             raw, description, show_progress
         ) as report_progress:
             compressed = raw.peek(2)[:2] == b"\x1f\x8b"
@@ -134,7 +228,7 @@ class GenomeFasta:
                     raise ValueError(
                         "Genome FASTA must start with a FASTA header: %s" % self.source
                     )
-                with _atomic_output(destination) as output:
+                with atomic_output(destination) as output:
                     chunk = first
                     while chunk:
                         output.write(chunk)
@@ -180,7 +274,7 @@ class GenomeFasta:
                     raise FileValidationError(str(raw), "MD5 does not match upstream manifest")
             self._write_uncompressed(raw, self.materialized_path, show_progress)
         finally:
-            _remove(raw)
+            remove_if_exists(raw)
 
     def prepare(self, download=False, overwrite=False, show_progress=False):
         """Resolve local data; only an explicit download may access the network."""
@@ -204,7 +298,7 @@ class GenomeFasta:
                     raise ValueError(
                         "Genome FASTA changed during decompression: %s" % self.source
                     )
-                _write_json(self.source_state_path, fingerprint)
+                write_json(self.source_state_path, fingerprint)
         path = self.installed_path
         if path is None:
             raise self._not_installed() if self.remote else MissingGenomeFastaError(
@@ -217,16 +311,16 @@ class GenomeFasta:
         if self._attachment_known:
             return
         state = {"source": self.source}
-        if _read_json(self.manifest_path) != state:
-            _write_json(self.manifest_path, state)
+        if read_json(self.manifest_path) != state:
+            write_json(self.manifest_path, state)
         if not self.materialized_path.is_file() and not self.index_path.is_file():
             # Download-only local input has no owned FASTA/index yet. Record it
             # per source so later attachments cannot make it appear new again.
-            _write_json(self.directory / "attachment.json", state)
+            write_json(self.directory / "attachment.json", state)
         self._attachment_known = True
 
     def _index_is_current(self, fingerprint):
-        return self.index_path.exists() and _read_json(self.index_state_path) == fingerprint
+        return self.index_path.exists() and read_json(self.index_state_path) == fingerprint
 
     def _ensure_index(self, path, fingerprint, overwrite=False):
         """Publish a complete index, keeping the old one if parsing fails."""
@@ -236,7 +330,7 @@ class GenomeFasta:
             return
         logger.info("Indexing genome FASTA %s", path)
         self.directory.mkdir(parents=True, exist_ok=True)
-        staged = _staging_path(self.directory, self.index_path.name)
+        staged = staging_path(self.directory, self.index_path.name)
         try:
             with Fasta(path, indexname=str(staged), strict_bounds=True) as fasta:
                 if not len(fasta.keys()):
@@ -245,10 +339,10 @@ class GenomeFasta:
                     )
             if fingerprint != self._file_fingerprint(path):
                 raise ValueError("Genome FASTA changed during indexing: %s" % self.source)
-            _publish(staged, self.index_path)
-            _write_json(self.index_state_path, fingerprint)
+            publish_file(staged, self.index_path)
+            write_json(self.index_state_path, fingerprint)
         finally:
-            _remove(staged)
+            remove_if_exists(staged)
 
     def open(self, overwrite=False, show_progress=False):
         """Return a pyfaidx reader, building or refreshing the cached index.
@@ -317,20 +411,105 @@ class GenomeFasta:
         return fasta[matches[0]] if matches else None
 
     def similar_names(self, contig):
-        """FASTA records matching a contig up to case and a ``chr`` prefix."""
+        """Return FASTA record names matching ``contig`` via syntactic aliases.
 
-        def key(name):
-            name = name.lower()
-            return name[3:] if name.startswith("chr") else name
+        Matches up to case, optional ``chr`` prefix, mitochondrial synonyms
+        (``MT`` / ``chrM`` / ``M``), and version-preserving UCSC scaffold
+        names (e.g. ``chrUn_KI270728v1`` <-> ``KI270728.1``).
 
-        target = key(str(contig))
-        return [name for name in self.open().keys() if key(name) == target]
+        Parameters
+        ----------
+        contig : str or int
+            Query contig name.
+
+        Returns
+        -------
+        list of str
+            FASTA record names sharing :func:`contig_alias_key` with ``contig``.
+        """
+        names_by_alias = self._get_names_by_alias()
+        return list(names_by_alias.get(contig_alias_key(contig), ()))
+
+    def _get_names_by_alias(self):
+        names_by_alias = self._names_by_alias
+        if names_by_alias is None:
+            fasta = self.open()
+            names_by_alias = {}
+            for record in fasta.keys():
+                names_by_alias.setdefault(contig_alias_key(record), []).append(record)
+            self._names_by_alias = names_by_alias
+        return names_by_alias
+
+    def classify_contigs(self, contigs):
+        """Classify annotation contigs against the records in this genome FASTA.
+
+        Distinguishes exact/normalized matches from unambiguous naming aliases
+        (such as ``1`` <-> ``chr1`` or ``MT`` <-> ``chrM``), ambiguous alias
+        collisions, and genuinely missing contigs.
+
+        Parameters
+        ----------
+        contigs : iterable of str
+            Annotation contig names (e.g. from ``Genome.contigs()``).
+
+        Returns
+        -------
+        dict
+            Dictionary with keys:
+
+            - ``"matched"`` : dict[str, str]
+              Contigs resolved directly via :meth:`record` (exact or
+              ``normalize_chromosome`` match).
+            - ``"aliased"`` : dict[str, str]
+              Contigs not matched directly that uniquely match a FASTA record
+              via :func:`contig_alias_key`.
+            - ``"ambiguous"`` : dict[str, list[str]]
+              Contigs matching multiple FASTA records by normalized name or
+              alias key.
+            - ``"missing"`` : list[str]
+              Sorted contigs with no matching or aliased FASTA record.
+        """
+        fasta = self.open()
+        names_by_alias = self._get_names_by_alias()
+        matched = {}
+        aliased = {}
+        ambiguous = {}
+        missing = []
+        for raw_contig in contigs:
+            contig = str(raw_contig)
+            if contig in fasta:
+                matched[contig] = contig
+                continue
+            try:
+                record = self.record(contig)
+            except ValueError:
+                normalized = normalize_chromosome(contig)
+                candidates = list(self._names_by_normalized.get(normalized, ()))
+                ambiguous[contig] = candidates
+                continue
+            if record is not None:
+                matched[contig] = record.name
+                continue
+            candidates = list(names_by_alias.get(contig_alias_key(contig), ()))
+            if len(candidates) == 1:
+                aliased[contig] = candidates[0]
+            elif len(candidates) > 1:
+                ambiguous[contig] = candidates
+            else:
+                missing.append(contig)
+        return {
+            "matched": matched,
+            "aliased": aliased,
+            "ambiguous": ambiguous,
+            "missing": sorted(missing),
+        }
 
     def _forget_reader(self):
         self._reader = None
         self._reader_paths = ()
         self._reader_fingerprints = None
         self._names_by_normalized = None
+        self._names_by_alias = None
 
     def clear_cache(self):
         """Stop reusing the current reader without closing it for other holders."""
@@ -347,7 +526,7 @@ class GenomeFasta:
 
         Raises ValueError for an invalid shared reference.
         """
-        state = _read_json(Path(cache_directory) / "genome_fasta.json")
+        state = read_json(Path(cache_directory) / "genome_fasta.json")
         if isinstance(state, dict) and isinstance(state.get("source"), str):
             if "shared_key" in state:
                 from .genome_fasta_cache import SharedGenomeFasta

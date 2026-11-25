@@ -3,24 +3,30 @@ from __future__ import annotations
 import sys
 from ftplib import error_perm as FTPPermanentError  # nosec B402
 from typing import TYPE_CHECKING
+from typing import Any
 
 from upath.core import UPath
 from upath.types import UNSET_DEFAULT
 from upath.types import JoinablePathLike
+from upath.types import WritablePathLike
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    try:
+        from typing_extensions import Self
+    except ImportError:  # only needed for resolving annotations at runtime
+        pass
 
 if TYPE_CHECKING:
-    from typing import Any
     from typing import Literal
 
     if sys.version_info >= (3, 11):
-        from typing import Self
         from typing import Unpack
     else:
-        from typing_extensions import Self
         from typing_extensions import Unpack
 
     from upath._chain import FSSpecChainParser
-    from upath.types import WritablePathLike
     from upath.types.storage_options import FTPStorageOptions
 
 __all__ = ["FTPPath"]
@@ -44,9 +50,11 @@ class FTPPath(UPath):
         mode: int = 0o777,
         parents: bool = False,
         exist_ok: bool = False,
+        *,
+        parent_mode: int | None = None,
     ) -> None:
         try:
-            return super().mkdir(mode, parents, exist_ok)
+            return super().mkdir(mode, parents, exist_ok, parent_mode=parent_mode)
         except FTPPermanentError as e:
             if e.args[0].startswith("550") and exist_ok:
                 return

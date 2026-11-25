@@ -41,6 +41,17 @@ def read_edf(
     performed by `read_edf` is no longer necessary. However, one can still use
     this function to produce WFDB-compatible files from EDF files if desired.
 
+    If an EDF channel has an inverted physical range, its WFDB digital scale
+    is reflected so the returned record has a positive gain. Physical signals
+    are unchanged. The shared WFDB signal file uses format 32 if any converted
+    sample would be invalid in format 16. EDF's -32768 is a valid sample, but
+    WFDB format 16 reserves it for missing samples.
+
+    EDF+ annotation channels contain text, not signals. They are excluded from
+    the returned Record and do not determine its sampling frequency. For an
+    annotation-only file, `header_only=True` reports no signal rate and a full
+    signal read raises ValueError; use `rdedfann` to read its annotations.
+
     Parameters
     ----------
     record_name : str
@@ -328,21 +339,57 @@ def read_edf(
     for _ in range(n_sig):
         struct.unpack("<32s", edf_file.read(32))[0].decode(encoding)
 
+    # Annotation samples hold text bytes, not physiologic signal samples.
+    # Keep the original block layout for extracting their raw bytes below.
+    edf_samps_per_block = samps_per_block
+    annotation_channels = [
+        i for i, name in enumerate(sig_name) if name == "EDF Annotations"
+    ]
+    signal_channels = [
+        i for i, name in enumerate(sig_name) if name != "EDF Annotations"
+    ]
+    sig_name = [sig_name[i] for i in signal_channels]
+    physical_dims = [physical_dims[i] for i in signal_channels]
+    physical_min = physical_min[signal_channels]
+    physical_max = physical_max[signal_channels]
+    digital_min = digital_min[signal_channels]
+    digital_max = digital_max[signal_channels]
+    samps_per_block = [samps_per_block[i] for i in signal_channels]
+    n_sig = len(signal_channels)
+
     # Pre-process the acquired data before creating the record
     record_name_out = _split_path(record_name)[1].replace("-", "_").replace(".edf", "")
-    sample_rate = [int(i / block_duration) for i in samps_per_block]
-    fs = functools.reduce(math.gcd, sample_rate)
-    samps_per_frame = [int(s / min(samps_per_block)) for s in samps_per_block]
-    sig_len = int(fs * num_blocks * block_duration)
+    # Each EDF data record contains a whole number of samples per signal.
+    # Their greatest common divisor gives the number of WFDB frames per record,
+    # even when the EDF data-record duration implies a fractional frame rate.
+    if n_sig:
+        frames_per_block = functools.reduce(math.gcd, samps_per_block)
+        fs = frames_per_block / block_duration
+        if fs.is_integer():
+            fs = int(fs)
+        samps_per_frame = [s // frames_per_block for s in samps_per_block]
+        sig_len = num_blocks * frames_per_block
+    else:
+        fs = None
+        samps_per_frame = []
+        sig_len = 0
     base_time = datetime.time(start_hour, start_minute, start_second)
     base_date = datetime.date(start_year, start_month, start_day)
     file_name = n_sig * [record_name_out + ".dat"]
-    fmt = n_sig * ["16"]
     skew = n_sig * [None]
     byte_offset = n_sig * [None]
     adc_gain_all = (digital_max - digital_min) / (physical_max - physical_min)
-    adc_gain = [float(format(a, ".12g")) for a in adc_gain_all]
-    baseline = (digital_max - (physical_max * adc_gain_all) + 1).astype("int64")
+    inverted = adc_gain_all < 0
+    adc_gain = [float(format(abs(a), ".12g")) for a in adc_gain_all]
+    # EDF permits a fractional offset, whereas WFDB stores an integer baseline.
+    # Use the exact offset to decode physical samples and round only the
+    # baseline stored in the Record metadata. Reflect inverted channels around
+    # the midpoint of their digital range to keep every sample within 16 bits.
+    edf_baseline = digital_max - physical_max * adc_gain_all
+    reflected_baseline = np.where(
+        inverted, digital_min + digital_max - edf_baseline, edf_baseline
+    )
+    baseline = np.rint(reflected_baseline).astype("int64").tolist()
 
     units = n_sig * [""]
     for i, f in enumerate(physical_dims):
@@ -359,7 +406,9 @@ def read_edf(
             else:
                 units[i] = f
 
-    adc_res = [int(math.log2(f)) for f in (digital_max - digital_min)]
+    # The difference between inclusive digital extrema is one less than the
+    # number of possible values. Its bit length is the required resolution.
+    adc_res = [int(span).bit_length() for span in (digital_max - digital_min)]
     adc_zero = [int(f) for f in ((digital_max + 1 + digital_min) / 2)]
     block_size = n_sig * [0]
     base_datetime = datetime.datetime(
@@ -390,53 +439,77 @@ def read_edf(
             "comments": [],
         }
 
-    sig_data = np.empty((sig_len, n_sig))
+    if not n_sig and not rdedfann_flag:
+        edf_file.close()
+        raise ValueError("EDF file has no signal channels; use rdedfann()")
+
     # Read the rest of the file, ignoring a final odd byte
     data = edf_file.read()
-    temp_sig_data = np.frombuffer(data, dtype=np.int16, count=len(data) // 2)
-    temp_sig_data = temp_sig_data.reshape((-1, sum(samps_per_block)))
-    temp_all_sigs = np.hsplit(temp_sig_data, np.cumsum(samps_per_block)[:-1])
+    temp_sig_data = np.frombuffer(data, dtype="<i2", count=len(data) // 2)
+    temp_sig_data = temp_sig_data.reshape((-1, sum(edf_samps_per_block)))
+    temp_all_sigs = np.hsplit(temp_sig_data, np.cumsum(edf_samps_per_block)[:-1])
 
+    if rdedfann_flag:
+        annotation_bytes = b"".join(
+            temp_all_sigs[i][block].tobytes()
+            for block in range(num_blocks)
+            for i in annotation_channels
+        )
+
+    if not n_sig:
+        edf_file.close()
+        record = Record(
+            record_name=record_name_out,
+            n_sig=0,
+            fs=None,
+            sig_len=0,
+            base_time=base_time,
+            base_date=base_date,
+            sig_name=[],
+        )
+        record._edf_annotation_bytes = annotation_bytes
+        return record
+
+    temp_all_sigs = [temp_all_sigs[i] for i in signal_channels]
+    sig_data = np.empty((sig_len, n_sig))
+    uniform_rate = all(spf == samps_per_frame[0] for spf in samps_per_frame)
     for i in range(n_sig):
-        # Check if `samps_per_frame` has all equal values
-        if samps_per_frame.count(samps_per_frame[0]) == len(samps_per_frame):
+        if uniform_rate:
             sig_data[:, i] = (
-                temp_all_sigs[i].flatten().astype(np.int64) - baseline[i]
+                temp_all_sigs[i].flatten().astype(np.int64) - edf_baseline[i]
             ) / adc_gain_all[i]
         else:
             temp_sig_data = temp_all_sigs[i].flatten()
 
             if samps_per_frame[i] == 1:
                 sig_data[:, i] = (
-                    temp_sig_data.astype(np.int64) - baseline[i]
+                    temp_sig_data.astype(np.int64) - edf_baseline[i]
                 ) / adc_gain_all[i]
             else:
-                for j in range(sig_len):
-                    start_ind = j * samps_per_frame[i]
-                    stop_ind = start_ind + samps_per_frame[i]
-                    sig_data[j, i] = np.mean(
-                        temp_sig_data[start_ind:stop_ind].astype(np.int64)
-                        - baseline[i] / adc_gain_all[i]
-                    )
+                frames = temp_sig_data.reshape(sig_len, samps_per_frame[i])
+                mean_digital = frames.mean(axis=1)
+                sig_data[:, i] = (mean_digital - edf_baseline[i]) / adc_gain_all[i]
 
-    # This is the closest I can get to the original implementation
-    # NOTE: This is done using `np.testing.assert_array_equal()`
-    # Mismatched elements: 15085545 / 15400000 (98%)
-    # Max absolute difference: 3.75166564e-12
-    # Max relative difference: 5.41846079e-15
-    #  x: array([[  -3.580728,   42.835293, -102.818048,   54.978632,  -52.354247],
-    #        [  -8.340205,   43.079939, -102.106351,   56.402027,  -44.992626],
-    #        [  -5.004123,   43.546991,  -99.481966,   51.64255 ,  -43.079939],...
-    #  y: array([[  -3.580728,   42.835293, -102.818048,   54.978632,  -52.354247],
-    #        [  -8.340205,   43.079939, -102.106351,   56.402027,  -44.992626],
-    #        [  -5.004123,   43.546991,  -99.481966,   51.64255 ,  -43.079939],...
+    # Use the same gain, baseline, and rounding as Record.adc() so the
+    # metadata describes the digital samples that wrsamp() will write.
+    # Convert one channel at a time to limit peak memory for large EDF files.
+    written_min = []
+    written_max = []
+    init_value = []
+    checksum = []
+    for i, channel in enumerate(sig_data.T):
+        digital = np.rint(channel * adc_gain[i] + baseline[i]).astype("int64")
+        written_min.append(digital.min())
+        written_max.append(digital.max())
+        init_value.append(int(digital[0]))
+        checksum.append(_checksum(digital))
 
-    init_value = [int(s[0, 0]) for s in temp_all_sigs]
-    # Sum each channel separately: sig_data holds floats, so the order of the
-    # additions can change the result
-    checksum = [
-        _checksum(channel) for channel in np.transpose(sig_data)
-    ]  # not all values correct?
+    # Format 16 reserves -32768 for missing samples, and baseline rounding
+    # can push a converted sample beyond its signed 16-bit range.
+    needs_32 = any(
+        lo <= -32768 or hi > 32767 for lo, hi in zip(written_min, written_max)
+    )
+    fmt = n_sig * (["32"] if needs_32 else ["16"])
 
     edf_file.close()
 
@@ -457,20 +530,28 @@ def read_edf(
         e_p_signal=None,
         e_d_signal=None,
         file_name=n_sig * [record_name_out + ".dat"],
-        fmt=n_sig * ["16"],
+        fmt=fmt,
         skew=n_sig * [None],
         byte_offset=n_sig * [None],
         adc_gain=adc_gain,
         baseline=baseline,
         units=units,
-        adc_res=[int(math.log2(f)) for f in (digital_max - digital_min)],
-        adc_zero=[int(f) for f in ((digital_max + 1 + digital_min) / 2)],
+        adc_res=adc_res,
+        adc_zero=[
+            int(digital_min[i] + digital_max[i] - adc_zero[i])
+            if inverted[i]
+            else adc_zero[i]
+            for i in range(n_sig)
+        ],
         init_value=init_value,
         checksum=checksum,
         block_size=n_sig * [0],
     )
 
     record.base_datetime = base_datetime
+
+    if rdedfann_flag:
+        record._edf_annotation_bytes = annotation_bytes
 
     return record
 
@@ -654,7 +735,8 @@ def wfdb_to_edf(
     # up so that we don't lose any frames, even if the number of frames is not
     # an exact multiple of frames_per_block
     total_frames = record.sig_len
-    num_blocks = int(total_frames / int(frames_per_block)) + 1
+    block_frames = int(frames_per_block)
+    num_blocks = (total_frames + block_frames - 1) // block_frames
 
     digital_min = []
     digital_max = []
@@ -753,13 +835,21 @@ def wfdb_to_edf(
         temp_data = record.adc()
         temp_data = [v for v in np.transpose(temp_data)]
 
-    out_data = []
-    for i in range(record.sig_len):
-        for j, sig in enumerate(temp_data):
-            ind_start = i * samps_per_record[j]
-            ind_stop = (i + 1) * samps_per_record[j]
-            out_data.extend(sig[ind_start:ind_stop].tolist())
-    out_data = np.array(out_data, dtype=np.int16)
+    # EDF stores 16-bit samples, and casting would wrap larger values silently
+    for sig, name in zip(temp_data, record.sig_name):
+        if len(sig) and (np.min(sig) < -32768 or np.max(sig) > 32767):
+            raise ValueError(
+                f"EDF stores 16-bit samples, but signal {name!r} has digital "
+                f"values from {np.min(sig)} to {np.max(sig)}, outside -32768 to "
+                "32767"
+            )
+    out_data = np.concatenate(
+        [
+            sig[i * count : (i + 1) * count]
+            for i in range(num_blocks)
+            for sig, count in zip(temp_data, samps_per_record)
+        ]
+    ).astype(np.int16)
 
     # Start writing the file
     if output_filename == "":
@@ -992,7 +1082,8 @@ def rdedfann(
     info_only=True,
     record_only=False,
     verbose=False,
-    encoding="iso8859-1",
+    encoding=None,
+    fs=None,
 ):
     """Return the annotation information from an EDF+ file.
 
@@ -1002,8 +1093,11 @@ def rdedfann(
         {
             'onset_time': list of %H:%M:%S.fff strings denoting the annotation
                           onset times,
-            'sample_num': list of integers denoting the annotation onset
-                          sample numbers,
+            'sample_num': list of annotation onset sample numbers using `fs`,
+                          rounded to the nearest sample (half-sample ties to
+                          even). For annotation-only files without `fs`,
+                          values are None,
+            'fs': the sampling frequency used for `sample_num`, or None,
             'comment': list of comments (`aux_note`) for the annotations,
             'duration': list of floats denoting the duration of the event
         }
@@ -1011,6 +1105,11 @@ def rdedfann(
     Else, this function will return either the WFDB Annotation format of the
     information of the file if `record_only` is set to True, or nothing if
     neither are set to True though a WFDB Annotation file will be created.
+    If `fs` differs from the WFDB frame rate, annotation sample numbers are not
+    frame indexes in the Record returned by `read_edf`. Divide by the
+    annotation rate to align their times; `plot_wfdb` does this conversion.
+    When saving an object returned by `record_only=True`, use
+    ``annotation.wrann(write_fs=True)`` to retain its time resolution.
 
     Parameters
     ----------
@@ -1040,8 +1139,15 @@ def rdedfann(
         Whether to print all the information read about the file (True) or
         not (False).
     encoding : str, optional
-        The encoding to use for strings in the header. Although the edf
-        specification requires ascii strings, some files do not adhere to it.
+        Override the encoding of both header strings and annotation text.
+        By default, headers use ISO-8859-1 for compatibility and EDF+
+        annotation text uses UTF-8, as required by the format.
+    fs : float, optional
+        Sampling frequency for annotation sample numbers. By default, use the
+        fastest physiologic signal rate, which may exceed the WFDB frame rate
+        returned by `read_edf`. Annotation-only files have no signal rate;
+        provide this value to produce sample numbers or a WFDB Annotation
+        object/file.
 
     Returns
     -------
@@ -1106,47 +1212,55 @@ def rdedfann(
     #   "The coding is EDF compatible in the sense that old EDF software would
     #    simply treat this 'EDF Annotations' signal as if it were a (strange-
     #    looking) ordinary signal"
+    header_encoding = "iso8859-1" if encoding is None else encoding
+    annotation_encoding = "utf-8" if encoding is None else encoding
     rec = read_edf(
         record_name,
         pn_dir=pn_dir,
         verbose=verbose,
         rdedfann_flag=True,
-        encoding=encoding,
+        encoding=header_encoding,
     )
     if pn_dir is not None and delete_file:
         os.remove(record_name)
 
-    # Convert from array of integers to ASCII strings
-    annotation_string = ""
-    for chunk in rec.p_signal.flatten().astype(np.int64):
-        if chunk + 1 == 0:
-            continue
-        else:
-            adjusted_hex = hex(struct.unpack("<H", struct.pack(">H", chunk + 1))[0])
-            annotation_string += bytes.fromhex(adjusted_hex[2:]).decode(encoding)
-            # Remove all of the whitespace
-            for rep in ["\x00", "\x14", "\x15"]:
-                annotation_string = annotation_string.replace(rep, " ")
+    if fs is not None and (not np.isfinite(fs) or fs <= 0):
+        raise ValueError("fs must be a positive, finite sampling frequency")
+    if fs is not None:
+        sample_fs = fs
+    elif rec.fs is not None:
+        sample_fs = rec.fs * max(rec.samps_per_frame)
+    else:
+        sample_fs = None
+    if sample_fs is None and not info_only:
+        raise ValueError("fs is required to write annotation-only EDF files")
 
-    # Parse the resulting annotation string
+    # EDF+ annotation characters are packed into the two bytes of each digital
+    # sample. Split TALs and fields at their byte delimiters before decoding
+    # text, so punctuation inside an annotation cannot be mistaken for a TAL.
     onsets = []
     onset_times = []
     sample_nums = []
     comments = []
     durations = []
-    all_anns = annotation_string.split("+")
-    for ann in all_anns:
-        if ann == "":
+    for tal in rec._edf_annotation_bytes.split(b"\x00"):
+        if not tal:
             continue
-        try:
-            ann_split = ann.strip().split(" ")
-            onset = float(ann_split[0])
-            hours, rem = divmod(onset, 3600)
-            minutes, seconds = divmod(rem, 60)
-            onset_time = f"{hours:02.0f}:{minutes:02.0f}:{seconds:06.3f}"
-            sample_num = int(onset * rec.sig_len)
-            duration = float(ann_split[1])
-            comment = " ".join(ann_split[2:])
+        fields = tal.split(b"\x14")
+        if len(fields) < 2:
+            continue
+        timestamp = fields[0].split(b"\x15", 1)
+        onset = float(timestamp[0].decode("ascii"))
+        duration = float(timestamp[1].decode("ascii")) if len(timestamp) == 2 else 0.0
+        sign = "-" if onset < 0 else ""
+        hours, rem = divmod(abs(onset), 3600)
+        minutes, seconds = divmod(rem, 60)
+        onset_time = f"{sign}{hours:02.0f}:{minutes:02.0f}:{seconds:06.3f}"
+        sample_num = None if sample_fs is None else int(np.rint(onset * sample_fs))
+        for annotation in fields[1:]:
+            if not annotation:
+                continue
+            comment = annotation.decode(annotation_encoding)
             if verbose:
                 print(f"{onset_time}\t{sample_num}\t{comment}\t\tduration: {duration}")
             onsets.append(onset)
@@ -1154,13 +1268,12 @@ def rdedfann(
             sample_nums.append(sample_num)
             comments.append(comment)
             durations.append(duration)
-        except IndexError:
-            continue
 
     if info_only:
         return {
             "onset_time": onset_times,
             "sample_num": sample_nums,
+            "fs": sample_fs,
             "comment": comments,
             "duration": durations,
         }
@@ -1176,8 +1289,7 @@ def rdedfann(
         # Remove extension from input file name
         record_name = _split_path(record_name)[1].split(".")[0]
         extension = "atr"
-        fs = rec.fs
-        sample = (df_out["onset"].to_numpy() * fs).astype(np.int64)
+        sample = np.rint(df_out["onset"].to_numpy() * sample_fs).astype(np.int64)
         # Assume each annotation is a comment
         symbol = ['"'] * len(df_out.index)
         subtype = np.array([22] * len(df_out.index))
@@ -1196,7 +1308,7 @@ def rdedfann(
                 chan=chan,
                 num=num,
                 aux_note=aux_note,
-                fs=fs,
+                fs=sample_fs,
             )
         else:
             wrann(
@@ -1208,5 +1320,5 @@ def rdedfann(
                 chan=chan,
                 num=num,
                 aux_note=aux_note,
-                fs=fs,
+                fs=sample_fs,
             )

@@ -17,16 +17,16 @@ from pydantic import BaseModel, Field, ConfigDict, RootModel
 
 from .. import schemas
 
-# Response model for get
-GetResponse = schemas.GetBotsResponse
+# Request model for rotate_bot_token
+RotateBotTokenRequest = schemas.RotateBotTokenRequest
 
 
-# Request model for create_bot
-CreateBotRequest = schemas.CreateBotRequest
+# Response model for rotate_bot_token
+RotateBotTokenResponse = schemas.RotateBotTokenResponse
 
 
-# Response model for create_bot
-CreateBotResponse = schemas.CreateBotResponse
+# Response model for revoke_bot_token
+RevokeBotTokenResponse = schemas.RevokeBotTokenResponse
 
 
 # Request model for update_bot
@@ -41,13 +41,13 @@ UpdateBotResponse = schemas.UpdateBotResponse
 DeleteBotResponse = schemas.DeleteBotResponse
 
 
-# Request model for rotate_bot_token
-RotateBotTokenRequest = schemas.RotateBotTokenRequest
+# Response model for get
+GetResponse = schemas.GetBotsResponse
 
 
-# Response model for rotate_bot_token
-RotateBotTokenResponse = schemas.RotateBotTokenResponse
+# Request model for create_bot
+CreateBotRequest = schemas.CreateBotRequest
 
 
-# Response model for revoke_bot_token
-RevokeBotTokenResponse = schemas.RevokeBotTokenResponse
+# Response model for create_bot
+CreateBotResponse = schemas.CreateBotResponse

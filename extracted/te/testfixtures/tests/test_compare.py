@@ -9,6 +9,7 @@ from decimal import Decimal
 from enum import StrEnum, auto
 from functools import partial
 from re import compile
+from types import MappingProxyType
 from typing import TypeVar, Generic, Any
 from unittest import TestCase
 from uuid import uuid4
@@ -110,6 +111,21 @@ class HashableBroken(Broken):
 
     def __eq__(self, other):
         return isinstance(other, HashableBroken) and self.label == other.label
+
+
+class Colliding:
+    # Every instance hashes the same, so set iteration order follows insertion
+    # order, letting tests build equal sets that iterate differently.
+
+    def __init__(self, value):
+        self.value = value
+
+    def __hash__(self):
+        return 1
+
+    def __eq__(self, other):
+        return isinstance(other, Colliding) and self.value == other.value
+
 
 class TestSampleClasses:
     # Test coverage for the helper objects above, to make sure the things test below rely on
@@ -637,6 +653,19 @@ class TestCompare(CompareHelper, TestCase):
             "None: 1 != 3"
             )
 
+    def test_mapping_proxy_different(self):
+        self.check_raises(
+            MappingProxyType({'a': 1, 'b': 2}),
+            MappingProxyType({'a': 1, 'b': 999}),
+            'mappingproxy not as expected:\n'
+            '\n'
+            'same:\n'
+            "['a']\n"
+            '\n'
+            'values differ:\n'
+            "'b': 2 != 999"
+        )
+
     def test_set_same(self):
         compare(set([1]), set([1]))
 
@@ -688,7 +717,7 @@ class TestCompare(CompareHelper, TestCase):
 
     def test_set_labels(self):
         self.check_raises(
-            set([1, 2, 4]), set([1, 3, 5]),
+            {1, 2, 4}, {1, 3, 5},
             "set not as expected:\n"
             "\n"
             "in expected but not actual:\n"
@@ -716,6 +745,140 @@ class TestCompare(CompareHelper, TestCase):
             'in second but not first:\n'
             "[<S.c: 'c'>]\n\n"
             )
+
+    def test_set_vs_frozenset_equal_different_order(self):
+        # A set and a frozenset with equal
+        # contents must compare equal regardless of iteration order.
+        items = [Colliding(i) for i in range(6)]
+        x = set(items)
+        y = frozenset(reversed(items))
+        assert x == y
+        assert list(x) != list(y)
+
+        compare(x, expected=y, ignore_eq=True)
+        compare(y, expected=x, ignore_eq=True)
+
+    def test_set_vs_frozenset_different(self):
+        self.check_raises(
+            {1, 2, 4}, frozenset([1, 3, 5]),
+            "set not as expected:\n"
+            "\n"
+            "in first but not second:\n"
+            "[2, 4]\n"
+            '\n'
+            "in second but not first:\n"
+            "[3, 5]\n"
+            '\n',
+            ignore_eq=True,
+            )
+
+    def test_set_vs_frozenset_equal_but_strict(self):
+        self.check_raises(
+            {1}, frozenset([1]),
+            "{1} (<class 'set'>) != frozenset({1}) (<class 'frozenset'>)",
+            ignore_eq=True,
+            strict=True,
+            )
+
+    def test_set_vs_list(self):
+        self.check_raises({1, 2}, [1, 2], '{1, 2} != [1, 2]')
+
+    def test_set_vs_frozenset_equal_with_ignore_eq_type_registered(self):
+        # Registering any type with ignore_eq=True, as the pandas, polars, numpy
+        # and pydantic support does on import, stops == being trusted for containers:
+        class Opaque:
+            pass
+
+        items = [Colliding(i) for i in range(6)]
+        x = set(items)
+        y = frozenset(reversed(items))
+        assert list(x) != list(y)
+
+        with registry():
+            register(Opaque, ignore_eq=True)
+            compare(x, expected=y)
+            compare(y, expected=x)
+
+    def test_set_vs_dict_keys_equal_different_order(self):
+        items = [Colliding(i) for i in range(6)]
+        x = set(items)
+        y = dict.fromkeys(reversed(items)).keys()
+        assert x == y
+        assert list(x) != list(y)
+
+        compare(x, expected=y, ignore_eq=True)
+        compare(y, expected=x, ignore_eq=True)
+
+    def test_dict_keys_vs_dict_keys_equal_different_order(self):
+        items = [Colliding(i) for i in range(6)]
+        x = dict.fromkeys(items).keys()
+        y = dict.fromkeys(reversed(items)).keys()
+        assert x == y
+        assert list(x) != list(y)
+
+        compare(x, expected=y, ignore_eq=True)
+
+    def test_dict_keys_vs_set_different(self):
+        self.check_raises(
+            dict.fromkeys([1, 2, 4]).keys(), {1, 3, 5},
+            "dict_keys not as expected:\n"
+            "\n"
+            "in first but not second:\n"
+            "[2, 4]\n"
+            '\n'
+            "in second but not first:\n"
+            "[3, 5]\n"
+            '\n',
+            ignore_eq=True,
+            )
+
+    def test_dict_keys_vs_list(self):
+        self.check_raises(
+            {'a': 1, 'b': 2}.keys(), ['a', 'b'],
+            "not equal:\ndict_keys(['a', 'b'])\n['a', 'b']"
+        )
+
+    def test_dict_items_vs_set_equal_different_order(self):
+        items = [Colliding(i) for i in range(6)]
+        x = dict.fromkeys(items, 0).items()
+        y = {(item, 0) for item in reversed(items)}
+        assert x == y
+        assert list(x) != list(y)
+
+        compare(x, expected=y, ignore_eq=True)
+        compare(y, expected=x, ignore_eq=True)
+
+    def test_unrelated_types_sharing_a_comparer(self):
+        # Two types that happen to reuse the same comparer function are not
+        # necessarily interchangeable.:
+        def compare_by_value(x, y, context):
+            return None if x.value == y.value else f'{x.value} != {y.value}'
+
+        class Meters:
+            def __init__(self, value):
+                self.value = value
+
+            def __repr__(self):
+                return f'{self.value}m'
+
+        class Seconds:
+            def __init__(self, value):
+                self.value = value
+
+            def __repr__(self):
+                return f'{self.value}s'
+
+        with registry():
+            register(Meters, compare_by_value)
+            register(Seconds, compare_by_value)
+
+            with ShouldAssert('5s (expected) != 5m (actual)'):
+                compare(Meters(5), expected=Seconds(5), ignore_eq=True)
+
+            compare(Meters(5), Meters(5), ignore_eq=True)
+
+            with ShouldAssert('5 != 4'):
+                compare(Seconds(5), Seconds(4), ignore_eq=True)
 
     def test_tuple_same(self):
         compare((1, 2, 3), (1, 2, 3))
@@ -879,8 +1042,23 @@ class TestCompare(CompareHelper, TestCase):
     def test_generator_and_iterable(self):
         compare(generator(1, 2, 3), range(1, 4))
 
+    def test_generator_vs_set(self):
+        self.check_raises(
+            generator(1, 2), {1, 2},
+            'not equal:\n<generator object generator at ...>\n{1, 2}'
+        )
+
     def test_tuple_and_list(self):
         compare((1, 2, 3), [1, 2, 3])
+
+    def test_list_and_str(self):
+        self.check_raises(['a', 'b'], 'ab', "['a', 'b'] != 'ab'")
+
+    def test_str_and_list(self):
+        self.check_raises('ab', ['a', 'b'], "'ab' != ['a', 'b']")
+
+    def test_list_and_bytes(self):
+        self.check_raises([97, 98], b'ab', "[97, 98] != b'ab'")
 
     def test_tuple_and_list_strict(self):
         expected = ("(1, 2, 3) (<class 'tuple'>) != "
@@ -904,7 +1082,7 @@ class TestCompare(CompareHelper, TestCase):
             strict=True,
         )
 
-    def test_bug(self):
+    def test_compare_generator_respects_strict(self):
         self.check_raises(
             generator(1.0),
             generator(1),
@@ -1562,10 +1740,49 @@ b
         class_b = namedtuple('Bar', 'x y z')
         self.check_raises(
             class_a(1, 2), class_b(1, 2, 3),
-            "Foo(x=1, y=2) (<class 'tests.test_compare.Foo'>) != "
-            "Bar(x=1, y=2, z=3) "
-            "(<class 'tests.test_compare.Bar'>)"
-            )
+            'types differ: Foo (first), Bar (second), and not as expected:\n'
+            '\n'
+            'same:\n'
+            "['x', 'y']\n"
+            '\n'
+            'in second but not first:\n'
+            "'z': 3"
+        )
+
+    def test_namedtuple_different_type_same_fields(self):
+        class_a = namedtuple('Foo', 'x y')
+        class_b = namedtuple('Bar', 'x y')
+        self.check_raises(
+            class_a(1, 2), class_b(1, 3),
+            'types differ: Foo (first), Bar (second), and not as expected:\n'
+            '\n'
+            'same:\n'
+            "['x']\n"
+            '\n'
+            'values differ:\n'
+            "'y': 2 != 3"
+        )
+
+    def test_shared_base_same_same_repr_only_class_different(self):
+        @dataclass
+        class AnnoyingBase:
+            x: int
+            def __repr__(self):
+                return "annoying"
+
+        class LabelA(AnnoyingBase):
+            pass
+
+        class LabelB(AnnoyingBase):
+            pass
+
+        self.check_raises(
+            LabelA(1), LabelB(3),
+            'types differ: LabelA (first), LabelB (second), and not as expected:\n'
+            '\n'
+            'attributes differ:\n'
+            "'x': 1 != 3"
+        )
 
     def test_dict_with_list(self):
         self.check_raises(

@@ -63,13 +63,13 @@ class Status:
     def build_error_with_msg(cls, msg: str) -> "Status":
         return Status(name="ERROR", abbreviation="E", description="Error", color="bright_yellow", msg=msg)
 
-    def __eq__(self, other):
-        return self.name == other.name
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Status) and self.name == other.name
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.name)
 
-    def show(self):
+    def show(self) -> str:
         return f"{self.description}: {self.msg}" if self.msg else self.description
 
 
@@ -91,7 +91,7 @@ ERROR = Status(name="ERROR", abbreviation="E", description="Error", color="brigh
 @dataclass()
 class TestResult:
     name: str
-    data: List[Dict]
+    data: List[Dict[str, Any]]
     elapsed_time: float
     read_bytes: int
     max_elapsed_time: Optional[float]
@@ -258,7 +258,7 @@ def run_test_file(tb_client: TinyB, file: str) -> List[TestResult]:
 def test_run_summary(results: List[TestSummaryResults], only_fail: bool = False, verbose_level: int = 0):
     total_counts: Dict[Status, int] = {}
     for result in results:
-        summary: List[Dict] = []
+        summary: List[Dict[str, Any]] = []
         for test in result.results:
             total_counts[test.status] = total_counts.get(test.status, 0) + 1
 

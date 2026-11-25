@@ -35,7 +35,8 @@ class TestPutRetrievedData(unittest.TestCase):
         model = PutRetrievedData()
         if include_optional:
             return PutRetrievedData(
-                content = ''
+                content = '',
+                total_count = 0.0
             )
         else:
             return PutRetrievedData(

@@ -18,14 +18,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import List, Union, overload
+from __future__ import annotations
+
+from typing import overload
+
+from google.protobuf.empty_pb2 import Empty
 
 from kipy.client import KiCadClient
 from kipy.project_types import NetClass, TextVariables
-from kipy.proto.common.types import DocumentSpecifier, MapMergeMode, DocumentType
 from kipy.proto.common.commands import project_commands_pb2
-from kipy.proto.common.types import project_settings_pb2
-from google.protobuf.empty_pb2 import Empty
+from kipy.proto.common.types import (
+    DocumentSpecifier,
+    DocumentType,
+    MapMergeMode,
+    project_settings_pb2,
+)
 
 
 class Project:
@@ -54,22 +61,49 @@ class Project:
     def path(self) -> str:
         return self._doc.project.path
 
-    def get_net_classes(self) -> List[NetClass]:
+    def get_net_classes(self) -> list[NetClass]:
         command = project_commands_pb2.GetNetClasses()
         response = self._kicad.send(command, project_commands_pb2.NetClassesResponse)
         return [NetClass(p) for p in response.net_classes]
 
-    @overload
-    def expand_text_variables(self, text: str) -> str:
-        ...
+    def set_net_classes(
+        self,
+        net_classes: list[NetClass],
+        merge_mode: MapMergeMode.ValueType = MapMergeMode.MMM_MERGE,
+    ):
+        """Sets the project net classes, merging with existing classes by default
+
+        :param net_classes: the net classes to set
+        :param merge_mode: ``MMM_MERGE`` merges the given classes into the existing set,
+                           ``MMM_REPLACE`` replaces the existing set of net classes
+
+        .. versionadded:: 0.9.0"""
+        command = project_commands_pb2.SetNetClasses()
+        command.merge_mode = merge_mode
+        command.net_classes.extend([nc.proto for nc in net_classes])
+        self._kicad.send(command, Empty)
 
     @overload
-    def expand_text_variables(self, text: List[str]) -> List[str]:
-        ...
+    def expand_text_variables(self, text: str, *, expand_env_vars: bool = False) -> str: ...
 
-    def expand_text_variables(self, text: Union[str, List[str]]) -> Union[str, List[str]]:
+    @overload
+    def expand_text_variables(
+        self, text: list[str], *, expand_env_vars: bool = False
+    ) -> list[str]: ...
+
+    def expand_text_variables(
+        self, text: str | list[str], *, expand_env_vars: bool = False
+    ) -> str | list[str]:
+        """Expands text variables in the given text, optionally expanding environment variables.
+        Any text variables that do not exist will be left as-is in the output.
+
+        .. param:: expand_env_vars will expand environment variables in addition to built-in
+                                           KiCad text variables when True.
+
+        .. versionadded:: 0.9.0"""
         command = project_commands_pb2.ExpandTextVariables()
         command.document.CopyFrom(self._doc)
+        command.expand_env_vars = expand_env_vars
         if isinstance(text, list):
             command.text.extend(text)
         else:

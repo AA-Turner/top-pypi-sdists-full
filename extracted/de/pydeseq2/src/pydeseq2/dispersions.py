@@ -95,16 +95,16 @@ def trimmed_variance(x: np.ndarray, trim: float = 0.125, axis: int = 0) -> float
     features
         Data whose trimmed variance to compute.
     trim
-        Fraction of data to trim at each end. (default: ``0.125``).
+        Fraction of data to trim at each end.
     axis
-        Dimension along which to compute variance. (default: ``0``).
+        Dimension along which to compute variance.
 
     Returns
     -------
     Trimmed variances.
     """
     rm = trimmed_mean(x, trim=trim, axis=axis)
-    sqerror = (x - rm) ** 2
+    sqerror = (x - np.expand_dims(rm, axis)) ** 2
     # scale due to trimming of large squares
     return 1.51 * trimmed_mean(sqerror, trim=trim, axis=axis)
 
@@ -142,12 +142,12 @@ def fit_alpha_mle(
     prior_disp_var
         Prior dispersion variance.
     cr_reg
-        Whether to use Cox-Reid regularization. (default: ``True``).
+        Whether to use Cox-Reid regularization.
     prior_reg
-        Whether to use prior log-residual regularization. (default: ``False``).
+        Whether to use prior log-residual regularization.
     optimizer
         Optimizing method to use.
-        Accepted values: 'BFGS' or 'L-BFGS-B'. (default: ``'L-BFGS-B'``).
+        Accepted values: 'BFGS' or 'L-BFGS-B'.
 
     Returns
     -------

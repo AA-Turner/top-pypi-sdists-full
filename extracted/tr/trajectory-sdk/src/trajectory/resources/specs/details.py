@@ -22,7 +22,7 @@ class Details(APIResource):
 
   def retrieve(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     include_tasks: bool | Omit = omit,
     include_tools: bool | Omit = omit,
@@ -32,7 +32,7 @@ class Details(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkDetails:
-    """Benchmark Spec
+    """Get Spec Details
 
     Args:
       include_tasks: Include every task; listBenchmarkSpecTasks pages them.
@@ -49,12 +49,12 @@ class Details(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._get(
       path_template(
-        "/api/v1/specs/{bench_id}/details",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/details",
+        spec_id=spec_id,
       ),
       cast_to=BenchmarkDetails,
       options=make_request_options(

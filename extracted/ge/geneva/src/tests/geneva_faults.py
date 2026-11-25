@@ -754,17 +754,15 @@ class FlakyCheckpointStore(CheckpointStore):
     def delete_prefix(self, prefix: str) -> int:
         return self._inner.delete_prefix(prefix)
 
-    def has_srcfiles_hash_mismatch(
-        self, column: str, current_srcfiles_hash: str
-    ) -> bool:
+    def srcfiles_hashes(self, column: str) -> set[str]:
         decision = self._policy.decide("mismatch", column)
         if decision == "raise":
             raise InjectedFaultError(
                 f"injected failure at srcfiles mismatch probe for {column!r}"
             )
         if decision == "drop":
-            return False  # an empty LIST reports no mismatch: no reprocess happens
-        return self._inner.has_srcfiles_hash_mismatch(column, current_srcfiles_hash)
+            return set()  # an empty LIST reports no mismatch: no reprocess happens
+        return self._inner.srcfiles_hashes(column)
 
 
 def flaky_checkpoint_wrap(

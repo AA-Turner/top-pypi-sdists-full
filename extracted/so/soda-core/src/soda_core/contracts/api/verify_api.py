@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Optional, Union
 
 from soda_core.common._deprecation import deprecated_kwarg, warn_deprecated
@@ -16,6 +17,7 @@ from soda_core.common.soda_cloud import SodaCloud
 from soda_core.common.yaml import ContractYamlSource, DataSourceYamlSource, build_data_source_yaml_sources
 from soda_core.contracts.contract_verification import ContractVerificationSession, ContractVerificationSessionResult
 from soda_core.contracts.impl.check_selector import CheckSelector
+from soda_core.contracts.impl.contract_verification_impl import validate_data_source_impls
 from soda_core.contracts.impl.diagnostics_warehouse_files import DiagnosticsWarehouseFiles
 from soda_core.telemetry.soda_telemetry import SodaTelemetry
 from soda_core.telemetry.soda_tracer import soda_trace
@@ -84,12 +86,20 @@ def verify_contracts_locally(
     )
 
 
+def data_sources_as_list(data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]]) -> list[DataSourceImpl]:
+    """The data_sources of verify_contract_locally, one data source or a list of them, as a list, and [] for None.
+    Raises InvalidArgumentException for anything else, such as a tuple."""
+    return validate_data_source_impls(
+        data_sources if data_sources is None or isinstance(data_sources, list) else [data_sources]
+    )
+
+
 @soda_trace
 def verify_contract_locally(
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
     data_sources: Optional[Union[list[DataSourceImpl], DataSourceImpl]] = [],
-    contract_file_path: Optional[str] = None,
+    contract_file_path: Optional[Union[str, os.PathLike]] = None,
     dataset_identifier: Optional[str] = None,
     soda_cloud_file_path: Optional[str] = None,
     variables: Optional[Dict[str, str]] = None,
@@ -98,12 +108,24 @@ def verify_contract_locally(
     check_paths: Optional[list[str]] = None,
     dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
+    execution_dataset: Optional[str] = None,
+    publish_schema_metadata: Optional[bool] = None,
 ) -> ContractVerificationSessionResult:
     """
     Verifies the contract locally.
+
+    ``execution_dataset`` reads the contract's dataset from another dataset of the same data source, for example a
+    Spark DataFrame's temporary view, while results still publish to the contract's dataset. It is that dataset's DQN
+    without the data source: ``orders``, ``main/orders`` or ``spark_catalog/default/orders``. Naming the contract's own
+    table, spelled exactly as in the contract's DQN, makes a plain run. The data source passed in ``data_sources`` must
+    carry the name of the contract's data source. Only Spark DataFrame data sources support it.
+
+    ``publish_schema_metadata`` decides whether the run sends the dataset's columns to Soda Cloud, which it does only
+    for columns a schema check measured. It must be set when a run with ``execution_dataset`` publishes. ``False``
+    leaves the columns out of the result too, with or without ``execution_dataset``.
     """
-    if not isinstance(data_sources, list):
-        data_sources = [data_sources]
+    data_sources = data_sources_as_list(data_sources)
+    soda_telemetry.set_attribute("api__execution_dataset_used", execution_dataset is not None)
 
     return verify_contract(
         contract_file_path=contract_file_path,
@@ -119,6 +141,8 @@ def verify_contract_locally(
         check_paths=check_paths,
         dwh_data_source_file_path=dwh_data_source_file_path,
         check_selectors=check_selectors,
+        execution_dataset=execution_dataset,
+        publish_schema_metadata=publish_schema_metadata,
     )
 
 
@@ -217,7 +241,7 @@ def verify_contracts_on_agent(
 @soda_trace
 def verify_contract_on_runner(
     soda_cloud_file_path: str,
-    contract_file_path: Optional[str] = None,
+    contract_file_path: Optional[Union[str, os.PathLike]] = None,
     dataset_identifier: Optional[str] = None,
     data_source_file_path: Optional[str] = None,
     data_source_file_paths: list[str] = [],
@@ -255,7 +279,7 @@ def verify_contract_on_agent(*args, **kwargs) -> ContractVerificationSessionResu
 
 @soda_trace
 def verify_contract(
-    contract_file_path: Optional[str],
+    contract_file_path: Optional[Union[str, os.PathLike]],
     dataset_identifier: Optional[str],
     data_source_file_path: Optional[str],
     soda_cloud_file_path: Optional[str],
@@ -271,6 +295,8 @@ def verify_contract(
     dwh_data_source_file_path: Optional[Union[str, DiagnosticsWarehouseFiles]] = None,
     check_selectors: Optional[list[CheckSelector]] = None,
     logs: Optional[Logs] = None,
+    execution_dataset: Optional[str] = None,
+    publish_schema_metadata: Optional[bool] = None,
     **kwargs,
 ) -> ContractVerificationSessionResult:
     use_runner = deprecated_kwarg(kwargs, "use_agent", "use_runner", use_runner)
@@ -293,7 +319,8 @@ def verify_contract(
 
     # TODO: change this when we fully deprecate a list of contract file paths
     # This is only here to make sure the rest of the code still works.
-    if isinstance(contract_file_path, str):
+    # An empty path names no file, so a dataset_identifier next to it verifies that dataset's contract.
+    if isinstance(contract_file_path, (str, os.PathLike)) and contract_file_path != "":
         contract_file_paths = [contract_file_path]
     else:
         contract_file_paths = None
@@ -345,6 +372,8 @@ def verify_contract(
         check_selectors=check_selectors,
         dwh_data_source_file_path=dwh_data_source_file_path,
         logs=logs,
+        execution_dataset=execution_dataset,
+        publish_schema_metadata=publish_schema_metadata,
     )
 
     soda_telemetry.ingest_contract_verification_session_result(

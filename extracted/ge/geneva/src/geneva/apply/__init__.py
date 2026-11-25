@@ -12,6 +12,7 @@ from typing import Any, TypeVar, cast
 
 import attrs
 import lance
+import numpy as np
 import pyarrow as pa
 from .utils import (
     _buffered_shuffle,
@@ -59,7 +60,7 @@ from geneva.checkpoint_utils import hash_source_files
 from geneva.db import NamespaceConfig
 from geneva.debug.logger import ErrorLogger, NoOpErrorLogger
 from geneva.errors import FatalWorkerError
-from geneva.table import TableReference
+from geneva.table import Table, TableReference
 from geneva.utils import make_null_array, parse_data_storage_version, redact_dict_values
 from geneva.utils.byte_budget_queue import (
     ByteBudgetedQueue,
@@ -128,8 +129,7 @@ class MapBatchCheckpoint:
 
         `udf_rows` is the count of logical input rows that were actually handed
         to the UDF for this checkpointed batch. This can differ from `num_rows`
-        for filtered / sparse tasks, and it is used for progress accounting
-        rather than for checkpoint coverage.
+        for filtered / sparse tasks.
     """
 
     checkpoint_key: str
@@ -235,31 +235,104 @@ class _PlanReadResult:
     src_data_files_by_dst: dict[int, frozenset[str]]
 
 
+def _as_range_array(ranges: Any) -> np.ndarray:
+    """Return ``ranges`` as a read-only ``(n, 2)`` int64 array.
+
+    An array already in that form is returned unchanged, so the plan and the
+    prefetched scan result share one copy.
+    """
+    if (
+        isinstance(ranges, np.ndarray)
+        and ranges.dtype == np.int64
+        and ranges.ndim == 2
+        and ranges.shape[1] == 2
+        and not ranges.flags.writeable
+    ):
+        return ranges
+    arr = np.array(ranges, dtype=np.int64).reshape(-1, 2)
+    arr.flags.writeable = False
+    return arr
+
+
 @attrs.define(frozen=True)
 class _FragmentScanPlan:
     """Compact description of all read tasks for one fragment.
 
     ``runs`` contains only checkpoint-coverage boundaries. Individual
     ``ScanTask`` windows are tiled from those runs on demand, so planner memory
-    is proportional to fragments (plus resume coverage), not task count.
+    is proportional to fragments (plus resume coverage), not task count,
+    except for ``selected_ranges``.
+
+    ``selected_ranges`` (GEN-1019), when set, holds sorted, disjoint
+    ``[start, end)`` row ranges that contain at least one WHERE-matched row, as
+    a read-only ``(n, 2)`` int64 array: 16 bytes per range, so at most 512 KiB
+    per fragment at ``_MAX_TRACKED_WINDOWS_PER_FRAGMENT``.
+    Only windows that overlap one of them are emitted. The emitted windows are
+    a subset of the windows tiled without it, so checkpoint keys don't change.
     """
 
     template: ScanTask
     runs: tuple[tuple[int, int], ...]
     task_size: int | None
     legacy_zero_limit: bool = False
+    selected_ranges: np.ndarray | None = attrs.field(
+        default=None,
+        converter=lambda r: None if r is None else _as_range_array(r),
+        eq=attrs.cmp_using(eq=np.array_equal),
+        hash=False,
+    )
+
+    def _step(self, run_start: int, run_end: int) -> int:
+        return self.task_size if self.task_size is not None else run_end - run_start
+
+    def _kept_windows(self, run_start: int, run_end: int) -> Iterator[tuple[int, int]]:
+        """Yield merged ``[lo, hi)`` window-index ranges to emit for one run.
+
+        Window ``k`` of a run starts at ``run_start + k * step``.
+        """
+        step = self._step(run_start, run_end)
+        if self.selected_ranges is None:
+            yield 0, -((run_end - run_start) // -step)
+            return
+        cur: tuple[int, int] | None = None
+        first = int(np.searchsorted(self.selected_ranges[:, 1], run_start, "right"))
+        last = int(np.searchsorted(self.selected_ranges[:, 0], run_end, "left"))
+        for sel_start, sel_end in self.selected_ranges[first:last].tolist():
+            lo = (max(sel_start, run_start) - run_start) // step
+            hi = (min(sel_end, run_end) - 1 - run_start) // step + 1
+            if cur is not None and lo <= cur[1]:
+                cur = (cur[0], max(cur[1], hi))
+                continue
+            if cur is not None:
+                yield cur
+            cur = (lo, hi)
+        if cur is not None:
+            yield cur
 
     @property
     def task_count(self) -> int:
         if self.legacy_zero_limit:
             return 1
-        if self.task_size is None:
-            return sum(1 for start, end in self.runs if end > start)
         return sum(
-            -((end - start) // -self.task_size)
+            hi - lo
             for start, end in self.runs
             if end > start
+            for lo, hi in self._kept_windows(start, end)
         )
+
+    @property
+    def row_count(self) -> int:
+        """Rows covered by the emitted windows (the sum of their limits)."""
+        if self.legacy_zero_limit or self.selected_ranges is None:
+            return sum(end - start for start, end in self.runs if end > start)
+        rows = 0
+        for start, end in self.runs:
+            if end <= start:
+                continue
+            step = self._step(start, end)
+            for lo, hi in self._kept_windows(start, end):
+                rows += min(end, start + hi * step) - (start + lo * step)
+        return rows
 
     def tasks(self) -> Iterator[ScanTask]:
         if self.legacy_zero_limit:
@@ -269,19 +342,15 @@ class _FragmentScanPlan:
         for run_start, run_end in self.runs:
             if run_end <= run_start:
                 continue
-            if self.task_size is None:
-                yield attrs.evolve(
-                    self.template,
-                    offset=run_start,
-                    limit=run_end - run_start,
-                )
-                continue
-            for offset in range(run_start, run_end, self.task_size):
-                yield attrs.evolve(
-                    self.template,
-                    offset=offset,
-                    limit=min(self.task_size, run_end - offset),
-                )
+            step = self._step(run_start, run_end)
+            for lo, hi in self._kept_windows(run_start, run_end):
+                for k in range(lo, hi):
+                    offset = run_start + k * step
+                    yield attrs.evolve(
+                        self.template,
+                        offset=offset,
+                        limit=min(step, run_end - offset),
+                    )
 
 
 def _iter_fragment_scan_plans(
@@ -704,6 +773,8 @@ class CheckpointingApplier:
     checkpoint_base_storage_options: dict[str, str] | None = attrs.field(
         default=None, repr=redact_dict_values
     )
+    # Driver's store layout, pinned so workers don't re-derive it from config.
+    checkpoint_layout: str | None = attrs.field(default=None)
 
     checkpoint_store: CheckpointStore = attrs.field(init=False)
     _shared_sizer: AdaptiveCheckpointSizer | None = attrs.field(
@@ -733,6 +804,7 @@ class CheckpointingApplier:
             base_checkpoint_uris=self.checkpoint_base_uris,
             frag_to_base=self.checkpoint_frag_to_base,
             base_storage_options=self.checkpoint_base_storage_options,
+            layout=self.checkpoint_layout,
         )
 
     def _get_or_create_sizer(self) -> AdaptiveCheckpointSizer:
@@ -1163,7 +1235,7 @@ class CheckpointingApplier:
 
     def _load_checkpointed_results(
         self, task: ReadTask
-    ) -> tuple[list[MapBatchCheckpoint], int] | None:
+    ) -> list[MapBatchCheckpoint] | None:
         task_key = self._checkpoint_key_for_task(task)
 
         exists_start = time.perf_counter()
@@ -1207,9 +1279,8 @@ class CheckpointingApplier:
                     for idx in range(cached.num_rows)
                 ]
 
-                total_udf = sum(r.udf_rows for r in results)
                 _LOG.info("Using cached result for %s", task_key)
-                return results, total_udf
+                return results
             else:
                 # Legacy single-batch checkpoint stored directly under task key
                 _LOG.info("Using legacy cached result for %s", task_key)
@@ -1231,7 +1302,7 @@ class CheckpointingApplier:
                         task, getattr(task, "src_files_hash", None)
                     ),
                 )
-                return [result], result.udf_rows
+                return [result]
 
         # Reconstruct from per-batch checkpoints if the task range is fully covered
         src_files_hash = self._src_files_hash_for_task(
@@ -1301,8 +1372,7 @@ class CheckpointingApplier:
         if cur < task_end:
             return None
 
-        total_udf = sum(r.udf_rows for r in results)
-        return results, total_udf
+        return results
 
     def _run(
         self, task: ReadTask
@@ -1320,9 +1390,9 @@ class CheckpointingApplier:
             # Best-effort reset for older appliers.
             self.batch_applier.udf_processing_time_ms = 0  # type: ignore[attr-defined]
 
-        if cached := self._load_checkpointed_results(task):
-            checkpoints, total_udf = cached
-            return checkpoints, None, total_udf
+        cached = self._load_checkpointed_results(task)
+        if cached is not None:
+            return cached, None, 0
 
         try:
             dataset_uri = task.table_uri()
@@ -1653,6 +1723,135 @@ def _prefetch_filter_row_counts(
     return counts
 
 
+# GEN-1019: rows per batch for the matched-address scan, and the most windows
+# tracked per fragment before falling back to every window. The cap bounds each
+# (possibly concurrent) scan's peak, including building its ranges, to under
+# 3 MiB (plus one batch of addresses) and each fragment's retained ranges to
+# 512 KiB (at most 32,768 ranges of 16 bytes).
+_SELECTED_WINDOW_SCAN_BATCH_ROWS = 65_536
+_MAX_TRACKED_WINDOWS_PER_FRAGMENT = 1 << 16
+
+_SelectedWindows = tuple[int, np.ndarray | None]
+
+
+def _fragment_logical_rows(frag: lance.LanceFragment) -> int:
+    """Live rows in ``frag``; avoids a count when there are no deletions."""
+    return frag.count_rows() if frag.num_deletions > 0 else frag.physical_rows
+
+
+def _window_flags_to_ranges(
+    flags: np.ndarray, task_size: int, logical_rows: int
+) -> np.ndarray:
+    """Merge runs of flagged windows into ``(n, 2)`` ``[start, end)`` row ranges."""
+    edges = np.diff(np.concatenate(([0], flags.astype(np.int8), [0])))
+    starts = np.flatnonzero(edges == 1).astype(np.int64) * task_size
+    ends = np.flatnonzero(edges == -1).astype(np.int64) * task_size
+    return _as_range_array(np.stack([starts, np.minimum(ends, logical_rows)], 1))
+
+
+def _scan_selected_windows(
+    table: Table,
+    frag: lance.LanceFragment,
+    *,
+    where: str,
+    version: int | None,
+    task_size: int,
+    logical_rows: int,
+) -> _SelectedWindows:
+    """Find the ``task_size`` windows of a fragment that hold WHERE-matched rows.
+
+    One filtered scan streams only the matched rows' ``_rowaddr`` through the
+    Geneva query builder that ``ScanTask`` reads with, so memory stays at one
+    batch of addresses plus per-window scratch (bounded as described at
+    ``_MAX_TRACKED_WINDOWS_PER_FRAGMENT``).
+
+    ScanTask windows are in the fragment's logical (post-deletion) row domain,
+    while a row address carries the physical offset ``p``. Without deletions
+    they are equal. With ``D`` deleted rows the logical offset lies in
+    ``[p - D, p]``, so every window in that span is kept: possibly more windows
+    than needed, never fewer.
+
+    Returns ``(matched_rows, selected_ranges)``. ``selected_ranges`` are merged
+    ``[start, end)`` row ranges on the ``task_size`` grid that contain a match,
+    or None when the fragment has too many windows to track (keep them all).
+    """
+    num_windows = -(-logical_rows // task_size) if logical_rows > 0 else 0
+    tracked = 0 < num_windows <= _MAX_TRACKED_WINDOWS_PER_FRAGMENT
+    # Difference array over window indices: +1 where a match's span starts,
+    # -1 one past where it ends; a positive prefix sum flags the window.
+    deltas = np.zeros(num_windows + 1, dtype=np.int64) if tracked else None
+    deletions = int(frag.num_deletions)
+    matched = 0
+    query = (
+        table.search()
+        .enable_internal_api()  # type: ignore[attr-defined]
+        .with_fragments(frag.fragment_id)
+        .with_row_address()
+        .with_read_version(version)
+        .select([])
+        .where(where)
+    )
+    reader = query.to_batches(_SELECTED_WINDOW_SCAN_BATCH_ROWS)
+    try:
+        for batch in reader:
+            if batch.num_rows == 0:
+                continue
+            matched += batch.num_rows
+            if deltas is None:
+                continue
+            addrs = batch["_rowaddr"].to_numpy(zero_copy_only=False)
+            offsets = (addrs & 0xFFFFFFFF).astype(np.int64)
+            hi = np.minimum(offsets, logical_rows - 1) // task_size
+            lo = np.maximum(offsets - deletions, 0) // task_size if deletions else hi
+            deltas += np.bincount(lo, minlength=num_windows + 1)
+            deltas -= np.bincount(hi + 1, minlength=num_windows + 1)
+    finally:
+        close = getattr(reader, "close", None)
+        if callable(close):
+            close()
+    if matched == 0:
+        return 0, _as_range_array(())
+    if deltas is None:
+        return matched, None
+    flags = np.cumsum(deltas[:-1]) > 0
+    return matched, _window_flags_to_ranges(flags, task_size, logical_rows)
+
+
+def _prefetch_selected_windows(
+    table: Table,
+    fragments: list[lance.LanceFragment],
+    *,
+    where: str,
+    version: int | None,
+    task_size: int,
+    max_workers: int,
+) -> dict[int, _SelectedWindows]:
+    """Run :func:`_scan_selected_windows` on fragments in parallel.
+
+    The window-pruning counterpart of :func:`_prefetch_filter_row_counts`.
+    """
+    if not fragments:
+        return {}
+
+    def _scan(frag: lance.LanceFragment) -> _SelectedWindows:
+        return _scan_selected_windows(
+            table,
+            frag,
+            where=where,
+            version=version,
+            task_size=task_size,
+            logical_rows=_fragment_logical_rows(frag),
+        )
+
+    workers = max(1, min(max_workers, len(fragments)))
+    results: dict[int, _SelectedWindows] = {}
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        future_to_frag = {ex.submit(_scan, f): f for f in fragments}
+        for fut in as_completed(future_to_frag):
+            results[future_to_frag[fut].fragment_id] = fut.result()
+    return results
+
+
 @attrs.define
 class _PlanTimings:
     """Per-phase wall-clock seconds for the "Building tasks" plan loop.
@@ -1688,10 +1887,13 @@ def _plan_read(
     blob_read_strategy: str | None = None,
     blob_read_buffer_size: int | None = None,
     job_tracker: Any = None,
+    skip_unselected_windows: bool | None = None,
 ) -> _PlanReadResult:
     """Make Plan for Reading Data from a Dataset
-    We want a ScanTask for each fragment in the dataset even if they are filtered
-    out. This should make the checkpointing recovery easier to manage.
+
+    ``skip_unselected_windows`` (GEN-1019): plan only the ``task_size`` windows
+    that contain a row matching ``where``. Defaults to the map task's deferred
+    carry-forward mode, the only mode whose writer fills rows no task covered.
 
     Returns a tuple of (ReadTask iterator, skipped_fragments dict, skipped_stats dict,
     src_data_files_by_dst). skipped_stats contains {'fragments': count, 'rows': count}
@@ -1744,6 +1946,27 @@ def _plan_read(
     ):
         # Lance count_rows panics on blob v2 predicates.
         _skip_planner_filter_count = True
+    if skip_unselected_windows is None:
+        skip_unselected_windows = bool(getattr(map_task, "defer_carry_forward", False))
+    # GEN-1019: in deferred carry-forward mode the writer fills every row no
+    # task covered from the old column, so a window without a matched row needs
+    # no task. Leaf mode and blob v2 predicates keep tiling every window.
+    prune_windows = (
+        skip_unselected_windows
+        and bool(where)
+        and task_size > 0
+        and not _skip_planner_filter_count
+    )
+    window_scan_tables: list[Table] = []
+
+    def _window_scan_table() -> Table:
+        # Opened once, on first use, pinned to the planned snapshot.
+        if not window_scan_tables:
+            window_scan_tables.append(
+                attrs.evolve(table_ref, version=dataset_version).open()
+            )
+        return window_scan_tables[0]
+
     scan_columns = _canonical_read_columns(dataset_schema, columns)
     map_input_cols = map_task.input_columns() if map_task is not None else None
     canonical_map_input_cols = (
@@ -1828,6 +2051,7 @@ def _plan_read(
     fragment_plans: list[_FragmentScanPlan] = []
     total_tasks = 0
     total_rows = 0
+    unselected_windows = 0
     tasks_by_frag: dict[int, int] = {}
     src_data_files_by_dst: dict[int, frozenset[str]] = {}
     checkpoint_keys: set[str] | None = None
@@ -1950,16 +2174,59 @@ def _plan_read(
 
         get_fragment_dedupe_key = _get_fragment_dedupe_key_fn
 
+    def _filter_action(has_output_data: bool) -> str:
+        """How the planner evaluates ``where`` on one fragment.
+
+        ``"count"`` runs ``count_rows(filter=where)``; ``"windows"`` runs the
+        matched-address scan for window pruning; ``"none"`` evaluates nothing
+        and tiles every window.
+
+        Fast-path conditions for skipping the count:
+          1. No existing output data: synthetic null-filler can't clobber
+             something that's already null.
+          2. _skip_populated_filter_count: trust worker carry-forward to
+             preserve populated values; trades the driver count for one
+             redundant fragment rewrite per zero-match populated fragment.
+        Both require a map_task — the carry-forward path only runs in the
+        backfill applier, not raw reads / ``plan_backfill`` dry-runs.
+
+        In leaf mode (``_skip_planner_filter_count``) we never evaluate the
+        filter on the driver. The filter is already carried on every
+        ScanTask, so each worker re-applies it at read time and a zero-match
+        chunk simply yields no rows. Emitting a task for every fragment
+        trades a small amount of empty-task overhead for eliminating the
+        planning-phase scan entirely — the right call when the filter isn't
+        index-served (a full scan per fragment).
+
+        Window pruning also scans on a first fill (case 1): one planner scan
+        replaces the per-task filter scans of every empty window. The
+        exception is the generated resume predicate (``<col> IS NULL``),
+        which matches every row of a fragment that has no output data yet.
+        """
+        if not where or _skip_planner_filter_count:
+            return "none"
+        first_fill = output_field_ids is not None and not has_output_data
+        fast_path_safe = output_field_ids is not None and (
+            not has_output_data or _skip_populated_filter_count
+        )
+        if prune_windows and (
+            not fast_path_safe or (first_fill and not default_where_generated)
+        ):
+            return "windows"
+        return "none" if fast_path_safe else "count"
+
     # get_fragments has an unsupported filter method, so we do filtering deeper in.
     effective_offset = skip_frags
     all_fragments = dataset.get_fragments()
 
-    # Parallel prefetch of `count_rows(filter=where)` for fragments that
-    # need it. Each call is a Lance scan against object storage (~tens of
-    # ms); doing them serially in the main loop dominates planning time
-    # on large tables (e.g. 30 min for 38k fragments). Threading is safe
-    # because Lance releases the GIL during scan I/O.
+    # Parallel prefetch of `count_rows(filter=where)`, or the matched-window
+    # scan when pruning windows, for fragments that need it. Each call is a
+    # Lance scan against object storage (~tens of ms); doing them serially
+    # in the main loop dominates planning time on large tables (e.g. 30 min
+    # for 38k fragments). Threading is safe because Lance releases the GIL
+    # during scan I/O.
     prefetched_filter_counts: dict[int, int] = {}
+    prefetched_selected_windows: dict[int, _SelectedWindows] = {}
     if (
         where is not None
         and not _skip_planner_filter_count
@@ -1970,7 +2237,7 @@ def _plan_read(
         # the `checkpoint_exists` branch. Uses the in-memory
         # `checkpoint_keys` set; stale-dedupe cases (where the payload
         # validation later fails) fall back to the synchronous
-        # `count_rows` in the main loop.
+        # count or window scan in the main loop.
         dedupe_skip_enabled = (
             map_task is not None
             and checkpoint_keys is not None
@@ -1980,6 +2247,7 @@ def _plan_read(
             and not _skip_checkpoint_index_scan
         )
         fragments_needing_count: list[lance.LanceFragment] = []
+        fragments_needing_window_scan: list[lance.LanceFragment] = []
         for idx, frag in enumerate(all_fragments):
             if idx < effective_offset:
                 continue
@@ -2006,13 +2274,35 @@ def _plan_read(
                 )
                 if legacy_key in checkpoint_keys:
                     continue
-            if output_field_ids is not None:
-                existing = _find_output_data_file_in_fragment(frag, output_field_ids)
-                fast_path_safe = existing is None or _skip_populated_filter_count
-            else:
-                fast_path_safe = False
-            if not fast_path_safe:
+            existing = _find_output_data_file_in_fragment(frag, output_field_ids)
+            action = _filter_action(existing is not None)
+            if action == "count":
                 fragments_needing_count.append(frag)
+            elif action == "windows":
+                fragments_needing_window_scan.append(frag)
+        if fragments_needing_window_scan:
+            report_plan_progress(job_tracker, desc="Finding selected windows")
+            _prefetch_span = telemetry.open_span(
+                "prefetch_selected_windows",
+                {"fragments": len(fragments_needing_window_scan)},
+            )
+            prefetch_start = time.perf_counter()
+            prefetched_selected_windows = _prefetch_selected_windows(
+                _window_scan_table(),
+                fragments_needing_window_scan,
+                where=where,
+                version=dataset_version,
+                task_size=task_size,
+                max_workers=_plan_filter_count_concurrency,
+            )
+            _LOG.info(
+                "plan_read: prefetched selected windows for %d fragments "
+                "in %.1fs (concurrency=%d)",
+                len(fragments_needing_window_scan),
+                time.perf_counter() - prefetch_start,
+                _plan_filter_count_concurrency,
+            )
+            telemetry.close_span(_prefetch_span)
         if fragments_needing_count:
             report_plan_progress(job_tracker, desc="Counting rows")
             _prefetch_span = telemetry.open_span(
@@ -2293,25 +2583,33 @@ def _plan_read(
         # deletion vectors must plan in logical rows to avoid creating tasks for
         # deleted positions.
         frag_rows = frag_logical_rows
-        # Fast-path conditions for skipping `count_rows(filter=...)`:
-        #   1. No existing output data: synthetic null-filler can't clobber
-        #      something that's already null.
-        #   2. _skip_populated_filter_count: trust worker carry-forward to
-        #      preserve populated values; trades the driver count for one
-        #      redundant fragment rewrite per zero-match populated fragment.
-        # Both require a map_task — the carry-forward path only runs in the
-        # backfill applier, not raw reads / `plan_backfill` dry-runs.
-        fast_path_safe = output_field_ids is not None and (
-            existing_data_file is None or _skip_populated_filter_count
-        )
-        # In leaf mode (``_skip_planner_filter_count``) we never run the
-        # per-fragment ``count_rows(filter=where)`` on the driver. The filter
-        # is already carried on every ScanTask, so each worker re-applies it
-        # at read time and a zero-match chunk simply yields no rows. Emitting a
-        # task for every fragment trades a small amount of empty-task overhead
-        # for eliminating the planning-phase scan entirely — the right call
-        # when the filter isn't index-served (a full scan per fragment).
-        if where and not fast_path_safe and not _skip_planner_filter_count:
+        # See _filter_action for when the filter is counted, scanned for
+        # matched windows, or not evaluated at all.
+        filter_action = _filter_action(existing_data_file is not None)
+        selected_ranges: np.ndarray | None = None
+        if filter_action == "windows":
+            assert where is not None
+            if frag.fragment_id in prefetched_selected_windows:
+                filtered_frag_rows, selected_ranges = prefetched_selected_windows[
+                    frag.fragment_id
+                ]
+            else:
+                filtered_frag_rows, selected_ranges = _scan_selected_windows(
+                    _window_scan_table(),
+                    frag,
+                    where=where,
+                    version=dataset_version,
+                    task_size=task_size,
+                    logical_rows=frag_rows,
+                )
+            if filtered_frag_rows == 0:
+                _LOG.debug(
+                    "frag %d filtered by %r has no rows, skipping.",
+                    frag.fragment_id,
+                    where,
+                )
+                continue
+        elif filter_action == "count":
             if frag.fragment_id in prefetched_filter_counts:
                 filtered_frag_rows = prefetched_filter_counts[frag.fragment_id]
             else:
@@ -2471,14 +2769,21 @@ def _plan_read(
             runs=runs,
             task_size=plan_task_size,
             legacy_zero_limit=legacy_zero_limit,
+            selected_ranges=selected_ranges,
         )
         fragment_task_count = fragment_plan.task_count
         if fragment_task_count <= 0:
             continue
+        if selected_ranges is not None:
+            unselected_windows += (
+                attrs.evolve(fragment_plan, selected_ranges=None).task_count
+                - fragment_task_count
+            )
         fragment_plans.append(fragment_plan)
         tasks_by_frag[frag.fragment_id] = fragment_task_count
         total_tasks += fragment_task_count
-        total_rows += frag_rows
+        # Must equal the sum of emitted task limits: the scheduler checks it.
+        total_rows += fragment_plan.row_count
 
     telemetry.set_span_attrs(_build_span, attrs.asdict(_plan_timings))
     telemetry.close_span(_build_span)
@@ -2498,6 +2803,10 @@ def _plan_read(
         skipped_stats["fragments"],
         skipped_stats["rows"],
     )
+    if prune_windows:
+        _LOG.info(
+            "Skipped %d window(s) with no rows matching %r", unselected_windows, where
+        )
 
     return _PlanReadResult(
         tasks=_iter_fragment_scan_plans(fragment_plans),

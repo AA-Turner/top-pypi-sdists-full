@@ -27,10 +27,12 @@ from .._generated import calls
 from .._generated.storage import SubtensorModule as st
 from ..result import BittensorError, ChainError, ErrorCode
 from ..settings import GLOBAL_MAX_SUBNET_COUNT, U16_MAX
+from ..sp_core import ss58_decode
 from .base import BuiltCall, Intent
 from .registry import register
 
 DEFAULT_COMMIT_REVEAL_VERSION = 4
+TOTAL_NULL_WEIGHT_BUDGET = 2_500
 
 NETUID_HELP = "Subnet whose miners the weights score."
 UIDS_HELP = (
@@ -49,6 +51,66 @@ VERSION_KEY_HELP = (
     "Weights version key checked against the subnet's required version. Leave 0 "
     "unless the subnet owner requires a specific value."
 )
+FOR_HOTKEY_HELP = (
+    "Validator hotkey to act for. Requires the hotkey to have authorized the signing "
+    "hotkey as its weight delegate on this netuid and mechanism; normal transaction fees "
+    "are paid by the delegate."
+)
+
+
+def _for_call(name: str, netuid: int, mechid: int, hotkey: Optional[str], **params):
+    """Use the exact delegate dispatch when requested, otherwise the hotkey call."""
+    if hotkey is None:
+        return getattr(calls.SubtensorModule, name)(netuid=netuid, mecid=mechid, **params)
+    ss58_decode(hotkey)
+    return calls.Call(
+        "SubtensorModule",
+        f"{name}_for",
+        {"netuid": netuid, "mecid": mechid, "hotkey": hotkey, **params},
+    )
+
+
+def _reveal_call(netuid: int, mechid: int, for_hotkey: Optional[str], **params):
+    """Keep the legacy main-mechanism call unless a mechanism/delegate is requested."""
+    if for_hotkey is not None:
+        return _for_call("reveal_mechanism_weights", netuid, mechid, for_hotkey, **params)
+    if mechid == 0:
+        return calls.SubtensorModule.reveal_weights(netuid=netuid, **params)
+    return calls.SubtensorModule.reveal_mechanism_weights(netuid=netuid, mecid=mechid, **params)
+
+
+def _weight_keys(intent: Intent, wallet: Any, for_hotkey: Optional[str]) -> tuple[str, bytes]:
+    """The validator identity: never substitute the delegate for its hotkey."""
+    if for_hotkey is not None:
+        return for_hotkey, bytes(ss58_decode(for_hotkey))
+    return intent.hotkey_address(wallet), intent.hotkey_public_key(wallet)
+
+
+async def _ensure_delegate(substrate, netuid: int, mechid: int, hotkey: str) -> None:
+    """Reject an absent/revoked authorization before encrypting or signing."""
+    delegate = await substrate.runtime_call(
+        "SubnetRegistrationRuntimeApi", "get_mech_weight_delegate", [netuid, mechid, hotkey]
+    )
+    if delegate is None:
+        raise ChainError(
+            f"Hotkey {hotkey} has no weight delegate on netuid {netuid}, mechanism {mechid}. "
+            "Set one before submitting a delegated weight call.",
+            code=ErrorCode.NOT_AUTHORIZED,
+        )
+
+
+async def _delegate_warning(
+    substrate, netuid: int, mechid: int, hotkey: str, origin: str
+) -> list[str]:
+    delegate = await substrate.runtime_call(
+        "SubnetRegistrationRuntimeApi", "get_mech_weight_delegate", [netuid, mechid, hotkey]
+    )
+    if str(delegate) != str(origin):
+        return [
+            f"{origin} is not the current weight delegate for {hotkey} on netuid {netuid}, "
+            f"mechanism {mechid} (delegate: {delegate or 'none'}); the chain will reject the call"
+        ]
+    return []
 
 
 def normalize(uids: Sequence[int], weights: Sequence[float]) -> tuple[list[int], list[int]]:
@@ -149,6 +211,9 @@ class _Preflight:
     commit_reveal: bool
     min_allowed_weights: int
     max_weight_limit: int
+    # Null only: the most entries one weight row may hold on a mechanism,
+    # max(1, 2500 // mechanism_count). None on Yuma, which has no such cap.
+    max_row_len: Optional[int] = None
 
 
 async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _Preflight:
@@ -165,7 +230,17 @@ async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _
     # LastUpdate (like the weights themselves) is keyed by the mechanism storage
     # index; for mechid 0 that index equals the netuid.
     storage_index = mechid * GLOBAL_MAX_SUBNET_COUNT + netuid
-    uid_raw, cr_raw, rate_raw, last_raw, min_raw, max_raw, mode = await asyncio.gather(
+    (
+        uid_raw,
+        cr_raw,
+        rate_raw,
+        last_raw,
+        min_raw,
+        max_raw,
+        mode,
+        mechanism_count_raw,
+        subnet_n_raw,
+    ) = await asyncio.gather(
         substrate.query(*st.Uids, [netuid, hotkey_ss58], block_hash=block_hash),
         substrate.query(*st.CommitRevealWeightsEnabled, [netuid], block_hash=block_hash),
         substrate.query(*st.WeightsSetRateLimit, [netuid], block_hash=block_hash),
@@ -173,6 +248,8 @@ async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _
         substrate.query(*st.MinAllowedWeights, [netuid], block_hash=block_hash),
         substrate.query(*st.MaxWeightsLimit, [netuid], block_hash=block_hash),
         substrate.query(*st.SubnetEpochConsensus, [netuid], block_hash=block_hash),
+        substrate.query(*st.MechanismCountCurrent, [netuid], block_hash=block_hash),
+        substrate.query(*st.SubnetworkN, [netuid], block_hash=block_hash),
     )
 
     if uid_raw is None:
@@ -181,6 +258,8 @@ async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _
             code=ErrorCode.NOT_REGISTERED,
         )
     uid = int(uid_raw)
+    min_allowed_weights = int(min_raw or 0)
+    max_row_len: Optional[int] = None
     if mode == "Null" or mode == {"Null": None} or mode == 1:
         permits = await substrate.query(*st.ValidatorPermit, [netuid], block_hash=block_hash)
         if not isinstance(permits, (list, tuple)) or uid >= len(permits) or not permits[uid]:
@@ -188,6 +267,12 @@ async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _
                 f"Only the sole Null validator permit holder may set weights on netuid {netuid}.",
                 code=ErrorCode.NOT_AUTHORIZED,
             )
+        # ValueQuery defaults to one mechanism; preserve the minimum-one cap for
+        # any inconsistent zero value rather than dividing by zero client-side.
+        mechanism_count = max(1, int(mechanism_count_raw or 1))
+        row_cap = max(1, TOTAL_NULL_WEIGHT_BUDGET // mechanism_count)
+        min_allowed_weights = min(min_allowed_weights, row_cap, int(subnet_n_raw or 0))
+        max_row_len = row_cap
 
     rate_limit = int(rate_raw or 0)
     if (
@@ -210,8 +295,9 @@ async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _
     return _Preflight(
         uid=uid,
         commit_reveal=bool(cr_raw),
-        min_allowed_weights=int(min_raw or 0),
+        min_allowed_weights=min_allowed_weights,
         max_weight_limit=int(max_raw) if max_raw is not None else U16_MAX,
+        max_row_len=max_row_len,
     )
 
 
@@ -223,6 +309,9 @@ def _conform(
     Applies the ``max_weight_limit`` clip, quantizes to u16 (dropping zeros), and
     enforces ``min_allowed_weights`` on what will actually be submitted. A single
     self-weight is exempt from both constraints, matching the chain's rules.
+    On a Null subnet it also enforces the row cap before anything is signed or
+    encrypted: the chain cannot check a timelocked commit until its reveal, and
+    it skips a reveal whose row is above the cap.
     """
     is_self_weight = uids == [preflight.uid]
     if raw_u16:
@@ -255,6 +344,14 @@ def _conform(
             f"weights; only {len(norm_uids)} are nonzero after normalization.",
             code=ErrorCode.INVALID_ARGUMENT,
         )
+    if preflight.max_row_len is not None and len(norm_uids) > preflight.max_row_len:
+        raise ChainError(
+            f"Null subnet {netuid} accepts at most {preflight.max_row_len} weights in one "
+            f"row at its current mechanism count (2500 // mechanism count, at least 1); "
+            f"{len(norm_uids)} are nonzero after normalization.",
+            name="TooManyWeightsForNullMechanism",
+            code=ErrorCode.LIMIT_EXCEEDED,
+        )
     return norm_uids, norm_vals
 
 
@@ -274,6 +371,7 @@ async def _build_timelocked(
     values: list[int],
     version_key: int,
     commit_reveal_version: int,
+    for_hotkey: Optional[str] = None,
 ) -> BuiltCall:
     """Timelock-encrypt the weights and compose the commit call.
 
@@ -322,9 +420,11 @@ async def _build_timelocked(
         hotkey=hotkey_public_key,
     )
     call = await substrate.compose(
-        calls.SubtensorModule.commit_timelocked_mechanism_weights(
-            netuid=netuid,
-            mecid=mechid,
+        _for_call(
+            "commit_timelocked_mechanism_weights",
+            netuid,
+            mechid,
+            for_hotkey,
             commit=commit_bytes,
             reveal_round=reveal_round,
             commit_reveal_version=commit_reveal_version,
@@ -363,7 +463,10 @@ class SetWeights(Intent):
     that are not preflighted: the hotkey must hold the minimum stake to set
     weights and a validator permit. Null has one permit holder, the highest-stake
     UID; self weights and subnet ownership do not bypass that permit. Yuma retains
-    its owner and self-weight exceptions. ``version_key`` must not be older than the subnet's
+    its owner and self-weight exceptions. On a Null subnet one row holds at most
+    ``max(1, 2500 // mechanism_count)`` weights (2,500 with one mechanism, 156
+    with sixteen); a longer row is refused before it is signed or encrypted.
+    ``version_key`` must not be older than the subnet's
     required version. Prefer this over ``commit_weights``/``reveal_weights``
     unless you specifically need to force one path.
     """
@@ -373,6 +476,8 @@ class SetWeights(Intent):
     wraps = (
         ("SubtensorModule", "set_mechanism_weights"),
         ("SubtensorModule", "commit_timelocked_mechanism_weights"),
+        ("SubtensorModule", "set_mechanism_weights_for"),
+        ("SubtensorModule", "commit_timelocked_mechanism_weights_for"),
     )
 
     netuid: int = field(metadata={"help": NETUID_HELP})
@@ -380,6 +485,7 @@ class SetWeights(Intent):
     weights: Optional[list[float]] = field(default=None, metadata={"help": WEIGHTS_HELP})
     mechid: int = field(default=0, metadata={"help": MECHID_HELP})
     version_key: int = field(default=0, metadata={"help": VERSION_KEY_HELP})
+    for_hotkey: Optional[str] = field(default=None, metadata={"help": FOR_HOTKEY_HELP})
     raw_u16: bool = field(
         default=False,
         metadata={
@@ -391,9 +497,10 @@ class SetWeights(Intent):
         self.uids, self.weights = _as_pairs(self.uids, self.weights)
 
     async def build(self, substrate, wallet: Any):
-        preflight = await _preflight(
-            substrate, self.hotkey_address(wallet), self.netuid, self.mechid
-        )
+        target_hotkey, target_public_key = _weight_keys(self, wallet, self.for_hotkey)
+        if self.for_hotkey is not None:
+            await _ensure_delegate(substrate, self.netuid, self.mechid, target_hotkey)
+        preflight = await _preflight(substrate, target_hotkey, self.netuid, self.mechid)
         if self.raw_u16:
             await _ensure_raw_null(substrate, self.netuid)
         norm_uids, norm_vals = _conform(
@@ -402,18 +509,21 @@ class SetWeights(Intent):
         if preflight.commit_reveal:
             return await _build_timelocked(
                 substrate,
-                self.hotkey_public_key(wallet),
+                target_public_key,
                 self.netuid,
                 self.mechid,
                 norm_uids,
                 norm_vals,
                 self.version_key,
                 DEFAULT_COMMIT_REVEAL_VERSION,
+                self.for_hotkey,
             )
         return await substrate.compose(
-            calls.SubtensorModule.set_mechanism_weights(
-                netuid=self.netuid,
-                mecid=self.mechid,
+            _for_call(
+                "set_mechanism_weights",
+                self.netuid,
+                self.mechid,
+                self.for_hotkey,
                 dests=norm_uids,
                 weights=norm_vals,
                 version_key=self.version_key,
@@ -430,6 +540,10 @@ class SetWeights(Intent):
         return [self.summary(), f"submission path: {mode}"]
 
     async def warnings(self, substrate, signer_address: str) -> list[str]:
+        if self.for_hotkey is not None:
+            return await _delegate_warning(
+                substrate, self.netuid, self.mechid, self.for_hotkey, signer_address
+            )
         if self.raw_u16:
             return []
         warning = await _would_clip(substrate, self.netuid, self.weights)
@@ -456,13 +570,17 @@ class CommitWeights(Intent):
 
     op = "commit_weights"
     signer = "hotkey"
-    wraps = (("SubtensorModule", "commit_timelocked_mechanism_weights"),)
+    wraps = (
+        ("SubtensorModule", "commit_timelocked_mechanism_weights"),
+        ("SubtensorModule", "commit_timelocked_mechanism_weights_for"),
+    )
 
     netuid: int = field(metadata={"help": NETUID_HELP})
     uids: Optional[list[int]] = field(default=None, metadata={"help": UIDS_HELP})
     weights: Optional[list[float]] = field(default=None, metadata={"help": WEIGHTS_HELP})
     mechid: int = field(default=0, metadata={"help": MECHID_HELP})
     version_key: int = field(default=0, metadata={"help": VERSION_KEY_HELP})
+    for_hotkey: Optional[str] = field(default=None, metadata={"help": FOR_HOTKEY_HELP})
     raw_u16: bool = field(
         default=False,
         metadata={
@@ -481,9 +599,10 @@ class CommitWeights(Intent):
         self.uids, self.weights = _as_pairs(self.uids, self.weights)
 
     async def build(self, substrate, wallet: Any):
-        preflight = await _preflight(
-            substrate, self.hotkey_address(wallet), self.netuid, self.mechid
-        )
+        target_hotkey, target_public_key = _weight_keys(self, wallet, self.for_hotkey)
+        if self.for_hotkey is not None:
+            await _ensure_delegate(substrate, self.netuid, self.mechid, target_hotkey)
+        preflight = await _preflight(substrate, target_hotkey, self.netuid, self.mechid)
         if self.raw_u16:
             await _ensure_raw_null(substrate, self.netuid)
         norm_uids, norm_vals = _conform(
@@ -491,16 +610,21 @@ class CommitWeights(Intent):
         )
         return await _build_timelocked(
             substrate,
-            self.hotkey_public_key(wallet),
+            target_public_key,
             self.netuid,
             self.mechid,
             norm_uids,
             norm_vals,
             self.version_key,
             self.commit_reveal_version,
+            self.for_hotkey,
         )
 
     async def warnings(self, substrate, signer_address: str) -> list[str]:
+        if self.for_hotkey is not None:
+            return await _delegate_warning(
+                substrate, self.netuid, self.mechid, self.for_hotkey, signer_address
+            )
         if self.raw_u16:
             return []
         warning = await _would_clip(substrate, self.netuid, self.weights)
@@ -529,7 +653,11 @@ class RevealWeights(Intent):
 
     op = "reveal_weights"
     signer = "hotkey"
-    wraps = (("SubtensorModule", "reveal_weights"),)
+    wraps = (
+        ("SubtensorModule", "reveal_weights"),
+        ("SubtensorModule", "reveal_mechanism_weights"),
+        ("SubtensorModule", "reveal_mechanism_weights_for"),
+    )
 
     netuid: int = field(metadata={"help": NETUID_HELP})
     uids: list[int] = field(
@@ -544,14 +672,20 @@ class RevealWeights(Intent):
     version_key: int = field(
         default=0, metadata={"help": "Version key used when the commit was made."}
     )
+    mechid: int = field(default=0, metadata={"help": MECHID_HELP})
+    for_hotkey: Optional[str] = field(default=None, metadata={"help": FOR_HOTKEY_HELP})
 
     async def build(self, substrate, wallet: Any):
         norm_uids, norm_vals = normalize(self.uids, self.weights)
         if not norm_uids:
             raise BittensorError("All weights are zero; nothing to reveal.")
+        if self.for_hotkey is not None:
+            await _ensure_delegate(substrate, self.netuid, self.mechid, self.for_hotkey)
         return await substrate.compose(
-            calls.SubtensorModule.reveal_weights(
-                netuid=self.netuid,
+            _reveal_call(
+                self.netuid,
+                self.mechid,
+                self.for_hotkey,
                 uids=norm_uids,
                 values=norm_vals,
                 salt=[int(x) for x in self.salt],
@@ -559,5 +693,104 @@ class RevealWeights(Intent):
             )
         )
 
+    async def warnings(self, substrate, signer_address: str) -> list[str]:
+        if self.for_hotkey is None:
+            return []
+        return await _delegate_warning(
+            substrate, self.netuid, self.mechid, self.for_hotkey, signer_address
+        )
+
     def summary(self) -> str:
         return f"reveal weights on netuid {self.netuid} for {len(self.uids)} uids"
+
+
+@register
+@dataclass
+class CommitWeightHash(Intent):
+    """Submit a legacy salt-based weight hash for one subnet mechanism.
+
+    Use this only with the legacy commit/reveal protocol, followed by
+    ``RevealWeights`` with the same mechanism, uids, values, salt, and version
+    key. Most validators should use ``CommitWeights`` for a timelocked commit
+    or ``SetWeights`` to select the subnet's configured path automatically.
+    With ``for_hotkey``, the signing hotkey must be that validator's authorized
+    delegate on this mechanism; the delegate pays the normal transaction fee.
+    """
+
+    op = "commit_weight_hash"
+    signer = "hotkey"
+    wraps = (
+        ("SubtensorModule", "commit_mechanism_weights"),
+        ("SubtensorModule", "commit_mechanism_weights_for"),
+    )
+
+    netuid: int = field(metadata={"help": NETUID_HELP})
+    commit_hash: str = field(metadata={"help": "Legacy weight commit hash (0x-prefixed H256)."})
+    mechid: int = field(default=0, metadata={"help": MECHID_HELP})
+    for_hotkey: Optional[str] = field(default=None, metadata={"help": FOR_HOTKEY_HELP})
+
+    async def build(self, substrate, wallet: Any):
+        if self.for_hotkey is not None:
+            await _ensure_delegate(substrate, self.netuid, self.mechid, self.for_hotkey)
+        return await substrate.compose(
+            _for_call(
+                "commit_mechanism_weights",
+                self.netuid,
+                self.mechid,
+                self.for_hotkey,
+                commit_hash=self.commit_hash,
+            )
+        )
+
+    async def warnings(self, substrate, signer_address: str) -> list[str]:
+        if self.for_hotkey is None:
+            return []
+        return await _delegate_warning(
+            substrate, self.netuid, self.mechid, self.for_hotkey, signer_address
+        )
+
+    def summary(self) -> str:
+        return f"commit weight hash on netuid {self.netuid}, mechanism {self.mechid}"
+
+
+@register
+@dataclass
+class SetMechWeightDelegate(Intent):
+    """Authorize or revoke one hotkey's weight delegate on one subnet mechanism.
+
+    Signed by the registered validator hotkey. The delegate may submit direct,
+    legacy commit/reveal, or timelocked weight calls *for* this hotkey and
+    mechanism only, paying normal transaction fees itself. Authorization does
+    not transfer stake or ownership and is independent on every mechanism.
+    Pass ``delegate=None`` (or use the CLI's ``weights delegate revoke``) to
+    revoke it. Existing delegated calls remain subject to the validator's
+    registration, permit, stake, rate-limit, and weight rules.
+    """
+
+    op = "set_mech_weight_delegate"
+    signer = "hotkey"
+    verify = "mech_weight_delegate"
+    wraps = (("SubtensorModule", "set_mech_weight_delegate"),)
+
+    netuid: int = field(metadata={"help": "Subnet containing the validator hotkey."})
+    mechid: int = field(default=0, metadata={"help": MECHID_HELP})
+    delegate: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Account authorized to submit weights for this hotkey; null revokes. "
+            "The runtime accepts any account, but delegated intents sign with a hotkey."
+        },
+    )
+
+    async def build(self, substrate, wallet: Any):
+        return await substrate.compose(
+            calls.Call(
+                "SubtensorModule",
+                "set_mech_weight_delegate",
+                {"netuid": self.netuid, "mecid": self.mechid, "delegate": self.delegate},
+            )
+        )
+
+    def summary(self) -> str:
+        action = f"authorize {self.delegate}" if self.delegate else "revoke weight delegate"
+        return f"{action} for the signing hotkey on netuid {self.netuid}, mechanism {self.mechid}"

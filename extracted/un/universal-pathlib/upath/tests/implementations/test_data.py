@@ -118,6 +118,11 @@ class TestUPathDataPath(
         assert not self.path.full_match("xxx")
 
     @overrides_base
+    def test_match(self):
+        assert self.path.match("*")
+        assert not self.path.match("xxx")
+
+    @overrides_base
     def test_trailing_slash_joinpath_is_identical(self):
         # DataPath has no slashes, and is not joinable
         with pytest.raises(UnsupportedOperation):
@@ -128,6 +133,18 @@ class TestUPathDataPath(
         # DataPath has no slashes, and is not joinable
         with pytest.raises(UnsupportedOperation):
             super().test_trailing_slash_is_stripped()
+
+    @overrides_base
+    def test_joinpath_empty_segment(self):
+        # DataPath is not joinable
+        with pytest.raises(UnsupportedOperation):
+            super().test_joinpath_empty_segment()
+
+    @overrides_base
+    def test_joinpath_dotdot_is_lexical(self):
+        # DataPath is not joinable
+        with pytest.raises(UnsupportedOperation):
+            super().test_joinpath_dotdot_is_lexical()
 
     @overrides_base
     def test_parents_end_at_anchor(self):

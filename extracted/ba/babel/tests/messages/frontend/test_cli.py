@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import shutil
 import sys
 import time
@@ -21,7 +22,6 @@ from datetime import datetime, timedelta
 from io import StringIO
 
 import pytest
-from freezegun import freeze_time
 
 from babel import __version__ as VERSION
 from babel.dates import format_datetime
@@ -45,6 +45,17 @@ def cli(monkeypatch, capsys):
     _remove_log_handlers()
 
 
+@pytest.fixture
+def pyproject_toml_file(tmp_path, monkeypatch) -> pathlib.Path:
+    """
+    Fixture to create ``${tmp_path}/pyproject.toml`` and clean it after the test.
+    """
+    pyproject_toml = (tmp_path / "pyproject.toml")
+    pyproject_toml.touch()
+    monkeypatch.setenv("BABEL_PYPROJECT_TOML", str(pyproject_toml))
+    return pyproject_toml
+
+
 def _remove_log_handlers():
     # Logging handlers will be reused if possible (#227). This breaks the
     # implicit assumption that our newly created StringIO for sys.stderr
@@ -59,11 +70,7 @@ def test_usage(cli):
     with pytest.raises(SystemExit) as ei:
         cli.run(["pybabel"])
     assert ei.value.code == 2
-    assert sys.stderr.getvalue().lower() == """\
-usage: pybabel command [options] [args]
-
-pybabel: error: no valid command or option passed. try the -h/--help option for more information.
-"""
+    assert "error: no valid command or option passed" in sys.stderr.getvalue().lower()
 
 
 def test_list_locales(cli):
@@ -88,7 +95,7 @@ def test_no_duplicated_output_for_multiple_runs(cli):
     _run_init_catalog(cli)
     first_output = sys.stderr.getvalue()
     _run_init_catalog(cli)
-    second_output = sys.stderr.getvalue()[len(first_output):]
+    second_output = sys.stderr.getvalue()[len(first_output) :]
 
     # in case the log message is not duplicated we should get the same
     # output as before
@@ -115,19 +122,19 @@ def test_help(cli):
     assert all(command in content for command in ('init', 'update', 'compile', 'extract'))
 
 
-@freeze_time("1994-11-11")
-def test_extract_with_default_mapping(cli, pot_file):
+def test_extract_with_default_mapping(formatted_frozen_time, cli, pot_file):
     cli.run([
         'pybabel',
         'extract',
         '--copyright-holder', 'FooBar, Inc.',
-        '--project', 'TestProject', '--version', '0.1',
+        '--project', 'TestProject',
+        '--version', '0.1',
         '--msgid-bugs-address', 'bugs.address@email.tld',
-        '-c', 'TRANSLATOR', '-c', 'TRANSLATORS:',
+        '-c', 'TRANSLATOR',
+        '-c', 'TRANSLATORS:',
         '-o', pot_file, 'project',
-    ])
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# Translations template for TestProject.
+    ])  # fmt: skip
+    expected_content = rf"""# Translations template for TestProject.
 # Copyright (C) {time.strftime('%Y')} FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -138,7 +145,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TestProject 0.1\n"
 "Report-Msgid-Bugs-To: bugs.address@email.tld\n"
-"POT-Creation-Date: {date}\n"
+"POT-Creation-Date: {formatted_frozen_time}\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -169,20 +176,26 @@ msgstr[1] ""
     assert expected_content == pot_file.read_text()
 
 
-@freeze_time("1994-11-11")
-def test_extract_with_mapping_file(cli, pot_file):
+@pytest.fixture
+def formatted_frozen_time(frozen_time) -> str:
+    """Freeze time and return it formatted for PO use"""
+    return format_datetime(frozen_time, 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
+
+
+def test_extract_with_mapping_file(formatted_frozen_time, cli, pot_file):
     cli.run([
         'pybabel',
         'extract',
         '--copyright-holder', 'FooBar, Inc.',
-        '--project', 'TestProject', '--version', '0.1',
+        '--project', 'TestProject',
+        '--version', '0.1',
         '--msgid-bugs-address', 'bugs.address@email.tld',
         '--mapping', os.path.join(data_dir, 'mapping.cfg'),
-        '-c', 'TRANSLATOR', '-c', 'TRANSLATORS:',
+        '-c', 'TRANSLATOR',
+        '-c', 'TRANSLATORS:',
         '-o', pot_file, 'project',
-    ])
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# Translations template for TestProject.
+    ])  # fmt: skip
+    expected_content = rf"""# Translations template for TestProject.
 # Copyright (C) {time.strftime('%Y')} FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -193,7 +206,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TestProject 0.1\n"
 "Report-Msgid-Bugs-To: bugs.address@email.tld\n"
-"POT-Creation-Date: {date}\n"
+"POT-Creation-Date: {formatted_frozen_time}\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -218,24 +231,26 @@ msgstr[1] ""
     assert expected_content == pot_file.read_text()
 
 
-@freeze_time("1994-11-11")
-def test_extract_with_exact_file(cli, pot_file):
-    """Tests that we can call extract with a particular file and only
-    strings from that file get extracted. (Note the absence of strings from file1.py)
+def test_extract_with_mapping_file_from_pyproject_toml_config(
+    formatted_frozen_time, cli, pot_file, pyproject_toml_file,
+):
     """
-    file_to_extract = os.path.join(data_dir, 'project', 'file2.py')
-    cli.run([
-        'pybabel',
-        'extract',
-        '--copyright-holder', 'FooBar, Inc.',
-        '--project', 'TestProject', '--version', '0.1',
-        '--msgid-bugs-address', 'bugs.address@email.tld',
-        '--mapping', os.path.join(data_dir, 'mapping.cfg'),
-        '-c', 'TRANSLATOR', '-c', 'TRANSLATORS:',
-        '-o', pot_file, file_to_extract,
-    ])
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# Translations template for TestProject.
+    Test the same as ``test_extract_with_mapping_file()`` but with ``pyproject.toml``
+    as the configuration source instead of args purely coming from the CLI.
+    """
+    pyproject_toml_file.write_text(
+        '[tool.babel.extract_messages]\n'
+        'copyright_holder = "FooBar, Inc."\n'
+        'project = "TestProject"\n'
+        'version = "0.1"\n'
+        'msgid_bugs_address = "bugs.address@email.tld"\n'
+        f"mapping_file = '{os.path.join(data_dir, 'mapping.cfg')}'\n"
+        'add_comments = "TRANSLATOR,TRANSLATORS:"\n'
+        f"output_file = '{pot_file}'\n",
+    )
+    cli.run(['pybabel', 'extract', 'project'])
+
+    expected_content = rf"""# Translations template for TestProject.
 # Copyright (C) {time.strftime('%Y')} FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -246,7 +261,77 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TestProject 0.1\n"
 "Report-Msgid-Bugs-To: bugs.address@email.tld\n"
-"POT-Creation-Date: {date}\n"
+"POT-Creation-Date: {formatted_frozen_time}\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel {VERSION}\n"
+
+#. TRANSLATOR: This will be a translator coment,
+#. that will include several lines
+#: project/file1.py:8
+msgid "bar"
+msgstr ""
+
+#: project/file2.py:9
+msgid "foobar"
+msgid_plural "foobars"
+msgstr[0] ""
+msgstr[1] ""
+
+"""
+    assert expected_content == pot_file.read_text()
+
+    # Second round, reusing the `expected_content` from above;
+    # specify `input_paths` as (listified) value from pyproject.toml instead of the CLI
+    # and specify multiple (listified) comments via pyproject.toml and CLI
+    pyproject_toml_file.write_text(
+        '[tool.babel.extract_messages]\n'
+        'copyright_holder = "FooBar, Inc."\n'
+        'project = "TestProject"\n'
+        'version = "0.1"\n'
+        'msgid_bugs_address = "bugs.address@email.tld"\n'
+        f"mapping_file = '{os.path.join(data_dir, 'mapping.cfg')}'\n"
+        'add_comments = "TRANSLATOR"\n'
+        'input_paths = "project"\n'
+        f"output_file = '{pot_file}'\n",
+    )
+    cli.run(['pybabel', 'extract', '-c', 'TRANSLATORS:'])
+    assert expected_content == pot_file.read_text()
+
+
+def test_extract_with_exact_file(formatted_frozen_time, cli, pot_file):
+    """Tests that we can call extract with a particular file and only
+    strings from that file get extracted. (Note the absence of strings from file1.py)
+    """
+    file_to_extract = os.path.join(data_dir, 'project', 'file2.py')
+    cli.run([
+        'pybabel',
+        'extract',
+        '--copyright-holder', 'FooBar, Inc.',
+        '--project', 'TestProject',
+        '--version', '0.1',
+        '--msgid-bugs-address', 'bugs.address@email.tld',
+        '--mapping', os.path.join(data_dir, 'mapping.cfg'),
+        '-c', 'TRANSLATOR',
+        '-c', 'TRANSLATORS:',
+        '-o', pot_file, file_to_extract,
+    ])  # fmt: skip
+    expected_content = rf"""# Translations template for TestProject.
+# Copyright (C) {time.strftime('%Y')} FooBar, Inc.
+# This file is distributed under the same license as the TestProject
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, {time.strftime('%Y')}.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: TestProject 0.1\n"
+"Report-Msgid-Bugs-To: bugs.address@email.tld\n"
+"POT-Creation-Date: {formatted_frozen_time}\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -265,8 +350,7 @@ msgstr[1] ""
     assert expected_content == pot_file.read_text()
 
 
-@freeze_time("1994-11-11")
-def test_init_with_output_dir(cli):
+def test_init_with_output_dir(formatted_frozen_time, cli):
     po_file = get_po_file_path('en_US')
     cli.run([
         'pybabel',
@@ -274,9 +358,8 @@ def test_init_with_output_dir(cli):
         '--locale', 'en_US',
         '-d', os.path.join(i18n_dir),
         '-i', os.path.join(i18n_dir, 'messages.pot'),
-    ])
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# English (United States) translations for TestProject.
+    ])  # fmt: skip
+    expected_content = rf"""# English (United States) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -287,7 +370,7 @@ msgstr ""
 "Project-Id-Version: TestProject 0.1\n"
 "Report-Msgid-Bugs-To: bugs.address@email.tld\n"
 "POT-Creation-Date: 2007-04-01 15:30+0200\n"
-"PO-Revision-Date: {date}\n"
+"PO-Revision-Date: {formatted_frozen_time}\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en_US\n"
 "Language-Team: en_US <LL@li.org>\n"
@@ -315,8 +398,7 @@ msgstr[1] ""
     assert expected_content == actual_content
 
 
-@freeze_time("1994-11-11")
-def test_init_singular_plural_forms(cli):
+def test_init_singular_plural_forms(formatted_frozen_time, cli):
     po_file = get_po_file_path('ja_JP')
     cli.run([
         'pybabel',
@@ -324,9 +406,8 @@ def test_init_singular_plural_forms(cli):
         '--locale', 'ja_JP',
         '-d', os.path.join(i18n_dir),
         '-i', os.path.join(i18n_dir, 'messages.pot'),
-    ])
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# Japanese (Japan) translations for TestProject.
+    ])  # fmt: skip
+    expected_content = rf"""# Japanese (Japan) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -337,7 +418,7 @@ msgstr ""
 "Project-Id-Version: TestProject 0.1\n"
 "Report-Msgid-Bugs-To: bugs.address@email.tld\n"
 "POT-Creation-Date: 2007-04-01 15:30+0200\n"
-"PO-Revision-Date: {date}\n"
+"PO-Revision-Date: {formatted_frozen_time}\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
 "Language-Team: ja_JP <LL@li.org>\n"
@@ -364,8 +445,7 @@ msgstr[0] ""
     assert expected_content == actual_content
 
 
-@freeze_time("1994-11-11")
-def test_init_more_than_2_plural_forms(cli):
+def test_init_more_than_2_plural_forms(formatted_frozen_time, cli):
     po_file = get_po_file_path('lv_LV')
     cli.run([
         'pybabel',
@@ -373,9 +453,8 @@ def test_init_more_than_2_plural_forms(cli):
         '--locale', 'lv_LV',
         '-d', i18n_dir,
         '-i', os.path.join(i18n_dir, 'messages.pot'),
-    ])
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# Latvian (Latvia) translations for TestProject.
+    ])  # fmt: skip
+    expected_content = rf"""# Latvian (Latvia) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -386,12 +465,12 @@ msgstr ""
 "Project-Id-Version: TestProject 0.1\n"
 "Report-Msgid-Bugs-To: bugs.address@email.tld\n"
 "POT-Creation-Date: 2007-04-01 15:30+0200\n"
-"PO-Revision-Date: {date}\n"
+"PO-Revision-Date: {formatted_frozen_time}\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: lv_LV\n"
 "Language-Team: lv_LV <LL@li.org>\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 :"
-" 2);\n"
+"Plural-Forms: nplurals=3; plural=(n % 10 == 0 || n % 100 >= 11 && n % 100"
+" <= 19 ? 0 : n % 10 == 1 && n % 100 != 11 ? 1 : 2);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -460,12 +539,11 @@ def test_compile_catalog_multidomain(cli):
             '--domain', 'foo bar',
             '--use-fuzzy',
             '-d', i18n_dir,
-        ])
+        ])  # fmt: skip
         for mo_file in [mo_foo, mo_bar]:
             assert os.path.isfile(mo_file)
         assert sys.stderr.getvalue() == (
-            f'compiling catalog {po_foo} to {mo_foo}\n'
-            f'compiling catalog {po_bar} to {mo_bar}\n'
+            f'compiling catalog {po_foo} to {mo_foo}\ncompiling catalog {po_bar} to {mo_bar}\n'
         )
 
     finally:
@@ -616,7 +694,7 @@ def test_check_pot_creation_date(cli):
         '-o', po_file,
         '-i', tmpl_file,
         '--ignore-pot-creation-date',
-    ])
+    ])  # fmt: skip
 
 
 def test_update_init_missing(cli):

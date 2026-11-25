@@ -4,7 +4,7 @@ from __future__ import annotations
 import datetime
 import decimal
 from functools import reduce
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, assert_never, overload
 
 import narwhals.stable.v2 as nw
 from narwhals.stable.v2 import col
@@ -43,7 +43,7 @@ from marimo._plugins.ui._impl.tables.narwhals_table import (
     NEGATIVE_INF,
     POSITIVE_INF,
 )
-from marimo._utils.assert_never import assert_never
+from marimo._plugins.ui._impl.tables.table_manager import regex_literal
 from marimo._utils.narwhals_utils import collect_and_preserve_type
 
 if TYPE_CHECKING:
@@ -113,16 +113,22 @@ class NarwhalsTransformHandler(TransformHandler[DataFrame]):
         if narwhals_dtype is None:
             raise ValueError(f"Unsupported dtype: {transform.data_type}")
 
-        # Polars 2 requires explicit parsers for string-to-temporal conversions.
+        # Narwhals' temporal parsers do not expose Polars' strict option.
+        native_df = df.to_native()
         if (
-            df.implementation.is_polars()
+            nw.dependencies.is_polars_lazyframe(native_df)
             and data_type_str in {"date", "datetime64"}
             and df.collect_schema()[transform.column_id] == nw.String
         ):
-            column = col(transform.column_id)
+            import polars as pl
+
+            column = pl.col(f"^{regex_literal(transform.column_id)}$")
+            strict = transform.errors == "raise"
             if data_type_str == "date":
-                return df.with_columns(column.str.to_date())
-            return df.with_columns(column.str.to_datetime())
+                parsed = column.str.to_date(strict=strict)
+            else:
+                parsed = column.str.to_datetime(strict=strict)
+            return nw.from_native(native_df.with_columns(parsed))
 
         if transform.errors == "ignore":
             # For ignore mode, wrap cast in a try-except at the expression level
@@ -501,11 +507,23 @@ class NarwhalsTransformHandler(TransformHandler[DataFrame]):
         return undo(result)
 
     @staticmethod
+    @overload
+    def handle_explode_columns(
+        df: nw.DataFrame[Any], transform: ExplodeColumnsTransform
+    ) -> nw.DataFrame[Any]: ...
+
+    @staticmethod
+    @overload
     def handle_explode_columns(
         df: DataFrame, transform: ExplodeColumnsTransform
-    ) -> DataFrame:
+    ) -> DataFrame: ...
+
+    @staticmethod
+    def handle_explode_columns(
+        df: nw.DataFrame[Any] | DataFrame, transform: ExplodeColumnsTransform
+    ) -> nw.DataFrame[Any] | DataFrame:
         native_df = df.to_native()
-        if nw.dependencies.is_polars_lazyframe(native_df):
+        if _is_polars_dataframe_or_lazyframe(native_df):
             # Polars 2 drops empty-list rows unless empty_as_null=True.
             # Narwhals >=2.23 sets these options, available since Polars 1.36.
             # Set them here too so older Narwhals preserves the same rows.

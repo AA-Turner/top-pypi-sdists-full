@@ -144,12 +144,35 @@ class OpenShellStub:
     """Configure gateway-owned refresh material for one provider credential."""
     RotateProviderCredential: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.RotateProviderCredentialRequest, _openshell_pb2.RotateProviderCredentialResponse]
     """Record a gateway-owned refresh request for one provider credential."""
+    InlineProviderRefreshSecrets: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.InlineProviderRefreshSecretsRequest, _openshell_pb2.InlineProviderRefreshSecretsResponse]
+    """Copy each workspace secret referenced by one credential's refresh
+    configuration into provider-owned refresh material and remove the
+    references. Other material, including a rotated refresh token, is kept.
+    """
     DeleteProviderRefresh: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.DeleteProviderRefreshRequest, _openshell_pb2.DeleteProviderRefreshResponse]
     """Delete gateway-owned refresh configuration for one provider credential."""
     DeleteProvider: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.DeleteProviderRequest, _openshell_pb2.DeleteProviderResponse]
     """Delete a provider by name."""
     DeleteProviderProfile: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.DeleteProviderProfileRequest, _openshell_pb2.DeleteProviderProfileResponse]
     """Delete a custom provider type profile by id."""
+    CreateSecret: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.CreateSecretRequest, _openshell_pb2.SecretResponse]
+    """Create a workspace secret. Secrets are credential minting material only:
+    OpenShell never injects them into sandboxes, and Get and List never
+    return their values.
+    """
+    GetSecret: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.GetSecretRequest, _openshell_pb2.SecretResponse]
+    """Fetch workspace secret metadata by name. The value is never returned."""
+    ListSecrets: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.ListSecretsRequest, _openshell_pb2.ListSecretsResponse]
+    """List workspace secret metadata. Values are never returned."""
+    UpdateSecret: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.UpdateSecretRequest, _openshell_pb2.SecretResponse]
+    """Replace a workspace secret's value, description, or labels."""
+    DeleteSecret: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.DeleteSecretRequest, _openshell_pb2.DeleteSecretResponse]
+    """Delete a workspace secret by name."""
+    RevealSecret: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.RevealSecretRequest, _openshell_pb2.RevealSecretResponse]
+    """Return a workspace secret's plaintext value to a control-plane caller.
+    Disabled unless the gateway sets enable_secret_reveal. Only directly
+    authenticated mTLS operators may call this method. Every call is audited.
+    """
     GetSandboxConfig: _grpc.UnaryUnaryMultiCallable[_sandbox_pb2.GetSandboxConfigRequest, _sandbox_pb2.GetSandboxConfigResponse]
     """Get sandbox settings by id (called by users, and by supervisors at startup
     and in their poll loop). A supervisor whose session pushes configuration
@@ -188,6 +211,10 @@ class OpenShellStub:
     ExchangeProviderSubjectToken: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.ExchangeProviderSubjectTokenRequest, _openshell_pb2.ExchangeProviderSubjectTokenResponse]
     """Exchange a stored provider subject token for an intermediate token scoped
     to the calling supervisor's SPIFFE identity.
+    """
+    GetSandboxProviderAccessToken: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.GetSandboxProviderAccessTokenRequest, _openshell_pb2.GetSandboxProviderAccessTokenResponse]
+    """Obtain the final provider token for the authenticated sandbox session.
+    SPIFFE assertions and intermediate credentials remain in the gateway.
     """
     GetSandboxLogs: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.GetSandboxLogsRequest, _openshell_pb2.GetSandboxLogsResponse]
     """Fetch recent sandbox logs (one-shot)."""
@@ -417,12 +444,35 @@ class OpenShellAsyncStub(OpenShellStub):
     """Configure gateway-owned refresh material for one provider credential."""
     RotateProviderCredential: _aio.UnaryUnaryMultiCallable[_openshell_pb2.RotateProviderCredentialRequest, _openshell_pb2.RotateProviderCredentialResponse]  # type: ignore[assignment]
     """Record a gateway-owned refresh request for one provider credential."""
+    InlineProviderRefreshSecrets: _aio.UnaryUnaryMultiCallable[_openshell_pb2.InlineProviderRefreshSecretsRequest, _openshell_pb2.InlineProviderRefreshSecretsResponse]  # type: ignore[assignment]
+    """Copy each workspace secret referenced by one credential's refresh
+    configuration into provider-owned refresh material and remove the
+    references. Other material, including a rotated refresh token, is kept.
+    """
     DeleteProviderRefresh: _aio.UnaryUnaryMultiCallable[_openshell_pb2.DeleteProviderRefreshRequest, _openshell_pb2.DeleteProviderRefreshResponse]  # type: ignore[assignment]
     """Delete gateway-owned refresh configuration for one provider credential."""
     DeleteProvider: _aio.UnaryUnaryMultiCallable[_openshell_pb2.DeleteProviderRequest, _openshell_pb2.DeleteProviderResponse]  # type: ignore[assignment]
     """Delete a provider by name."""
     DeleteProviderProfile: _aio.UnaryUnaryMultiCallable[_openshell_pb2.DeleteProviderProfileRequest, _openshell_pb2.DeleteProviderProfileResponse]  # type: ignore[assignment]
     """Delete a custom provider type profile by id."""
+    CreateSecret: _aio.UnaryUnaryMultiCallable[_openshell_pb2.CreateSecretRequest, _openshell_pb2.SecretResponse]  # type: ignore[assignment]
+    """Create a workspace secret. Secrets are credential minting material only:
+    OpenShell never injects them into sandboxes, and Get and List never
+    return their values.
+    """
+    GetSecret: _aio.UnaryUnaryMultiCallable[_openshell_pb2.GetSecretRequest, _openshell_pb2.SecretResponse]  # type: ignore[assignment]
+    """Fetch workspace secret metadata by name. The value is never returned."""
+    ListSecrets: _aio.UnaryUnaryMultiCallable[_openshell_pb2.ListSecretsRequest, _openshell_pb2.ListSecretsResponse]  # type: ignore[assignment]
+    """List workspace secret metadata. Values are never returned."""
+    UpdateSecret: _aio.UnaryUnaryMultiCallable[_openshell_pb2.UpdateSecretRequest, _openshell_pb2.SecretResponse]  # type: ignore[assignment]
+    """Replace a workspace secret's value, description, or labels."""
+    DeleteSecret: _aio.UnaryUnaryMultiCallable[_openshell_pb2.DeleteSecretRequest, _openshell_pb2.DeleteSecretResponse]  # type: ignore[assignment]
+    """Delete a workspace secret by name."""
+    RevealSecret: _aio.UnaryUnaryMultiCallable[_openshell_pb2.RevealSecretRequest, _openshell_pb2.RevealSecretResponse]  # type: ignore[assignment]
+    """Return a workspace secret's plaintext value to a control-plane caller.
+    Disabled unless the gateway sets enable_secret_reveal. Only directly
+    authenticated mTLS operators may call this method. Every call is audited.
+    """
     GetSandboxConfig: _aio.UnaryUnaryMultiCallable[_sandbox_pb2.GetSandboxConfigRequest, _sandbox_pb2.GetSandboxConfigResponse]  # type: ignore[assignment]
     """Get sandbox settings by id (called by users, and by supervisors at startup
     and in their poll loop). A supervisor whose session pushes configuration
@@ -461,6 +511,10 @@ class OpenShellAsyncStub(OpenShellStub):
     ExchangeProviderSubjectToken: _aio.UnaryUnaryMultiCallable[_openshell_pb2.ExchangeProviderSubjectTokenRequest, _openshell_pb2.ExchangeProviderSubjectTokenResponse]  # type: ignore[assignment]
     """Exchange a stored provider subject token for an intermediate token scoped
     to the calling supervisor's SPIFFE identity.
+    """
+    GetSandboxProviderAccessToken: _aio.UnaryUnaryMultiCallable[_openshell_pb2.GetSandboxProviderAccessTokenRequest, _openshell_pb2.GetSandboxProviderAccessTokenResponse]  # type: ignore[assignment]
+    """Obtain the final provider token for the authenticated sandbox session.
+    SPIFFE assertions and intermediate credentials remain in the gateway.
     """
     GetSandboxLogs: _aio.UnaryUnaryMultiCallable[_openshell_pb2.GetSandboxLogsRequest, _openshell_pb2.GetSandboxLogsResponse]  # type: ignore[assignment]
     """Fetch recent sandbox logs (one-shot)."""
@@ -898,6 +952,16 @@ class OpenShellServicer:
     ) -> _typing.Union[_openshell_pb2.RotateProviderCredentialResponse, _abc.Awaitable[_openshell_pb2.RotateProviderCredentialResponse]]:
         """Record a gateway-owned refresh request for one provider credential."""
 
+    def InlineProviderRefreshSecrets(
+        self,
+        request: _openshell_pb2.InlineProviderRefreshSecretsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.InlineProviderRefreshSecretsResponse, _abc.Awaitable[_openshell_pb2.InlineProviderRefreshSecretsResponse]]:
+        """Copy each workspace secret referenced by one credential's refresh
+        configuration into provider-owned refresh material and remove the
+        references. Other material, including a rotated refresh token, is kept.
+        """
+
     def DeleteProviderRefresh(
         self,
         request: _openshell_pb2.DeleteProviderRefreshRequest,
@@ -918,6 +982,54 @@ class OpenShellServicer:
         context: _ServicerContext,
     ) -> _typing.Union[_openshell_pb2.DeleteProviderProfileResponse, _abc.Awaitable[_openshell_pb2.DeleteProviderProfileResponse]]:
         """Delete a custom provider type profile by id."""
+
+    def CreateSecret(
+        self,
+        request: _openshell_pb2.CreateSecretRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.SecretResponse, _abc.Awaitable[_openshell_pb2.SecretResponse]]:
+        """Create a workspace secret. Secrets are credential minting material only:
+        OpenShell never injects them into sandboxes, and Get and List never
+        return their values.
+        """
+
+    def GetSecret(
+        self,
+        request: _openshell_pb2.GetSecretRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.SecretResponse, _abc.Awaitable[_openshell_pb2.SecretResponse]]:
+        """Fetch workspace secret metadata by name. The value is never returned."""
+
+    def ListSecrets(
+        self,
+        request: _openshell_pb2.ListSecretsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.ListSecretsResponse, _abc.Awaitable[_openshell_pb2.ListSecretsResponse]]:
+        """List workspace secret metadata. Values are never returned."""
+
+    def UpdateSecret(
+        self,
+        request: _openshell_pb2.UpdateSecretRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.SecretResponse, _abc.Awaitable[_openshell_pb2.SecretResponse]]:
+        """Replace a workspace secret's value, description, or labels."""
+
+    def DeleteSecret(
+        self,
+        request: _openshell_pb2.DeleteSecretRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.DeleteSecretResponse, _abc.Awaitable[_openshell_pb2.DeleteSecretResponse]]:
+        """Delete a workspace secret by name."""
+
+    def RevealSecret(
+        self,
+        request: _openshell_pb2.RevealSecretRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.RevealSecretResponse, _abc.Awaitable[_openshell_pb2.RevealSecretResponse]]:
+        """Return a workspace secret's plaintext value to a control-plane caller.
+        Disabled unless the gateway sets enable_secret_reveal. Only directly
+        authenticated mTLS operators may call this method. Every call is audited.
+        """
 
     def GetSandboxConfig(
         self,
@@ -1011,6 +1123,15 @@ class OpenShellServicer:
     ) -> _typing.Union[_openshell_pb2.ExchangeProviderSubjectTokenResponse, _abc.Awaitable[_openshell_pb2.ExchangeProviderSubjectTokenResponse]]:
         """Exchange a stored provider subject token for an intermediate token scoped
         to the calling supervisor's SPIFFE identity.
+        """
+
+    def GetSandboxProviderAccessToken(
+        self,
+        request: _openshell_pb2.GetSandboxProviderAccessTokenRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.GetSandboxProviderAccessTokenResponse, _abc.Awaitable[_openshell_pb2.GetSandboxProviderAccessTokenResponse]]:
+        """Obtain the final provider token for the authenticated sandbox session.
+        SPIFFE assertions and intermediate credentials remain in the gateway.
         """
 
     def GetSandboxLogs(

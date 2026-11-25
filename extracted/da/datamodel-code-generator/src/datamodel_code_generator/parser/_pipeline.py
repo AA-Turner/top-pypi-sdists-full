@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from types import FrameType
 
     from datamodel_code_generator.parser._facts import Phase
-    from datamodel_code_generator.parser._phases import DecisionPass, DecisionWriter, FinalFacts
+    from datamodel_code_generator.parser._phases import DecisionPass, FinalFacts, _DecisionWriter
 
 __all__ = [
     "PARSE_CALLER",
@@ -77,8 +77,9 @@ def late(function: Callable[Q, R]) -> Callable[Q, R]:
 class PassSpec(Generic[P, S]):
     """One pass, named as its declaration: ``run`` runs it on the state of its segment when ``when`` (if any) holds.
 
-    ``when`` is an option the pass needs: running it anyway is not a no-op. ``trigger`` is whether the fact the pass
-    rewrites is present: where it is false, running the pass would write nothing, so the runner skips it.
+    ``when`` names only options of the run (``scripts/check_pass_pipeline.py`` checks it). ``trigger`` is whether the
+    fact the pass rewrites is present: where it is false, running the pass would write nothing, so the runner skips
+    it; only the passes that script lists have one, and every other pass returns early from its own body.
     """
 
     name: str
@@ -177,7 +178,7 @@ class Runner:
         spec.run(parser, state)
 
     def run_decision(  # noqa: PLR6301
-        self, decision: DecisionPass[DecisionWriter], facts: FinalFacts, writer: DecisionWriter
+        self, decision: DecisionPass, facts: FinalFacts, writer: _DecisionWriter
     ) -> None:
         """Run one decision."""
         decision.run(facts, writer)

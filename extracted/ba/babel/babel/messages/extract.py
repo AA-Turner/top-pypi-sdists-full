@@ -32,7 +32,7 @@ from collections.abc import (
     Mapping,
     MutableSequence,
 )
-from functools import lru_cache
+from functools import cache
 from os.path import relpath
 from textwrap import dedent
 from tokenize import COMMENT, NAME, NL, OP, STRING, generate_tokens
@@ -430,7 +430,7 @@ def _match_messages_against_spec(
     return lineno, translatable, comments, context
 
 
-@lru_cache(maxsize=None)
+@cache
 def _find_extractor(name: str):
     for ep_name, load in find_entrypoints(GROUP_NAME):
         if ep_name == name:
@@ -580,20 +580,20 @@ def extract_python(
     tokens = generate_tokens(next_line)
 
     # Current prefix of a Python 3.12 (PEP 701) f-string, or None if we're not
-    # currently parsing one.
+    # currently parsing one, and the line it started on.
     current_fstring_start = None
+    current_fstring_lineno = 0
 
     for tok, value, (lineno, _), _, _ in tokens:
         if not call_stack and tok == NAME and value in ('def', 'class'):
             in_def = True
-        elif tok == OP and value == '(':
-            if in_def:
-                # Avoid false positives for declarations such as:
-                # def gettext(arg='message'):
-                in_def = False
-                continue
-            if funcname:
-                call_stack.append(lineno)
+        elif in_def and tok == OP and value == '(':
+            # Avoid false positives for declarations such as:
+            # def gettext(arg='message'):
+            in_def = False
+            continue
+        elif funcname and tok == OP and (value == '(' or value == '['):
+            call_stack.append(lineno)
         elif in_def and tok == OP and value == ':':
             # End of a class definition without parens
             in_def = False
@@ -651,10 +651,13 @@ def extract_python(
                     if not message_lineno:
                         message_lineno = lineno
                     buf.append(val)
+                else:  # a dynamic f-string; before 3.12 it is a single STRING token
+                    _warn_skipped_fstring(fileobj, lineno)
 
             # Python 3.12+, see https://peps.python.org/pep-0701/#new-tokens
             elif tok == FSTRING_START:
                 current_fstring_start = value
+                current_fstring_lineno = lineno
                 if not message_lineno:
                     message_lineno = lineno
             elif tok == FSTRING_MIDDLE:
@@ -683,7 +686,7 @@ def extract_python(
 
             elif tok != NL and not message_lineno:
                 message_lineno = lineno
-        elif len(call_stack) > 1 and tok == OP and value == ')':
+        elif len(call_stack) > 1 and tok == OP and (value == ')' or value == ']'):
             call_stack.pop()
         elif funcname and not call_stack:
             funcname = None
@@ -692,10 +695,21 @@ def extract_python(
 
         if current_fstring_start is not None and tok not in {FSTRING_START, FSTRING_MIDDLE}:
             # In Python 3.12, tokens other than FSTRING_* mean the
-            # f-string is dynamic, so we don't wan't to extract it.
+            # f-string is dynamic, so we don't want to extract it.
             # And if it's FSTRING_END, we've already handled it above.
             # Let's forget that we're in an f-string.
+            if tok != FSTRING_END:
+                _warn_skipped_fstring(fileobj, current_fstring_lineno)
             current_fstring_start = None
+
+
+def _warn_skipped_fstring(fileobj: _FileObj, lineno: int) -> None:
+    filename = getattr(fileobj, "name", None) or "(unknown)"
+    sys.stderr.write(
+        f"{filename}:{lineno}: warning: Skipping f-string with substitutions: it cannot be "
+        f"translated as written.  Extract a format string instead, "
+        f'e.g. _("Hello {{name}}").format(name=name).\n',
+    )
 
 
 def _parse_python_string(value: str, encoding: str, future_flags: int) -> str | None:
@@ -710,11 +724,14 @@ def _parse_python_string(value: str, encoding: str, future_flags: int) -> str | 
     if isinstance(code, ast.Expression):
         body = code.body
         if isinstance(body, ast.Constant):
+            if isinstance(body.value, bytes):
+                # TODO: we could raise an error or warning when this occurs
+                return None  # byte strings are not translatable
             return body.value
         if isinstance(body, ast.JoinedStr):  # f-string
             if all(isinstance(node, ast.Constant) for node in body.values):
                 return ''.join(node.value for node in body.values)
-            # TODO: we could raise an error or warning when not all nodes are constants
+            # A dynamic f-string; the caller warns that it is being skipped.
     return None
 
 
@@ -733,16 +750,16 @@ def extract_javascript(
                      recognized as translation functions
     :param comment_tags: a list of translator tags to search for and include
                          in the results
-    :param options: a dictionary of additional options (optional)
+    :param options: a dictionary of additional options (optional).
                     Supported options are:
-                    * `jsx` -- set to false to disable JSX/E4X support.
-                    * `template_string` -- if `True`, supports gettext(`key`)
-                    * `parse_template_string` -- if `True` will parse the
-                                                 contents of javascript
-                                                 template strings.
+
+                    * ``jsx`` -- set to false to disable JSX/E4X support.
+                    * ``template_string`` -- if ``True``, supports ``gettext(`key`)``
+                    * ``parse_template_string`` -- if ``True`` will parse the
+                      contents of javascript template strings.
     :param lineno: line number offset (for parsing embedded fragments)
     """
-    from babel.messages.jslexer import Token, tokenize, unquote_string
+    from babel.messages.jslexer import Token, _tokenize, _unquote_string
 
     funcname = message_lineno = None
     messages = []
@@ -753,7 +770,7 @@ def extract_javascript(
     last_token = None
     call_stack = -1
     dotted = any('.' in kw for kw in keywords)
-    for token in tokenize(
+    for token in _tokenize(
         fileobj.read().decode(encoding),
         jsx=options.get("jsx", True),
         template_string=options.get("template_string", True),
@@ -769,7 +786,7 @@ def extract_javascript(
             and token.type == 'template_string'
         ):
             message_lineno = token.lineno
-            messages = [unquote_string(token.value)]
+            messages = [_unquote_string(token.value)]
             call_stack = 0
             token = Token('operator', ')', token.lineno)
 
@@ -847,7 +864,7 @@ def extract_javascript(
                 call_stack = -1
 
             elif token.type in ('string', 'template_string'):
-                new_value = unquote_string(token.value)
+                new_value = _unquote_string(token.value)
                 if concatenate_next:
                     last_argument = (last_argument or '') + new_value
                     concatenate_next = False
@@ -917,13 +934,15 @@ def parse_template_string(
         if level:
             expression_contents += character
         if not inside_str:
-            if character == '{' and prev_character == '$':
+            # start of `${...}` interpolation, or a nested `{` already inside one
+            if character == '{' and (level or prev_character == '$'):
                 level += 1
             elif level and character == '}':
                 level -= 1
+                # end of template string
                 if level == 0 and expression_contents:
                     expression_contents = expression_contents[0:-1]
-                    fake_file_obj = io.BytesIO(expression_contents.encode())
+                    fake_file_obj = io.BytesIO(expression_contents.encode(options.get('encoding', 'utf-8')))
                     yield from extract_javascript(
                         fake_file_obj,
                         keywords,

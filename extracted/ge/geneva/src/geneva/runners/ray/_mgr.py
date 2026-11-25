@@ -113,6 +113,7 @@ from tenacity import (
 import geneva
 from geneva import telemetry
 from geneva._context import LocalRayContext
+from geneva.checkpoint import configured_store_layout
 from geneva.jobs.compaction_pause import COMPACTION_PAUSE_ENV_PREFIX
 from geneva.manifest.mgr import GenevaManifest
 from geneva.packager.autodetect import upload_local_env
@@ -525,6 +526,15 @@ def init_ray(
         for key, value in os.environ.items()
         if key.startswith(COMPACTION_PAUSE_ENV_PREFIX)
     }
+    # Forward the client's checkpoint-layout opt-out: the store is opened on the
+    # cluster. Manifest env_vars and ray_init_kwargs still override it.
+    layout_env = "CHECKPOINT__STORE_LAYOUT"
+    checkpoint_env: dict[str, str] = {}
+    if layout_env in os.environ:
+        checkpoint_env[layout_env] = os.environ[layout_env]
+    elif configured_store_layout() == "flat":
+        # Set through a config file, which the cluster does not read.
+        checkpoint_env[layout_env] = "flat"
 
     runtime_env = {
         "env_vars": {
@@ -536,6 +546,7 @@ def init_ray(
             telemetry.TELEMETRY_INIT_ON_IMPORT_ENV: "1",
             **telemetry_env,
             **compaction_pause_env,
+            **checkpoint_env,
             **(extra_env or {}),
         },
         **(

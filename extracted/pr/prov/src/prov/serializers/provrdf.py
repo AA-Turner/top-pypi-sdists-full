@@ -14,7 +14,7 @@ from rdflib.graph import DATASET_DEFAULT_GRAPH_ID, Dataset, Graph
 from rdflib.term import BNode, Literal as RDFLiteral, Node, URIRef
 
 import prov.model as pm
-from prov._warnings import warn
+from prov._warnings import _SkippedDataWarning, warn
 from prov.constants import (
     PROV,
     PROV_ALTERNATE,
@@ -209,6 +209,11 @@ _QUALIFIED_ONLY_RELATIONS = frozenset(
         PROV_INVALIDATION,
     }
 )
+
+#: Relation types written only as their binary ``subject predicate object``
+#: triple, because PROV-O has no qualified form for them: their identifier and
+#: extra attributes are not written (#759, #712).
+_BINARY_ONLY_RELATIONS = frozenset({PROV_ALTERNATE})
 
 #: ``prov:type`` values that rename a derivation's qualification node, e.g. a
 #: derivation typed ``prov:Revision`` is qualified via ``prov:qualifiedRevision``
@@ -1026,8 +1031,8 @@ class ProvRDFSerializer(Serializer):
             # bundle-local prefix colliding with a document-level one may
             # clobber it instead of being renamed. With a standalone Graph
             # that outcome varies from run to run on the same rdflib, so it
-            # cannot be tied to a version. container.graph() is deterministic
-            # from the 7.0.0 floor upwards.
+            # cannot be tied to a version. container.graph() is
+            # deterministic from rdflib 7.0.0 upwards.
             named_graph = container.graph(bundle.identifier)
             container.addN((s, p, o, named_graph) for s, p, o in bundle)
             # Bundle-local namespace bindings (and the bundle's own default
@@ -1117,12 +1122,15 @@ class ProvRDFSerializer(Serializer):
 
         for record in bundle._records:
             rec_type = record.get_type()
-            rec_id: URIRef | None
-            if hasattr(record, "identifier") and record.identifier:
+            rec_id: URIRef | None = None
+            if record.identifier and rec_type in _BINARY_ONLY_RELATIONS:
+                warn(
+                    f"PROV-O drops the identifier {record.identifier} of {record},"
+                    " because PROV-O gives it no qualified form"
+                )
+            elif record.identifier:
                 rec_id = URIRef(str(real_or_anon_id(record)))
                 container.add((rec_id, RDF.type, URIRef(rec_type.uri)))
-            else:
-                rec_id = None
             if not record.attributes:
                 continue
             if record.is_relation():
@@ -1267,9 +1275,7 @@ class ProvRDFSerializer(Serializer):
                 used_objects,
                 has_qualifiers,
             )
-        if rec_type in [PROV_ALTERNATE]:
-            # alternateOf emits only its binary triple, so any extra
-            # attributes it carries are dropped.
+        if rec_type in _BINARY_ONLY_RELATIONS:
             return identifier, True
         if subj and (has_qualifiers or identifier):
             return (
@@ -1573,7 +1579,7 @@ class ProvRDFSerializer(Serializer):
                 usable attribute value.
 
         Warns:
-            UserWarning: If, after decoding, some attributes could not be
+            ProvWarning: If, after decoding, some attributes could not be
                 matched to any formal attribute or converted.
         """
         state = _DecodeState()
@@ -1587,7 +1593,7 @@ class ProvRDFSerializer(Serializer):
             warn(
                 "The following attributes were not converted: "
                 + str(state.other_attributes),
-                UserWarning,
+                _SkippedDataWarning,
             )
 
     def _decode_type_triples(self, graph: Graph, state: "_DecodeState") -> None:

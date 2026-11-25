@@ -17,28 +17,12 @@ from pydantic import BaseModel, Field, ConfigDict, RootModel
 
 from .. import schemas
 
-# Response model for list_scheduled
-ListScheduledResponse = schemas.ListScheduledCallsResponse
-
-
-# Request model for schedule_call
-ScheduleCallRequest = schemas.ScheduleCallRequest
-
-
-# Response model for schedule_call
-ScheduleCallResponse = schemas.ScheduleCallResponse
-
-
 # Request model for respond_to_scheduled_call
 RespondToScheduledCallRequest = schemas.RespondToScheduledCallRequest
 
 
 # Response model for respond_to_scheduled_call
 RespondToScheduledCallResponse = schemas.RespondToScheduledCallResponse
-
-
-# Response model for get_call
-GetCallResponse = schemas.GetCallResponse
 
 
 # Response model for get_scheduled_call
@@ -57,6 +41,10 @@ UpdateScheduledCallResponse = schemas.UpdateScheduledCallResponse
 CancelScheduledCallResponse = schemas.CancelScheduledCallResponse
 
 
+# Response model for leave_call
+LeaveCallResponse = schemas.LeaveCallResponse
+
+
 # Request model for create_call
 CreateCallRequest = schemas.CreateCallRequest
 
@@ -65,8 +53,20 @@ CreateCallRequest = schemas.CreateCallRequest
 CreateCallResponse = schemas.CreateCallResponse
 
 
-# Response model for leave_call
-LeaveCallResponse = schemas.LeaveCallResponse
+# Response model for list_scheduled
+ListScheduledResponse = schemas.ListScheduledCallsResponse
+
+
+# Request model for schedule_call
+ScheduleCallRequest = schemas.ScheduleCallRequest
+
+
+# Response model for schedule_call
+ScheduleCallResponse = schemas.ScheduleCallResponse
+
+
+# Response model for get_call
+GetCallResponse = schemas.GetCallResponse
 
 
 # Request model for join_call

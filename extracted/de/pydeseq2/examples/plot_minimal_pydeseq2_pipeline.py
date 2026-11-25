@@ -316,6 +316,26 @@ if SAVE:
 print(ds.shrunk_LFCs)  # Will be True only if lfc_shrink() was run.
 
 # %%
+# Reference level
+# """""""""""""""
+#
+# LFC coefficients are relative to the reference level of each factor, by default its first level in alphabetical order.
+# Here, ``A`` is the reference level, so there is no coefficient to shrink for a comparison of A to B.
+# To compare A to B, we set ``B`` as the reference level in the design.
+# Alternatively, ``condition`` can be made a :class:`pandas.Categorical` whose first category is ``B``.
+
+dds_ref_B = DeseqDataSet(
+    counts=counts_df,
+    metadata=metadata,
+    design='~C(condition, contr.treatment(base="B"))',
+    inference=inference,
+)
+dds_ref_B.deseq2()
+ds_A_vs_B = DeseqStats(dds_ref_B, contrast=["condition", "A", "B"], inference=inference)
+ds_A_vs_B.summary()
+ds_A_vs_B.lfc_shrink()
+
+# %%
 # .. _multifactor_ref:
 #
 # Multifactor analysis
@@ -404,5 +424,18 @@ ds_Y_vs_X.summary()
 # In a multifactor setting, LFC shrinkage works as in the single-factor case, but will
 # only shrink the LFCs of a :class:`DeseqStats` object based on its
 # ``contrast`` argument.
+# Without ``coeff``, :meth:`lfc_shrink() <DeseqStats.lfc_shrink>` shrinks the coefficient that ``contrast`` tests, here ``condition[T.B]``.
 
-ds_B_vs_A.lfc_shrink(coeff="condition[T.B]")
+ds_B_vs_A.lfc_shrink()
+
+# %%
+# Likelihood ratio test
+# """""""""""""""""""""
+#
+# Instead of a Wald test of one contrast, a likelihood ratio test compares the design to a reduced design without some of its terms, as ``test="LRT"`` does in DESeq2.
+# It tests all the removed coefficients at once, e.g. all the levels of a factor with more than two levels, or an interaction.
+# Here, the reduced design ``"~group"`` tests whether ``condition`` has any effect.
+# LFCs and their standard errors still refer to ``contrast``.
+
+ds_lrt = DeseqStats(dds, contrast=["condition", "B", "A"], reduced="~group", inference=inference)
+ds_lrt.summary()

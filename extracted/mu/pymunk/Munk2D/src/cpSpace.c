@@ -24,6 +24,20 @@
 #include <string.h>
 
 #include "chipmunk/chipmunk_private.h"
+#include "cpContactSolver.h"
+static const void *ShapeOwner(void *obj)
+{
+	return ((cpShape *)obj)->body;
+}
+static const void *QueryShapeOwner(void *obj)
+{
+	cpShape *shape = (cpShape *)obj;
+	// Indexed shapes are members of their body's intrusive attachment list.
+	// A member has siblings iff one of its own links is non-NULL. Read those
+	// local links instead of chasing body -> list head -> next. Unlinked shapes
+	// conservatively decline pruning, including during removal callbacks.
+	return shape->next || shape->prev ? shape->body : NULL;
+}
 
 //MARK: Contact Set Helpers
 
@@ -109,9 +123,16 @@ cpSpaceInit(cpSpace *space)
 	space->shapeIDCounter = 0;
 	space->staticShapes = cpBBTreeNew((cpSpatialIndexBBFunc)cpShapeGetBB, NULL);
 	space->dynamicShapes = cpBBTreeNew((cpSpatialIndexBBFunc)cpShapeGetBB, space->staticShapes);
+	cpBBTreeConfigureOwners(space->dynamicShapes, ShapeOwner, QueryShapeOwner);
+	// Collision marking is locked: attachment/type/index changes are deferred.
+	// Custom position callbacks run before this phase. Eligibility is re-read
+	// for each leaf; do not grant this contract to arbitrary private key callbacks.
+	cpAssertHard(cpBBTreeCacheOwnerQueries(space->dynamicShapes, cpTrue),
+				 "Configure empty owner trees.");
+	cpAssertHard(cpBBTreeDeferOwners(space->dynamicShapes), "Defer owners on empty trees.");
 	cpBBTreeSetVelocityFunc(space->dynamicShapes, (cpBBTreeVelocityFunc)ShapeVelocityFunc);
 	
-	space->allocatedBuffers = cpArrayNew(0);
+	space->allocatedBuffers = cpSpaceBufferArrayNew();
 	
 	space->dynamicBodies = cpArrayNew(0);
 	space->staticBodies = cpArrayNew(0);
@@ -171,6 +192,7 @@ cpSpaceDestroy(cpSpace *space)
 	cpArrayFree(space->pooledArbiters);
 	
 	if(space->allocatedBuffers){
+		cpContactSolverDestroy(space);
 		cpArrayFreeEach(space->allocatedBuffers, cpfree);
 		cpArrayFree(space->allocatedBuffers);
 	}
@@ -419,7 +441,7 @@ cpSpaceAddConstraint(cpSpace *space, cpConstraint *constraint)
 	
 	cpBodyActivate(a);
 	cpBodyActivate(b);
-	cpArrayPush(space->constraints, constraint);
+	cpSpacePushConstraint(space, constraint);
 	
 	// Push onto the heads of the bodies' constraint lists
 	constraint->next_a = a->constraintList; a->constraintList = constraint;
@@ -521,7 +543,7 @@ cpSpaceRemoveConstraint(cpSpace *space, cpConstraint *constraint)
 	
 	cpBodyActivate(constraint->a);
 	cpBodyActivate(constraint->b);
-	cpArrayDeleteObj(space->constraints, constraint);
+	cpSpaceRemoveConstraintFromArray(space, constraint);
 	
 	cpBodyRemoveConstraint(constraint->a, constraint);
 	cpBodyRemoveConstraint(constraint->b, constraint);

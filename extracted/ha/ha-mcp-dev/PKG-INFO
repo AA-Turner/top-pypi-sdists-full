@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-mcp-dev
-Version: 9.3.0.dev3717
+Version: 9.3.0.dev3729
 Summary: Configure and automate Home Assistant with Claude, ChatGPT, and other AI assistants.
 Keywords: mcp,home-assistant,ai,automation,smart-home
 Author: Julien
@@ -47,6 +47,7 @@ Requires-Dist: httpx[socks]>=0.28.1,<0.29
 Requires-Dist: pydantic[email]>=2.13.4,<3
 Requires-Dist: python-dotenv>=1.2.4,<2
 Requires-Dist: truststore>=0.10.4,<0.11
+Requires-Dist: ulid-transform>=2.2.9,<3
 Requires-Dist: cryptography>=48.0.0,<51
 Requires-Dist: pydantic-monty==0.0.18
 Requires-Dist: tzdata>=2024.1

@@ -24,7 +24,7 @@ LOG = logging.getLogger(__name__)
 _NO_DEFAULT = object()
 
 
-class Backend(object):
+class Backend:
     lookup_table = {}
     _ovsdb_connection = None
 
@@ -196,8 +196,7 @@ class Backend(object):
             if isinstance(record.result, (rowview.RowView, idl.Row)):
                 # In case the command (creation) returns an existing record.
                 return record.result
-            else:
-                record = record.result
+            record = record.result
 
         t = self.tables[table]
         if isinstance(record, uuid.UUID):

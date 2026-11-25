@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import typing as t
+import warnings
 
 from . import exc
 from ._compat import LooseVersion
@@ -70,8 +71,9 @@ class EnvironmentMixin:
         name: str,
         value: str,
         *,
-        expand_format: bool | None = None,
+        expand_formats: bool | None = None,
         hidden: bool | None = None,
+        expand_format: bool | None = None,
     ) -> None:
         """Set environment ``$ tmux set-environment <name> <value>``.
 
@@ -81,14 +83,18 @@ class EnvironmentMixin:
             The environment variable name, e.g. 'PATH'.
         value : str
             Environment value.
-        expand_format : bool, optional
-            Expand tmux format strings in the value (``-F`` flag).
+        expand_formats : bool, optional
+            Expand tmux formats in the value once, when it is set (``-F``
+            flag).
 
             .. versionadded:: 0.56
         hidden : bool, optional
             Mark the variable as hidden (``-h`` flag).
 
             .. versionadded:: 0.56
+        expand_format : bool, optional
+            Deprecated spelling of *expand_formats*; it still works and emits a
+            :exc:`DeprecationWarning`.
 
         Raises
         ------
@@ -99,7 +105,15 @@ class EnvironmentMixin:
         if self._add_option:
             args += [self._add_option]
 
-        if expand_format:
+        if expand_format is not None:
+            warnings.warn(
+                "expand_format is deprecated in favor of expand_formats",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            if expand_formats is None:
+                expand_formats = expand_format
+        if expand_formats:
             args += ["-F"]
 
         if hidden:
@@ -309,6 +323,10 @@ def _format_text(value: str | Format) -> str:
 def raise_if_stderr(proc: tmux_cmd, subcommand: str) -> None:
     """Raise :exc:`LibTmuxException` tagged with the tmux subcommand on stderr.
 
+    When tmux reports that the target does not exist (``can't find pane:
+    %1``), the exception is :exc:`~libtmux.exc.TmuxObjectDoesNotExist`, a
+    subclass, carrying the same text.
+
     Centralizes the ``if proc.stderr: raise exc.LibTmuxException(proc.stderr)``
     pattern scattered across the wrappers. Tags the exception with the
     originating tmux subcommand so downstream consumers (e.g. libtmux-mcp's
@@ -327,6 +345,8 @@ def raise_if_stderr(proc: tmux_cmd, subcommand: str) -> None:
     ------
     :exc:`LibTmuxException`
         When ``proc.stderr`` is non-empty.
+    :exc:`~libtmux.exc.TmuxObjectDoesNotExist`
+        When ``proc.stderr`` says the target does not exist.
 
     Examples
     --------
@@ -338,10 +358,12 @@ def raise_if_stderr(proc: tmux_cmd, subcommand: str) -> None:
     .. versionadded:: 0.57
     """
     if proc.stderr:
-        raise exc.LibTmuxException(
-            "\n".join(proc.stderr),
-            subcommand=subcommand,
-        )
+        from libtmux.neo import _is_target_not_found_error
+
+        stderr = "\n".join(proc.stderr)
+        if _is_target_not_found_error(stderr):
+            raise exc.TmuxObjectDoesNotExist._from_stderr(stderr, subcommand)
+        raise exc.LibTmuxException(stderr, subcommand=subcommand)
 
 
 _REDACTED = "***"

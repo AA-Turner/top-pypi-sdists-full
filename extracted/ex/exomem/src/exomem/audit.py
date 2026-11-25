@@ -63,6 +63,12 @@ Checks (all read-only; no writes ever):
   the connected agent, never as a claim that the page is misfiled, and listed
   with the other backlog items after dated obligations. One item per page; a dismissal holds until the page's project key,
   home folder or title changes.
+- `name_drift`: pages that a rename-only `curation.relocate` would rename today, because their
+  file name no longer follows their title (`name_drift`). Reported at `info`, as one item for the
+  vault anchored on the top index, that carries the call that renames the next batch, and
+  listed with the backlog items after dated obligations. Its fingerprint changes with the drifted
+  set. A page with no usable title, or whose rename this caller cannot plan, is counted, never
+  proposed.
 - `supersession_integrity`: a `supersedes`/`superseded_by` pointer that does not
   resolve, and a supersession component with more than one current head. Both
   are `warn` DEFECTS in authored state with no threshold anywhere, which is why
@@ -196,10 +202,12 @@ ALL_CATEGORIES: tuple[str, ...] = (
     "question_aging",
     "supersession_integrity",
     "entity_type_unregistered",
+    "entity_facet_unaddressed",
     "unreflected_outcomes",
     "unreflected_observations",
     "note_cohesion",
     "ownership_review",
+    "name_drift",
     "entity_recurrence",
     "collection_candidate",
     "artifact_role_promotion",
@@ -793,12 +801,18 @@ def audit(
                     vault_root, pages, today=today, status_basis=status_basis, sense_scope=sense_scope
                 )
             )
+    with stage('entity_facet_unaddressed') as run:
+        if run:
+            findings.extend(_check_entity_facets(vault_root, pages))
     with stage('note_cohesion') as run:
         if run:
             findings.extend(_check_note_cohesion(vault_root, pages))
     with stage('ownership_review') as run:
         if run:
             findings.extend(_check_ownership_review(vault_root, pages))
+    with stage('name_drift') as run:
+        if run:
+            findings.extend(_check_name_drift(vault_root, pages))
     with stage('entity_recurrence') as run:
         if run:
             findings.extend(
@@ -2886,12 +2900,14 @@ def _check_unregistered_entity_types(
         if finding_path == carrier_path:
             meta["proposal"] = proposal
             meta["expected_hash"] = registry.extension_hash
+            save = capabilities.active_call_text("schema_memory", {
+                "operation": "save-entity-types", "proposal": "<meta.proposal>",
+                "why": "<reason>", "expected_hash": "<meta.expected_hash>",
+            })
             return (
                 meta,
                 "Save `meta.proposal` — the full registry with this entry merged — "
-                'via `schema_memory(operation="save-entity-types", '
-                "proposal=meta.proposal, why=..., "
-                "expected_hash=meta.expected_hash)`. Do not save "
+                f"via `{save}`. Do not save "
                 "`proposed_entry` on its own; it is a description, not a registry.",
             )
         meta["proposal_carrier"] = carrier_path
@@ -4145,8 +4161,9 @@ def _check_relation_registry(vault_root: Path) -> list[AuditFinding]:
             path=str(item.get("path") or managed_join("")),
             detail=str(item.get("detail") or item.get("code") or "relation registry finding"),
             proposed_fix=(
-                "Review corpus evidence with schema_memory(subject='relations') and save "
-                "a complete, hash-guarded proposal."
+                "Review corpus evidence with "
+                f"{capabilities.active_call_text('schema_memory', {'subject': 'relations', 'operation': 'infer'})}"
+                " and save a complete, hash-guarded proposal."
             ),
             meta=item,
             )
@@ -6698,6 +6715,68 @@ def _check_question_aging(
 # ---------------- check: note_cohesion ----------------
 
 
+def entity_facet_claims(body: str, document: Any) -> list[semantic_units.ClaimTarget]:
+    """An entity page's facet items that carry a claim nothing can address yet.
+
+    The audit check and the reviewed fix share this list, so the finding and the
+    conversion never disagree. `semantic_units.claim_targets` decides what
+    converts; the audit's own scope is the facets, the sections other than
+    `## Observations`, where compact units already live.
+    """
+    return [
+        target
+        for target in semantic_units.claim_targets(body, document.units)
+        if target.convertible
+        and semantic_language_registry.normalize_label(target.item.heading or "")
+        != "observations"
+    ]
+
+
+def _check_entity_facets(
+    vault_root: Path,
+    pages: list[find_module.ParsedPage],
+) -> list[AuditFinding]:
+    """Entity pages whose facet bullets carry claims nothing can address.
+
+    A claim in a facet has no anchor, so no supersession, verdict or link can
+    name it; the reviewed fix converts it to a compact unit in place under its
+    `##` section's category.
+    """
+    from . import semantic_index
+
+    type_basis = note_types.Basis(vault_root)
+    findings: list[AuditFinding] = []
+    for page in pages:
+        request_budget.checkpoint()
+        if not type_basis.selects(page.page_type, note_types.entity_role):
+            continue
+        try:
+            state = semantic_index.selected_parent_index_state(
+                vault_root, page.rel_path
+            )
+        except (OSError, ValueError):
+            continue
+        for target in entity_facet_claims(page.body, state.document):
+            item = target.item
+            findings.append(
+                AuditFinding(
+                    category="entity_facet_unaddressed",
+                    severity="warn",
+                    path=page.rel_path,
+                    detail=(
+                        f"facet {item.heading!r} holds an unaddressed claim at "
+                        f"line {item.line}: {item.text!r}"
+                    ),
+                    proposed_fix=(
+                        f"convert the item in place to a compact unit "
+                        f"- [{target.category}] ... ^<anchor>; a reviewed maintenance "
+                        "plan applies it"
+                    ),
+                )
+            )
+    return findings
+
+
 @call_spans.timed("audit.note_cohesion")
 def _check_note_cohesion(
     vault_root: Path,
@@ -6794,6 +6873,25 @@ def _check_ownership_review(
                 )
             )
     return findings
+
+
+# ---------------- check: name_drift ----------------
+
+
+@call_spans.timed("audit.name_drift")
+def _check_name_drift(
+    vault_root: Path,
+    pages: list[find_module.ParsedPage],
+) -> list[AuditFinding]:
+    """One finding for the vault while any page's file name differs from its title's name.
+
+    The batch and the call live in `name_drift`, which the read operation and the write path use
+    as well; the rule is the one relocation plans with. It claims nothing about a page's title.
+    """
+    from . import name_drift
+
+    found = name_drift.finding(vault_root, name_drift.scan(vault_root, pages))
+    return [found] if found is not None else []
 
 
 # ---------------- check: supersession_integrity ----------------

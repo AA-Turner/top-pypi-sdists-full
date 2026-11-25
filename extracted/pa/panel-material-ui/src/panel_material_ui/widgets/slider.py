@@ -11,6 +11,7 @@ from panel.widgets.select import SingleSelectBase as _PnSingleSelectBase
 from panel.widgets.slider import _SliderBase
 from param.parameterized import resolve_value
 
+from .._utils import edit_readonly_params
 from ..base import COLORS, ColorType
 from .base import MaterialWidget
 
@@ -65,11 +66,11 @@ class _ContinuousSlider(MaterialWidget, _SliderBase):
 
     __abstract = True
 
-    def _process_param_change(self, params):
-        if self.orientation == 'vertical' and ('width' in params or 'height' in params):
-            params['width'] = self.height
-            params['height'] = self.width
-        return super()._process_param_change(params)
+    def __init__(self, **params):
+        if params.get('orientation', self.param.orientation.default) == 'vertical':
+            params.setdefault('width', self.param.height.default)
+            params.setdefault('height', self.param.width.default)
+        super().__init__(**params)
 
 
 class IntSlider(_ContinuousSlider):
@@ -120,7 +121,7 @@ class FloatSlider(_ContinuousSlider):
     >>> FloatSlider(value=0.5, start=0.0, end=1.0, step=0.1, label="Float value")
     """
 
-    step = param.Number(default=0.1, doc="The step size.")
+    step = param.Number(default=0.1, bounds=(0, None), inclusive_bounds=(False, True), doc="The step size.")
 
 
 class DateSlider(_ContinuousSlider):
@@ -237,6 +238,8 @@ class _RangeSliderBase(_ContinuousSlider):
 
     value_end = param.Parameter(readonly=True, doc="""The upper value of the selected range.""")
 
+    _rename = {"value_start": None, "value_end": None}
+
     __abstract = True
 
     def __init__(self, **params):
@@ -261,7 +264,7 @@ class _RangeSliderBase(_ContinuousSlider):
     @param.depends("value", watch=True)
     def _sync_values(self):
         vs, ve = self.value
-        with edit_readonly(self):
+        with edit_readonly_params(self, 'value_start', 'value_end'):
             self.param.update(value_start=vs, value_end=ve)
 
 
@@ -283,7 +286,7 @@ class RangeSlider(_RangeSliderBase):
     ... )
     """
 
-    step = param.Number(default=0.1, doc="The step size of the slider.")
+    step = param.Number(default=0.1, bounds=(0, None), inclusive_bounds=(False, True), doc="The step size of the slider.")
 
 
 class IntRangeSlider(_RangeSliderBase):
@@ -311,7 +314,7 @@ class IntRangeSlider(_RangeSliderBase):
 
     end = param.Integer(default=1)
 
-    step = param.Integer(default=1)
+    step = param.Integer(default=1, bounds=(1, None))
 
     value_start = param.Integer(default=0, readonly=True, doc="""The lower value of the selected range.""")
 
@@ -364,7 +367,7 @@ class DateRangeSlider(_RangeSliderBase):
     end = param.Date(default=None, doc="""
         The upper bound.""")  # type: ignore[assignment]
 
-    step = param.Number(default=1, doc="""
+    step = param.Number(default=1, bounds=(0, None), inclusive_bounds=(False, True), doc="""
         The step size in days. Default is 1 day.""")
 
     format = param.String(default=None, doc="""
@@ -431,7 +434,7 @@ class DatetimeRangeSlider(DateRangeSlider):
     ... )
     """
 
-    step = param.Number(default=60, doc="""
+    step = param.Number(default=60, bounds=(0, None), inclusive_bounds=(False, True), doc="""
         The step size in seconds. Default is 1 minute, i.e 60 seconds.""")
 
     _property_conversion = staticmethod(value_as_datetime)
@@ -456,11 +459,11 @@ class DiscreteSlider(IntSlider, _PnSingleSelectBase):
     formatter = param.String(default='%.3g', doc="""
         Format applied to numeric option labels.""")
 
-    value = param.Parameter(doc="""
+    value = param.Parameter(default=None, doc="""
         The selected value of the slider. Updated when the handle is
         dragged. Must be one of the options.""")
 
-    value_throttled = param.Parameter(constant=True, doc="""
+    value_throttled = param.Parameter(default=None, constant=True, doc="""
         The value of the slider. Updated when the handle is released.""")
 
     start = param.Integer(default=0, readonly=True)
@@ -474,11 +477,21 @@ class DiscreteSlider(IntSlider, _PnSingleSelectBase):
         super().__init__(**params)
         if 'formatter' not in params and all(isinstance(v, numbers.Integral) for v in self.values):
             self.formatter = '%d'
+        self._update_bounds()
 
     @param.depends("options", watch=True)
     def _update_bounds(self):
+        values = self.values
         with edit_readonly(self):
-            self.param.update(start=0, end=len(self.options)-1)
+            self.param.update(start=0, end=max(len(values)-1, 0))
+        if not values:
+            value = None
+        elif self.value in values:
+            return
+        else:
+            value = values[0]
+        with param.edit_constant(self):
+            self.param.update(value=value, value_throttled=value)
 
     def _process_param_change(self, msg):
         format_changed = 'formatter' in msg
@@ -490,13 +503,20 @@ class DiscreteSlider(IntSlider, _PnSingleSelectBase):
                 for label, value in zip(self.labels, self.values, strict=True)
             ] if isinstance(self.options, list) else self.labels
         if 'value' in msg:
-            msg['value'] = self.labels.index(msg['value'])
+            labels = self.labels
+            msg['value'] = labels.index(msg['value']) if msg['value'] in labels else None
         return msg
 
     def _process_property_change(self, msg):
+        labels = self.labels
         for prop in ('value', 'value_throttled'):
-            if prop in msg:
-                msg[prop] = self.labels[msg[prop]]
+            if prop not in msg:
+                continue
+            index = msg[prop]
+            if index is None or not 0 <= index < len(labels):
+                del msg[prop]
+            else:
+                msg[prop] = labels[index]
         msg = super()._process_property_change(msg)
         if 'value_throttled' in msg:
             msg['value_throttled'] = self._items[msg['value_throttled']]
@@ -542,19 +562,22 @@ class Rating(MaterialWidget):
         doc="Size of the rating icons."
     )  # type: ignore[assignment]
 
-    value = param.Number(default=0, allow_None=True, bounds=(0, 5))
+    value = param.Number(default=0, allow_None=True, bounds=(0, None), doc="""
+        The selected rating, between 0 and end.""")
 
     width = param.Integer(default=None)
 
     _esm_base = "Rating.jsx"
 
     def __init__(self, **params):
-        if "end" in params:
-            self.param.value.bounds = (0, params["end"])
         super().__init__(**params)
+        self.param.value.bounds = (0, self.end)
+        self.param.value._validate(self.value)
 
-    @param.depends("end", watch=True, on_init=True)
+    @param.depends("end", watch=True)
     def _update_value_bounds(self):
+        if self.value is not None and self.value > self.end:
+            self.value = self.end
         self.param.value.bounds = (0, self.end)
 
     def _process_property_change(self, msg):

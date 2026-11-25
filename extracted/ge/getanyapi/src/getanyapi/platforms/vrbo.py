@@ -490,7 +490,7 @@ class VrboNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.vrbo.listing(adults=2, checkIn="2026-12-24", checkOut="2026-12-27", propertyId="69764328")
+            res = client.vrbo.listing(adults=2, checkIn="2026-12-25", checkOut="2026-12-28", propertyId="69764328")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "vrbo.listing", dict(input), options
@@ -512,7 +512,7 @@ class VrboNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.vrbo.search(adults=2, checkIn="2026-12-24", checkOut="2026-12-27", location="Lake Tahoe")
+            res = client.vrbo.search(adults=2, checkIn="2026-12-25", checkOut="2026-12-28", location="Lake Tahoe")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "vrbo.search", dict(input), options
@@ -545,7 +545,7 @@ class AsyncVrboNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.vrbo.listing(adults=2, checkIn="2026-12-24", checkOut="2026-12-27", propertyId="69764328")
+            res = client.vrbo.listing(adults=2, checkIn="2026-12-25", checkOut="2026-12-28", propertyId="69764328")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "vrbo.listing", dict(input), options
@@ -567,7 +567,7 @@ class AsyncVrboNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.vrbo.search(adults=2, checkIn="2026-12-24", checkOut="2026-12-27", location="Lake Tahoe")
+            res = client.vrbo.search(adults=2, checkIn="2026-12-25", checkOut="2026-12-28", location="Lake Tahoe")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "vrbo.search", dict(input), options

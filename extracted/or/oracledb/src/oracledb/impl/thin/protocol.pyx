@@ -201,7 +201,8 @@ cdef class Protocol(BaseProtocol):
             try:
                 self._break_external()
                 self._receive_packet(message)
-                self._break_in_progress = False
+                if self._break_in_progress:
+                    raise socket.timeout("reset did not complete")
                 errors._raise_err(errors.ERR_CALL_TIMEOUT_EXCEEDED,
                                   timeout=timeout)
             except socket.timeout:
@@ -267,10 +268,17 @@ cdef class Protocol(BaseProtocol):
         """
         Process a single message within a request.
         """
+        cdef DataTypesMessage data_types_message
         message.preprocess()
         with self._request_lock:
             self._process_round_trip(message)
-            if message.resend:
+            if message.in_renegotiation:
+                data_types_message = message.conn_impl._create_message(
+                    DataTypesMessage, "data types"
+                )
+                self._process_round_trip(data_types_message)
+                message.process(self._read_buf)
+            elif message.resend:
                 self._process_round_trip(message)
         message.postprocess()
 
@@ -494,13 +502,20 @@ cdef class BaseAsyncProtocol(BaseProtocol):
         """
         Process a single message within a request.
         """
+        cdef DataTypesMessage data_types_message
         message.preprocess()
         async with self._request_lock:
             if isinstance(message, EndPipelineMessage):
                 await message.process_pipeline()
             else:
                 await self._process_round_trip(message)
-            if message.resend:
+            if message.in_renegotiation:
+                data_types_message = message.conn_impl._create_message(
+                    DataTypesMessage, "data types"
+                )
+                await self._process_round_trip(data_types_message)
+                message.process(self._read_buf)
+            elif message.resend:
                 await self._process_round_trip(message)
         await message.postprocess_async()
 
@@ -510,7 +525,8 @@ cdef class BaseAsyncProtocol(BaseProtocol):
         """
         self._break_external()
         await self._receive_packet(message)
-        self._break_in_progress = False
+        if self._break_in_progress:
+            raise asyncio.TimeoutError("reset did not complete")
         errors._raise_err(errors.ERR_CALL_TIMEOUT_EXCEEDED, timeout=timeout)
 
     async def _receive_packet(self, Message message,
@@ -571,10 +587,17 @@ cdef class BaseAsyncProtocol(BaseProtocol):
     def connection_lost(self, exc):
         """
         Called when a connection has been lost. The presence of an exception
-        indicates an abornmal loss of the connection. If in the process of
-        establishing a connection, losing the connection is ignored since this
-        can happen normally when a listener redirect is encountered.
+        indicates an abornmal loss of the connection. If the current socket
+        associated with the protocol's transport is not the one being closed,
+        then it is known that this was a prior socket associated with the
+        protocol's transport (closed automatically when a listener redirect
+        takes place) and nothing further needs to be done with it.
         """
+        if self._in_connect \
+                and self._transport is not None \
+                and self._transport._transport is not None \
+                and not self._transport._transport.is_closing():
+            return
         if not self._in_connect:
             self._transport = None
             self._read_buf._transport = None

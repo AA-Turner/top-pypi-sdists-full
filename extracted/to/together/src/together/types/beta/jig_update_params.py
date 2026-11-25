@@ -90,11 +90,16 @@ class JigUpdateParams(TypedDict, total=False):
     At most one mount is supported, and it cannot be used with volumes.
     """
 
-    name: str
-    """Name is the new unique identifier for your deployment.
+    model_name: str
+    """ModelName changes the model this deployment handles traffic for.
 
-    Must contain only alphanumeric characters, underscores, or hyphens (1-100
-    characters)
+    Can be omitted. Send the deployment name to reset it
+    """
+
+    name: str
+    """Name is the deployment's current name.
+
+    Deployment names cannot be changed after creation
     """
 
     placement_group: str
@@ -127,6 +132,12 @@ class JigUpdateParams(TypedDict, total=False):
     """
     TerminationGracePeriodSeconds is the time in seconds to wait for graceful
     shutdown before forcefully terminating the replica
+    """
+
+    traffic_weight: int
+    """
+    TrafficWeight is the deployment's share of its model's traffic, relative to the
+    other deployments of that model.
     """
 
     volumes: Iterable[Volume]

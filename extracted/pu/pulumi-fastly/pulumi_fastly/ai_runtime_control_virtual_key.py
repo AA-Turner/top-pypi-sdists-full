@@ -21,7 +21,6 @@ class AiRuntimeControlVirtualKeyArgs:
     def __init__(__self__, *,
                  model: pulumi.Input[_builtins.str],
                  provider_name: pulumi.Input[_builtins.str],
-                 user_id: pulumi.Input[_builtins.str],
                  expires_at: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None):
         """
@@ -29,13 +28,11 @@ class AiRuntimeControlVirtualKeyArgs:
 
         :param pulumi.Input[_builtins.str] model: The AI model identifier, e.g. `claude-sonnet-4-20250514`.
         :param pulumi.Input[_builtins.str] provider_name: The AI model provider name, e.g. `Anthropic`.
-        :param pulumi.Input[_builtins.str] user_id: The ID of the user creating the virtual key. Changing this forces a new virtual key to be created.
-        :param pulumi.Input[_builtins.str] expires_at: The expiration timestamp of the virtual key, in RFC 3339 format. Once set, this value cannot be unset, only changed.
-        :param pulumi.Input[_builtins.str] name: A human-readable name for the virtual key.
+        :param pulumi.Input[_builtins.str] expires_at: The date and time the virtual key expires, in RFC 3339 format. Once set, this value cannot be unset, only changed.
+        :param pulumi.Input[_builtins.str] name: The display name of the virtual key.
         """
         pulumi.set(__self__, "model", model)
         pulumi.set(__self__, "provider_name", provider_name)
-        pulumi.set(__self__, "user_id", user_id)
         if expires_at is not None:
             pulumi.set(__self__, "expires_at", expires_at)
         if name is not None:
@@ -66,22 +63,10 @@ class AiRuntimeControlVirtualKeyArgs:
         pulumi.set(self, "provider_name", value)
 
     @_builtins.property
-    @pulumi.getter(name="userId")
-    def user_id(self) -> pulumi.Input[_builtins.str]:
-        """
-        The ID of the user creating the virtual key. Changing this forces a new virtual key to be created.
-        """
-        return pulumi.get(self, "user_id")
-
-    @user_id.setter
-    def user_id(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "user_id", value)
-
-    @_builtins.property
     @pulumi.getter(name="expiresAt")
     def expires_at(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The expiration timestamp of the virtual key, in RFC 3339 format. Once set, this value cannot be unset, only changed.
+        The date and time the virtual key expires, in RFC 3339 format. Once set, this value cannot be unset, only changed.
         """
         return pulumi.get(self, "expires_at")
 
@@ -93,7 +78,7 @@ class AiRuntimeControlVirtualKeyArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        A human-readable name for the virtual key.
+        The display name of the virtual key.
         """
         return pulumi.get(self, "name")
 
@@ -119,17 +104,17 @@ class _AiRuntimeControlVirtualKeyState:
         """
         Input properties used for looking up and filtering AiRuntimeControlVirtualKey resources.
 
-        :param pulumi.Input[_builtins.str] access_token: The generated access token used to authenticate as this virtual key. Only returned by the API when the key is created.
+        :param pulumi.Input[_builtins.str] access_token: The access token for this virtual key. Only returned by the API when the key is created, and cannot be retrieved again afterward.
         :param pulumi.Input[_builtins.str] created_at: Timestamp (UTC) of when the virtual key was created.
         :param pulumi.Input[_builtins.str] created_by: The display name of the user who created the virtual key.
-        :param pulumi.Input[_builtins.str] expires_at: The expiration timestamp of the virtual key, in RFC 3339 format. Once set, this value cannot be unset, only changed.
-        :param pulumi.Input[_builtins.str] last_used_at: Timestamp (UTC) of when the virtual key was last used.
+        :param pulumi.Input[_builtins.str] expires_at: The date and time the virtual key expires, in RFC 3339 format. Once set, this value cannot be unset, only changed.
+        :param pulumi.Input[_builtins.str] last_used_at: Timestamp (UTC) of when the virtual key was last used to make a request.
         :param pulumi.Input[_builtins.str] model: The AI model identifier, e.g. `claude-sonnet-4-20250514`.
-        :param pulumi.Input[_builtins.str] name: A human-readable name for the virtual key.
+        :param pulumi.Input[_builtins.str] name: The display name of the virtual key.
         :param pulumi.Input[_builtins.str] provider_name: The AI model provider name, e.g. `Anthropic`.
-        :param pulumi.Input[_builtins.str] type: The type of the virtual key.
+        :param pulumi.Input[_builtins.str] type: The type of the resource.
         :param pulumi.Input[_builtins.str] updated_at: Timestamp (UTC) of when the virtual key was last updated.
-        :param pulumi.Input[_builtins.str] user_id: The ID of the user creating the virtual key. Changing this forces a new virtual key to be created.
+        :param pulumi.Input[_builtins.str] user_id: The ID of the user who created the virtual key.
         """
         if access_token is not None:
             pulumi.set(__self__, "access_token", access_token)
@@ -158,7 +143,7 @@ class _AiRuntimeControlVirtualKeyState:
     @pulumi.getter(name="accessToken")
     def access_token(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The generated access token used to authenticate as this virtual key. Only returned by the API when the key is created.
+        The access token for this virtual key. Only returned by the API when the key is created, and cannot be retrieved again afterward.
         """
         return pulumi.get(self, "access_token")
 
@@ -194,7 +179,7 @@ class _AiRuntimeControlVirtualKeyState:
     @pulumi.getter(name="expiresAt")
     def expires_at(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The expiration timestamp of the virtual key, in RFC 3339 format. Once set, this value cannot be unset, only changed.
+        The date and time the virtual key expires, in RFC 3339 format. Once set, this value cannot be unset, only changed.
         """
         return pulumi.get(self, "expires_at")
 
@@ -206,7 +191,7 @@ class _AiRuntimeControlVirtualKeyState:
     @pulumi.getter(name="lastUsedAt")
     def last_used_at(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Timestamp (UTC) of when the virtual key was last used.
+        Timestamp (UTC) of when the virtual key was last used to make a request.
         """
         return pulumi.get(self, "last_used_at")
 
@@ -230,7 +215,7 @@ class _AiRuntimeControlVirtualKeyState:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        A human-readable name for the virtual key.
+        The display name of the virtual key.
         """
         return pulumi.get(self, "name")
 
@@ -254,7 +239,7 @@ class _AiRuntimeControlVirtualKeyState:
     @pulumi.getter
     def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The type of the virtual key.
+        The type of the resource.
         """
         return pulumi.get(self, "type")
 
@@ -278,7 +263,7 @@ class _AiRuntimeControlVirtualKeyState:
     @pulumi.getter(name="userId")
     def user_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID of the user creating the virtual key. Changing this forces a new virtual key to be created.
+        The ID of the user who created the virtual key.
         """
         return pulumi.get(self, "user_id")
 
@@ -297,12 +282,14 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
                  model: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  provider_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 user_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Provides a Fastly AI Runtime Control virtual key, used to authenticate
-        requests to an AI service and to attribute usage and session logs back to a
-        named key.
+        requests made through the AI Runtime Control gateway and to attribute usage and
+        session logs back to a named key.
+
+        > **Note:** Deleting a virtual key also deletes any security configuration
+        associated with the key.
 
         ## Example Usage
 
@@ -316,7 +303,6 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
             name="prod website chatbot",
             model="claude-sonnet-4-20250514",
             provider_name="Anthropic",
-            user_id="6zhNCY1236787aJIwUgN",
             expires_at="2026-08-05T17:13:36Z")
         ```
 
@@ -333,11 +319,10 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] expires_at: The expiration timestamp of the virtual key, in RFC 3339 format. Once set, this value cannot be unset, only changed.
+        :param pulumi.Input[_builtins.str] expires_at: The date and time the virtual key expires, in RFC 3339 format. Once set, this value cannot be unset, only changed.
         :param pulumi.Input[_builtins.str] model: The AI model identifier, e.g. `claude-sonnet-4-20250514`.
-        :param pulumi.Input[_builtins.str] name: A human-readable name for the virtual key.
+        :param pulumi.Input[_builtins.str] name: The display name of the virtual key.
         :param pulumi.Input[_builtins.str] provider_name: The AI model provider name, e.g. `Anthropic`.
-        :param pulumi.Input[_builtins.str] user_id: The ID of the user creating the virtual key. Changing this forces a new virtual key to be created.
         """
         ...
     @overload
@@ -347,8 +332,11 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Provides a Fastly AI Runtime Control virtual key, used to authenticate
-        requests to an AI service and to attribute usage and session logs back to a
-        named key.
+        requests made through the AI Runtime Control gateway and to attribute usage and
+        session logs back to a named key.
+
+        > **Note:** Deleting a virtual key also deletes any security configuration
+        associated with the key.
 
         ## Example Usage
 
@@ -362,7 +350,6 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
             name="prod website chatbot",
             model="claude-sonnet-4-20250514",
             provider_name="Anthropic",
-            user_id="6zhNCY1236787aJIwUgN",
             expires_at="2026-08-05T17:13:36Z")
         ```
 
@@ -396,7 +383,6 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
                  model: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  provider_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 user_id: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -414,15 +400,13 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
             if provider_name is None and not opts.urn:
                 raise TypeError("Missing required property 'provider_name'")
             __props__.__dict__["provider_name"] = provider_name
-            if user_id is None and not opts.urn:
-                raise TypeError("Missing required property 'user_id'")
-            __props__.__dict__["user_id"] = user_id
             __props__.__dict__["access_token"] = None
             __props__.__dict__["created_at"] = None
             __props__.__dict__["created_by"] = None
             __props__.__dict__["last_used_at"] = None
             __props__.__dict__["type"] = None
             __props__.__dict__["updated_at"] = None
+            __props__.__dict__["user_id"] = None
         secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["accessToken"])
         opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(AiRuntimeControlVirtualKey, __self__).__init__(
@@ -453,17 +437,17 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] access_token: The generated access token used to authenticate as this virtual key. Only returned by the API when the key is created.
+        :param pulumi.Input[_builtins.str] access_token: The access token for this virtual key. Only returned by the API when the key is created, and cannot be retrieved again afterward.
         :param pulumi.Input[_builtins.str] created_at: Timestamp (UTC) of when the virtual key was created.
         :param pulumi.Input[_builtins.str] created_by: The display name of the user who created the virtual key.
-        :param pulumi.Input[_builtins.str] expires_at: The expiration timestamp of the virtual key, in RFC 3339 format. Once set, this value cannot be unset, only changed.
-        :param pulumi.Input[_builtins.str] last_used_at: Timestamp (UTC) of when the virtual key was last used.
+        :param pulumi.Input[_builtins.str] expires_at: The date and time the virtual key expires, in RFC 3339 format. Once set, this value cannot be unset, only changed.
+        :param pulumi.Input[_builtins.str] last_used_at: Timestamp (UTC) of when the virtual key was last used to make a request.
         :param pulumi.Input[_builtins.str] model: The AI model identifier, e.g. `claude-sonnet-4-20250514`.
-        :param pulumi.Input[_builtins.str] name: A human-readable name for the virtual key.
+        :param pulumi.Input[_builtins.str] name: The display name of the virtual key.
         :param pulumi.Input[_builtins.str] provider_name: The AI model provider name, e.g. `Anthropic`.
-        :param pulumi.Input[_builtins.str] type: The type of the virtual key.
+        :param pulumi.Input[_builtins.str] type: The type of the resource.
         :param pulumi.Input[_builtins.str] updated_at: Timestamp (UTC) of when the virtual key was last updated.
-        :param pulumi.Input[_builtins.str] user_id: The ID of the user creating the virtual key. Changing this forces a new virtual key to be created.
+        :param pulumi.Input[_builtins.str] user_id: The ID of the user who created the virtual key.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -482,11 +466,39 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
         __props__.__dict__["user_id"] = user_id
         return AiRuntimeControlVirtualKey(resource_name, opts=opts, __props__=__props__)
 
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            access_token: pulumi.Input[Optional[_builtins.str]] = None,
+            created_at: pulumi.Input[Optional[_builtins.str]] = None,
+            created_by: pulumi.Input[Optional[_builtins.str]] = None,
+            expires_at: pulumi.Input[Optional[_builtins.str]] = None,
+            last_used_at: pulumi.Input[Optional[_builtins.str]] = None,
+            model: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            provider_name: pulumi.Input[Optional[_builtins.str]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None,
+            updated_at: pulumi.Input[Optional[_builtins.str]] = None,
+            user_id: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["accessToken"] = access_token
+        __props__["createdAt"] = created_at
+        __props__["createdBy"] = created_by
+        __props__["expiresAt"] = expires_at
+        __props__["lastUsedAt"] = last_used_at
+        __props__["model"] = model
+        __props__["name"] = name
+        __props__["providerName"] = provider_name
+        __props__["type"] = type
+        __props__["updatedAt"] = updated_at
+        __props__["userId"] = user_id
+        return pulumi.runtime.exists_resource(None, 'fastly:index/aiRuntimeControlVirtualKey:AiRuntimeControlVirtualKey', id, __props__, opts or pulumi.ResourceOptions())
+
     @_builtins.property
     @pulumi.getter(name="accessToken")
     def access_token(self) -> pulumi.Output[_builtins.str]:
         """
-        The generated access token used to authenticate as this virtual key. Only returned by the API when the key is created.
+        The access token for this virtual key. Only returned by the API when the key is created, and cannot be retrieved again afterward.
         """
         return pulumi.get(self, "access_token")
 
@@ -510,7 +522,7 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
     @pulumi.getter(name="expiresAt")
     def expires_at(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        The expiration timestamp of the virtual key, in RFC 3339 format. Once set, this value cannot be unset, only changed.
+        The date and time the virtual key expires, in RFC 3339 format. Once set, this value cannot be unset, only changed.
         """
         return pulumi.get(self, "expires_at")
 
@@ -518,7 +530,7 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
     @pulumi.getter(name="lastUsedAt")
     def last_used_at(self) -> pulumi.Output[_builtins.str]:
         """
-        Timestamp (UTC) of when the virtual key was last used.
+        Timestamp (UTC) of when the virtual key was last used to make a request.
         """
         return pulumi.get(self, "last_used_at")
 
@@ -534,7 +546,7 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
     @pulumi.getter
     def name(self) -> pulumi.Output[_builtins.str]:
         """
-        A human-readable name for the virtual key.
+        The display name of the virtual key.
         """
         return pulumi.get(self, "name")
 
@@ -550,7 +562,7 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
     @pulumi.getter
     def type(self) -> pulumi.Output[_builtins.str]:
         """
-        The type of the virtual key.
+        The type of the resource.
         """
         return pulumi.get(self, "type")
 
@@ -566,7 +578,7 @@ class AiRuntimeControlVirtualKey(pulumi.CustomResource):
     @pulumi.getter(name="userId")
     def user_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The ID of the user creating the virtual key. Changing this forces a new virtual key to be created.
+        The ID of the user who created the virtual key.
         """
         return pulumi.get(self, "user_id")
 

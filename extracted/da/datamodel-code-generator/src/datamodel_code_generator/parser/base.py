@@ -139,6 +139,7 @@ from datamodel_code_generator.model.base import (
     _bind_bare_loads,
     _build_for_target,
     _has_root_field_constraints,
+    _model_of_reference,
     _model_package_class,
     _set_nested_model_default_factory_order,
     forget_model_memos,
@@ -658,7 +659,7 @@ class _ModelShapeSource:
 
     def model_of(self, reference: Reference) -> DataModel | None:  # noqa: PLR6301
         """Return the model a reference names, or None when it names no model."""
-        return source if isinstance(source := reference.source, DataModel) else None
+        return _model_of_reference(reference)
 
     def identity(self, reference: Reference) -> ModelKey:  # noqa: PLR6301
         """Return what tells apart the models that references name: the model key."""
@@ -715,13 +716,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     _model_resolver_factory = staticmethod(ModelResolver)
     _copy_model_field = staticmethod(partial(_copy_data_model_field))
     _copy_model_type = staticmethod(partial(_copy_data_type))
-    _copy_inherited_field = staticmethod(partial(_copy_resolved_inherited_field))
 
     _config_class_name: ClassVar[str] = "ParserConfig"
     _cache_local_sources_during_parse: ClassVar[bool] = False
     _cache_parsed_sources_from_path: ClassVar[bool] = False
     _collapses_list_item_root_models: ClassVar[bool] = True
-    _DECISION_PASSES: ClassVar[tuple[DecisionPass[Any], ...]] = (
+    _DECISION_PASSES: ClassVar[tuple[DecisionPass, ...]] = (
         OMIT_HELD_NULL,
         SERIALIZE_AS_ANY_FOR_EVERY_SUBCLASS,
         MERGE_MSGSPEC_STR_LIKE_UNION_MEMBERS,
@@ -738,6 +738,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     def _graph_builder(self) -> GraphBuilder:
         """The capability through which the passes change the graph of the generation store."""
         return self.generation_store.builder()
+
+    def _copy_inherited_field(
+        self, field: DataModelFieldBase, inherited_field: DataModelFieldBase, **options: Any
+    ) -> DataModelFieldBase | None:
+        """Resolve a deferred inherited field without copying its reference graph, writing through the builder."""
+        return _copy_resolved_inherited_field(self._graph_builder, field, inherited_field, **options)
 
     @property
     def _tag_capabilities(self) -> TagCapabilities:
@@ -807,21 +813,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             self.model_resolver.record_model_names()
         if document_roles:
             self._seed_document_roles(document_roles)
-
-    @property
-    def _translates_final_name_keys(self) -> bool:
-        """Whether the run records the output names keys name (``translate_final_name_keys``).
-
-        Only where a key of the options read at L1 exists and a model was renamed after L2, in a run that does not
-        apply such names already or record what it names for ``--model-name-map`` (``records_model_names``).
-        """
-        keys = self._construction_keys
-        return (
-            bool(keys.class_names or keys.field_scopes)
-            and bool(self.generation_store.renames)
-            and not self.model_resolver.final_name_keys
-            and not self.run_context.records_model_names
-        )
 
     @property
     def document_roles_to_seed(self) -> DocumentRoles:
@@ -1189,6 +1180,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_single_line_docstring: bool = config.use_single_line_docstring
         self.use_default_kwarg: bool = config.use_default_kwarg
         self.apply_field_options_to_every_field: bool = config.apply_field_options_to_every_field
+        self.apply_default_values_to_true_properties: bool = config.apply_default_values_to_true_properties
         self.use_missing_sentinel: bool = config.use_missing_sentinel
         self.deserialize_default_value_types: frozenset[DefaultValueType] = frozenset(config.deserialize_default_values)
         self._decimal_default_warning_count = 0
@@ -2502,6 +2494,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         model_imports: dict[DataModel, tuple[Import, ...]],
     ) -> None:
         """Merge producer-registered imports only on the runtime-expression path."""
+        if not self._has_runtime_expressions:
+            return
         for ctx in contexts:
             for model in ctx.models:
                 runtime_imports: list[Import] = []

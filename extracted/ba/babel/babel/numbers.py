@@ -668,33 +668,43 @@ def _get_compact_format(
     if number.is_nan() or number.is_infinite():
         return number, None
     format = None
-    for magnitude in sorted([int(m) for m in compact_format["other"]], reverse=True):
-        if abs(number) >= magnitude:
-            # check the pattern using "other" as the amount
-            format = compact_format["other"][str(magnitude)]
-            pattern = parse_pattern(format).pattern
-            # if the pattern is "0", we do not divide the number
-            if pattern == "0":
-                break
-            # otherwise, we need to divide the number by the magnitude but remove zeros
-            # equal to the number of 0's in the pattern minus 1
-            number = cast(
-                decimal.Decimal,
-                number / (magnitude // (10 ** (pattern.count("0") - 1))),
-            )
-            # round to the number of fraction digits requested
-            rounded = round(number, fraction_digits)
-            # if the remaining number is singular, use the singular format
-            plural_form = locale.plural_form(abs(number))
-            if plural_form not in compact_format:
-                plural_form = "other"
-            if number == 1 and "1" in compact_format:
-                plural_form = "1"
-            if str(magnitude) not in compact_format[plural_form]:
-                plural_form = "other"  # fall back to other as the implicit default
-            format = compact_format[plural_form][str(magnitude)]
-            number = rounded
+    magnitudes = sorted([int(m) for m in compact_format["other"]], reverse=True)
+    abs_number = abs(number)
+    for index, magnitude in enumerate(magnitudes):
+        if abs_number < magnitude:
+            continue
+        # check the pattern using "other" as the amount
+        format = compact_format["other"][str(magnitude)]
+        pattern = parse_pattern(format).pattern
+        # if the pattern is "0", we do not divide the number
+        if pattern == "0":
             break
+        # otherwise, we need to divide the number by the magnitude but remove zeros
+        # equal to the number of 0's in the pattern minus 1
+        divisor = magnitude // (10 ** (pattern.count("0") - 1))
+        scaled = cast(decimal.Decimal, number / divisor)
+        # round to the number of fraction digits requested
+        rounded = round(scaled, fraction_digits)
+        # Rounding can carry the value up into the next magnitude, e.g.
+        # 999_999 would otherwise render as "1000K". The CLDR algorithm
+        # selects the pattern from the rounded value, so redo the lookup
+        # one magnitude up to get "1M" instead.
+        if index > 0 and abs(rounded) * divisor >= magnitudes[index - 1]:
+            bumped = decimal.Decimal(magnitudes[index - 1]).copy_sign(number)
+            return _get_compact_format(bumped, compact_format, locale, fraction_digits)
+        # Select the plural form from the displayed number. Optional trailing
+        # fractional zeros are not rendered by the compact pattern.
+        plural_number = abs(rounded).normalize()
+        plural_form = locale.plural_form(plural_number)
+        if plural_form not in compact_format:
+            plural_form = "other"
+        if rounded == 1 and str(magnitude) in compact_format.get("1", {}):
+            plural_form = "1"
+        if str(magnitude) not in compact_format[plural_form]:
+            plural_form = "other"  # fall back to other as the implicit default
+        format = compact_format[plural_form][str(magnitude)]
+        number = rounded
+        break
     return number, format
 
 
@@ -741,7 +751,7 @@ def format_currency(
     >>> format_currency(1099.98, 'JPY', locale='en_US')
     '\\xa51,100'
     >>> format_currency(1099.98, 'COP', '#,##0.00', locale='es_ES')
-    '1.099,98'
+    '1.100'
 
     However, the number of decimal digits can be overridden from the currency
     information, by setting the last parameter to ``False``:
@@ -779,8 +789,8 @@ def format_currency(
     '1.00 US dollar'
     >>> format_currency(1099.98, 'USD', locale='en_US', format_type='name')
     '1,099.98 US dollars'
-    >>> format_currency(1099.98, 'USD', locale='ee', format_type='name')
-    'us ga dollar 1,099.98'
+    >>> format_currency(1099.98, 'USD', locale='my', format_type='name')
+    'အမေရိကန် ဒေါ်လာ 1,099.98'
 
     By default the locale is allowed to truncate and round a high-precision
     number by forcing its format pattern onto the decimal part. You can bypass
@@ -1243,11 +1253,8 @@ def _remove_trailing_zeros_after_decimal(string: str, decimal_symbol: str) -> st
     is also removed. If the string does not contain the decimal symbol, it is returned unchanged.
 
     :param string: The numeric string from which to remove trailing zeros.
-    :type string: str
     :param decimal_symbol: The symbol used to denote the decimal point.
-    :type decimal_symbol: str
     :return: The numeric string with trailing zeros removed from its decimal part.
-    :rtype: str
 
     Example:
     >>> _remove_trailing_zeros_after_decimal("123.4500", ".")
@@ -1462,19 +1469,14 @@ class NumberPattern:
 
         :param value: The value to format. If this is not a Decimal object,
                       it will be cast to one.
-        :type value: decimal.Decimal|float|int
         :param locale: The locale to use for formatting.
-        :type locale: str|babel.core.Locale
         :param currency: Which currency, if any, to format as.
-        :type currency: str|None
         :param currency_digits: Whether or not to use the currency's precision.
                                 If false, the pattern's precision is used.
-        :type currency_digits: bool
         :param decimal_quantization: Whether decimal numbers should be forcibly
                                      quantized to produce a formatted output
                                      strictly matching the CLDR definition for
                                      the locale.
-        :type decimal_quantization: bool
         :param force_frac: DEPRECATED - a forced override for `self.frac_prec`
                            for a single formatting invocation.
         :param group_separator: Whether to use the locale's number group separator.

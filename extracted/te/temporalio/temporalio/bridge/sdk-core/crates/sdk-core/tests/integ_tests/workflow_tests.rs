@@ -2,6 +2,7 @@ mod activities;
 mod cancel_external;
 mod cancel_wf;
 mod child_workflows;
+mod chunking;
 mod client_interactions;
 mod continue_as_new;
 mod determinism;
@@ -11,9 +12,13 @@ mod interceptors;
 mod local_activities;
 mod modify_wf_properties;
 mod nexus;
+mod nexus_typed;
 mod patches;
 mod priority;
 mod queries;
+// Legacy patch-only activations can poll routines earlier on replay; preserve that behavior.
+#[cfg(feature = "disable_workflow_task_chunking")]
+mod rejected_update_persistence;
 mod replay;
 mod resets;
 mod signals;
@@ -75,9 +80,7 @@ use temporalio_sdk::{
 use temporalio_sdk_core::{
     CoreRuntime, PollError, TunerHolder, prost_dur,
     replay::{DEFAULT_WORKFLOW_TYPE, HistoryForReplay, canned_histories},
-    test_help::{
-        MockPollCfg, WorkerTestHelpers, drain_pollers_and_shutdown, schedule_activity_cmd,
-    },
+    test_help::{MockPollCfg, WorkerExt, WorkerTestHelpers, schedule_activity_cmd},
 };
 use tokio::{join, sync::Notify, time::sleep};
 use tonic::IntoRequest;
@@ -130,7 +133,7 @@ async fn shutdown_aborts_actively_blocked_poll() {
     let tcore = core.clone();
     let handle = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(100)).await;
-        drain_pollers_and_shutdown(&tcore).await;
+        tcore.drain_pollers_and_shutdown_ref().await;
     });
     assert_matches!(
         core.poll_workflow_activation().await.unwrap_err(),

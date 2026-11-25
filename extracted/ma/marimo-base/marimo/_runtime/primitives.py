@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import inspect
 import numbers
+import types
 import weakref
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
@@ -90,7 +91,12 @@ def is_data_primitive(value: Any) -> bool:
 
     is_polars = type(value).__module__.startswith("polars.")
     # If a numpy like array, ensure that it's not an object array.
-    if hasattr(value, "dtype") and not is_polars:
+    # pandas extension dtypes (string, categorical, tz-aware) are not numpy
+    # dtypes and convert to object arrays, so they go through narwhals too.
+    is_pandas_extension = type(value).__module__.startswith(
+        "pandas"
+    ) and not hasattr(getattr(value, "dtype", None), "hasobject")
+    if hasattr(value, "dtype") and not is_polars and not is_pandas_extension:
         return not (
             value.dtype is None
             or (hasattr(value.dtype, "hasobject") and value.dtype.hasobject)
@@ -170,12 +176,23 @@ def from_unclonable_module(obj: object) -> bool:
     )
 
 
+# NB. inspect.ismodule does not recognize Python 3.15 lazy import proxies.
+_LAZY_IMPORT_TYPES: tuple[type, ...] = (
+    (types.LazyImportType,) if hasattr(types, "LazyImportType") else ()
+)
+
+
+def is_module(value: Any) -> bool:
+    """Whether `value` is a module or a lazy import proxy for one."""
+    return inspect.ismodule(value) or isinstance(value, _LAZY_IMPORT_TYPES)
+
+
 def is_pure_scope(
     ref: Name,
     defs: dict[str, Any],
     cache: FN_CACHE_TYPE = None,
 ) -> bool:
-    return inspect.ismodule(defs[ref]) or is_pure_function(
+    return is_module(defs[ref]) or is_pure_function(
         ref, defs[ref], defs, cache
     )
 
@@ -248,7 +265,7 @@ def is_pure_function(
         if ref in defs:
             # Recursion allows for effective DFS
             if not (
-                inspect.ismodule(defs[ref])
+                is_module(defs[ref])
                 or is_pure_function(ref, defs[ref], defs, cache, graph)
             ):
                 cache[value] = False
@@ -316,7 +333,7 @@ def build_ref_predicate_for_primitives(
     def check_ref(ref: Name) -> bool:
         return ref in glbls and (
             inspect.isfunction(glbls[ref])
-            or inspect.ismodule(glbls[ref])
+            or is_module(glbls[ref])
             or inspect.isclass(glbls[ref])
             or callable(glbls[ref])
         )

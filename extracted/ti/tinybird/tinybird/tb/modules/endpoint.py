@@ -24,7 +24,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 @cli.group()
 @click.pass_context
-def endpoint(ctx):
+def endpoint(ctx: Context) -> None:
     """Endpoint commands."""
 
 

@@ -652,8 +652,9 @@ def doctor(
     _run(run_doctor, mode=mode)
 
 
-def _sim_list(benchmark: str | None, task_suite: str | None, *, json_output: bool) -> None:
-    """`dreamscale sim [<benchmark>] [--task-suite <suite>] --list`: offline, no --model."""
+def _sim_list(benchmark: str | None, task_suite: str | None, *, json_output: bool,
+              every: bool = False) -> None:
+    """`dreamscale sim [<benchmark>] [--task-suite <suite> | --all] --list`: offline."""
     from dreamscale.sim.benchmarks import BENCHMARK_MODELS
     from dreamscale.sim.task_list import run_list
 
@@ -666,8 +667,12 @@ def _sim_list(benchmark: str | None, task_suite: str | None, *, json_output: boo
             "abc or robolab",
             param_hint="benchmark",
         )
+    if benchmark is None and every:
+        raise typer.BadParameter("--all needs a benchmark: dreamscale sim <benchmark> --all "
+                                 "--list", param_hint="--all")
     try:
-        run_list(benchmark, task_suite, json_output=json_output, print_fn=typer.echo)
+        run_list(benchmark, task_suite, json_output=json_output, every=every,
+                 print_fn=typer.echo)
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--task-suite") from exc
 
@@ -686,14 +691,6 @@ def _sim_hosted(benchmark: str, *, model: str | None, task_id: str | None,
     if local_only:
         raise typer.BadParameter(f"{', '.join(local_only)} only applies to a simulator run on "
                                  "this computer")
-    if task_id is not None and task_suite is not None:
-        raise typer.BadParameter("choose one: --task-id <task> or --task-suite <suite>")
-    if model is None:
-        raise click.MissingParameter(
-            f"Choose what {hosted.HOSTED_BENCHMARKS[benchmark]} runs. {errors.SEE_MODELS}",
-            param_hint="'--model'",
-            param_type="option",
-        )
     interactive = sys.stdout.isatty() and not json_output
     progress = ProgressPrinter(show_header=False) if interactive else None
     view = interactive and not no_view and (max_units or 1) == 1 and _sim_view(False)
@@ -737,26 +734,27 @@ def sim(
         # No model list here: `dreamscale models list` shows only what the organization can run.
         help="Required: the model to run. `dreamscale models list` lists yours.",
     ),
+    every: bool = typer.Option(
+        False, "--all", help="Run every task in the benchmark.",
+    ),
     task_suite: str | None = typer.Option(
         None,
         "--task-suite",
-        help=(
-            "libero: libero_spatial (default), libero_object, libero_goal, libero_10 or "
-            "libero_90. robocasa365: atomic or composite. molmospaces: benchmark or all "
-            "(default). roboeval: a task (default lift_pot). abc: a task (default "
-            "put_plastic_bottles_in_bin)."
-        ),
+        help="Run every task in a suite. `dreamscale sim <benchmark> --list` lists them.",
     ),
     task_id: str | None = typer.Option(
         None,
         "--task-id",
-        help="Task within the suite (default 0). molmospaces also takes all. abc: the "
-        "episode number.",
+        help="Run one task, such as libero_spatial/0 or CloseFridge. `dreamscale sim "
+        "<benchmark> --task-suite <suite> --list` lists a suite's.",
+    ),
+    random_task: bool = typer.Option(
+        False, "--random", help="Run one task, picked at random.",
     ),
     task_seed: int = typer.Option(
         0,
         "--task-seed",
-        help="Seed for the task's initial state.",
+        help="Seed for the task's initial state (abc: the scene, upstream's eval world N).",
     ),
     keep_warm: int | None = _keep_warm_option(),
     max_steps: int | None = typer.Option(
@@ -801,8 +799,8 @@ def sim(
     list_tasks: bool = typer.Option(
         False,
         "--list",
-        help="List the benchmarks, a benchmark's suites, or with --task-suite its tasks, "
-        "instead of running one.",
+        help="List the benchmarks, a benchmark's suites, or with --task-suite or --all its "
+        "tasks, instead of running.",
     ),
     # RoboLab's options (dreamscale.sim.hosted). --json and --artifacts are older spellings of
     # --non-interactive and --output-root.
@@ -823,14 +821,16 @@ def sim(
         "next chunk is planned), for a model that runs both (default: sync).",
     ),
 ) -> None:
-    """Run a task on a simulated benchmark."""
+    """Run a simulated benchmark's tasks: --all, --task-suite, --task-id or --random."""
     non_interactive = non_interactive or json_flag
     output_root = output_root or artifacts
     if list_tasks:
-        _sim_list(benchmark, task_suite, json_output=non_interactive)
+        _sim_list(benchmark, task_suite, json_output=non_interactive, every=every)
         return
     if (
         benchmark is None
+        and not every
+        and not random_task
         and task_suite is None
         and task_id is None
         and task_seed == 0
@@ -862,10 +862,24 @@ def sim(
                 ("--steady-send", steady_send or steady_send_ms is not None),
             ) if given
         ]
+        if model is None:
+            from dreamscale import errors
+
+            raise click.MissingParameter(
+                f"Choose what {HOSTED_BENCHMARKS[benchmark]} runs. {errors.SEE_MODELS}",
+                param_hint="'--model'",
+                param_type="option",
+            )
+        (pick,) = _sim_picks(benchmark, every=every, task_suite=task_suite, task_id=task_id,
+                             random_task=random_task)
+        if random_task and not non_interactive:
+            typer.echo(f"Random task: {pick.id}")
         _sim_hosted(
-            benchmark, model=model, task_id=task_id, task_suite=task_suite, episodes=episodes,
-            max_units=max_units, json_output=non_interactive, artifacts=output_root,
-            local_only=local_only, no_view=no_view,
+            benchmark, model=model,
+            task_id=None if pick.task == "all" else pick.id,
+            task_suite=pick.suite if pick.task == "all" else None,
+            episodes=episodes, max_units=max_units, json_output=non_interactive,
+            artifacts=output_root, local_only=local_only, no_view=no_view,
         )
         return
     if episodes is not None or max_units is not None:
@@ -873,7 +887,6 @@ def sim(
     from dreamscale.sim.benchmarks import (
         BENCHMARK_LABELS,
         BENCHMARK_MODELS,
-        DEFAULT_SUITES,
         default_task_horizon,
         validate_selection,
     )
@@ -883,13 +896,10 @@ def sim(
 
     if benchmark not in BENCHMARK_MODELS:
         raise typer.BadParameter(
-            "choose a benchmark: dreamscale sim libero, robocasa365, molmospaces, roboeval "
-            "or abc",
+            "choose a benchmark: dreamscale sim libero, robocasa365, molmospaces, roboeval, "
+            "abc or robolab",
             param_hint="benchmark",
         )
-    if benchmark == "libero":
-        task_suite = task_suite or DEFAULT_SUITES[benchmark]
-        task_id = task_id or "0"
     if model is None:
         from dreamscale import errors
 
@@ -898,6 +908,8 @@ def sim(
             param_hint="'--model'",
             param_type="option",
         )
+    picks = _sim_picks(benchmark, every=every, task_suite=task_suite, task_id=task_id,
+                       random_task=random_task)
     deployment_ref = None
     if benchmark == "abc":
         from dreamscale.checkpoints_cmd import may_name_deployment
@@ -905,23 +917,21 @@ def sim(
         if may_name_deployment(model):
             deployment_ref = model
     keep_warm = _keep_warm(model, keep_warm, deployment_ref)
-    if benchmark in ("molmospaces", "roboeval", "abc"):
-        task_suite = task_suite or DEFAULT_SUITES[benchmark]
-        task_id = task_id or "0"
-    if task_suite is None or task_id is None:
-        missing = [
-            flag
-            for flag, value in (("--task-suite", task_suite), ("--task-id", task_id))
-            if value is None
-        ]
-        raise typer.BadParameter(f"missing required option(s): {', '.join(missing)}")
     if max_steps is not None and max_duration is not None:
         raise typer.BadParameter("choose only one episode budget: --max-steps or --max-duration")
+    # Every task is checked before the first opens a session: a model trained on one suite
+    # refuses the others here, not halfway through the run.
+    for pick in picks:
+        try:
+            validate_selection(benchmark, model, pick.suite, pick.task)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc), param_hint="--model") from exc
     view = _sim_view(non_interactive)
     if benchmark == "libero":  # the other benchmarks prepare their own simulator runtimes
         from dreamscale import errors
 
         _ensure_extras(["sim"], label="LIBERO", setup_command=errors.COMMAND_SIM)
+    from dreamscale.sim.isaac_libero import is_isaac_libero
     from dreamscale.sim.sana_libero import is_sana_libero
     from dreamscale.sim.sim_arm import _sim_contract, run_sim
     from dreamscale.sim.verne_libero import is_verne_libero
@@ -929,131 +939,170 @@ def sim(
     if sim_mode is not None and not (benchmark == "libero" and is_sana_libero(model)):
         raise typer.BadParameter(f"--mode doesn't apply to {model} on {benchmark}",
                                  param_hint="--mode")
-    if benchmark == "libero" and is_sana_libero(model):
-        # SANA-Robot-AR LIBERO: the authors' loop on an episode its unit keeps, its absolute
-        # end-effector targets through LIBERO's controller, sync or async (memory RTC).
-        from dreamscale.sim.sana_libero import run_sana_libero
+    if sim_mode not in (None, "sync", "async"):
+        raise typer.BadParameter("--mode is sync or async", param_hint="--mode")
+    libero_steps = max_steps if max_duration is None else max(1, ceil(max_duration * 20))
 
-        if not str(task_id).isdigit():
-            raise typer.BadParameter("--task-id is a task number", param_hint="--task-id")
-        if sim_mode not in (None, "sync", "async"):
-            raise typer.BadParameter("--mode is sync or async", param_hint="--mode")
-        _run(
-            run_sana_libero,
-            model=model, task_suite=task_suite, task_id=int(task_id), task_seed=task_seed,
-            mode=sim_mode or "sync",
-            max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
-            region=region, json_output=non_interactive, output_root=output_root, view=view,
-        )
-        return
+    def run_one(pick, root: Path | None):
+        """One task (MolmoSpaces: its selection of episodes); returns the runner's result."""
+        if benchmark == "libero" and is_sana_libero(model):
+            # SANA-Robot-AR LIBERO: the authors' loop on an episode its unit keeps, its absolute
+            # end-effector targets through LIBERO's controller, sync or async (memory RTC).
+            from dreamscale.sim.sana_libero import run_sana_libero
 
-    if benchmark == "libero" and is_verne_libero(model):
-        # Verne V0.5 LIBERO (a catalog model on Verne deployments): upstream's own loop, its
-        # 30 Hz poses driving LIBERO's 20 Hz OSC_POSE controller.
-        from dreamscale.sim.verne_libero import run_verne_libero
+            return run_sana_libero(
+                model=model, task_suite=pick.suite, task_id=pick.task, task_seed=task_seed,
+                mode=sim_mode or "sync", max_steps=libero_steps, region=region,
+                json_output=non_interactive, output_root=root, view=view,
+            )
+        if benchmark == "libero" and is_verne_libero(model):
+            # Verne V0.5 LIBERO (a catalog model on Verne deployments): upstream's own loop,
+            # its 30 Hz poses driving LIBERO's 20 Hz OSC_POSE controller.
+            from dreamscale.sim.verne_libero import run_verne_libero
 
-        if not str(task_id).isdigit():
-            raise typer.BadParameter("--task-id is a task number", param_hint="--task-id")
-        _run(
-            run_verne_libero,
-            model=model, task_suite=task_suite, task_id=int(task_id), task_seed=task_seed,
-            max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
-            region=region, real_time=True, json_output=non_interactive,
-            output_root=output_root, view=view,
-        )
-        return
-    from dreamscale.sim.isaac_libero import is_isaac_libero
+            return run_verne_libero(
+                model=model, task_suite=pick.suite, task_id=pick.task, task_seed=task_seed,
+                max_steps=libero_steps, region=region, real_time=True,
+                json_output=non_interactive, output_root=root, view=view,
+            )
+        if benchmark == "libero" and is_isaac_libero(model):
+            # Isaac 0.5 LIBERO (a catalog model on Isaac 0.5 deployments): Perceptron's
+            # protocol, a synchronous chunk of 10 planned, 8 played, at LIBERO's 20 Hz.
+            from dreamscale.sim.isaac_libero import run_isaac_libero
 
-    if benchmark == "libero" and is_isaac_libero(model):
-        # Isaac 0.5 LIBERO (a catalog model on Isaac 0.5 deployments): Perceptron's protocol,
-        # a synchronous chunk of 10 planned, 8 played, at LIBERO's 20 Hz.
-        from dreamscale.sim.isaac_libero import run_isaac_libero
+            return run_isaac_libero(
+                model=model, task_suite=pick.suite, task_id=pick.task, task_seed=task_seed,
+                max_steps=libero_steps, region=region, json_output=non_interactive,
+                output_root=root, view=view,
+            )
+        if benchmark == "abc":
+            # The YAM robot's simulator: the robot's own session and run loop (sim/abc.py),
+            # not a catalog sim. --task-seed picks the scene (upstream's eval world N).
+            from dreamscale.sim.abc import run_abc
 
-        if not str(task_id).isdigit():
-            raise typer.BadParameter("--task-id is a task number", param_hint="--task-id")
-        _run(
-            run_isaac_libero,
-            model=model, task_suite=task_suite, task_id=int(task_id), task_seed=task_seed,
-            max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
-            region=region, json_output=non_interactive, output_root=output_root, view=view,
-        )
-        return
-    if benchmark == "abc":
-        # The YAM robot's simulator: the robot's own session and run loop (sim/abc.py), not a
-        # catalog sim.
-        from dreamscale.sim.abc import run_abc
-
-        try:
-            task_id = validate_selection(benchmark, model, task_suite, task_id)
-        except ValueError as exc:
-            raise typer.BadParameter(str(exc), param_hint="--model") from exc
-        try:
-            _run(
-                run_abc,
-                model=model, task_suite=task_suite, task_id=task_id, task_seed=task_seed,
+            return run_abc(
+                model=model, task_suite=pick.suite, task_id=0, task_seed=task_seed,
                 max_steps=max_steps, max_duration=max_duration, view=view,
                 real_time=True, json_output=non_interactive, keep_warm=keep_warm,
-                transport=transport.value, region=region, output_root=output_root, **steady,
+                transport=transport.value, region=region, output_root=root, **steady,
             )
-        except ValueError as exc:
-            raise typer.BadParameter(str(exc), param_hint="--model") from exc
-        return
-    try:
-        task_id = validate_selection(benchmark, model, task_suite, task_id)
-        contract = _sim_contract(model)
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc), param_hint="--model") from exc
-    if benchmark == "molmospaces":
-        from dreamscale.sim.molmospaces import run_molmospaces
+        if benchmark == "molmospaces":
+            from dreamscale.sim.molmospaces import run_molmospaces
 
-        _run(
-            run_molmospaces,
+            return run_molmospaces(
+                model=model, task_suite=pick.suite, task_id=pick.task, task_seed=task_seed,
+                max_steps=max_steps, max_duration=max_duration, view=view,
+                tui=not non_interactive, real_time=True, json_output=non_interactive,
+                keep_warm=keep_warm, transport=transport.value, region=region,
+                verbose=verbose, output_root=root, **steady,
+            )
+        contract = _sim_contract(model)
+        resolved_max_steps = (
+            max(1, ceil(max_duration * contract.action_hz))
+            if max_duration is not None
+            else max_steps or default_task_horizon(benchmark, pick.suite, pick.task,
+                                                   action_hz=contract.action_hz)
+        )
+        return run_sim(
+            **({"benchmark": benchmark} if benchmark != "libero" else {}),
             model=model,
-            task_suite=task_suite,
-            task_id=task_id,
-            task_seed=task_seed,
-            max_steps=max_steps,
-            max_duration=max_duration,
+            max_steps=resolved_max_steps,
+            # A time limit counts every tick; a step budget counts what the sim's model counts.
+            **({"count_holds": True} if max_duration is not None else {}),
             view=view,
             tui=not non_interactive,
             real_time=True,
-            json_output=non_interactive,
-            keep_warm=keep_warm,
             transport=transport.value,
             region=region,
+            task_suite=pick.suite,
+            task_id=pick.task,
+            task_seed=task_seed,
+            keep_warm=keep_warm,
             verbose=verbose,
-            output_root=output_root,
+            json_output=non_interactive,
+            output_root=root,
             **steady,
         )
-        return
-    resolved_max_steps = (
-        max(1, ceil(max_duration * contract.action_hz))
-        if max_duration is not None
-        else max_steps
-        or default_task_horizon(benchmark, task_suite, task_id, action_hz=contract.action_hz)
-    )
 
-    _run(
-        run_sim,
-        **({"benchmark": benchmark} if benchmark != "libero" else {}),
-        model=model,
-        max_steps=resolved_max_steps,
-        # A time limit counts every tick; a step budget counts what the sim's model counts.
-        **({"count_holds": True} if max_duration is not None else {}),
-        view=view,
-        tui=not non_interactive,
-        real_time=True,
-        transport=transport.value,
-        region=region,
-        task_suite=task_suite,
-        task_id=task_id,
-        task_seed=task_seed,
-        keep_warm=keep_warm,
-        verbose=verbose,
-        json_output=non_interactive,
-        output_root=output_root,
-        **steady,
-    )
+    _sim_local_run(benchmark, model, picks, run_one, random_task=random_task,
+                   json_output=non_interactive, output_root=output_root)
+
+
+def _sim_picks(benchmark: str, *, every: bool, task_suite: str | None, task_id: str | None,
+               random_task: bool) -> list:
+    """The run's tasks from exactly one of --all, --task-suite, --task-id and --random."""
+    from dreamscale.sim.selection import select
+
+    try:
+        return select(benchmark, every=every, suite=task_suite, task_id=task_id,
+                      random_task=random_task)
+    except ValueError as exc:
+        hint = ("--task-id" if task_id is not None and task_suite is None and not every
+                and not random_task else "--task-suite" if task_suite is not None
+                and not every and task_id is None and not random_task else None)
+        raise typer.BadParameter(str(exc), param_hint=hint) from exc
+
+
+def _succeeded(result) -> bool:
+    """A runner's result: SimResult (done), an episode (success) or a summary (every episode
+    succeeded)."""
+    if isinstance(result, dict):
+        return bool(result.get("episodes")) and result.get("successes") == result["episodes"]
+    return bool(getattr(result, "done", False) or getattr(result, "success", False))
+
+
+def _task_folder(task_id: str) -> str:
+    return task_id.replace("/", "-")
+
+
+def _sim_local_run(benchmark: str, model: str, picks: list, run_one, *, random_task: bool,
+                   json_output: bool, output_root: Path | None) -> None:
+    """Run the tasks on this computer, one after another, then their success rate."""
+    import json
+
+    from dreamscale import errors
+    from dreamscale.model_names import public_model
+    from dreamscale.sim.benchmarks import BENCHMARK_LABELS
+
+    label = BENCHMARK_LABELS[benchmark]
+    if random_task and benchmark != "molmospaces" and not json_output:  # MolmoSpaces says
+        typer.echo(f"Random task: {picks[0].id}")  # once it has picked
+    rows: list[dict] = []
+
+    def finish() -> None:
+        if len(picks) < 2:
+            return
+        wins = sum(row["success"] for row in rows)
+        pct = f" ({round(100 * wins / len(rows))}%)" if rows else ""
+        typer.echo(f"Success rate: {wins}/{len(rows)}{pct}"
+                   + (f", {len(picks) - len(rows)} not run" if len(rows) < len(picks) else ""))
+        if json_output:
+            typer.echo(json.dumps({"benchmark": benchmark, "model": public_model(model),
+                                   "tasks": rows, "successes": wins, "episodes": len(rows),
+                                   "tasks_total": len(picks)}, sort_keys=True))
+
+    try:
+        for k, pick in enumerate(picks, 1):
+            if len(picks) > 1:
+                typer.echo(f"[{k}/{len(picks)}] {label} {pick.id}")
+            root = output_root
+            if root is not None and len(picks) > 1:
+                root = Path(root) / _task_folder(pick.id)
+            rows.append({"task_id": pick.id, "success": _succeeded(run_one(pick, root))})
+            if len(picks) > 1:
+                typer.echo(f"{'✓ Success' if rows[-1]['success'] else '✗ Not done'}: {pick.id}")
+    except errors.DreamscaleError as error:
+        typer.echo(error.render())
+        finish()
+        raise typer.Exit(code=1) from error
+    except KeyboardInterrupt as exc:
+        typer.echo("Canceled. Cleaned up any active Dreamscale session.")
+        finish()
+        raise typer.Exit(code=130) from exc
+    except ValueError as exc:
+        finish()
+        raise typer.BadParameter(str(exc), param_hint="--model") from exc
+    finish()
 
 
 @models_app.command("list")

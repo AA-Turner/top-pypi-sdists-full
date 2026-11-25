@@ -158,6 +158,40 @@ def _candidate_evidence(
     *,
     deadline_monotonic: float | None,
     deadline_hit: Any,
+    evidence_cache: dict[tuple[Any, ...], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    cache_key: tuple[Any, ...] | None = None
+    if evidence_cache is not None:
+        cache_key = (
+            candidate,
+            owner._mtime_key(candidate),
+            str(repo_root),
+            bool(imports_by_file.get(candidate)),
+        )
+        cached = evidence_cache.get(cache_key)
+        if cached is not None:
+            return cached
+    result = _compute_candidate_evidence(
+        owner,
+        candidate,
+        repo_root,
+        imports_by_file,
+        deadline_monotonic=deadline_monotonic,
+        deadline_hit=deadline_hit,
+    )
+    if evidence_cache is not None and cache_key is not None and result.get("reason") != "deadline":
+        evidence_cache[cache_key] = result
+    return result
+
+
+def _compute_candidate_evidence(
+    owner: ModuleType,
+    candidate: str,
+    repo_root: Path,
+    imports_by_file: dict[str, list[str]],
+    *,
+    deadline_monotonic: float | None,
+    deadline_hit: Any,
 ) -> dict[str, Any]:
     path = Path(candidate)
     spec = owner.lang_registry.spec_for_path(path)

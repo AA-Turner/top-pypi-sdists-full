@@ -18,7 +18,6 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, NamedTuple, Optional, cast
 
 import attrs
-import cloudpickle
 import lance
 import pyarrow as pa
 import ray.actor
@@ -90,6 +89,7 @@ from geneva.checkpoint import (
     MultiBaseCheckpointStore,
     discard_short_checkpoint,
     stamp_checkpoint_num_rows,
+    unwrap_default_checkpoint_store,
 )
 from geneva.checkpoint_utils import hash_source_files
 from geneva.committer import get_committer
@@ -120,19 +120,22 @@ from geneva.errors import (
     FatalWorkerHardwareError,
     FatalWorkerOOMError,
     FatalWorkerTransientError,
+    JobNotSubmittedError,
     MergeFallbackTargetError,
     ShortFragmentWriteError,
 )
 from geneva.jobs.compaction_pause import (
     CompactionPause,
+    CompactionPauseConfig,
     check_compaction_hold,
     open_latest_dataset,
     pause_for_job,
     resume_after_job,
     wait_for_compactions,
 )
-from geneva.jobs.config import JobConfig
-from geneva.jobs.heartbeat import DriverHeartbeatWriter, set_driver_phase
+from geneva.jobs.config import DEFAULT_RELEASE_IDLE_APPLIERS_AFTER_S, JobConfig
+from geneva.jobs.heartbeat import DriverHeartbeatWriter, new_attempt, set_driver_phase
+from geneva.jobs.jobs import JobStatus
 from geneva.packager import UDFPackager, UDFSpec
 from geneva.query import (
     MATVIEW_META_BASE_VERSION,
@@ -258,6 +261,8 @@ from geneva.utils.ray import CPU_ONLY_NODE, cpu_only_pool_resources, head_pin_op
 from geneva.utils.schema import canonical_field_paths, resolve_arrow_field_path
 
 _LOG = logging.getLogger(__name__)
+# Own logger so the layout line can be surfaced without raising job log volume.
+_LAYOUT_LOG = logging.getLogger(f"{__name__}.checkpoint_layout")
 
 # GEN-624: defer carry-forward to the FragmentWriter. When enabled, a filtered
 # backfill does NOT read the old value of carry-forward (non-UDF-input) columns
@@ -267,6 +272,23 @@ _LOG = logging.getLogger(__name__)
 DEFAULT_DEFER_CARRY_FORWARD = os.environ.get(
     "GENEVA_DEFER_CARRY_FORWARD", "0"
 ).lower() in ("1", "true", "yes")
+
+
+def deferred_carry_forward_columns(
+    where: str | None,
+    carry_forward_cols: Iterable[str],
+    udf_input_cols: Iterable[str],
+) -> list[str]:
+    """Return the carry-forward columns a backfill defers to the writer (GEN-624).
+
+    Empty (deferral off) unless ``GENEVA_DEFER_CARRY_FORWARD`` is set and the
+    backfill has a ``where`` filter. Only columns no UDF reads are deferred.
+    ``plan_backfill`` uses this too, so its dry run plans the same windows.
+    """
+    if not DEFAULT_DEFER_CARRY_FORWARD or where is None:
+        return []
+    inputs = set(udf_input_cols)
+    return [c for c in carry_forward_cols if c not in inputs]
 
 
 # Floor for the auto default; equals the historical fixed default.
@@ -369,7 +391,8 @@ POLL_INTERVAL_S = 30.0
 # a finite timeout ensures finalization can never block the driver forever.
 FINAL_STATUS_TIMEOUT_S = 30.0
 
-# How long to wait with zero task completions before raising a TimeoutError.
+# How long to wait with zero task completions or recovered checkpoint rows
+# before raising a TimeoutError. Retrying or splitting work is not progress.
 # Default 1800s (30 min) to accommodate slow I/O-bound tasks like bulk_load
 # on large string columns (6-8 min per 100k-row batch) plus cluster scale-up
 # time (runtime env install, pod scheduling). Override via env var for tighter
@@ -640,6 +663,28 @@ class CheckpointStoreNamespaceArgs(NamedTuple):
     base_checkpoint_uris: Optional[dict[int, str]] = None
     frag_to_base: Optional[dict[int, int]] = None
     base_storage_options: Optional[dict[str, str]] = None
+    # Driver's store layout, pinned so workers don't re-derive it from config.
+    layout: Optional[str] = None
+
+
+def _log_checkpoint_layout(checkpoint_store: CheckpointStore) -> None:
+    """Log which checkpoint layout and root this job reads and writes."""
+    store = unwrap_default_checkpoint_store(checkpoint_store)
+    # Ray driver tasks can run with logging unconfigured, which drops INFO; give
+    # this line its own handler and stop propagation so it prints exactly once.
+    if not _LAYOUT_LOG.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        )
+        _LAYOUT_LOG.addHandler(handler)
+        _LAYOUT_LOG.setLevel(logging.INFO)
+        _LAYOUT_LOG.propagate = False
+    _LAYOUT_LOG.info(
+        "Using %s checkpoint layout at %s",
+        getattr(store, "_LAYOUT_LABEL", type(store).__name__),
+        store.uri(),
+    )
 
 
 def _checkpoint_store_namespace_args(
@@ -664,6 +709,7 @@ def _checkpoint_store_namespace_args(
         base_checkpoint_uris,
         frag_to_base,
         base_storage_options,
+        checkpoint_store._LAYOUT_LABEL,
     )
 
 
@@ -1433,9 +1479,109 @@ def _record_event(hist: Any, job_id: str | None, message: str) -> None:
             hist.add_event(job_id, message)
 
 
+def _mark_running(hist: Any, job_id: str) -> None:
+    """Mark the job RUNNING as its driver starts.
+
+    For a new job this is best-effort: its row still reads PENDING, which
+    readers already treat as unfinished, so a write that keeps losing on a busy
+    jobs table must not stop the job (GEN-1012). A rerun under the id of a job
+    whose row says it ended (DONE or FAILED) must not work under that row:
+    cleanup treats an ended job's table as free and may resume compaction under
+    it. So the error is raised for such a rerun, and when the row can't be read.
+    """
+    try:
+        hist.set_running(job_id)
+    except Exception:
+        status = _saved_status(hist, job_id)
+        if status is None or status in _ENDED_STATUSES:
+            raise
+        _LOG.warning(
+            "Could not mark job %s RUNNING; it continues as %s",
+            job_id,
+            status,
+            exc_info=True,
+        )
+
+
+# A rerun must not start work while its row reads one of these.
+_ENDED_STATUSES = frozenset({JobStatus.DONE.value, JobStatus.FAILED.value})
+
+
+def _saved_status(hist: Any, job_id: str) -> str | None:
+    """The status in the job's row, or None if it can't be read."""
+    try:
+        jobs = hist.get(job_id)
+    except Exception:
+        _LOG.warning("Could not read job %s", job_id, exc_info=True)
+        return None
+    if not jobs:
+        return None
+    status = jobs[0].status
+    return status.value if isinstance(status, JobStatus) else status
+
+
+def _mark_completed(hist: Any, job_id: str, attempt: bytes | None) -> None:
+    """Mark the job DONE after its work has committed.
+
+    The work is already committed, so failing to record that is not the job's
+    failure: it is logged and the job still succeeds (GEN-1012). With an
+    ``attempt`` token, the outcome is first recorded for this attempt, where
+    readers apply it if the status write is lost, and the status write is
+    fenced on the attempt so a relaunched job's replacement is left alone.
+    """
+    _record_attempt_outcome(hist, job_id, attempt, JobStatus.DONE)
+    try:
+        hist.set_completed(job_id, object_ref=attempt)
+    except Exception:
+        _LOG.error(
+            "Job %s finished, but its DONE status could not be recorded",
+            job_id,
+            exc_info=True,
+        )
+
+
+def _mark_failed(
+    hist: Any, job_id: str, attempt: bytes | None, error: Exception
+) -> None:
+    """Mark the job FAILED with ``error``. Best-effort, like
+    :func:`_mark_completed`."""
+    message = f"{type(error).__name__}: {error}"
+    _record_attempt_outcome(hist, job_id, attempt, JobStatus.FAILED, message)
+    with contextlib.suppress(Exception):
+        hist.set_failed(job_id, message, object_ref=attempt)
+
+
+def _record_attempt_outcome(
+    hist: Any,
+    job_id: str,
+    attempt: bytes | None,
+    status: JobStatus,
+    detail: str | None = None,
+) -> None:
+    """Record how this driver attempt ended, if it has an attempt token.
+    Best-effort: the status write still follows."""
+    if attempt is None:
+        return
+    try:
+        hist.record_attempt_outcome(job_id, attempt, status, detail)
+    except Exception:
+        _LOG.warning("Could not record the outcome of job %s", job_id, exc_info=True)
+
+
 def _open_latest_dataset(table_ref: TableReference) -> Any:
     """The job's table at its latest version, as a Lance dataset."""
     return open_latest_dataset(table_ref, use_worker_props=True)
+
+
+def _sibling_table(table_ref: TableReference, table_name: str) -> TableReference:
+    """Another table in the job's namespace, reached the way the job's own table
+    is: same namespace client, endpoint and storage options."""
+    return attrs.evolve(
+        table_ref,
+        table_id=[*table_ref.table_id[:-1], table_name],
+        version=None,
+        table_uri=None,
+    )
 
 
 def _pause_compaction(
@@ -1447,12 +1593,28 @@ def _pause_compaction(
     """Pause the Enterprise agent's automatic compaction of the job's table, if
     configured, then wait for any compaction the agent already started there
     (GEN-994). ``heartbeat`` shows other jobs that this one holds the pause.
+    While the job runs, the driver also takes its turn resuming compaction that
+    dead drivers left paused on other tables (GEN-1005).
 
     Returns the pause, None unless pausing is configured, and whether the job
     waited. A job that paused or waited must plan against the table as it is
     now, not as it was opened: a compaction may have finished in between,
-    including one the wait never saw. Never raises.
+    including one the wait never saw. Registry admission failures stop the job.
     """
+    config = CompactionPauseConfig.get()
+    coordinated = config.coordinates_compaction()
+    # Sophon must see this announcement before our registry read. In
+    # particular set_running may leave a canceled job unchanged, or may
+    # lose its write on a busy history table. PENDING is also an active
+    # announcement; missing, terminal and unreadable rows are not.
+    if coordinated and _saved_status(hist, job_id) not in {
+        "PENDING",
+        "RUNNING",
+    }:
+        raise RuntimeError(
+            f"Job {job_id} has no readable active history row; "
+            "cannot coordinate compaction before planning"
+        )
     pause = pause_for_job(
         table_name=table_ref.table_name,
         job_id=job_id,
@@ -1460,14 +1622,35 @@ def _pause_compaction(
         history=hist,
         heartbeat=heartbeat,
         on_event=lambda message: _record_event(hist, job_id, message),
+        open_table=lambda name: _open_latest_dataset(_sibling_table(table_ref, name)),
+        config=config,
+        namespace=table_ref.table_id[:-1],
     )
-    waited_for = wait_for_compactions(
-        table_id=table_ref.table_id,
-        on_wait=lambda job_ids: _emit_phase(
-            hist, job_id, f"Waiting for compaction {', '.join(job_ids)}"
-        ),
-        on_event=lambda message: _record_event(hist, job_id, message),
-    )
+    try:
+        # Cancellation changes the history status before workers stop. The
+        # compactor needs our durable running/exited heartbeat to distinguish
+        # that drain from a job whose work has actually ended, even when the
+        # operator disabled automatic compaction and no pause marker was set.
+        if coordinated and (
+            heartbeat is None or not heartbeat.wait_written(heartbeat.interval_s)
+        ):
+            raise RuntimeError(
+                f"Job {job_id} could not publish its driver heartbeat; "
+                "cannot coordinate compaction before planning"
+            )
+        waited_for = wait_for_compactions(
+            table_id=table_ref.table_id,
+            config=config,
+            on_wait=lambda job_ids: _emit_phase(
+                hist, job_id, f"Waiting for compaction {', '.join(job_ids)}"
+            ),
+            on_event=lambda message: _record_event(hist, job_id, message),
+        )
+    except BaseException:
+        # The caller has not received the pause yet, so its finally cannot
+        # stop this keeper/sweeper or undo the pause. No work was launched.
+        resume_after_job(pause)
+        raise
     return pause, bool(waited_for)
 
 
@@ -1592,9 +1775,13 @@ class ColumnAddPipelineJob:
     default_actor_memory_bytes: int | None = None
     _warned_unplaceable: bool = attrs.field(default=False, init=False)
     _total_rows: int = attrs.field(default=0, init=False)
+    # ReadTasks in the plan, fixed once setup_inputplans runs; caps the pool.
+    _planned_task_count: int | None = attrs.field(default=None, init=False)
     # Running "tasks_completed" total; grows as failed ReadTasks are replaced
     # (see _account_for_replacements) so the completion bar can't overshoot.
     _tasks_completed_total: int = attrs.field(default=0, init=False)
+    # Completions recovered by the driver, including zero-output tasks.
+    _driver_task_completions: int = attrs.field(default=0, init=False)
     skip_tracker: "SkipBudgetTracker | None" = attrs.field(default=None, init=False)
     _checkpoint_identity_contexts: tuple[tuple[str, str | None], ...] = attrs.field(
         factory=tuple, init=False
@@ -1733,6 +1920,7 @@ class ColumnAddPipelineJob:
                 "Read-plan metadata is inconsistent: total_tasks does not "
                 "match tasks_by_frag"
             )
+        self._planned_task_count = total_readtasks
 
         rc = PipelineResourceConfig.get()
         self.job_tracker = self.job_tracker or job_tracker_options(  # type: ignore[assignment]
@@ -1950,6 +2138,20 @@ class ColumnAddPipelineJob:
             _LOG.exception("Failed to build direct fragment write config")
             return None
 
+    def _applier_pool_size(self) -> int:
+        """Applier actors the pool starts: ``applier_concurrency`` capped by the
+        planned task count, and at least one.
+
+        Each actor reserves the UDF's GPU/CPU/memory, so actors beyond the task
+        count would only hold (and autoscale) resources that never run work.
+        Replacement tasks (OOM splits, retries, row-skip bisection) can outgrow
+        the plan; they queue on this pool rather than growing it. Before
+        planning the task count is unknown and the concurrency stands.
+        """
+        if self._planned_task_count is None:
+            return self.applier_concurrency
+        return max(1, min(self.applier_concurrency, self._planned_task_count))
+
     def setup_actorpool(self) -> ActorPool:
         batch_applier = self.setup_batchapplier()
 
@@ -1982,11 +2184,20 @@ class ColumnAddPipelineJob:
             checkpoint_base_storage_options=(
                 checkpoint_namespace_args.base_storage_options
             ),
+            checkpoint_layout=checkpoint_namespace_args.layout,
         )
 
         actor = self.setup_actor()
+        num_actors = self._applier_pool_size()
+        if num_actors < self.applier_concurrency:
+            _LOG.info(
+                "Starting %d applier actor(s) for %d planned task(s) (concurrency=%d)",
+                num_actors,
+                self._planned_task_count,
+                self.applier_concurrency,
+            )
         if self.job_tracker is not None:
-            self.job_tracker.set_total.remote("workers", self.applier_concurrency)
+            self.job_tracker.set_total.remote("workers", num_actors)
             self.job_tracker.set_desc.remote("workers", "Workers started")
 
         pool = ActorPool(
@@ -1997,7 +2208,7 @@ class ColumnAddPipelineJob:
                 column_name=self._udf_label(),
                 job_id=self.job_id,
             ),
-            self.applier_concurrency,
+            num_actors,
             job_tracker=self.job_tracker,
             worker_metric="workers",
             resubmit_on_actor_failure=False,
@@ -2107,14 +2318,16 @@ class ColumnAddPipelineJob:
             # TODO separate metrics for gpu and cpu workers?
             m_caa = CNT_WORKERS_ACTIVE
             cnt_active = ray_status.get(m_caa, 0)
+            # Totals are the pool's size, not the configured concurrency.
+            num_actors = self._applier_pool_size()
             self.job_tracker.set_desc.remote(m_caa, "active workers")
-            self.job_tracker.set_total.remote(m_caa, self.applier_concurrency)
+            self.job_tracker.set_total.remote(m_caa, num_actors)
             self.job_tracker.set.remote(m_caa, cnt_active)
 
             m_cpa = CNT_WORKERS_PENDING
             cnt_pending = ray_status.get(m_cpa, 0)
             self.job_tracker.set_desc.remote(m_cpa, "pending workers")
-            self.job_tracker.set_total.remote(m_cpa, self.applier_concurrency)
+            self.job_tracker.set_total.remote(m_cpa, num_actors)
             self.job_tracker.set.remote(m_cpa, cnt_pending)
         except Exception:
             _LOG.debug("refresh: failed to update job tracker", exc_info=True)
@@ -2495,6 +2708,7 @@ class ColumnAddPipelineJob:
         return checkpoint, row_address, selected
 
     def _record_driver_task_completion(self, *, rows_skipped: int = 0) -> None:
+        self._driver_task_completions += 1
         metric_deltas = {
             METRIC_ROWS_SKIPPED: int(rows_skipped),
             METRIC_TASKS_COMPLETED: 1,
@@ -2912,7 +3126,7 @@ class ColumnAddPipelineJob:
                 # Initialize with skipped rows as already completed
                 if skipped_rows > 0:
                     self.job_tracker.set.remote(m, skipped_rows)
-            # Track the number of rows processed by UDF excluding skipped rows.
+            # Count UDF rows from the same applier results as UDF time.
             self.job_tracker.set_desc.remote(
                 METRIC_UDF_VALUES,
                 f"{prefix} Rows processed by UDF",
@@ -3064,6 +3278,33 @@ class ColumnAddPipelineJob:
                 self._metric_buffer.add("fragments", 1)
             return True
 
+        release_idle_appliers = bool(
+            getattr(self.config, "release_idle_appliers", False)
+        )
+        release_idle_after_s = float(
+            getattr(
+                self.config,
+                "release_idle_appliers_after_s",
+                DEFAULT_RELEASE_IDLE_APPLIERS_AFTER_S,
+            )
+        )
+
+        def _release_idle_appliers() -> None:
+            """Release appliers with no work once the feeder has none to give.
+
+            In a long tail (one slow task) the other appliers, and their GPUs,
+            would otherwise sit idle until the job ends. An applier goes once
+            it has been idle for the grace, so late work arriving sooner runs
+            on it; later work restarts actors through ``pool.submit``. Called
+            after every result and every poll timeout, so an applier goes at
+            most one ``POLL_INTERVAL_S`` after its grace ends.
+            """
+            if release_idle_appliers and not feeder.has_work:
+                pool.release_idle_actors(
+                    idle_grace_s=release_idle_after_s,
+                    cleanup_method="flush_telemetry",
+                )
+
         # Prime the pool: num_actors + 1 so there's always a queued task ready.
         _fill_actor_pool(pool, _maybe_submit)
 
@@ -3107,6 +3348,7 @@ class ColumnAddPipelineJob:
             checkpoint_base_storage_options=(
                 checkpoint_namespace_args.base_storage_options
             ),
+            checkpoint_layout=checkpoint_namespace_args.layout,
             fragment_base_placement=self.fragment_base_placement,
             src_data_files_by_dst=self.src_data_files_by_dst,
             metric_buffer=self._metric_buffer,
@@ -3126,6 +3368,19 @@ class ColumnAddPipelineJob:
         refresher.start()
 
         stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
+
+        def raise_if_stalled(cause: BaseException | None = None) -> None:
+            if time.monotonic() > stall_deadline:
+                if cause is None:
+                    cause = pool.last_hardware_fault
+                diag = self._k8s_pod_diagnostics()
+                raise TimeoutError(
+                    f"Pipeline stalled: no task completed or checkpoint rows "
+                    f"recovered in {PIPELINE_STALL_TIMEOUT_S}s (cluster status age "
+                    f"{self._cluster_status_age_str()}). "
+                    f"Worker pod status:\n{diag}"
+                ) from cause
+
         try:
             while pool.has_next() or feeder.has_work:
                 if not pool.has_next() and not _fill_actor_pool(pool, _maybe_submit):
@@ -3133,6 +3388,10 @@ class ColumnAddPipelineJob:
                 try:
                     batch = pool.drain_ready(timeout=POLL_INTERVAL_S)
                 except ActorPoolTaskError as exc:
+                    progress_before = (
+                        self._driver_task_completions,
+                        fwm._reconciled_rows_checkpointed_total,
+                    )
                     pod_statuses = self._get_k8s_pod_statuses()
                     handled = self._handle_fatal_task_failure(
                         exc.task,
@@ -3147,8 +3406,23 @@ class ColumnAddPipelineJob:
                             exc.cause,
                             pod_statuses=pod_statuses,
                         ) from exc.cause
-                    stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
+                    progress_after = (
+                        self._driver_task_completions,
+                        fwm._reconciled_rows_checkpointed_total,
+                    )
+                    if progress_after != progress_before:
+                        stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
+                    elif not pool.has_buffered_results():
+                        # A handled failure can requeue or split work without
+                        # completing anything. It still consumes the idle budget,
+                        # even if failures arrive without a poll timeout. If the
+                        # failed drain buffered successes, let the next drain
+                        # deliver them before judging inactivity.
+                        raise_if_stalled(exc.cause)
                     _fill_actor_pool(pool, _maybe_submit)
+                    # A handled failure that queued no new work leaves the
+                    # failed actor's replacement with nothing to do.
+                    _release_idle_appliers()
                     fwm.poll_all()
                     continue
                 except PollTimeoutError:
@@ -3160,16 +3434,12 @@ class ColumnAddPipelineJob:
                         "cluster status snapshot age: %s",
                         self._cluster_status_age_str(),
                     )
-                    if time.monotonic() > stall_deadline:
-                        diag = self._k8s_pod_diagnostics()
-                        raise TimeoutError(
-                            f"Pipeline stalled: no task completed in "
-                            f"{PIPELINE_STALL_TIMEOUT_S}s (cluster status age "
-                            f"{self._cluster_status_age_str()}). "
-                            f"Worker pod status:\n{diag}"
-                        ) from pool.last_hardware_fault
+                    raise_if_stalled()
                     if self._metric_buffer is not None:
                         self._metric_buffer.flush()
+                    # Actors that finished starting during the poll may have
+                    # nothing left to run.
+                    _release_idle_appliers()
                     continue
 
                 # Refill every freed actor up front so the fleet is busy while
@@ -3182,7 +3452,7 @@ class ColumnAddPipelineJob:
                         task,
                         checkpoints,
                         direct_result,
-                        _cnt_udf_computed,
+                        cnt_udf_computed,
                         udf_processing_time_ms,
                         batch_checkpointing_time_ms,
                         read_io_time_ms,
@@ -3196,10 +3466,6 @@ class ColumnAddPipelineJob:
 
                     if direct_result is not None:
                         fwm.ingest_direct_fragment_result(task, direct_result)
-                        if self._metric_buffer is not None and _cnt_udf_computed > 0:
-                            self._metric_buffer.add(
-                                METRIC_UDF_VALUES, int(_cnt_udf_computed)
-                            )
                     else:
                         fwm.ingest_task(task, checkpoints)
                     # FragmentWriterManager has copied the checkpoint references
@@ -3235,6 +3501,7 @@ class ColumnAddPipelineJob:
                     )
 
                     if self._metric_buffer is not None:
+                        metric_deltas[METRIC_UDF_VALUES] = cnt_udf_computed
                         self._metric_buffer.add_many(metric_deltas)
                     # Check per-job skip threshold across all tasks
                     if self.skip_tracker is not None and task_total_rows > 0:
@@ -3248,6 +3515,9 @@ class ColumnAddPipelineJob:
                 # ensure we discover any frgments that finished writing even if
                 # the current task belongs to another fragment.
                 fwm.poll_all()
+                # Results are ingested first; releasing can block briefly on
+                # each released actor's telemetry flush.
+                _release_idle_appliers()
 
             if self._metric_buffer is not None:
                 self._metric_buffer.flush(force=True)
@@ -3362,6 +3632,8 @@ class FragmentWriterSession:
     checkpoint_base_uris: Optional[dict[int, str]] = None
     checkpoint_frag_to_base: Optional[dict[int, int]] = None
     checkpoint_base_storage_options: Optional[dict[str, str]] = None
+    # Driver's store layout, pinned so workers don't re-derive it from config.
+    checkpoint_layout: Optional[str] = None
     data_file_dir: Optional[str] = None
     data_file_base_id: Optional[int] = None
     data_file_name: Optional[str] = None
@@ -3505,6 +3777,7 @@ class FragmentWriterSession:
             checkpoint_base_uris=self.checkpoint_base_uris,
             checkpoint_frag_to_base=self.checkpoint_frag_to_base,
             checkpoint_base_storage_options=self.checkpoint_base_storage_options,
+            checkpoint_layout=self.checkpoint_layout,
             data_file_dir=self.data_file_dir,
             data_file_base_id=self.data_file_base_id,
             data_file_name=self.data_file_name,
@@ -4176,6 +4449,8 @@ class FragmentWriterManager:
     checkpoint_base_uris: Optional[dict[int, str]] = None
     checkpoint_frag_to_base: Optional[dict[int, int]] = None
     checkpoint_base_storage_options: Optional[dict[str, str]] = None
+    # Driver's store layout, pinned so workers don't re-derive it from config.
+    checkpoint_layout: Optional[str] = None
     fragment_base_placement: Optional[FragmentBasePlacement] = None
     job_id: Optional[str] = None
     job_type: str = "backfill"
@@ -4807,6 +5082,7 @@ class FragmentWriterManager:
             checkpoint_base_uris=self.checkpoint_base_uris,
             checkpoint_frag_to_base=self.checkpoint_frag_to_base,
             checkpoint_base_storage_options=self.checkpoint_base_storage_options,
+            checkpoint_layout=self.checkpoint_layout,
             data_file_dir=(
                 placement.data_dir_for_frag(frag_id) if placement is not None else None
             ),
@@ -4903,7 +5179,6 @@ class FragmentWriterManager:
             return
 
         rows_checkpointed_delta = 0
-        udf_values_delta = 0
         for result in checkpoints:
             sess.ingest_task(result.offset, result.checkpoint_key, result.num_rows)
             # Track progress in the planner's offset domain (span).
@@ -4913,15 +5188,8 @@ class FragmentWriterManager:
                 ) + int(result.span)
                 self._reconciled_rows_checkpointed_total += int(result.span)
                 rows_checkpointed_delta += int(result.span)
-            if result.udf_rows > 0:
-                udf_values_delta += int(result.udf_rows)
 
-        self._add_metrics(
-            {
-                "rows_checkpointed": rows_checkpointed_delta,
-                METRIC_UDF_VALUES: udf_values_delta,
-            }
-        )
+        self._add_metrics({"rows_checkpointed": rows_checkpointed_delta})
 
         # One read task completed for this fragment.
         self.remaining_tasks[frag_id] = self.remaining_tasks.get(frag_id, 0) - 1
@@ -9037,37 +9305,49 @@ def run_ray_copy_table(
 def _submit_ray_job(
     hist: Any,
     job_id: str,
-    submit: Callable[[], Any],
+    submit: Callable[[bytes], Any],
     *,
     state: RayJobState | None = None,
+    job_tracker: ActorHandle | None = None,
 ) -> Any:
+    """Submit one driver attempt of the job.
+
+    A fresh attempt token is saved as the row's ``object_ref`` before the
+    driver is submitted, and passed to ``submit`` for the driver, so the driver
+    and every later write about this attempt share one durable identity
+    (GEN-1012). If it can't be saved, no driver is submitted and
+    ``JobNotSubmittedError`` is raised without changing another attempt's status.
+    """
+    state = state or RayJobState(hist, job_id)
+    attempt = new_attempt()
     try:
-        obj_ref = submit()
+        hist.set_object_ref(job_id, attempt)
+    except Exception as exc:
+        if job_tracker is not None:
+            with contextlib.suppress(Exception):
+                ray.kill(job_tracker, no_restart=True)
+        raise JobNotSubmittedError(
+            f"Job {job_id} was not submitted because its attempt token "
+            "could not be saved."
+        ) from exc
+    state.object_ref = attempt
+
+    try:
+        obj_ref = submit(attempt)
     except Exception as exc:
         try:
-            hist.set_failed(job_id, str(exc))
+            hist.set_failed(job_id, str(exc), object_ref=attempt)
         except Exception:
             _LOG.exception("Failed to mark job %s failed after submit error", job_id)
         raise
 
-    state = state or RayJobState(hist, job_id)
-    try:
-        serialized_ref = cloudpickle.dumps(obj_ref)
-        hist.set_object_ref(job_id, serialized_ref)
-        state.object_ref = serialized_ref
-    except Exception:
-        _LOG.warning(
-            "Failed to persist Ray object ref for job %s", job_id, exc_info=True
-        )
-        # Without a durable attempt identity we cannot safely write a delayed
-        # failure: the same job id may already belong to a replacement driver.
-        return obj_ref
     # A worker killed outside Python never reaches the driver's exception
-    # handler. Observe its result from the submitter, including fire-and-forget
-    # jobs, so an OOM cannot leave a healthy-looking RUNNING record behind.
+    # handler, and a busy jobs table can reject the driver's own final status
+    # write. Observe its result from the submitter, including fire-and-forget
+    # jobs, so neither leaves a healthy-looking RUNNING record behind.
     try:
         obj_ref.future().add_done_callback(
-            lambda future: state.record_failure(future.exception())
+            lambda future: state.record_result(future.exception())
         )
     except Exception:
         _LOG.warning("Failed to watch Ray driver for job %s", job_id, exc_info=True)
@@ -9248,38 +9528,44 @@ def dispatch_run_ray_add_column(
     )
     parent_carrier = telemetry.inject_context()
     state = RayJobState(hist, job.job_id, table_ref)
-    obj_ref = _submit_ray_job(
-        hist,
-        job.job_id,
-        lambda: remote_runner(
-            table_ref,
-            col_name,
-            read_version=read_version,  # type: ignore[call-arg]
-            read_version_pinned=read_version_pinned,  # type: ignore[call-arg]
-            job_id=job.job_id,  # type: ignore[call-arg]
-            job_tracker=job_tracker,  # type: ignore[call-arg]
-            concurrency=concurrency,  # type: ignore[call-arg]
-            checkpoint_size=checkpoint_size,  # type: ignore[call-arg]
-            min_checkpoint_size=min_checkpoint_size,  # type: ignore[call-arg]
-            max_checkpoint_size=max_checkpoint_size,  # type: ignore[call-arg]
-            task_size=task_size,  # type: ignore[call-arg]
-            task_shuffle_diversity=task_shuffle_diversity,  # type: ignore[call-arg]
-            commit_granularity=commit_granularity,  # type: ignore[call-arg]
-            batch_checkpoint_flush_interval_seconds=(
-                batch_checkpoint_flush_interval_seconds
-            ),  # type: ignore[call-arg]
-            where=where,  # type: ignore[call-arg]
-            default_where_generated=default_where_generated,  # type: ignore[call-arg]
-            unpack_fields=unpack_fields,  # type: ignore[call-arg]
-            checkpoint_column=checkpoint_column,  # type: ignore[call-arg]
-            num_cpus=num_cpus,  # type: ignore[call-arg]
-            num_gpus=num_gpus,  # type: ignore[call-arg]
-            memory=memory,  # type: ignore[call-arg]
-            parent_carrier=parent_carrier,  # type: ignore[call-arg]
-            **kwargs,
-        ),
-        state=state,
-    )
+    try:
+        obj_ref = _submit_ray_job(
+            hist,
+            job.job_id,
+            lambda attempt: remote_runner(
+                table_ref,
+                col_name,
+                read_version=read_version,  # type: ignore[call-arg]
+                read_version_pinned=read_version_pinned,  # type: ignore[call-arg]
+                job_id=job.job_id,  # type: ignore[call-arg]
+                attempt=attempt,  # type: ignore[call-arg]
+                job_tracker=job_tracker,  # type: ignore[call-arg]
+                concurrency=concurrency,  # type: ignore[call-arg]
+                checkpoint_size=checkpoint_size,  # type: ignore[call-arg]
+                min_checkpoint_size=min_checkpoint_size,  # type: ignore[call-arg]
+                max_checkpoint_size=max_checkpoint_size,  # type: ignore[call-arg]
+                task_size=task_size,  # type: ignore[call-arg]
+                task_shuffle_diversity=task_shuffle_diversity,  # type: ignore[call-arg]
+                commit_granularity=commit_granularity,  # type: ignore[call-arg]
+                batch_checkpoint_flush_interval_seconds=(
+                    batch_checkpoint_flush_interval_seconds
+                ),  # type: ignore[call-arg]
+                where=where,  # type: ignore[call-arg]
+                default_where_generated=default_where_generated,  # type: ignore[call-arg]
+                unpack_fields=unpack_fields,  # type: ignore[call-arg]
+                checkpoint_column=checkpoint_column,  # type: ignore[call-arg]
+                num_cpus=num_cpus,  # type: ignore[call-arg]
+                num_gpus=num_gpus,  # type: ignore[call-arg]
+                memory=memory,  # type: ignore[call-arg]
+                parent_carrier=parent_carrier,  # type: ignore[call-arg]
+                **kwargs,
+            ),
+            state=state,
+            job_tracker=job_tracker,
+        )
+    except Exception as exc:
+        telemetry.close_span(_dispatch_span, exc)
+        raise
     telemetry.close_span(_dispatch_span)
 
     # Register with the current context so _wait_for_tracked_jobs can await it
@@ -9412,9 +9698,10 @@ def dispatch_run_ray_refresh(
         obj_ref = _submit_ray_job(
             hist,
             job.job_id,
-            lambda: remote_runner(
+            lambda attempt: remote_runner(
                 table_ref,
                 job_id=job.job_id,  # type: ignore[call-arg]
+                attempt=attempt,  # type: ignore[call-arg]
                 job_tracker=job_tracker,  # type: ignore[call-arg]
                 src_version=src_version,  # type: ignore[call-arg]
                 max_rows_per_fragment=max_rows_per_fragment,  # type: ignore[call-arg]
@@ -9427,10 +9714,11 @@ def dispatch_run_ray_refresh(
                 parent_carrier=parent_carrier,  # type: ignore[call-arg]
             ),
             state=state,
+            job_tracker=job_tracker,
         )
         telemetry.close_span(_dispatch_span)
-    except Exception as e:
-        hist.set_failed(job.job_id, str(e))
+    except Exception as exc:
+        telemetry.close_span(_dispatch_span, exc)
         raise
 
     from geneva.runners.ray.raycluster import RayCluster
@@ -9466,6 +9754,7 @@ def run_ray_refresh_remote(
     _admission_check: bool | None = None,
     _admission_strict: bool | None = None,
     parent_carrier: dict | None = None,
+    attempt: bytes | None = None,
 ) -> None:
     """Worker-side wrapper for MV refresh, mirroring
     :func:`run_ray_add_column_remote`.
@@ -9519,7 +9808,7 @@ def run_ray_refresh_remote(
             table_ref.table_name,
         )
         if job_id:
-            hist.set_running(job_id)
+            _mark_running(hist, job_id)
             heartbeat = _start_driver_heartbeat(hist, job_id)
             compaction_pause, _ = _pause_compaction(hist, table_ref, job_id, heartbeat)
 
@@ -9545,6 +9834,7 @@ def run_ray_refresh_remote(
             )
         else:
             checkpoint_store = table_ref.open_checkpoint_store()
+            _log_checkpoint_layout(checkpoint_store)
             run_ray_copy_table(
                 table_ref,
                 tbl._conn._packager,
@@ -9584,7 +9874,7 @@ def run_ray_refresh_remote(
 
         if job_id:
             _flush_job_tracker(job_tracker)
-            hist.set_completed(job_id)
+            _mark_completed(hist, job_id, attempt)
 
         telemetry.close_span(_complete_span)
 
@@ -9593,8 +9883,7 @@ def run_ray_refresh_remote(
         _LOG.exception("Error running Ray refresh operation")
         if job_id and hist is not None:
             _flush_job_tracker(job_tracker)
-            with contextlib.suppress(Exception):
-                hist.set_failed(job_id, f"{type(e).__name__}: {e}")
+            _mark_failed(hist, job_id, attempt, e)
         raise
     finally:
         resume_after_job(compaction_pause)
@@ -9778,6 +10067,7 @@ def run_ray_add_column_remote(
     memory: int | None = None,
     job_tracker: ActorHandle | None = None,
     parent_carrier: dict | None = None,
+    attempt: bytes | None = None,
     **kwargs,
 ) -> dict[str, Any] | None:
     """
@@ -9819,7 +10109,7 @@ def run_ray_add_column_remote(
         tbl = table_ref.open()
         hist = tbl._conn._history
         if job_id:
-            hist.set_running(job_id)
+            _mark_running(hist, job_id)
             heartbeat = _start_driver_heartbeat(hist, job_id)
             compaction_pause, waited = _pause_compaction(
                 hist, table_ref, job_id, heartbeat
@@ -9906,7 +10196,7 @@ def run_ray_add_column_remote(
             )
             if job_id:
                 _flush_job_tracker(job_tracker)
-                hist.set_completed(job_id)
+                _mark_completed(hist, job_id, attempt)
             # The returned dict becomes the job payload (the future's result),
             # from which BackfillJobResult reads its per-column counters.
             return {
@@ -9922,6 +10212,7 @@ def run_ray_add_column_remote(
 
         # Use table-specific checkpoint store
         checkpoint_store = table_ref.open_checkpoint_store()
+        _log_checkpoint_layout(checkpoint_store)
         run_ray_add_column(
             table_ref,
             input_columns,
@@ -9951,21 +10242,19 @@ def run_ray_add_column_remote(
         )
         if job_id:
             _flush_job_tracker(job_tracker)
-            hist.set_completed(job_id)
+            _mark_completed(hist, job_id, attempt)
     except SkipThresholdExceededError as e:
         job_exc = e
         if job_id and hist is not None:
             _flush_job_tracker(job_tracker)
-            with contextlib.suppress(Exception):
-                hist.set_failed(job_id, f"{type(e).__name__}: {e}")
+            _mark_failed(hist, job_id, attempt, e)
         raise
     except Exception as e:
         job_exc = e
         _LOG.exception("Error running Ray add column operation")
         if job_id and hist is not None:
             _flush_job_tracker(job_tracker)
-            with contextlib.suppress(Exception):
-                hist.set_failed(job_id, f"{type(e).__name__}: {e}")
+            _mark_failed(hist, job_id, attempt, e)
         raise _picklable_remote_error(e) from None
     finally:
         resume_after_job(compaction_pause)
@@ -10402,10 +10691,10 @@ def run_ray_add_column(
     udf_input_cols: set[str] = set()
     for t in transforms.values():
         udf_input_cols.update(t.input_columns or [])
-    deferrable_cf_cols = [c for c in carry_forward_cols if c not in udf_input_cols]
-    defer_carry_forward = (
-        DEFAULT_DEFER_CARRY_FORWARD and where is not None and bool(deferrable_cf_cols)
+    deferrable_cf_cols = deferred_carry_forward_columns(
+        where, carry_forward_cols, udf_input_cols
     )
+    defer_carry_forward = bool(deferrable_cf_cols)
 
     if defer_carry_forward:
         # Don't read the deferred carry-forward columns on the applier.
@@ -11059,35 +11348,41 @@ def dispatch_run_ray_bulk_load(
     )
     parent_carrier = telemetry.inject_context()
     state = RayJobState(hist, job.job_id, table_ref)
-    obj_ref = _submit_ray_job(
-        hist,
-        job.job_id,
-        lambda: remote_runner(
-            table_ref,
-            source_uri,
-            pk_column,
-            value_columns,
-            source_format=source_format,  # type: ignore[call-arg]
-            source_storage_options=source_storage_options,  # type: ignore[call-arg]
-            on_missing=on_missing,  # type: ignore[call-arg]
-            job_id=job.job_id,  # type: ignore[call-arg]
-            job_tracker=job_tracker,  # type: ignore[call-arg]
-            concurrency=concurrency,  # type: ignore[call-arg]
-            task_size=task_size,  # type: ignore[call-arg]
-            checkpoint_size=checkpoint_size,  # type: ignore[call-arg]
-            min_checkpoint_size=min_checkpoint_size,  # type: ignore[call-arg]
-            max_checkpoint_size=max_checkpoint_size,  # type: ignore[call-arg]
-            checkpoint_interval_seconds=checkpoint_interval_seconds,  # type: ignore[call-arg]
-            loader_cpus=loader_cpus,  # type: ignore[call-arg]
-            loader_memory=loader_memory,  # type: ignore[call-arg]
-            commit_granularity=commit_granularity,  # type: ignore[call-arg]
-            batch_checkpoint_flush_interval_seconds=(  # type: ignore[call-arg]
-                batch_checkpoint_flush_interval_seconds
+    try:
+        obj_ref = _submit_ray_job(
+            hist,
+            job.job_id,
+            lambda attempt: remote_runner(
+                table_ref,
+                source_uri,
+                pk_column,
+                value_columns,
+                source_format=source_format,  # type: ignore[call-arg]
+                source_storage_options=source_storage_options,  # type: ignore[call-arg]
+                on_missing=on_missing,  # type: ignore[call-arg]
+                job_id=job.job_id,  # type: ignore[call-arg]
+                attempt=attempt,  # type: ignore[call-arg]
+                job_tracker=job_tracker,  # type: ignore[call-arg]
+                concurrency=concurrency,  # type: ignore[call-arg]
+                task_size=task_size,  # type: ignore[call-arg]
+                checkpoint_size=checkpoint_size,  # type: ignore[call-arg]
+                min_checkpoint_size=min_checkpoint_size,  # type: ignore[call-arg]
+                max_checkpoint_size=max_checkpoint_size,  # type: ignore[call-arg]
+                checkpoint_interval_seconds=checkpoint_interval_seconds,  # type: ignore[call-arg]
+                loader_cpus=loader_cpus,  # type: ignore[call-arg]
+                loader_memory=loader_memory,  # type: ignore[call-arg]
+                commit_granularity=commit_granularity,  # type: ignore[call-arg]
+                batch_checkpoint_flush_interval_seconds=(  # type: ignore[call-arg]
+                    batch_checkpoint_flush_interval_seconds
+                ),
+                parent_carrier=parent_carrier,  # type: ignore[call-arg]
             ),
-            parent_carrier=parent_carrier,  # type: ignore[call-arg]
-        ),
-        state=state,
-    )
+            state=state,
+            job_tracker=job_tracker,
+        )
+    except Exception as exc:
+        telemetry.close_span(_dispatch_span, exc)
+        raise
     telemetry.close_span(_dispatch_span)
 
     from geneva.runners.ray.raycluster import RayCluster
@@ -11129,6 +11424,7 @@ def run_ray_bulk_load_remote(
         DEFAULT_BATCH_CHECKPOINT_FLUSH_INTERVAL_SECONDS
     ),
     parent_carrier: dict | None = None,
+    attempt: bytes | None = None,
 ) -> None:
     """Ray remote function that runs the bulk load column pipeline."""
     import geneva  # noqa: F401  Force env setup
@@ -11159,11 +11455,12 @@ def run_ray_bulk_load_remote(
         tbl = table_ref.open()
         hist = tbl._conn._history
         if job_id:
-            hist.set_running(job_id)
+            _mark_running(hist, job_id)
             heartbeat = _start_driver_heartbeat(hist, job_id)
             compaction_pause, _ = _pause_compaction(hist, table_ref, job_id, heartbeat)
 
         checkpoint_store = table_ref.open_checkpoint_store()
+        _log_checkpoint_layout(checkpoint_store)
         telemetry.close_span(_setup_span)
         run_ray_bulk_load(
             table_ref,
@@ -11191,14 +11488,13 @@ def run_ray_bulk_load_remote(
         )
         if job_id:
             _flush_job_tracker(job_tracker)
-            hist.set_completed(job_id)
+            _mark_completed(hist, job_id, attempt)
     except Exception as e:
         job_exc = e
         _LOG.exception("Error running bulk load column operation")
         if job_id and hist is not None:
             _flush_job_tracker(job_tracker)
-            with contextlib.suppress(Exception):
-                hist.set_failed(job_id, f"{type(e).__name__}: {e}")
+            _mark_failed(hist, job_id, attempt, e)
         raise _picklable_remote_error(e) from None
     finally:
         resume_after_job(compaction_pause)

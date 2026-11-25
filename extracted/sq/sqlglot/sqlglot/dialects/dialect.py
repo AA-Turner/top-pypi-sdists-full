@@ -611,6 +611,9 @@ class Dialect(metaclass=_Dialect):
         to "WHERE id = 1 GROUP BY id HAVING id = 1"
     """
 
+    SUPPORTS_FORWARD_ALIAS_REFS = False
+    """Whether SELECT list expressions can reference aliases defined later in the same list."""
+
     PREFER_PROJECTION_ALIASES_IN_DOT_PATHS = False
     """Whether `obj.field` prefers a projection alias named `obj` over a source column of the same name."""
 
@@ -956,6 +959,9 @@ class Dialect(metaclass=_Dialect):
     Whether to prioritize non-literal types over literals during type annotation.
     """
 
+    # (inclusive max, type) pairs for integer literals, tried in order; a None max is unbounded
+    INT_LITERAL_TYPES: tuple[tuple[int | None, exp.DType], ...] = ((None, exp.DType.INT),)
+
     ALIAS_POST_VERSION = True
     """Whether the table alias comes after version (timestamp or iceberg snapshot)."""
 
@@ -1091,6 +1097,9 @@ class Dialect(metaclass=_Dialect):
         "CENTS": "CENTURY",
         "CENTURIES": "CENTURY",
     }
+
+    # Aliases used only when generating EXTRACT.
+    EXTRACT_DATE_PART_MAPPING: t.ClassVar[dict[str, str]] = {}
 
     # Specifies what types a given type can be coerced into
     COERCES_TO: dict[exp.DType, set[exp.DType]] = {}
@@ -1400,6 +1409,16 @@ class Dialect(metaclass=_Dialect):
             exp.to_identifier(f"_col_{i}")
             for i, _ in enumerate(expression.expressions[0].expressions)
         ]
+
+    def int_literal_type(self, expression: exp.Literal) -> exp.DataType | exp.DType:
+        value = int(expression.to_py())
+        for bound, int_type in self.INT_LITERAL_TYPES:
+            if bound is None or value <= bound:
+                return int_type
+        return exp.DType.INT
+
+    def decimal_literal_type(self, text: str) -> exp.DataType | exp.DType:
+        return exp.DType.DOUBLE
 
 
 DialectType = t.Union[str, Dialect, Type[Dialect], None]
@@ -2579,23 +2598,27 @@ def week_unit_to_dow(unit: exp.Expr | None) -> int | None:
 
 
 @t.overload
-def map_date_part(part: exp.Expr, dialect: DialectType = Dialect) -> exp.Expr:
+def map_date_part(
+    part: exp.Expr, dialect: DialectType = Dialect, *, mapping: dict[str, str] | None = None
+) -> exp.Expr:
     pass
 
 
 @t.overload
-def map_date_part(part: exp.Expr | None, dialect: DialectType = Dialect) -> exp.Expr | None:
+def map_date_part(
+    part: exp.Expr | None, dialect: DialectType = Dialect, *, mapping: dict[str, str] | None = None
+) -> exp.Expr | None:
     pass
 
 
-def map_date_part(part, dialect: DialectType = Dialect):
-    mapped = (
-        Dialect.get_or_raise(dialect).DATE_PART_MAPPING.get(part.name.upper())
-        if part and not (isinstance(part, exp.Column) and len(part.parts) != 1)
-        else None
-    )
-    if mapped:
-        return exp.Literal.string(mapped) if part.is_string else exp.var(mapped)
+def map_date_part(part, dialect: DialectType = Dialect, *, mapping: dict[str, str] | None = None):
+    """Map a date part using explicit aliases or the dialect's general aliases."""
+    if part and not (isinstance(part, exp.Column) and len(part.parts) != 1):
+        if mapping is None:
+            mapping = Dialect.get_or_raise(dialect).DATE_PART_MAPPING
+        mapped = mapping.get(part.name.upper())
+        if mapped:
+            return exp.Literal.string(mapped) if part.is_string else exp.var(mapped)
 
     return part
 

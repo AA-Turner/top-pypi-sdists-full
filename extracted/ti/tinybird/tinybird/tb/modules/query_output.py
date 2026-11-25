@@ -1,3 +1,5 @@
+from typing import Any
+
 import click
 import humanfriendly
 
@@ -5,7 +7,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.table import format_table
 
 
-def print_table_formatted(res: dict, name: str):
+def print_table_formatted(res: dict[str, Any], name: str) -> None:
     limit = 20
     data = [d.values() for d in res["data"][:limit]]
     meta = res["meta"]

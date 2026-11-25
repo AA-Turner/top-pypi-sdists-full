@@ -62,6 +62,8 @@ class AlleleRead(ValueObject):
         "source_read_views",
         "quality_scores",
         "source_allele_qualities",
+        "is_secondary",
+        "_hash_cache",
     ]
 
     def __init__(
@@ -78,7 +80,8 @@ class AlleleRead(ValueObject):
             source_alignment_paths=(),
             source_read_views=(),
             quality_scores=None,
-            source_allele_qualities=()):
+            source_allele_qualities=(),
+            is_secondary=None):
         self.prefix = prefix
         self.allele = allele
         self.suffix = suffix
@@ -92,19 +95,56 @@ class AlleleRead(ValueObject):
         if self.quality_scores is not None and len(self.quality_scores) != len(self.sequence):
             raise ValueError("quality_scores must match the allele read sequence length")
         self.source_allele_qualities = tuple(source_allele_qualities)
+        self.is_secondary = is_secondary
         self.reference_blocks = tuple(reference_blocks)
         self.splice_junctions = tuple(splice_junctions)
         self.compatible_transcript_ids = (
             None
             if compatible_transcript_ids is None
             else frozenset(compatible_transcript_ids))
+        self._hash_cache = None
 
     def __len__(self):
         return len(self.sequence)
 
+    def __hash__(self):
+        try:
+            cached = self._hash_cache
+        except AttributeError:
+            cached = None
+        if cached is None:
+            cached = hash((
+                self.prefix,
+                self.allele,
+                self.suffix,
+                self.name,
+                self.sequence,
+                self.source_read_count,
+                self.source_alignments,
+                self.source_alignment_paths,
+            ))
+            self._hash_cache = cached
+        return cached
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+        if self.__class__ is not other.__class__:
+            return False
+        return (
+            self.prefix == other.prefix
+            and self.allele == other.allele
+            and self.suffix == other.suffix
+            and self.name == other.name
+            and self.sequence == other.sequence
+            and self.source_read_count == other.source_read_count
+            and self.source_alignments == other.source_alignments
+            and self.source_alignment_paths == other.source_alignment_paths
+        )
+
     def with_compatible_transcript_ids(self, transcript_ids):
         """Return this observation classified against a transcript set."""
-        return AlleleRead(
+        cloned = AlleleRead(
             prefix=self.prefix,
             allele=self.allele,
             suffix=self.suffix,
@@ -117,7 +157,10 @@ class AlleleRead(ValueObject):
             source_alignment_paths=self.source_alignment_paths,
             source_read_views=self.source_read_views,
             quality_scores=getattr(self, "quality_scores", None),
-            source_allele_qualities=getattr(self, "source_allele_qualities", ()))
+            source_allele_qualities=getattr(self, "source_allele_qualities", ()),
+            is_secondary=getattr(self, "is_secondary", None))
+        cloned._hash_cache = getattr(self, "_hash_cache", None)
+        return cloned
 
     @staticmethod
     def _reference_blocks(reference_positions):
@@ -259,7 +302,8 @@ class AlleleRead(ValueObject):
             source_read_views=getattr(locus_read, "source_read_views", ()),
             quality_scores=(None if locus_read.quality_scores is None
                             else locus_read.quality_scores[retained_start:retained_end]),
-            source_allele_qualities=getattr(locus_read, "source_allele_qualities", ()))
+            source_allele_qualities=getattr(locus_read, "source_allele_qualities", ()),
+            is_secondary=getattr(locus_read, "is_secondary", None))
 
 
 # Branch-local transcript classifications are not distinct observations.
@@ -275,5 +319,7 @@ AlleleRead._fields = tuple(
         "source_read_views",
         "quality_scores",
         "source_allele_qualities",
+        "is_secondary",
+        "_hash_cache",
     }
 )

@@ -15,12 +15,15 @@ by the id, and the second replaces the first.
 
 Each LiDAR is ``world/lidar/<logical id>``, a ``Points3D`` coloured by height,
 inside the converter's 3D view (``world/**``).  A sweep is the points the
-policy got, carried into the world with the ego's pose it got them with.
+policy got, carried into the world with the ego's full pose (pitch and roll
+too) on the tick it was taken.
 
-Each camera is ``world/ego/pose/cameras/<logical id>``: its mount on the ego
-(``world/ego/pose`` is the ego actor's transform), a pinhole of its field of
-view and the JPEG frames the policy got, so the 3D view draws its frustum with
-the frame in it, and a 2D view of the entity shows the frames.
+Each camera is ``world/ego/pose/cameras/<logical id>``: its mount on the ego,
+a pinhole of its field of view and the JPEG frames the policy got, so the 3D
+view draws its frustum with the frame in it, and a 2D view of the entity shows
+the frames.  The converter writes ``world/ego/pose`` with the ego actor's
+location and yaw alone, so ``world/ego/pose/cameras`` carries the rest of its
+rotation, its pitch and roll, on every tick (:meth:`SensorRecorder.log_ego_tilt`).
 
 Needs the Rerun SDK of the converter's minor version
 (``pip install 'autoware-carla-scenario[rerun-lidar]'``), imported only when a
@@ -80,6 +83,7 @@ __all__ = [
     "active_recorder",
     "carries_sensors",
     "chunk_entities",
+    "ego_tilt",
     "extract_sensors",
     "lidar_recording_path",
     "merge_into",
@@ -267,6 +271,17 @@ def extract_sensors(recording: Path, sensors: Path) -> bool:
     return True
 
 
+def ego_tilt(
+    roll_deg: float, pitch_deg: float
+) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:
+    """The ego's rotation without its yaw, in the recording's right-handed
+    frame, from CARLA's roll and pitch (degrees): the full rotation is the
+    yaw-only one (``world/ego/pose``) times this.  CARLA's ``yaw * pitch *
+    roll`` rebuilt right-handed is ``Rz(-yaw) Ry(-pitch) Rx(roll)``, as a
+    camera's mount (:meth:`CameraMount.rotation`)."""
+    return CameraMount(0, 0, 0.0, rotation_deg=(roll_deg, pitch_deg, 0.0)).rotation()
+
+
 def active_recorder() -> Optional["SensorRecorder"]:
     """The recorder of the run in progress, if it records its sensors."""
     return _active
@@ -313,6 +328,10 @@ class SensorRecorder:
         self._stream: Any = self._rr.RecordingStream(
             APPLICATION_ID, recording_id=recording_id
         )
+        # The converter's chunks are on `frame` and `sim_time` alone: the
+        # SDK's wall-clock `log_time` would put the sensors alone on a
+        # timeline of their own.
+        self._stream.set_log_time_enabled(False)
         self._stream.save(str(self.path))
 
     def start(self) -> "SensorRecorder":
@@ -360,6 +379,11 @@ class SensorRecorder:
     ) -> bool:
         """Write one JPEG frame of a camera at *frame*; its mount and pinhole
         the first time.  Returns whether it was written (not a warm-up frame).
+
+        A camera whose image is no pinhole (an F-theta lens,
+        :attr:`CameraMount.pinhole`) gets its mount alone: Rerun has no model
+        of such a lens, and a pinhole of its ``fov`` would draw its frustum
+        and project its image wrong.
         """
         if frame < self.start_frame:
             return False
@@ -367,25 +391,40 @@ class SensorRecorder:
         entity = f"world/ego/pose/cameras/{camera_id}"
         if camera_id not in self._mounted:
             self._mounted.add(camera_id)
-            self._stream.log(
-                entity,
-                rr.Transform3D(
-                    translation=mount.translation(), mat3x3=mount.rotation()
-                ),
-                rr.Pinhole(
-                    focal_length=mount.focal_length_px(),
-                    width=mount.width,
-                    height=mount.height,
-                    camera_xyz=rr.ViewCoordinates.FLU,
-                    image_plane_distance=2.0,
-                ),
-                static=True,
-            )
+            components: list[Any] = [
+                rr.Transform3D(translation=mount.translation(), mat3x3=mount.rotation())
+            ]
+            if mount.pinhole:
+                components.append(
+                    rr.Pinhole(
+                        focal_length=mount.focal_length_px(),
+                        width=mount.width,
+                        height=mount.height,
+                        camera_xyz=rr.ViewCoordinates.FLU,
+                        image_plane_distance=2.0,
+                    )
+                )
+            self._stream.log(entity, *components, static=True)
         self._at(frame)
         self._stream.log(
             entity, rr.EncodedImage(contents=bytes(jpeg), media_type="image/jpeg")
         )
         self.frames += 1
+        return True
+
+    def log_ego_tilt(self, frame: int, roll_deg: float, pitch_deg: float) -> bool:
+        """Write the ego's pitch and roll on *frame* (CARLA's, degrees) as the
+        transform of ``world/ego/pose/cameras``, the cameras' parent, so they
+        are drawn with the ego's full rotation: the converter's
+        ``world/ego/pose`` has its yaw alone.  Only when the cameras are
+        recorded; returns whether it was written (not a warm-up tick)."""
+        if not self.records_cameras or frame < self.start_frame:
+            return False
+        self._at(frame)
+        self._stream.log(
+            "world/ego/pose/cameras",
+            self._rr.Transform3D(mat3x3=ego_tilt(roll_deg, pitch_deg)),
+        )
         return True
 
     def _at(self, frame: int) -> None:
@@ -395,15 +434,24 @@ class SensorRecorder:
         )
 
     def close(self) -> Path:
-        """Flush and close the recording; no longer the active one.  Its path."""
+        """Flush and close the recording; no longer the active one.  Its path.
+
+        The stream is dropped and the SDK told to clean up the recordings no
+        longer referenced: Rerun 0.38 never joins a closed stream's threads
+        otherwise, two of them a run for the life of the process (#2485).
+        """
         global _active
         with _lock:
             if _active is self:
                 _active = None
-        try:
-            self._stream.flush()
-        finally:
-            self._stream.disconnect()
+        stream, self._stream = self._stream, None
+        if stream is not None:
+            try:
+                stream.flush()
+            finally:
+                stream.disconnect()
+                del stream
+                _cleanup_orphaned_recordings(self._rr)
         logger.info(
             "Sensor recording: %d LiDAR sweep(s) and %d camera frame(s) written to %s",
             self.sweeps,
@@ -411,6 +459,43 @@ class SensorRecorder:
             self.path,
         )
         return self.path
+
+
+#: One sweep at a time: each puts back the global recordings it found.
+_cleanup_lock = threading.Lock()
+
+
+def _cleanup_orphaned_recordings(sdk: Any) -> None:
+    """End the threads of the recordings nothing references any more, with
+    the SDK's ``flush_and_cleanup_orphaned_recordings`` (Rerun 0.38); nothing
+    with an SDK without it.
+
+    The sweep also unsets the process's global recordings (``rr.init``'s), as
+    ``rr.init`` wants it to: a policy or scenario logging to its own global
+    recording in the same process would lose everything it logged after the
+    run's sensors were closed.  They are put back.  The other recordings
+    (the converter's, another run's sensors, a thread's own) are only
+    flushed: something still references them."""
+    bindings = getattr(sdk, "bindings", None)
+    cleanup = getattr(bindings, "flush_and_cleanup_orphaned_recordings", None)
+    if cleanup is None:
+        return
+    slots: list[tuple[Any, Any]] = [
+        (
+            getattr(bindings, f"get_global_{kind}_recording", None),
+            getattr(bindings, f"set_global_{kind}_recording", None),
+        )
+        for kind in ("data", "blueprint")
+    ]
+    slots = [(get, put) for get, put in slots if get is not None and put is not None]
+    with _cleanup_lock:
+        held = [get() for get, _ in slots]
+        try:
+            cleanup()
+        finally:
+            for (get, put), recording in zip(slots, held):
+                if recording is not None and get() is None:
+                    put(recording)
 
 
 #: The name it had when it recorded the LiDAR alone.

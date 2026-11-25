@@ -14,6 +14,7 @@ from datetime import datetime
 import agate
 from dbt.adapters.base import BaseRelation
 from dbt.adapters.sql import SQLAdapter
+from query_cache_common.utils import normalize_stage_reference
 from sqlglot import exp, parse_one
 from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 from sqlglot.optimizer.qualify_columns import quote_identifiers
@@ -747,9 +748,12 @@ class BaseAdapterExtension(abc.ABC):
                     raw = queue.popleft()
                     if isinstance(raw, exp.Table) and not isinstance(raw.this, exp.Identifier):
                         # sqlglot parses Snowflake stage references (e.g. '@db.schema.stage/my_file.csv')
-                        # as a Literal/Var name rather than an identifier. They aren't tables, so there is
-                        # no view definition or last modified time to fetch (and exp.table_ rejects them)
-                        unsupported_references.add(raw.this.name)
+                        # as a Literal/Var name rather than an identifier. A named stage has no view
+                        # definition but is tracked like a table. User and table stages aren't supported
+                        if stage := self._to_stage(raw):
+                            visited.add(self._sql(stage))
+                        else:
+                            unsupported_references.add(raw.this.name)
                         continue
 
                     # We can't assume any of the tables in the queue are fully qualified, so we fully qualify them
@@ -1235,6 +1239,9 @@ class BaseAdapterExtension(abc.ABC):
         if isinstance(table, str):
             table = exp.to_table(table, dialect=self.dialect)
 
+        if stage := self._to_stage(table):
+            return stage
+
         # we need to use the underlying exp.Identifier objects to preserve any quoting information
         table_catalog = table.args.get("catalog")
         table_schema = table.args.get("db")
@@ -1273,6 +1280,17 @@ class BaseAdapterExtension(abc.ABC):
             ),
             dialect=self.dialect,
         )
+
+    def _to_stage(self, table: exp.Table) -> t.Optional[exp.Table]:
+        """The normalized stage reference, or None if `table` is not a named stage."""
+        return normalize_stage_reference(
+            table, self.dialect, self.default_catalog, self.DEFAULT_SCHEMA_NAME
+        )
+
+    @staticmethod
+    def _is_stage(table: exp.Table) -> bool:
+        """Whether `table` is a stage reference already normalized by `_to_fqn`."""
+        return isinstance(table.this, (exp.Var, exp.Literal)) and table.this.name.startswith("@")
 
     def _sql(self, expression: exp.Expr, copy: bool = False) -> str:
         """Converts an expression to sql in the adapter dialect.

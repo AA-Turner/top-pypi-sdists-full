@@ -149,9 +149,10 @@ def test_cursor_1208(cursor, empty_tab, test_env):
     "1208 - test executing a statement multiple times (with exception)"
     rows = [{"value": n} for n in (1, 2, 3, 2, 5)]
     statement = "insert into TestTempTable (IntCol) values (:value)"
-    with test_env.assert_raises_full_code("ORA-00001"):
+    with test_env.assert_raises_full_code("ORA-00001") as cm:
         cursor.executemany(statement, rows)
     assert cursor.rowcount == 3
+    assert cm.error_obj.offset == 3
 
 
 def test_cursor_1209(cursor, test_env):
@@ -538,3 +539,14 @@ def test_cursor_1234(conn, cursor):
     )
     output_data = [(e.NUMBERVALUE, e.STRINGVALUE) for e in obj.aslist()]
     assert output_data == data
+
+
+def test_cursor_1235(test_env, db_object_manager, cursor):
+    "1235 - test executemany() with invalid type in second row"
+    db_object_manager.create_table(
+        "test_1235", "id number(9) not null, value number(5)"
+    )
+    data = [(1, 5), (2, "invalid"), (3, "invalid #2")]
+    cursor.setinputsizes(int, int)
+    with test_env.assert_raises_full_code("DPY-3013"):
+        cursor.executemany("insert into test_1235 values (:1, :2)", data)

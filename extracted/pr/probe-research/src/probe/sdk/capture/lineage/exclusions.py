@@ -155,11 +155,35 @@ def _ignored(rules: Any, path: str) -> bool:
 
 def _sendable(path: str) -> bool:
     """A path the server can store: UTF-8 (a filename of arbitrary bytes decodes
-    to lone surrogates) and short enough to key on."""
+    to lone surrogates), no NUL (an object key may hold one, and the server
+    refuses the whole batch over it) and short enough to key on."""
     try:
-        return len(path.encode("utf-8")) <= MAX_PATH_BYTES
+        return "\x00" not in path and len(path.encode("utf-8")) <= MAX_PATH_BYTES
     except UnicodeEncodeError:
         return False
+
+
+def _is_object_excluded(uri: str) -> bool:
+    """Whether a cloud object is never a run's input or output: a credential
+    folder or file name in its key (the rule a local path gets from `excluded`),
+    whatever bucket holds it."""
+    from ..code.code import SKIP_SECRET_DIRS, _secret_name
+
+    key = uri.partition("://")[2].partition("/")[2]
+    parts = key.split("/")
+    return (
+        any(part in SKIP_SECRET_DIRS for part in parts[:-1])
+        or _secret_name(parts[-1], stems=True)
+        or any(part in "/" + key for part in _CREDENTIAL_PARTS)
+    )
+
+
+def _is_object_ignored(rules: Any, uri: str) -> bool:
+    """Whether a ``.probeignore`` pattern excludes a cloud object: its
+    ``bucket/key`` is matched as a path at the rules' root, so ``private-bucket/``
+    and ``*.ckpt`` both apply. A pattern written for a local folder can also match
+    a bucket or folder of that name; it only ever removes."""
+    return rules is not None and rules.ignored(uri.partition("://")[2], follow=False)
 
 
 #: folder -> (its ``os.path.realpath``, the folder's identity then), per

@@ -47,7 +47,7 @@ def start_task_diagnostic(
   for offset in range(0, len(files), UPLOAD_BATCH_FILES):
     batch = files[offset : offset + UPLOAD_BATCH_FILES]
     upload = client.specs.create_upload(
-      files=[file.declaration() for file in batch], bench_id=bench_id or omit
+      files=[file.declaration() for file in batch], spec_id=bench_id or omit
     )
     put_files(batch, upload.urls, timeout=upload_timeout, max_retries=client.max_retries)
     bench_id = upload.bench_id

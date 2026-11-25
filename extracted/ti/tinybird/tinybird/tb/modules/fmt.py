@@ -21,7 +21,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
     "--line-length",
     is_flag=False,
     default=100,
-    help="A number indicating the maximum characters per line in the node SQL, lines will be splitted based on the SQL syntax and the number of characters passed as a parameter",
+    help="A number indicating the maximum characters per line in the node SQL, lines will be split based on the SQL syntax and the number of characters passed as a parameter",
 )
 @click.option("--dry-run", is_flag=True, default=False, help="Don't ask to override the local file")
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation to overwrite the local file")

@@ -204,14 +204,14 @@ class TlsActivation(pulumi.CustomResource):
 
         demo = fastly.ServiceVcl("demo",
             name="my-service",
-            domains=[{
-                "name": "example.com",
-            }],
             backends=[{
                 "address": "127.0.0.1",
                 "name": "localhost",
             }],
             force_destroy=True)
+        demo_domain = fastly.Domain("demo",
+            fqdn="example.com",
+            service_id=demo.id)
         demo_tls_private_key = fastly.TlsPrivateKey("demo",
             key_pem="...",
             name="demo-key")
@@ -222,7 +222,7 @@ class TlsActivation(pulumi.CustomResource):
         test = fastly.TlsActivation("test",
             certificate_id=demo_tls_certificate.id,
             domain="example.com",
-            opts = pulumi.ResourceOptions(depends_on=[demo]))
+            opts = pulumi.ResourceOptions(depends_on=[demo_domain]))
         ```
 
         > **Warning:** Updating the `TlsPrivateKey`/`TlsCertificate` resources should be done in multiple plan/apply steps to avoid potential downtime. The new certificate and associated private key must first be created so they exist alongside the currently active resources. Once the new resources have been created, then the `TlsActivation` can be updated to point to the new certificate. Finally, the original key/certificate resources can be deleted.
@@ -266,14 +266,14 @@ class TlsActivation(pulumi.CustomResource):
 
         demo = fastly.ServiceVcl("demo",
             name="my-service",
-            domains=[{
-                "name": "example.com",
-            }],
             backends=[{
                 "address": "127.0.0.1",
                 "name": "localhost",
             }],
             force_destroy=True)
+        demo_domain = fastly.Domain("demo",
+            fqdn="example.com",
+            service_id=demo.id)
         demo_tls_private_key = fastly.TlsPrivateKey("demo",
             key_pem="...",
             name="demo-key")
@@ -284,7 +284,7 @@ class TlsActivation(pulumi.CustomResource):
         test = fastly.TlsActivation("test",
             certificate_id=demo_tls_certificate.id,
             domain="example.com",
-            opts = pulumi.ResourceOptions(depends_on=[demo]))
+            opts = pulumi.ResourceOptions(depends_on=[demo_domain]))
         ```
 
         > **Warning:** Updating the `TlsPrivateKey`/`TlsCertificate` resources should be done in multiple plan/apply steps to avoid potential downtime. The new certificate and associated private key must first be created so they exist alongside the currently active resources. Once the new resources have been created, then the `TlsActivation` can be updated to point to the new certificate. Finally, the original key/certificate resources can be deleted.
@@ -373,6 +373,22 @@ class TlsActivation(pulumi.CustomResource):
         __props__.__dict__["domain"] = domain
         __props__.__dict__["mutual_authentication_id"] = mutual_authentication_id
         return TlsActivation(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            certificate_id: pulumi.Input[Optional[_builtins.str]] = None,
+            configuration_id: pulumi.Input[Optional[_builtins.str]] = None,
+            created_at: pulumi.Input[Optional[_builtins.str]] = None,
+            domain: pulumi.Input[Optional[_builtins.str]] = None,
+            mutual_authentication_id: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["certificateId"] = certificate_id
+        __props__["configurationId"] = configuration_id
+        __props__["createdAt"] = created_at
+        __props__["domain"] = domain
+        __props__["mutualAuthenticationId"] = mutual_authentication_id
+        return pulumi.runtime.exists_resource(None, 'fastly:index/tlsActivation:TlsActivation', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="certificateId")

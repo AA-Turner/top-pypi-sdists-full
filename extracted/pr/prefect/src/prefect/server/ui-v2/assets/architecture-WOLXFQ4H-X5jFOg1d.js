@@ -1,0 +1,1 @@
+export{M as createArchitectureServices}from"./vendor-mermaid-C1MySvBz.js";

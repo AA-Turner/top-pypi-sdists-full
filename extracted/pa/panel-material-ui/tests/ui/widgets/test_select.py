@@ -1,12 +1,14 @@
+import re
+
 import pytest
 
 pytest.importorskip('playwright')
 
-from panel import Column
+from panel import Column, Row
 from panel.tests.util import serve_component, wait_until
 from playwright.sync_api import expect
 
-from panel_material_ui.widgets import CheckButtonGroup, CrossSelector, MultiSelect, NestedSelect, RadioButtonGroup, Select
+from panel_material_ui.widgets import CheckButtonGroup, CrossSelector, MultiChoice, MultiSelect, NestedSelect, RadioButtonGroup, Select, TextInput
 
 pytestmark = pytest.mark.ui
 
@@ -94,6 +96,7 @@ def test_select_disabled_options(page):
 
     expect(page.locator(".select")).to_have_count(1)
 
+    expect(page.get_by_role("combobox")).to_be_visible()
     page.locator(".select").click(force=True)
     expect(page.locator(".MuiMenuItem-root")).to_have_count(3)
     expect(page.locator(".MuiMenuItem-root.Mui-disabled")).to_have_text("Option 2")
@@ -106,8 +109,34 @@ def test_select_dict_disabled_options(page, kwargs):
     widget = Select(label='Select test', disabled_options=['b'], **kwargs)
     serve_component(page, widget)
 
+    expect(page.get_by_role("combobox")).to_be_visible()
     page.locator(".select").click(force=True)
     expect(page.locator(".MuiMenuItem-root.Mui-disabled")).to_have_text("Label B")
+
+def test_select_size_list(page):
+    widget = Select(
+        label='Select', options=['Biology', 'Chemistry', 'Physics', 'Math'],
+        disabled_options=['Math'], size=3
+    )
+    serve_component(page, widget)
+
+    listbox = page.locator('select.MuiNativeSelect-select')
+    expect(listbox).to_have_attribute('size', '3')
+    expect(listbox).to_have_value('Biology')
+    expect(listbox.locator('option')).to_have_text(['Biology', 'Chemistry', 'Physics', 'Math'])
+    expect(listbox.locator('option[disabled]')).to_have_text('Math')
+    expect(page.locator('.MuiMenu-root')).to_have_count(0)
+
+    listbox.select_option('Physics')
+    wait_until(lambda: widget.value == 'Physics', page)
+
+    widget.value = 'Chemistry'
+    expect(listbox).to_have_value('Chemistry')
+
+    widget.size = 1
+    expect(listbox).to_have_count(0)
+    expect(page.locator('.MuiSelect-select')).to_have_text('Chemistry')
+
 
 def test_select_basic_functionality(page):
     widget = Select(label='Select test', options=["Option 1", "Option 2", "Option 3"])
@@ -159,6 +188,104 @@ def test_select_searchable(page):
     # Select the filtered option
     page.locator(".MuiMenuItem-root").nth(1).click()
     wait_until(lambda: widget.value == "Another Option", page)
+
+def test_select_searchable_enter_without_match(page):
+    widget = Select(options=["Option 1", "Option 2", "Another Option"], searchable=True)
+    errors = []
+    page.on("pageerror", lambda exc: errors.append(exc))
+    serve_component(page, widget)
+
+    page.locator(".select").click()
+    search = page.locator("input[placeholder='Search...']")
+    search.fill("zzz")
+    search.press("Enter")
+
+    search.fill("another")
+    search.press("Enter")
+    wait_until(lambda: widget.value == "Another Option", page)
+    assert errors == []
+
+def test_select_searchable_renders_options_in_pages(page):
+    options = [f"option {i}" for i in range(450)]
+    widget = Select(options=options, searchable=True)
+    serve_component(page, widget)
+
+    page.locator(".select").click()
+    more = page.locator(".select-more-options")
+    # The search field is a MenuItem as well
+    expect(page.locator(".MuiMenuItem-root[data-matched]")).to_have_count(200)
+    expect(more).to_have_text("250 more options; refine the search or click to show more")
+
+    more.click()
+    expect(page.locator(".MuiMenuItem-root[data-matched]")).to_have_count(400)
+    expect(more).to_have_text("50 more options; refine the search or click to show more")
+
+    more.click()
+    expect(page.locator(".MuiMenuItem-root[data-matched]")).to_have_count(450)
+    expect(more).to_have_count(0)
+
+    page.locator("input[placeholder='Search...']").fill("option 44")
+    expect(page.locator(".MuiMenuItem-root[data-matched]")).to_have_count(11)
+    page.locator(".MuiMenuItem-root[data-matched]", has_text="option 449").click()
+    wait_until(lambda: widget.value == "option 449", page)
+
+def test_select_searchable_highlight_renders_first_match(page):
+    options = [f"option {i}" for i in range(450)]
+    widget = Select(options=options, searchable=True, filter_on_search=False)
+    serve_component(page, widget)
+
+    page.locator(".select").click()
+    page.locator("input[placeholder='Search...']").fill("option 420")
+    expect(page.locator(".MuiMenuItem-root[data-matched='true']")).to_have_text(["option 420"])
+
+def test_select_searchable_renders_selected_value_beyond_page(page):
+    options = [f"opt{i}" for i in range(500)]
+    widget = Select(options=options, value="opt450", searchable=True)
+    serve_component(page, widget)
+
+    page.locator(".select").click()
+    selected = page.locator(".MuiMenuItem-root[data-matched]", has_text=re.compile(r"^opt450$"))
+    expect(selected).to_have_count(1)
+    expect(page.locator(".MuiMenuItem-root[data-matched]")).to_have_count(201)
+    expect(page.locator(".select-more-options")).to_have_text("299 more options; refine the search or click to show more")
+
+def test_select_searchable_renders_bookmarks_beyond_page(page):
+    options = [f"opt{i}" for i in range(500)]
+    widget = Select(options=options, value="opt299", bookmarks=[f"opt{i}" for i in range(299, 500)], searchable=True)
+    serve_component(page, widget)
+
+    page.locator(".select").click()
+    expect(page.locator(".MuiMenuItem-root[data-matched]")).to_have_count(201)
+    expect(page.locator(".MuiMenuItem-root[data-matched]", has_text=re.compile(r"^opt499$"))).to_have_count(1)
+    expect(page.locator(".select-more-options")).to_have_text("299 more options; refine the search or click to show more")
+
+def test_multichoice_searchable_unchecks_selected_value_beyond_page(page):
+    options = [f"opt{i}" for i in range(500)]
+    widget = MultiChoice(options=options, value=["opt1", "opt300"], searchable=True)
+    serve_component(page, widget)
+
+    # Clicking the select would land on a chip, which does not open the menu
+    widget.dropdown_open = True
+    item = page.locator(".MuiMenuItem-root[data-matched]", has_text=re.compile(r"^opt300$"))
+    expect(item).to_have_count(1)
+    expect(item.locator("input[type='checkbox']")).to_be_checked()
+    expect(page.locator(".select-more-options")).to_have_text("299 more options; refine the search or click to show more")
+
+    item.locator("input[type='checkbox']").click()
+    wait_until(lambda: widget.value == ["opt1"], page)
+
+def test_multichoice_option_limit(page):
+    options = [f"option {i}" for i in range(20)]
+    widget = MultiChoice(options=options, option_limit=5, search_option_limit=3, searchable=True)
+    serve_component(page, widget)
+
+    page.locator(".MuiSelect-select").click()
+    expect(page.locator(".MuiMenuItem-root[data-matched]")).to_have_count(5)
+    expect(page.locator(".select-more-options")).to_have_text("15 more options; refine the search or click to show more")
+
+    page.locator("input[placeholder='Search...']").fill("option 1")
+    expect(page.locator(".MuiMenuItem-root[data-matched]")).to_have_count(3)
+    expect(page.locator(".select-more-options")).to_have_text("8 more options; refine the search or click to show more")
 
 def test_select_groups(page):
     widget = Select(
@@ -239,6 +366,58 @@ def test_select_sizes(page, size):
     expect(page.locator(".select")).to_have_count(1)
     expect(page.locator(f".MuiInputBase-size{size.capitalize()}")).to_have_count(1)
 
+@pytest.mark.parametrize('variant', ["outlined", "filled", "standard"])
+def test_select_small_label_within_input(page, variant):
+    widget = Select(label='Projections', options=[], size='small', variant=variant)
+    serve_component(page, widget)
+
+    label = page.locator(".MuiInputLabel-root")
+    expect(label).to_have_class(re.compile("MuiInputLabel-sizeSmall"))
+    label_box = label.bounding_box()
+    input_box = page.locator(".MuiInputBase-root").bounding_box()
+    assert label_box["y"] >= input_box["y"]
+    assert label_box["y"] + label_box["height"] <= input_box["y"] + input_box["height"]
+
+
+@pytest.mark.parametrize('variant', ["outlined", "filled", "standard"])
+def test_select_small_shrunk_label_placement(page, variant):
+    widget = Select(label='Projections', options=['A', 'B'], value='A', size='small', variant=variant)
+    serve_component(page, widget)
+
+    label = page.locator(".MuiInputLabel-root")
+    expect(label).to_have_class(re.compile("MuiInputLabel-shrink"))
+    label_box = label.bounding_box()
+    input_box = page.locator(".MuiInputBase-root").bounding_box()
+    value_top = page.locator(".MuiSelect-select").evaluate(
+        "el => el.getBoundingClientRect().top + parseFloat(getComputedStyle(el).paddingTop)"
+    )
+    assert label_box["y"] + label_box["height"] <= value_top + 1
+    if variant == "filled":
+        assert label_box["y"] >= input_box["y"]
+
+
+@pytest.mark.parametrize('variant', ["outlined", "filled", "standard"])
+@pytest.mark.parametrize('value', [None, 'A'])
+def test_select_small_label_matches_text_input(page, variant, value):
+    select = Select(label='Projections', options=['A', 'B'] if value else [], value=value, size='small', variant=variant)
+    text_input = TextInput(label='Projections', value=value or '', size='small', variant=variant)
+    serve_component(page, Row(select, text_input))
+
+    labels = page.locator(".MuiInputLabel-root")
+    expect(labels).to_have_count(2)
+    select_box, text_box = labels.nth(0).bounding_box(), labels.nth(1).bounding_box()
+    assert select_box["y"] == pytest.approx(text_box["y"], abs=0.5)
+    assert select_box["height"] == pytest.approx(text_box["height"], abs=0.5)
+
+
+def test_multichoice_visual_size(page):
+    widget = MultiChoice(label='Projections', options=['A', 'B'], visual_size='small')
+    serve_component(page, widget)
+
+    expect(page.locator(".MuiInputBase-sizeSmall")).to_have_count(1)
+    expect(page.locator(".MuiInputLabel-sizeSmall")).to_have_count(1)
+
+
 def test_select_disabled_state(page):
     widget = Select(label='Select test', options=["Option 1", "Option 2"], disabled=True)
     serve_component(page, widget)
@@ -303,6 +482,9 @@ def test_select_clear_selection(page):
     page.locator(".select").click()
     page.locator(".MuiMenuItem-root").nth(0).click()
     wait_until(lambda: widget.value == "Option 1", page)
+
+    # While the menu fades out its backdrop still swallows clicks
+    expect(page.locator(".MuiMenuItem-root")).to_have_count(0)
 
     # Try to clear by selecting empty option (should not be possible)
     page.locator(".select").click()

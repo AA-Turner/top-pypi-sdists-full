@@ -1,5 +1,7 @@
 import logging
 import queue
+import threading
+import time
 import uuid
 
 import h5py
@@ -768,18 +770,16 @@ def test_subscribe_to_streams_logs_filtered_run_failures(streaming_client, caplo
     accepted_writer("stop", _stop_document(accepted_run_uid, {"baseline": 1}))
 
 
-def test_subscribe_to_streams_stays_open_after_completed_run_drains(streaming_client):
+def test_subscribe_to_streams_releases_drained_run_and_stays_open(streaming_client):
     first_run_uid = uuid.uuid4().hex
     first_descriptor_uid = uuid.uuid4().hex
     second_run_uid = uuid.uuid4().hex
     second_descriptor_uid = uuid.uuid4().hex
     updates: queue.Queue[BlueskyStreamUpdate] = queue.Queue()
-    closed: queue.Queue[str] = queue.Queue()
     writer = TiledWriter(streaming_client, batch_size=1)
     subscription = subscribe_to_streams(
         streaming_client, updates.put, streams={"baseline": "x"}
     )
-    drain_subscription = None
 
     try:
         writer("start", _start_document(first_run_uid))
@@ -796,11 +796,13 @@ def test_subscribe_to_streams_stays_open_after_completed_run_drains(streaming_cl
 
         first_update = updates.get(timeout=5)
         assert first_update.run_uid == first_run_uid
-        drain_subscription, drain_closed = _subscribe_until_closed(
-            streaming_client[first_run_uid], closed, "first"
-        )
         writer("stop", _stop_document(first_run_uid, {"baseline": 1}))
-        assert closed.get(timeout=5) == "first"
+        # TiledWriter closes the run, stream, and table nodes after Stop; the
+        # manager releases that branch and keeps only the root subscription.
+        deadline = time.monotonic() + 5
+        while set(subscription._subscriptions) != {streaming_client.uri}:
+            assert time.monotonic() < deadline, sorted(subscription._subscriptions)
+            time.sleep(0.01)
 
         writer("start", _start_document(second_run_uid))
         writer(
@@ -819,8 +821,6 @@ def test_subscribe_to_streams_stays_open_after_completed_run_drains(streaming_cl
         assert second_update.data().to_dict(orient="list") == {"x": [2.0]}
         assert not subscription.closed
     finally:
-        if drain_subscription is not None:
-            drain_subscription.disconnect()
         subscription.disconnect()
 
     writer("stop", _stop_document(second_run_uid, {"baseline": 1}))
@@ -982,6 +982,50 @@ def _write_run(writer, run_uid, metadata=None):
     )
     writer("event", _event_document(descriptor_uid, 1, {"x": 1.0}))
     writer("stop", _stop_document(run_uid, {"primary": 1}))
+
+
+def test_subscribe_to_streams_start_applies_only_to_root(streaming_client):
+    earlier_run_uid = uuid.uuid4().hex
+    run_uid = uuid.uuid4().hex
+    descriptor_uid = uuid.uuid4().hex
+    updates: queue.Queue[BlueskyStreamUpdate] = queue.Queue()
+    filtered_runs: list[str] = []
+    written = threading.Event()
+    writer = TiledWriter(streaming_client, batch_size=1)
+    _write_run(writer, earlier_run_uid)
+
+    def run_filter(update: LiveChildCreated) -> bool:
+        filtered_runs.append(update.key)
+        # Hold the run until its stream, table, and rows exist, so that every
+        # descendant subscription connects after the writes it must deliver.
+        written.wait(timeout=5)
+        return True
+
+    with subscribe_to_streams(
+        streaming_client,
+        updates.put,
+        streams={"primary": "x"},
+        run_filter=run_filter,
+        start=None,
+    ):
+        writer("start", _start_document(run_uid))
+        writer(
+            "descriptor",
+            _descriptor_document(
+                run_uid, descriptor_uid, "primary", _scalar_data_keys("x")
+            ),
+        )
+        writer("event", _event_document(descriptor_uid, 1, {"x": 1.0}))
+        writer("event", _event_document(descriptor_uid, 2, {"x": 2.0}))
+        written.set()
+
+        received = [updates.get(timeout=5).data()["x"].tolist() for _ in range(2)]
+    writer("stop", _stop_document(run_uid, {"primary": 2}))
+
+    # The earlier run is not replayed, but the new run's descendants are read
+    # from their first record.
+    assert filtered_runs == [run_uid]
+    assert received == [[1.0], [2.0]]
 
 
 def test_on_run_stop_called_once_per_run(streaming_client):

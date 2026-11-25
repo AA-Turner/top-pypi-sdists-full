@@ -1,28 +1,28 @@
 Metadata-Version: 2.4
 Name: zope.schema
-Version: 8.1
+Version: 8.2
 Summary: zope.interface extension for defining data schemas
-Home-page: https://github.com/zopefoundation/zope.schema
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
-Keywords: zope3 schema field interface typing
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Source, https://github.com/zopefoundation/zope.schema
+Keywords: zope3,schema,field,interface,typing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Zope :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: zope.interface>=5.0.0
 Requires-Dist: zope.event
@@ -33,18 +33,7 @@ Provides-Extra: test
 Requires-Dist: zope.i18nmessageid; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
 Requires-Dist: zope.testrunner>=6.4; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 =============
  zope.schema
@@ -81,10 +70,27 @@ required.
 
 See https://zopeschema.readthedocs.io/ for more information.
 
-
 =========
  Changes
 =========
+
+8.2 (2026-11-25)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Replaced ``version.txt`` fossil with ``importlib.metadata`` lookup
+  (in ``docs/conf.py``) / static value (``setup.py``).
+
+- Add support for Python 3.14, 3.15.
+
+- Drop support for Python 3.10, 3.9.
+
+- Fix the ``URI`` and ``Id`` fields accepting a scheme with stray
+  characters (``[``, ``\``, ``]``, ``^``, ``_``, backtick) before the
+  colon, caused by a typo in the scheme regex (``A-z`` instead of
+  ``A-Z``).
+
 
 8.1 (2025-10-26)
 ================

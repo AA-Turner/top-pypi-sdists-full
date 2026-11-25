@@ -9,17 +9,15 @@ through ``parser/_pipeline.py``) against ``scripts/pass_decls.py``, which declar
 * the labels name segments and hooks of the tables, every hook has its body, and the segments enter the boundaries in
   the order ``BOUNDARIES`` gives;
 * the passes of each segment satisfy the order rule (``check_order``);
-* a ``PassSpec`` has a ``trigger`` exactly where its declaration has one, and the trigger reads only facts the pass
-  reads, so that the order rule covers what it reads;
+* a ``PassSpec`` has a ``trigger`` exactly where its declaration has one, the trigger reads only facts the pass
+  reads, so that the order rule covers what it reads, and only the passes ``TRIGGERS`` lists have one, each with the
+  reason its exact form is not the skip (``Trigger.kept_because``);
+* a ``when`` names only what the run's options set (``CONFIGURATION``), so that nothing produced gates a pass except a
+  ``trigger``;
 * the repair passes are those ``REPAIRS`` lists, a set that only shrinks;
 * the decision registry of ``Parser`` and of every parser class that sets one (``_DECISION_PASSES``) holds global
   transforms of ``DECIDE`` with unique names, declared in ``DECISION_DECLS``, that read and write facts only, name
-  their issue, have writer protocols that ``_DecisionWriter`` implements, and satisfy the order rule, which computes
-  the order the registry lists them in;
-* ``FinalFacts`` is built in one place, ``GenerationStore.seal_facts``;
-* every member of the views of ``model/_views.py`` reads an ``ATTRIBUTE_FACTS`` row of its class that holds a fact
-  final at B1, or that holds no fact (identity), unless ``VIEW_ACCESSORS`` lists it;
-* no code outside the body of ``Parser`` reaches a name-mangled member of ``Parser``, which the tables call;
+  their issue, and satisfy the order rule, which computes the order the registry lists them in;
 * every ``warn()`` of the parser, model and type modules whose ``stacklevel`` reaches past its caller is listed in
   ``DEEP_WARNINGS`` with the frame it names, so that a warning the pipeline would attribute to its own frames shows.
 
@@ -41,9 +39,8 @@ import sys
 from functools import cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
-
-from typing_extensions import get_protocol_members
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -54,21 +51,10 @@ for path in (SRC, ROOT):
         sys.path.insert(0, str(path))
 
 from datamodel_code_generator.__main__ import main as generate_main  # noqa: E402
-from datamodel_code_generator.model._views import (  # noqa: E402, PLC2701
-    DataTypeView,
-    FieldView,
-    ModelView,
-    ReferenceView,
-)
 from datamodel_code_generator.parser._facts import Phase  # noqa: E402, PLC2701
 from datamodel_code_generator.parser._passes import _tables  # noqa: E402, PLC2701
 from datamodel_code_generator.parser._passes._tables import PIPELINE  # noqa: E402, PLC2701
-from datamodel_code_generator.parser._phases import (  # noqa: E402, PLC2701
-    DecisionPass,
-    DecisionWriter,
-    FinalFacts,
-    _DecisionWriter,
-)
+from datamodel_code_generator.parser._phases import DecisionPass, FinalFacts  # noqa: E402, PLC2701
 from datamodel_code_generator.parser._pipeline import (  # noqa: E402, PLC2701
     ForEachModule,
     HookCall,
@@ -77,8 +63,8 @@ from datamodel_code_generator.parser._pipeline import (  # noqa: E402, PLC2701
     StepLike,
 )
 from datamodel_code_generator.parser.base import Parser  # noqa: E402
-from scripts._source_model import SourceModule, nested_name  # noqa: E402
-from scripts.fact_tables import ATTRIBUTE_FACTS, Fact, RenderFact  # noqa: E402
+from scripts._source_model import SourceModule  # noqa: E402
+from scripts.fact_tables import Fact, RenderFact  # noqa: E402
 from scripts.pass_decls import (  # noqa: E402
     BOUNDARY_BEFORE,
     DECISION_DECLS,
@@ -89,20 +75,18 @@ from scripts.pass_decls import (  # noqa: E402
     PassDecl,
     PassKind,
     Scope,
+    Trigger,
 )
-from tests.checks.finality import _reads_render_fact  # noqa: E402, PLC2701
 from tests.checks.trace import MODULE_TRACE_MARK, recording_pass_trace  # noqa: E402
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+    from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 
-    from scripts._source_model import Scope as ModelScope
 
 __all__ = [
     "DECISION_DECLS",
     "After",
     "DecisionPass",
-    "DecisionWriter",
     "Fact",
     "FinalFacts",
     "OrderCheck",
@@ -111,12 +95,23 @@ __all__ = [
     "Phase",
     "RenderFact",
     "Scope",
+    "Trigger",
     "check_order",
     "decision_order",
 ]
 
 BOUNDARIES = (Boundary.PARSED, Boundary.FACTS_FINAL, Boundary.DECIDED, Boundary.RENDER_READY)
 """The boundaries the segments enter, in order; ``MODULE_DONE`` ends each module body."""
+TRIGGERS = frozenset({
+    "alias_builtin_shadowing_module_imports",
+    "fix_constructor_field_ordering",
+    "fix_constructor_field_ordering_early",
+    "import_enum_member_literal_classes",
+    "import_models_of_hidden_submodules",
+    "resolve_circular_imports",
+})
+"""The passes that may have a trigger, a set that only shrinks: a pass skips by the first statement of its body that
+returns on an empty source. A change that removes a trigger removes its entry, and no entry is added."""
 REPAIRS = frozenset({
     "bind_module_field_names",
     "fix_tag_opt_out_field_ordering",
@@ -128,6 +123,50 @@ REPAIRS = frozenset({
     "replan_schema_validators_after_renames",
 })
 """The repair passes: a change that removes one removes its entry, and no entry is added."""
+CONFIGURATION = frozenset({
+    "ReuseScope",
+    "DefaultValueType",
+    "_PYDANTIC_FLOORS",
+    "_import_overrides",
+    "_model_type_override_imports",
+    "_output_model_context",
+    "_tag_capabilities",
+    "_writes_unique_sets_in_modules",
+    "alias_loop_failure",
+    "args",
+    "bool",
+    "collapse_root_models",
+    "collecting_class_names",
+    "config",
+    "custom_template_dir",
+    "data_model_field_type",
+    "data_model_type",
+    "deserialize_default_value_types",
+    "follows_hiding_field_renames",
+    "generate_schema_validators",
+    "generic_base_class_config",
+    "keep_model_order",
+    "model_resolver.model_name_record",
+    "order_constructor_fields_by_final_names",
+    "order_constructor_fields_by_written_defaults",
+    "renames_hiding_fields",
+    "reuse_model",
+    "reuse_scope",
+    "run_context",
+    "set_default_enum_member",
+    "suppress_settle_diagnostics",
+    "type_overrides",
+    "use_annotated",
+    "use_default_factory_for_optional_nested_models",
+    "use_generic_base_class",
+    "use_one_literal_as_default",
+    "use_root_model_sequence_interface",
+    "with_import",
+})
+"""What a ``when`` may name: the options of the run (attributes ``Parser.__init__`` sets from the configuration, the
+settings of a run's state), constants of the output classes, and the helpers that read nothing else. An attribute
+chain of a parameter is an option where it or a leading part of it is listed: ``self.config.aliases`` names
+``config``, and only ``model_name_record`` of ``self.model_resolver`` is an option."""
 DEEP_WARNINGS = {
     "model/pydantic_v2/base_model.py:_warn_template_update": "the caller of render() (L7)",
     "parser/_intersection.py:warn_unsatisfiable": "the parser method that met the unsatisfiable schema (L1)",
@@ -264,18 +303,92 @@ def table_problems(pipeline: tuple[StepLike[Any, Any], ...] = PIPELINE) -> list[
     return problems
 
 
-def trigger_problems(pipeline: tuple[StepLike[Any, Any], ...] = PIPELINE) -> list[str]:
-    """Return the passes whose table entry and declaration disagree on a trigger, and the triggers that read more."""
+def trigger_problems(
+    pipeline: tuple[StepLike[Any, Any], ...] = PIPELINE,
+    decls: Sequence[PassDecl] = PASS_DECLS,
+    kept: Collection[str] = TRIGGERS,
+) -> list[str]:
+    """Return the passes whose table entry and declaration disagree on a trigger, and the triggers that read more.
+
+    A trigger is a second predicate beside its pass, which only the test suite's idle run checks: a pass may have one
+    only where ``kept`` lists it, and its declaration says why the skip cannot be the body's own first statement.
+    """
     triggered = {step.name for step in _walk(pipeline) if isinstance(step, PassSpec) and step.trigger is not None}
-    declared = {decl.name for decl in PASS_DECLS if decl.trigger is not None}
+    declared = {decl.name for decl in decls if decl.trigger is not None}
     return [
         *(f"{name} has a trigger in the tables that its declaration does not" for name in sorted(triggered - declared)),
         *(f"{name} declares a trigger that its table entry does not have" for name in sorted(declared - triggered)),
         *(
             f"the trigger of {decl.name} reads {_facts_text(extra)}, which the pass does not declare as reads"
-            for decl in PASS_DECLS
+            for decl in decls
             if decl.trigger is not None and (extra := decl.trigger.reads - decl.reads)
         ),
+        *(
+            f"{name} has a trigger that TRIGGERS does not list: return early from the first statement of the body "
+            "instead, or list it with the reason the exact form costs more"
+            for name in sorted(declared - set(kept))
+        ),
+        *(f"TRIGGERS lists {name}, which has no trigger: remove it" for name in sorted(set(kept) - declared)),
+        *(
+            f"the trigger of {decl.name} gives no reason it is kept (Trigger.kept_because)"
+            for decl in decls
+            if decl.trigger is not None and not decl.trigger.kept_because.strip()
+        ),
+    ]
+
+
+def _gates(model: SourceModule) -> dict[str, ast.expr]:
+    """Return the ``when`` expression of each ``PassSpec`` of a tables module, by pass name."""
+    return {
+        call.args[0].value: when
+        for call in ast.walk(model.tree)
+        if isinstance(call, ast.Call) and _callee(model, call) == "PassSpec" and isinstance(call.args[0], ast.Constant)
+        for when in [*call.args[2:3], *(keyword.value for keyword in call.keywords if keyword.arg == "when")]
+    }
+
+
+def _gate_reads(model: SourceModule, gate: ast.expr) -> set[str]:
+    """Return what a ``when`` names: the attribute chain of each parameter, the helper or class of any other name."""
+    inside = set(ast.walk(gate))
+    parents = {child: parent for parent in inside for child in ast.iter_child_nodes(parent)}
+    reads = set()
+    for reference in model.references:
+        if reference.node not in inside or reference.context != "load":
+            continue
+        node: ast.AST = reference.node
+        parent = parents.get(node)
+        qualified = isinstance(parent, ast.Attribute) and parent.value is node
+        if any(binding.kind == "param" for binding in model.resolve(reference.node).bindings):
+            chain: list[str] = []
+            while isinstance(parent, ast.Attribute) and parent.value is node:
+                chain.append(parent.attr)
+                node, parent = parent, parents.get(parent)
+            if chain:
+                reads.add(".".join(chain))
+        elif qualified and isinstance(getattr(_tables, reference.name, None), ModuleType):
+            reads.add(parent.attr)
+        else:
+            reads.add(reference.name)
+    return reads
+
+
+def _is_option(read: str, allowed: Collection[str]) -> bool:
+    """Return whether ``read`` or a leading part of its attribute chain is an option of the run."""
+    parts = read.split(".")
+    return any(".".join(parts[:end]) in allowed for end in range(1, len(parts) + 1))
+
+
+def when_problems(source: str | None = None, allowed: Collection[str] = CONFIGURATION) -> list[str]:
+    """Return the passes whose ``when`` names a fact that is no option of the run, in ``source`` or the tables.
+
+    A pass that waits for a produced fact decides on it in its body, or declares a ``trigger``.
+    """
+    return [
+        f"the when of {name} names {', '.join(names)}, which no option of the run sets (CONFIGURATION): decide on it "
+        "in the pass, or declare a trigger with its reason"
+        for model in [_model(Path(_tables.__file__)) if source is None else SourceModule(source)]
+        for name, gate in _gates(model).items()
+        if (names := sorted(read for read in _gate_reads(model, gate) if not _is_option(read, allowed)))
     ]
 
 
@@ -390,17 +503,15 @@ def _reaches(successors: Mapping[str, set[str]], start: str, goal: str) -> bool:
 
 
 def decision_order(
-    decisions: Sequence[DecisionPass[Any]], decls: Mapping[str, PassDecl] = DECISION_DECLS
-) -> tuple[DecisionPass[Any], ...]:
+    decisions: Sequence[DecisionPass], decls: Mapping[str, PassDecl] = DECISION_DECLS
+) -> tuple[DecisionPass, ...]:
     """Return ``decisions`` in the order the order rule computes from ``decls``, registration breaking ties."""
     by_name = {decision.spec["name"]: decision for decision in decisions}
     order = check_order([decls[decision.spec["name"]] for decision in decisions], computed=True).order
     return tuple(by_name[name] for name in order)
 
 
-def decision_problems(
-    decisions: Sequence[DecisionPass[Any]], decls: Mapping[str, PassDecl] = DECISION_DECLS
-) -> list[str]:
+def decision_problems(decisions: Sequence[DecisionPass], decls: Mapping[str, PassDecl] = DECISION_DECLS) -> list[str]:
     """Return what is wrong with one decision registry, against ``decls`` and the rules of the decision phase."""
     problems: list[str] = []
     table = {decl.name for decl in PASS_DECLS}
@@ -423,10 +534,6 @@ def decision_problems(
             problems.append(f"decision {name} reads or writes {', '.join(render)}: decisions read and write facts")
         if not decision.spec["issue"]:
             problems.append(f"decision {name} names no issue")
-        if DecisionWriter not in decision.writer.__mro__:
-            problems.append(f"decision {name} writes through {decision.writer.__name__}, no DecisionWriter")
-        elif missing := sorted(get_protocol_members(decision.writer) - set(dir(_DecisionWriter))):
-            problems.append(f"decision {name} writes through {', '.join(missing)}, which _DecisionWriter lacks")
     if len(seen) == len(decisions) and seen <= decls.keys():
         result = check_order([decls[decision.spec["name"]] for decision in decisions], computed=True)
         problems.extend(f"decision phase: {problem}" for problem in result.problems)
@@ -454,76 +561,6 @@ def registry_problems() -> list[str]:
     ]
 
 
-VIEW_OWNERS: dict[type[Any], str] = {
-    DataTypeView: "DataType",
-    FieldView: "DataModelFieldBase",
-    ModelView: "DataModel",
-    ReferenceView: "Reference",
-}
-"""The class whose ``ATTRIBUTE_FACTS`` rows each view reads."""
-VIEW_ACCESSORS = {
-    "DataTypeView.admits_none": "rendered nullability, which is final at B1 (model/_decisions/nullability.py)",
-    "DataTypeView._renders_none": (
-        "the type, the name a type override gives it, the reference, the literals and the container kind of the type"
-        " and of its one member, final at B1: the names import binding and forward references give later go to types"
-        " that name a model"
-    ),
-    "DataTypeView._writes_nothing_of_its_own": (
-        "the type, the name a type override gives it, the reference and the container kind, final at B1: the names"
-        " import binding and forward references give later go to types that name a model"
-    ),
-    "FieldView.nullable_without_default": (
-        "the nullability the parse records without the default (NULLABLE_WITHOUT_DEFAULT_KEY), else NULLABLE, final"
-        " at B1"
-    ),
-    "ModelView.effective_fields": (
-        "the fields of the model and of its bases in C3 order (BASES, FIELD_SET), final at B1"
-    ),
-    "ModelView.additional_properties_type": (
-        "the type of the additional properties that the parser stores for the settings of the class (TypedDict"
-        " extra_items), whose nodes are field types, final at B1"
-    ),
-    "FieldView.union_sibling_constraints": "the constraints written beside a union (UNION_SIBLING_CONSTRAINTS_KEY)",
-    "FieldView.written_constraints": "the CONSTRAINTS its call writes for its field type, final at B1",
-    "ModelView.form": "the model kind, final at B1",
-    "ModelView.has_length": (
-        "the sequence interface a root model takes where it is parsed (L1) and the container kind of its root type,"
-        " final at B1"
-    ),
-    "ModelView.holds_null": "the model kind, and the nullability of its root type or its enum members, final at B1",
-    "ModelView.set_item_hash": (
-        "the model kind, the dataclass decorator, the struct options of its chain and the class and field types of a"
-        " frozen Pydantic class, final at B1"
-    ),
-    "ModelView.value_base": "the model kind and the base classes of an enum, final at B1",
-}
-"""The view members that read no row of their own, each with what it reads."""
-
-
-def view_problems() -> list[str]:
-    """Return the view members that read a render fact, read no row, or that ``VIEW_ACCESSORS`` lists for nothing."""
-    rows = {(row.owner, row.attribute): row for row in ATTRIBUTE_FACTS}
-    problems: list[str] = []
-    members: set[str] = set()
-    for view, owner in VIEW_OWNERS.items():
-        for member in sorted(get_protocol_members(view)):
-            members.add(name := f"{view.__name__}.{member}")
-            if name in VIEW_ACCESSORS:
-                continue
-            if (row := rows.get((owner, member))) is None:
-                problems.append(f"{name} reads no row of {owner}: list it in VIEW_ACCESSORS with what it reads")
-            elif _reads_render_fact(row):
-                problems.append(f"{name} reads a render fact ({', '.join(fact.name for fact in row.facts)})")
-    problems.extend(
-        f"VIEW_ACCESSORS lists {name}, which no view has" for name in sorted(VIEW_ACCESSORS.keys() - members)
-    )
-    return problems
-
-
-FINAL_FACTS_SITE = "parser/generation.py:GenerationStore.seal_facts"
-"""The one place that builds ``FinalFacts``."""
-
-
 _MODELS: dict[Path, SourceModule] = {}
 
 
@@ -547,92 +584,9 @@ def _callee(model: SourceModule, call: ast.Call) -> str | None:
     return call.func.attr if isinstance(call.func, ast.Attribute) else _spellings(model).get(call.func)
 
 
-def calls(model: SourceModule, name: str) -> Iterator[tuple[str, int]]:
-    """Yield the scope (``Class.function``, empty at module level) and the line of each call of ``name`` in a module."""
-    for node in ast.walk(model.tree):
-        if isinstance(node, ast.Call) and _callee(model, node) == name:
-            yield nested_name(model.scope_of(node)), node.lineno
-
-
 def _holding(paths: Iterable[Path], *words: str) -> Iterator[Path]:
     """Yield the modules whose text holds one of ``words``: a module without any of them cannot spell what is sought."""
     return (path for path in sorted(paths) if any(word in path.read_text(encoding="utf-8") for word in words))
-
-
-def final_facts_problems(package: Path = PACKAGE) -> list[str]:
-    """Return the places other than ``FINAL_FACTS_SITE`` that build ``FinalFacts``, or that none builds it."""
-    sites = [
-        f"{path.relative_to(package).as_posix()}:{scope}"
-        for path in _holding(package.rglob("*.py"), "FinalFacts")
-        for scope, _ in calls(_model(path), "FinalFacts")
-    ]
-    if sites == [FINAL_FACTS_SITE]:
-        return []
-    return [f"FinalFacts is built in {sites}, not only in {FINAL_FACTS_SITE}"]
-
-
-def parser_body(model: SourceModule) -> ModelScope | None:
-    """Return the scope of the module-level class ``Parser`` of a module, if it defines one."""
-    return next(
-        (
-            scope
-            for scope in model.scopes
-            if scope.kind == "class" and scope.parent is model.module_scope and scope.code_name == "Parser"
-        ),
-        None,
-    )
-
-
-def mangled_members(model: SourceModule) -> frozenset[str]:
-    """Return the ``__name`` members that the body of a module's ``Parser`` defines (none without one)."""
-    body = parser_body(model)
-    bindings = model.bindings(scope=body) if body is not None else []
-    return frozenset(
-        binding.name for binding in bindings if binding.name.startswith("__") and not binding.name.endswith("__")
-    )
-
-
-def _reached_member(model: SourceModule, node: ast.AST, members: frozenset[str]) -> str | None:
-    """Return the mangled ``Parser`` member that ``node`` reaches, by attribute or by a string ``*attr`` argument."""
-    attr = node.attr if isinstance(node, ast.Attribute) else _attribute_argument(model, node)
-    return attr if attr is not None and (attr.startswith("_Parser__") or attr in members) else None
-
-
-ATTRIBUTE_FUNCTIONS = frozenset({"builtins.getattr", "builtins.setattr", "builtins.hasattr", "builtins.delattr"})
-"""The calls that reach an attribute by a string name, by origin."""
-
-
-def _attribute_argument(model: SourceModule, node: ast.AST) -> str | None:
-    """Return the string attribute name a ``getattr``-family call passes, if ``node`` is one."""
-    if not isinstance(node, ast.Call) or model.origin(node.func) not in ATTRIBUTE_FUNCTIONS:
-        return None
-    if len(node.args) < 2:  # noqa: PLR2004
-        return None
-    name = node.args[1]
-    return name.value if isinstance(name, ast.Constant) and isinstance(name.value, str) else None
-
-
-def reached_members(model: SourceModule, members: frozenset[str], *, own: bool) -> Iterator[tuple[int, str]]:
-    """Yield the line and the member of each place of a module that reaches a mangled ``Parser`` member.
-
-    With ``own``, the module's ``Parser`` is the one that defines them, and the places inside its body are left out.
-    """
-    body = parser_body(model) if own else None
-    inside = {id(node) for node in ast.walk(body.node)} if body is not None else set()
-    for node in ast.walk(model.tree):
-        if id(node) not in inside and (attr := _reached_member(model, node, members)) is not None:
-            yield node.lineno, attr
-
-
-def mangling_problems(package: Path = PACKAGE) -> list[str]:
-    """Return the places outside the body of ``Parser`` that reach a name-mangled member of ``Parser``."""
-    base = package / "parser" / "base.py"
-    members = mangled_members(_model(base))
-    return [
-        f"{path.relative_to(package).as_posix()}:{line} reaches Parser.{attr} outside the body of Parser"
-        for path in _holding(package.rglob("*.py"), "_Parser__", *members)
-        for line, attr in reached_members(_model(path), members, own=path == base)
-    ]
 
 
 def _deep_warning(model: SourceModule, call: ast.Call) -> bool:
@@ -716,10 +670,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     problems = [
         *table_problems(),
+        *when_problems(),
         *registry_problems(),
-        *final_facts_problems(),
-        *view_problems(),
-        *mangling_problems(),
         *warning_problems(),
     ]
     for problem in problems:

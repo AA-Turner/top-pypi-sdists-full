@@ -1,12 +1,19 @@
-from paddle_billing.EnumStringify import enum_stringify
-from paddle_billing.HasParameters import HasParameters
+from typing import Any
 
-from paddle_billing.Entities.Shared import CollectionMode
-from paddle_billing.Entities.Subscriptions import SubscriptionStatus, SubscriptionScheduledChangeAction
+from paddle_billing.EnumStringify import enum_stringify as enum_stringify
+from paddle_billing.HasParameters import HasParameters as HasParameters
 
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
+from paddle_billing.Entities.Shared import CollectionMode as CollectionMode
+from paddle_billing.Entities.Subscriptions import (
+    SubscriptionStatus as SubscriptionStatus,
+    SubscriptionScheduledChangeAction as SubscriptionScheduledChangeAction,
+)
 
-from paddle_billing.Resources.Shared.Operations import DateComparison, Pager
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
+
+from paddle_billing.Resources.Shared.Operations import DateComparison as DateComparison, Pager as Pager
 
 
 class ListSubscriptions(HasParameters):
@@ -33,14 +40,15 @@ class ListSubscriptions(HasParameters):
         self.statuses = statuses if statuses is not None else []
 
         # Validation
-        for field_name, field_value, field_type in [
+        validations: list[tuple[str, list[Any], type]] = [
             ("address_ids", self.address_ids, str),
             ("customer_ids", self.customer_ids, str),
             ("ids", self.ids, str),
             ("price_ids", self.price_ids, str),
             ("scheduled_change_actions", self.scheduled_change_actions, SubscriptionScheduledChangeAction),
             ("statuses", self.statuses, SubscriptionStatus),
-        ]:
+        ]
+        for field_name, field_value, field_type in validations:
             invalid_items = [item for item in field_value if not isinstance(item, field_type)]
             if invalid_items:
                 raise InvalidArgumentException.array_contains_invalid_types(
@@ -48,7 +56,9 @@ class ListSubscriptions(HasParameters):
                 )
 
     def get_parameters(self) -> dict[str, str]:
-        parameters: dict[str, str | None] = self.pager.get_parameters() if self.pager else {}
+        parameters: dict[str, str | None] = {}
+        if self.pager:
+            parameters.update(self.pager.get_parameters())
 
         if self.next_billed_at is not None:
             parameters[f"next_billed_at{self.next_billed_at.comparator}"] = self.next_billed_at.formatted()

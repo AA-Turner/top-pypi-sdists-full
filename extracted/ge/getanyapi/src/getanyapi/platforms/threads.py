@@ -3,12 +3,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import NotRequired, Required, TypedDict, Unpack
 
 from ..types import RequestOptions, RunResult
+from .._pagination import (
+    AsyncPaginator,
+    Paginator,
+    apaginate,
+    paginate,
+)
 
 if TYPE_CHECKING:
     from .._async_client import AsyncAnyAPI
@@ -50,6 +56,8 @@ class ThreadsSearchInput(TypedDict, total=False):
 
     allowFallbacks: NotRequired[bool]
     """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    cursor: NotRequired[str]
+    """Pagination cursor from a previous response's nextCursor."""
     endDate: NotRequired[str]
     """Only return posts published on or before this date, format YYYY-MM-DD (e.g. 2026-08-07). Threads pages backwards in time from here, so narrowing this is how you walk older results."""
     ignoreSources: NotRequired[list[str]]
@@ -58,6 +66,8 @@ class ThreadsSearchInput(TypedDict, total=False):
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
     """Keyword or #hashtag to search public Threads posts for (e.g. Widgetable). A #hashtag can return different posts than the plain word, so if a tag returns nothing, try the word without #. Single words and brand names return the most; quotes around the whole query are removed, since quoted searches return nothing. Search a brand or topic rather than a URL - a query that is only a domain is searched by its name (wander.com is searched as wander)."""
+    requireFields: NotRequired[list[Literal["nextCursor"]]]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `nextCursor`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a post that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     startDate: NotRequired[str]
@@ -84,12 +94,16 @@ class ThreadsUserPostsInput(TypedDict, total=False):
 
     allowFallbacks: NotRequired[bool]
     """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    cursor: NotRequired[str]
+    """Pagination cursor from a previous response's nextCursor."""
     handle: Required[str]
     """The Threads username to list posts for, without the @ prefix."""
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    requireFields: NotRequired[list[Literal["nextCursor"]]]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `nextCursor`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a post that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
@@ -169,6 +183,13 @@ class ThreadsProfileData(BaseModel):
 
 
 class ThreadsSearchData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    next_cursor: str | None = Field(
+        default=None,
+        alias="nextCursor",
+        description="Opaque cursor for the next page of posts, or null when this source has no more. Pass it back as cursor to continue.",
+    )
     posts: list[ThreadsSearchPost] = Field(
         description="Matching public post records: text, author, engagement counts, timestamp, and URL. Without date filters, results tend to favor popular posts of any age. Use startDate or endDate to narrow the results; neither guarantees newest-first order. Populated whenever the provider has data for the entity."
     )
@@ -249,8 +270,15 @@ class ThreadsSearchUsersUser(BaseModel):
 
 
 class ThreadsUserPostsData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    next_cursor: str | None = Field(
+        default=None,
+        alias="nextCursor",
+        description="Opaque cursor for the next page of posts, or null when this source has no more. Pass it back as cursor to continue.",
+    )
     posts: list[ThreadsUserPostsPost] = Field(
-        description="One page of recent public posts (typically about 15); there is no next page. An older pinned post may appear first. Populated whenever the provider has data for the entity."
+        description="One page of recent public posts (typically 10 to 15). An older pinned post may appear first. Populated whenever the provider has data for the entity."
     )
 
 
@@ -365,6 +393,29 @@ class ThreadsNamespace:
         )
         return RunResult[ThreadsSearchData].model_validate(raw)
 
+    def iter_search(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[ThreadsSearchInput],
+    ) -> Paginator[ThreadsSearchPost, ThreadsSearchData]:
+        """Iterate Threads Search results, following pagination cursors.
+
+        Yields validated `ThreadsSearchPost` items from the `posts` field of
+        each page. Use `.pages()` on the returned paginator to walk whole
+        `RunResult` pages.
+        """
+        return paginate(
+            self._client,
+            "threads.search",
+            dict(input),
+            "posts",
+            item_model=ThreadsSearchPost,
+            data_model=ThreadsSearchData,
+            bare=False,
+            options=options,
+        )
+
     def search_users(
         self,
         *,
@@ -394,8 +445,9 @@ class ThreadsNamespace:
     ) -> RunResult[ThreadsUserPostsData]:
         """Threads User Posts
 
-        List one page of a Threads user's recent public posts by username (typically
-        about 15): text, engagement counts, and post URLs. There is no paging or
+        List a Threads user's recent public posts by username, one page per call
+        (typically 10 to 15): text, engagement counts, and post URLs. Pass
+        nextCursor back as cursor for older posts when it is not null. There is no
         date filter, and an older pinned post may appear first.
 
         Price: $0.0012 per request.
@@ -407,6 +459,29 @@ class ThreadsNamespace:
             "threads.user_posts", dict(input), options
         )
         return RunResult[ThreadsUserPostsData].model_validate(raw)
+
+    def iter_user_posts(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[ThreadsUserPostsInput],
+    ) -> Paginator[ThreadsUserPostsPost, ThreadsUserPostsData]:
+        """Iterate Threads User Posts results, following pagination cursors.
+
+        Yields validated `ThreadsUserPostsPost` items from the `posts` field of
+        each page. Use `.pages()` on the returned paginator to walk whole
+        `RunResult` pages.
+        """
+        return paginate(
+            self._client,
+            "threads.user_posts",
+            dict(input),
+            "posts",
+            item_model=ThreadsUserPostsPost,
+            data_model=ThreadsUserPostsData,
+            bare=False,
+            options=options,
+        )
 
 
 class AsyncThreadsNamespace:
@@ -478,6 +553,29 @@ class AsyncThreadsNamespace:
         )
         return RunResult[ThreadsSearchData].model_validate(raw)
 
+    def iter_search(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[ThreadsSearchInput],
+    ) -> AsyncPaginator[ThreadsSearchPost, ThreadsSearchData]:
+        """Iterate Threads Search results, following pagination cursors.
+
+        Yields validated `ThreadsSearchPost` items from the `posts` field of
+        each page. Use `.pages()` on the returned paginator to walk whole
+        `RunResult` pages.
+        """
+        return apaginate(
+            self._client,
+            "threads.search",
+            dict(input),
+            "posts",
+            item_model=ThreadsSearchPost,
+            data_model=ThreadsSearchData,
+            bare=False,
+            options=options,
+        )
+
     async def search_users(
         self,
         *,
@@ -507,8 +605,9 @@ class AsyncThreadsNamespace:
     ) -> RunResult[ThreadsUserPostsData]:
         """Threads User Posts
 
-        List one page of a Threads user's recent public posts by username (typically
-        about 15): text, engagement counts, and post URLs. There is no paging or
+        List a Threads user's recent public posts by username, one page per call
+        (typically 10 to 15): text, engagement counts, and post URLs. Pass
+        nextCursor back as cursor for older posts when it is not null. There is no
         date filter, and an older pinned post may appear first.
 
         Price: $0.0012 per request.
@@ -520,3 +619,26 @@ class AsyncThreadsNamespace:
             "threads.user_posts", dict(input), options
         )
         return RunResult[ThreadsUserPostsData].model_validate(raw)
+
+    def iter_user_posts(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[ThreadsUserPostsInput],
+    ) -> AsyncPaginator[ThreadsUserPostsPost, ThreadsUserPostsData]:
+        """Iterate Threads User Posts results, following pagination cursors.
+
+        Yields validated `ThreadsUserPostsPost` items from the `posts` field of
+        each page. Use `.pages()` on the returned paginator to walk whole
+        `RunResult` pages.
+        """
+        return apaginate(
+            self._client,
+            "threads.user_posts",
+            dict(input),
+            "posts",
+            item_model=ThreadsUserPostsPost,
+            data_model=ThreadsUserPostsData,
+            bare=False,
+            options=options,
+        )

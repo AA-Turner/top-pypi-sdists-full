@@ -157,6 +157,8 @@ def crop_image(
         Coordinates are rounded to integers and clipped to the image bounds
         before slicing. This keeps NumPy and Pillow inputs aligned and avoids
         negative-index wrap-around on NumPy arrays.
+        A box with no pixels inside the image (outside it, or with no area)
+        returns an empty image of the input type.
 
     Examples:
         ```pycon
@@ -544,12 +546,15 @@ def _overlay_image(
     """Overlay `overlay` onto `image` at `anchor`, clipping to scene bounds.
 
     Args:
-        image: Background array, BGR of shape ``(H, W, 3)`` or grayscale of
-            shape ``(H, W)`` or ``(H, W, 1)``. Modified in place and returned.
+        image: Background array, BGR of shape ``(H, W, 3)``, BGRA of shape
+            ``(H, W, 4)``, or grayscale of shape ``(H, W)`` or ``(H, W, 1)``.
+            Modified in place and returned.
         overlay: Overlay array of shape ``(H, W, 3)`` or ``(H, W, 4)``, or
             grayscale like ``image``; channel 4, when present, is treated as
             alpha. A BGR overlay is drawn as gray luminance on a grayscale
             ``image``, and a grayscale overlay as opaque gray on a BGRA ``image``.
+            On a BGRA ``image``, an alpha overlay is composited over the scene's
+            alpha, so hidden colors of transparent pixels do not darken it.
         anchor: ``(x, y)`` pixel position of the overlay top-left corner. May
             be negative (partial off-screen placement is clipped).
 

@@ -12,13 +12,13 @@ from http.client import HTTPResponse
 from http.cookies import SimpleCookie
 from io import BytesIO
 from json import JSONDecodeError
-from typing import Dict, Optional, Tuple, Union
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import requests
 import urllib3
-from requests import ConnectionError, Response, Session, Timeout
+from requests import ConnectionError, PreparedRequest, Response, Session, Timeout
 from requests.adapters import HTTPAdapter
-from requests.auth import HTTPBasicAuth
+from requests.auth import AuthBase, HTTPBasicAuth
 from urllib3._collections import HTTPHeaderDict
 
 from TM1py.Utils import (
@@ -60,6 +60,26 @@ class AuthenticationMode(Enum):
         if self.value < 5:
             return False
         return True
+
+
+class BearerTokenAuth(AuthBase):
+    """Sets a bearer token from a token provider on every outgoing request.
+
+    Used when ``access_token`` is a zero-argument callable. Asking the provider on each request,
+    rather than once at session start, lets it refresh the token before it expires, without a
+    failed request or a new TM1 session. The provider must return a cached token cheaply while it
+    is valid and be thread-safe, since TM1py may send requests from several threads.
+    """
+
+    def __init__(self, token_provider: Callable[[], str]):
+        self._token_provider = token_provider
+
+    def __call__(self, request: PreparedRequest) -> PreparedRequest:
+        token = self._token_provider()
+        if not token:
+            raise ValueError("'access_token' callable did not return a token")
+        request.headers["Authorization"] = "Bearer " + token
+        return request
 
 
 class RestService:
@@ -107,6 +127,7 @@ class RestService:
         - **namespace** (str): Optional CAM namespace.
         - **cam_passport** (str): The CAM passport.
         - **session_id** (str): TM1SessionId, e.g. q7O6e1w49AixeuLVxJ1GZg.
+        - **access_token** (str|callable): Bearer token. A string is sent to start the session and dropped once the server returns a session cookie; if it returns none (e.g. Planning Analytics Workspace's /api/v1/tm1/<database>), the string is sent with every request, until it expires. A zero-argument callable returning the token is called on every request instead, so a token provider (e.g. an OAuth client) can refresh the token mid-session. TM1Service.save_to_file pickles the service, so it fails if the callable cannot be pickled (e.g. a lambda, a nested function or an object holding a threading.Lock).
         - **application_client_id** (str): Planning Analytics Engine (v12) named application client ID created via manage service.
         - **application_client_secret** (str): Planning Analytics Engine (v12) named application secret created via manage service.
         - **api_key** (str): Planning Analytics Engine (v12) API Key from https://cloud.ibm.com/iam/apikeys.
@@ -221,6 +242,11 @@ class RestService:
         self._s = Session()
         self._manage_http_adapter()
 
+        # a callable access_token is resolved per request; installed here so it also applies
+        # when connect() reuses a session_id and skips _start_session
+        if callable(kwargs.get("access_token")):
+            self._s.auth = BearerTokenAuth(kwargs["access_token"])
+
         self._cert = kwargs.get("cert")
         self._s.cert = self._cert
 
@@ -273,7 +299,7 @@ class RestService:
             try:
                 return json.loads(proxies)
             except JSONDecodeError:
-                raise ValueError("Invalid JSON passed for argument 'proxies': %s", proxies)
+                raise ValueError(f"Invalid JSON passed for argument 'proxies': {proxies}")
 
         # handle invalid type
         raise ValueError("Argument of 'proxies' must be None, dictionary or JSON string")
@@ -959,7 +985,10 @@ class RestService:
             self.add_http_header("Authorization", "Bearer " + access_token)
 
         elif self._auth_mode == AuthenticationMode.ACCESS_TOKEN:
-            self.add_http_header("Authorization", "Bearer " + self._kwargs.get("access_token"))
+            access_token = self._kwargs.get("access_token")
+            # a callable token is sent by BearerTokenAuth, installed on the session in __init__
+            if not callable(access_token):
+                self.add_http_header("Authorization", "Bearer " + access_token)
 
         # v11 authorization (Basic, CAM) through Headers
         else:
@@ -1040,8 +1069,11 @@ class RestService:
             if session_id is not None:
                 self._s.cookies.set("TM1SessionId", session_id)
 
-            # After we have session cookie, drop the Authorization Header
-            self.remove_http_header("Authorization")
+            # Once a session cookie identifies the session, drop the Authorization header.
+            # Without one the server authenticates every request (e.g. Planning Analytics
+            # with a bearer token from 3.1.12), so the header stays.
+            if self._has_session_cookie():
+                self.remove_http_header("Authorization")
 
     def _url_and_body(self, url: str, data: str, encoding: str = "utf-8") -> Tuple[str, bytes]:
         """create proper url and payload"""
@@ -1195,6 +1227,10 @@ class RestService:
         matches.sort(key=lambda cookie: (bool(cookie.domain), len(cookie.path or ""), cookie.domain or ""))
         return matches[-1].value
 
+    def _has_session_cookie(self) -> bool:
+        """True if the cookie jar holds a session cookie of TM1 ('TM1SessionId') or Planning Analytics ('paSession')."""
+        return any(cookie.name in ("TM1SessionId", "paSession") for cookie in self._s.cookies)
+
     def _pop_cookie(self, name: str) -> Optional[str]:
         """Remove every cookie called `name` (any scope) and return the preferred value.
 
@@ -1229,7 +1265,7 @@ class RestService:
         elif isinstance(value, str):
             return value.replace(" ", "").lower() == "true"
         else:
-            raise ValueError("Invalid argument: '" + value + "'. Must be to be of type 'bool' or 'str'")
+            raise ValueError("Invalid argument: '" + value + "'. Must be of type 'bool' or 'str'")
 
     @staticmethod
     def b64_decode_password(encrypted_password: str) -> str:

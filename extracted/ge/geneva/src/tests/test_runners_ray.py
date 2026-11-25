@@ -34,7 +34,7 @@ from ray_backfill_test_utils import (
 import geneva
 import geneva.runners.ray.pipeline as pipeline_mod
 from geneva import CheckpointStore, connect, udf
-from geneva.apply import DirectFragmentWriteResult
+from geneva.apply import CheckpointingApplier, DirectFragmentWriteResult, plan_read
 from geneva.apply.task import DEFAULT_CHECKPOINT_ROWS, BackfillUDFTask, ScanTask
 from geneva.db import Connection
 from geneva.errors import MergeFallbackTargetError
@@ -57,6 +57,7 @@ from geneva.runners.ray.jobtracker import (
     METRIC_WRITER_WRITE_TIME,
 )
 from geneva.runners.ray.pipeline import (
+    METRIC_UDF_VALUES,
     ApplierActor,
     ColumnAddPipelineJob,
     FragmentWriterManager,
@@ -1777,6 +1778,8 @@ def test_lost_worker_node_reschedules_backfill_to_surviving_actor_without_replac
         marker_dir.mkdir()
         marker_dir_str = str(marker_dir)
         worker_node_id = str(worker_node.node_id)
+        worker_marker = marker_dir / worker_node_id
+        worker_marker_str = str(worker_marker)
 
         @udf(data_type=pa.int32(), checkpoint_size=1, version=uuid.uuid4().hex)
         def slow_node_marking_double(a: int) -> int:
@@ -1792,6 +1795,14 @@ def test_lost_worker_node_reschedules_backfill_to_surviving_actor_without_replac
             if node_id == worker_node_id:
                 time.sleep(5.0)
             else:
+                # Hold the head-node actor until the worker-node actor starts a
+                # row, so it cannot finish every task while that actor starts.
+                wait_until = time.monotonic() + 60
+                while (
+                    not os.path.exists(worker_marker_str)
+                    and time.monotonic() < wait_until
+                ):
+                    time.sleep(0.05)
                 time.sleep(0.05)
             return a * 2
 
@@ -1892,7 +1903,6 @@ def test_lost_worker_node_reschedules_backfill_to_surviving_actor_without_replac
 
         removed_worker = False
         deadline = time.monotonic() + 60
-        worker_marker = marker_dir / worker_node_id
         while time.monotonic() < deadline:
             if worker_marker.exists():
                 cluster.remove_node(worker_node, allow_graceful=allow_graceful)
@@ -2127,6 +2137,49 @@ def test_run_ray_add_column_direct_fragment_write(tbl_path, tbl_ref, ckp_store) 
     assert all("_range-" not in key for key in checkpoint_keys)
 
 
+def test_backfill_udf_metric_excludes_replayed_checkpoint(db: Connection) -> None:
+    tbl = db.create_table("resume_metrics", pa.table({"a": [0, 1, 2, 3]}))
+    tbl.add_columns({"b": times_ten})
+    table_ref = tbl.get_reference()
+    store = table_ref.open_checkpoint_store()
+    where = "a >= 0"
+    map_task = BackfillUDFTask(udfs={"b": times_ten}, where=where)
+    tasks, _ = plan_read(
+        tbl.uri,
+        table_ref,
+        ["a", "b"],
+        task_size=2,
+        where=where,
+        map_task=map_task,
+        checkpoint_store=store,
+    )
+    task = next(iter(tasks))
+    assert task.dest_offset() == 0
+    applier = CheckpointingApplier(map_task=map_task, checkpoint_uri=store.root)
+    task_key = applier._checkpoint_key_for_task(task)
+    # Use distinct values so the committed output proves the checkpoint was replayed.
+    store[task_key] = pa.record_batch(
+        [pa.array([100, 110], type=pa.int32()), pa.array([0, 1], type=pa.uint64())],
+        names=["b", "_rowaddr"],
+    )
+
+    future = tbl.backfill_async(
+        "b",
+        where=where,
+        concurrency=1,
+        task_size=2,
+        checkpoint_size=2,
+    )
+    future.result()
+    metrics = {
+        metric.name: metric.n for metric in db.get_job(future.job_id).metrics or []
+    }
+    tbl.checkout_latest()
+    assert tbl.to_arrow()["b"].to_pylist() == [100, 110, 20, 30]
+    assert metrics["rows_checkpointed"] == 4
+    assert metrics[METRIC_UDF_VALUES] == 2
+
+
 def test_run_ray_add_column_direct_fragment_write_before_flush(
     tbl_path, tbl_ref, ckp_store
 ) -> None:
@@ -2167,7 +2220,9 @@ def _assert_no_range_keys_remain(ckp_store: CheckpointStore) -> None:
     )
 
 
-def _run_cleanup_backfill(tmp_path, name: str) -> CheckpointStore:
+def _run_cleanup_backfill(
+    tmp_path, name: str, layout: str | None = None
+) -> CheckpointStore:
     """Run a small multi-fragment backfill and return the checkpoint store.
 
     Uses small ``task_size`` / ``checkpoint_size`` to force per-batch
@@ -2177,7 +2232,7 @@ def _run_cleanup_backfill(tmp_path, name: str) -> CheckpointStore:
     tbl_path = tmp_path / f"{name}.lance"
     make_new_ds_a_with_fragments(tbl_path, num_rows=12, rows_per_fragment=4)
     add_empty_b(lance.dataset(tbl_path), int32_return_none)
-    ckp_store = CheckpointStore.from_uri(str(tmp_path / f"ckp_{name}"))
+    ckp_store = CheckpointStore.from_uri(str(tmp_path / f"ckp_{name}"), layout=layout)
     tbl_ref = TableReference(table_id=[name], version=None, db_uri=str(tmp_path))
 
     @udf(data_type=pa.int32(), batch_size=2, checkpoint_size=2, num_cpus=1)
@@ -2203,83 +2258,33 @@ def _run_cleanup_backfill(tmp_path, name: str) -> CheckpointStore:
     return ckp_store
 
 
-def test_run_ray_add_column_cleans_per_batch_checkpoints(tmp_path) -> None:
-    """Regression for GEN-541: per-batch checkpoints must be deleted once the
-    dedupe key for their fragment is durable. Exercises the indirect
-    checkpoint-then-commit path on a multi-fragment dataset.
-    """
-    ckp_store = _run_cleanup_backfill(tmp_path, "cleanup_flat")
-    _assert_no_range_keys_remain(ckp_store)
+@pytest.mark.parametrize("layout", ["flat", "hierarchical"])
+def test_run_ray_add_column_cleans_per_batch_checkpoints(tmp_path, layout: str) -> None:
+    """Regression for GEN-541 on both layouts: per-batch checkpoints are deleted
+    once the dedupe key for their fragment is durable (indirect
+    checkpoint-then-commit path, multi-fragment dataset).
 
-
-def test_run_ray_add_column_cleans_per_batch_checkpoints_hierarchical(
-    tmp_path, monkeypatch
-) -> None:
-    """Regression for GEN-541 on the hierarchical checkpoint layout. Same
-    invariant as the flat-layout test: a successful backfill leaves only
-    fragment dedupe keys, no per-batch '_range-' keys.
+    Workers keep their default config, so the flat case also checks that the
+    driver's layout reaches the workers (GEN-602).
     """
     from geneva.checkpoint import (
-        CheckpointConfig,
+        FlatLanceCheckpointStore,
         HierarchicalLanceCheckpointStore,
-        _select_store_class,
     )
 
-    # Env var must be set before any CheckpointStore.from_uri so workers
-    # reconstructing the store also pick the hierarchical layout. The
-    # CheckpointConfig name is "checkpoint" and EnvVarResolver in
-    # config/loader.py joins parts directly with "__" without adding a
-    # GENEVA_ prefix, so the env var name is CHECKPOINT__STORE_LAYOUT
-    # (documented at checkpoint.py:833).
-    monkeypatch.setenv("CHECKPOINT__STORE_LAYOUT", "hierarchical")
-    # Setting CHECKPOINT__STORE_LAYOUT alone makes the env resolver report
-    # the "checkpoint" section as present, which causes CheckpointConfig
-    # to recursively instantiate ObjectStoreCheckpointConfig -- whose
-    # required ``path`` field would then be missing and raise TypeError
-    # (swallowed by ``_select_store_class``, falling back to flat). Stub
-    # ``path`` so the config loads cleanly; the test does not exercise
-    # object-store mode (it uses ``CheckpointStore.from_uri`` directly).
-    monkeypatch.setenv("CHECKPOINT__OBJECT_STORE__PATH", str(tmp_path / "unused"))
-    # CheckpointConfig.get is @functools.lru_cache(None); clear it so the
-    # new env var takes effect even if a prior test warmed the cache.
-    CheckpointConfig.get.cache_clear()
-
-    # Ray workers are spawned at ray.init() time and do not pick up env
-    # vars set by monkeypatch after the autouse ray_cluster fixture ran.
-    # Re-init Ray with these env vars in runtime_env so workers
-    # reconstructing CheckpointStore via from_uri also pick hierarchical;
-    # otherwise the driver writes hierarchical keys while workers read
-    # via the flat layout and hit KeyError.
-    ray.shutdown()
-    ray.init(
-        runtime_env={
-            "env_vars": {
-                "CHECKPOINT__STORE_LAYOUT": "hierarchical",
-                "CHECKPOINT__OBJECT_STORE__PATH": str(tmp_path / "unused"),
-            },
-        },
-        log_to_driver=True,
+    ckp_store = _run_cleanup_backfill(tmp_path, f"cleanup_{layout}", layout=layout)
+    expected = (
+        HierarchicalLanceCheckpointStore
+        if layout == "hierarchical"
+        else FlatLanceCheckpointStore
     )
-
-    try:
-        # Belt-and-suspenders: assert the store we'd construct is actually
-        # hierarchical, so a future env-var rename can't silently regress
-        # this test back to the flat layout.
-        assert _select_store_class() is HierarchicalLanceCheckpointStore, (
-            "test expected hierarchical layout but selected "
-            f"{_select_store_class().__name__}"
-        )
-
-        ckp_store = _run_cleanup_backfill(tmp_path, "cleanup_hier")
-        assert isinstance(ckp_store, HierarchicalLanceCheckpointStore), (
-            f"expected HierarchicalLanceCheckpointStore, got {type(ckp_store).__name__}"
-        )
-        _assert_no_range_keys_remain(ckp_store)
-    finally:
-        # Avoid leaking hierarchical-layout state into later tests in the
-        # same process. The autouse ray_cluster fixture will reset Ray
-        # for the next test, so no explicit ray.shutdown() needed here.
-        CheckpointConfig.get.cache_clear()
+    # Exact type: Hierarchical subclasses Flat.
+    assert type(ckp_store) is expected
+    _assert_no_range_keys_remain(ckp_store)
+    # Workers wrote through the driver's layout: a worker on the other layout
+    # leaves files this store lists as foreign (e.g. ``bf=...``) paths.
+    keys = list(ckp_store.list_keys())
+    assert all(k.startswith("udf-") for k in keys), keys[:5]
 
 
 # Backfill tests with struct return types

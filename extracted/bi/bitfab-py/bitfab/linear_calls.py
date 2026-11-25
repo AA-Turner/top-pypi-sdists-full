@@ -21,14 +21,12 @@ from bitfab.linear_sandbox import (
     LINEAR_INTEGRATION,
     LINEAR_SANDBOX_NAME,
     LINEAR_SPAN_PREFIX,
-    LinearCallAccess,
     LinearCallRefusedError,
     LinearRecording,
     issue_ids_created,
     issue_ids_read,
     issue_ids_written,
     operation_span_name,
-    reading_linear,
     record_call,
     record_whole_issue,
 )
@@ -88,7 +86,7 @@ def _refused(where: str) -> LinearCallRefusedError:
     return refused
 
 
-def run_linear_call(params: dict[str, Any], token: str | None) -> Any:
+def run_linear_call(params: dict[str, Any]) -> Any:
     session = current_session()
     client = getattr(session, "client", None)
     name = operation_span_name(params)
@@ -101,7 +99,6 @@ def run_linear_call(params: dict[str, Any], token: str | None) -> Any:
         method=name,
         params=params,
         send=lambda: None,
-        request=LinearCallAccess(token=token),
     )
     current = service_calls._current.set(call)
     try:
@@ -201,10 +198,7 @@ def _patched_send(original: Any) -> Any:
         if linear_sandbox_on():
             if parsed.path.rstrip("/") != GRAPHQL_PATH:
                 raise _refused(f"{parsed.hostname}{parsed.path}")
-            answer = run_linear_call(
-                graphql_params(request.url, request.body),
-                (request.headers or {}).get("Authorization"),
-            )
+            answer = run_linear_call(graphql_params(request.url, request.body))
             return _requests_response(answer, request)
         if parsed.path.rstrip("/") != GRAPHQL_PATH or not _should_record():
             return original(self, request, **kwargs)
@@ -242,10 +236,6 @@ def _httpx_response(module: Any, answer: Any, request: Any) -> Any:
     return module.Response(200, json=answer, request=request)
 
 
-def _httpx_token(request: Any) -> str | None:
-    return request.headers.get("authorization")
-
-
 def _whole_httpx_request(client: Any, request: Any, body: dict[str, Any]) -> Any:
     headers = {
         name: value
@@ -264,9 +254,7 @@ def _patched_httpx_send(original: Any, module: Any) -> Any:
         if linear_sandbox_on():
             if url.path.rstrip("/") != GRAPHQL_PATH:
                 raise _refused(f"{url.host}{url.path}")
-            answer = run_linear_call(
-                graphql_params(str(url), _httpx_body(request)), _httpx_token(request)
-            )
+            answer = run_linear_call(graphql_params(str(url), _httpx_body(request)))
             return _httpx_response(module, answer, request)
         if url.path.rstrip("/") != GRAPHQL_PATH or not _should_record():
             return original(self, request, *args, **kwargs)
@@ -322,9 +310,7 @@ def _patched_httpx_async_send(original: Any, module: Any) -> Any:
         if linear_sandbox_on():
             if url.path.rstrip("/") != GRAPHQL_PATH:
                 raise _refused(f"{url.host}{url.path}")
-            answer = run_linear_call(
-                graphql_params(str(url), _httpx_body(request)), _httpx_token(request)
-            )
+            answer = run_linear_call(graphql_params(str(url), _httpx_body(request)))
             return _httpx_response(module, answer, request)
         if url.path.rstrip("/") != GRAPHQL_PATH or not _should_record():
             return await original(self, request, *args, **kwargs)
@@ -362,7 +348,7 @@ def _patched_putrequest(original: Any) -> Any:
     @functools.wraps(original)
     def putrequest(self: Any, method: str, url: str, *args: Any, **kwargs: Any) -> Any:
         host = getattr(self, "host", None)
-        if _is_linear_host(host) and linear_sandbox_on() and not reading_linear.get():
+        if _is_linear_host(host) and linear_sandbox_on():
             raise _refused(f"{host}{urlsplit(url).path or url}")
         return original(self, method, url, *args, **kwargs)
 

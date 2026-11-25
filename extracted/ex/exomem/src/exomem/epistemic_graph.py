@@ -1,4 +1,4 @@
-"""Derived epistemic graph sidecar over Exomem Markdown files.
+"""Derived epistemic graph sidecar over Evermatter Markdown files.
 
 The graph is rebuildable measurement state. Markdown remains canonical; this
 module indexes files, semantic blocks, and deterministic relations into a SQLite
@@ -1299,6 +1299,7 @@ def _retire_covered_full_marker(vault_root: Path, observed: tuple[int, int] | No
 
 #: Every reason `recover_suspended_graph` can decline, as a stable token.
 RECOVERY_DECLINE_QUEUE_OWNS_REPAIR = "queue_owns_repair"
+RECOVERY_DECLINE_ACKNOWLEDGEMENT_IN_FLIGHT = "acknowledgement_in_flight"
 RECOVERY_DECLINE_MARKER_OWNS_REPAIR = "marker_owns_repair"
 RECOVERY_DECLINE_EXTERNAL_PENDING = "external_change_pending"
 RECOVERY_DECLINE_GRAPH_DISABLED = "graph_disabled"
@@ -1342,8 +1343,13 @@ def recovery_decline_reason(vault_root: Path) -> str | None:
     one receipt that never drains, behind writes that do, held the barrier for
     good, because their progress restarts the stall escalation's clock. A queue
     that only loses races to live commits stays the queue's, whatever its age.
+
+    A watcher batch between raising the barrier as its fence and queueing its
+    repair owns the barrier next, ahead of an external mark: the mark is
+    retired before the repair is queued, so for that window the barrier has
+    neither receipts nor a mark and would read as nobody's.
     """
-    from . import freshness
+    from . import freshness, graph_drain
 
     details = deferred_index.graph_full_rebuild_details(vault_root)
     if details is not None and details.fatal_family is not None:
@@ -1351,6 +1357,8 @@ def recovery_decline_reason(vault_root: Path) -> str | None:
         return RECOVERY_DECLINE_MARKER_OWNS_REPAIR
     if _graph_receipts_own_repair(vault_root):
         return RECOVERY_DECLINE_QUEUE_OWNS_REPAIR
+    if graph_drain.acknowledgement_in_flight(vault_root):
+        return RECOVERY_DECLINE_ACKNOWLEDGEMENT_IN_FLIGHT
     if freshness.external_pending(vault_root):
         return RECOVERY_DECLINE_EXTERNAL_PENDING
     if not graph_enabled():
@@ -1375,6 +1383,11 @@ def _graph_receipts_own_repair(vault_root: Path) -> bool:
     not refused by the epoch or by an unready vault. The oldest receipt's age
     bounds it: a requeue keeps a receipt's first enqueue time, so a receipt
     that never drains ages past the threshold however much drains around it.
+    That age counts only from when this process first saw receipts queued
+    (`graph_drain.observed_receipt_age`): a receipt queued before it, by a
+    worker that never drained it, is unseen here, and its age across process
+    lifetimes is not a stall. It runs whichever pass drains or fails, so a
+    queue this process cannot clear escalates after the threshold.
     The age does not bound a queue whose latest pass cleared nothing only
     because live commits won the race for it
     (`graph_drain.per_path_repair_raced`): that queue is old because writes keep
@@ -1387,7 +1400,9 @@ def _graph_receipts_own_repair(vault_root: Path) -> bool:
     if graph_drain.per_path_repair_blocked(vault_root):
         return False
     try:
-        oldest_age = deferred_index.graph_oldest_receipt_age(vault_root)
+        oldest_age = graph_drain.observed_receipt_age(
+            vault_root, deferred_index.graph_oldest_receipt_age(vault_root)
+        )
         return (
             oldest_age is not None
             and (
@@ -4208,11 +4223,16 @@ class EpistemicGraphIndex:
                 # A registry mismatch is not source evidence. Bind the cold
                 # result and membership before startup can act on that mismatch.
                 seal: list[_SnapshotSourceSeal] = []
-                if self._snapshot_sources_match_disk(
-                    conn, resolver_fingerprint=values.get(_RESOLVER_TOPOLOGY_KEY),
-                    fold=True, seal_out=seal, negative_out=startup_negative,
-                    fatal_read_out=fatal_read_out,
-                ):
+                try:
+                    sealed = self._snapshot_sources_match_disk(
+                        conn, resolver_fingerprint=values.get(_RESOLVER_TOPOLOGY_KEY),
+                        fold=True, seal_out=seal, negative_out=startup_negative,
+                        fatal_read_out=fatal_read_out,
+                    )
+                except foreground_priority.BulkCancelled:
+                    conn.close()
+                    raise
+                if sealed:
                     startup_negative.extend(seal)
             if current and (not exact_live_checkpoint or startup_negative is not None):
                 # Remembered per everything the verdict depends on (#1454):
@@ -4294,6 +4314,9 @@ class EpistemicGraphIndex:
                         if decline != ["proof_raised"] and not self_owned:
                             with _SNAPSHOT_PROOFS_LOCK:
                                 _SNAPSHOT_PROOFS[registry_key] = (proof_identity, current)
+                    except foreground_priority.BulkCancelled:
+                        conn.close()
+                        raise
                     finally:
                         if mine is not None:
                             with _SNAPSHOT_PROOFS_LOCK:
@@ -4900,10 +4923,18 @@ class EpistemicGraphIndex:
                 reason_out.append(reason)
             return False
 
+        # A stopping bulk pass, such as startup validation in a worker being
+        # shut down for a handoff, ends at its next page, walked path or
+        # recheck. The supervisor gives a stopping worker seconds; a proof
+        # that ran to its end held one for two minutes on 2026-11-23. The stop
+        # unwinds as `BulkCancelled`, so no caller acts on a half-run proof.
+        stop = foreground_priority.cancellation_event()
         interrupt: Callable[[], None] | None = None
-        if deadline is not None or cancelled is not None:
+        if deadline is not None or cancelled is not None or stop is not None:
 
             def interrupt() -> None:
+                if stop is not None and stop.is_set():
+                    raise foreground_priority.BulkCancelled()
                 if deadline is not None and time.monotonic() >= deadline:
                     raise _ProofDeadlinePassed
                 if cancelled is not None and cancelled():
@@ -4969,7 +5000,7 @@ class EpistemicGraphIndex:
                     return declined("indexed_sources_differ")
 
                 # Stabilize the cold proof after every read. A direct editor
-                # does not participate in Exomem's mutation lock and may
+                # does not participate in Evermatter's mutation lock and may
                 # replace bytes while this O(vault) proof is running. Re-read
                 # each captured source, then repeat both path censuses and the
                 # policy identity so a mid-proof edit cannot bless the older
@@ -5479,9 +5510,10 @@ class EpistemicGraphIndex:
             attempts += 1
             # Read before this attempt samples its epoch: whole-vault debt that
             # already exists now is paid by the publication this attempt makes.
-            marker = deferred_index.graph_full_rebuild_details(
-                self.vault_root, deadline=time.monotonic() + 0.05,
-            )
+            # No deadline: this read holds no boundary, so it waits out a brief
+            # lock (another connection's close checkpoints the WAL) instead of
+            # stopping the whole rebuild on it.
+            marker = deferred_index.graph_full_rebuild_details(self.vault_root)
             self._check_graph_rebuild_destination(marker)
             covered_marker = marker.token if marker is not None else None
             prepared_recall = freshness.prepare_recall_publication(self.vault_root, "vault")

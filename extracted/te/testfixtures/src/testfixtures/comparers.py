@@ -26,12 +26,14 @@ if TYPE_CHECKING:
 
 __all__ = [
     'AlreadySeen',
+    'compare_attribute_mapping',
     'compare_bytes',
     'compare_call',
     'compare_dict',
     'compare_exception',
     'compare_exception_group',
     'compare_generator',
+    'compare_mapping',
     'compare_object',
     'compare_partial',
     'compare_path',
@@ -150,18 +152,17 @@ def compare_simple(
         repr_x = safe_repr(x)
         repr_y = safe_repr(y)
         if repr_x == repr_y:
-            if type(x) is not type(y):
-                return compare_with_type(x, y, context)
             x_attrs = _extract_attrs(x)
             y_attrs = _extract_attrs(y)
             diff_ = None
             if not (x_attrs is None or y_attrs is None):
-                diff_ = _compare_mapping(x_attrs, y_attrs, context, x,
-                                         'attributes ', '.%s')
+                diff_ = compare_attribute_mapping(x_attrs, y_attrs, context, x, y)
             if diff_:
                 return diff_
             x_label = context.x_label or 'x'
             y_label = context.y_label or 'y'
+            if type(x) is not type(y):
+                return compare_with_type(x, y, context)
             return f'Both {x_label} and {y_label} appear as {repr_x!r}, but are not equal!'
         labeled_x = context.label('x', repr_x)
         labeled_y = context.label('y', repr_y)
@@ -272,8 +273,7 @@ def compare_object(
     if x_attrs is None or y_attrs is None or not (x_attrs and y_attrs):
         return compare_simple(x, y, context)
     if not context.qualified_equals(x_attrs, y_attrs):
-        return _compare_mapping(x_attrs, y_attrs, context, x,
-                                'attributes ', '.%s')
+        return compare_attribute_mapping(x_attrs, y_attrs, context, x, y)
     return None
 
 
@@ -365,13 +365,14 @@ def compare_tuple(x: tuple, y: tuple, context: 'CompareContext') -> str | None:
     x_fields = getattr(x, '_fields', None)
     y_fields = getattr(y, '_fields', None)
     if x_fields and y_fields:
-        if x_fields == y_fields:
-            return _compare_mapping(dict(zip(x_fields, x)),
-                                    dict(zip(y_fields, y)),
-                                    context,
-                                    x)
-        else:
-            return compare_with_type(x, y, context)
+        return compare_attribute_mapping(
+            dict(zip(x_fields, x)),
+            dict(zip(y_fields, y)),
+            context,
+            x,
+            y,
+            prefix='',
+        )
     return compare_sequence(x, y, context)
 
 
@@ -380,7 +381,7 @@ def compare_dict(x: dict, y: dict, context: 'CompareContext') -> str | None:
     Returns a textual description of the differences between the two
     supplied dictionaries.
     """
-    return _compare_mapping(x, y, context, x)
+    return compare_mapping(x, y, context)
 
 
 Item = TypeVar('Item')
@@ -390,12 +391,51 @@ def sorted_by_repr(sequence: Iterable[Item]) -> List[Item]:
     return sorted(sequence, key=safe_repr)
 
 
-def _compare_mapping(
-        x: Mapping, y: Mapping, context: 'CompareContext', obj_for_class: Any,
-        prefix: str = '', breadcrumb: str = '[%r]',
-        check_y_not_x: bool = True
-) -> str | None:
+def compare_mapping(x: Mapping, y: Mapping, context: 'CompareContext') -> str | None:
+    """
+    Returns a textual description of the differences between the two
+    supplied mappings.
+    """
+    return compare_attribute_mapping(x, y, context, prefix='', breadcrumb='[%r]')
 
+
+def compare_attribute_mapping(
+        x: Mapping,
+        y: Mapping,
+        context: 'CompareContext',
+        x_obj: Any = None,
+        y_obj: Any = None,
+        prefix: str = 'attributes ',
+        breadcrumb: str = '.%s',
+        check_y_not_x: bool = True,
+        include_diff_header: bool = True,
+) -> str | None:
+    """
+    Returns a textual description of the differences between the two
+    supplied attribute mappings. This is useful when implementing custom comparers for objects that
+    can be reduced to a mapping, such as their attributes or fields.
+
+    :param include_diff_header:
+      If ``False``, the header line describing the types involved will be omitted.
+
+    :param x_obj:
+      The object whose class name is used in the labeling of the provided ``x``.
+      If not provided, the type of ``x`` is used.
+
+    :param y_obj:
+      The object whose class name is used in the labeling of the provided ``y``.
+      If not provided, the type of ``y`` is used.
+
+    :param prefix:
+      Text prepended to each section heading.
+
+    :param breadcrumb:
+      The format string used to describe the location of each key when
+      recursing into its value.
+
+    :param check_y_not_x:
+      If ``False``, keys present in ``y`` but not ``x`` are ignored.
+    """
     x_keys = set(x.keys())
     y_keys = set(y.keys())
     x_not_y = x_keys - y_keys
@@ -413,10 +453,21 @@ def _compare_mapping(
     if not (x_not_y or (check_y_not_x and y_not_x) or diffs):
         return None
 
-    if obj_for_class is not_there:
-        lines = []
+    x_label = context.x_label or 'first'
+    y_label = context.y_label or 'second'
+
+    if include_diff_header:
+        type_x = type(x if x_obj is None else x_obj)
+        type_y = type(y if y_obj is None else y_obj)
+        if type_x is type_y:
+            label = f'{type_x.__name__}'
+        else:
+            label = (
+                f'types differ: {type_x.__name__} ({x_label}), {type_y.__name__} ({y_label}), and'
+            )
+        lines = [f'{label} not as expected:']
     else:
-        lines = [f'{obj_for_class.__class__.__name__} not as expected:']
+        lines = []
 
     if same:
         try:
@@ -424,9 +475,6 @@ def _compare_mapping(
         except TypeError:
             pass
         lines.extend(('', f'{prefix}same:', safe_repr(same)))
-
-    x_label = context.x_label or 'first'
-    y_label = context.y_label or 'second'
 
     if x_not_y:
         lines.extend(('', f'{prefix}in {x_label} but not {y_label}:'))
@@ -580,8 +628,7 @@ def compare_partial(x: partial_type, y: partial_type, context: 'CompareContext')
     x_attrs = dict(func=x.func, args=x.args, keywords=x.keywords)
     y_attrs = dict(func=y.func, args=y.args, keywords=y.keywords)
     if x_attrs != y_attrs:
-        return _compare_mapping(x_attrs, y_attrs, context, x,
-                                'attributes ', '.%s')
+        return compare_attribute_mapping(x_attrs, y_attrs, context, x, y)
     return None
 
 

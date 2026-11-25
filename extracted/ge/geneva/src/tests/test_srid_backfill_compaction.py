@@ -348,7 +348,8 @@ def test_cleanup_checkpoints_midjob_state_pinned(db) -> None:
     """
     tbl = make_multifragment_table(db, "ckp_midjob", 2, 4)
     store = tbl.get_reference().open_checkpoint_store()
-    base = "udf-foo_ver-1_col-out_where-w_uri-u_srcfiles-s"
+    # Hex uri hash so the key parses on the hierarchical layout too.
+    base = "udf-foo_ver-1_col-out_where-w_uri-bb_srcfiles-s"
     batch = pa.RecordBatch.from_pydict({"out": [1]})
     keys = [f"{base}_frag-1_range-0-2", f"{base}_frag-1_range-2-4"]
     for key in keys:

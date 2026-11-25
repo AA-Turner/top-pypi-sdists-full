@@ -43,7 +43,7 @@ def workspace(ctx: Context) -> None:
 @workspace.command(name="ls")
 @click.pass_context
 @coro
-async def workspace_ls(ctx: Context) -> None:
+async def workspace_ls(_ctx: Context) -> None:
     """List all the workspaces you have access to in the account you're currently authenticated into."""
 
     config = CLIConfig.get_project_config()
@@ -99,7 +99,7 @@ async def workspace_current():
 @click.option("--dry-run", is_flag=True, default=False, help="Run the command without removing anything")
 @click.pass_context
 @coro
-async def clear_workspace(ctx: Context, yes: bool, dry_run: bool) -> None:
+async def clear_workspace(_ctx: Context, yes: bool, dry_run: bool) -> None:
     """Drop all the resources inside a project. This command is dangerous because it removes everything, use with care."""
 
     # Get current workspace to add the name to the alert message

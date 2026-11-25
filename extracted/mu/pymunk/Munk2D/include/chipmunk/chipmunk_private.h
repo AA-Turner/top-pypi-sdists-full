@@ -88,7 +88,23 @@ void cpBodyRemoveConstraint(cpBody *body, cpConstraint *constraint);
 //MARK: Spatial Index Functions
 
 cpSpatialIndex *cpSpatialIndexInit(cpSpatialIndex *index, cpSpatialIndexClass *klass, cpSpatialIndexBBFunc bbfunc, cpSpatialIndex *staticIndex);
+// Returns false for other index implementations so callers can use a BB-query fallback.
+cpBool cpBBTreeSegmentQueryRadius(cpSpatialIndex *index, void *obj, cpVect a, cpVect b, cpFloat radius, cpFloat t_exit, cpSpatialIndexSegmentQueryFunc func, void *data);
+// A radius-query fallback can avoid unsafe or excessive hash-cell enumeration.
+cpBool cpSpaceHashQueryUseEach(cpSpatialIndex *index, cpBB bb);
 
+// Keys must remain stable while an object is indexed. queryKey may conservatively
+// return NULL; otherwise it must equal ownerKey. Linked trees use the same keys.
+typedef const void *(*cpBBTreeOwnerFunc)(void *obj);
+cpBool cpBBTreeConfigureOwners(cpSpatialIndex *index, cpBBTreeOwnerFunc ownerKey,
+							   cpBBTreeOwnerFunc queryKey);
+cpBool cpBBTreeOwnersConfigured(cpSpatialIndex *index);
+// Empty linked trees only. Opt in ONLY if queryKey is pure and remains stable
+// throughout one MarkLeaf, including its callbacks. Generic trees default OFF.
+cpBool cpBBTreeCacheOwnerQueries(cpSpatialIndex *index, cpBool stable);
+// Empty linked trees only; keys must be pure/stable. Generic trees stay eager
+// unless explicitly opted in. Activation rebuilds both roots before pruning.
+cpBool cpBBTreeDeferOwners(cpSpatialIndex *index);
 
 //MARK: Arbiters
 
@@ -111,6 +127,10 @@ void cpArbiterApplyImpulse(cpArbiter *arb);
 //MARK: Shapes/Collisions
 
 cpShape *cpShapeInit(cpShape *shape, const cpShapeClass *klass, cpBody *body, struct cpShapeMassInfo massInfo);
+// Tests the same signed distance as the full query against a strict cutoff.
+// On true, info is complete. On false, callers must not use info.
+cpBool cpShapePointQueryWithin(const cpShape *shape, cpVect p, cpFloat maxDistance, cpPointQueryInfo *info);
+cpBool cpPolyShapePointQueryWithin(const cpShape *shape, cpVect p, cpFloat maxDistance, cpPointQueryInfo *info);
 
 static inline cpBool
 cpShapeActive(cpShape *shape)
@@ -300,6 +320,33 @@ void cpSpaceFilterArbiters(cpSpace *space, cpBody *body, cpShape *filter);
 void cpSpaceActivateBody(cpSpace *space, cpBody *body);
 void cpSpaceLock(cpSpace *space);
 void cpSpaceUnlock(cpSpace *space, cpBool runPostStep);
+
+static inline void
+cpSpacePushConstraint(cpSpace *space, cpConstraint *constraint)
+{
+#ifdef CP_CONSTRAINT_ARRAY_INDEX
+	constraint->activeIndex = space->constraints->num;
+#endif
+	cpArrayPush(space->constraints, constraint);
+}
+
+static inline void
+cpSpaceRemoveConstraintFromArray(cpSpace *space, cpConstraint *constraint)
+{
+#ifdef CP_CONSTRAINT_ARRAY_INDEX
+	cpArray *array = space->constraints;
+	int index = constraint->activeIndex;
+	if(index < 0) return;
+	cpAssertSoft(index < array->num && array->arr[index] == constraint, "Internal error: Invalid constraint array index.");
+	cpConstraint *last = (cpConstraint *)array->arr[--array->num];
+	array->arr[index] = last;
+	last->activeIndex = index;
+	array->arr[array->num] = NULL;
+	constraint->activeIndex = -1;
+#else
+	cpArrayDeleteObj(space->constraints, constraint);
+#endif
+}
 
 static inline void
 cpSpaceUncacheArbiter(cpSpace *space, cpArbiter *arb)

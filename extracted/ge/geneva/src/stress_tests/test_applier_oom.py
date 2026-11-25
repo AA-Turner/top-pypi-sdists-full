@@ -11,10 +11,17 @@ on cgroup vs allocator timing -- sometimes Python's allocator returns
 kernel cgroup OOM-kills the actor before allocation completes (then
 the bisect path in ``pipeline.py:_handle_fatal_task_failure`` runs).
 The single-cgroup container can't reliably force one or the other.
-It can also kill a driver or Ray service instead of an applier. Drivers do
-not retry after such a death, and that outcome must fail these assertions;
-it is not successful applier recovery. See
-``internal_docs/ray-driver-failures.md`` for the diagnostic-test proposal.
+The process allocating a planted row is the only one the kernel may kill:
+the container starts every process at ``oom_score_adj`` -1000, Ray workers
+return to -1000 when they start, and the allocating UDF raises its own
+process to 1000. Killing the allocator does not release its memory at once,
+so the cgroup can hit its limit again before the kernel reaps it; those
+faults then wait instead of killing the driver or a Ray service. Only a Ray
+worker that is still starting (score 0 until its setup hook runs, no task
+yet) remains killable. Both tests fail at the start unless the test process
+and a Ray worker report -1000, so a passing run also shows the protection
+was in place. A driver death must still fail these assertions; it is not
+successful applier recovery.
 
 **This is a smoke test, not a strict-path test.** It verifies that
 Geneva *makes forward progress* and produces sensible outcomes when
@@ -45,10 +52,11 @@ cgroup memory cap (``make test-stress-applier-oom-cgroup``):
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import lance
 import pyarrow as pa
@@ -99,12 +107,19 @@ BAD_ROW_INDICES = (37,)
 # the bisect mechanics are unchanged.
 APPLIER_CONCURRENCY = 2
 URL_BATCH_SIZE = 8
+# ``make test-stress-applier-oom-cgroup`` starts every process at this
+# score; only a process allocating a planted row raises itself to 1000.
+PROTECTED_OOM_SCORE = -1000
 
 
 # ===== Module-level UDFs =====
 # Two flavors: one with skip_on_error, one without. They have to be
 # distinct module-level functions because the @udf decorator captures
 # the on_error config at decoration time.
+# Keep the allocation code inline so the pickled UDFs do not reference
+# helpers in this pytest module, which is unavailable on Ray workers.
+# Only a planted row makes its process killable, so an applier that has
+# just processed good rows is not an OOM victim either.
 
 
 @udf(data_type=pa.binary(), batch_size=URL_BATCH_SIZE, on_error=skip_on_error())
@@ -113,12 +128,18 @@ def alloc_with_skip(payload_bytes: int) -> bytes:
     (including a worker-OOM kill, which surfaces as FatalWorkerOOMError
     in the driver's _handle_fatal_task_failure).
     """
+    if payload_bytes >= BAD_PAYLOAD:
+        with open("/proc/self/oom_score_adj", "w", encoding="utf-8") as score_file:
+            score_file.write("1000")
     return b"\x00" * payload_bytes
 
 
 @udf(data_type=pa.binary(), batch_size=URL_BATCH_SIZE, on_error=fail_fast())
 def alloc_no_skip(payload_bytes: int) -> bytes:
     """Same UDF with explicit fail-fast worker-loss handling."""
+    if payload_bytes >= BAD_PAYLOAD:
+        with open("/proc/self/oom_score_adj", "w", encoding="utf-8") as score_file:
+            score_file.write("1000")
     return b"\x00" * payload_bytes
 
 
@@ -181,6 +202,10 @@ def _query_all_errors(db, job_id: str) -> list:  # noqa: ANN001
 def _configure_ray_for_cgroup_oom(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RAY_memory_monitor_refresh_ms", "0")
     monkeypatch.setenv("RAY_task_oom_retries", "0")
+    # Ray defaults every worker, including the backfill driver, to 1000, and
+    # clamps this setting to 0..1000. 0 keeps a starting worker below the
+    # allocator until the setup hook lowers it to -1000.
+    monkeypatch.setenv("RAY_worker_oom_score_adjustment", "0")
     # No unset-memory floor here. This test's whole point is a container
     # deliberately too small to hold the workload, and Ray publishes a node's
     # memory after taking its object store -- the 4 GiB cap advertises about
@@ -191,6 +216,55 @@ def _configure_ray_for_cgroup_oom(monkeypatch: pytest.MonkeyPatch) -> None:
     # stall bound is what surfaces that. The 600s default is this test's own
     # timeout, so shorten it -- healthy batches here are seconds at most.
     monkeypatch.setenv("GENEVA_APPLIER_WORKER_STALL_TIMEOUT_S", "60")
+
+
+def _oom_protected_runtime_env() -> dict[str, Any]:
+    """Ray runtime env whose setup hook makes each worker unkillable.
+
+    ``make test-stress-applier-oom-cgroup`` starts the container with
+    ``--oom-score-adj=-1000``, which lets any process in it lower its own
+    score back to -1000 after the raylet sets it. Outside that container the
+    write is refused and workers keep the score Ray gave them.
+    """
+
+    # Nested so cloudpickle ships it by value: Ray workers cannot import
+    # this pytest module.
+    def protect_worker() -> None:
+        with (
+            contextlib.suppress(OSError),
+            open("/proc/self/oom_score_adj", "w", encoding="utf-8") as score_file,
+        ):
+            score_file.write(str(PROTECTED_OOM_SCORE))
+
+    return {"worker_process_setup_hook": protect_worker}
+
+
+def _require_oom_protection() -> None:
+    """Fail unless this process and Ray's workers start unkillable.
+
+    Call after ``ray.init``. Without the protected container a second kernel
+    OOM kill can land on the driver or a Ray service, so the run would say
+    nothing about applier recovery; a passing run therefore also shows that
+    the container flag and the setup hook took effect.
+    """
+
+    # Nested so cloudpickle ships it by value to the probe's Ray worker.
+    def read_score() -> int:
+        with open("/proc/self/oom_score_adj", encoding="utf-8") as score_file:
+            return int(score_file.read())
+
+    own_score = read_score()
+    if own_score != PROTECTED_OOM_SCORE:
+        pytest.fail(
+            f"test process oom_score_adj is {own_score}, not "
+            f"{PROTECTED_OOM_SCORE}; run via make test-stress-applier-oom-cgroup"
+        )
+    worker_score = ray.get(ray.remote(read_score).remote())
+    if worker_score != PROTECTED_OOM_SCORE:
+        pytest.fail(
+            f"Ray worker oom_score_adj is {worker_score}, not "
+            f"{PROTECTED_OOM_SCORE}; the worker setup hook did not lower it"
+        )
 
 
 # ===== Test 1: skip_on_error path makes forward progress =====
@@ -213,8 +287,14 @@ def test_applier_oom_smoke_with_skip(
     _configure_ray_for_cgroup_oom(monkeypatch)
     # Lean Ray init: fewer CPUs match the lower concurrency, dashboard
     # off saves ~100-200 MiB of process overhead under the 4 GiB cap.
-    ray.init(num_cpus=4, include_dashboard=False, ignore_reinit_error=True)
+    ray.init(
+        num_cpus=4,
+        include_dashboard=False,
+        ignore_reinit_error=True,
+        runtime_env=_oom_protected_runtime_env(),
+    )
     try:
+        _require_oom_protection()
         db, tbl = _setup_table(tmp_path, alloc_with_skip)
         job_id = uuid.uuid4().hex
         result = tbl.backfill(
@@ -282,8 +362,14 @@ def test_applier_oom_smoke_no_skip(
     _configure_ray_for_cgroup_oom(monkeypatch)
     # Lean Ray init: fewer CPUs match the lower concurrency, dashboard
     # off saves ~100-200 MiB of process overhead under the 4 GiB cap.
-    ray.init(num_cpus=4, include_dashboard=False, ignore_reinit_error=True)
+    ray.init(
+        num_cpus=4,
+        include_dashboard=False,
+        ignore_reinit_error=True,
+        runtime_env=_oom_protected_runtime_env(),
+    )
     try:
+        _require_oom_protection()
         _db, tbl = _setup_table(tmp_path, alloc_no_skip)
         # Sync backfill raises on failure; wrap in pytest.raises and
         # walk the chain for any memory-flavored exception.

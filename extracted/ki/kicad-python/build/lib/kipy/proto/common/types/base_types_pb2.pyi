@@ -790,8 +790,14 @@ class TextBox(google.protobuf.message.Message):
     BOTTOM_RIGHT_FIELD_NUMBER: builtins.int
     ATTRIBUTES_FIELD_NUMBER: builtins.int
     TEXT_FIELD_NUMBER: builtins.int
+    BORDER_ENABLED_FIELD_NUMBER: builtins.int
+    MARGIN_LEFT_FIELD_NUMBER: builtins.int
+    MARGIN_TOP_FIELD_NUMBER: builtins.int
+    MARGIN_RIGHT_FIELD_NUMBER: builtins.int
+    MARGIN_BOTTOM_FIELD_NUMBER: builtins.int
     text: builtins.str
-    "Reserved for future use; base objects don't support locking right now\n    kiapi.common.types.LockedState    locked       = 5;\n    "
+    border_enabled: builtins.bool
+    'Since: 10.0.7'
 
     @property
     def top_left(self) -> global___Vector2:
@@ -805,13 +811,29 @@ class TextBox(google.protobuf.message.Message):
     def attributes(self) -> global___TextAttributes:
         ...
 
-    def __init__(self, *, top_left: global___Vector2 | None=..., bottom_right: global___Vector2 | None=..., attributes: global___TextAttributes | None=..., text: builtins.str=...) -> None:
+    @property
+    def margin_left(self) -> global___Distance:
+        """Since: 10.0.7"""
+
+    @property
+    def margin_top(self) -> global___Distance:
+        """Since: 10.0.7"""
+
+    @property
+    def margin_right(self) -> global___Distance:
+        """Since: 10.0.7"""
+
+    @property
+    def margin_bottom(self) -> global___Distance:
+        """Since: 10.0.7"""
+
+    def __init__(self, *, top_left: global___Vector2 | None=..., bottom_right: global___Vector2 | None=..., attributes: global___TextAttributes | None=..., text: builtins.str=..., border_enabled: builtins.bool=..., margin_left: global___Distance | None=..., margin_top: global___Distance | None=..., margin_right: global___Distance | None=..., margin_bottom: global___Distance | None=...) -> None:
         ...
 
-    def HasField(self, field_name: typing.Literal['attributes', b'attributes', 'bottom_right', b'bottom_right', 'top_left', b'top_left']) -> builtins.bool:
+    def HasField(self, field_name: typing.Literal['attributes', b'attributes', 'bottom_right', b'bottom_right', 'margin_bottom', b'margin_bottom', 'margin_left', b'margin_left', 'margin_right', b'margin_right', 'margin_top', b'margin_top', 'top_left', b'top_left']) -> builtins.bool:
         ...
 
-    def ClearField(self, field_name: typing.Literal['attributes', b'attributes', 'bottom_right', b'bottom_right', 'text', b'text', 'top_left', b'top_left']) -> None:
+    def ClearField(self, field_name: typing.Literal['attributes', b'attributes', 'border_enabled', b'border_enabled', 'bottom_right', b'bottom_right', 'margin_bottom', b'margin_bottom', 'margin_left', b'margin_left', 'margin_right', b'margin_right', 'margin_top', b'margin_top', 'text', b'text', 'top_left', b'top_left']) -> None:
         ...
 global___TextBox = TextBox
 

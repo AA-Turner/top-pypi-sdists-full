@@ -2,9 +2,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from paddle_billing.Entities.Entity import Entity
+from paddle_billing.Entities.Entity import Entity as Entity
 from paddle_billing.Entities.Simulations.Config.Subscription.Creation.SubscriptionCreationItem import (
-    SubscriptionCreationItem,
+    SubscriptionCreationItem as SubscriptionCreationItem,
 )
 
 
@@ -27,7 +27,5 @@ class SubscriptionCreationEntities(Entity):
             payment_method_id=data.get("payment_method_id"),
             discount_id=data.get("discount_id"),
             transaction_id=data.get("transaction_id"),
-            items=(
-                [SubscriptionCreationItem.from_dict(item) for item in data.get("items")] if data.get("items") else None
-            ),
+            items=([SubscriptionCreationItem.from_dict(item) for item in data["items"]] if data.get("items") else None),
         )

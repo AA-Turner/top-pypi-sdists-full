@@ -41,7 +41,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "projen", "0.105.10", __name__[0:-6], "projen@0.105.10.jsii.tgz"
+    "projen", "0.105.11", __name__[0:-6], "projen@0.105.11.jsii.tgz"
 )
 
 __all__ = [

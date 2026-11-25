@@ -9,7 +9,8 @@ from fontTools.ttLib import TTFont, newTable
 from fontTools.feaLib.parser import Parser
 from fontTools.feaLib import ast
 from fontTools.feaLib.lexer import Lexer
-from fontTools.fontBuilder import addFvar
+from fontTools.fontBuilder import FontBuilder, addFvar
+from fontTools.pens.ttGlyphPen import TTGlyphPen
 import difflib
 from io import StringIO
 from textwrap import dedent
@@ -617,12 +618,19 @@ class BuilderTest(unittest.TestCase):
         self.assertEqual(builder.language_systems, {("latn", "FRA"), ("cyrl", "RUS")})
 
     def test_languagesystem_duplicate(self):
-        self.assertRaisesRegex(
-            FeatureLibError,
-            '"languagesystem cyrl RUS" has already been specified',
-            self.build,
-            "languagesystem cyrl RUS; languagesystem cyrl RUS;",
+        logger = logging.getLogger("fontTools.feaLib.builder")
+        with CapturingLogHandler(logger, "WARNING") as captor:
+            font = self.build(
+                "languagesystem cyrl RUS; languagesystem cyrl RUS;"
+                "feature test { sub A by A.sc; } test;"
+            )
+        captor.assertRegex(
+            '<features>:1:26: "languagesystem cyrl RUS" has already been specified'
         )
+        expected = self.build(
+            "languagesystem cyrl RUS;feature test { sub A by A.sc; } test;"
+        )
+        self.assertEqual(font["GSUB"].compile(font), expected["GSUB"].compile(expected))
 
     def test_languagesystem_none_specified(self):
         builder = Builder(makeTTFont(), (None, None))
@@ -1637,6 +1645,27 @@ class BuilderTest(unittest.TestCase):
         assert self.get_region(var_region_axis_wght) == (0.0, 0.875, 1.0)
         assert self.get_region(var_region_axis_wdth) == (0.0, 0.5, 1.0)
 
+    def test_ligatureCaretByIndex_coordinate_order(self):
+        fb = FontBuilder(1000, isTTF=True)
+        fb.setupGlyphOrder([".notdef", "f_f_i"])
+        pen = TTGlyphPen(None)
+        pen.moveTo((300, 0))
+        pen.lineTo((300, 100))
+        pen.lineTo((100, 100))
+        pen.lineTo((100, 0))
+        pen.closePath()
+        fb.setupGlyf({".notdef": TTGlyphPen(None).glyph(), "f_f_i": pen.glyph()})
+        font = fb.font
+        addOpenTypeFeaturesFromString(
+            font, "table GDEF { LigatureCaretByIndex f_f_i 2 2 0; } GDEF;"
+        )
+        gdef = newTable("GDEF")
+        gdef.decompile(font["GDEF"].compile(font), font)
+        carets = gdef.table.LigCaretList.LigGlyph[0].CaretValue
+        coordinates = font["glyf"]["f_f_i"].getCoordinates(font["glyf"])[0]
+
+        assert [coordinates[caret.CaretValuePoint][0] for caret in carets] == [100, 300]
+
     def test_ligatureCaretByPos_variable_scalar(self):
         """Test that the `avar` table is consulted when normalizing user-space
         values."""
@@ -1684,6 +1713,59 @@ class BuilderTest(unittest.TestCase):
             self.build,
             "feature liga useExtension { sub f f by f_f; } liga;",
         )
+
+    def test_GPOS_2b_pair_adjustments(self):
+        font = makeTTFont()
+        addOpenTypeFeatures(font, self.getpath("GPOS_2b.fea"))
+        reloaded = newTable("GPOS")
+        reloaded.decompile(font["GPOS"].compile(font), font)
+        fields = ("XPlacement", "YPlacement", "XAdvance", "YAdvance")
+
+        def adjustments(left, right):
+            result = [[0] * 4 for _ in range(2)]
+            for lookup in reloaded.table.LookupList.Lookup:
+                for subtable in lookup.SubTable:
+                    if lookup.LookupType == 9:
+                        subtable = subtable.ExtSubTable
+                    if left not in subtable.Coverage.glyphs:
+                        continue
+                    if subtable.Format in (1, 3):
+                        index = subtable.Coverage.glyphs.index(left)
+                        record = next(
+                            (
+                                record
+                                for record in subtable.PairSet[index].PairValueRecord
+                                if record.SecondGlyph == right
+                            ),
+                            None,
+                        )
+                        if record is None:
+                            continue
+                    else:
+                        row = subtable.ClassDef1.classDefs.get(left, 0)
+                        column = subtable.ClassDef2.classDefs.get(right, 0)
+                        record = subtable.Class1Record[row].Class2Record[column]
+                    for output, value in zip(result, (record.Value1, record.Value2)):
+                        for index, field in enumerate(fields):
+                            output[index] += getattr(value, field, 0)
+                    break
+            return tuple(tuple(value) for value in result)
+
+        for left in "ABCDEFGH":
+            for right in ("comma", "semicolon", "period", "space"):
+                expected = (0, 0, 0, 0)
+                if right != "space":
+                    if left == "A":
+                        expected = (0, 0, 1, 0)
+                    elif left in "BC" and right == "comma":
+                        expected = (0, 0, 2, 0)
+                    elif left in "DEF":
+                        expected = (0, 0, 3 if right == "comma" else 4, 0)
+                    elif left == "G":
+                        expected = (5, 5, 5, 5)
+                self.assertEqual(
+                    adjustments(left, right), (expected, (0, 0, 0, 0)), (left, right)
+                )
 
 
 def generate_feature_file_test(name):

@@ -30,6 +30,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar
 
+from apm_cli.utils.realpath_win import release_held
+
 T = TypeVar("T")
 
 # ---------------------------------------------------------------------------
@@ -191,6 +193,7 @@ def _retry_on_lock(
                 f"Transient file lock (attempt {attempt + 1}/{max_retries}); "
                 f"retrying in {delay:.2f}s"
             )
+            release_held()  # a racing hold must never outlast the retries
             if before_retry is not None:
                 try:  # noqa: SIM105
                     before_retry()
@@ -220,10 +223,60 @@ def _debug_file_op(message: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _on_readonly_retry(func: Callable, path: str, _exc_info: Any) -> None:
-    """``onerror`` callback: chmod writable and retry the failing removal."""
+def _is_link(path: str) -> bool:
+    """Whether *path* is a symlink or a Windows junction (never its target)."""
+    isjunction = getattr(os.path, "isjunction", None)
+    return os.path.islink(path) or bool(isjunction and isjunction(path))
+
+
+def _without_trailing_separators(path: str) -> str:
+    """*path* without trailing separators or ``.`` parts, so ``"link/./"`` names the link.
+
+    Links are not resolved and ``..`` is kept; a filesystem root (``/``,
+    ``C:\\``) is kept as given.
+    """
+    separators = os.sep + (os.altsep or "")
+    current = path
+    while True:
+        stripped = current.rstrip(separators)
+        if not stripped or not os.path.splitdrive(stripped)[1]:
+            return current
+        head, tail = os.path.split(stripped)
+        if tail != "." or not head:
+            return stripped
+        current = head
+
+
+def _remove_link(path: str) -> None:
+    """Remove the link at *path* itself; its target is never touched."""
     try:
-        os.chmod(path, stat.S_IWRITE)
+        if os.name == "nt" and os.path.isdir(path):
+            os.rmdir(path)  # a directory symlink or junction on Windows
+        else:
+            os.unlink(path)
+    except FileNotFoundError:
+        pass
+
+
+def _on_readonly_retry(func: Callable, path: str, _exc_info: Any) -> None:
+    """``onerror`` callback: clear the read-only bit and retry the failing removal.
+
+    A link is removed itself, never made writable: changing its mode would
+    change its target's. The mode change never follows a link; where the
+    platform cannot guarantee that, the error stands.
+    """
+    try:
+        if func is os.path.islink or _is_link(path):
+            _remove_link(path)
+            return
+        try:
+            os.chmod(path, stat.S_IWRITE, follow_symlinks=False)
+        except NotImplementedError:
+            # Windows before Python 3.13 changes a link's own attribute and
+            # offers no follow_symlinks; elsewhere the path became a link.
+            if os.name != "nt":
+                raise OSError(errno.ELOOP, "refusing to change a link's mode", path) from None
+            os.chmod(path, stat.S_IWRITE)
         func(path)
     except FileNotFoundError:
         pass
@@ -255,9 +308,14 @@ def robust_rmtree(
     max_retries:
         Maximum retry attempts for transient lock errors.
     """
-    path_s = str(path)
+    release_held(path)  # a held directory would block this delete on Windows
+    path_s = _without_trailing_separators(str(path))
 
     def _do_rmtree() -> None:
+        if _is_link(path_s):
+            # A link root is removed itself: never descended, never made writable.
+            _remove_link(path_s)
+            return
         failures: list[OSError] = []
 
         def recover_or_record(func: Callable, failed_path: str, exc_info: Any) -> None:
@@ -305,6 +363,34 @@ def _reflink_copy_file(src: str, dst: str, *, follow_symlinks: bool = True) -> s
     return shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
 
 
+class _LinkCopyRelease:
+    """``copytree(symlinks=True)`` ``ignore`` hook: link-free proofs under *dst* never outlive a link.
+
+    Before copytree writes a directory listing that holds a link, the hook
+    releases *dst* (``release_held`` drops the proofs there), so a resolve in
+    flight cannot publish a proof that misses the link; :meth:`settle` releases
+    once more after the copy, so no proof taken while links were being written
+    survives them (R4). A tree without links pays one ``scandir`` per directory
+    and releases nothing.
+    """
+
+    def __init__(self, dst: str, ignore: Any) -> None:
+        self._dst = dst
+        self._ignore = ignore
+        self.saw_link = False
+
+    def __call__(self, directory: str, names: list[str]) -> Any:
+        with os.scandir(directory) as entries:
+            if any(entry.is_symlink() for entry in entries):
+                self.saw_link = True
+                release_held(self._dst)
+        return self._ignore(directory, names) if self._ignore is not None else set()
+
+    def settle(self) -> None:
+        if self.saw_link:
+            release_held(self._dst)
+
+
 def robust_copytree(
     src: Path | str,
     dst: Path | str,
@@ -342,13 +428,14 @@ def robust_copytree(
     Path to the destination directory.
     """
     src_s, dst_s = str(src), str(dst)
+    links = _LinkCopyRelease(dst_s, ignore) if symlinks else None
 
     def _do_copytree() -> str:
         return shutil.copytree(
             src_s,
             dst_s,
             symlinks=symlinks,
-            ignore=ignore,
+            ignore=links if links is not None else ignore,
             copy_function=_reflink_copy_file,
             dirs_exist_ok=dirs_exist_ok,
         )
@@ -366,7 +453,20 @@ def robust_copytree(
         max_retries=max_retries,
         before_retry=_cleanup_partial,
     )
+    if links is not None:
+        links.settle()
     return Path(result)
+
+
+def robust_copy_entry(src: Path, dst: Path) -> None:
+    """Copy one directory entry without following links; a link is copied as a link."""
+    if src.is_symlink():
+        release_held(dst)
+        os.symlink(os.readlink(src), dst, target_is_directory=src.is_dir())
+    elif src.is_dir():
+        robust_copytree(src, dst, symlinks=True)
+    else:
+        robust_copy2(src, dst)
 
 
 def robust_copy2(
@@ -424,6 +524,8 @@ def robust_replace(
     Path to the destination.
     """
     src_p, dst_p = Path(src), Path(dst)
+    release_held(src_p)  # a held directory would block this rename on Windows
+    release_held(dst_p)
     return _retry_on_lock(
         lambda: src_p.replace(dst_p),
         f"replace {src_p} -> {dst_p}",

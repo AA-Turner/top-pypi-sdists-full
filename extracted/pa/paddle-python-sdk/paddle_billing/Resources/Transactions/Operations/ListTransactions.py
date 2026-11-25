@@ -1,13 +1,17 @@
-from paddle_billing.EnumStringify import enum_stringify
-from paddle_billing.HasParameters import HasParameters
+from typing import Any
 
-from paddle_billing.Entities.Shared import CollectionMode, TransactionStatus
+from paddle_billing.EnumStringify import enum_stringify as enum_stringify
+from paddle_billing.HasParameters import HasParameters as HasParameters
 
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
+from paddle_billing.Entities.Shared import CollectionMode as CollectionMode, TransactionStatus as TransactionStatus
 
-from paddle_billing.Resources.Shared.Operations import DateComparison, Pager
-from paddle_billing.Resources.Transactions.Operations.List.Includes import Includes
-from paddle_billing.Resources.Transactions.Operations.List.Origin import Origin
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
+
+from paddle_billing.Resources.Shared.Operations import DateComparison as DateComparison, Pager as Pager
+from paddle_billing.Resources.Transactions.Operations.List.Includes import Includes as Includes
+from paddle_billing.Resources.Transactions.Operations.List.Origin import Origin as Origin
 
 
 class ListTransactions(HasParameters):
@@ -40,7 +44,7 @@ class ListTransactions(HasParameters):
         self.origins = origins if origins is not None else []
 
         # Validation
-        for field_name, field_value, field_type in [
+        validations: list[tuple[str, list[Any], type]] = [
             ("ids", self.ids, str),
             ("customer_ids", self.customer_ids, str),
             ("subscription_ids", self.subscription_ids, str),
@@ -48,7 +52,8 @@ class ListTransactions(HasParameters):
             ("includes", self.includes, Includes),
             ("statuses", self.statuses, TransactionStatus),
             ("origins", self.origins, Origin),
-        ]:
+        ]
+        for field_name, field_value, field_type in validations:
             invalid_items = [item for item in field_value if not isinstance(item, field_type)]
             if invalid_items:
                 raise InvalidArgumentException.array_contains_invalid_types(

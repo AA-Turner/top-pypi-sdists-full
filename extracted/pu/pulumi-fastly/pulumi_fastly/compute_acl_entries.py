@@ -169,9 +169,6 @@ class ComputeAclEntries(pulumi.CustomResource):
         example = fastly.get_package_hash(filename="package.tar.gz")
         example_service_compute = fastly.ServiceCompute("example",
             name="my_compute_service",
-            domains=[{
-                "name": "demo.example.com",
-            }],
             package={
                 "filename": "package.tar.gz",
                 "source_code_hash": example.hash,
@@ -202,9 +199,6 @@ class ComputeAclEntries(pulumi.CustomResource):
         example = fastly.get_package_hash(filename="package.tar.gz")
         example_service_compute = fastly.ServiceCompute("example",
             name="my_compute_service",
-            domains=[{
-                "name": "demo.example.com",
-            }],
             package={
                 "filename": "package.tar.gz",
                 "source_code_hash": example.hash,
@@ -268,9 +262,6 @@ class ComputeAclEntries(pulumi.CustomResource):
         example = fastly.get_package_hash(filename="package.tar.gz")
         example_service_compute = fastly.ServiceCompute("example",
             name="my_compute_service",
-            domains=[{
-                "name": "demo.example.com",
-            }],
             package={
                 "filename": "package.tar.gz",
                 "source_code_hash": example.hash,
@@ -301,9 +292,6 @@ class ComputeAclEntries(pulumi.CustomResource):
         example = fastly.get_package_hash(filename="package.tar.gz")
         example_service_compute = fastly.ServiceCompute("example",
             name="my_compute_service",
-            domains=[{
-                "name": "demo.example.com",
-            }],
             package={
                 "filename": "package.tar.gz",
                 "source_code_hash": example.hash,
@@ -390,6 +378,18 @@ class ComputeAclEntries(pulumi.CustomResource):
         __props__.__dict__["entries"] = entries
         __props__.__dict__["manage_entries"] = manage_entries
         return ComputeAclEntries(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            compute_acl_id: pulumi.Input[Optional[_builtins.str]] = None,
+            entries: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            manage_entries: pulumi.Input[Optional[_builtins.bool]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["computeAclId"] = compute_acl_id
+        __props__["entries"] = entries
+        __props__["manageEntries"] = manage_entries
+        return pulumi.runtime.exists_resource(None, 'fastly:index/computeAclEntries:ComputeAclEntries', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="computeAclId")

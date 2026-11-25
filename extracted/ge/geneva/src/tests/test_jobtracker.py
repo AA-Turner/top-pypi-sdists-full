@@ -2,6 +2,9 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 import asyncio
 import contextlib
+import inspect
+import os
+import signal
 import tempfile
 import uuid
 from datetime import timezone
@@ -106,6 +109,16 @@ async def async_db_connection(temp_db_path, jobs_table) -> Any:
             await close_result
 
 
+async def _wait_for_restart(actor_id: str) -> None:
+    """Wait until Ray has reconstructed the actor and it is alive again."""
+    for _ in range(400):
+        state = get_actor(actor_id)
+        if state is not None and state.num_restarts >= 1 and state.state == "ALIVE":
+            return
+        await asyncio.sleep(0.05)
+    pytest.fail("JobTracker actor did not become available after restart")
+
+
 def test_jobtracker_creation(table_reference) -> None:
     """Test JobTracker can be created with required fields."""
     job_id = str(uuid.uuid4())
@@ -114,6 +127,56 @@ def test_jobtracker_creation(table_reference) -> None:
     tracker = job_tracker_options().remote(job_id, table_reference, enable_saves=False)
 
     ray.get(tracker.get_all.remote())
+
+
+# _JobTracker's methods as of Geneva 0.16.0 through 0.18.0. Ray pickles each
+# actor method by name, so a newer client that names a method (public or
+# private) an older worker's _JobTracker lacks cannot submit a job there:
+# "Can't get attribute '_JobTracker.<name>'". Do not add or rename methods;
+# put new logic in module-level functions or inside existing methods, and
+# keep accepting the arguments older clients send.
+_RELEASED_TRACKER_METHODS = [
+    "_convert_metrics",
+    "_current_update_interval",
+    "_disable_persistence_for_version_skew",
+    "_ensure_hydrated",
+    "_get_jobs_table",
+    "_is_terminal_status",
+    "_load_persisted_state",
+    "_load_persisted_status",
+    "_reset_db_handles",
+    "_run_save",
+    "_save_metrics",
+    "_save_with_throttle",
+    "_schedule_save",
+    "_should_skip_row_update",
+    "_snapshot_metrics",
+    "_upsert",
+    "_write_metrics",
+    "batch_increment",
+    "finalize_rows",
+    "flush",
+    "get_all",
+    "get_progress",
+    "get_save_stats",
+    "increment",
+    "is_job_done",
+    "mark_done",
+    "mark_job_done",
+    "set",
+    "set_desc",
+    "set_total",
+]
+
+
+def test_tracker_methods_match_released_workers() -> None:
+    """A new client can submit to workers running an older Geneva."""
+    methods = sorted(
+        name
+        for name, _ in inspect.getmembers(_JobTracker, inspect.isfunction)
+        if not name.startswith("__")
+    )
+    assert methods == _RELEASED_TRACKER_METHODS
 
 
 def test_large_hydration_timeout_is_ray_compatible() -> None:
@@ -459,18 +522,50 @@ async def test_ray_actor_restart_rehydrates_metrics_and_status(
         job_manager._set_status(job_id, JobStatus.DONE)
 
         ray.kill(tracker, no_restart=False)
-
-        for _ in range(100):
-            state = get_actor(actor_id)
-            if state is not None and state.num_restarts >= 1 and state.state == "ALIVE":
-                break
-            await asyncio.sleep(0.05)
-        else:
-            pytest.fail("JobTracker actor did not become available after restart")
+        await _wait_for_restart(actor_id)
 
         metrics = await tracker.get_all.remote()
         assert metrics["before_restart"]["n"] == 9
         assert await tracker.is_job_done.remote() is True
+    finally:
+        with contextlib.suppress(Exception):
+            ray.kill(tracker, no_restart=True)
+
+
+@pytest.mark.asyncio
+async def test_reconstructed_tracker_keeps_live_worker_count(
+    temp_db_path, db_connection
+) -> None:
+    """A tracker actor Ray reconstructs mid-run restores a count of actors
+    that are still alive, so a later add must not drop it. Expected counts
+    come from the pool's own arithmetic: 3 start, 2 release (1), one more
+    starts (2), both stop (0). Dropping the restored count would read 1 and
+    end at -1."""
+    job_id = str(uuid.uuid4())
+    JobStateManager(db_connection).launch("test_table", "test_column", job_id=job_id)
+    table_ref = TableReference(
+        table_id=["test_table"], version=None, db_uri=str(temp_db_path)
+    )
+    tracker = job_tracker_options(max_task_retries=0).remote(job_id, table_ref)
+    actor_id = tracker._actor_id.hex()
+
+    async def workers() -> int:
+        return (await tracker.get_all.remote())["workers"]["n"]
+
+    try:
+        for delta in (1, 1, 1, -1, -1):
+            await tracker.increment.remote("workers", delta)
+        assert await workers() == 1
+        assert await tracker.flush.remote() is True
+
+        os.kill(get_actor(actor_id).pid, signal.SIGKILL)
+        await _wait_for_restart(actor_id)
+
+        counts = []
+        for delta in (1, -1, -1):
+            await tracker.increment.remote("workers", delta)
+            counts.append(await workers())
+        assert counts == [2, 1, 0]
     finally:
         with contextlib.suppress(Exception):
             ray.kill(tracker, no_restart=True)

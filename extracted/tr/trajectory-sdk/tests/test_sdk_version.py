@@ -48,22 +48,33 @@ def run(project: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.mark.parametrize(
-  "version", ["0.7.0", "0.7.2", "0.7.21", "0.7.99", "0.8.10", "0.10.0", "1.0.10"]
+  "version",
+  [
+    "0.7.0",
+    "0.7.2",
+    "0.7.21",
+    "0.7.99",
+    "0.8.10",
+    "0.10.0",
+    "0.11.1",
+    "0.11.2",
+    "1.0.10",
+    "0.7.100",
+    "9.100.101",
+    "100.0.0",
+  ],
 )
-def test_release_check_accepts_patch_versions_from_0_through_99(
-  project: Path, version: str
-) -> None:
+def test_release_check_accepts_stable_semantic_versions(project: Path, version: str) -> None:
   write_project(project, version)
   result = run(project, "check")
   assert result.returncode == 0
-  assert result.stdout.strip() == version
+  assert result.stdout == f"{version}\n"
   assert not (project / ".venv").exists()
 
 
 @pytest.mark.parametrize(
   "version",
   [
-    "0.7.100",
     "0.7.02",
     "0.7.011",
     "00.7.11",
@@ -74,9 +85,7 @@ def test_release_check_accepts_patch_versions_from_0_through_99(
     "0.7",
   ],
 )
-def test_release_check_rejects_padding_and_out_of_policy_versions(
-  project: Path, version: str
-) -> None:
+def test_release_check_rejects_padding_and_non_stable_versions(project: Path, version: str) -> None:
   write_project(project, version)
   before = (project / "pyproject.toml").read_bytes()
   result = run(project, "check")
@@ -89,13 +98,19 @@ def test_release_check_rejects_padding_and_out_of_policy_versions(
 @pytest.mark.parametrize(
   "version,arguments,expected",
   [
-    ("0.7.2", (), "0.7.10"),
+    ("0.11.0", (), "0.11.1"),
+    ("0.11.1", (), "0.11.2"),
+    ("0.7.2", (), "0.7.3"),
+    ("0.7.9", (), "0.7.10"),
     ("0.7.10", (), "0.7.11"),
     ("0.7.98", (), "0.7.99"),
-    ("0.7.99", (), "0.8.10"),
-    ("9.99.99", (), "9.100.10"),
-    ("0.7.21", ("--part", "minor"), "0.8.10"),
-    ("0.7.21", ("--part", "major"), "1.0.10"),
+    ("0.7.99", (), "0.7.100"),
+    ("0.7.100", (), "0.7.101"),
+    ("9.99.99", (), "9.99.100"),
+    ("0.7.21", ("--part", "minor"), "0.8.0"),
+    ("0.7.99", ("--part", "major"), "1.0.0"),
+    ("0.7.100", ("--part", "minor"), "0.8.0"),
+    ("9.99.100", ("--part", "major"), "10.0.0"),
   ],
 )
 def test_bump_updates_real_project_and_lock_without_syncing_environment(
@@ -114,7 +129,7 @@ def test_bump_updates_real_project_and_lock_without_syncing_environment(
   assert not (project / ".venv").exists()
 
 
-@pytest.mark.parametrize("version", ["0.7.100", "0.7.02", "0.7.11rc1"])
+@pytest.mark.parametrize("version", ["0.7.02", "0.7.11rc1", "0.7"])
 def test_bump_rejects_invalid_source_version_before_writing(project: Path, version: str) -> None:
   write_project(project, version)
   before = (project / "pyproject.toml").read_bytes()

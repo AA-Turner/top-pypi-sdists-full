@@ -23,9 +23,8 @@
 # Git identity and GH_TOKEN come from the environment (the App in CI).
 set -euo pipefail
 
-core_repo=${CORE_REPO:-NVIDIA/OpenShell}
+core_repo=${CORE_REPO:-ai-openshell/openshell}
 sdk_repo=${SDK_REPO:-ai-openshell/sdk-python}
-image=ghcr.io/nvidia/openshell/gateway
 diff_cap=400
 
 tag=
@@ -167,8 +166,12 @@ fi
 generated=$(git diff --stat "$base" "$branch" -- src/openshell/_proto | tail -1 | sed "s/^ *//")
 fixtures=$(cat "$work/fixtures.txt")
 
+# shellcheck source=scripts/core-sync/core-registry.sh
+. "$here/core-registry.sh"
+# A fresh tag's images may not be pushed yet; new releases go to Quay.
+registry=$(core_registry "${tag#v}") || registry=quay.io/ai-openshell
 body="$work/body.md"
-OLD="$old" NEW="$tag" KIND="$kind" COMPARE_URL="$compare_url" IMAGE="$image:${tag#v}" \
+OLD="$old" NEW="$tag" KIND="$kind" COMPARE_URL="$compare_url" IMAGE="$registry/gateway:${tag#v}" \
 GENERATED="${generated:-no generated files changed}" FIXTURES="${fixtures:-  - none changed}" \
 PROTO_DIFF="$proto_section" \
   awk '{

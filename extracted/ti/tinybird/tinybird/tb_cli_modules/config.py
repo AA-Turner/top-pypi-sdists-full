@@ -91,7 +91,7 @@ class CLIConfig:
         result.update({v.name: deepcopy(v.value) for v in self._values.values()})
         return result
 
-    def __getitem__(self, key) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Gets a config key value in this order:
         - Environment
         - Internal dict (by host)

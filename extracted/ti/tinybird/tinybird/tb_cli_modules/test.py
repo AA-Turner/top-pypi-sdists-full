@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Tuple
 
 import click
 
-from tinybird.client import AuthNoTokenException
+from tinybird.client import AuthNoTokenException, TinyB
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.cli import cli
 from tinybird.tb_cli_modules.common import coro, create_tb_client, gather_with_concurrency
@@ -35,7 +35,7 @@ def test(ctx: click.Context) -> None:
 )
 @click.argument("file", nargs=-1)
 @click.option("-v", "--verbose", is_flag=True, default=False, help="Enable verbose (show results)", type=bool)
-@click.option("--fail", "only_fail", is_flag=True, default=False, help="Showy onl failed/error tests", type=bool)
+@click.option("--fail", "only_fail", is_flag=True, default=False, help="Show only failed/error tests", type=bool)
 @click.option("-c", "--concurrency", help="How many test to run concurrently", default=1, type=click.IntRange(1, 10))
 @click.pass_context
 @coro
@@ -65,7 +65,7 @@ async def test_run(ctx: click.Context, file: Tuple[str, ...], verbose: bool, onl
             final_file_list.append(f)
     file_list = final_file_list
 
-    async def run_test(tb_client, test_file, results):
+    async def run_test(tb_client: TinyB, test_file: str, results: List[TestSummaryResults]) -> None:
         try:
             test_result = await run_test_file(tb_client, test_file)
             results.append(TestSummaryResults(filename=test_file, results=test_result, semver=tb_client.semver))
@@ -88,7 +88,7 @@ async def test_run(ctx: click.Context, file: Tuple[str, ...], verbose: bool, onl
 @click.option("--force", is_flag=True, default=False, help="Override existing files")
 @click.pass_context
 @coro
-async def test_init(ctx: click.Context, files: Tuple[str, ...], force: bool) -> None:
+async def test_init(_ctx: click.Context, files: Tuple[str, ...], force: bool) -> None:
     if len(files) == 0:
         files = ("tests/default.yaml",)
 
@@ -100,7 +100,7 @@ async def test_init(ctx: click.Context, files: Tuple[str, ...], force: bool) -> 
 @click.argument("files", nargs=-1)
 @click.pass_context
 @coro
-async def test_parse(ctx: click.Context, files: Tuple[str, ...]) -> None:
+async def test_parse(_ctx: click.Context, files: Tuple[str, ...]) -> None:
     for f in files:
         click.echo(f"\nFile: {f}")
         for test in parse_file(f):

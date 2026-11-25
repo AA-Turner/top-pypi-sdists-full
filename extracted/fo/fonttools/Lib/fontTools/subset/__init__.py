@@ -133,8 +133,6 @@ Examples::
 
     $ fonttools subset --glyph-names?
     Current setting for 'glyph-names' is: False
-    $ fonttools subset --name-IDs=?
-    Current setting for 'name-IDs' is: [0, 1, 2, 3, 4, 5, 6]
     $ fonttools subset --hinting? --no-hinting --hinting?
     Current setting for 'hinting' is: True
     Current setting for 'hinting' is: False
@@ -203,6 +201,14 @@ These options control how additional glyphs are added to the subset.
 --no-recommended-glyphs
   Do not add glyphs 0, 1, 2, and 3 to the subset, unless specified in
   glyph set. [default]
+
+--retain-all-variation-sequences
+  Keep all Unicode variation sequences for requested Unicode base characters,
+  without explicitly selecting each variation selector. Applies to default
+  and non-default sequences in both 'cmap' and 'DMAP'.
+
+--no-retain-all-variation-sequences
+  Require variation selectors to be selected explicitly. [default]
 
 --no-layout-closure
   Do not expand glyph set to add glyphs produced by OpenType layout
@@ -340,17 +346,19 @@ codes, see: http://www.microsoft.com/typography/otspec/name.htm
 
 --name-IDs[+|-]=<nameID>[,<nameID>...]
   Specify (=), add to (+=) or exclude from (-=) the set of 'name' table
-  entry nameIDs that will be preserved. By default, only nameIDs between 0
-  and 6 are preserved, the rest are dropped. Use '*' to keep all entries.
+  entry nameIDs that will be preserved. By default, all standard nameIDs
+  (0-255) are preserved; use '*' to select all standard IDs. nameIDs >=256
+  that are referenced elsewhere in the font are also preserved and cannot be
+  dropped with this option.
 
   Examples:
 
   --name-IDs+=7,8,9
       * Also keep Trademark, Manufacturer and Designer name entries.
   --name-IDs=
-      * Drop all 'name' table entries.
+      * Drop all unreferenced 'name' table entries.
   --name-IDs=*
-      * keep all 'name' table entries
+      * Keep all standard nameID entries (0-255).
 
 --name-legacy
   Keep legacy (non-Unicode) 'name' table entries (0.x, 1.x etc.).
@@ -1996,6 +2004,33 @@ def subset_glyphs(self, s):
 
 # CBDT will inherit it
 @_add_method(ttLib.getTableClass("EBDT"))
+def closure_glyphs(self, s):
+    from fontTools.ttLib.tables.E_B_D_T_ import ComponentBitmapGlyph
+
+    decompose = s.glyphs
+    while decompose:
+        components = set()
+        for g in decompose:
+            for strike in self.strikeData:
+                if g not in strike:
+                    continue
+                glyph = strike[g]
+                if not isinstance(glyph, ComponentBitmapGlyph):
+                    continue
+                # Decompile now, while the font still has its original
+                # glyph order, so that the components' glyph codes are
+                # resolved to the correct glyph names; decompiling lazily
+                # at save time would name them after the new glyph order.
+                glyph.ensureDecompiled()
+                for comp in glyph.componentArray:
+                    components.add(comp.name)
+        components -= s.glyphs
+        s.glyphs.update(components)
+        decompose = components
+
+
+# CBDT will inherit it
+@_add_method(ttLib.getTableClass("EBDT"))
 def subset_glyphs(self, s):
     strikeData = [
         {g: strike[g] for g in s.glyphs if g in strike} for strike in self.strikeData
@@ -2509,9 +2544,12 @@ def closure_glyphs(self, s):
 def subset_glyphs(self, s):
     table = self.table.Baseline
     if table.Format in (1, 3):
+        # Go through the glyphs in glyph order: s.glyphs is a set, whose order
+        # varies between runs, and Counter.most_common() breaks ties by the
+        # order in which the values were first seen.
         baselines = {
             glyph: table.BaselineValues.get(glyph, table.DefaultBaseline)
-            for glyph in s.glyphs
+            for glyph in sorted(s.glyphs, key=s.reverseOrigGlyphMap.__getitem__)
         }
         if len(baselines) > 0:
             mostCommon, _cnt = Counter(baselines.values()).most_common(1)[0]
@@ -2692,8 +2730,10 @@ def subset_glyphs(self, s):
     if prop.Format == 0:
         return prop.DefaultProperties != 0
     elif prop.Format == 1:
+        # Go through the glyphs in glyph order, as in 'bsln' above.
         prop.Properties = {
-            g: prop.Properties.get(g, prop.DefaultProperties) for g in s.glyphs
+            g: prop.Properties.get(g, prop.DefaultProperties)
+            for g in sorted(s.glyphs, key=s.reverseOrigGlyphMap.__getitem__)
         }
         mostCommon, _cnt = Counter(prop.Properties.values()).most_common(1)[0]
         prop.DefaultProperties = mostCommon
@@ -2773,8 +2813,9 @@ def subset_glyphs(self, s):
     # https://github.com/fonttools/fonttools/issues/2461
     s.glyphs = s.glyphs_colred
 
+    # Keep the original order: s.glyphs is a set, whose order varies between runs.
     self.ColorLayers = {
-        g: self.ColorLayers[g] for g in s.glyphs if g in self.ColorLayers
+        g: layers for g, layers in self.ColorLayers.items() if g in s.glyphs
     }
     if self.version == 0:
         return bool(self.ColorLayers)
@@ -3166,7 +3207,10 @@ def _cmap_closure_glyphs(self, s, excluded_unicodes=(), excluded_uvs=()):
         if table.format in (14, 15):
             table_uvs = set()
             for varSelector, cmap in table.uvsDict.items():
-                if varSelector not in s.unicodes_requested:
+                if (
+                    not s.options.retain_all_variation_sequences
+                    and varSelector not in s.unicodes_requested
+                ):
                     continue
                 matches = [
                     (u, g)
@@ -3288,7 +3332,7 @@ def subset_glyphs(self, s):
                     or (u in s.unicodes_requested and (v, u) not in excluded_uvs)
                 ]
                 for v, l in t.uvsDict.items()
-                if v in s.unicodes_requested
+                if s.options.retain_all_variation_sequences or v in s.unicodes_requested
             }
             t.uvsDict = {v: l for v, l in t.uvsDict.items() if l}
         elif t.isUnicode():
@@ -3611,19 +3655,12 @@ class Options(object):
         self.glyph_names = False
         self.legacy_cmap = False
         self.symbol_cmap = False
-        self.name_IDs = [
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-        ]  # https://github.com/fonttools/fonttools/issues/1170#issuecomment-364631225
+        self.name_IDs = list(range(256))
         self.name_legacy = False
         self.name_languages = [0x0409]  # English
         self.obfuscate_names = False  # to make webfont unusable as a system font
         self.retain_gids = False
+        self.retain_all_variation_sequences = False
         self.notdef_glyph = True  # gid0 for TrueType / .notdef for CFF
         self.notdef_outline = False  # No need for notdef to have an outline really
         self.recommended_glyphs = False  # gid1, gid2, gid3 for TrueType
@@ -3934,6 +3971,25 @@ class Subsetter(object):
                 log.glyphs(self.glyphs, font=font)
         self.glyphs_cffed = frozenset(self.glyphs)
 
+        for table in ("EBDT", "CBDT"):
+            if table in font:
+                with timer("close glyph list over '%s'" % table):
+                    log.info(
+                        "Closing glyph list over '%s': %d glyphs before",
+                        table,
+                        len(self.glyphs),
+                    )
+                    log.glyphs(self.glyphs, font=font)
+                    font[table].closure_glyphs(self)
+                    self.glyphs.intersection_update(realGlyphs)
+                    log.info(
+                        "Closed glyph list over '%s': %d glyphs after",
+                        table,
+                        len(self.glyphs),
+                    )
+                    log.glyphs(self.glyphs, font=font)
+        self.glyphs_ebdted = frozenset(self.glyphs)
+
         self.glyphs_retained = frozenset(self.glyphs)
 
         order = font.getReverseGlyphMap()
@@ -4033,7 +4089,9 @@ class Subsetter(object):
                     new_avg_width = font[tag].recalcAvgCharWidth(font)
                     if old_avg_width != new_avg_width:
                         log.info("%s xAvgCharWidth updated: %d", tag, new_avg_width)
-                if self.options.recalc_max_context:
+                if self.options.recalc_max_context and font[tag].version >= 2:
+                    # usMaxContext was added with OS/2 format 2
+                    # https://learn.microsoft.com/en-us/typography/opentype/spec/os2#version-2
                     max_context = maxCtxFont(font)
                     if max_context != font[tag].usMaxContext:
                         font[tag].usMaxContext = max_context

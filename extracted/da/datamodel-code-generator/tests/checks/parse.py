@@ -22,14 +22,11 @@ from tests.checks.areas import MODES, Area, read_modes
 from tests.checks.finality import (
     NO_SCOPE,
     PARSE_CHECKS,
-    GuardedView,
-    _Finality,
-    guarded_facts,
     parse_checks,
 )
 from tests.checks.model_graph import check_emitted_models, check_model_owners
 from tests.checks.naming import start as start_naming
-from tests.checks.schema_graph import check_shared_schemas
+from tests.checks.schema_graph import check_loaded_documents
 from tests.checks.schema_locations import check_schema_locations
 from tests.checks.trace import MODULE_TRACE_MARK, TRACE
 
@@ -51,11 +48,6 @@ _DECLS: Final = {decl.name: decl for decl in PASS_DECLS}
 """The declaration of each table pass, by the name of its ``PassSpec``."""
 _HOOKS: Final = ("_process_single_module",)
 """The parser methods wrapped on the class that defines them in the running parser's MRO (``seams.py`` rule 2)."""
-
-
-def viewed(value: Any) -> Any:
-    """Return the object a guarded view stands for, or ``value`` itself when it is no view."""
-    return value._object if isinstance(value, GuardedView) else value
 
 
 def render_ready() -> bool:
@@ -109,10 +101,6 @@ def _live_models(_parser: object, state: Any) -> Sequence[Any]:
 
 def _all_models(_parser: object, state: Any) -> Sequence[Any]:
     return state.all_models
-
-
-def _additional_properties_models(_parser: object, state: Any) -> Sequence[Any]:
-    return state.additional_properties_models
 
 
 def _context_models(_parser: object, state: Any) -> Sequence[Any]:
@@ -187,7 +175,7 @@ CHECKED_MODELS: Final[dict[str, Callable[[Any, Any], Sequence[Any]]]] = {
     "alias_builtins_hidden_by_submodules": _all_models,
     "bind_module_field_names": _all_models,
     "change_imported_model_name": _all_models,
-    "name_final_classes_of_additional_properties": _additional_properties_models,
+    "name_final_classes_of_additional_properties": _all_models,
     "refresh_sequence_interface_after_renames": _all_models,
     "replan_schema_validators_after_renames": _all_models,
     "decide_config_items": _all_models,
@@ -340,119 +328,9 @@ def _enter_parsed(parser: Any) -> None:
     """Run the checks of L1, then arm the checks of the parse, in the SETTLE scope."""
     check_schema_locations(parser)
     check_model_owners(parser)
-    check_shared_schemas(parser)
+    check_loaded_documents(parser)
     if (checks := PARSE_CHECKS.get()) is not None:
         checks.arm(parser.generation_store)
-
-
-def seal_facts(original: Callable[..., Any]) -> Callable[..., Any]:
-    """Wrap ``GenerationStore.seal_facts``: while the finality check runs, a decision reads the models as guarded views.
-
-    The views report the render facts a decision reads.
-    """
-
-    @wraps(original)
-    def seal_facts(self: Any, modules: Any, member_keywords: Any, options: Any, constrained_member: Any) -> Any:
-        facts = original(self, modules, member_keywords, options, constrained_member)
-        checks = PARSE_CHECKS.get()
-        return facts if checks is None or checks.finality is None else _views(checks.finality, facts)
-
-    return seal_facts
-
-
-def _views(finality: _Finality, facts: Any) -> Any:
-
-    return guarded_facts(finality, facts)
-
-
-def drop_held_null(original: Callable[..., None]) -> Callable[..., None]:
-    """Wrap ``_DecisionWriter.drop_held_null``: it writes the objects that the guarded views a decision read name."""
-
-    @wraps(original)
-    def drop_held_null(self: Any, model: Any, field: Any, data_types: Any) -> None:
-        return original(self, viewed(model), viewed(field), [viewed(data_type) for data_type in data_types])
-
-    return drop_held_null
-
-
-def drop_field_constraints(original: Callable[..., None]) -> Callable[..., None]:
-    """Wrap ``_DecisionWriter.drop_field_constraints``: it writes the objects that the guarded views it gets name."""
-
-    @wraps(original)
-    def drop_field_constraints(self: Any, model: Any, field: Any, keywords: frozenset[str], members: Any) -> None:
-        return original(
-            self, viewed(model), viewed(field), keywords, [(viewed(member), written) for member, written in members]
-        )
-
-    return drop_field_constraints
-
-
-def write_sets(original: Callable[..., None]) -> Callable[..., None]:
-    """Wrap ``_DecisionWriter.write_sets``: it writes the objects that the guarded views a decision read name."""
-
-    @wraps(original)
-    def write_sets(self: Any, model: Any, field: Any, lists: Any, default: Any) -> None:
-        return original(self, viewed(model), viewed(field), [viewed(data_type) for data_type in lists], default)
-
-    return write_sets
-
-
-def write_additional_properties_sets(original: Callable[..., None]) -> Callable[..., None]:
-    """Wrap ``_DecisionWriter.write_additional_properties_sets``: it writes the objects the guarded views name."""
-
-    @wraps(original)
-    def write_additional_properties_sets(self: Any, model: Any, lists: Any) -> None:
-        return original(self, viewed(model), [viewed(data_type) for data_type in lists])
-
-    return write_additional_properties_sets
-
-
-def omit_default(original: Callable[..., None]) -> Callable[..., None]:
-    """Wrap ``_DecisionWriter.omit_default``: it writes the field that the guarded view it gets names."""
-
-    @wraps(original)
-    def omit_default(self: Any, model: Any, field: Any) -> None:
-        return original(self, viewed(model), viewed(field))
-
-    return omit_default
-
-
-def merge_str_like_members(original: Callable[..., None]) -> Callable[..., None]:
-    """Wrap ``_DecisionWriter.merge_str_like_members``: it writes the objects that the guarded views it gets name."""
-
-    @wraps(original)
-    def merge_str_like_members(
-        self: object,
-        model: object,
-        field: object,
-        rewrites: Sequence[tuple[object, Sequence[object]]],
-        merged: Sequence[object],
-    ) -> None:
-        return original(
-            self,
-            viewed(model),
-            viewed(field),
-            [
-                (
-                    viewed(union),
-                    tuple(member if isinstance(member, (str, tuple)) else viewed(member) for member in members),
-                )
-                for union, members in rewrites
-            ],
-            [viewed(member) for member in merged],
-        )
-
-    return merge_str_like_members
-
-
-def mark_serialized_as_any(original: Callable[..., None]) -> Callable[..., None]:
-    """Wrap ``_DecisionWriter.mark_serialized_as_any``: it writes the model that the guarded view it gets names."""
-
-    @wraps(original)
-    def mark_serialized_as_any(self: Any, model: Any, *, wrapped: bool) -> None:
-        return original(self, viewed(model), wrapped=wrapped)
-
-    return mark_serialized_as_any
 
 
 def get_inherited_constructor_info(original: Callable[..., Any]) -> Callable[..., Any]:

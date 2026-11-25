@@ -525,7 +525,7 @@ class AgentSkillInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'agentSkillInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.agentskill.AgentSkillInfo")
 
     def __init__(self,
@@ -580,7 +580,9 @@ class AgentSkillInfoClass(_Aspect):
     @property
     def instructions(self) -> Union[None, str]:
         """Markdown body of the skill's SKILL.md file, excluding YAML frontmatter.
-    This is the execution guidance loaded when the skill is activated."""
+    This is the execution guidance loaded when the skill is activated.
+    Search V3 copies the full text into the shared field other. It is not its own
+    default query field. The type is RICH_TEXT so a body over 32 KB is not cut."""
         return self._inner_dict.get('instructions')  # type: ignore
     
     @instructions.setter
@@ -18374,8 +18376,9 @@ class DocumentSettingsClass(_Aspect):
     @property
     def showInGlobalContext(self) -> bool:
         """Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
-    When false, the document is "private" and accessible primarily through the assets it is related to.
-    When true, the document appears in the global documents space accessible to all users."""
+    When false, global search and the sidebar leave the document out by default, and its related assets still lead to it.
+    This is not access control: searches can still return it, for example a cross-entity search (searchAcrossEntities, scrollAcrossEntities, aggregateAcrossEntities, browseV2 or semanticSearchAcrossEntities) that filters on showInGlobalContext or sets includeHiddenLifecycleStages, or search with type DOCUMENT.
+    When true, the document appears in the global documents space."""
         return self._inner_dict.get('showInGlobalContext')  # type: ignore
     
     @showInGlobalContext.setter

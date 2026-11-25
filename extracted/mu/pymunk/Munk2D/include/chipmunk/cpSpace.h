@@ -82,6 +82,31 @@ CP_EXPORT void cpSpaceFree(cpSpace *space);
 CP_EXPORT int cpSpaceGetIterations(const cpSpace *space);
 CP_EXPORT void cpSpaceSetIterations(cpSpace *space, int iterations);
 
+/// Contact solver used by cpSpaceStep(). The baseline solver remains the default.
+/// SIMD solvers use doubles; contact ordering and trajectories may differ.
+/// AVX2, Wasm SIMD and AArch64 NEON support built-in joints using scalar joint sweeps.
+/// All retain baseline-solver fallback for unsupported cases or scratch allocation failure.
+/// This setting does not change the separate cpHastySpaceStep() solver.
+typedef enum cpContactSolverType {
+	CP_CONTACT_SOLVER_BASELINE = 0,
+	CP_CONTACT_SOLVER_AVX2 = 1,
+	CP_CONTACT_SOLVER_WASM_SIMD = 2,
+	CP_CONTACT_SOLVER_NEON = 3,
+	/// Reserved, not selectable. Keeps a stable enum width and room for extensions.
+	CP_CONTACT_SOLVER_TYPE_MAX = 0x7fffffff
+} cpContactSolverType;
+
+/// Whether this build and runtime support a contact solver.
+/// A Wasm SIMD module requires SIMD at load time, even with BASELINE selected.
+CP_EXPORT cpBool cpContactSolverIsAvailable(cpContactSolverType solver);
+/// Requested solver; individual steps may still use the documented fallback.
+CP_EXPORT cpContactSolverType cpSpaceGetContactSolver(const cpSpace *space);
+/// Select a solver while the space is unlocked. Returns false for an invalid or
+/// unavailable solver, a locked space, or allocation failure; leaves the previous
+/// selection unchanged. Selecting BASELINE releases the optional scratch storage.
+/// Does not wake sleeping bodies. SIMD backends are never selected automatically.
+CP_EXPORT cpBool cpSpaceSetContactSolver(cpSpace *space, cpContactSolverType solver);
+
 /// Gravity to pass to rigid bodies when integrating velocity.
 CP_EXPORT cpVect cpSpaceGetGravity(const cpSpace *space);
 CP_EXPORT void cpSpaceSetGravity(cpSpace *space, cpVect gravity);
@@ -197,8 +222,10 @@ CP_EXPORT cpShape *cpSpacePointQueryNearest(cpSpace *space, cpVect point, cpFloa
 /// Segment query callback function type.
 typedef void (*cpSpaceSegmentQueryFunc)(cpShape *shape, cpVect point, cpVect normal, cpFloat alpha, void *data);
 /// Perform a directed line segment query (like a raycast) against the space calling @c func for each shape intersected.
+/// A positive radius sweeps a disk along the segment. Callback order is not sorted by hit fraction.
 CP_EXPORT void cpSpaceSegmentQuery(cpSpace *space, cpVect start, cpVect end, cpFloat radius, cpShapeFilter filter, cpSpaceSegmentQueryFunc func, void *data);
 /// Perform a directed line segment query (like a raycast) against the space and return the first shape hit. Returns NULL if no shapes were hit.
+/// A positive radius sweeps a disk along the segment. Only hits strictly before the endpoint (alpha < 1) are selected.
 CP_EXPORT cpShape *cpSpaceSegmentQueryFirst(cpSpace *space, cpVect start, cpVect end, cpFloat radius, cpShapeFilter filter, cpSegmentQueryInfo *out);
 
 /// Rectangle Query callback function type.

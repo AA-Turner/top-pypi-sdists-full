@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: libtmux
-Version: 0.67.1
+Version: 0.68.0
 Summary: Typed library that provides an ORM wrapper for tmux, a terminal multiplexer.
 Project-URL: Bug Tracker, https://github.com/tmux-python/libtmux/issues
 Project-URL: Documentation, https://libtmux.git-pull.com

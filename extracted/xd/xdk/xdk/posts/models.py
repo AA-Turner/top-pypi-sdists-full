@@ -17,6 +17,18 @@ from pydantic import BaseModel, Field, ConfigDict, RootModel
 
 from .. import schemas
 
+# Response model for get_reposted_by
+GetRepostedByResponse = schemas.GetPostsRepostedByResponse
+
+
+# Response model for get_reposts
+GetRepostsResponse = schemas.GetPostsRepostsResponse
+
+
+# Response model for get_counts_all
+GetCountsAllResponse = schemas.GetPostsCountsAllResponse
+
+
 # Response model for get_by_ids
 GetByIdsResponse = schemas.GetPostsByIdsResponse
 
@@ -29,62 +41,6 @@ CreateRequest = schemas.CreatePostsRequest
 CreateResponse = schemas.CreatePostsResponse
 
 
-# Response model for search_all
-SearchAllResponse = schemas.SearchPostsAllResponse
-
-
-# Response model for get_reposts
-GetRepostsResponse = schemas.GetPostsRepostsResponse
-
-
-# Response model for get_counts_recent
-GetCountsRecentResponse = schemas.GetPostsCountsRecentResponse
-
-
-# Request model for hide_reply
-HideReplyRequest = schemas.HidePostsReplyRequest
-
-
-# Response model for hide_reply
-HideReplyResponse = schemas.HidePostsReplyResponse
-
-
-# Response model for get_by_id
-GetByIdResponse = schemas.GetPostsByIdResponse
-
-
-# Response model for delete
-DeleteResponse = schemas.DeletePostsResponse
-
-
-# Response model for get_analytics
-GetAnalyticsResponse = schemas.GetPostsAnalyticsResponse
-
-
-# Response model for get_counts_all
-GetCountsAllResponse = schemas.GetPostsCountsAllResponse
-
-
-# Response model for get_liking_users
-GetLikingUsersResponse = schemas.GetPostsLikingUsersResponse
-
-
-# Response model for delete_post_draft
-DeletePostDraftResponse = schemas.DeletePostDraftResponse
-
-
-# Response model for get_reposted_by
-GetRepostedByResponse = schemas.GetPostsRepostedByResponse
-
-
-# Response model for search_recent
-SearchRecentResponse = schemas.SearchPostsRecentResponse
-
-
-# Response model for get_quoted
-GetQuotedResponse = schemas.GetPostsQuotedPostsResponse
-
-
 # Response model for get_post_drafts
 GetPostDraftsResponse = schemas.GetPostDraftsResponse
 
@@ -95,3 +51,47 @@ CreatePostDraftRequest = schemas.CreatePostDraftRequest
 
 # Response model for create_post_draft
 CreatePostDraftResponse = schemas.CreatePostDraftResponse
+
+
+# Response model for get_by_id
+GetByIdResponse = schemas.GetPostsByIdResponse
+
+
+# Response model for delete
+DeleteResponse = schemas.DeletePostsResponse
+
+
+# Request model for hide_reply
+HideReplyRequest = schemas.HidePostsReplyRequest
+
+
+# Response model for hide_reply
+HideReplyResponse = schemas.HidePostsReplyResponse
+
+
+# Response model for delete_post_draft
+DeletePostDraftResponse = schemas.DeletePostDraftResponse
+
+
+# Response model for search_recent
+SearchRecentResponse = schemas.SearchPostsRecentResponse
+
+
+# Response model for get_quoted
+GetQuotedResponse = schemas.GetPostsQuotedPostsResponse
+
+
+# Response model for get_analytics
+GetAnalyticsResponse = schemas.GetPostsAnalyticsResponse
+
+
+# Response model for get_liking_users
+GetLikingUsersResponse = schemas.GetPostsLikingUsersResponse
+
+
+# Response model for search_all
+SearchAllResponse = schemas.SearchPostsAllResponse
+
+
+# Response model for get_counts_recent
+GetCountsRecentResponse = schemas.GetPostsCountsRecentResponse

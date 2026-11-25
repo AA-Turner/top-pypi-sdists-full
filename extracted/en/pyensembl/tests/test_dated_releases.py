@@ -12,6 +12,7 @@ import gtfparse
 import pytest
 
 from pyensembl import EnsemblRelease, shell
+from pyensembl.cli import listing
 from pyensembl.ensembl_url_templates import ENSEMBL_GENOMES_FTP_SERVER, make_dated_release_urls
 from pyensembl.genome_fasta import GenomeFasta
 from pyensembl.ensembl_versions import check_release_number
@@ -174,7 +175,7 @@ def test_setup_hint_keeps_the_mask_of_installed_dna(monkeypatch):
 def test_invalid_months_are_not_dated_releases():
     with pytest.raises(ValueError, match="No genome for homo_sapiens"):
         find_species_by_name("human").which_reference("2026_13")
-    assert shell._other_genome_labels("GRCh38", "ensembl2026_13") == (
+    assert listing.other_genome_labels("GRCh38", "ensembl2026_13") == (
         "custom", "ensembl2026_13"
     )
 
@@ -204,8 +205,8 @@ def test_cli_rejects_website_release_labels(capsys):
 
 
 def test_list_labels_dated_release_directories():
-    assert shell._other_genome_labels("GRCh38", "ensembl2026_04") == ("human", "2026_04")
-    assert shell._other_genome_labels("GRCh38", "ensembl116") == ("human", "116")
+    assert listing.other_genome_labels("GRCh38", "ensembl2026_04") == ("human", "2026_04")
+    assert listing.other_genome_labels("GRCh38", "ensembl116") == ("human", "116")
 
 
 def _dated_release_problems(species):
@@ -231,7 +232,7 @@ def _dated_release_problems(species):
 
 
 def test_every_dated_release_table_entry_uses_platform_layout(monkeypatch):
-    species = [s for s in Species._latin_names_to_species.values() if s.dated_releases]
+    species = [s for s in Species.all() if s.dated_releases]
     directories = {}
     for entry in species:
         accession, provider = entry.dated_releases

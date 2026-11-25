@@ -6,20 +6,27 @@ from __future__ import annotations
 import asyncio
 import logging
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 import msgspec
+from msgspec import UNSET
 from msgspec.structs import replace
 
 from marimo._core import backend as be, protocol
 from marimo._core.document import Stale
-from marimo._core.errors import Conflict, EditConflict, NoRuntime, NotFound
-from marimo._core.executions import Executions, Released, Removed
+from marimo._core.errors import (
+    Conflict,
+    Invalid,
+    NoRuntime,
+    NotFound,
+    PreconditionFailed,
+)
+from marimo._core.executions import Executions, InputChanged, Released, Removed
 from marimo._core.ids import mint
-from marimo._core.stream import Event, Kind, kind_of, message, utcnow
+from marimo._core.stream import RoutedEvent, snapshot_event, utcnow
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
 
     from marimo._core.analysis import Analyzer
     from marimo._core.document import (
@@ -28,10 +35,23 @@ if TYPE_CHECKING:
         DocumentCell,
     )
     from marimo._core.executions import Change
-    from marimo._core.stream import Body, Sink
+    from marimo._core.protocol_events import Body, RemovableBody, SnapshotBody
+    from marimo._core.stream import Sink
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _status(runtime: protocol.Runtime) -> str:
+    match runtime.state:
+        case protocol.RuntimeStarting():
+            return "starting"
+        case protocol.RuntimeReady():
+            return "ready"
+        case protocol.RuntimeStopping():
+            return "stopping"
+        case protocol.RuntimeEnded():
+            return "ended"
 
 
 class Notebook:
@@ -110,13 +130,13 @@ class Notebook:
         """Check that the document is at one of `etags`.
 
         Raises:
-            EditConflict: If it is not, carrying the document as it is.
+            PreconditionFailed: If it is not, carrying the document as it is.
         """
         self._require_open()
         if self.document.etag not in etags:
-            raise EditConflict(
+            raise PreconditionFailed(
                 "The document has changed since it was read",
-                change=0,
+                index=0,
                 cell=None,
                 document=self._document_record,
             )
@@ -138,8 +158,16 @@ class Notebook:
 
     @property
     def runtime(self) -> protocol.Runtime | None:
-        """The current runtime, if any."""
+        """The notebook's runtime, kept after it ends."""
         return self._runtime
+
+    @property
+    def live_runtime(self) -> protocol.Runtime | None:
+        """The runtime, unless it has ended."""
+        runtime = self._runtime
+        if runtime is None or isinstance(runtime.state, protocol.RuntimeEnded):
+            return None
+        return runtime
 
     @property
     def analysis(self) -> protocol.Analysis | None:
@@ -187,7 +215,7 @@ class Notebook:
         """Apply an edit as one unit and publish its effects.
 
         Raises:
-            EditConflict: If a precondition is stale. Nothing is applied.
+            PreconditionFailed: If a precondition is stale. Nothing is applied.
             Invalid: If a change could not apply to any state.
         """
         self._require_open()
@@ -198,10 +226,10 @@ class Notebook:
                 if result.cell_id is None
                 else self._document.cell(result.cell_id)
             )
-            raise EditConflict(
+            raise PreconditionFailed(
                 f"change {result.change} names a state the document no "
                 "longer has",
-                change=result.change,
+                index=result.change,
                 cell=None if cell is None else self._cell_record(cell),
                 document=self._document_record,
             )
@@ -239,14 +267,14 @@ class Notebook:
             name=cell.name,
             config=cell.config,
             etag=cell.etag,
-            code_hash=cell.code_hash,
+            code_fingerprint=protocol.CodeFingerprint(cell.code_fingerprint),
             version=self._cell_versions[cell.id],
         )
 
     def _cell_version(self, cell: DocumentCell) -> protocol.CellVersion:
         return protocol.CellVersion(
             etag=cell.etag,
-            code_hash=cell.code_hash,
+            code_fingerprint=protocol.CodeFingerprint(cell.code_fingerprint),
             version=self._cell_versions[cell.id],
         )
 
@@ -275,7 +303,7 @@ class Notebook:
                 self._apply(
                     self.executions.remove_cell(protocol.CellId(cell_id))
                 )
-                self._remove("cell", cell_id, request_id)
+                self._remove(protocol.Cell, cell_id, request_id)
             record = self._refresh()
             if record is not None:
                 self._publish(record, request_id)
@@ -333,9 +361,10 @@ class Notebook:
         """Return the runtime and whether this call started it."""
         with self.sink.deferred():
             self._require_open()
-            if self._runtime is not None:
-                return self._runtime, False
-            runtime = self._new_runtime("starting", None, None)
+            if (live := self.live_runtime) is not None:
+                return live, False
+            self._remove_runtime(request_id)
+            runtime = self._new_runtime()
             self._runtime_request = request_id
             self._set_runtime(runtime)
             self.backend.start(runtime.id)
@@ -344,41 +373,40 @@ class Notebook:
     def stop(self, *, request_id: str | None = None) -> protocol.Runtime:
         """Stop the runtime and retain its results.
 
-        The runtime stays until the backend reports its exit. A failed runtime
-        is removed immediately.
+        The runtime ends once the backend reports its exit.
         """
         with self.sink.deferred():
             self._require_open()
             runtime = self._require_runtime()
             self._runtime_request = request_id
             self._replacement = None
-            if runtime.status == "terminating":
+            if isinstance(runtime.state, protocol.RuntimeStopping):
                 return runtime
-            terminating = replace(runtime, status="terminating")
-            self._set_runtime(terminating)
-            if runtime.status == "failed":
-                self._end_runtime()
-            else:
-                self.backend.stop(runtime.id)
-            return terminating
+            stopping = replace(runtime, state=protocol.RuntimeStopping())
+            self._set_runtime(stopping)
+            self._apply(self.executions.cancel_inputs(), request_id=request_id)
+            self.backend.stop(runtime.id)
+            return stopping
 
     def restart(self, *, request_id: str | None = None) -> protocol.Runtime:
-        """Stop a running runtime and return its replacement.
+        """Stop a ready runtime and return its replacement.
 
         The replacement starts after the old runtime exits.
         """
         with self.sink.deferred():
             self._require_open()
             runtime = self._require_runtime()
-            if runtime.status != "running":
+            if not isinstance(runtime.state, protocol.RuntimeReady):
                 raise Conflict(
-                    f"the runtime is {runtime.status}; only a running one restarts"
+                    f"the runtime is {_status(runtime)}; only a ready one restarts"
                 )
             self._runtime_request = request_id
-            replacement = self._new_runtime("starting", None, None)
+            replacement = self._new_runtime()
             self._replacement = replacement
-            terminating = replace(runtime, status="terminating")
-            self._set_runtime(terminating)
+            self._set_runtime(
+                replace(runtime, state=protocol.RuntimeStopping())
+            )
+            self._apply(self.executions.cancel_inputs(), request_id=request_id)
             self.backend.stop(runtime.id)
             return replacement
 
@@ -393,74 +421,216 @@ class Notebook:
         """
         with self.sink.deferred():
             self._require_open()
-            if self._runtime is not None:
-                if self._runtime.status != "failed":
-                    raise Conflict(
-                        f"the notebook has a {self._runtime.status} runtime"
-                    )
-                self._end_runtime()
-            runtime = self._new_runtime("starting", None, None)
+            if (live := self.live_runtime) is not None:
+                raise Conflict(f"the notebook has a {_status(live)} runtime")
+            self._remove_runtime(None)
+            runtime = self._new_runtime()
             self._set_runtime(runtime)
             attach(runtime.id)
             return runtime
 
     def _require_runtime(self) -> protocol.Runtime:
-        if self._runtime is None:
+        runtime = self.live_runtime
+        if runtime is None:
             raise NoRuntime(
                 f"notebook {self.id} has no runtime; start one first."
             )
-        return self._runtime
+        return runtime
 
     def _set_runtime(self, runtime: protocol.Runtime) -> None:
         self._runtime = runtime
         self._publish(runtime, self._runtime_request)
-        if runtime.status in ("running", "failed"):
+        if isinstance(
+            runtime.state, (protocol.RuntimeReady, protocol.RuntimeEnded)
+        ):
             self._runtime_request = None
 
-    def _end_runtime(self) -> None:
-        assert self._runtime is not None
-        self._apply(self.executions.interrupt())
-        runtime, self._runtime = self._runtime, None
-        self._remove("runtime", runtime.id, self._runtime_request)
-        self._runtime_request = None
+    def _end_runtime(
+        self, runtime: protocol.Runtime, outcome: protocol.RuntimeOutcome
+    ) -> None:
+        """Settle the runtime's work, then publish it as ended."""
+        if isinstance(outcome, protocol.RuntimeFailedOutcome):
+            self._apply(
+                self.executions.interrupt(
+                    failure=outcome.message or "The kernel exited."
+                )
+            )
+        else:
+            self._apply(self.executions.interrupt())
+        self._set_runtime(
+            replace(
+                runtime,
+                state=protocol.RuntimeEnded(
+                    ended_at=utcnow(), outcome=outcome
+                ),
+            )
+        )
+
+    def _remove_runtime(self, request_id: str | None) -> None:
+        """Drop the ended runtime so another can take its place."""
+        if self._runtime is not None:
+            runtime, self._runtime = self._runtime, None
+            self._remove(protocol.Runtime, runtime.id, request_id)
 
     # ---- runs ----------------------------------------------------------
 
-    def run(self, code: str, *, request_id: str) -> protocol.Run:
-        """Queue scratch code on a running, idle runtime."""
+    @overload
+    def run(
+        self,
+        code: str,
+        *,
+        request_id: str,
+        request: be.RequestInfo | None,
+        allow_input: bool = False,
+    ) -> protocol.Run: ...
+
+    @overload
+    def run(
+        self,
+        *,
+        cells: Sequence[protocol.RequestedCell],
+        request_id: str,
+        request: be.RequestInfo | None,
+        allow_input: bool = False,
+    ) -> protocol.Run: ...
+
+    def run(
+        self,
+        code: str | None = None,
+        *,
+        cells: Sequence[protocol.RequestedCell] | None = None,
+        request_id: str,
+        request: be.RequestInfo | None,
+        allow_input: bool = False,
+    ) -> protocol.Run:
+        """Queue scratch code, or cells of the document, on the runtime.
+
+        Runs start in acceptance order, one at a time, each with the
+        document it was accepted in, recording the requested cells. Each
+        requested cell must be in the document. One that names an `etag`
+        the cell no longer has is a conflict, and nothing runs. The code
+        reads `request`, the request that submitted the run, through
+        `mo.app_meta().request`. `allow_input` permits interactive prompts;
+        unattended runs raise `EOFError` when code requests input.
+
+        Raises:
+            Invalid: If the request does not select exactly one of code
+                and cells, or selects an empty cell sequence.
+            NoRuntime: If the notebook has no runtime.
+            Conflict: If the runtime is not running.
+            PreconditionFailed: If a requested cell is missing or has changed.
+        """
+        if (code is None) == (cells is None):
+            raise Invalid("a run names code or cells, not both")
+        if cells is not None and not cells:
+            raise Invalid("a cell run names at least one cell")
         with self.sink.deferred():
             self._require_open()
             runtime = self._require_runtime()
-            if runtime.status != "running":
-                raise Conflict(f"the runtime is {runtime.status}.")
-            active = self.executions.active()
-            if active is not None:
-                raise Conflict(f"run {active.id} is in progress.")
+            if not isinstance(runtime.state, protocol.RuntimeReady):
+                raise Conflict(f"the runtime is {_status(runtime)}.")
+            targets: list[protocol.CellId] = []
+            for index, requested in enumerate(cells or ()):
+                cell = self._document.cell(requested.id)
+                if cell is None:
+                    raise PreconditionFailed(
+                        f"cell {requested.id} is not in the document.",
+                        index=index,
+                        cell=None,
+                        document=self._document_record,
+                    )
+                if requested.etag is not UNSET and requested.etag != cell.etag:
+                    raise PreconditionFailed(
+                        f"cell {requested.id} has changed since it was read.",
+                        index=index,
+                        cell=self._cell_record(cell),
+                        document=self._document_record,
+                    )
+                targets.append(cell.id)
             run = protocol.Run(
                 id=mint(protocol.RunId, "run"),
                 notebook_id=self.id,
-                caused_by=None,
-                status="queued",
-                outcome=None,
-                started_at=None,
-                completed_at=None,
+                runtime_id=runtime.id,
+                origin=protocol.RunCodeOrigin(code=code)
+                if code is not None
+                else protocol.RunCellsOrigin(cell_ids=tuple(targets)),
+                created_at=utcnow(),
+                state=protocol.RunQueued(),
             )
             self._apply(self.executions.begin(run, request_id))
-            self.backend.run(run.id, code)
+            if code is not None:
+                self.backend.run(
+                    run.id, code, request=request, allow_input=allow_input
+                )
+            else:
+                self.backend.run_cells(
+                    run.id,
+                    self._document,
+                    targets,
+                    request=request,
+                    allow_input=allow_input,
+                )
             return run
 
-    def interrupt(self, run_id: str) -> protocol.Run:
-        """Request interruption of a run in progress."""
+    def interrupt(self, *, request_id: str | None = None) -> protocol.Runtime:
+        """Request interruption of the runtime's active work and queued runs.
+
+        The runtime stays alive, and work outside a run is interrupted too.
+        Runs and executions report their outcomes once they settle.
+
+        Raises:
+            NoRuntime: If the notebook has no runtime.
+            Conflict: If the runtime is not ready.
+        """
+        self._require_open()
+        runtime = self._require_runtime()
+        if not isinstance(runtime.state, protocol.RuntimeReady):
+            raise Conflict(f"the runtime is {_status(runtime)}.")
+        with self.sink.deferred():
+            self._apply(self.executions.cancel_inputs(), request_id=request_id)
+            self.backend.interrupt()
+        return runtime
+
+    def cancel(
+        self, run_id: str, *, request_id: str | None = None
+    ) -> protocol.Run:
+        """Request cancellation of a run that has not finished."""
         self._require_open()
         run = self.executions.run(protocol.RunId(run_id))
         if run is None:
             raise NotFound(f"notebook {self.id} has no run {run_id}.")
-        if run.status == "completed":
+        if isinstance(run.state, protocol.RunCompleted):
             raise Conflict(f"run {run_id} has already ended.")
-        self.backend.interrupt(run.id)
+        with self.sink.deferred():
+            self._apply(
+                self.executions.cancel_inputs(run.id), request_id=request_id
+            )
+            self.backend.cancel(run.id)
         return run
 
+    def reply_input(
+        self, input_id: protocol.ItemId, value: str, *, request_id: str
+    ) -> protocol.Input:
+        """Accept one answer and publish its status under the reply's key."""
+        self._require_open()
+        item = self.executions.pending_input(input_id)
+        with self.sink.deferred():
+            self.backend.reply_input(input_id, value)
+            answered = self.executions.answer(item)
+            self.sink.publish(
+                answered,
+                notebook_id=self.id,
+                run_id=self.executions.run_id_of(answered),
+                request_id=request_id,
+            )
+        return answered
+
     # ---- attachments ---------------------------------------------------
+
+    @property
+    def attachments(self) -> list[protocol.Attachment]:
+        """Return the current attachments in creation order."""
+        return list(self._attachments.values())
 
     def attach(
         self,
@@ -479,10 +649,9 @@ class Notebook:
             "notebook_id": self.id,
             "kind": kind or "client",
             "name": name or None,
-            "since": utcnow(),
+            "created_at": utcnow(),
         }
-        if identity is not None:
-            fields["identity"] = identity
+        fields["identity"] = identity
         attachment = msgspec.convert(fields, protocol.Attachment)
         self._attachments[attachment.id] = attachment
         self._publish(attachment, None)
@@ -492,7 +661,7 @@ class Notebook:
         """Remove an attachment if it exists."""
         attachment = self._attachments.pop(attachment_id, None)
         if attachment is not None:
-            self._remove("attachment", attachment.id, None)
+            self._remove(protocol.Attachment, attachment.id, None)
 
     # ---- backend updates -----------------------------------------------
 
@@ -501,7 +670,7 @@ class Notebook:
         if self._closed:
             return
         match msg:
-            case be.Starting() | be.Running() | be.Exited():
+            case be.Starting() | be.Running() | be.Stopped() | be.Exited():
                 runtime = self._runtime
                 if runtime is None or msg.runtime_id != runtime.id:
                     return  # A kernel this notebook no longer tracks.
@@ -514,60 +683,63 @@ class Notebook:
     ) -> None:
         match report:
             case be.Starting(message=text):
-                if runtime.status == "starting":
-                    self._set_runtime(replace(runtime, message=text))
-            case be.Running(marimo_version=version):
-                if runtime.status in ("starting", "running"):
+                if isinstance(runtime.state, protocol.RuntimeStarting):
                     self._set_runtime(
                         replace(
                             runtime,
-                            status="running",
-                            message=None,
+                            state=protocol.RuntimeStarting(message=text),
+                        )
+                    )
+            case be.Running(marimo_version=version):
+                if isinstance(
+                    runtime.state,
+                    (protocol.RuntimeStarting, protocol.RuntimeReady),
+                ):
+                    self._set_runtime(
+                        replace(
+                            runtime,
+                            state=protocol.RuntimeReady(),
                             marimo_version=version,
                         )
                     )
-            case be.Exited(reason=reason):
-                self._observe_exited(runtime, reason)
+            case be.Stopped() | be.Exited():
+                with self.sink.deferred():
+                    self._observe_exited(runtime, report)
 
     def _observe_exited(
-        self, runtime: protocol.Runtime, reason: str | None
+        self, runtime: protocol.Runtime, report: be.Stopped | be.Exited
     ) -> None:
-        if runtime.status == "terminating" and self._replacement is not None:
-            replacement, self._replacement = self._replacement, None
-            request_id = self._runtime_request
-            with self.sink.deferred():
-                self._end_runtime()
-                self._runtime_request = request_id
-                self._set_runtime(replacement)
-                self.backend.start(replacement.id)
-        elif runtime.status == "terminating":
-            self._end_runtime()
-        else:
-            # Preserve results after an unexpected exit.
-            self._apply(self.executions.interrupt("failed"))
-            self._set_runtime(
-                replace(runtime, status="failed", message=reason)
+        if isinstance(runtime.state, protocol.RuntimeEnded):
+            return
+        request_id = self._runtime_request
+        if isinstance(report, be.Exited) and not isinstance(
+            runtime.state, protocol.RuntimeStopping
+        ):
+            self._end_runtime(
+                runtime, protocol.RuntimeFailedOutcome(message=report.reason)
             )
+        else:
+            self._end_runtime(runtime, protocol.RuntimeStoppedOutcome())
+        if self._replacement is not None:
+            replacement, self._replacement = self._replacement, None
+            self._remove_runtime(request_id)
+            self._runtime_request = request_id
+            self._set_runtime(replacement)
+            self.backend.start(replacement.id)
 
-    def _new_runtime(
-        self,
-        status: protocol.RuntimeStatus,
-        text: str | None,
-        version: str | None,
-    ) -> protocol.Runtime:
+    def _new_runtime(self) -> protocol.Runtime:
         return protocol.Runtime(
             id=mint(protocol.RuntimeId, "rt"),
             notebook_id=self.id,
-            status=status,
-            message=text,
-            marimo_version=version,
-            started_at=utcnow(),
+            marimo_version=None,
+            created_at=utcnow(),
+            state=protocol.RuntimeStarting(message=None),
         )
 
     def emit(
         self,
         type: str,  # noqa: A002
-        data: Any,
+        data: protocol.JsonValue,
         *,
         request_id: str | None = None,
     ) -> protocol.Custom:
@@ -583,35 +755,31 @@ class Notebook:
 
     # ---- stream --------------------------------------------------------
 
-    def _snapshot(self) -> list[Event]:
-        """Return current state as events in dependency order."""
-        bodies: list[Body] = [
-            *(self._cell_record(cell) for cell in self.document),
-            self._document_record,
-        ]
+    def _records(self) -> Iterator[tuple[SnapshotBody, protocol.RunId | None]]:
+        """Current records in dependency order, borrowed until publication."""
+        for cell in self.document:
+            yield self._cell_record(cell), None
+        yield self._document_record, None
         if self._analysis is not None:
-            bodies.append(self._analysis)
+            yield self._analysis, None
         if self._runtime is not None:
-            bodies.append(self._runtime)
-        bodies.extend(self._attachments.values())
-        events = [
-            Event(kind_of(body), message(body), notebook_id=self.id)
-            for body in bodies
-        ]
-        executions = self.executions
-        for record in executions._records():
-            run_id = executions.run_id_of(record)
-            events.append(
-                Event(
-                    kind_of(record),
-                    message(
-                        record, request_id=executions.snapshot_request(run_id)
-                    ),
-                    notebook_id=self.id,
-                    run_id=run_id,
-                )
+            yield self._runtime, None
+        for attachment in self._attachments.values():
+            yield attachment, None
+        for record in self.executions._records():
+            yield record, self.executions.run_id_of(record)
+
+    def _snapshot(self) -> list[RoutedEvent]:
+        """Return current state as events in dependency order."""
+        return [
+            snapshot_event(
+                record,
+                request_id=self.executions.snapshot_request(run_id),
+                notebook_id=self.id,
+                run_id=run_id,
             )
-        return events
+            for record, run_id in self._records()
+        ]
 
     def _dispose(self, *, request_id: str | None = None) -> None:
         """Close the notebook and remove its state, children first.
@@ -625,9 +793,7 @@ class Notebook:
         self._apply(self.executions.clear())
         for attachment_id in list(self._attachments):
             self.detach(attachment_id)
-        if self._runtime is not None:
-            runtime, self._runtime = self._runtime, None
-            self._remove("runtime", runtime.id, request_id)
+        self._remove_runtime(request_id)
 
     def _publish(self, body: Body, request_id: str | None) -> None:
         self.sink.publish(
@@ -638,18 +804,20 @@ class Notebook:
 
     def _remove(
         self,
-        kind: Kind,
+        record_type: type[RemovableBody],
         object_id: str,
         request_id: str | None,
     ) -> None:
         self.sink.remove(
-            kind,
+            record_type,
             object_id,
             notebook_id=self.id,
             request_id=request_id,
         )
 
-    def _apply(self, changes: Sequence[Change]) -> None:
+    def _apply(
+        self, changes: Sequence[Change], *, request_id: str | None = None
+    ) -> None:
         """Publish changes and release completed runs."""
         executions = self.executions
         with self.sink.deferred():
@@ -659,19 +827,26 @@ class Notebook:
                     self.backend.forget(change.run_id)
                     continue
                 run_id = executions.run_id_of(change)
-                request_id = executions.request_id(run_id)
+                originating_request = (
+                    request_id
+                    if isinstance(change, (protocol.Input, InputChanged))
+                    and request_id is not None
+                    else executions.request_id(run_id)
+                )
                 if isinstance(change, Removed):
                     self.sink.remove(
-                        change.kind,
+                        change.record_type,
                         change.id,
                         notebook_id=self.id,
                         run_id=run_id,
-                        request_id=request_id,
+                        request_id=originating_request,
                     )
                 else:
                     self.sink.publish(
-                        change,
+                        change.input
+                        if isinstance(change, InputChanged)
+                        else change,
                         notebook_id=self.id,
                         run_id=run_id,
-                        request_id=request_id,
+                        request_id=originating_request,
                     )

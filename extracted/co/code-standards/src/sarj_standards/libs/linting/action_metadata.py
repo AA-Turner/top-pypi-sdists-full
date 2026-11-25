@@ -28,7 +28,7 @@ from sarj_standards.libs.linting.external import DEFAULT_EXECUTOR, process_reque
 if TYPE_CHECKING:
     from sarj_standards.libs.linting.external import ProcessExecutor
 
-_SHA256 = "7408ae0434ecd92441b1bd32a267e181231493e3f8319ad94655fa781c8ba26a"
+_SHA256 = "bb9b08b76bd29f664cd6f4fec2c1e26452412a58b01d548f7112acee721bd634"
 _MAX_SOURCE_BYTES = 2 * 1024 * 1024
 _MAX_BATCH_BYTES = 8 * 1024 * 1024
 _MAX_BATCH_FILES = 256
@@ -149,5 +149,5 @@ def _report(result: _Result, document: SourceDocument, *, root: Path) -> ToolRep
             )
         )
     return ToolReport(
-        "action-schema", Completion.COMPLETE, diagnostics=tuple(diagnostics), version="0.3.61", file_count=1
+        "action-schema", Completion.COMPLETE, diagnostics=tuple(diagnostics), version="0.3.62", file_count=1
     )

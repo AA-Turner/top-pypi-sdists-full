@@ -16,16 +16,23 @@ use crate::utils::EnterPolarsExt;
 #[pymethods]
 impl PyDataFrame {
     #[staticmethod]
-    #[pyo3(signature = (data, schema=None, infer_schema_length=None))]
+    #[pyo3(signature = (data, schema=None, strict=true, infer_schema_length=None))]
     pub fn from_rows(
         py: Python<'_>,
         data: &Bound<PyAny>,
         schema: Option<Wrap<Schema>>,
+        strict: bool,
         infer_schema_length: Option<usize>,
     ) -> PyResult<Self> {
         let data = data.cast::<PySequence>()?;
         let schema = schema.map(|wrap| wrap.0);
-        let extract = |record: &Bound<PyAny>| PyResult::Ok(record.extract::<Wrap<Row>>()?.0);
+        let extract = |record: &Bound<PyAny>| {
+            let values = record.extract::<Vec<Bound<PyAny>>>()?;
+            let values = values
+                .iter()
+                .map(|v| py_object_to_any_value(v, strict, true, None));
+            values.collect::<PyResult<Vec<_>>>().map(Row)
+        };
 
         // the leading records infer the schema (none are needed if it is complete)
         let schema_is_complete = schema
@@ -58,15 +65,16 @@ impl PyDataFrame {
             .iter_values()
             .map(|dtype| AnyValueBufferBatched::new(dtype, capacity))
             .collect();
+        let temporal = temporal_dtypes(&schema);
         let read = |record: &Bound<PyAny>, i: usize| {
-            PyResult::Ok(record.get_item(i)?.extract::<Wrap<AnyValue>>()?.0)
+            py_object_to_any_value(&record.get_item(i)?, strict, true, None)
         };
         let mut width = None;
         let mut height = 0;
         let mut push_row = |record: &Bound<PyAny>, row: Row<'static>| {
             check_row_width(&row, &mut width, buffers.len(), height).map_err(PyPolarsErr::from)?;
             for (i, (buffer, value)) in buffers.iter_mut().zip(row.0).enumerate() {
-                push(py, buffer, value, || read(record, i))?;
+                push(py, buffer, value, temporal[i], strict, || read(record, i))?;
             }
             height += 1;
             PyResult::Ok(())
@@ -119,6 +127,7 @@ impl PyDataFrame {
             Some(n) => n.max(1),
             None => usize::MAX,
         };
+        let check_extra_keys = schema.is_none();
         let mut records = data.try_iter()?;
         let leading = records
             .by_ref()
@@ -142,7 +151,9 @@ impl PyDataFrame {
             .map(|name| PyString::intern(py, name))
             .collect();
         let hints: Vec<Option<DataType>> = names.iter().map(|name| dtype_hint(name)).collect();
-        let read = |record: &Record, i: usize| record.value(&keys[i], hints[i].as_ref(), strict);
+        let read = |record: &Record, i: usize| {
+            to_any_value(record.get(&keys[i])?, hints[i].as_ref(), strict)
+        };
         let rows = leading
             .iter()
             .map(|record| {
@@ -164,16 +175,34 @@ impl PyDataFrame {
             .iter_values()
             .map(|dtype| AnyValueBufferBatched::new(dtype, capacity))
             .collect();
+        let temporal = temporal_dtypes(&schema);
         let mut height = leading.len();
         for (record, row) in leading.iter().zip(rows) {
             for (i, (buffer, value)) in buffers.iter_mut().zip(row.0).enumerate() {
-                push(py, buffer, value, || read(record, i))?;
+                push(py, buffer, value, temporal[i], strict, || read(record, i))?;
             }
         }
         for record in records {
             let record = Record::new(record?)?;
+            let mut n_present = 0;
             for (i, buffer) in buffers.iter_mut().enumerate() {
-                push(py, buffer, read(&record, i)?, || read(&record, i))?;
+                let value = record.get(&keys[i])?;
+                n_present += value.is_some() as usize;
+                let value = to_any_value(value, hints[i].as_ref(), strict)?;
+                push(py, buffer, value, temporal[i], strict, || read(&record, i))?;
+            }
+            if check_extra_keys && record.len()? > n_present {
+                let mut all_names: PlIndexSet<String> = names.iter().cloned().collect();
+                record.add_names(&mut all_names)?;
+                if let Some(key) = all_names.get_index(names.len()) {
+                    return Err(PyPolarsErr::from(polars_err!(
+                        ComputeError:
+                        "extra key in dict {height}: {key:?}, consider increasing \
+                        infer_schema_length, or manually specifying the full schema to ignore \
+                        extra keys"
+                    ))
+                    .into());
+                }
             }
             height += 1;
         }
@@ -199,14 +228,32 @@ impl PyDataFrame {
     }
 }
 
+/// The dtype of each column that has (possibly nested) time units.
+fn temporal_dtypes(schema: &Schema) -> Vec<Option<&DataType>> {
+    schema
+        .iter_values()
+        .map(|dtype| dtype.contains_time_units().then_some(dtype))
+        .collect()
+}
+
 /// Add a value, or else `reread` it (owned) for the error; full batches convert without the GIL.
+/// Time units first convert to those of the column's `temporal_dtype` (also when nested), so
+/// values that overflow them raise if `strict`, and otherwise become null.
 #[inline]
 fn push(
     py: Python<'_>,
     buffer: &mut AnyValueBufferBatched<'static>,
     value: AnyValue<'static>,
+    temporal_dtype: Option<&DataType>,
+    strict: bool,
     reread: impl FnOnce() -> PyResult<AnyValue<'static>>,
 ) -> PyResult<()> {
+    let value = match temporal_dtype {
+        Some(dtype) => value
+            .cast_time_units_like(dtype, strict)
+            .map_err(PyPolarsErr::from)?,
+        None => value,
+    };
     if buffer.add(value).is_none() {
         buffer.add_fallible(&reread()?).map_err(PyPolarsErr::from)?;
     }
@@ -298,24 +345,35 @@ impl<'py> Record<'py> {
         Ok(())
     }
 
+    fn len(&self) -> PyResult<usize> {
+        match self {
+            Self::Null => Ok(0),
+            Self::Dict(dict) => Ok(dict.len()),
+            Self::Mapping(mapping) => mapping.len(),
+        }
+    }
+
     #[inline]
-    fn value(
-        &self,
-        key: &Bound<'py, PyString>,
-        dtype: Option<&DataType>,
-        strict: bool,
-    ) -> PyResult<AnyValue<'static>> {
-        let value = match self {
+    fn get(&self, key: &Bound<'py, PyString>) -> PyResult<Option<Bound<'py, PyAny>>> {
+        Ok(match self {
             Self::Null => None,
             Self::Dict(dict) => dict.get_item(key)?,
             Self::Mapping(mapping) => match mapping.get_item(key) {
                 Err(err) if err.is_instance_of::<PyKeyError>(mapping.py()) => None,
                 value => Some(value?),
             },
-        };
-        match value {
-            Some(value) if !value.is_none() => py_object_to_any_value(&value, strict, true, dtype),
-            _ => Ok(AnyValue::Null),
-        }
+        })
+    }
+}
+
+#[inline]
+fn to_any_value(
+    value: Option<Bound<'_, PyAny>>,
+    dtype: Option<&DataType>,
+    strict: bool,
+) -> PyResult<AnyValue<'static>> {
+    match value {
+        Some(value) if !value.is_none() => py_object_to_any_value(&value, strict, true, dtype),
+        _ => Ok(AnyValue::Null),
     }
 }

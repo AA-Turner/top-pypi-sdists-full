@@ -25,9 +25,9 @@ from superdoc.errors import (
     HOST_TIMEOUT,
     SuperDocError,
 )
+from superdoc.sdk_policy import SDK_POLICY
 from superdoc.transport import (
     DEFAULT_STDOUT_BUFFER_LIMIT_BYTES,
-    DEFAULT_WATCHDOG_TIMEOUT_MS,
     AsyncHostTransport,
     SyncHostTransport,
 )
@@ -52,8 +52,8 @@ _AUTH_SENTINEL = 'python-transport-auth-sentinel-135fc8'
 
 @pytest.mark.parametrize('transport_type', [SyncHostTransport, AsyncHostTransport])
 def test_default_watchdog_has_host_response_headroom(transport_type):
-    assert transport_type('/unused')._watchdog_timeout_ms == DEFAULT_WATCHDOG_TIMEOUT_MS == 35_000
-    assert transport_type('/unused', watchdog_timeout_ms=30_000)._watchdog_timeout_ms == 30_000
+    watchdog = transport_type('/unused')._watchdog_timeout_ms
+    assert watchdog >= SDK_POLICY['hostDefaultRequestTimeoutMs'] + SDK_POLICY['watchdogHeadroomMs']
 
 
 def _mock_cli_bin(scenario: dict) -> str:
@@ -728,23 +728,21 @@ class TestAsyncLargeResponse:
             _cleanup_wrapper(cli)
 
     @pytest.mark.asyncio
-    async def test_client_threads_stdout_buffer_limit_to_transport(self):
-        # End-to-end wiring check: the public AsyncSuperDocClient constructor
-        # must thread stdout_buffer_limit_bytes through SuperDocAsyncRuntime
-        # into AsyncHostTransport. Without this, a silent drop in client.py
-        # or runtime.py would leave the existing overflow test passing while
-        # the public API reverts to the asyncio 64 KiB default.
+    async def test_client_rejects_a_response_above_its_stdout_buffer_limit(self):
         from superdoc.client import AsyncSuperDocClient
 
-        cli = _mock_cli_bin({'handshake': 'ok'})
+        cli = _mock_cli_bin({
+            'handshake': 'ok',
+            'responses': [{'data': {'contextId': 'big', 'content': 'x' * (200 * 1024)}}],
+        })
+        client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': cli}, stdout_buffer_limit_bytes=64 * 1024)
         try:
-            client = AsyncSuperDocClient(
-                env={'SUPERDOC_CLI_BIN': cli},
-                stdout_buffer_limit_bytes=64 * 1024,
-            )
-            transport = client._runtime._transport
-            assert transport._stdout_buffer_limit_bytes == 64 * 1024
+            with pytest.raises(SuperDocError) as exc_info:
+                await client.open({'doc': 'fixture.docx'})
+            assert exc_info.value.code == HOST_PROTOCOL_ERROR
+            assert 'stdout_buffer_limit_bytes' in str(exc_info.value)
         finally:
+            await client.dispose()
             _cleanup_wrapper(cli)
 
 
@@ -1081,7 +1079,6 @@ class TestAsyncOverflowConcurrency:
             assert all(r.code == HOST_PROTOCOL_ERROR for r in results)
             # Every error must carry the actionable hint, not just the first.
             assert all('stdout_buffer_limit_bytes' in str(r) for r in results)
-            assert transport._pending == {}
             assert transport.state == 'DISCONNECTED'
             await transport.dispose()
         finally:

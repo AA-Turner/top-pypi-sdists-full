@@ -1,10 +1,14 @@
+import re
+
 import pytest
 
 pytest.importorskip('playwright')
 
 from panel.tests.util import serve_component, wait_until
-from panel_material_ui.widgets import Button, IconButton, Toggle
 from playwright.sync_api import expect
+
+from panel_material_ui.layout import Row
+from panel_material_ui.widgets import Button, Fab, IconButton, Toggle, ToggleIcon
 
 pytestmark = pytest.mark.ui
 
@@ -63,7 +67,7 @@ def test_button_handle_click(page):
     serve_component(page, widget)
     button = page.locator('.button')
     button.click()
-    assert widget.clicks == 1
+    wait_until(lambda: widget.clicks == 1, page)
 
 def test_icon_button(page):
     widget = IconButton(
@@ -116,3 +120,97 @@ def test_toggle_format(page, button_type):
     else:
         button_color = page.locator(f'.MuiToggleButton-{button_type}')
     expect(button_color).to_have_count(1)
+
+
+@pytest.mark.parametrize('widget_type', [Button, IconButton, Fab, Toggle])
+def test_button_aria_attributes(page, widget_type):
+    widget = widget_type(
+        icon='menu', aria_label='Assistant, 2 pending', aria_expanded=False,
+        aria={'controls': 'assistant-drawer', 'aria_haspopup': 'true'},
+    )
+    serve_component(page, widget)
+
+    button = page.get_by_role('button', name='Assistant, 2 pending')
+    expect(button).to_have_attribute('aria-expanded', 'false')
+    expect(button).to_have_attribute('aria-controls', 'assistant-drawer')
+    expect(button).to_have_attribute('aria-haspopup', 'true')
+
+    widget.aria_expanded = True
+    expect(button).to_have_attribute('aria-expanded', 'true')
+    widget.aria_expanded = None
+    expect(button).not_to_have_attribute('aria-expanded', re.compile('.*'))
+
+
+def test_toggle_icon_aria_label(page):
+    widget = ToggleIcon(icon='star', aria_label='Favorite')
+    serve_component(page, widget)
+
+    expect(page.get_by_role('checkbox', name='Favorite')).to_have_count(1)
+
+
+@pytest.mark.parametrize('widget_type', [Button, IconButton])
+def test_button_badge(page, widget_type):
+    widget = widget_type(icon='mail', label='Inbox', badge=3)
+    serve_component(page, widget)
+
+    badge = page.locator('.MuiBadge-badge')
+    expect(badge).to_have_text('3')
+
+    widget.badge = 120
+    expect(badge).to_have_text('99+')
+    widget.badge = 0
+    expect(page.locator('.MuiBadge-root')).to_have_count(0)
+    widget.badge = 'new'
+    expect(badge).to_have_text('new')
+    widget.badge = None
+    expect(page.locator('.MuiBadge-root')).to_have_count(0)
+
+
+def test_button_badge_without_icon(page):
+    widget = Button(label='Approvals', badge=1)
+    serve_component(page, widget)
+
+    expect(page.locator('.MuiBadge-badge')).to_have_text('1')
+    expect(page.locator('button')).to_contain_text('Approvals')
+
+
+def test_fab_badge_sits_on_the_button_edge(page):
+    widget = Fab(icon='add', label='New', badge=7)
+    serve_component(page, widget)
+
+    button = page.get_by_role('button', name='New')
+    badge = page.locator('.MuiBadge-badge')
+    expect(badge).to_have_text('7')
+    expect(page.locator('button .MuiBadge-badge')).to_have_count(0)
+    icon = button.locator('.material-icons, .material-icons-outlined, svg').first
+    badge_box, icon_box = badge.bounding_box(), icon.bounding_box()
+    # The badge does not cover the middle of the icon.
+    cx, cy = icon_box['x'] + icon_box['width'] / 2, icon_box['y'] + icon_box['height'] / 2
+    assert not (badge_box['x'] < cx < badge_box['x'] + badge_box['width'] and badge_box['y'] < cy < badge_box['y'] + badge_box['height'])
+
+
+def test_fab_label_names_circular_and_shows_extended(page):
+    circular = Fab(icon='add', label='New')
+    extended = Fab(icon='add', label='Create', variant='extended')
+    serve_component(page, Row(circular, extended))
+
+    expect(page.get_by_role('button', name='New')).not_to_contain_text('New')
+    expect(page.get_by_role('button', name='Create')).to_contain_text('Create')
+
+
+@pytest.mark.parametrize('variant', ['text', 'contained'])
+def test_button_badge_sits_on_the_top_right_corner(page, variant):
+    widget = Button(icon='mail', label='Inbox', badge=4, variant=variant)
+    serve_component(page, widget)
+
+    button = page.get_by_role('button', name='Inbox')
+    badge = page.locator('.MuiBadge-badge')
+    expect(badge).to_have_text('4')
+    expect(page.locator('button .MuiBadge-badge')).to_have_count(0)
+    button_box, badge_box = button.bounding_box(), badge.bounding_box()
+    icon_box = button.locator('.MuiButton-startIcon').bounding_box()
+    # Centred on the top-right corner, clear of the icon.
+    assert abs(badge_box['x'] + badge_box['width'] / 2 - (button_box['x'] + button_box['width'])) < 2
+    assert abs(badge_box['y'] + badge_box['height'] / 2 - button_box['y']) < 2
+    assert badge_box['x'] > icon_box['x'] + icon_box['width']
+    assert button_box['height'] > 0

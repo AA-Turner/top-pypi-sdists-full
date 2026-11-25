@@ -1,0 +1,809 @@
+from __future__ import annotations
+
+import io
+import os
+from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
+from invoke.config import Config
+from invoke.context import MockContext
+from invoke.exceptions import Exit
+from invoke.runners import Result
+
+from invoke_tasklib import release
+from invoke_tasklib.tools import tool_path
+from tests.helpers import commands, make_context, run_kwargs
+
+
+@pytest.fixture
+def dist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "mypkg-0.0.8-py3-none-any.whl").write_text("")
+    (dist_dir / "mypkg-0.0.8.tar.gz").write_text("")
+    monkeypatch.chdir(tmp_path)
+    return dist_dir
+
+
+def _env(c: MockContext) -> dict[str, str]:
+    r"""Return the credential variables of the ``env`` of the last
+    command."""
+    env = run_kwargs(c)[-1]["env"]
+    return {k: v for k, v in env.items() if k.startswith("UV_PUBLISH_")}
+
+
+_WHEEL_CHECK_CMD = (
+    "uv run --isolated --no-project --with dist/mypkg-0.0.8-py3-none-any.whl -- "
+    "python -I -c 'import mypkg'"
+)
+_SDIST_CHECK_CMD = (
+    "uv run --isolated --no-project --with dist/mypkg-0.0.8.tar.gz -- python -I -c 'import mypkg'"
+)
+
+###########################
+#     Tests for build     #
+###########################
+
+
+@pytest.mark.usefixtures("dist")
+def test_build_without_check() -> None:
+    c = make_context({"package": {"name": "mypkg"}})
+    release.build(c)
+    assert commands(c) == ["uv build --clear", _WHEEL_CHECK_CMD, _SDIST_CHECK_CMD]
+
+
+@pytest.mark.usefixtures("dist")
+def test_build_with_args() -> None:
+    c = make_context({"package": {"name": "mypkg"}})
+    release.build(c, args="--no-sources")
+    assert commands(c)[0] == "uv build --clear --no-sources"
+
+
+@pytest.mark.usefixtures("dist")
+def test_build_imports_the_import_name() -> None:
+    c = make_context({"package": {"name": "my-pkg"}})
+    release.build(c)
+    assert commands(c)[1].endswith("-- python -I -c 'import my_pkg'")
+
+
+@pytest.mark.usefixtures("dist")
+def test_build_imports_the_configured_import_name() -> None:
+    c = make_context({"package": {"name": "my-pkg", "import_name": "other"}})
+    release.build(c)
+    assert commands(c)[2].endswith("-- python -I -c 'import other'")
+
+
+@pytest.mark.usefixtures("dist")
+def test_build_with_check() -> None:
+    c = make_context({"package": {"name": "mypkg"}})
+    release.build(c, check=True)
+    assert commands(c) == [
+        "uv build --clear",
+        _WHEEL_CHECK_CMD,
+        _SDIST_CHECK_CMD,
+        "uvx --from 'twine>=7,<8' twine check 'dist/*'",
+    ]
+
+
+@pytest.mark.usefixtures("dist")
+def test_build_with_wheel_only_does_not_verify_the_sdist() -> None:
+    c = make_context({"package": {"name": "mypkg"}})
+    release.build(c, args="--wheel")
+    assert commands(c) == ["uv build --clear --wheel", _WHEEL_CHECK_CMD]
+
+
+@pytest.mark.usefixtures("dist")
+def test_build_with_sdist_only_does_not_verify_the_wheel() -> None:
+    c = make_context({"package": {"name": "mypkg"}})
+    release.build(c, args="--sdist")
+    assert commands(c) == ["uv build --clear --sdist", _SDIST_CHECK_CMD]
+
+
+@pytest.mark.usefixtures("dist")
+def test_build_verifies_the_out_dir_not_a_stale_dist(tmp_path: Path) -> None:
+    (tmp_path / "out").mkdir()
+    (tmp_path / "out" / "mypkg-0.0.9-py3-none-any.whl").write_text("")
+    (tmp_path / "out" / "mypkg-0.0.9.tar.gz").write_text("")
+    c = make_context({"package": {"name": "mypkg"}})
+    release.build(c, args="--out-dir out")
+    assert commands(c)[1].startswith("uv run --isolated --no-project --with out/mypkg-0.0.9-")
+
+
+def test_build_checks_the_out_dir_with_twine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "out").mkdir()
+    (tmp_path / "out" / "mypkg-0.0.9-py3-none-any.whl").write_text("")
+    c = make_context({"package": {"name": "mypkg"}})
+    release.build(c, check=True, args="--wheel --out-dir out")
+    assert commands(c)[-1] == "uvx --from 'twine>=7,<8' twine check 'out/*'"
+
+
+def test_build_installs_the_built_wheel_not_the_package_name(dist: Path) -> None:
+    (dist / "mypkg-0.0.2-py3-none-any.whl").write_text("")
+    os.utime(dist / "mypkg-0.0.2-py3-none-any.whl", (1, 1))
+    c = make_context({"package": {"name": "mypkg"}})
+    release.build(c)
+    assert commands(c)[1] == _WHEEL_CHECK_CMD
+
+
+def test_build_fails_when_no_wheel_is_built(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    c = make_context({"package": {"name": "mypkg"}})
+    with pytest.raises(Exit, match=r"No file matching '\*\.whl'"):
+        release.build(c)
+
+
+#############################
+#     Tests for publish     #
+#############################
+
+_CFG = {"package": {"name": "mypkg"}}
+_BUILD = ["uv build --clear", _WHEEL_CHECK_CMD, _SDIST_CHECK_CMD]
+
+
+@pytest.fixture(autouse=True)
+def _clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "PYPI_TOKEN",
+        "TEST_PYPI_TOKEN",
+        "UV_PUBLISH_TOKEN",
+        "GITHUB_ACTIONS",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "CI",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture
+def token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PYPI_TOKEN", "pypi-secret")
+
+
+@pytest.fixture
+def oidc(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://token.example")
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish() -> None:
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True)
+    assert commands(c) == [*_BUILD, "uv publish"]
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_args_go_to_publish_not_to_build() -> None:
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True, args="--index testpypi")
+    assert commands(c) == [*_BUILD, "uv publish --index testpypi"]
+
+
+@pytest.mark.usefixtures("dist", "testpypi_token")
+def test_publish_to_test_pypi() -> None:
+    c = make_context(_CFG)
+    release.publish(c, test_pypi=True, yes=True, skip_checks=True)
+    assert commands(c)[-1] == (
+        "uv publish --publish-url https://test.pypi.org/legacy/ "
+        "--check-url https://test.pypi.org/simple/"
+    )
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_dry_run() -> None:
+    c = make_context(_CFG)
+    release.publish(c, dry_run=True, skip_checks=True)
+    assert commands(c) == [*_BUILD, "uv publish --dry-run"]
+
+
+@pytest.mark.usefixtures("dist")
+def test_publish_dry_run_needs_no_credentials() -> None:
+    c = make_context(_CFG)
+    release.publish(c, dry_run=True, skip_checks=True)
+    assert commands(c)[-1] == "uv publish --dry-run"
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_passes_token_through_environment() -> None:
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True)
+    assert _env(c) == {"UV_PUBLISH_TOKEN": "pypi-secret"}
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_does_not_put_token_on_command_line() -> None:
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True)
+    assert "pypi-secret" not in " ".join(commands(c))
+
+
+@pytest.mark.usefixtures("dist")
+def test_publish_accepts_uv_publish_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "uv-secret")
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True)
+    assert _env(c) == {"UV_PUBLISH_TOKEN": "uv-secret"}
+
+
+@pytest.mark.usefixtures("dist", "oidc")
+def test_publish_uses_trusted_publishing_without_token() -> None:
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True)
+    assert commands(c)[-1] == "uv publish --trusted-publishing always"
+
+
+@pytest.mark.usefixtures("dist", "oidc")
+def test_publish_sends_no_token_with_trusted_publishing() -> None:
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True)
+    assert _env(c) == {}
+
+
+@pytest.mark.usefixtures("dist", "oidc", "token")
+def test_publish_prefers_the_token_to_trusted_publishing() -> None:
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True)
+    assert commands(c)[-1] == "uv publish"
+
+
+@pytest.mark.usefixtures("dist")
+def test_publish_requires_the_id_token_url_for_trusted_publishing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    with pytest.raises(Exit, match=r"PYPI_TOKEN"):
+        release.publish(make_context(_CFG), yes=True, skip_checks=True)
+
+
+@pytest.fixture
+def testpypi_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEST_PYPI_TOKEN", "testpypi-secret")
+
+
+def test_publish_fails_without_credentials() -> None:
+    with pytest.raises(Exit, match=r"PYPI_TOKEN"):
+        release.publish(make_context(_CFG))
+
+
+def test_publish_does_not_build_without_credentials() -> None:
+    c = make_context(_CFG)
+    with pytest.raises(Exit, match=r"PYPI_TOKEN"):
+        release.publish(c)
+    assert commands(c) == []
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_asks_for_a_confirmation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO("n\n"))
+    c = make_context(_CFG)
+    with pytest.raises(Exit, match=r"Publication cancelled"):
+        release.publish(c, skip_checks=True)
+    assert commands(c) == []
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_goes_on_after_a_confirmation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO("y\n"))
+    c = make_context(_CFG)
+    release.publish(c, skip_checks=True)
+    assert commands(c)[-1] == "uv publish"
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_does_not_ask_in_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CI", "true")
+    c = make_context(_CFG)
+    release.publish(c, skip_checks=True)
+    assert commands(c)[-1] == "uv publish"
+
+
+@pytest.mark.usefixtures("dist", "token")
+@pytest.mark.parametrize("value", ["false", "0", "FALSE"])
+def test_publish_asks_when_ci_is_off(value: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CI", value)
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    with pytest.raises(Exit, match=r"Publication not confirmed: pass --yes"):
+        release.publish(make_context(_CFG), skip_checks=True)
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_checks_the_git_state_first() -> None:
+    c = _git_context(status=" M a.py\n")
+    with pytest.raises(Exit, match=r"working tree is not clean"):
+        release.publish(c, yes=True)
+    assert commands(c) == ["git status --porcelain"]
+
+
+##########################################
+#     Tests for _check_release_state     #
+##########################################
+
+_DESCRIBE = "git describe --exact-match --tags HEAD"
+
+
+def _git_context(status: str = "", tag: str | None = "v1.2.3") -> MockContext:
+    describe = Result(stdout=f"{tag}\n") if tag else Result(exited=128)
+    return MockContext(
+        config=Config(overrides={"tasklib": _CFG}),
+        run={"git status --porcelain": Result(stdout=status), _DESCRIBE: describe},
+    )
+
+
+@pytest.fixture
+def project_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "mypkg"\nversion = "1.2.3"\n')
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.mark.usefixtures("project_version")
+def test_check_release_state_accepts_a_clean_tagged_matching_state() -> None:
+    assert release._check_release_state(_git_context()) is None
+
+
+def test_check_release_state_rejects_an_invalid_pyproject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project\n")
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(Exit, match=r"invalid TOML in .*pyproject\.toml. \(line 1, column 9\)"):
+        release._check_release_state(_git_context())
+
+
+@pytest.mark.usefixtures("project_version")
+def test_check_release_state_rejects_a_dirty_tree() -> None:
+    with pytest.raises(Exit, match=r"working tree is not clean"):
+        release._check_release_state(_git_context(status="?? new.py\n"))
+
+
+@pytest.mark.usefixtures("project_version")
+def test_check_release_state_rejects_an_untagged_head() -> None:
+    with pytest.raises(Exit, match=r"HEAD is not tagged"):
+        release._check_release_state(_git_context(tag=None))
+
+
+@pytest.mark.usefixtures("project_version")
+def test_check_release_state_rejects_a_tag_that_does_not_match_the_version() -> None:
+    with pytest.raises(Exit, match=r"tag v1\.2\.4 does not match the version 1\.2\.3"):
+        release._check_release_state(_git_context(tag="v1.2.4"))
+
+
+@pytest.mark.usefixtures("project_version")
+def test_check_release_state_accepts_a_tag_without_prefix() -> None:
+    assert release._check_release_state(_git_context(tag="1.2.3")) is None
+
+
+def test_check_release_state_skips_the_version_without_pyproject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert release._check_release_state(_git_context(tag="v9.9.9")) is None
+
+
+######################################
+#     Tests for _project_version     #
+######################################
+
+
+def test_project_version_reads_the_static_version(tmp_path: Path) -> None:
+    path = tmp_path / "pyproject.toml"
+    path.write_text('[project]\nversion = "0.4.0"\n')
+    assert release._project_version(path) == "0.4.0"
+
+
+def test_project_version_is_none_for_a_dynamic_version(tmp_path: Path) -> None:
+    path = tmp_path / "pyproject.toml"
+    path.write_text('[project]\ndynamic = ["version"]\n')
+    assert release._project_version(path) is None
+
+
+def test_project_version_is_none_without_project_table(tmp_path: Path) -> None:
+    path = tmp_path / "pyproject.toml"
+    path.write_text("[tool.x]\na = 1\n")
+    assert release._project_version(path) is None
+
+
+def test_project_version_rejects_an_invalid_file(tmp_path: Path) -> None:
+    path = tmp_path / "pyproject.toml"
+    path.write_text("[project\n")
+    with pytest.raises(Exit, match=r"invalid TOML in .*pyproject\.toml'") as info:
+        release._project_version(path)
+    assert info.value.code == 1
+
+
+def test_project_version_is_none_for_a_missing_file(tmp_path: Path) -> None:
+    assert release._project_version(tmp_path / "pyproject.toml") is None
+
+
+###############################
+#     Tests for _head_tag     #
+###############################
+
+
+def test_head_tag_returns_the_tag() -> None:
+    assert release._head_tag(_git_context(tag="v2.0.0")) == "v2.0.0"
+
+
+def test_head_tag_is_none_when_git_fails() -> None:
+    assert release._head_tag(_git_context(tag=None)) is None
+
+
+##############################
+#     Tests for _confirm     #
+##############################
+
+
+@pytest.mark.parametrize("answer", ["y", "yes", "Y", " YES "])
+def test_confirm_accepts(answer: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO(f"{answer}\n"))
+    assert release._confirm("PyPI") is None
+
+
+@pytest.mark.parametrize("answer", ["", "n", "no", "maybe"])
+def test_confirm_refuses(answer: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO(f"{answer}\n"))
+    with pytest.raises(Exit, match=r"Publication cancelled"):
+        release._confirm("PyPI")
+
+
+def test_confirm_refuses_without_a_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    with pytest.raises(Exit, match=r"Publication not confirmed: pass --yes"):
+        release._confirm("PyPI")
+
+
+def test_confirm_exits_with_code_1_without_a_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    with pytest.raises(Exit, match=r"Publication not confirmed") as info:
+        release._confirm("PyPI")
+    assert info.value.code == 1
+
+
+def test_confirm_refuses_when_interrupted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("builtins.input", Mock(side_effect=KeyboardInterrupt("interrupted")))
+    with pytest.raises(Exit, match=r"Publication not confirmed: pass --yes"):
+        release._confirm("PyPI")
+
+
+def test_confirm_names_the_target(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO("y\n"))
+    release._confirm("TestPyPI")
+    assert "Publish the package to TestPyPI?" in capsys.readouterr().out
+
+
+######################################
+#     Tests for _latest_artifact     #
+######################################
+
+
+def test_latest_artifact_returns_newest_file(tmp_path: Path) -> None:
+    old = tmp_path / "a-0.0.2-py3-none-any.whl"
+    new = tmp_path / "a-0.0.8-py3-none-any.whl"
+    old.write_text("")
+    new.write_text("")
+    os.utime(old, (1, 1))
+    assert release._latest_artifact(tmp_path, "*.whl") == new
+
+
+def test_latest_artifact_ignores_other_patterns(tmp_path: Path) -> None:
+    wheel = tmp_path / "a-1.0-py3-none-any.whl"
+    wheel.write_text("")
+    (tmp_path / "a-1.0.tar.gz").write_text("")
+    assert release._latest_artifact(tmp_path, "*.whl") == wheel
+
+
+def test_latest_artifact_raises_when_missing(tmp_path: Path) -> None:
+    with pytest.raises(Exit, match=r"No file matching '\*\.tar\.gz'"):
+        release._latest_artifact(tmp_path, "*.tar.gz")
+
+
+#####################################
+#     Tests for the token names     #
+#####################################
+
+
+@pytest.mark.usefixtures("dist", "testpypi_token")
+def test_publish_to_test_pypi_reads_test_pypi_token() -> None:
+    c = make_context(_CFG)
+    release.publish(c, test_pypi=True, yes=True, skip_checks=True)
+    assert _env(c) == {"UV_PUBLISH_TOKEN": "testpypi-secret"}
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_to_test_pypi_ignores_pypi_token() -> None:
+    with pytest.raises(Exit, match=r"Set the TEST_PYPI_TOKEN .* to publish to TestPyPI"):
+        release.publish(make_context(_CFG), test_pypi=True, yes=True, skip_checks=True)
+
+
+@pytest.mark.usefixtures("dist", "testpypi_token")
+def test_publish_to_pypi_ignores_test_pypi_token() -> None:
+    with pytest.raises(Exit, match=r"Set the PYPI_TOKEN .* to publish to PyPI"):
+        release.publish(make_context(_CFG), yes=True, skip_checks=True)
+
+
+@pytest.mark.usefixtures("dist")
+def test_publish_to_test_pypi_ignores_uv_publish_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "uv-secret")
+    with pytest.raises(Exit, match=r"Set the TEST_PYPI_TOKEN environment variable, or run in"):
+        release.publish(make_context(_CFG), test_pypi=True, yes=True, skip_checks=True)
+
+
+@pytest.mark.usefixtures("dist", "testpypi_token")
+def test_publish_to_test_pypi_prefers_test_pypi_token_over_uv_publish_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "uv-secret")
+    c = make_context(_CFG)
+    release.publish(c, test_pypi=True, yes=True, skip_checks=True)
+    assert _env(c) == {"UV_PUBLISH_TOKEN": "testpypi-secret"}
+
+
+@pytest.mark.usefixtures("dist")
+def test_publish_to_test_pypi_dry_run_needs_no_token() -> None:
+    c = make_context(_CFG)
+    release.publish(c, test_pypi=True, dry_run=True, skip_checks=True)
+    assert _env(c) == {}
+
+
+def test_build_reports_a_failure(capsys: pytest.CaptureFixture[str]) -> None:
+    c = make_context({"package": {"name": "mypkg"}})
+    c.run = Mock(side_effect=Exit("boom", code=1))
+    with pytest.raises(Exit, match=r"boom"):
+        release.build(c)
+    assert "❌ Failed: Building package" in capsys.readouterr().err
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_reports_a_failure_of_the_upload(capsys: pytest.CaptureFixture[str]) -> None:
+    c = make_context(_CFG)
+    c.run = Mock(side_effect=[Result(), Result(), Result(), Exit("boom", code=1)])
+    with pytest.raises(Exit, match=r"boom"):
+        release.publish(c, yes=True, skip_checks=True)
+    assert "❌ Failed: Publishing" in capsys.readouterr().err
+
+
+@pytest.mark.usefixtures("dist")
+def test_publish_dry_run_reports_a_failure_of_the_upload(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    c = make_context(_CFG)
+    c.run = Mock(side_effect=[Result(), Result(), Result(), Exit("boom", code=1)])
+    with pytest.raises(Exit, match=r"boom"):
+        release.publish(c, dry_run=True, skip_checks=True)
+    assert "❌ Failed: Publishing (dry run)" in capsys.readouterr().err
+
+
+####################################
+#     Tests for _build_targets     #
+####################################
+
+
+def test_build_targets_default() -> None:
+    assert release._build_targets(None) == (Path("dist"), ("*.whl", "*.tar.gz"))
+
+
+def test_build_targets_empty_args() -> None:
+    assert release._build_targets("") == (Path("dist"), ("*.whl", "*.tar.gz"))
+
+
+@pytest.mark.parametrize("args", ["--wheel", "-w"])
+def test_build_targets_wheel(args: str) -> None:
+    assert release._build_targets(args) == (Path("dist"), ("*.whl",))
+
+
+def test_build_targets_sdist() -> None:
+    assert release._build_targets("--sdist") == (Path("dist"), ("*.tar.gz",))
+
+
+def test_build_targets_wheel_and_sdist() -> None:
+    assert release._build_targets("--wheel --sdist") == (Path("dist"), ("*.whl", "*.tar.gz"))
+
+
+@pytest.mark.parametrize("args", ["--out-dir out", "-o out", "--out-dir=out", "--wheel -o out"])
+def test_build_targets_out_dir(args: str) -> None:
+    assert release._build_targets(args)[0] == Path("out")
+
+
+def test_build_targets_out_dir_without_value_is_the_default() -> None:
+    assert release._build_targets("--out-dir")[0] == Path("dist")
+
+
+def test_build_targets_ignores_other_options() -> None:
+    assert release._build_targets("--no-sources") == (Path("dist"), ("*.whl", "*.tar.gz"))
+
+
+def test_build_targets_unbalanced_quote_exits_with_2() -> None:
+    with pytest.raises(Exit, match=r"Cannot parse the value of --args") as info:
+        release._build_targets("--out-dir 'out")
+    assert info.value.code == 2
+
+
+def test_head_tag_reads_git_without_a_pty_nor_an_echo() -> None:
+    c = make_context()
+    release._head_tag(c)
+    kwargs = run_kwargs(c)[0]
+    assert (kwargs["hide"], kwargs["warn"], kwargs["echo"], kwargs["pty"]) == (
+        True,
+        True,
+        False,
+        False,
+    )
+
+
+def test_check_release_state_reads_the_status_without_a_pty_nor_an_echo() -> None:
+    c = make_context()
+    with pytest.raises(Exit, match=r"HEAD is not tagged"):
+        release._check_release_state(c)
+    kwargs = run_kwargs(c)[0]
+    assert (kwargs["hide"], kwargs["echo"], kwargs["pty"]) == (True, False, False)
+
+
+##################################
+#     Tests for _credentials     #
+##################################
+
+
+def test_credentials_without_anything_set() -> None:
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", None, False)
+
+
+def test_credentials_without_anything_set_for_test_pypi() -> None:
+    assert release._credentials(test_pypi=True) == ("TEST_PYPI_TOKEN", None, False)
+
+
+@pytest.mark.usefixtures("token")
+def test_credentials_pypi_token() -> None:
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", "pypi-secret", False)
+
+
+def test_credentials_test_pypi_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEST_PYPI_TOKEN", "test-secret")
+    assert release._credentials(test_pypi=True) == ("TEST_PYPI_TOKEN", "test-secret", False)
+
+
+@pytest.mark.usefixtures("token")
+def test_credentials_test_pypi_ignores_the_pypi_token() -> None:
+    assert release._credentials(test_pypi=True) == ("TEST_PYPI_TOKEN", None, False)
+
+
+def test_credentials_pypi_ignores_the_test_pypi_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEST_PYPI_TOKEN", "test-secret")
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", None, False)
+
+
+def test_credentials_pypi_falls_back_to_uv_publish_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "uv-secret")
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", "uv-secret", False)
+
+
+@pytest.mark.usefixtures("token")
+def test_credentials_pypi_prefers_the_pypi_token_to_uv_publish_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "uv-secret")
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", "pypi-secret", False)
+
+
+def test_credentials_test_pypi_ignores_uv_publish_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "uv-secret")
+    assert release._credentials(test_pypi=True) == ("TEST_PYPI_TOKEN", None, False)
+
+
+@pytest.mark.usefixtures("oidc")
+def test_credentials_trusted_publishing() -> None:
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", None, True)
+
+
+@pytest.mark.usefixtures("token", "oidc")
+def test_credentials_trusted_publishing_with_a_token() -> None:
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", "pypi-secret", True)
+
+
+def test_credentials_trusted_publishing_needs_the_id_token_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", None, False)
+
+
+def test_credentials_trusted_publishing_needs_github_actions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://token.example")
+    assert release._credentials(test_pypi=False) == ("PYPI_TOKEN", None, False)
+
+
+##########################################
+#     Tests for _publish_environment     #
+##########################################
+
+
+@pytest.fixture
+def _clean_environ(monkeypatch: pytest.MonkeyPatch) -> None:
+    r"""Run with a small, known process environment."""
+    monkeypatch.setattr(os, "environ", {"HOME": "/home/u", "PATH": "/usr/bin"})
+
+
+@pytest.mark.usefixtures("_clean_environ")
+def test_publish_environment_is_the_complete_environment() -> None:
+    env = release._publish_environment("secret")
+    env.pop("PYTEST_CURRENT_TEST", None)
+    assert env == {
+        "HOME": "/home/u",
+        "PATH": tool_path(),
+        "UV_PUBLISH_TOKEN": "secret",
+    }
+
+
+@pytest.mark.usefixtures("_clean_environ")
+def test_publish_environment_without_token_has_no_token() -> None:
+    assert "UV_PUBLISH_TOKEN" not in release._publish_environment(None)
+
+
+@pytest.mark.parametrize("name", ["UV_PUBLISH_TOKEN", "UV_PUBLISH_USERNAME", "UV_PUBLISH_PASSWORD"])
+@pytest.mark.usefixtures("_clean_environ")
+def test_publish_environment_removes_an_inherited_credential(
+    monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    monkeypatch.setitem(os.environ, name, "inherited")
+    assert name not in release._publish_environment(None)
+
+
+@pytest.mark.usefixtures("_clean_environ")
+def test_publish_environment_token_replaces_an_inherited_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "inherited")
+    env = release._publish_environment("chosen")
+    assert ("UV_PUBLISH_TOKEN", "chosen") in env.items()
+
+
+@pytest.mark.usefixtures("_clean_environ")
+def test_publish_environment_does_not_modify_the_process_environment() -> None:
+    before = dict(os.environ)
+    release._publish_environment("secret")
+    assert dict(os.environ) == before
+
+
+def test_publish_environment_keeps_the_other_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SOME_OTHER_VARIABLE", "kept")
+    assert release._publish_environment(None)["SOME_OTHER_VARIABLE"] == "kept"
+
+
+@pytest.mark.usefixtures("dist", "token")
+def test_publish_replaces_the_environment() -> None:
+    c = make_context(_CFG)
+    release.publish(c, yes=True, skip_checks=True)
+    assert run_kwargs(c)[-1]["replace_env"] is True
+
+
+@pytest.mark.usefixtures("dist")
+def test_publish_to_test_pypi_does_not_send_an_inherited_token_with_trusted_publishing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("TEST_PYPI_TOKEN", raising=False)
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "pypi-secret")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://example.com")
+    c = make_context(_CFG)
+    release.publish(c, test_pypi=True, yes=True, skip_checks=True)
+    assert _env(c) == {}
+
+
+@pytest.mark.usefixtures("dist")
+def test_publish_to_test_pypi_dry_run_does_not_send_an_inherited_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("TEST_PYPI_TOKEN", raising=False)
+    monkeypatch.setenv("UV_PUBLISH_TOKEN", "pypi-secret")
+    c = make_context(_CFG)
+    release.publish(c, test_pypi=True, dry_run=True, skip_checks=True)
+    assert _env(c) == {}

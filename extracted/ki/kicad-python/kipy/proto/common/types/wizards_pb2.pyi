@@ -44,6 +44,8 @@ class _WizardParameterDataTypeEnumTypeWrapper(google.protobuf.internal.enum_type
     'double value'
     WPDT_BOOL: _WizardParameterDataType.ValueType
     'boolean flag'
+    WPDT_ENUM: _WizardParameterDataType.ValueType
+    'single choice from a list of options'
 
 class WizardParameterDataType(_WizardParameterDataType, metaclass=_WizardParameterDataTypeEnumTypeWrapper):
     ...
@@ -65,6 +67,8 @@ WPDT_REAL: WizardParameterDataType.ValueType
 'double value'
 WPDT_BOOL: WizardParameterDataType.ValueType
 'boolean flag'
+WPDT_ENUM: WizardParameterDataType.ValueType
+'single choice from a list of options'
 global___WizardParameterDataType = WizardParameterDataType
 
 class _WizardParameterCategory:
@@ -230,6 +234,44 @@ class WizardStringParameter(google.protobuf.message.Message):
 global___WizardStringParameter = WizardStringParameter
 
 @typing.final
+class WizardEnumChoice(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    IDENTIFIER_FIELD_NUMBER: builtins.int
+    LABEL_FIELD_NUMBER: builtins.int
+    identifier: builtins.str
+    'Internal identifier for this choice; must be unique within an enum\n    TODO(JE) is this necessary?\n    '
+    label: builtins.str
+    'The human-readable name for this enum choice (may be translated)'
+
+    def __init__(self, *, identifier: builtins.str=..., label: builtins.str=...) -> None:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['identifier', b'identifier', 'label', b'label']) -> None:
+        ...
+global___WizardEnumChoice = WizardEnumChoice
+
+@typing.final
+class WizardEnumParameter(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    VALUE_FIELD_NUMBER: builtins.int
+    DEFAULT_FIELD_NUMBER: builtins.int
+    CHOICES_FIELD_NUMBER: builtins.int
+    value: builtins.int
+    'The currently selected choice (index into choices)'
+    default: builtins.int
+
+    @property
+    def choices(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___WizardEnumChoice]:
+        ...
+
+    def __init__(self, *, value: builtins.int=..., default: builtins.int=..., choices: collections.abc.Iterable[global___WizardEnumChoice] | None=...) -> None:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['choices', b'choices', 'default', b'default', 'value', b'value']) -> None:
+        ...
+global___WizardEnumParameter = WizardEnumParameter
+
+@typing.final
 class WizardParameterList(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
     PARAMETERS_FIELD_NUMBER: builtins.int
@@ -257,6 +299,7 @@ class WizardParameter(google.protobuf.message.Message):
     REAL_FIELD_NUMBER: builtins.int
     BOOL_FIELD_NUMBER: builtins.int
     STRING_FIELD_NUMBER: builtins.int
+    ENUM_FIELD_NUMBER: builtins.int
     identifier: builtins.str
     'An internal identifier for this parameter; must be unique within a wizard'
     name: builtins.str
@@ -282,16 +325,20 @@ class WizardParameter(google.protobuf.message.Message):
     def string(self) -> global___WizardStringParameter:
         ...
 
-    def __init__(self, *, identifier: builtins.str=..., name: builtins.str=..., description: builtins.str=..., category: global___WizardParameterCategory.ValueType=..., type: global___WizardParameterDataType.ValueType=..., int: global___WizardIntParameter | None=..., real: global___WizardRealParameter | None=..., bool: global___WizardBoolParameter | None=..., string: global___WizardStringParameter | None=...) -> None:
+    @property
+    def enum(self) -> global___WizardEnumParameter:
         ...
 
-    def HasField(self, field_name: typing.Literal['bool', b'bool', 'int', b'int', 'real', b'real', 'string', b'string', 'value', b'value']) -> builtins.bool:
+    def __init__(self, *, identifier: builtins.str=..., name: builtins.str=..., description: builtins.str=..., category: global___WizardParameterCategory.ValueType=..., type: global___WizardParameterDataType.ValueType=..., int: global___WizardIntParameter | None=..., real: global___WizardRealParameter | None=..., bool: global___WizardBoolParameter | None=..., string: global___WizardStringParameter | None=..., enum: global___WizardEnumParameter | None=...) -> None:
         ...
 
-    def ClearField(self, field_name: typing.Literal['bool', b'bool', 'category', b'category', 'description', b'description', 'identifier', b'identifier', 'int', b'int', 'name', b'name', 'real', b'real', 'string', b'string', 'type', b'type', 'value', b'value']) -> None:
+    def HasField(self, field_name: typing.Literal['bool', b'bool', 'enum', b'enum', 'int', b'int', 'real', b'real', 'string', b'string', 'value', b'value']) -> builtins.bool:
         ...
 
-    def WhichOneof(self, oneof_group: typing.Literal['value', b'value']) -> typing.Literal['int', 'real', 'bool', 'string'] | None:
+    def ClearField(self, field_name: typing.Literal['bool', b'bool', 'category', b'category', 'description', b'description', 'enum', b'enum', 'identifier', b'identifier', 'int', b'int', 'name', b'name', 'real', b'real', 'string', b'string', 'type', b'type', 'value', b'value']) -> None:
+        ...
+
+    def WhichOneof(self, oneof_group: typing.Literal['value', b'value']) -> typing.Literal['int', 'real', 'bool', 'string', 'enum'] | None:
         ...
 global___WizardParameter = WizardParameter
 

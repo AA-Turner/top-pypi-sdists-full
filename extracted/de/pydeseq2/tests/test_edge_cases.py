@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 from pydeseq2.datasets import load_example_data
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.ds import DeseqStats
+from pydeseq2.glm import irls_solver
 
 
 def test_zero_genes():
@@ -141,6 +142,16 @@ def test_empty_counts(n_samples, n_genes):
         DeseqDataSet(counts=counts_df, metadata=metadata, design="~condition")
 
 
+def test_duplicated_gene_names():
+    """Test that a ValueError is thrown when gene names are duplicated."""
+    counts_df = pd.DataFrame([[0, 4], [1, 12]], index=["sample1", "sample2"], columns=["gene1", "gene1"])
+    metadata = pd.DataFrame({"condition": [0, 1]}, index=["sample1", "sample2"])
+
+    with pytest.warns(UserWarning, match="Variable names are not unique"):
+        with pytest.raises(ValueError, match="Gene names must be unique"):
+            DeseqDataSet(counts=counts_df, metadata=metadata, design="~condition")
+
+
 def test_numeric_counts():
     """Test that a ValueError is thrown when the count matrix contains non-numeric values."""
     counts_df = pd.DataFrame({"gene1": [0, "a"], "gene2": [4, 12]}, index=["sample1", "sample2"])
@@ -176,6 +187,15 @@ def test_nan_factors():
 
     with pytest.raises(ValueError):
         DeseqDataSet(counts=counts_df, metadata=metadata, design="~condition")
+
+
+def test_large_covariate():
+    """Test that a warning is thrown when a continuous covariate takes large values."""
+    counts_df = pd.DataFrame({"gene1": [0, 1, 55, 3], "gene2": [4, 12, 60, 4]}, index=[f"sample{i}" for i in range(4)])
+    metadata = pd.DataFrame({"age": [30.0, 45.0, 52.0, 68.0]}, index=counts_df.index)
+
+    with pytest.warns(UserWarning, match=r"The columns \['age'\] of the design matrix"):
+        DeseqDataSet(counts=counts_df, metadata=metadata, design="~age")
 
 
 def test_one_factor():
@@ -229,21 +249,21 @@ def test_matching_samples():
         index=["sample1", "sample2", "sample3"],
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="index of the design matrix"):
         design_matrix = pd.DataFrame(
             {"intercept": [1.0, 1.0, 1.0], "condition": [0, 1, 0]},
             index=["sample1", "sample2", "sample5"],
         )
         DeseqDataSet(counts=counts_df, metadata=metadata, design=design_matrix)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="index of the design matrix"):
         design_matrix = pd.DataFrame(
             {"intercept": [1.0, 1.0], "condition": [0, 1]},
             index=["sample1", "sample2"],
         )
         DeseqDataSet(counts=counts_df, metadata=metadata, design=design_matrix)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="index of the design matrix"):
         design_matrix = pd.DataFrame(
             {"intercept": [1.0, 1.0, 1.0, 1.0], "condition": [0, 1, 0, 0]},
             index=["sample1", "sample2", "sample3", "sample4"],
@@ -599,3 +619,39 @@ def test_plot_ax():
 
     assert plt.get_fignums() == fignums
     assert all(ax.collections for ax in axes)
+
+
+def test_plot_rle():
+    """Test that the RLE plot is flat for samples that only differ by their sequencing depth once normalized."""
+    counts = np.random.default_rng(42).poisson(100, size=(1, 50)) * np.array([[1], [2], [4]])
+    counts_df = pd.DataFrame(counts, index=["a", "b", "c"], columns=[f"gene{i}" for i in range(50)])
+    metadata = pd.DataFrame({"condition": ["A", "A", "B"]}, index=counts_df.index)
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, quiet=True)
+
+    _, axes = plt.subplots(ncols=2)
+    dds.plot_rle(ax=axes[0])
+    dds.plot_rle(normalize=False, ax=axes[1])
+
+    assert [label.get_text() for label in axes[0].get_xticklabels()] == ["a", "b", "c"]
+    assert all(np.allclose(line.get_ydata(), 0) for line in axes[0].lines)
+    assert not all(np.allclose(line.get_ydata(), 0) for line in axes[1].lines)
+
+
+def test_irls_fallback_bounds():
+    """Test that the optimizer fallback of the IRLS bounds coefficients on the log2 scale."""
+    design_matrix = np.column_stack([np.ones(20), np.repeat([0, 1], 10)])
+    counts = np.repeat([0.0, 50.0], 10)
+
+    beta, _, _, _ = irls_solver(counts, np.ones(20), design_matrix, disp=0.1, min_beta=-5, max_beta=5, maxiter=1)
+
+    assert beta[1] / np.log(2) == pytest.approx(5)
+
+
+def test_irls_fallback_zero_counts():
+    """Test that the optimizer fallback of the IRLS fits the means of a group of zero counts below min_mu."""
+    design_matrix = np.column_stack([np.ones(20), np.repeat([0, 1], 10)])
+    counts = np.repeat([0.0, 50.0], 10)
+
+    _, mu, _, _ = irls_solver(counts, np.ones(20), design_matrix, disp=0.1, maxiter=1)
+
+    assert (mu[:10] < 1e-3).all()

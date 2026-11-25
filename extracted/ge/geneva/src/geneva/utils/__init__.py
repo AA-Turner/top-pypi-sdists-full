@@ -25,6 +25,7 @@ from tenacity import (
 )
 
 from geneva.credentials import is_credential_expiry_error
+from geneva.utils.commit_conflict import is_retryable_commit_conflict
 from geneva.utils.object_store_retry import LANCE_NAMESPACE_THROTTLE_ERRORS
 
 if TYPE_CHECKING:
@@ -44,16 +45,25 @@ RETRY_LANCE_MAX_SECS = float(os.environ.get("GENEVA_RETRY_LANCE_MAX_SECS", "120.
 def _should_retry_lance_runtime_error(exception: BaseException) -> bool:
     """Check if RuntimeError is a known retryable Lance error.
 
-    Covers both:
+    Covers:
       - "Too many concurrent writers" — Lance backpressure on commit fan-in.
       - "lance error: Retryable" — Lance's RetryableCommitConflict variant,
         which the conflict resolver explicitly tags for caller retry (e.g.
         Merge preempted by concurrent Delete at the same version).
+      - "Commit conflict for version ..." — a commit that lost the race on
+        every one of Lance's internal retries, as on a busy geneva_jobs table
+        (GEN-1012). lancedb raises it as RuntimeError; pylance raises the same
+        conflict as OSError, which is already retried. Nothing was committed,
+        so repeating the operation is safe.
     """
     if not isinstance(exception, RuntimeError):
         return False
     msg = str(exception)
-    return "Too many concurrent writers" in msg or "lance error: Retryable" in msg
+    return (
+        "Too many concurrent writers" in msg
+        or "lance error: Retryable" in msg
+        or is_retryable_commit_conflict(exception)
+    )
 
 
 def _is_retryable_namespace_error(exception: BaseException) -> bool:
@@ -96,7 +106,8 @@ def retry_lance(fn: F) -> F:
     """
     Tenacity retry for Lance/GCS I/O:
       - Exceptions: OSError, ValueError, RuntimeError("Too many concurrent
-        writers"), RuntimeError("lance error: Retryable ...").
+        writers"), RuntimeError("lance error: Retryable ..."),
+        RuntimeError("... Commit conflict for version ...").
       - Attempts: 7 total
       - Backoff: exponential with full jitter (0.5s .. 20s)
       - Logs: on each retry and on recovery, warning before each retry,
@@ -194,6 +205,12 @@ def redact_dict_values(d: dict[str, object] | None) -> str:
     if d is None:
         return "None"
     return "{" + ", ".join(f"'{k}': '[REDACTED]'" for k in d) + "}"
+
+
+# LanceDB < 0.41.0 sends k=10 for plain queries with no explicit limit on
+# Rust REST QueryTable pushdown (db://). Use the signed 32-bit wire maximum.
+# Remove the workaround when the minimum supported version includes lancedb#3927.
+UNBOUNDED_QUERY_LIMIT = 2**31 - 1
 
 
 def escape_sql_string(value: str) -> str:

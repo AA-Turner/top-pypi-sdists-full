@@ -46,6 +46,7 @@ class FileCatalogClient(FileCatalogClientBase):
         "getFileAncestors",
         "getDirectoryUserMetadata",
         "getFileUserMetadata",
+        "getFileUserMetadataBulk",
         "checkDataset",
         "getDatasetParameters",
         "getDatasetFiles",
@@ -199,7 +200,7 @@ class FileCatalogClient(FileCatalogClientBase):
         status = "AprioriGood" if revert else "Trash"
 
         # { lfn : [ se1, se2, ...], ...}
-        lfnsSEs = {lfn: [se for se in lfns[lfn]] for lfn in lfns}
+        lfnsSEs = {lfn: [*lfns[lfn]] for lfn in lfns}
 
         while lfnsSEs:
             # { lfn : { 'SE' : se1, 'PFN' : pfn1, 'Status' : status }, ... }
@@ -335,6 +336,11 @@ class FileCatalogClient(FileCatalogClientBase):
         fmeta.update(result["Value"])
 
         return S_OK(fmeta)
+
+    @checkCatalogArguments
+    def getFileUserMetadataBulk(self, lfns, timeout=120):
+        """Get the metadata attached to each file and its parent directories."""
+        return self._getRPC(timeout=timeout).getFileUserMetadataBulk(lfns)
 
     ########################################################################
     # Path operations (not updated)

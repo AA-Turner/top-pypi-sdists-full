@@ -1,18 +1,18 @@
 """Reconstruct original ALT/REF RNA paths before assessing supplied CDS models."""
 
-import argparse
 from contextlib import ExitStack
 from pathlib import Path
 
-import pysam
-
-from .output_args import add_log_level_arg
 from ..logging import configure_cli_logging, get_logger
-from ..contig_resolution import variant_reference_name
-from ..rna_library import prepare_rna_library
-from ..json_files import read_json
-from ..sv_rna_audit import write_json
-from ..variant_rna_paths import reconstruct_variant_rna_paths, variant_rna_path_input_from_dict
+from .help import HelpArgumentParser
+from .input_args import (
+    add_genome_fasta_arg,
+    add_input_arg,
+    add_library_cache_arg,
+    add_scratch_dir_arg,
+    add_source_arg,
+)
+from .output_args import add_force_arg, add_log_level_arg, add_output_file_arg
 from .rna_args import add_rna_args, read_collector_from_args
 from .validation import input_error
 
@@ -20,15 +20,21 @@ logger = get_logger(__name__)
 
 
 def make_parser(prog='isovar variant-rna-paths'):
-    parser = argparse.ArgumentParser(prog=prog, description=__doc__)
+    parser = HelpArgumentParser(prog=prog, description=__doc__)
     add_rna_args(parser)
     parser.set_defaults(min_mapping_quality=0)
-    parser.add_argument('--input', required=True, help='Explicit literal variant, assembly and versioned models JSON')
-    parser.add_argument('--source', required=True, help='Original RNA library identity; keep cultures/libraries separate')
-    parser.add_argument('--output', required=True, help='New JSON or JSON.gz result path')
-    parser.add_argument('--library-cache', help='Reusable original-RNA index directory')
-    parser.add_argument('--scratch-dir', help='Existing directory for temporary disk indexes')
-    parser.add_argument('--reference-fasta', help='Reference for decoding CRAM input')
+    add_input_arg(parser, required=True, help='Explicit literal variant, assembly and versioned models JSON')
+    add_source_arg(parser, required=True, help='Original RNA library identity; keep cultures/libraries separate')
+    add_output_file_arg(parser, required=True, help='New JSON or JSON.gz output file')
+    add_force_arg(parser, help='Overwrite an existing --output file')
+    add_library_cache_arg(parser)
+    add_scratch_dir_arg(parser, help='Existing directory for temporary disk indexes')
+    add_genome_fasta_arg(
+        parser,
+        dest='reference_fasta',
+        aliases=('--reference-fasta',),
+        help='Reference FASTA for decoding CRAM input',
+    )
     for name, default in [('max-discovery-reads', 10000), ('max-seed-segments', 10000), ('max-paths', 256),
                           ('min-overlap', 30), ('min-anchor-bases', 12), ('flank', 1000)]:
         parser.add_argument('--' + name, type=int, default=default, help='Default: %(default)s')
@@ -41,8 +47,15 @@ def run(args=None, *, prog=None):
     options = parser.parse_args(args)
     configure_cli_logging(options.log_level)
     try:
+        import pysam
+        from ..contig_resolution import variant_reference_name
+        from ..json_files import read_json
+        from ..rna_library import prepare_rna_library
+        from ..sv_rna_audit import write_json
+        from ..variant_rna_paths import reconstruct_variant_rna_paths, variant_rna_path_input_from_dict
+
         output = Path(options.output)
-        if output.exists():
+        if output.exists() and not options.force:
             raise ValueError('Output exists; choose a new result path')
         supplied = variant_rna_path_input_from_dict(read_json(options.input))
         collector = read_collector_from_args(options)

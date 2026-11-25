@@ -15,6 +15,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
+  from ..models.failed_installation import FailedInstallation
   from ..models.forge_capabilities import ForgeCapabilities
   from ..models.provider_status import ProviderStatus
   from ..models.rate_limit import RateLimit
@@ -90,6 +91,10 @@ class ForgeHealth:
                 failed checks is not offered for the forge, and the page shows this text where the button would be. Omitted when
                 rerunning works or the version could not be read.
             provider_status (ProviderStatus | Unset):
+            failed_installations (list[FailedInstallation] | Unset): The GitHub App installations that did not answer this
+                refresh while the forge itself did (reachable is true). Each one's pull requests and issues keep the last rows
+                read, and the other installations load as usual. Set only for GitHub, and only when more than one installation
+                is read. Omitted when every installation answered.
      """
 
     forge: Forge
@@ -106,6 +111,7 @@ class ForgeHealth:
     dependabot_commands_blocked: str | Unset = UNSET
     rerun_checks_blocked: str | Unset = UNSET
     provider_status: ProviderStatus | Unset = UNSET
+    failed_installations: list[FailedInstallation] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -113,6 +119,7 @@ class ForgeHealth:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.failed_installation import FailedInstallation # noqa: PLC0415
         from ..models.forge_capabilities import ForgeCapabilities # noqa: PLC0415
         from ..models.provider_status import ProviderStatus # noqa: PLC0415
         from ..models.rate_limit import RateLimit # noqa: PLC0415
@@ -155,6 +162,15 @@ class ForgeHealth:
         if not isinstance(self.provider_status, Unset):
             provider_status = self.provider_status.to_dict()
 
+        failed_installations: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.failed_installations, Unset):
+            failed_installations = []
+            for failed_installations_item_data in self.failed_installations:
+                failed_installations_item = failed_installations_item_data.to_dict()
+                failed_installations.append(failed_installations_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -184,6 +200,8 @@ class ForgeHealth:
             field_dict["rerunChecksBlocked"] = rerun_checks_blocked
         if provider_status is not UNSET:
             field_dict["providerStatus"] = provider_status
+        if failed_installations is not UNSET:
+            field_dict["failedInstallations"] = failed_installations
 
         return field_dict
 
@@ -191,6 +209,7 @@ class ForgeHealth:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.failed_installation import FailedInstallation # noqa: PLC0415
         from ..models.forge_capabilities import ForgeCapabilities # noqa: PLC0415
         from ..models.provider_status import ProviderStatus # noqa: PLC0415
         from ..models.rate_limit import RateLimit # noqa: PLC0415
@@ -269,6 +288,18 @@ class ForgeHealth:
 
 
 
+        _failed_installations = d.pop("failedInstallations", UNSET)
+        failed_installations: list[FailedInstallation] | Unset = UNSET
+        if _failed_installations is not UNSET:
+            failed_installations = []
+            for failed_installations_item_data in _failed_installations:
+                failed_installations_item = FailedInstallation.from_dict(failed_installations_item_data)
+
+
+
+                failed_installations.append(failed_installations_item)
+
+
         forge_health = cls(
             forge=forge,
             reachable=reachable,
@@ -284,6 +315,7 @@ class ForgeHealth:
             dependabot_commands_blocked=dependabot_commands_blocked,
             rerun_checks_blocked=rerun_checks_blocked,
             provider_status=provider_status,
+            failed_installations=failed_installations,
         )
 
 

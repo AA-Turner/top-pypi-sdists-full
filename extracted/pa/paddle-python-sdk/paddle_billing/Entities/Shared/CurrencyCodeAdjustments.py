@@ -1,7 +1,11 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class CurrencyCodeAdjustments(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    EUR: "CurrencyCodeAdjustments" = "EUR"
-    GBP: "CurrencyCodeAdjustments" = "GBP"
-    USD: "CurrencyCodeAdjustments" = "USD"
+    EUR: "CurrencyCodeAdjustments" = member("EUR")
+    GBP: "CurrencyCodeAdjustments" = member("GBP")
+    USD: "CurrencyCodeAdjustments" = member("USD")

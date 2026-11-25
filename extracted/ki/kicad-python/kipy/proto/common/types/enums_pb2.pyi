@@ -71,6 +71,7 @@ class _KiCadObjectTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper
     KOT_WSG_PAGE: _KiCadObjectType.ValueType
     KOT_SCH_GROUP: _KiCadObjectType.ValueType
     KOT_PCB_BARCODE: _KiCadObjectType.ValueType
+    KOT_PCB_POINT: _KiCadObjectType.ValueType
 
 class KiCadObjectType(_KiCadObjectType, metaclass=_KiCadObjectTypeEnumTypeWrapper):
     """The set of object types (from KICAD_T) that are exposed to the API."""
@@ -123,6 +124,7 @@ KOT_WSG_BITMAP: KiCadObjectType.ValueType
 KOT_WSG_PAGE: KiCadObjectType.ValueType
 KOT_SCH_GROUP: KiCadObjectType.ValueType
 KOT_PCB_BARCODE: KiCadObjectType.ValueType
+KOT_PCB_POINT: KiCadObjectType.ValueType
 global___KiCadObjectType = KiCadObjectType
 
 class _HorizontalAlignment:

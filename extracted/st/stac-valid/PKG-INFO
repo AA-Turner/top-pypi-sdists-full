@@ -1,8 +1,7 @@
 Metadata-Version: 2.4
 Name: stac_valid
-Version: 4.6.1
+Version: 4.6.3
 Summary: A package to validate STAC files
-Author: James Banting
 Author-email: Jonathan Healy <jon@healy-hyperspatial.dev>
 Maintainer: Healy Hyperspatial
 Maintainer-email: Jonathan Healy <jon@healy-hyperspatial.dev>
@@ -33,7 +32,7 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: requests-mock; extra == "dev"
 Requires-Dist: types-setuptools; extra == "dev"
 Requires-Dist: stac-pydantic>=3.3.0; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
+Requires-Dist: mypy==2.4.1; extra == "dev"
 Requires-Dist: types-attrs; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
 Requires-Dist: types-jsonschema; extra == "dev"

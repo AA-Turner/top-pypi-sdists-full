@@ -206,6 +206,9 @@ test-stress-writer-oom-cgroup:
 # enforced memory cap. Mirrors the writer-OOM target above. The OOM workload
 # intentionally kills an ApplierActor with a per-row allocation above the cap;
 # the memory-trim workload needs Linux/glibc ``malloc_trim(0)`` semantics.
+# --oom-score-adj=-1000 makes every process in the container unkillable by the
+# kernel unless it raises its own score; the OOM workload raises only the
+# allocating process (see src/stress_tests/test_applier_oom.py).
 #
 # Override the cap, image, or pytest selection via env vars:
 #   make test-stress-applier-oom-cgroup APPLIER_OOM_MEM_CAP=2G
@@ -222,6 +225,7 @@ test-stress-applier-oom-cgroup:
 	docker run --rm \
 		--memory=$(APPLIER_OOM_MEM_CAP) \
 		--memory-swap=$(APPLIER_OOM_MEM_CAP) \
+		--oom-score-adj=-1000 \
 		--user $$(id -u):$$(id -g) \
 		-v "$(PWD)":/work -w /work \
 		-v "$(APPLIER_OOM_UV_CACHE_DIR)":/tmp/uv-cache \

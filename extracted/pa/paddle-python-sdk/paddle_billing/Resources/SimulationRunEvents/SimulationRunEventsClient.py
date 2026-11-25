@@ -1,8 +1,13 @@
-from paddle_billing.ResponseParser import ResponseParser
+from requests import Response
 
-from paddle_billing.Entities.SimulationRunEvent import SimulationRunEvent
-from paddle_billing.Entities.Collections import Paginator, SimulationRunEventCollection
-from paddle_billing.Resources.SimulationRunEvents.Operations import ListSimulationRunEvents
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
+
+from paddle_billing.Entities.SimulationRunEvent import SimulationRunEvent as SimulationRunEvent
+from paddle_billing.Entities.Collections import (
+    Paginator as Paginator,
+    SimulationRunEventCollection as SimulationRunEventCollection,
+)
+from paddle_billing.Resources.SimulationRunEvents.Operations import ListSimulationRunEvents as ListSimulationRunEvents
 
 from typing import TYPE_CHECKING
 
@@ -13,7 +18,7 @@ if TYPE_CHECKING:
 class SimulationRunEventsClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(
         self, simulation_id: str, simulation_run_id: str, operation: ListSimulationRunEvents | None = None

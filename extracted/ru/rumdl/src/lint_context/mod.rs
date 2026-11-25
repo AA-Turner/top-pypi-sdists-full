@@ -19,6 +19,7 @@ mod heading_detection;
 mod line_computation;
 mod line_facts;
 pub(crate) use line_facts::LineContextMask;
+mod comment_links;
 mod link_destinations;
 mod link_parser;
 mod list_blocks;
@@ -403,6 +404,7 @@ pub struct LintContext<'a> {
     blockquote_headings: Vec<Option<Box<HeadingInfo>>>, // Container headings, parallel to `lines`
     document_anchors_cache: OnceLock<anchors::DocumentAnchors>,
     link_destinations_cache: OnceLock<link_destinations::LinkDestinations>,
+    html_comment_links_cache: OnceLock<Vec<comment_links::CommentLink>>,
     links: Vec<ParsedLink<'a>>,                                   // Pre-parsed links
     rendered_link_ends_cache: OnceLock<Vec<usize>>,               // Prefix maxima for containment queries
     parsed_link_ranges: Vec<(usize, usize)>,                      // Native links, without undefined-reference fallbacks
@@ -1624,6 +1626,19 @@ impl<'a> LintContext<'a> {
                 }
             }
 
+            // The parser reads the body of a MkDocs container as a paragraph's lazy
+            // lines or as indented code, and a Gherkin row as paragraph text, so
+            // the code spans there come from a reading without the flavor's tables.
+            let flavor_row_lines: Vec<bool> = match flavor {
+                _ if char_frequency.pipe_count == 0 => Vec::new(),
+                MarkdownFlavor::MkDocs => lines.iter().map(LineInfo::in_mkdocs_container).collect(),
+                MarkdownFlavor::MDG => content_lines
+                    .iter()
+                    .map(|line| crate::utils::mdg::is_table_row(line))
+                    .collect(),
+                _ => Vec::new(),
+            };
+
             // Pre-compute table blocks for rules that need them (MD013, MD055, MD056, MD058, MD060)
             let table_blocks = profile_section!(
                 "Table blocks",
@@ -1640,6 +1655,7 @@ impl<'a> LintContext<'a> {
                         flavor,
                         &lazy_text,
                         &list_items,
+                        &flavor_row_lines,
                     )
                 }
             );
@@ -1934,6 +1950,7 @@ impl<'a> LintContext<'a> {
                 blockquote_headings,
                 document_anchors_cache: OnceLock::new(),
                 link_destinations_cache: OnceLock::new(),
+                html_comment_links_cache: OnceLock::new(),
                 links,
                 rendered_link_ends_cache: OnceLock::new(),
                 parsed_link_ranges,
@@ -2047,6 +2064,16 @@ impl<'a> LintContext<'a> {
     /// reading. Without a `$` the readings agree and only rumdl's is read.
     pub fn is_in_code_span_byte_with_or_without_math(&self, pos: usize) -> bool {
         self.native_list_source().is_in_code_span_byte_with_or_without_math(pos)
+    }
+
+    /// Whether `line` begins inside a code span opened on an earlier line, under
+    /// rumdl's reading of the primary spans or a reader's without math. A span
+    /// opening at the first byte of the line does not count. Ask this, not
+    /// [`Self::is_in_code_span_byte_with_or_without_math`] with the line's
+    /// offset, which also answers yes for a line that opens its own span.
+    pub fn line_starts_inside_code_span_with_or_without_math(&self, line: &LineInfo) -> bool {
+        self.native_list_source()
+            .line_starts_inside_code_span_with_or_without_math(line)
     }
 
     /// Whether the byte at `pos` is part of a code span's text under any reading

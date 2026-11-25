@@ -2,9 +2,13 @@
 
 #include "common/assert.h"
 #include "common/exception/conversion.h"
+#include "common/exception/overflow.h"
 #include "common/string_utils.h"
 #include "common/types/cast_helpers.h"
 #include "common/types/timestamp_t.h"
+#include "function/arithmetic/add.h"
+#include "function/arithmetic/multiply.h"
+#include "function/arithmetic/subtract.h"
 #include "re2.h"
 #include <format>
 
@@ -14,6 +18,26 @@ namespace common {
 date_t::date_t() : days{0} {}
 
 date_t::date_t(int32_t days_p) : days(days_p) {}
+
+namespace {
+// Valid dates are [Date::MIN_YEAR-01-01, Date::MAX_YEAR-12-31]. date_t can hold
+// a wider int32 range, but Date::convert DASSERTs on out-of-range inputs (and
+// aborts Debug builds when formatting). Guard arithmetic results so they
+// throw OverflowException instead of aborting later.
+inline int32_t dateMinDays() {
+    static const int32_t v = Date::fromDate(Date::MIN_YEAR, 1, 1).days;
+    return v;
+}
+inline int32_t dateMaxDays() {
+    static const int32_t v = Date::fromDate(Date::MAX_YEAR, 12, 31).days;
+    return v;
+}
+inline void validateDateDays(int32_t days) {
+    if (days < dateMinDays() || days > dateMaxDays()) {
+        throw OverflowException{"Date value is out of range"};
+    }
+}
+} // namespace
 
 bool date_t::operator==(const date_t& rhs) const {
     return days == rhs.days;
@@ -40,6 +64,7 @@ bool date_t::operator>=(const date_t& rhs) const {
 }
 
 date_t date_t::operator+(const interval_t& interval) const {
+    validateDateDays(this->days);
     date_t result{};
     if (interval.months != 0) {
         int32_t year = 0, month = 0, day = 0, maxDayInMonth = 0;
@@ -56,31 +81,60 @@ date_t date_t::operator+(const interval_t& interval) const {
         }
         // handle date overflow
         // example: 2020-01-31 + "1 months"
-        maxDayInMonth = Date::monthDays(year, month);
+        try {
+            maxDayInMonth = Date::monthDays(year, month);
+        } catch (...) {
+            throw OverflowException{"Date value is out of range"};
+        }
         day = day > maxDayInMonth ? maxDayInMonth : day;
-        result = Date::fromDate(year, month, day);
+        try {
+            result = Date::fromDate(year, month, day);
+        } catch (const ConversionException& e) {
+            throw OverflowException{"Date value is out of range"};
+        }
     } else {
         result = *this;
     }
     if (interval.days != 0) {
-        result.days += interval.days;
+        int32_t lDays = result.days, rDays = interval.days;
+        try {
+            function::Add::operation(lDays, rDays, result.days);
+        } catch (const OverflowException& e) {
+            throw OverflowException{"Date value is out of range"};
+        }
+        validateDateDays(result.days);
     }
     if (interval.micros != 0) {
-        result.days += int32_t(interval.micros / Interval::MICROS_PER_DAY);
+        int32_t dayOffset = int32_t(interval.micros / Interval::MICROS_PER_DAY);
+        int32_t lDays = result.days;
+        try {
+            function::Add::operation(lDays, dayOffset, result.days);
+        } catch (const OverflowException& e) {
+            throw OverflowException{"Date value is out of range"};
+        }
+        validateDateDays(result.days);
     }
     return result;
 }
 
 date_t date_t::operator-(const interval_t& interval) const {
     interval_t inverseRight{};
-    inverseRight.months = -interval.months;
-    inverseRight.days = -interval.days;
-    inverseRight.micros = -interval.micros;
+    int32_t zero32 = 0;
+    int64_t zero64 = 0;
+    int32_t negMonths = interval.months, negDays = interval.days;
+    int64_t negMicros = interval.micros;
+    try {
+        function::Subtract::operation(zero32, negMonths, inverseRight.months);
+        function::Subtract::operation(zero32, negDays, inverseRight.days);
+        function::Subtract::operation(zero64, negMicros, inverseRight.micros);
+    } catch (const OverflowException& e) {
+        throw OverflowException{"Interval value is out of range"};
+    }
     return *this + inverseRight;
 }
 
 int64_t date_t::operator-(const date_t& rhs) const {
-    return (*this).days - rhs.days;
+    return (int64_t)(*this).days - (int64_t)rhs.days;
 }
 
 bool date_t::operator==(const timestamp_t& rhs) const {
@@ -107,11 +161,33 @@ bool date_t::operator>=(const timestamp_t& rhs) const {
     return !(*this < rhs);
 }
 
-date_t date_t::operator+(const int32_t& day) const {
-    return date_t(this->days + day);
+date_t date_t::operator+(const int64_t& day) const {
+    // Use checked int64 arithmetic: a raw (int64)days + day can still overflow
+    // signed int64 (e.g. days > 0, day == INT64_MAX) which is UB.
+    int64_t lDays = (int64_t)this->days, rDay = day, total = 0;
+    try {
+        function::Add::operation(lDays, rDay, total);
+    } catch (const OverflowException& e) {
+        throw OverflowException{"Date value is out of range"};
+    }
+    if (total > INT32_MAX || total < INT32_MIN) {
+        throw OverflowException{"Date value is out of range"};
+    }
+    validateDateDays((int32_t)total);
+    return date_t((int32_t)total);
 };
-date_t date_t::operator-(const int32_t& day) const {
-    return date_t(this->days - day);
+date_t date_t::operator-(const int64_t& day) const {
+    int64_t lDays = (int64_t)this->days, rDay = day, total = 0;
+    try {
+        function::Subtract::operation(lDays, rDay, total);
+    } catch (const OverflowException& e) {
+        throw OverflowException{"Date value is out of range"};
+    }
+    if (total > INT32_MAX || total < INT32_MIN) {
+        throw OverflowException{"Date value is out of range"};
+    }
+    validateDateDays((int32_t)total);
+    return date_t((int32_t)total);
 };
 
 const int32_t Date::NORMAL_DAYS[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -479,12 +555,21 @@ date_t Date::trunc(DatePartSpecifier specifier, date_t date) {
     case DatePartSpecifier::DECADE:
         return Date::fromDate((Date::getDatePart(DatePartSpecifier::YEAR, date) / 10) * 10,
             1 /* month */, 1 /* day */);
-    case DatePartSpecifier::CENTURY:
-        return Date::fromDate((Date::getDatePart(DatePartSpecifier::YEAR, date) / 100) * 100,
-            1 /* month */, 1 /* day */);
-    case DatePartSpecifier::MILLENNIUM:
-        return Date::fromDate((Date::getDatePart(DatePartSpecifier::YEAR, date) / 1000) * 1000,
-            1 /* month */, 1 /* day */);
+    case DatePartSpecifier::CENTURY: {
+        // Truncate to the first day of the century reported by getDatePart, so
+        // that trunc inverts part (e.g. both agree that 2024-03-15 is in the
+        // 21st century starting 2001-01-01). See #1694.
+        int32_t year = Date::getDatePart(DatePartSpecifier::YEAR, date);
+        int32_t part = Date::getDatePart(DatePartSpecifier::CENTURY, date);
+        int32_t start = year > 0 ? (part - 1) * 100 + 1 : part * 100 + 1;
+        return Date::fromDate(start, 1 /* month */, 1 /* day */);
+    }
+    case DatePartSpecifier::MILLENNIUM: {
+        int32_t year = Date::getDatePart(DatePartSpecifier::YEAR, date);
+        int32_t part = Date::getDatePart(DatePartSpecifier::MILLENNIUM, date);
+        int32_t start = year > 0 ? (part - 1) * 1000 + 1 : part * 1000 + 1;
+        return Date::fromDate(start, 1 /* month */, 1 /* day */);
+    }
     case DatePartSpecifier::QUARTER: {
         int32_t year = 0, month = 0, day = 0;
         Date::convert(date, year, month, day);
@@ -497,7 +582,12 @@ date_t Date::trunc(DatePartSpecifier specifier, date_t date) {
 }
 
 int64_t Date::getEpochNanoSeconds(const date_t& date) {
-    return ((int64_t)date.days) * (Interval::MICROS_PER_DAY * Interval::NANOS_PER_MICRO);
+    int64_t micros = 0;
+    function::Multiply::operation(static_cast<int64_t>(date.days),
+        static_cast<int64_t>(Interval::MICROS_PER_DAY), micros);
+    int64_t nanos = 0;
+    function::Multiply::operation(micros, Interval::NANOS_PER_MICRO, nanos);
+    return nanos;
 }
 
 const regex::RE2& Date::regexPattern() {

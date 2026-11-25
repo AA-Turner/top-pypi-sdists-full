@@ -209,6 +209,16 @@ class JoinablePathTests:
         assert p.full_match("**/*.txt") is True
         assert p.full_match("*.doesnotexist") is False
 
+    def test_match(self):
+        p = self.path / "folder" / "file.txt"
+        # relative patterns match from the right, like pathlib
+        assert p.match("file.txt") is True
+        assert p.match("*.txt") is True
+        assert p.match("folder/*.txt") is True
+        assert p.match("*/file.txt") is True
+        assert p.match("other/*.txt") is False
+        assert p.match("*.doesnotexist") is False
+
     def test_trailing_slash_joinpath_is_identical(self):
         # setup
         cls = type(self.path)
@@ -242,6 +252,22 @@ class JoinablePathTests:
         else:
             assert not self.path.joinpath("key").path.endswith("/")
             assert not self.path.joinpath("key/").path.endswith("/")
+
+    def test_joinpath_empty_segment(self):
+        # see: docs/concepts/special-paths.md
+        p = self.path.joinpath("folder")
+        if getattr(self.path.parser, "has_meaningful_trailing_slash", False):
+            assert p.joinpath("") == self.path.joinpath("folder/")
+        else:
+            assert p.joinpath("") == p
+        assert p / "" == p.joinpath("")
+
+    def test_joinpath_dotdot_is_lexical(self):
+        # ".." is a regular segment until the path is resolved
+        p = self.path.joinpath("folder", "..")
+        assert p.name == ".."
+        assert p.parent == self.path.joinpath("folder")
+        assert p != self.path
 
     def test_parents_are_absolute(self):
         # this is a cross implementation compatible way to ensure that
@@ -334,6 +360,7 @@ class ReadablePathTests:
         (
             "*.txt",
             "*",
+            "*/",
             pytest.param(
                 "**/*.txt",
                 marks=(
@@ -347,6 +374,9 @@ class ReadablePathTests:
     def test_glob(self, pathlib_base, pattern):
         mock_glob = list(self.path.glob(pattern))
         path_glob = list(pathlib_base.glob(pattern))
+        if sys.version_info < (3, 11) and pattern.endswith("/"):
+            # pathlib only matches directories for a trailing separator since 3.11
+            path_glob = [p for p in path_glob if p.is_dir()]
 
         _mock_start = len(self.path.parts)
         mock_glob_normalized = sorted(
@@ -478,10 +508,13 @@ class ReadablePathTests:
         content = upath.read_text(encoding="ascii", errors="strict")
         assert content == "hello world"
 
-    def test_rglob(self, pathlib_base):
-        pattern = "*.txt"
+    @pytest.mark.parametrize("pattern", ["*.txt", "*/"])
+    def test_rglob(self, pathlib_base, pattern):
         result = [*self.path.rglob(pattern)]
         expected = [*pathlib_base.rglob(pattern)]
+        if sys.version_info < (3, 11) and pattern.endswith("/"):
+            # pathlib only matches directories for a trailing separator since 3.11
+            expected = [p for p in expected if p.is_dir()]
         assert len(result) == len(expected)
 
     def test_walk(self, local_testdir):
@@ -767,6 +800,15 @@ class WritablePathTests(_CommonWritablePathTests):
         with pytest.raises(FileExistsError):
             new_dir.mkdir(parents=True, exist_ok=False)
 
+    def test_mkdir_parent_mode(self):
+        new_dir = self.path.joinpath("parent_mode", "new_dir")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "parent_mode is currently ignored")
+            new_dir.mkdir(parents=True, parent_mode=0o755)
+        if not self.SUPPORTS_EMPTY_DIRS:
+            new_dir.joinpath(".file").touch()
+        assert new_dir.is_dir()
+
     def test_touch_exists_ok_false(self):
         f = self.path.joinpath("file1.txt")
         assert f.exists()
@@ -856,6 +898,43 @@ class ReadWritePathTests:
         assert p_revert == p_source
         assert not p_moved.exists()
         assert p_revert.exists()
+
+    def test_rename_directory(self):
+        p_source = self.path.joinpath("folder1")
+        p_target = self.path.joinpath("folder1_renamed")
+        children = sorted(p.name for p in p_source.iterdir())
+
+        p_moved = p_source.rename(p_target)
+        assert p_moved == p_target
+        assert not p_source.exists()
+        assert p_moved.is_dir()
+        assert sorted(p.name for p in p_moved.iterdir()) == children
+
+    def test_rename_directory_nested(self):
+        def tree(p):
+            out, stack = [], [(p, "")]
+            while stack:
+                cur, prefix = stack.pop()
+                for c in cur.iterdir():
+                    if c.is_dir():
+                        out.append(f"{prefix}{c.name}/")
+                        stack.append((c, f"{prefix}{c.name}/"))
+                    else:
+                        out.append(f"{prefix}{c.name}")
+            return sorted(out)
+
+        p_source = self.path.joinpath("folder1")
+        p_source.joinpath("sub", "deeper").mkdir(parents=True, exist_ok=True)
+        p_source.joinpath("sub", "deeper", "file3.txt").write_text("file3")
+        if self.SUPPORTS_EMPTY_DIRS:
+            p_source.joinpath("sub", "empty").mkdir()
+        p_target = self.path.joinpath("folder1_renamed")
+        expected = tree(p_source)
+
+        p_moved = p_source.rename(p_target)
+        assert not p_source.exists()
+        assert tree(p_moved) == expected
+        assert p_moved.joinpath("sub", "deeper", "file3.txt").read_text() == "file3"
 
     @pytest.fixture
     def supports_cwd(self):
@@ -961,6 +1040,37 @@ class ReadWritePathTests:
         p = self.path.joinpath("folder1")
         with pytest.raises(OSError, match="not empty"):
             p.rmdir(recursive=False)
+
+    def test_rmdir_not_empty_warns_about_the_future_default(self):
+        p = self.path.joinpath("folder1")
+        with pytest.warns(FutureWarning, match="0.4.0"):
+            p.rmdir()
+        assert not p.exists()
+
+    def test_rmdir_not_empty_recursive_does_not_warn(self):
+        p = self.path.joinpath("folder1")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            p.rmdir(recursive=True)
+        assert not p.exists()
+
+    def test_rmdir_empty_not_recursive(self):
+        p = self.path.joinpath("empty_folder")
+        if not self.SUPPORTS_EMPTY_DIRS:
+            pytest.skip(f"{type(p).__name__} can't represent empty directories")
+        p.mkdir()
+        p.rmdir(recursive=False)
+        assert not p.exists()
+
+    def test_rmdir_empty_does_not_warn(self):
+        p = self.path.joinpath("empty_folder")
+        if not self.SUPPORTS_EMPTY_DIRS:
+            pytest.skip(f"{type(p).__name__} can't represent empty directories")
+        p.mkdir()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            p.rmdir()
+        assert not p.exists()
 
     def test_fsspec_compat(self):
         fs = self.path.fs

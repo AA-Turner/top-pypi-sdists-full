@@ -1,0 +1,1 @@
+import{i as e,n as t,t as n}from"./breadcrumb-C_tQcmEU.js";import{o as r}from"./vendor-codemirror-BXwWnOp4.js";var i=r(),a=()=>(0,i.jsx)(`div`,{className:`flex items-center gap-2`,children:(0,i.jsx)(n,{children:(0,i.jsx)(e,{children:(0,i.jsx)(t,{className:`text-xl font-semibold`,children:`Deployments`})})})});export{a as t};

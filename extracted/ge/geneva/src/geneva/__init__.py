@@ -74,6 +74,24 @@ def _download_and_extract(args: dict) -> None:
 
         from geneva._namespace_client import with_geneva_user_agent
 
+        # A namespace client is a credential *refresher*, not a credential
+        # source: the `dir` implementation vends none, so a session opened with
+        # only `namespace_client` falls back to the ambient environment. On a
+        # cluster whose pods carry no cloud identity and no mounted storage
+        # secret -- bare metal, or any per-job cluster Geneva brings up itself --
+        # that environment is empty, and the very first thing Geneva does on a
+        # node (fetching the workspace zip) dies with a bare
+        # `Bucket '<name>' not found` from inside `import geneva`, before any
+        # user code runs. The connection properties already carry the storage
+        # options as `storage.*` entries, so hand them to the session too.
+        storage_options = {
+            key[len("storage.") :]: value
+            for key, value in namespace_properties.items()
+            if key.startswith("storage.")
+        }
+        if storage_options:
+            session_kwargs["storage_options"] = storage_options
+
         namespace_properties = with_geneva_user_agent(
             namespace_info["impl"], namespace_properties
         )
@@ -179,6 +197,7 @@ from geneva.errors import (
     FatalWorkerHardwareError,
     FatalWorkerOOMError,
     FatalWorkerTransientError,
+    JobNotSubmittedError,
 )
 from geneva.jobs.remote import RemoteJob
 from geneva.jobs.types import (
@@ -220,6 +239,7 @@ __all__ = [
     "get_current_context",
     "InMemoryCheckpointStore",
     "Job",
+    "JobNotSubmittedError",
     "JobResult",
     "NativeConnection",
     "NativeTable",
@@ -242,6 +262,6 @@ __all__ = [
     "udtf",
 ]
 
-version = "0.18.0"
+version = "0.19.0"
 
 __version__ = version

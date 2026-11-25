@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from marimo._ast.app import AppKernelRunnerRegistry
-from marimo._config.config import MarimoConfig
+from marimo._config.config_schema import MarimoConfig
+from marimo._config.provenance import ConfigPath
 from marimo._plugins.ui._core.ids import IDProvider, NoIDProviderException
 from marimo._runtime.cell_lifecycle_registry import CellLifecycleRegistry
 from marimo._runtime.context.types import (
@@ -24,7 +26,7 @@ if TYPE_CHECKING:
 
     from marimo._ast.app import InternalApp
     from marimo._messaging.types import KernelStreams
-    from marimo._runtime.runner.scheduler import Scheduler
+    from marimo._runtime.runner.scheduler import CellBody, Scheduler
     from marimo._runtime.runtime import Kernel
     from marimo._runtime.state import State
     from marimo._runtime.virtual_file import VirtualFileStorageType
@@ -42,10 +44,20 @@ class KernelRuntimeContext(RuntimeContext):
     _app: InternalApp | None = None
     _id_provider: IDProvider | None = None
     _execution_context: ExecutionContext | None = None
-    # Set while a Scheduler's `async with` is open. Lookup goes through
-    # the currently-installed context — not one captured at install
-    # time — so embedded-app child contexts route SIGINT correctly.
+    # The scheduler whose run is executing right now. Set while that
+    # scheduler's `async with` is open. Nested runs save and restore it, so
+    # it always names the innermost run. The SIGINT handler reads it from
+    # the context that is installed at that moment, so an embedded app's
+    # child context routes SIGINT to its own run.
     _active_scheduler: Scheduler | None = None
+    # The scheduler and the cell task whose body the current task is
+    # executing. `None` in a lifecycle hook, between cells, and in a task
+    # that a hook started. A task started inside a body inherits the value,
+    # so the SIGINT handler can interrupt a child task that blocks and can
+    # still find the cell task that the child belongs to.
+    _running_cell_body: ContextVar[CellBody | None] = field(
+        default_factory=lambda: ContextVar("running_cell_body", default=None)
+    )
 
     @property
     def active_scheduler(self) -> Scheduler | None:
@@ -72,6 +84,10 @@ class KernelRuntimeContext(RuntimeContext):
     @property
     def marimo_config(self) -> MarimoConfig:
         return self._kernel.user_config
+
+    @property
+    def config_overrides(self) -> frozenset[ConfigPath]:
+        return frozenset(self._kernel.config_overrides)
 
     @property
     def lazy(self) -> bool:
@@ -164,6 +180,7 @@ def create_kernel_context(
         VirtualFileStorage,
     )
     from marimo._save.cache import CacheState
+    from marimo._save.loaders import get_loader_key
     from marimo._save.signing_policy import get_signing_policy
     from marimo._save.stores import cache_store_is_untrusted, get_store
 
@@ -198,6 +215,13 @@ def create_kernel_context(
                 parent.cache.signing_policy
                 if parent is not None
                 else get_signing_policy(
+                    kernel.app_metadata.filename, config=kernel.user_config
+                )
+            ),
+            loader=(
+                parent.cache.loader
+                if parent is not None
+                else get_loader_key(
                     kernel.app_metadata.filename, config=kernel.user_config
                 )
             ),

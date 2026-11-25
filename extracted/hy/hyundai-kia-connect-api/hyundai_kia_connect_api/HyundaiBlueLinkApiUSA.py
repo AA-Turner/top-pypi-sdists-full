@@ -18,8 +18,11 @@ from urllib3.util.ssl_ import create_urllib3_context
 
 from hyundai_kia_connect_api.exceptions import (
     APIError,
+    AuthenticationBlockedError,
     AuthenticationError,
+    AuthenticationInvalidCredentialsError,
     DuplicateRequestError,
+    HyundaiKiaException,
     RequestTimeoutError,
     SafetyAcknowledgmentError,
     ServiceTemporaryUnavailable,
@@ -90,7 +93,13 @@ def _check_response_for_errors(response: dict[str, Any]) -> None:
         function = response.get("functionName", "")
         suffix = f" [{system}/{function}]" if system or function else ""
         code = str(response["errorCode"])
-        exc = error_code_mapping.get(code, APIError)
+        exc: type[HyundaiKiaException] = error_code_mapping.get(code, APIError)
+        if system == "IDM" and function == "customerLogin":
+            message = str(response.get("errorMessage", "")).lower()
+            if "incorrect username or password" in message:
+                exc = AuthenticationInvalidCredentialsError
+            elif "locked" in message:
+                exc = AuthenticationBlockedError
         raise exc(f"API Error {code}{suffix}: {response['errorMessage']}")
 
 
@@ -130,6 +139,13 @@ def _safe_parse_json(
         return None
 
     return cast(dict[str, Any], response.json())
+
+
+def _add_trip_distance(total: float | None, distance: float | None) -> float | None:
+    """Add a trip distance to a running total; a missing distance adds nothing."""
+    if distance is None:
+        return total
+    return distance if total is None else total + distance
 
 
 def parse_svm_response(response: dict[str, Any], timezone: dt.tzinfo) -> SVMDetails:
@@ -424,6 +440,8 @@ class HyundaiBlueLinkApiUSA(ApiImpl):
                     valid_until=valid_until,
                     pin=token.pin,
                 )
+            except AuthenticationError:
+                raise
             except Exception:
                 _LOGGER.warning(
                     f"{DOMAIN} - Refresh token exchange failed, "
@@ -962,7 +980,9 @@ class HyundaiBlueLinkApiUSA(ApiImpl):
                     month_trip_info_count += 1
                     summary.drive_time += trip.drive_time
                     summary.idle_time += trip.idle_time
-                    summary.distance += trip.distance
+                    summary.distance = _add_trip_distance(
+                        summary.distance, trip.distance
+                    )
                     summary.avg_speed += trip.avg_speed
                     summary.max_speed = max(trip.max_speed, summary.max_speed)
 
@@ -1036,7 +1056,9 @@ class HyundaiBlueLinkApiUSA(ApiImpl):
                     day_trip_info_count += 1
                     summary.drive_time += trip.drive_time
                     summary.idle_time += trip.idle_time
-                    summary.distance += trip.distance
+                    summary.distance = _add_trip_distance(
+                        summary.distance, trip.distance
+                    )
                     summary.avg_speed += trip.avg_speed
                     summary.max_speed = max(trip.max_speed, summary.max_speed)
 
@@ -1346,7 +1368,6 @@ class HyundaiBlueLinkApiUSA(ApiImpl):
             url = self.API_URL + "rcs/rsc/start"
 
         headers = self._get_vehicle_headers(token, vehicle)
-        _LOGGER.debug(f"{DOMAIN} - Start engine headers: {headers}")
 
         if options.climate is None:
             options.climate = True
@@ -1423,8 +1444,6 @@ class HyundaiBlueLinkApiUSA(ApiImpl):
 
         headers = self._get_vehicle_headers(token, vehicle)
 
-        _LOGGER.debug(f"{DOMAIN} - Stop engine headers: {headers}")
-
         response = self.session.post(url, headers=headers)
         response_json = _safe_parse_json(response, "stop_climate")
         if response_json is not None:
@@ -1444,7 +1463,6 @@ class HyundaiBlueLinkApiUSA(ApiImpl):
 
         url = self.API_URL + "evc/charge/start"
         headers = self._get_vehicle_headers(token, vehicle)
-        _LOGGER.debug(f"{DOMAIN} - Start charging headers: {headers}")
 
         response = self.session.post(url, headers=headers)
         response_json = _safe_parse_json(response, "start_charge")
@@ -1465,7 +1483,6 @@ class HyundaiBlueLinkApiUSA(ApiImpl):
 
         url = self.API_URL + "evc/charge/stop"
         headers = self._get_vehicle_headers(token, vehicle)
-        _LOGGER.debug(f"{DOMAIN} - Stop charging headers: {headers}")
 
         response = self.session.post(url, headers=headers)
         response_json = _safe_parse_json(response, "stop_charge")
@@ -1487,7 +1504,6 @@ class HyundaiBlueLinkApiUSA(ApiImpl):
         _LOGGER.debug(f"{DOMAIN} - Setting charge limits..")
         url = self.API_URL + "evc/charge/targetsoc/set"
         headers = self._get_vehicle_headers(token, vehicle)
-        _LOGGER.debug(f"{DOMAIN} - Setting charge limits: {headers}")
 
         data = {
             "targetSOClist": [

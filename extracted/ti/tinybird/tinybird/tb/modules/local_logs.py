@@ -1,6 +1,6 @@
 import json
 import platform
-from typing import Optional
+from typing import Optional, Tuple
 
 from docker.client import DockerClient
 from docker.models.containers import Container
@@ -78,11 +78,11 @@ def container_is_unhealthy(container: Container) -> bool:
     return health == "unhealthy"
 
 
-def bytes_to_gb(b):
+def bytes_to_gb(b: float) -> float:
     return round(b / (1024**3), 2)  # two decimal places (e.g., 1.75 GB)
 
 
-def get_image_arch(client, image_ref):
+def get_image_arch(client: DockerClient, image_ref: str) -> str:
     try:
         image = client.images.get(image_ref)
         return (image.attrs.get("Architecture") or "").lower()
@@ -90,7 +90,7 @@ def get_image_arch(client, image_ref):
         return ""
 
 
-def is_emulated(host_arch, image_arch):
+def is_emulated(host_arch: str, image_arch: str) -> bool:
     # Architecture equivalents - same arch with different names
     arch_equivalents = [
         {"x86_64", "amd64"},
@@ -107,7 +107,7 @@ def is_emulated(host_arch, image_arch):
     return all(not (host_arch in equiv_set and image_arch in equiv_set) for equiv_set in arch_equivalents)
 
 
-def mem_usage_percent(container):
+def mem_usage_percent(container: Container) -> Tuple[float, float, Optional[float]]:
     st = container.stats(stream=False)
     mem = st.get("memory_stats", {}) or {}
     limit = float(mem.get("limit") or 0.0)

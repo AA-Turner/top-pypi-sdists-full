@@ -217,6 +217,12 @@ def run_condition(
                 cleared += 1
         if cleared:
             print(f"  cleared {cleared} stale checkpoint(s) for {out_col}", flush=True)
+    ckp_v2_dir = ckp_dir + "v2"
+    if os.path.isdir(ckp_v2_dir):
+        import shutil  # noqa: PLC0415
+
+        shutil.rmtree(ckp_v2_dir)
+        print("  cleared hierarchical checkpoint root", flush=True)
 
     t.add_columns({out_col: (udf_obj, cols_to_read)})
     n_rows = t.count_rows()

@@ -10,6 +10,7 @@ from formulaic import model_matrix
 import tests
 from pydeseq2.datasets import load_example_data
 from pydeseq2.dds import DeseqDataSet
+from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
 from pydeseq2.preprocessing import deseq2_norm
 from pydeseq2.preprocessing import deseq2_norm_fit
@@ -147,13 +148,14 @@ def test_deseq_independent_filtering_parametric_fit(counts_df, metadata, tol=0.0
     assert_res_almost_equal(ds.results_df, r_res, tol)
 
 
-def test_deseq_independent_filtering_mean_fit(counts_df, metadata, tol=0.02):
-    """Test that the outputs of the DESeq2 function match those of the original R package, up to a tolerance in relative error, with a mean fit."""
+@pytest.mark.parametrize("fit_type", ["mean", "local"])
+def test_deseq_independent_filtering_curve_fit(fit_type, counts_df, metadata, tol=0.02):
+    """Test that the outputs of the DESeq2 function match those of the original R package, up to a tolerance in relative error, with a mean or a local fit."""
 
     test_path = str(Path(os.path.realpath(tests.__file__)).parent.resolve())
 
     r_res = pd.read_csv(
-        os.path.join(test_path, "data/single_factor/r_test_res_mean_curve.csv"),
+        os.path.join(test_path, f"data/single_factor/r_test_res_{fit_type}_curve.csv"),
         index_col=0,
     )
 
@@ -161,7 +163,7 @@ def test_deseq_independent_filtering_mean_fit(counts_df, metadata, tol=0.02):
         counts=counts_df,
         metadata=metadata,
         design="~condition",
-        fit_type="mean",
+        fit_type=fit_type,
     )
     dds.deseq2()
 
@@ -258,6 +260,136 @@ def test_deseq_no_refit_cooks(counts_df, metadata, tol=0.02):
 
     # Check results
     assert_res_almost_equal(ds.results_df, r_res, tol)
+
+
+@pytest.mark.parametrize(("design", "is_outlier"), [("~condition", False), ("~group + condition", True)])
+def test_cooks_outlier_with_higher_counts(counts_df, metadata, design, is_outlier):
+    """Test that a gene with 3 or more samples above its Cook's outlier is kept only for a single two-level factor, as in DESeq2."""
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, design=design, refit_cooks=False, quiet=True)
+    dds.deseq2()
+
+    sample = np.argsort(dds.X[:, 0])[dds.n_obs // 2]
+    dds.layers["cooks"][:, 0] = 0
+    dds.layers["cooks"][sample, 0] = 1e3
+    del dds.var["_pvalue_cooks_outlier"]
+
+    assert dds.cooks_outlier().iloc[0] == is_outlier
+
+
+def test_lfc_shrink_default_coeff(counts_df, metadata):
+    """Test that lfc_shrink shrinks the coefficient tested by the contrast when coeff is not given."""
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, design="~group + condition", quiet=True)
+    dds.deseq2()
+
+    res = []
+    for coeff in (None, "condition[T.B]"):
+        ds = DeseqStats(dds, contrast=["condition", "B", "A"], quiet=True)
+        ds.summary()
+        ds.lfc_shrink(coeff=coeff)
+        res.append(ds.results_df)
+
+    pd.testing.assert_frame_equal(*res)
+
+
+def test_lfc_shrink_default_coeff_several_coefficients(counts_df, metadata):
+    """Test that lfc_shrink without coeff raises a ValueError for a contrast involving several coefficients."""
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, design="~group + condition", quiet=True)
+    dds.deseq2()
+    ds = DeseqStats(dds, contrast=np.array([0, 1, 1]), quiet=True)
+    ds.summary()
+
+    with pytest.raises(ValueError, match="not a single LFC coefficient"):
+        ds.lfc_shrink()
+
+
+def test_lfc_shrink_reference_level(counts_df, metadata):
+    """Test that lfc_shrink without coeff requires the reference level of the contrast to be that of the design."""
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, design="~condition", quiet=True)
+    dds.deseq2()
+    ds = DeseqStats(dds, contrast=["condition", "A", "B"], quiet=True)
+    ds.summary()
+
+    with pytest.raises(ValueError, match="reference level"):
+        ds.lfc_shrink()
+
+    ds_B_vs_A = DeseqStats(dds, contrast=["condition", "B", "A"], quiet=True)
+    ds_B_vs_A.summary()
+    ds_B_vs_A.lfc_shrink()
+
+    dds = DeseqDataSet(
+        counts=counts_df, metadata=metadata, design='~C(condition, contr.treatment(base="B"))', quiet=True
+    )
+    dds.deseq2()
+    ds = DeseqStats(dds, contrast=["condition", "A", "B"], quiet=True)
+    ds.summary()
+    ds.lfc_shrink()
+
+    np.testing.assert_allclose(ds.results_df.log2FoldChange, -ds_B_vs_A.results_df.log2FoldChange, atol=1e-3)
+
+
+@pytest.mark.parametrize("backend", ["threading", "multiprocessing", "sequential"])
+def test_joblib_backends(counts_df, metadata, backend):
+    """Test that the joblib backends other than loky give the same results."""
+    res = []
+    for inference in (DefaultInference(n_cpus=2), DefaultInference(n_cpus=2, backend=backend)):
+        dds = DeseqDataSet(counts=counts_df, metadata=metadata, inference=inference, quiet=True)
+        dds.deseq2()
+        ds = DeseqStats(dds, contrast=["condition", "B", "A"], inference=inference, quiet=True)
+        ds.summary()
+        ds.lfc_shrink()
+        res.append(ds.results_df)
+
+    pd.testing.assert_frame_equal(*res)
+
+
+def test_lrt_reduced_design_matrix(counts_df, metadata):
+    """Test that the likelihood ratio test gives the same results with a reduced formula or design matrix."""
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, design="~group + condition", quiet=True)
+    dds.deseq2()
+
+    res = []
+    for reduced in ("~group", model_matrix("~group", metadata)):
+        ds = DeseqStats(dds, contrast=["condition", "B", "A"], reduced=reduced, quiet=True)
+        ds.summary()
+        res.append(ds.results_df)
+
+    pd.testing.assert_frame_equal(*res)
+
+
+def test_lrt_unchanged_by_lfc_shrink(counts_df, metadata):
+    """Test that LFC shrinkage leaves the statistics of the likelihood ratio test unchanged."""
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, design="~group + condition", quiet=True)
+    dds.deseq2()
+    ds = DeseqStats(dds, contrast=["condition", "B", "A"], reduced="~group", quiet=True)
+    ds.summary()
+    stats = ds.statistics.copy()
+
+    ds.lfc_shrink(coeff="condition[T.B]")
+    ds.run_likelihood_ratio_test()
+
+    pd.testing.assert_series_equal(ds.statistics, stats)
+
+
+@pytest.mark.parametrize(
+    ("design", "reduced"),
+    [("~group + condition", "~group + condition"), ("~condition", "~group")],
+)
+def test_lrt_invalid_reduced(counts_df, metadata, design, reduced):
+    """Test that a reduced design that is not nested in the full design with fewer columns raises a ValueError."""
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, design=design, quiet=True)
+    dds.deseq2()
+
+    with pytest.raises(ValueError, match="reduced design must"):
+        DeseqStats(dds, contrast=["condition", "B", "A"], reduced=reduced, quiet=True)
+
+
+def test_lrt_lfc_null(counts_df, metadata):
+    """Test that a ValueError is raised when lfc_null is used with a likelihood ratio test."""
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata, design="~group + condition", quiet=True)
+    dds.deseq2()
+
+    with pytest.raises(ValueError, match="only supported by the Wald test"):
+        DeseqStats(dds, contrast=["condition", "B", "A"], reduced="~group", lfc_null=1, quiet=True).summary()
 
 
 def test_lfc_shrinkage(counts_df, metadata, tol=0.02):
@@ -716,18 +848,19 @@ def test_vst(counts_df, metadata, tol=0.02):
     assert (np.abs(r_vst_with_design - dds.layers["vst_counts"]) / r_vst_with_design).max().max() < tol
 
 
-def test_mean_vst(counts_df, metadata, tol=0.02):
+@pytest.mark.parametrize("fit_type", ["mean", "local"])
+def test_curve_fit_vst(fit_type, counts_df, metadata, tol=0.02):
     """
-    Test the output of VST with ``fitType="mean"`` compared with DESeq2.
+    Test the output of VST with ``fitType="mean"`` or ``fitType="local"`` compared with DESeq2.
     """
     # Load R data
     test_path = str(Path(os.path.realpath(tests.__file__)).parent.resolve())
 
-    r_vst = pd.read_csv(os.path.join(test_path, "data/single_factor/r_mean_vst.csv"), index_col=0).T
+    r_vst = pd.read_csv(os.path.join(test_path, f"data/single_factor/r_{fit_type}_vst.csv"), index_col=0).T
 
     # Test blind design
     dds = DeseqDataSet(counts=counts_df, metadata=metadata, design="~condition")
-    dds.vst(use_design=False, fit_type="mean")
+    dds.vst(use_design=False, fit_type=fit_type)
     assert (np.abs(r_vst - dds.layers["vst_counts"]) / r_vst).max().max() < tol
 
 
@@ -788,6 +921,18 @@ def test_deseq2_norm_transform(train_counts, test_counts):
     assert size_factors.shape == (25,)
 
 
+def test_deseq2_norm_transform_zero_counts():
+    train = np.array([[10, 20, 30, 40, 50], [12, 18, 33, 41, 45], [9, 25, 28, 39, 55]])
+    new = np.array(
+        [[11, 21, 29, 42, 48], [0, 0, 0, 40, 50], [0, 20, 30, 40, 50], [0, 0, 0, 0, 0], [np.nan, 20, 30, 40, 50]]
+    )
+    logmeans, filtered_genes = deseq2_norm_fit(train)
+    normed_counts, size_factors = deseq2_norm_transform(new, logmeans, filtered_genes)
+
+    np.testing.assert_allclose(size_factors, [1.0096, 1.0018, 0.9957, np.nan, np.nan], atol=1e-4)
+    assert np.isfinite(normed_counts[:3]).all()
+
+
 def test_vst_fit(train_dds):
     # patient from 25 to 75
     train_dds.vst_fit()
@@ -815,6 +960,9 @@ def test_vst_transform(train_dds, test_counts):
         ("parametric", "mean"),
         ("parametric", "parametric"),
         ("mean", "mean"),
+        ("local", "parametric"),
+        ("parametric", "local"),
+        ("local", "local"),
     ],
 )
 def test_vst_blind(train_counts, train_metadata, dea_fit_type, vst_fit_type):
@@ -826,10 +974,7 @@ def test_vst_blind(train_counts, train_metadata, dea_fit_type, vst_fit_type):
         fit_type=dea_fit_type,
     )
     train_dds.deseq2()
-    if dea_fit_type == "parametric":
-        assert "trend_coeffs" in train_dds.uns
-    else:
-        assert "mean_disp" in train_dds.uns
+    assert {"parametric": "trend_coeffs", "mean": "mean_disp", "local": "local_trend"}[dea_fit_type] in train_dds.uns
     assert "normed_counts" in train_dds.layers
     assert "size_factors" in train_dds.obs
     assert train_dds.fit_type == dea_fit_type

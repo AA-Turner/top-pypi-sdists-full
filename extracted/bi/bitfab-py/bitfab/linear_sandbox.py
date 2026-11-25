@@ -3,11 +3,7 @@ from __future__ import annotations
 import copy
 import datetime
 import json
-import os
-import urllib.error
-import urllib.request
 from collections.abc import Callable
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, NoReturn
 
@@ -22,7 +18,6 @@ from bitfab.linear_graphql import (
     parse,
     variables_with_defaults,
 )
-from bitfab.linear_whole import run_reads, whole_issue_reads
 from bitfab.mock_override import MockOverrideCtx, SpanNodeMeta
 from bitfab.sandbox import Sandbox, SandboxStartCtx, fail_replay_item, sandbox_now
 from bitfab.whole_objects import is_whole, mark_whole
@@ -36,10 +31,6 @@ RECORDED = "recorded"
 READ_WHOLE_OBJECT = "test-read-whole-object"
 LINEAR_MODES = (READ_WHOLE_OBJECT, RECORDED)
 ISSUE = "Issue"
-LINEAR_API_URL = "https://api.linear.app/graphql"
-TOKEN_ENV = "BITFAB_LINEAR_TOKEN"
-TIMEOUT_SECONDS = 60.0
-AUTH_ERROR_CODES = frozenset({"AUTHENTICATION_ERROR", "FORBIDDEN"})
 CURSOR_PREFIX = "bitfab-offset:"
 DEFAULT_PAGE_SIZE = 50
 QUERY = "Query"
@@ -57,6 +48,7 @@ ROOT_LOOKUPS = {
     "issueLabel": "IssueLabel",
     "cycle": "Cycle",
 }
+LOOKUP_ALIASES = {"Issue": "identifier", "Team": "key"}
 ROOT_LISTS = {
     "issues": "Issue",
     "teams": "Team",
@@ -200,7 +192,6 @@ STATE_KEYS = (
     "deleted",
     "writes",
     "readsFromTrace",
-    "liveReads",
     "missing",
     "wholeObjects",
     "wholeLists",
@@ -219,10 +210,6 @@ class LinearCallRefusedError(RuntimeError):
 
 
 class LinearModeError(ValueError):
-    pass
-
-
-class LinearCredentialError(RuntimeError):
     pass
 
 
@@ -256,8 +243,7 @@ class _Walk:
     variables: dict[str, Any]
     protected: set[str] = field(default_factory=set)
     skipped: set[str] = field(default_factory=set)
-    live: LinearLive | None = None
-    touched: set[str] = field(default_factory=set)
+    whole_only: bool = False
 
 
 def _text(value: Any) -> str | None:
@@ -339,7 +325,6 @@ def _empty_state(mode: str = RECORDED) -> dict[str, Any]:
         "deleted": [],
         "writes": [],
         "readsFromTrace": [],
-        "liveReads": [],
         "missing": [],
         "wholeObjects": {},
         "wholeLists": {},
@@ -429,12 +414,76 @@ def _normalize_entity(
         return None
     fields = _normalize_fields(walk, typename, obj, selections, ref)
     entities = _entities(walk.state, typename)
-    existing = entities.get(entity_id, {})
+    existing = {
+        **_join_saved_by_alias(walk.state, typename, entity_id, fields),
+        **entities.get(entity_id, {}),
+    }
     if ref in walk.protected:
         entities[entity_id] = {**fields, **existing, "id": entity_id}
     else:
         entities[entity_id] = {**existing, **fields, "id": entity_id}
     return entity_id
+
+
+def _join_saved_by_alias(
+    state: dict[str, Any], typename: str, entity_id: str, fields: dict[str, Any]
+) -> dict[str, Any]:
+    alias = LOOKUP_ALIASES.get(typename)
+    entities = _entities(state, typename)
+    value = _text(
+        (fields.get(alias) if alias else None)
+        or entities.get(entity_id, {}).get(alias or "")
+    )
+    if value is None:
+        return {}
+    lowered = value.lower()
+    saved_as = next(
+        (key for key in entities if key != entity_id and key.lower() == lowered), None
+    )
+    if saved_as is None:
+        return {}
+    saved = entities.pop(saved_as)
+    _repoint(state, typename, saved_as, entity_id)
+    return {**saved, "id": entity_id}
+
+
+def _repoint(state: dict[str, Any], typename: str, old: str, new: str) -> None:
+    old_ref = _ref_key(typename, old)
+    new_ref = _ref_key(typename, new)
+
+    def rewrite(value: Any) -> Any:
+        if isinstance(value, list):
+            return [rewrite(item) for item in value]
+        if isinstance(value, str):
+            return new_ref if value == old_ref else value
+        if not isinstance(value, dict):
+            return value
+        if value.get("__typename") == typename and value.get("id") == old:
+            return {**value, "id": new}
+        return {name: rewrite(item) for name, item in value.items()}
+
+    for key in ("root", "created", "changed", "deleted", "missing"):
+        state[key] = rewrite(state[key])
+    for typed in state["entities"].values():
+        for entity_id, entity in typed.items():
+            typed[entity_id] = rewrite(entity)
+    for listed in [
+        *state["lists"].values(),
+        *(each for owned in state["wholeLists"].values() for each in owned.values()),
+    ]:
+        if listed.get("type") == typename:
+            listed["ids"] = [new if each == old else each for each in listed["ids"]]
+    if old_ref in state["wholeLists"]:
+        state["wholeLists"][new_ref] = state["wholeLists"].pop(old_ref)
+    for list_key in list(state["lists"]):
+        owner, name, args = json.loads(list_key)
+        if owner == old_ref:
+            state["lists"][_list_key(new_ref, name, args)] = state["lists"].pop(
+                list_key
+            )
+    wholes = state.get("wholeObjects", {}).get(typename, {})
+    if old in wholes:
+        wholes.setdefault(new, wholes.pop(old))
 
 
 def _connection_nodes(
@@ -476,6 +525,11 @@ def _normalize_connection(
     raw_nodes, node_selections = _connection_nodes(walk, field_node, value)
     owner_id = owner.split(":", 1)[1] if ":" in owner else None
     node_type = info[0] if info else None
+    if any(
+        _text(node.get("id")) is None for node in raw_nodes if isinstance(node, dict)
+    ):
+        _normalize_value(walk, node_type, raw_nodes, node_selections)
+        return {}
     ids: list[str] = []
     for node in raw_nodes:
         if not isinstance(node, dict) or _text(node.get("id")) is None:
@@ -520,7 +574,7 @@ def _find(
     if wanted in entities:
         return entities[wanted]
     lowered = wanted.lower()
-    alias = {"Issue": "identifier", "Team": "key"}.get(typename)
+    alias = LOOKUP_ALIASES.get(typename)
     if alias is None:
         return None
     return next(
@@ -543,8 +597,6 @@ def _project(
         if typename == QUERY
         else (_ref_key(typename, entity_id) if typename and entity_id else None)
     )
-    if typename == ISSUE and entity_id:
-        walk.touched.add(entity_id)
     for field_node in fields_of(selections, walk.document, typename, walk.variables):
         args = arguments_of(field_node, walk.variables)
         if field_node.name == "__typename":
@@ -874,7 +926,7 @@ def _needs_whole(
 ) -> bool:
     owner_id = _text(owner_entity.get("id"))
     return (
-        walk.live is not None
+        walk.whole_only
         and owner_type == ISSUE
         and owner_id is not None
         and not is_whole(walk.state, ISSUE, owner_id)
@@ -938,7 +990,7 @@ def _connection(
         raise _NotAnswerable(f"{owner_type}.{field_node.name}", owner)
     if whole is not None and (info is None or info[1] == "list"):
         return _page_of(walk, owner_type, field_node, args, whole["type"], whole["ids"])
-    if walk.live is not None and owner_type != ISSUE:
+    if walk.whole_only and owner_type != ISSUE:
         raise _NotAnswerable(f"{owner_type}.{field_node.name}")
     if info is None:
         raise _NotAnswerable(f"{owner_type}.{field_node.name}", owner)
@@ -1324,6 +1376,8 @@ def _comment_create(
     if issue_given is None:
         raise _FieldError("Argument Validation Error: issueId must be given.")
     issue = _find(state, "Issue", issue_given)
+    if issue is None and walk.whole_only:
+        raise _NotAnswerable(f"Issue {issue_given}", _ref_key(ISSUE, issue_given))
     issue_id = issue["id"] if issue is not None else issue_given
     entity_id = _text(given.get("id")) or _new_id(state)
     now = _now()
@@ -1429,8 +1483,8 @@ def _not_recorded(what: str, operation: str) -> LinearNotRecordedError:
         f"The Linear sandbox answers reads from the Linear calls the original "
         f"trace recorded, and the recording has nothing for {what} (asked by "
         f"{operation}), so it failed the call instead of sending it to Linear. "
-        f'In mode="{READ_WHOLE_OBJECT}" it reads whole issues and other missing '
-        "queries from Linear; a write it cannot place still fails. "
+        f'In mode="{READ_WHOLE_OBJECT}" it answers anything the recording has '
+        "nothing for with Entity not found, also without reaching Linear. "
         'Record Linear calls on the original run with Bitfab(integrations={"linear": '
         "True}) or BITFAB_ENABLED_INTEGRATIONS=linear, or seed Linear's state for "
         "the trace in a sandbox store."
@@ -1444,78 +1498,6 @@ def _read_entry(field_node: Field, args: dict[str, Any], found: bool) -> dict[st
     if isinstance(args.get("filter"), dict):
         entry["filter"] = args["filter"]
     return {**entry, "found": found}
-
-
-Transport = Callable[[str, dict[str, Any]], "tuple[int, Any]"]
-
-reading_linear: ContextVar[bool] = ContextVar("bitfab_reading_linear", default=False)
-
-
-def urllib_transport(token: str, body: dict[str, Any]) -> tuple[int, Any]:
-    request = urllib.request.Request(
-        LINEAR_API_URL,
-        data=json.dumps(body).encode("utf-8"),
-        method="POST",
-        headers={"Authorization": token, "Content-Type": "application/json"},
-    )
-    reading = reading_linear.set(True)
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-            return response.status, _decoded(response.read())
-    except urllib.error.HTTPError as error:
-        return error.code, _decoded(error.read())
-    finally:
-        reading_linear.reset(reading)
-
-
-def _decoded(raw: bytes) -> Any:
-    try:
-        return json.loads(raw.decode("utf-8")) if raw else {}
-    except (UnicodeDecodeError, ValueError):
-        return {}
-
-
-def _auth_refused(status: int, body: Any) -> bool:
-    if status in (401, 403):
-        return True
-    errors = body.get("errors") if isinstance(body, dict) else None
-    return any(
-        isinstance(error, dict)
-        and (error.get("extensions") or {}).get("code") in AUTH_ERROR_CODES
-        for error in errors or []
-    )
-
-
-@dataclass
-class LinearLive:
-    token: str | None
-    transport: Transport | None = None
-
-    def read(
-        self, state: dict[str, Any], body: dict[str, Any], entry: dict[str, Any]
-    ) -> Any:
-        token = self.token
-        if not token:
-            _refuse(
-                LinearCredentialError(
-                    "The Linear sandbox reads from Linear in "
-                    f"{READ_WHOLE_OBJECT} mode, but has no token for "
-                    f"{entry.get('id') or entry.get('operation')}. Pass "
-                    f"linear_sandbox(token=...), set {TOKEN_ENV}, or replay with "
-                    f'sandbox_modes={{"linear": "{RECORDED}"}}.'
-                )
-            )
-        status, answer = (self.transport or urllib_transport)(token, body)
-        state["liveReads"].append({**entry, "ok": status == 200})
-        if _auth_refused(status, answer):
-            _refuse(
-                LinearCredentialError(
-                    f"Linear refused the token the Linear sandbox read with ({status}). "
-                    f"Pass linear_sandbox(token=...) or set {TOKEN_ENV} to a token "
-                    "that can read this workspace."
-                )
-            )
-        return answer if isinstance(answer, dict) else {}
 
 
 def _sandbox_refs(state: dict[str, Any]) -> set[str]:
@@ -1583,70 +1565,6 @@ def load_whole_issue(
     return issue_id
 
 
-def _whole_wanted(walk: _Walk, ref: str | None) -> str | None:
-    if walk.live is None or ref is None or not ref.startswith(f"{ISSUE}:"):
-        return None
-    wanted = ref.split(":", 1)[1]
-    entity = _find(walk.state, ISSUE, wanted)
-    entity_id = entity["id"] if entity is not None else wanted
-    if (
-        not wanted
-        or is_whole(walk.state, ISSUE, entity_id)
-        or _is_gone(walk.state, ISSUE, wanted)
-        or _is_made(walk.state, _ref_key(ISSUE, entity_id))
-    ):
-        return None
-    return wanted
-
-
-def _read_whole(walk: _Walk, wanted: str) -> None:
-    live = walk.live
-    if live is None:
-        return
-    answer = run_reads(
-        whole_issue_reads(wanted),
-        lambda body: live.read(
-            walk.state,
-            body,
-            {"whole": ISSUE, "id": wanted, "operation": body.get("operationName")},
-        ),
-    )
-    if load_whole_issue(walk.state, wanted, answer, "live") is not None:
-        return
-    known = _find(walk.state, ISSUE, wanted)
-    if known is None:
-        _mark(walk.state, "missing", _ref_key(ISSUE, wanted))
-        return
-    mark_whole(walk.state, ISSUE, known["id"], {"source": "trace", "complete": False})
-
-
-def _read_live(walk: _Walk, request: dict[str, Any], operation: Any) -> Any:
-    live = walk.live
-    if live is None:
-        return None
-    answer = live.read(
-        walk.state,
-        {
-            key: request[key]
-            for key in ("query", "variables", "operationName")
-            if key in request
-        },
-        {"operation": operation.name or "an unnamed operation"},
-    )
-    data = answer.get("data")
-    if isinstance(data, dict):
-        reading = _Walk(
-            walk.state,
-            walk.document,
-            walk.variables,
-            protected=_sandbox_refs(walk.state),
-        )
-        walk.state["root"].update(
-            _normalize_fields(reading, QUERY, data, operation.selections, QUERY)
-        )
-    return answer
-
-
 def _answer_field(
     walk: _Walk, field_node: Field, root_type: str, is_mutation: bool
 ) -> Any:
@@ -1659,17 +1577,17 @@ def _answer_field(
     ]
 
 
-def _load_touched(walk: _Walk) -> None:
-    for entity_id in sorted(walk.touched):
-        wanted = _whole_wanted(walk, _ref_key(ISSUE, entity_id))
-        if wanted is not None:
-            _read_whole(walk, wanted)
+def _not_in_store(what: str) -> _FieldError:
+    return _FieldError(
+        f"Entity not found: {what}. The Linear sandbox store holds no copy of it, "
+        f'and in mode="{READ_WHOLE_OBJECT}" a replay never reads from Linear.'
+    )
 
 
 def answer_linear_request(
     state: dict[str, Any],
     request: dict[str, Any],
-    live: LinearLive | None = None,
+    whole_only: bool = False,
 ) -> dict[str, Any]:
     query = request.get("query")
     if not isinstance(query, str):
@@ -1694,45 +1612,36 @@ def answer_linear_request(
         request.get("variables") if isinstance(request.get("variables"), dict) else {}
     )
     walk = _Walk(
-        state, document, variables_with_defaults(operation, variables), live=live
+        state,
+        document,
+        variables_with_defaults(operation, variables),
+        whole_only=whole_only,
     )
     name = operation.name or "an unnamed operation"
     is_mutation = operation.kind == "mutation"
     data: dict[str, Any] = {}
     errors: list[dict[str, Any]] = []
     root_type = MUTATION if is_mutation else QUERY
-    read_live = False
     for field_node in fields_of(
         operation.selections, document, root_type, walk.variables
     ):
         args = arguments_of(field_node, walk.variables)
-        while True:
-            try:
-                data[field_node.key] = _answer_field(
-                    walk, field_node, root_type, is_mutation
-                )
-                if not is_mutation:
-                    state["readsFromTrace"].append(_read_entry(field_node, args, True))
-                break
-            except _FieldError as error:
-                errors.append(error.as_error([field_node.key]))
-                data[field_node.key] = None
-                break
-            except _NotAnswerable as missing:
-                wanted = _whole_wanted(walk, missing.ref)
-                if wanted is not None:
-                    _read_whole(walk, wanted)
-                    continue
-                if live is not None and not is_mutation and not read_live:
-                    read_live = True
-                    answer = _read_live(walk, request, operation)
-                    if not isinstance(answer.get("data"), dict):
-                        return answer
-                    continue
-                if not is_mutation:
-                    state["readsFromTrace"].append(_read_entry(field_node, args, False))
+        try:
+            data[field_node.key] = _answer_field(
+                walk, field_node, root_type, is_mutation
+            )
+            if not is_mutation:
+                state["readsFromTrace"].append(_read_entry(field_node, args, True))
+        except _FieldError as error:
+            errors.append(error.as_error([field_node.key]))
+            data[field_node.key] = None
+        except _NotAnswerable as missing:
+            if not is_mutation:
+                state["readsFromTrace"].append(_read_entry(field_node, args, False))
+            if not whole_only:
                 _refuse(_not_recorded(str(missing), name))
-    _load_touched(walk)
+            errors.append(_not_in_store(str(missing)).as_error([field_node.key]))
+            data[field_node.key] = None
     if errors:
         return {"data": None, "errors": errors}
     return {"data": data}
@@ -1947,11 +1856,6 @@ def load_linear_state(ctx: SandboxStartCtx, value: Any) -> dict[str, Any]:
     return _loaded_state(given, _text(given.get("mode")) or RECORDED)
 
 
-@dataclass(frozen=True)
-class LinearCallAccess:
-    token: str | None = None
-
-
 def is_linear_call(node: SpanNodeMeta) -> bool:
     call = service_calls.current_call()
     return (
@@ -1980,27 +1884,14 @@ def linear_accessed_object(call: MockOverrideCtx) -> str | None:
     return None
 
 
-def _call_token() -> str | None:
-    held = service_calls.current_call()
-    access = held.request if held is not None else None
-    return access.token if isinstance(access, LinearCallAccess) else None
-
-
 def build_linear_sandbox(
     start: Callable[[SandboxStartCtx], Any] | None = None,
     mode: str = READ_WHOLE_OBJECT,
-    token: str | None = None,
-    transport: Transport | None = None,
 ) -> Sandbox:
     def handle(state: dict[str, Any], call: MockOverrideCtx) -> dict[str, Any]:
-        live = (
-            LinearLive(
-                token or _text(os.environ.get(TOKEN_ENV)) or _call_token(), transport
-            )
-            if mode == READ_WHOLE_OBJECT
-            else None
+        return answer_linear_request(
+            state, dict(call.kwargs), whole_only=mode == READ_WHOLE_OBJECT
         )
-        return answer_linear_request(state, dict(call.kwargs), live)
 
     return Sandbox(
         name=LINEAR_SANDBOX_NAME,

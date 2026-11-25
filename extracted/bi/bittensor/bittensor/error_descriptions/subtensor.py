@@ -107,14 +107,19 @@ DESCRIPTIONS: dict[str, str] = {
         "a hotkey the beneficiary coldkey actually owns."
     ),
     "RootClaimTooHeavy": (
-        "A root claim would process more than the fixed 256-unit admission envelope. Only "
-        "root-relevant validator hotkeys and their stored basket rows count as claim work; "
-        "classifying the staking-hotkey relationship vector is separately capped at 256, and "
-        "the queued dividend credits plus weight-vector destinations the claim would flush "
-        "first are capped at 512 across all validators claimed (one validator always fits). "
-        "Unrelated subnet stakes are not multiplied by the total network count. Split a "
-        "coldkey-wide claim by validator where that fits, and investigate or consolidate an "
-        "individually oversized basket."
+        "A root claim would process more than its admission envelope. A coldkey-wide claim "
+        "admits 256 units: only root-relevant validator hotkeys and their stored basket rows "
+        "count as claim work; classifying the staking-hotkey relationship vector is separately "
+        "capped at 256, and the queued dividend credits the claim would flush first are capped "
+        "at 512 across all validators claimed. Unrelated subnet stakes are not multiplied by "
+        "the total network count. A single-validator claim admits 258 units: the validator, "
+        "its stored basket rows, and one for each queued dividend credit on a subnet the fund "
+        "does not hold. A runtime before 495 admits 130 units and does not count queued "
+        "credits. A single-validator claim also fails with this error when a "
+        "`swap_basket` buy or a hotkey swap gave the same fund a new row earlier in the same "
+        "transaction; send the claim in a later transaction. Split a coldkey-wide claim by "
+        "validator where that fits, and investigate or consolidate an individually oversized "
+        "basket."
     ),
     "RootWeightCapExceeded": (
         "Retired (kept for SCALE index stability on the 463 testnet/devnet runtime): one "
@@ -134,7 +139,7 @@ DESCRIPTIONS: dict[str, str] = {
         "rolled back; nothing moved. The pool moved between your quote and execution, or "
         "the floor was set above what the trade could ever yield. Re-quote and retry, or "
         "widen `--max-slippage` (btcli) / lower `min_amount_out` (SDK). A floor of 0 "
-        "disables this check; the 2% protocol band still applies."
+        "disables this check; the configured protocol band still applies."
     ),
     "BasketSwapBatchEmpty": (
         "`swap_basket_many` was submitted without any trade legs. Include at least one "
@@ -159,7 +164,8 @@ DESCRIPTIONS: dict[str, str] = {
     "BasketTurnoverBudgetExceeded": (
         "The trade would push more TAO through the fund than its turnover bucket holds. "
         "The bucket's capacity is `BasketDailyTurnoverCap` (u16-normalized share of fund "
-        "NAV, default 10%); it refills continuously over 7200 blocks and each swap takes "
+        "NAV, default 10%); it refills continuously over `BasketTradeRefillBlocks` "
+        "(7200 by default) and each swap takes "
         "the TAO through its middle out of it, so at most one capacity can be traded at "
         "any instant. Query `basket_trading_status` for the remaining budget, the capacity, "
         "and the refill rate; trade a smaller amount or wait for the bucket to refill."
@@ -603,6 +609,12 @@ DESCRIPTIONS: dict[str, str] = {
         "`ValidatorPermit` for the neuron's uid (e.g. via the metagraph or `btcli subnets "
         "metagraph`) and whether its stake ranks it as a validator."
     ),
+    "NotMechWeightDelegate": (
+        "The signer is not the validator's currently authorized delegate for this exact netuid "
+        "and mechanism, or the validator's grant is still moving after a hotkey change. Query "
+        "the delegate for the validator and mechanism, wait for lifecycle cleanup, and have the "
+        "validator grant or renew the delegation before retrying."
+    ),
     "NewColdKeyIsHotkey": (
         "The proposed new coldkey in a coldkey swap is already an existing hotkey account, "
         "which is not allowed. Check the `Owner` storage for the candidate key to confirm it is "
@@ -951,9 +963,16 @@ DESCRIPTIONS: dict[str, str] = {
         "against that hyperparameter and wait for the next interval to start."
     ),
     "TooManyUIDsPerMechanism": (
-        "Setting max UIDs or mechanism count would make max_uids times mechanism_count exceed "
-        "the chain default of 256 UIDs per subnet. Check `MaxAllowedUids` and the subnet's "
-        "mechanism count so their product stays within the limit."
+        "The requested subnet UID capacity exceeds its consensus limit. Null consensus allows "
+        "`MaxAllowedUids` up to 2500 independently of mechanism count. Yuma consensus requires "
+        "max UIDs times mechanism count to remain at most 256. Reduce `MaxAllowedUids`, reduce "
+        "the mechanism count on Yuma, or switch to a consensus mode that supports the capacity."
+    ),
+    "TooManyWeightsForNullMechanism": (
+        "A Null-consensus weight row exceeds the shared 2500-entry budget divided by the "
+        "subnet's current mechanism count, rounded down with a minimum of one entry. Reduce "
+        "the UID list to that per-mechanism limit; opaque timelocked commits are checked at "
+        "reveal. Yuma-consensus rows do not use this additional limit."
     ),
     "TooManyUnrevealedCommits": (
         "Legacy hash commits (`commit_weights` and `commit_mechanism_weights`) reached their "

@@ -244,6 +244,8 @@ class FacebookGroupPostsInput(TypedDict, total=False):
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    requireFields: NotRequired[list[Literal["sharedPostText"]]]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `sharedPostText`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a post that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     sort: NotRequired[
         Literal[
             "TOP_POSTS", "RECENT_ACTIVITY", "CHRONOLOGICAL", "CHRONOLOGICAL_LISTINGS"
@@ -398,7 +400,16 @@ class FacebookPostInput(TypedDict, total=False):
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     requireFields: NotRequired[
-        list[Literal["authorVerified", "feedbackId", "reactions", "videoUrl", "views"]]
+        list[
+            Literal[
+                "authorVerified",
+                "feedbackId",
+                "reactions",
+                "sharedPostText",
+                "videoUrl",
+                "views",
+            ]
+        ]
     ]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `videoUrl` or `views`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a post that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     source: NotRequired[list[str]]
@@ -490,7 +501,7 @@ class FacebookProfilePostsInput(TypedDict, total=False):
     """Facebook page id."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
-    requireFields: NotRequired[list[Literal["shares"]]]
+    requireFields: NotRequired[list[Literal["sharedPostText", "shares"]]]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `shares`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a post that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
@@ -1693,14 +1704,19 @@ class FacebookGroupPostsPost(BaseModel):
     )
     publish_time: int = Field(
         alias="publishTime",
-        description="Populated whenever the provider has data for the entity.",
+        description="When the post was published, as a UTC epoch timestamp in seconds. On a post that shares another post, a source that cannot tell a share apart returns the shared post's time here; name `sharedPostText` in `requireFields` to be served by a source that returns the sharing post's own time. Populated whenever the provider has data for the entity.",
     )
     reaction_count: int = Field(alias="reactionCount")
     reactions: FacebookGroupPostsReaction = Field(
         description="Reaction counts on the post, broken down by reaction type."
     )
+    shared_post_text: str | None = Field(
+        default=None,
+        alias="sharedPostText",
+        description="Text of the post this post shares. Null when the post shares nothing, when the shared post has no readable text, or when the serving source does not report it. To be served by a source that reports it, name `sharedPostText` in `requireFields` from the first page.",
+    )
     text: str = Field(
-        description="Populated whenever the provider has data for the entity."
+        description="Text of the post. On a post that shares another post, some sources return the shared post's text here instead of the words its author added; name `sharedPostText` in `requireFields` to be served by a source that returns the author's own words here and the shared post's text in `sharedPostText`. Populated whenever the provider has data for the entity."
     )
     url: str = Field(
         description="Populated whenever the provider has data for the entity."
@@ -2211,9 +2227,14 @@ class FacebookPostData(BaseModel):
         default=None,
         description="Reaction counts on the post, broken down by reaction type. Null when this source reports only the total.",
     )
+    shared_post_text: str | None = Field(
+        default=None,
+        alias="sharedPostText",
+        description="Text of the post this post shares. Null when the post shares nothing, when the shared post has no readable text, or when the serving source does not report it. To be served by a source that reports it, name `sharedPostText` in `requireFields`.",
+    )
     shares: int
     text: str = Field(
-        description="Populated whenever the provider has data for the entity."
+        description="Text of the post. On a post that shares another post, some sources return the shared post's text here instead of the words its author added; name `sharedPostText` in `requireFields` to be served by a source that returns the author's own words here and the shared post's text in `sharedPostText`. Populated whenever the provider has data for the entity."
     )
     url: str | None = Field(
         default=None, description="Canonical Facebook URL of the post."
@@ -2461,12 +2482,17 @@ class FacebookProfilePostsPost(BaseModel):
     reactions: FacebookProfilePostsReaction = Field(
         description="Reaction counts on the post, broken down by reaction type."
     )
+    shared_post_text: str | None = Field(
+        default=None,
+        alias="sharedPostText",
+        description="Text of the post this post shares. Null when the post shares nothing, when the shared post has no readable text, or when the serving source does not report it. To be served by a source that reports it, name `sharedPostText` in `requireFields` from the first page.",
+    )
     shares: int | None = Field(
         default=None,
         description="Number of times the post was shared. Null when this source does not report it.",
     )
     text: str = Field(
-        description="Populated whenever the provider has data for the entity."
+        description="Text of the post as the page or profile wrote it. On a post that shares another post, this is the words the sharer added. Populated whenever the provider has data for the entity."
     )
     url: str = Field(
         description="Populated whenever the provider has data for the entity."
@@ -2911,7 +2937,7 @@ class FacebookNamespace:
         Search the Meta Ad Library by keyword and get matching ads (advertiser,
         creative text, CTA, platforms, and run dates) with cursor pagination.
 
-        Price: $0.00109 per request.
+        Price: $0.0008 per request.
 
         Example:
             res = client.facebook.ads_search(country="US", query="nike", searchType="keyword_exact_phrase")
@@ -2999,7 +3025,7 @@ class FacebookNamespace:
         List the Meta Ad Library ads a company is running by page ID or company name
         (creative text, format, platforms, and run dates) with cursor pagination.
 
-        Price: $0.0011 per request.
+        Price: $0.00102 per request.
 
         Example:
             res = client.facebook.company_ads(pageId="15087023444", sortBy="recent")
@@ -3766,7 +3792,7 @@ class AsyncFacebookNamespace:
         Search the Meta Ad Library by keyword and get matching ads (advertiser,
         creative text, CTA, platforms, and run dates) with cursor pagination.
 
-        Price: $0.00109 per request.
+        Price: $0.0008 per request.
 
         Example:
             res = client.facebook.ads_search(country="US", query="nike", searchType="keyword_exact_phrase")
@@ -3854,7 +3880,7 @@ class AsyncFacebookNamespace:
         List the Meta Ad Library ads a company is running by page ID or company name
         (creative text, format, platforms, and run dates) with cursor pagination.
 
-        Price: $0.0011 per request.
+        Price: $0.00102 per request.
 
         Example:
             res = client.facebook.company_ads(pageId="15087023444", sortBy="recent")

@@ -16,7 +16,7 @@ from tinybird.tb.modules.job_common import echo_job_url
 
 @cli.group()
 @click.pass_context
-def sink(ctx):
+def sink(ctx: Context) -> None:
     """Sink pipe commands."""
 
 

@@ -356,6 +356,76 @@ class SetBoardEnabledLayers(google.protobuf.message.Message):
 global___SetBoardEnabledLayers = SetBoardEnabledLayers
 
 @typing.final
+class GetEmbeddedFiles(google.protobuf.message.Message):
+    """Returns kiapi.common.types.EmbeddedFiles"""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    BOARD_FIELD_NUMBER: builtins.int
+
+    @property
+    def board(self) -> common.types.base_types_pb2.DocumentSpecifier:
+        ...
+
+    def __init__(self, *, board: common.types.base_types_pb2.DocumentSpecifier | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['board', b'board']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['board', b'board']) -> None:
+        ...
+global___GetEmbeddedFiles = GetEmbeddedFiles
+
+@typing.final
+class AddEmbeddedFiles(google.protobuf.message.Message):
+    """Appends embedded files to the board.  Returns Empty."""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    BOARD_FIELD_NUMBER: builtins.int
+    FILES_FIELD_NUMBER: builtins.int
+
+    @property
+    def board(self) -> common.types.base_types_pb2.DocumentSpecifier:
+        ...
+
+    @property
+    def files(self) -> common.types.embedded_files_pb2.EmbeddedFiles:
+        ...
+
+    def __init__(self, *, board: common.types.base_types_pb2.DocumentSpecifier | None=..., files: common.types.embedded_files_pb2.EmbeddedFiles | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['board', b'board', 'files', b'files']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['board', b'board', 'files', b'files']) -> None:
+        ...
+global___AddEmbeddedFiles = AddEmbeddedFiles
+
+@typing.final
+class SetEmbeddedFiles(google.protobuf.message.Message):
+    """Replaces all embedded files in the board.  Returns Empty."""
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    BOARD_FIELD_NUMBER: builtins.int
+    FILES_FIELD_NUMBER: builtins.int
+
+    @property
+    def board(self) -> common.types.base_types_pb2.DocumentSpecifier:
+        ...
+
+    @property
+    def files(self) -> common.types.embedded_files_pb2.EmbeddedFiles:
+        ...
+
+    def __init__(self, *, board: common.types.base_types_pb2.DocumentSpecifier | None=..., files: common.types.embedded_files_pb2.EmbeddedFiles | None=...) -> None:
+        ...
+
+    def HasField(self, field_name: typing.Literal['board', b'board', 'files', b'files']) -> builtins.bool:
+        ...
+
+    def ClearField(self, field_name: typing.Literal['board', b'board', 'files', b'files']) -> None:
+        ...
+global___SetEmbeddedFiles = SetEmbeddedFiles
+
+@typing.final
 class GetGraphicsDefaults(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
     BOARD_FIELD_NUMBER: builtins.int

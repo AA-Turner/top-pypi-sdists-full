@@ -536,7 +536,7 @@ class LspAddCommand(cmd.AddCommand):
                         msg = "%s exists with different parent" % self.port
                     if self.tag not in lsp.tag_request:
                         msg = "%s exists with different tag request" % (
-                            self.port,)
+                            self.port)
                 elif lsp.parent_name:
                     msg = "%s exists, but with a parent" % self.port
 
@@ -814,10 +814,19 @@ class DhcpOptionsGetOptionsCommand(cmd.BaseGetOptionsCommand):
 
 
 class LrAddCommand(cmd.BaseCommand):
-    def __init__(self, api, router=None, may_exist=False, **columns):
+    def __init__(self, api, router=None, may_exist=False, add_duplicate=False,
+                 **columns):
         super().__init__(api)
+        if may_exist and add_duplicate:
+            raise RuntimeError('may_exist and add_duplicate may not be used '
+                               'together')
+        if not router and may_exist:
+            raise RuntimeError('may_exist requires name')
+        if not router and add_duplicate:
+            raise RuntimeError('add_duplicate requires name')
         self.router = router
         self.may_exist = may_exist
+        self.add_duplicate = add_duplicate
         self.columns = columns
 
     def run_idl(self, txn):
@@ -827,6 +836,8 @@ class LrAddCommand(cmd.BaseCommand):
                 if self.may_exist:
                     self.result = rowview.RowView(lr)
                     return
+                if not self.add_duplicate:
+                    raise RuntimeError('Router %s exists' % self.router)
             except idlutils.RowNotFound:
                 pass
         lr = txn.insert(self.api.tables['Logical_Router'])
@@ -875,7 +886,7 @@ class LrpAddCommand(cmd.BaseCommand):
         self.networks = [str(netaddr.IPNetwork(net)) for net in networks]
         self.router = router
         self.port = port
-        self.peer = peer if peer else []
+        self.peer = [peer] if peer else []
         self.may_exist = may_exist
         self.columns = columns
         super().__init__(api)
@@ -911,14 +922,20 @@ class LrpAddCommand(cmd.BaseCommand):
         if self.peer:
             lrp.peer = self.peer
         lr.addvalue('ports', lrp)
-        gwcs = self.columns.pop('gateway_chassis', [])
+        # ``run_idl()`` can be called more than once for the same command: the
+        # transaction is re-executed when ``commit_block()`` returns
+        # TRY_AGAIN. Consume the two special columns from a local copy so a
+        # retry still has them; mutating ``self.columns`` made the retried
+        # port lose its gateway chassis and HA chassis group.
+        columns = dict(self.columns)
+        gwcs = columns.pop('gateway_chassis', [])
         for n, chassis in enumerate(gwcs):
             gwc_name = '%s_%s' % (lrp.name, chassis)
             cmd = GatewayChassisAddCommand(self.api, gwc_name, chassis,
                                            len(gwcs) - n, may_exist=True)
             cmd.run_idl(txn)
             lrp.addvalue('gateway_chassis', cmd.result)
-        ha_chassis_group = self.columns.pop('ha_chassis_group', None)
+        ha_chassis_group = columns.pop('ha_chassis_group', None)
         if ha_chassis_group:
             try:
                 ha_chassis_group = self.api.lookup(
@@ -927,7 +944,7 @@ class LrpAddCommand(cmd.BaseCommand):
                 raise RuntimeError(
                     f"HA Chassis Group {ha_chassis_group} does not exist")
             lrp.ha_chassis_group = ha_chassis_group.uuid
-        self.set_columns(lrp, **self.columns)
+        self.set_columns(lrp, **columns)
         self.result = lrp.uuid
 
     def post_commit(self, txn):
@@ -1182,7 +1199,11 @@ class BFDAddCommand(cmd.AddCommand):
                 raise RuntimeError(
                     "Unexpected duplicates in database for port %s "
                     "and dst_ip %s" % (self.logical_port, self.dst_ip))
-            bfd = bfd_result[0]
+            # BFDFindCommand returns RowView objects.  Mutating a RowView
+            # would only set attributes on the wrapper and would not update
+            # OVSDB, so resolve the corresponding IDL row before setting any
+            # columns.
+            bfd = self.api.tables[self.table_name].rows[bfd_result[0].uuid]
             if self.may_exist:
                 self.set_columns(bfd, **self.columns)
                 # When no changes are made to a record, the parent
@@ -1192,10 +1213,9 @@ class BFDAddCommand(cmd.AddCommand):
                 # even when no changes have been applied.
                 self.result = rowview.RowView(bfd)
                 return
-            else:
-                raise RuntimeError(
-                    "BFD entry for port %s and dst_ip %s exists" % (
-                        self.logical_port, self.dst_ip))
+            raise RuntimeError(
+                "BFD entry for port %s and dst_ip %s exists" % (
+                    self.logical_port, self.dst_ip))
         bfd = txn.insert(self.api.tables[self.table_name])
         bfd.logical_port = self.logical_port
         bfd.dst_ip = self.dst_ip
@@ -1555,7 +1575,7 @@ class LrNatAddCommand(cmd.BaseCommand):
             raise TypeError(msg)
         if logical_port and nat_type != const.NAT_BOTH:
             msg = "logical_port/external_mac only valid for %s" % (
-                const.NAT_BOTH,)
+                const.NAT_BOTH)
             raise TypeError(msg)
         if external_mac:
             external_mac = str(

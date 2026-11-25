@@ -1,6 +1,10 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class Disposition(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    Attachment: "Disposition" = "attachment"
-    Inline: "Disposition" = "inline"
+    Attachment: "Disposition" = member("attachment")
+    Inline: "Disposition" = member("inline")

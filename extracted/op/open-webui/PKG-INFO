@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: open-webui
-Version: 0.13.4
+Version: 0.13.5
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Open WebUI License
@@ -75,6 +75,7 @@ Requires-Dist: alembic==1.18.4
 Requires-Dist: anthropic==0.86.0
 Requires-Dist: argon2-cffi==25.1.0
 Requires-Dist: asgiref==3.11.1
+Requires-Dist: asyncssh==2.24.1
 Requires-Dist: authlib==1.7.2
 Requires-Dist: av==14.0.1
 Requires-Dist: azure-ai-documentintelligence==1.0.2
@@ -142,7 +143,7 @@ Requires-Dist: pyxlsb==1.0.10
 Requires-Dist: qrcode==8.2
 Requires-Dist: rank-bm25==0.2.2
 Requires-Dist: rapidocr==3.10.0
-Requires-Dist: redis==8.0.1
+Requires-Dist: redis==8.2.0
 Requires-Dist: regex==2026.5.9
 Requires-Dist: requests==2.34.2
 Requires-Dist: sentence-transformers==5.5.1
@@ -183,7 +184,7 @@ Description-Content-Type: text/markdown
 
 <h2>Open WebUI</h2>
 
-<p>Open WebUI is <a href="https://docs.openwebui.com/"><strong>a home for AI</strong></a>: an extensible, easy-to-use, self-hosted platform built to run entirely offline. Connect local models through Ollama or use OpenAI-compatible APIs for local and cloud models.</p>
+<p>Open WebUI is <a href="https://docs.openwebui.com/"><strong>a home for AI</strong></a>: an extensible, easy-to-use, self-hosted platform built to run entirely offline. Connect local models through Ollama, use OpenAI-compatible APIs for local and cloud models, or add agents through <a href="https://docs.openwebui.com/features/open-terminal/agents">Agent Client Protocol (ACP)</a>.</p>
 
 [English](README.md) |
 [简体中文](README.zh.md) |

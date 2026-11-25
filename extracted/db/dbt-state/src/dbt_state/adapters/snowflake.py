@@ -6,6 +6,7 @@ import typing as t
 from collections import defaultdict
 from concurrent.futures import Future
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 from dbt.adapters.base.relation import BaseRelation
 from query_cache_common.utils import extract_fqn_parts
@@ -400,6 +401,17 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         if not table_batch:
             return {}
 
+        stages = [table for table in table_batch if self._is_stage(table)]
+        if stages:
+            tables = [table for table in table_batch if not self._is_stage(table)]
+            return {
+                **{
+                    self._sql(stage): self._fetch_stage_last_modified_epoch(stage)
+                    for stage in stages
+                },
+                **self._fetch_last_modified_epochs(tables),
+            }
+
         queries = []
         tables_by_catalog = group_tables_by_catalog(table_batch, self.default_catalog)
 
@@ -446,6 +458,29 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
             )
             return {}
 
+    def _fetch_stage_last_modified_epoch(self, stage: exp.Table) -> t.Optional[int]:
+        """The latest last_modified of the files the stage reference reads, or None if there are
+        none or they can't be listed (the server then treats the stage as modified now)."""
+        pattern = stage.args.get("pattern")
+        query = f"LIST {self._sql(stage.this)}" + (
+            f" PATTERN = {self._sql(pattern)}" if pattern else ""
+        )
+        try:
+            rows = self.execute(query, fetch=True).rows
+            # last_modified is text, e.g. 'Mon, 11 Sep 2019 16:57:43 GMT'
+            return max(
+                (
+                    int(parsedate_to_datetime(row["last_modified"]).timestamp() * 1000)
+                    for row in rows
+                ),
+                default=None,
+            )
+        except Exception as e:
+            events.fire_warn_event_suboptimal(
+                "Failed to list files in stage '{}' {}", self._sql(stage), str(e)
+            )
+            return None
+
     def _fetch_schemas(
         self, table_batch: t.Collection[exp.Table]
     ) -> dict[str, t.Optional[t.Dict[str, str]]]:
@@ -460,6 +495,9 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         # these single-table DESCRIBEs out across the executor.
         result: dict[str, t.Optional[t.Dict[str, str]]] = {}
         for table in table_batch:
+            if self._is_stage(table):
+                # Stages have no schema to describe
+                continue
             fqn = self._sql(table)
             try:
                 rows = self.execute(f"DESCRIBE TABLE {fqn}", fetch=True).rows

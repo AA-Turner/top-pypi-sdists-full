@@ -4,16 +4,22 @@
 #include "catalog/catalog_entry/index_catalog_entry.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
+#include "catalog/catalog_entry/sequence_catalog_entry.h"
 #include "common/exception/binder.h"
+#include "common/exception/catalog.h"
 #include "common/string_utils.h"
+#include "function/sequence/sequence_functions.h"
 #include "main/client_context.h"
 #include "main/database.h"
 #include "main/database_manager.h"
+#include "parser/expression/parsed_function_expression.h"
+#include "parser/expression/parsed_literal_expression.h"
 #include "processor/execution_context.h"
 #include "storage/buffer_manager/memory_manager.h"
 #include "storage/storage_manager.h"
 #include "storage/table/node_table.h"
 #include "transaction/transaction.h"
+#include "transaction/transaction_manager.h"
 #include <format>
 
 using namespace lbug::catalog;
@@ -45,6 +51,45 @@ void Drop::executeInternal(ExecutionContext* context) {
     }
 }
 
+namespace {
+// The table property whose SERIAL column uses the sequence, as "<table>.<property>", or an empty
+// string if no SERIAL column does. A column uses a sequence if it derives the sequence's name
+// (<table>_<property>_serial), or if its default calls nextval on it: the default keeps the old
+// name after a rename of the table or the property. The sequence of a column that was dropped is
+// not used by any column and can be dropped.
+std::string findSerialOwner(const Catalog& catalog, const transaction::Transaction* transaction,
+    const std::string& sequenceName) {
+    for (const auto* table : catalog.getTableEntries(transaction)) {
+        for (idx_t i = 0; i < table->getNumProperties(); i++) {
+            const auto& property = table->getProperty(i);
+            if (property.getType().getLogicalTypeID() != LogicalTypeID::SERIAL) {
+                continue;
+            }
+            auto owns = SequenceCatalogEntry::getSerialName(table->getName(), property.getName()) ==
+                        sequenceName;
+            const auto* defaultExpr = property.defaultExpr.get();
+            if (!owns && defaultExpr != nullptr &&
+                defaultExpr->getExpressionType() == ExpressionType::FUNCTION &&
+                defaultExpr->getNumChildren() == 1 &&
+                defaultExpr->getChild(0)->getExpressionType() == ExpressionType::LITERAL &&
+                StringUtils::getUpper(
+                    defaultExpr->constCast<parser::ParsedFunctionExpression>().getFunctionName()) ==
+                    function::NextValFunction::name) {
+                const auto& value = defaultExpr->getChild(0)
+                                        ->constCast<parser::ParsedLiteralExpression>()
+                                        .getValue();
+                owns = value.getDataType().getLogicalTypeID() == LogicalTypeID::STRING &&
+                       value.getValue<std::string>() == sequenceName;
+            }
+            if (owns) {
+                return std::format("{}.{}", table->getName(), property.getName());
+            }
+        }
+    }
+    return "";
+}
+} // namespace
+
 void Drop::dropSequence(const main::ClientContext* context) {
     auto catalog = Catalog::Get(*context);
     auto transaction = transaction::Transaction::Get(*context);
@@ -62,6 +107,11 @@ void Drop::dropSequence(const main::ClientContext* context) {
         default:
             UNREACHABLE_CODE;
         }
+    }
+    if (auto owner = findSerialOwner(*catalog, transaction, dropInfo.name); !owner.empty()) {
+        throw BinderException(std::format("Cannot drop sequence {} because it is used by the "
+                                          "SERIAL column {}. Drop the column or its table instead.",
+            dropInfo.name, owner));
     }
     catalog->dropSequence(transaction, dropInfo.name);
     appendMessage(std::format("Sequence {} has been dropped.", dropInfo.name), memoryManager);
@@ -86,6 +136,9 @@ void Drop::dropTable(const main::ClientContext* context) {
         }
     }
     auto entry = catalog->getTableCatalogEntry(transaction, dropInfo.name);
+    // Storage tables this DROP removes, keyed as LocalStorage keys them.
+    const auto ownerCatalogName = entry->getOwningCatalogName();
+    std::vector<table_id_t> storageTableIDs;
     switch (entry->getType()) {
     case CatalogEntryType::NODE_TABLE_ENTRY: {
         auto* nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
@@ -111,6 +164,7 @@ void Drop::dropTable(const main::ClientContext* context) {
             }
         }
         for (auto* droppingEntry : droppingTables) {
+            storageTableIDs.push_back(droppingEntry->getTableID());
             for (auto& indexEntry : catalog->getIndexEntries(transaction)) {
                 if (indexEntry->getTableID() == droppingEntry->getTableID()) {
                     if (StringUtils::caseInsensitiveEquals(indexEntry->getIndexType(), "HASH") ||
@@ -132,12 +186,25 @@ void Drop::dropTable(const main::ClientContext* context) {
         }
     } break;
     case CatalogEntryType::REL_GROUP_ENTRY: {
-        // Do nothing
+        for (auto& relEntryInfo : entry->ptrCast<RelGroupCatalogEntry>()->getRelEntryInfos()) {
+            storageTableIDs.push_back(relEntryInfo.oid);
+        }
     } break;
     default:
         UNREACHABLE_CODE;
     }
     catalog->dropTableEntryAndIndex(transaction, dropInfo.name);
+    // Checked after the catalog change, as TransactionManager::addLocalWriter requires.
+    auto* transactionManager = transaction::TransactionManager::Get(*context);
+    for (auto tableID : storageTableIDs) {
+        if (transactionManager->hasLocalWriterOtherThan(ownerCatalogName, tableID,
+                transaction->getLocalStorage())) {
+            throw CatalogException(std::format("Write-write conflict on dropping table {}: "
+                                               "another transaction has uncommitted inserts "
+                                               "into it.",
+                dropInfo.name));
+        }
+    }
     appendMessage(std::format("Table {} has been dropped.", dropInfo.name), memoryManager);
 }
 

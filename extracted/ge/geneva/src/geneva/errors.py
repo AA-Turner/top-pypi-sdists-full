@@ -4,6 +4,10 @@
 """Public Geneva exception types."""
 
 
+class JobNotSubmittedError(RuntimeError):
+    """This submission did not start a driver. Earlier attempts may still run."""
+
+
 class FatalWorkerError(RuntimeError):
     """Base exception for fatal worker termination during UDF execution."""
 
@@ -145,6 +149,7 @@ __all__ = [
     "FatalWorkerHardwareError",
     "FatalWorkerOOMError",
     "FatalWorkerTransientError",
+    "JobNotSubmittedError",
     "MergeFallbackTargetError",
     "ShortFragmentWriteError",
 ]

@@ -14,6 +14,9 @@ LOGIN_APP_VERSION = "2.2.556530.0"
 CALL_VERSION = LOGIN_APP_VERSION  # Compatibility alias
 APP_NAME = "Alexa Media Player"
 
+# The skills store answers the app's JSON pages only with this media type.
+SKILLS_STORE_ACCEPT = "application/vnd+amazon.uitoolkit+json;ns=1;fl=0"
+
 # Cookie persistence format used by alexapy.
 #
 # This is intentionally owned by alexapy rather than relying on aiohttp
@@ -110,6 +113,7 @@ query CustomerSmartHome {
       endpointsQueryParams: { paginationParams: { disablePagination: true } }
     ) {
         items {
+            id
             model {
                 type
                 value {
@@ -165,6 +169,41 @@ query CustomerSmartHome {
                 driverIdentity
             }
         }
+    }
+}
+"""
+
+# Smart-home endpoint mutations. They take the endpoint ``id`` of
+# GQL_SMARTHOME_QUERY (amzn1.alexa.endpoint...), not the legacy applianceId.
+GQL_SET_ENDPOINT_FRIENDLY_NAME = """
+mutation SetEndpointFriendlyName($input: SetEndpointFriendlyNameInput!) {
+    setEndpointFriendlyName(input: $input) {
+        endpoint {
+            id
+            friendlyName
+        }
+    }
+}
+"""
+
+GQL_SET_ENDPOINT_ENABLEMENT = """
+mutation SetEndpointEnablement($input: SetEndpointEnablementInput!) {
+    setEndpointEnablement(input: $input) {
+        endpoint {
+            id
+            enablement
+        }
+        error {
+            __typename
+        }
+    }
+}
+"""
+
+GQL_FORGET_ENDPOINT = """
+mutation ForgetEndpoint($input: ForgetEndpointInput!) {
+    forgetEndpoint(forgetEndpointInput: $input) {
+        endpointId
     }
 }
 """

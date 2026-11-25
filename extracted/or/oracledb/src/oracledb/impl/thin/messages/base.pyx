@@ -85,6 +85,7 @@ cdef class Message:
         bint resend
         bint retry
         bint is_one_way
+        bint in_renegotiation
         object warning
         str name
 
@@ -95,10 +96,14 @@ cdef class Message:
         connection" error is detected, the connection is forced closed
         immediately.
         """
+        cdef uint64_t offset
         if self.error_occurred:
+            offset = self.error_info.pos
+            if offset == 0:
+                offset = self.error_info.rowcount
             error = errors._Error(self.error_info.message,
                                   code=self.error_info.num,
-                                  offset=self.error_info.pos)
+                                  offset=offset)
             if error.is_session_dead:
                 self.conn_impl._protocol._disconnect()
             raise error.exc_type(error)
@@ -282,10 +287,14 @@ cdef class Message:
                     self._update_sessionless_txn_state(binary_value)
             elif keyword_num == TNS_KEYWORD_NUM_TXN_PRIORITY:
                 self.conn_impl._txn_priority = text_value
+            elif keyword_num == TNS_KEYWORD_NUM_SERVICE_NAME:
+                self.conn_impl._service_name = text_value
 
     cdef int _process_message(self, ReadBuffer buf,
                               uint8_t message_type) except -1:
-        cdef uint64_t token_num
+        cdef:
+            ProtocolMessage protocol_message
+            uint64_t token_num
         if message_type == TNS_MSG_TYPE_ERROR:
             self._process_error_info(buf)
         elif message_type == TNS_MSG_TYPE_WARNING:
@@ -306,6 +315,12 @@ cdef class Message:
         elif message_type == TNS_MSG_TYPE_SERVER_SIDE_PIGGYBACK:
             self._process_server_side_piggyback(buf)
         elif message_type == TNS_MSG_TYPE_END_OF_RESPONSE:
+            self.end_of_response = True
+        elif message_type == TNS_MSG_TYPE_RENEGOTIATE:
+            self.in_renegotiation = True
+            protocol_message = \
+                    self.conn_impl._create_message(ProtocolMessage, "protocol")
+            protocol_message.process(buf)
             self.end_of_response = True
         else:
             errors._raise_err(errors.ERR_MESSAGE_TYPE_UNKNOWN,
@@ -583,7 +598,7 @@ cdef class Message:
             bytes context_bytes = None
             str hash_text = None
 
-        security_context = self.conn_impl._security_context
+        security_context = self.conn_impl.security_context
         if (
             self.conn_impl._protocol._caps.supports_end_user_security_context_hash
             and security_context.hash_value is not None
@@ -844,7 +859,7 @@ cdef class Message:
         """
         Writes all of the piggybacks to the server.
         """
-        if self.conn_impl._security_context is not None:
+        if self.conn_impl.security_context is not None:
             self._write_end_user_sec_piggyback(buf)
         if self.conn_impl.pipeline_mode != 0:
             self._write_begin_pipeline_piggyback(buf)
@@ -1139,11 +1154,16 @@ cdef class MessageWithData(Message):
 
         # if the type handler set on the cursor or connection does not match
         # the one that was used during the last fetch, rebuild the fetch
-        # variables in order to take the new type handler into account
+        # variables in order to take the new type handler into account; if the
+        # statement has LOBs, however, force a reparse as otherwise the
+        # previous define that was performed may not be compatible with the
+        # new type handler and there is no easy way to detect that in advance
         conn = self.cursor.connection
         type_handler = cursor_impl._get_output_type_handler(&uses_metadata)
         if type_handler is not statement._last_output_type_handler \
                 or cursor_impl.schema_impl is not statement._last_schema_impl:
+            if statement._no_prefetch:
+                return self.conn_impl._statement_cache.clear_cursor(statement)
             for i, var_impl in enumerate(cursor_impl.fetch_var_impls):
                 cursor_impl._create_fetch_var(conn, self.cursor, type_handler,
                                               uses_metadata, i,
@@ -1357,7 +1377,9 @@ cdef class MessageWithData(Message):
             self.retry = True
             conn_impl._statement_cache.clear_cursor(cursor_impl._statement)
         elif self.error_info.num != 0 and self.error_info.cursor_id != 0:
-            if self.error_info.num not in errors.ERR_INTEGRITY_ERROR_CODES:
+            if self.error_info.num not in errors.ERR_INTEGRITY_ERROR_CODES \
+                    or (cursor_impl._statement._is_query
+                        and cursor_impl._statement._fetch_var_impls is None):
                 conn_impl._statement_cache.clear_cursor(cursor_impl._statement)
 
     cdef int _process_implicit_result(self, ReadBuffer buf) except -1:
@@ -1570,7 +1592,7 @@ cdef class MessageWithData(Message):
                 buf.write_ub4(0)            # OID
                 buf.write_ub2(0)            # version
             if metadata.dbtype._csfrm != 0:
-                buf.write_ub2(TNS_CHARSET_UTF8)
+                buf.write_ub2(TNS_CHARSET_ID_AL32UTF8)
             else:
                 buf.write_ub2(0)
             buf.write_uint8(metadata.dbtype._csfrm)
@@ -1702,7 +1724,7 @@ cdef class MessageWithData(Message):
                     self._write_bind_params_column(buf, var_impl, i)
             else:
                 if not self.cursor_impl._statement._is_plsql \
-                        and metadata.buffer_size > buf._caps.max_string_size:
+                        and bind_info.is_long:
                     found_long = True
                     continue
                 self._write_bind_params_column(buf, var_impl, pos + offset)
@@ -1712,7 +1734,7 @@ cdef class MessageWithData(Message):
                     continue
                 var_impl = bind_info._bind_var_impl
                 metadata = var_impl.metadata
-                if metadata.buffer_size <= buf._caps.max_string_size:
+                if not bind_info.is_long:
                     continue
                 self._write_bind_params_column(buf, var_impl, pos + offset)
 

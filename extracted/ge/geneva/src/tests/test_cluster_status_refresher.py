@@ -490,6 +490,8 @@ def test_task_failure_still_fetches_fresh_pod_statuses(
             return None
 
     class _FakeFwm:
+        _reconciled_rows_checkpointed_total = 0
+
         def __init__(self, *args: object, **kwargs: object) -> None:
             return None
 

@@ -20,8 +20,9 @@ from .api import (
     status,
 )
 from .auth import Auth
-from .search import DataCollection, DataCollections, DataGranule, DataGranules
-from .services import DataServices
+from .results import CollectionResults, GranuleResults, Results
+from .search import DataCollection, DataCollectionsQuery, DataGranule, DataGranulesQuery
+from .services import DataServicesQuery
 from .store import Store
 from .system import PROD, UAT
 from .virtual import virtualize
@@ -34,12 +35,15 @@ __all__ = [
     "UAT",
     # auth.py
     "Auth",
-    # search.py
+    # results.py and search.py
+    "CollectionResults",
     "DataCollection",
-    "DataCollections",
+    "DataCollectionsQuery",
     "DataGranule",
-    "DataGranules",
-    "DataServices",
+    "DataGranulesQuery",
+    "DataServicesQuery",
+    "GranuleResults",
+    "Results",
     # store.py
     "Store",
     # api.py

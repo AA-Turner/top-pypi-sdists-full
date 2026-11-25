@@ -18,50 +18,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import Optional, Sequence
+from __future__ import annotations
+
+from collections.abc import Sequence
 
 from kipy.geometry import Vector2, Vector3D
 from kipy.proto.board import board_jobs_pb2, board_types_pb2
-from kipy.proto.common.types import enums_pb2
-from kipy.proto.common.types import jobs_pb2
+from kipy.proto.common.types import enums_pb2, jobs_pb2
 from kipy.wrapper import Wrapper
-
-
-class JobResult(Wrapper):
-
-    def __init__(
-        self,
-        proto: Optional[jobs_pb2.RunJobResponse] = None,
-        proto_ref: Optional[jobs_pb2.RunJobResponse] = None,
-    ):
-        self._proto = proto_ref if proto_ref is not None else jobs_pb2.RunJobResponse()
-        if proto is not None:
-            self._proto.CopyFrom(proto)
-
-    def __repr__(self) -> str:
-        return (
-            f"<JobResult succeeded={self.succeeded} "
-            f"output_paths={self.output_paths} message={self.message!r}>"
-        )
-
-    def __bool__(self) -> bool:
-        return self.succeeded
-
-    @property
-    def status(self) -> jobs_pb2.JobStatus.ValueType:
-        return self._proto.status
-
-    @property
-    def output_paths(self) -> list[str]:
-        return list(self._proto.output_path)
-
-    @property
-    def message(self) -> str:
-        return self._proto.message
-
-    @property
-    def succeeded(self) -> bool:
-        return self._proto.status == jobs_pb2.JS_SUCCESS
 
 
 class PlotSettings(Wrapper):
@@ -69,8 +33,8 @@ class PlotSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.BoardPlotSettings] = None,
-        proto_ref: Optional[board_jobs_pb2.BoardPlotSettings] = None,
+        proto: board_jobs_pb2.BoardPlotSettings | None = None,
+        proto_ref: board_jobs_pb2.BoardPlotSettings | None = None,
     ):
         self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.BoardPlotSettings()
         if proto is not None:
@@ -253,8 +217,8 @@ class Export3DSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExport3D] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExport3D] = None,
+        proto: board_jobs_pb2.RunBoardJobExport3D | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExport3D | None = None,
     ):
         self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExport3D()
         if proto is not None:
@@ -302,12 +266,11 @@ class Export3DSettings(Wrapper):
 
     @property
     def origin(self) -> Vector2:
-        return Vector2(self._proto.origin)
+        return Vector2(proto_ref=self._proto.origin)
 
     @origin.setter
     def origin(self, value: Vector2):
         self._proto.origin.CopyFrom(value.proto)
-        self._proto.has_user_origin = True
 
     @property
     def overwrite(self) -> bool:
@@ -495,6 +458,7 @@ class Export3DSettings(Wrapper):
 
     @property
     def vrml_units(self) -> enums_pb2.Units.ValueType:
+        """Inches, millimeters, meters, or tenths of an inch are accepted"""
         return self._proto.vrml_units
 
     @vrml_units.setter
@@ -523,10 +487,12 @@ class RenderSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportRender] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportRender] = None,
+        proto: board_jobs_pb2.RunBoardJobExportRender | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportRender | None = None,
     ):
-        self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportRender()
+        self._proto = (
+            proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportRender()
+        )
         if proto is not None:
             self._proto.CopyFrom(proto)
 
@@ -612,7 +578,7 @@ class RenderSettings(Wrapper):
 
     @property
     def rotation(self) -> Vector3D:
-        return Vector3D(self._proto.rotation)
+        return Vector3D(proto_ref=self._proto.rotation)
 
     @rotation.setter
     def rotation(self, value: Vector3D):
@@ -620,7 +586,7 @@ class RenderSettings(Wrapper):
 
     @property
     def pan(self) -> Vector3D:
-        return Vector3D(self._proto.pan)
+        return Vector3D(proto_ref=self._proto.pan)
 
     @pan.setter
     def pan(self, value: Vector3D):
@@ -628,7 +594,7 @@ class RenderSettings(Wrapper):
 
     @property
     def pivot(self) -> Vector3D:
-        return Vector3D(self._proto.pivot)
+        return Vector3D(proto_ref=self._proto.pivot)
 
     @pivot.setter
     def pivot(self, value: Vector3D):
@@ -668,7 +634,7 @@ class RenderSettings(Wrapper):
 
     @property
     def light_top_intensity(self) -> Vector3D:
-        return Vector3D(self._proto.light_top_intensity)
+        return Vector3D(proto_ref=self._proto.light_top_intensity)
 
     @light_top_intensity.setter
     def light_top_intensity(self, value: Vector3D):
@@ -676,7 +642,7 @@ class RenderSettings(Wrapper):
 
     @property
     def light_bottom_intensity(self) -> Vector3D:
-        return Vector3D(self._proto.light_bottom_intensity)
+        return Vector3D(proto_ref=self._proto.light_bottom_intensity)
 
     @light_bottom_intensity.setter
     def light_bottom_intensity(self, value: Vector3D):
@@ -684,7 +650,7 @@ class RenderSettings(Wrapper):
 
     @property
     def light_camera_intensity(self) -> Vector3D:
-        return Vector3D(self._proto.light_camera_intensity)
+        return Vector3D(proto_ref=self._proto.light_camera_intensity)
 
     @light_camera_intensity.setter
     def light_camera_intensity(self, value: Vector3D):
@@ -692,7 +658,7 @@ class RenderSettings(Wrapper):
 
     @property
     def light_side_intensity(self) -> Vector3D:
-        return Vector3D(self._proto.light_side_intensity)
+        return Vector3D(proto_ref=self._proto.light_side_intensity)
 
     @light_side_intensity.setter
     def light_side_intensity(self, value: Vector3D):
@@ -712,8 +678,8 @@ class PositionExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportPosition] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportPosition] = None,
+        proto: board_jobs_pb2.RunBoardJobExportPosition | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportPosition | None = None,
     ):
         self._proto = (
             proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportPosition()
@@ -722,13 +688,13 @@ class PositionExportSettings(Wrapper):
             self._proto.CopyFrom(proto)
 
     @property
-    def use_drill_place_file_origin(self) -> Optional[bool]:
+    def use_drill_place_file_origin(self) -> bool | None:
         if not self._proto.HasField("use_drill_place_file_origin"):
             return None
         return self._proto.use_drill_place_file_origin
 
     @use_drill_place_file_origin.setter
-    def use_drill_place_file_origin(self, value: Optional[bool]):
+    def use_drill_place_file_origin(self, value: bool | None):
         if value is None:
             self._proto.ClearField("use_drill_place_file_origin")
             return
@@ -800,6 +766,7 @@ class PositionExportSettings(Wrapper):
 
     @property
     def units(self) -> enums_pb2.Units.ValueType:
+        """Inches or millimeters are accepted"""
         return self._proto.units
 
     @units.setter
@@ -815,13 +782,13 @@ class PositionExportSettings(Wrapper):
         self._proto.format = value
 
     @property
-    def include_board_edge_for_gerber(self) -> Optional[bool]:
+    def include_board_edge_for_gerber(self) -> bool | None:
         if not self._proto.HasField("include_board_edge_for_gerber"):
             return None
         return self._proto.include_board_edge_for_gerber
 
     @include_board_edge_for_gerber.setter
-    def include_board_edge_for_gerber(self, value: Optional[bool]):
+    def include_board_edge_for_gerber(self, value: bool | None):
         if value is None:
             self._proto.ClearField("include_board_edge_for_gerber")
             return
@@ -841,8 +808,8 @@ class Ipc2581ExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportIpc2581] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportIpc2581] = None,
+        proto: board_jobs_pb2.RunBoardJobExportIpc2581 | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportIpc2581 | None = None,
     ):
         self._proto = (
             proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportIpc2581()
@@ -868,6 +835,7 @@ class Ipc2581ExportSettings(Wrapper):
 
     @property
     def units(self) -> enums_pb2.Units.ValueType:
+        """Inches or millimeters are accepted"""
         return self._proto.units
 
     @units.setter
@@ -883,13 +851,13 @@ class Ipc2581ExportSettings(Wrapper):
         self._proto.version = value
 
     @property
-    def precision(self) -> Optional[int]:
+    def precision(self) -> int | None:
         if not self._proto.HasField("precision"):
             return None
         return self._proto.precision
 
     @precision.setter
-    def precision(self, value: Optional[int]):
+    def precision(self, value: int | None):
         if value is None:
             self._proto.ClearField("precision")
             return
@@ -957,8 +925,8 @@ class SvgExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportSvg] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportSvg] = None,
+        proto: board_jobs_pb2.RunBoardJobExportSvg | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportSvg | None = None,
     ):
         self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportSvg()
         if proto is not None:
@@ -990,6 +958,7 @@ class SvgExportSettings(Wrapper):
 
     @property
     def page_mode(self) -> board_jobs_pb2.BoardJobPaginationMode.ValueType:
+        """Supports ``BJPM_ALL_LAYERS_ONE_PAGE`` and ``BJPM_EACH_LAYER_OWN_FILE``."""
         return self._proto.page_mode
 
     @page_mode.setter
@@ -1002,8 +971,8 @@ class DxfExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportDxf] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportDxf] = None,
+        proto: board_jobs_pb2.RunBoardJobExportDxf | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportDxf | None = None,
     ):
         self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportDxf()
         if proto is not None:
@@ -1035,6 +1004,7 @@ class DxfExportSettings(Wrapper):
 
     @property
     def units(self) -> enums_pb2.Units.ValueType:
+        """Inches or millimeters are accepted"""
         return self._proto.units
 
     @units.setter
@@ -1043,6 +1013,7 @@ class DxfExportSettings(Wrapper):
 
     @property
     def page_mode(self) -> board_jobs_pb2.BoardJobPaginationMode.ValueType:
+        """Supports ``BJPM_ALL_LAYERS_ONE_PAGE`` and ``BJPM_EACH_LAYER_OWN_FILE``."""
         return self._proto.page_mode
 
     @page_mode.setter
@@ -1055,8 +1026,8 @@ class PdfExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportPdf] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportPdf] = None,
+        proto: board_jobs_pb2.RunBoardJobExportPdf | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportPdf | None = None,
     ):
         self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportPdf()
         if proto is not None:
@@ -1124,8 +1095,8 @@ class PsExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportPs] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportPs] = None,
+        proto: board_jobs_pb2.RunBoardJobExportPs | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportPs | None = None,
     ):
         self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportPs()
         if proto is not None:
@@ -1141,6 +1112,7 @@ class PsExportSettings(Wrapper):
 
     @property
     def page_mode(self) -> board_jobs_pb2.BoardJobPaginationMode.ValueType:
+        """Supports ``BJPM_ALL_LAYERS_ONE_PAGE`` and ``BJPM_EACH_LAYER_OWN_FILE``."""
         return self._proto.page_mode
 
     @page_mode.setter
@@ -1188,13 +1160,84 @@ class PsExportSettings(Wrapper):
         self._proto.use_global_settings = value
 
 
+class PngExportSettings(Wrapper):
+    """Settings for PNG export job."""
+
+    def __init__(
+        self,
+        proto: board_jobs_pb2.RunBoardJobExportPng | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportPng | None = None,
+    ):
+        self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportPng()
+        if proto is not None:
+            self._proto.CopyFrom(proto)
+
+    @property
+    def plot_settings(self) -> PlotSettings:
+        return PlotSettings(proto_ref=self._proto.plot_settings)
+
+    @plot_settings.setter
+    def plot_settings(self, value: PlotSettings):
+        self._proto.plot_settings.CopyFrom(value.proto)
+
+    @property
+    def dpi(self) -> int | None:
+        """Resolution of the generated image.
+
+        When omitted, the GUI default of 300 DPI is used.  KiCad accepts between 72 and 2400
+        DPI."""
+        if not self._proto.HasField("dpi"):
+            return None
+        return self._proto.dpi
+
+    @dpi.setter
+    def dpi(self, value: int | None):
+        if value is None:
+            self._proto.ClearField("dpi")
+            return
+        self._proto.dpi = value
+
+    @property
+    def antialiasing(self) -> jobs_pb2.AntialiasingMode.ValueType:
+        return self._proto.antialiasing
+
+    @antialiasing.setter
+    def antialiasing(self, value: jobs_pb2.AntialiasingMode.ValueType):
+        self._proto.antialiasing = value
+
+    @property
+    def page_mode(self) -> board_jobs_pb2.BoardJobPaginationMode.ValueType:
+        """Supports ``BJPM_ALL_LAYERS_ONE_PAGE`` and ``BJPM_EACH_LAYER_OWN_FILE``."""
+        return self._proto.page_mode
+
+    @page_mode.setter
+    def page_mode(self, value: board_jobs_pb2.BoardJobPaginationMode.ValueType):
+        self._proto.page_mode = value
+
+    @property
+    def plot_background_color(self) -> bool | None:
+        """Whether to plot using the background color from the theme in :attr:`plot_settings`.
+
+        When false or unset, the background is transparent."""
+        if not self._proto.HasField("plot_background_color"):
+            return None
+        return self._proto.plot_background_color
+
+    @plot_background_color.setter
+    def plot_background_color(self, value: bool | None):
+        if value is None:
+            self._proto.ClearField("plot_background_color")
+            return
+        self._proto.plot_background_color = value
+
+
 class GerberExportSettings(Wrapper):
     """Settings for Gerber export job."""
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportGerbers] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportGerbers] = None,
+        proto: board_jobs_pb2.RunBoardJobExportGerbers | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportGerbers | None = None,
     ):
         self._proto = (
             proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportGerbers()
@@ -1212,6 +1255,9 @@ class GerberExportSettings(Wrapper):
 
     @property
     def use_board_plot_params(self) -> bool:
+        """If true, the Gerber plot settings stored in the board file are used instead of the
+        settings provided in this class.  When set, the layers list is derived from the
+        board's plot layer selection."""
         return self._proto.use_board_plot_params
 
     @use_board_plot_params.setter
@@ -1220,6 +1266,7 @@ class GerberExportSettings(Wrapper):
 
     @property
     def create_gerber_job_file(self) -> bool:
+        """If true, a Gerber job file (.gbrjob) is created alongside the plot outputs."""
         return self._proto.create_gerber_job_file
 
     @create_gerber_job_file.setter
@@ -1228,6 +1275,7 @@ class GerberExportSettings(Wrapper):
 
     @property
     def include_netlist_attributes(self) -> bool:
+        """If true, Gerber X2 netlist attributes are included in the plot outputs."""
         return self._proto.include_netlist_attributes
 
     @include_netlist_attributes.setter
@@ -1236,6 +1284,7 @@ class GerberExportSettings(Wrapper):
 
     @property
     def use_x2_format(self) -> bool:
+        """If true, Gerber X2 format is used."""
         return self._proto.use_x2_format
 
     @use_x2_format.setter
@@ -1244,6 +1293,7 @@ class GerberExportSettings(Wrapper):
 
     @property
     def disable_aperture_macros(self) -> bool:
+        """If true, aperture macros are disabled in the plot outputs."""
         return self._proto.disable_aperture_macros
 
     @disable_aperture_macros.setter
@@ -1252,6 +1302,7 @@ class GerberExportSettings(Wrapper):
 
     @property
     def use_protel_file_extensions(self) -> bool:
+        """If true, Protel-style file extensions are used (e.g. .gbr → .gtl)."""
         return self._proto.use_protel_file_extensions
 
     @use_protel_file_extensions.setter
@@ -1266,65 +1317,68 @@ class GerberExportSettings(Wrapper):
     def precision(self, value: board_jobs_pb2.GerberPrecision.ValueType):
         self._proto.precision = value
 
+
 class ExcellonFormatOptions(Wrapper):
     """Excellon-specific options for drill export."""
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.ExcellonFormatOptions] = None,
-        proto_ref: Optional[board_jobs_pb2.ExcellonFormatOptions] = None,
+        proto: board_jobs_pb2.ExcellonFormatOptions | None = None,
+        proto_ref: board_jobs_pb2.ExcellonFormatOptions | None = None,
     ):
-        self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.ExcellonFormatOptions()
+        self._proto = (
+            proto_ref if proto_ref is not None else board_jobs_pb2.ExcellonFormatOptions()
+        )
         if proto is not None:
             self._proto.CopyFrom(proto)
 
     @property
-    def mirror_y(self) -> Optional[bool]:
+    def mirror_y(self) -> bool | None:
         if not self._proto.HasField("mirror_y"):
             return None
         return self._proto.mirror_y
 
     @mirror_y.setter
-    def mirror_y(self, value: Optional[bool]):
+    def mirror_y(self, value: bool | None):
         if value is None:
             self._proto.ClearField("mirror_y")
             return
         self._proto.mirror_y = value
 
     @property
-    def minimal_header(self) -> Optional[bool]:
+    def minimal_header(self) -> bool | None:
         if not self._proto.HasField("minimal_header"):
             return None
         return self._proto.minimal_header
 
     @minimal_header.setter
-    def minimal_header(self, value: Optional[bool]):
+    def minimal_header(self, value: bool | None):
         if value is None:
             self._proto.ClearField("minimal_header")
             return
         self._proto.minimal_header = value
 
     @property
-    def combine_pth_npth(self) -> Optional[bool]:
+    def combine_pth_npth(self) -> bool | None:
         if not self._proto.HasField("combine_pth_npth"):
             return None
         return self._proto.combine_pth_npth
 
     @combine_pth_npth.setter
-    def combine_pth_npth(self, value: Optional[bool]):
+    def combine_pth_npth(self, value: bool | None):
         if value is None:
             self._proto.ClearField("combine_pth_npth")
             return
         self._proto.combine_pth_npth = value
 
     @property
-    def route_oval_holes(self) -> Optional[bool]:
+    def route_oval_holes(self) -> bool | None:
         if not self._proto.HasField("route_oval_holes"):
             return None
         return self._proto.route_oval_holes
 
     @route_oval_holes.setter
-    def route_oval_holes(self, value: Optional[bool]):
+    def route_oval_holes(self, value: bool | None):
         if value is None:
             self._proto.ClearField("route_oval_holes")
             return
@@ -1336,10 +1390,12 @@ class DrillExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportDrill] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportDrill] = None,
+        proto: board_jobs_pb2.RunBoardJobExportDrill | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportDrill | None = None,
     ):
-        self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportDrill()
+        self._proto = (
+            proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportDrill()
+        )
         if proto is not None:
             self._proto.CopyFrom(proto)
 
@@ -1353,6 +1409,7 @@ class DrillExportSettings(Wrapper):
 
     @property
     def units(self) -> enums_pb2.Units.ValueType:
+        """Inches or millimeters are accepted"""
         return self._proto.units
 
     @units.setter
@@ -1385,6 +1442,7 @@ class DrillExportSettings(Wrapper):
 
     @property
     def map_format(self) -> board_jobs_pb2.DrillMapFormat.ValueType:
+        """Set to a valid value to generate a drill map.  Leave unset for no drill map."""
         return self._proto.map_format
 
     @map_format.setter
@@ -1393,6 +1451,7 @@ class DrillExportSettings(Wrapper):
 
     @property
     def gerber_precision(self) -> board_jobs_pb2.DrillGerberPrecision.ValueType:
+        """When generating drill files in Gerber format, the precision to use for coordinates"""
         return self._proto.gerber_precision
 
     @gerber_precision.setter
@@ -1400,13 +1459,13 @@ class DrillExportSettings(Wrapper):
         self._proto.gerber_precision = value
 
     @property
-    def gerber_generate_tenting(self) -> Optional[bool]:
+    def gerber_generate_tenting(self) -> bool | None:
         if not self._proto.HasField("gerber_generate_tenting"):
             return None
         return self._proto.gerber_generate_tenting
 
     @gerber_generate_tenting.setter
-    def gerber_generate_tenting(self, value: Optional[bool]):
+    def gerber_generate_tenting(self, value: bool | None):
         if value is None:
             self._proto.ClearField("gerber_generate_tenting")
             return
@@ -1414,6 +1473,7 @@ class DrillExportSettings(Wrapper):
 
     @property
     def report_format(self) -> board_jobs_pb2.DrillReportFormat.ValueType:
+        """Set to a valid value to generate a drill report.  Leave unset for no report."""
         return self._proto.report_format
 
     @report_format.setter
@@ -1421,17 +1481,23 @@ class DrillExportSettings(Wrapper):
         self._proto.report_format = value
 
     @property
-    def report_filename(self) -> Optional[str]:
+    def report_filename(self) -> str | None:
+        """Path of the drill report file.
+
+        Setting a non-empty path also selects :attr:`report_format` (``DRF_STANDARD``) when no
+        format is set, because KiCad only generates a report when a format is selected."""
         if not self._proto.HasField("report_filename"):
             return None
         return self._proto.report_filename
 
     @report_filename.setter
-    def report_filename(self, value: Optional[str]):
-        if value is None:
+    def report_filename(self, value: str | None):
+        if not value:
             self._proto.ClearField("report_filename")
             return
         self._proto.report_filename = value
+        if self._proto.report_format == board_jobs_pb2.DRF_UNKNOWN:
+            self._proto.report_format = board_jobs_pb2.DRF_STANDARD
 
 
 class GencadExportSettings(Wrapper):
@@ -1439,10 +1505,12 @@ class GencadExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportGencad] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportGencad] = None,
+        proto: board_jobs_pb2.RunBoardJobExportGencad | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportGencad | None = None,
     ):
-        self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportGencad()
+        self._proto = (
+            proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportGencad()
+        )
         if proto is not None:
             self._proto.CopyFrom(proto)
 
@@ -1492,10 +1560,12 @@ class IpcD356ExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportIpcD356] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportIpcD356] = None,
+        proto: board_jobs_pb2.RunBoardJobExportIpcD356 | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportIpcD356 | None = None,
     ):
-        self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportIpcD356()
+        self._proto = (
+            proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportIpcD356()
+        )
         if proto is not None:
             self._proto.CopyFrom(proto)
 
@@ -1505,8 +1575,8 @@ class OdbExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportODB] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportODB] = None,
+        proto: board_jobs_pb2.RunBoardJobExportODB | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportODB | None = None,
     ):
         self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportODB()
         if proto is not None:
@@ -1530,6 +1600,7 @@ class OdbExportSettings(Wrapper):
 
     @property
     def units(self) -> enums_pb2.Units.ValueType:
+        """Inches or millimeters are accepted"""
         return self._proto.units
 
     @units.setter
@@ -1537,13 +1608,13 @@ class OdbExportSettings(Wrapper):
         self._proto.units = value
 
     @property
-    def precision(self) -> Optional[int]:
+    def precision(self) -> int | None:
         if not self._proto.HasField("precision"):
             return None
         return self._proto.precision
 
     @precision.setter
-    def precision(self, value: Optional[int]):
+    def precision(self, value: int | None):
         if value is None:
             self._proto.ClearField("precision")
             return
@@ -1563,10 +1634,12 @@ class StatsExportSettings(Wrapper):
 
     def __init__(
         self,
-        proto: Optional[board_jobs_pb2.RunBoardJobExportStats] = None,
-        proto_ref: Optional[board_jobs_pb2.RunBoardJobExportStats] = None,
+        proto: board_jobs_pb2.RunBoardJobExportStats | None = None,
+        proto_ref: board_jobs_pb2.RunBoardJobExportStats | None = None,
     ):
-        self._proto = proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportStats()
+        self._proto = (
+            proto_ref if proto_ref is not None else board_jobs_pb2.RunBoardJobExportStats()
+        )
         if proto is not None:
             self._proto.CopyFrom(proto)
 
@@ -1580,6 +1653,7 @@ class StatsExportSettings(Wrapper):
 
     @property
     def units(self) -> enums_pb2.Units.ValueType:
+        """Inches or millimeters are accepted"""
         return self._proto.units
 
     @units.setter

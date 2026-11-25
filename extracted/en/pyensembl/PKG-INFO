@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyensembl
-Version: 2.39.1
+Version: 2.43.0
 Summary: Python interface to Ensembl reference genome metadata
 Author-email: Alex Rubinsteyn <alex.rubinsteyn@unc.edu>
 License-Expression: Apache-2.0
@@ -19,7 +19,7 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: argcomplete<4,>=3
-Requires-Dist: datacache[progress]<2.0.0,>=1.34.0
+Requires-Dist: datacache<2.0.0,>=1.38.0
 Requires-Dist: gtfparse<4.0.0,>=2.9.0
 Requires-Dist: serializable<2.0.0,>=0.2.1
 Requires-Dist: pyfaidx<1.0.0,>=0.8.1
@@ -111,8 +111,8 @@ pyensembl prune --dry-run                       # shared reference DNA that no r
 
 The [command-line reference](https://openvax.github.io/pyensembl/reference/cli/)
 lists every option. For Tab completion, run `activate-global-python-argcomplete`
-once, or add `eval "$(register-python-argcomplete pyensembl)"` to your shell's
-startup file.
+once (covers every OpenVax tool), or add
+`eval "$(register-python-argcomplete pyensembl)"` to your shell's startup file.
 
 ## Documentation
 

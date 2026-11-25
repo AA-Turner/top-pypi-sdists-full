@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apm-cli
-Version: 0.38.1
+Version: 0.39.0
 Summary: MCP configuration tool
 Author-email: Daniel Meppiel <user@example.com>
 License: 
@@ -221,7 +221,7 @@ Requires-Dist: click>=8.0.0
 Requires-Dist: colorama>=0.4.6
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: requests>=2.31.0
-Requires-Dist: truststore>=0.10.0
+Requires-Dist: truststore>=0.10.5
 Requires-Dist: python-frontmatter>=1.0.0
 Requires-Dist: llm>=0.28
 Requires-Dist: llm-github-models>=0.18.0
@@ -230,7 +230,7 @@ Requires-Dist: tomlkit>=0.13
 Requires-Dist: rich>=13.0.0
 Requires-Dist: rich-click>=1.7.0
 Requires-Dist: watchdog>=3.0.0
-Requires-Dist: GitPython>=3.1.0
+Requires-Dist: GitPython>=3.1.41
 Requires-Dist: ruamel.yaml>=0.18.0
 Requires-Dist: filelock>=4.2.1
 Requires-Dist: websockets<17,>=12
@@ -421,7 +421,7 @@ Then follow the **[Quickstart](https://microsoft.github.io/apm/quickstart/)**: a
 Teach your coding agent to use APM with the [official guide](https://github.com/microsoft/apm/tree/main/packages/apm-guide) (an expert agent plus the `apm-usage` skill):
 
 ```bash
-apm install microsoft/apm/packages/apm-guide#v0.38.1
+apm install microsoft/apm/packages/apm-guide#v0.39.0
 ```
 
 ## Community

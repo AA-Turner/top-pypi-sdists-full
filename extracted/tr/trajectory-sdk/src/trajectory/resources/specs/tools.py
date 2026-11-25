@@ -22,7 +22,7 @@ class Tools(APIResource):
 
   def list(
     self,
-    bench_id: str,
+    spec_id: str,
     *,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
@@ -31,7 +31,7 @@ class Tools(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkToolsPage:
-    """Tools bound to any task of the benchmark, in ascending tool-ID order.
+    """Tools bound to any task of the spec, in ascending tool-ID order.
 
     Args:
       extra_headers: Send extra headers
@@ -42,12 +42,12 @@ class Tools(APIResource):
 
       timeout: Override the client-level default timeout for this request, in seconds
     """
-    if isinstance(bench_id, str) and not bench_id:
-      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(spec_id, str) and not spec_id:
+      raise ValueError(f"Expected a non-empty value for `spec_id` but received {spec_id!r}")
     return self._get(
       path_template(
-        "/api/v1/specs/{bench_id}/tools",
-        bench_id=bench_id,
+        "/api/v1/specs/{spec_id}/tools",
+        spec_id=spec_id,
       ),
       cast_to=BenchmarkToolsPage,
       options=make_request_options(

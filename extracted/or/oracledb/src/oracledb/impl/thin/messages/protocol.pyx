@@ -50,8 +50,7 @@ cdef class ProtocolMessage(Message):
                               uint8_t message_type) except -1:
         if message_type == TNS_MSG_TYPE_PROTOCOL:
             self._process_protocol_info(buf)
-            if not buf._caps.supports_end_of_response:
-                self.end_of_response = True
+            self.end_of_response = True
         else:
             Message._process_message(self, buf, message_type)
 
@@ -79,6 +78,7 @@ cdef class ProtocolMessage(Message):
         ix = 6 + fdo[5] + fdo[6]
         check_min_length(fdo_length, ix + 5)
         caps.ncharset_id = (fdo[ix + 3] << 8) + fdo[ix + 4]
+        caps._set_expansion_ratio()
         self.server_compile_caps = buf.read_bytes()
         if self.server_compile_caps is not None:
             temp_array = bytearray(self.server_compile_caps)

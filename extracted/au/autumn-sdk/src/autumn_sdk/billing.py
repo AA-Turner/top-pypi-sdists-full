@@ -4415,18 +4415,20 @@ class Billing(BaseSDK):
         from_entity_id: OptionalNullable[str] = UNSET,
         to_entity_id: OptionalNullable[str] = UNSET,
         customer_plan_id: OptionalNullable[str] = UNSET,
+        swap: OptionalNullable[bool] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
     ) -> models.BillingTransferResponse:
-        r"""Moves one of a customer's plans between entities, or between an entity and the customer. Nothing is charged or refunded.
+        r"""Moves one of a customer's plans between entities, or between an entity and the customer. Set swap to exchange it with the destination's plan in the same group. Nothing is charged or refunded.
 
         :param customer_id: The ID of the customer whose plan to transfer.
         :param plan_id: The ID of the plan to transfer.
         :param from_entity_id: The entity to move the plan from. Omit to move a customer-level plan.
         :param to_entity_id: The entity to move the plan to. Omit to move the plan to the customer level.
         :param customer_plan_id: The ID of the customer's plan instance, when several instances of plan_id match.
+        :param swap: Swap plans: the destination's active plan in the same group moves to the source in the same request.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -4448,6 +4450,7 @@ class Billing(BaseSDK):
             to_entity_id=to_entity_id,
             plan_id=plan_id,
             customer_plan_id=customer_plan_id,
+            swap=swap,
         )
 
         req = self._build_request(
@@ -4517,18 +4520,20 @@ class Billing(BaseSDK):
         from_entity_id: OptionalNullable[str] = UNSET,
         to_entity_id: OptionalNullable[str] = UNSET,
         customer_plan_id: OptionalNullable[str] = UNSET,
+        swap: OptionalNullable[bool] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
     ) -> models.BillingTransferResponse:
-        r"""Moves one of a customer's plans between entities, or between an entity and the customer. Nothing is charged or refunded.
+        r"""Moves one of a customer's plans between entities, or between an entity and the customer. Set swap to exchange it with the destination's plan in the same group. Nothing is charged or refunded.
 
         :param customer_id: The ID of the customer whose plan to transfer.
         :param plan_id: The ID of the plan to transfer.
         :param from_entity_id: The entity to move the plan from. Omit to move a customer-level plan.
         :param to_entity_id: The entity to move the plan to. Omit to move the plan to the customer level.
         :param customer_plan_id: The ID of the customer's plan instance, when several instances of plan_id match.
+        :param swap: Swap plans: the destination's active plan in the same group moves to the source in the same request.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -4550,6 +4555,7 @@ class Billing(BaseSDK):
             to_entity_id=to_entity_id,
             plan_id=plan_id,
             customer_plan_id=customer_plan_id,
+            swap=swap,
         )
 
         req = self._build_request_async(

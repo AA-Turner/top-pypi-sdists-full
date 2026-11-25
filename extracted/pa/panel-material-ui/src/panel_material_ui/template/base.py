@@ -6,6 +6,7 @@ import os
 import pathlib
 import typing as t
 import warnings
+import weakref
 
 import panel
 import param
@@ -17,8 +18,9 @@ from panel.util import edit_readonly
 from panel.viewable import Child, Children
 from param.parameterized import edit_constant
 
+from .. import _utils
 from .._utils import _read_icon
-from ..base import BASE_TEMPLATE, MaterialComponent, ThemedTransform, _env
+from ..base import BASE_TEMPLATE, MaterialComponent, ThemedTransform, _env, align_session_theme, aligning_session_theme
 from ..theme import APPLE_ICON_VAR, FAVICON_VAR, THEME_MANAGED_VAR
 from ..widgets.base import MaterialWidget
 
@@ -40,6 +42,11 @@ def parse_template(tmpl, *args, **kwargs):
     if os.path.isfile(tmpl):
         tmpl = pathlib.Path(tmpl).read_text(encoding='utf-8')
     return _env.from_string(tmpl, *args, **kwargs)
+
+
+def _unwatch_busy(watchers: list[param.parameterized.Watcher]) -> None:
+    while watchers:
+        state.param.unwatch(watchers.pop())
 
 
 class Meta(param.Parameterized):
@@ -79,6 +86,10 @@ class Page(MaterialComponent, ResourceComponent):
     >>> Page(main=['# Content'], title='My App')
     """
 
+    _constants = {"loading_inset": 0, "session_theme_owner": True}
+
+    _session_theme_owner = True
+
     app_bar_width = param.ClassSelector(default=None, class_=(int, str, dict), precedence=-1, doc="""
         Deprecated alias for ``header_width``.""")
 
@@ -109,6 +120,13 @@ class Page(MaterialComponent, ResourceComponent):
 
     header = Children(doc="Items rendered in the header.")
 
+    header_color: t.Literal["primary", "paper"] = param.Selector(default="primary", objects=["primary", "paper"], doc="""
+        Background of the header. 'primary' fills it with the primary color
+        and gives the components in it an inverted palette to match, which
+        also applies to dialogs and menus they open. 'paper' renders a flat
+        header on the paper background, separated from the content by a
+        divider, and leaves the palette of its components unchanged.""")  # type: ignore[assignment]
+
     header_width = param.ClassSelector(default=None, class_=(int, str, dict), doc="""
         Maximum width of the header content. When set, the toolbar content is
         clamped to this width and centered. Accepts a number (interpreted as
@@ -134,6 +152,15 @@ class Page(MaterialComponent, ResourceComponent):
         Logo to render in the header. Can be a string, a pathlib.Path, or a dictionary with
         breakpoints as keys, e.g. {'sm': 'logo_mobile.png', 'md': 'logo.png'} or themes as keys, e.g.
         {'dark': 'logo_dark.png', 'light': 'logo.png'}.""")
+
+    rail = Children(doc="""
+        Items rendered in a navigation rail, a narrow column docked to the
+        left edge below the header, typically holding the app's top-level
+        destinations. Below the 'sm' breakpoint the rail is hidden and its
+        items are rendered at the top of the sidebar drawer instead, opened
+        from the header's menu button.""")
+
+    rail_width = param.Integer(default=80, bounds=(0, None), doc="Width of the navigation rail.")
 
     sidebar = Children(doc="Items rendered in the sidebar.")
 
@@ -177,6 +204,7 @@ class Page(MaterialComponent, ResourceComponent):
         "contextbar": None,
         "sidebar": None,
         "main": None,
+        "rail": None,
     }
 
     def __init__(self, **params):
@@ -205,8 +233,29 @@ class Page(MaterialComponent, ResourceComponent):
         with edit_constant(self.meta):
             self.meta.param.update(**meta)
         self.config.param.update(**resources)
-        with edit_readonly(self):
-            self.busy = state.param.busy
+        # Sync busy through a weakly referencing watcher on the global state,
+        # a param reference would keep every Page alive forever. The watcher
+        # is also dropped once the Page is no longer rendered anywhere.
+        self._busy_watchers: list[param.parameterized.Watcher] = []
+        weakref.finalize(self, _unwatch_busy, self._busy_watchers)
+        self._watch_busy()
+
+    def _watch_busy(self):
+        if self._busy_watchers:
+            return
+        page_ref = weakref.ref(self)
+        def _sync_busy(event):
+            if (page := page_ref()) is not None:
+                with _utils.edit_readonly_params(page, 'busy'):
+                    page.busy = event.new
+        self._busy_watchers.append(state.param.watch(_sync_busy, 'busy'))
+        with _utils.edit_readonly_params(self, 'busy'):
+            self.busy = state.busy
+
+    def _cleanup(self, root: Model | None = None) -> None:
+        super()._cleanup(root)
+        if not self._models:
+            _unwatch_busy(self._busy_watchers)
 
     @param.depends('template', watch=True, on_init=True)
     def _update_template(self):
@@ -252,7 +301,8 @@ class Page(MaterialComponent, ResourceComponent):
 
     @param.depends('dark_theme', watch=True)
     def _update_config(self):
-        config.theme = 'dark' if self.dark_theme else 'default'
+        if not aligning_session_theme():
+            align_session_theme(self, self.dark_theme)
 
     def _add_resources(self, resources, extras, raw_css):
         for rname, res in resources.items():
@@ -303,6 +353,7 @@ class Page(MaterialComponent, ResourceComponent):
         self, doc: Document, root: Model | None = None,
         parent: Model | None = None, comm: Comm | None = None
     ) -> Model:
+        self._watch_busy()
         model = super()._get_model(doc, root, parent, comm)
         served = bool(doc.session_context and doc.session_context.server_context)
         if not served and model.data.site_url == "/":
@@ -391,23 +442,28 @@ class ThemeToggle(MaterialWidget):
     _rename = {"theme_toggle": None}
 
     def __init__(self, **params):
+        explicit = 'value' in params or 'theme' in params
         if 'value' in params:
             if 'theme' in params and params['value'] and not params['theme'] == 'dark':
                 raise ValueError(
                     'The ThemeToggle value and theme must match.'
                 )
+            params['theme'] = 'dark' if params['value'] else 'default'
         elif 'theme' in params:
             params['value'] = params['theme'] == 'dark'
         else:
             params['theme'] = config.theme
             params['value'] = config.theme == 'dark'
-        params['dark_theme'] = params['value']
+        # Only a value or theme passed explicitly sets the theme of the page.
+        if explicit:
+            params['dark_theme'] = params['value']
         super().__init__(**params)
 
-    @param.depends('value', watch=True, on_init=True)
+    @param.depends('value', watch=True)
     def _update_theme(self):
         with param.parameterized.edit_constant(self):
-            self.theme = config.theme = 'dark' if self.value else 'default'
+            self.theme = 'dark' if self.value else 'default'
+        align_session_theme(self, self.value)
 
 
 class AppBar(MaterialComponent):

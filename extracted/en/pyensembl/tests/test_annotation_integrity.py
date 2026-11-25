@@ -17,6 +17,7 @@ import datacache
 import pytest
 
 from pyensembl import EnsemblRelease, annotation_integrity, shell
+from pyensembl.cli import logging_config
 from pyensembl.download_cache import DownloadCache
 from .test_legacy_cache_compatibility import snapshot
 from .test_release_cache_combinations import TinySources
@@ -98,8 +99,8 @@ def test_download_verifies_and_reopens_without_network_or_writes(origin, monkeyp
 def test_existing_unrecorded_cache_stays_unmodified(origin, legacy, monkeypatch):
     genome, root, manifest, publish, calls, expected = origin
     cache = genome.download_cache
-    for url in genome._annotation_sources().values():
-        destination = Path(cache._cache_path(url, legacy=legacy))
+    for url in genome.annotation_sources().values():
+        destination = Path(cache.cache_path(url, legacy=legacy))
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes((root / urlsplit(url).path.lstrip("/")).read_bytes())
     genome.index()
@@ -192,14 +193,14 @@ def test_concurrent_downloads_publish_one_consistent_receipt(origin):
     with ThreadPoolExecutor(2) as pool:
         list(pool.map(lambda _: EnsemblRelease("2026_04").download(), range(2)))
     assert {r["status"] for r in genome.verify_sources(True)} == {"verified"}
-    for url in genome._annotation_sources().values():
+    for url in genome.annotation_sources().values():
         assert calls.count(urlsplit(url).path) == 1
 
 
 def test_cli_verifies_read_only_and_returns_failure_for_changed_sources(origin, monkeypatch, capsys):
     genome, root, manifest, publish, calls, expected = origin
     genome.download()
-    monkeypatch.setattr(shell, "configure_logging", lambda **kw: None)
+    monkeypatch.setattr(logging_config, "configure_logging", lambda **kw: None)
     monkeypatch.setattr(sys, "argv", ["pyensembl", "verify", "--release", "2026_04", "--json"])
     before = snapshot(Path(genome.download_cache.cache_directory_path))
     shell.run()
@@ -222,7 +223,7 @@ def test_cli_verification_cannot_report_success_for_inaccessible_files(origin, m
                        error=PermissionError("shared volume is not readable"))
 
     monkeypatch.setattr(DownloadCache, "inspect", inaccessible)
-    monkeypatch.setattr(shell, "configure_logging", lambda **kw: None)
+    monkeypatch.setattr(logging_config, "configure_logging", lambda **kw: None)
     monkeypatch.setattr(sys, "argv", ["pyensembl", "verify", "--release", "2026_04", "--json"])
     with pytest.raises(SystemExit) as error:
         shell.run()

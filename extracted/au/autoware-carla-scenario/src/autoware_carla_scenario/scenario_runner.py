@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import math
-import shutil
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Collection, Dict, Optional, Union
@@ -15,7 +14,7 @@ from .actions._trajectory_run import forget_walkers
 from .actions.environment import forget_tire_friction, forget_weather_conditions
 from .actions.spawn import clear_props
 from .entity.ego import EgoVehicle
-from .entity._walker_ai import forget_all
+from .entity._walker_ai import forget_all, seed_navigation
 from .adversity_activity import clear_adversities
 from .entity.registry import (
     clear_entities,
@@ -40,7 +39,7 @@ from .perception_fault import reset_perception_faults
 from .constants import DEFAULT_TM_PORT, EGO_ROLE_NAME, FIXED_DELTA_SECONDS
 from .debug_markers import DebugMarkers
 from .failure import Failure, FailureCategory, progress_detail
-from .maps.opendrive import map_asset_env_var, map_asset_path
+from .maps.opendrive import install_xodr, map_asset_env_var, map_asset_path
 from .maps.resolver import _short_map_name
 from .coordinate.map_manager import run_carla_map
 from .coordinate.poses import CarlaWorldPose
@@ -54,7 +53,7 @@ from .metrics import (
     track_ego_progress,
 )
 from .odd import OddCase, OddDefinition, reset_probes, resolve_odd
-from .coordinate.transform import to_opendrive
+from .coordinate.transform import _clear_clamped_s_warnings, to_opendrive
 from .entity.vehicle_entity import _clear_entry_speeds, _set_warmup_done
 from .entity_role import canonical_role_name
 from .ego_base_link import clear_ego_base_link
@@ -493,7 +492,7 @@ def _judge_metrics(
 
     The metrics, and each condition's NG frames, go into the run's
     *trajectory* log (its :class:`TrajectoryRecorder`), for its Rerun
-    recording (:mod:`~autoware_carla_scenario.rerun_metrics`).
+    recording, which the converter draws them in.
 
     Raises:
         ~autoware_carla_scenario.commonroad.CommonRoadWorkerError: A CommonRoad
@@ -1382,7 +1381,11 @@ class ScenarioRunner:
         (e.g. ``NishishinjukuMap`` → ``NISHISHINJUKU_MAP_PATH``).
 
         This allows using the full CARLA map assets (meshes, textures, etc.)
-        while replacing only the road network definition.
+        while replacing only the road network definition.  The installed file
+        stays overwritten after the run; its original is kept beside it as
+        ``<file>.orig`` before the first overwrite, and copies derived from
+        the installation are taken from that (``maps.opendrive.install_xodr``,
+        #2446).
 
         Args:
             xodr_path: Path to the ``.xodr`` file that will overwrite the
@@ -1410,7 +1413,9 @@ class ScenarioRunner:
                 f"inside the CARLA installation "
                 f"(e.g. /opt/carla/CarlaUE5/Content/Carla/Maps/{_short_map_name(map_name)}.xodr)."
             )
-        shutil.copy2(xodr_path, dest)
+        # The installation's original kept once, replaced in one rename, and
+        # left alone when it holds these bytes already (#2446).
+        install_xodr(xodr_path, dest)
         self._xodr_path = xodr_path
         self._load_map(map_name, capture_baseline)
         # After _load_map(), which forgets any OpenDRIVE: the map is to
@@ -1862,6 +1867,9 @@ class ScenarioRunner:
         clear_signal_controllers()
         _set_warmup_done(False)
         _clear_entry_speeds()
+        # An off-lanelet s the last run was warned about is warned about
+        # again in this run's log.
+        _clear_clamped_s_warnings()
         # And where the last run's ego had its base_link: this run's ego says
         # where its own is when its scenario starts.
         clear_ego_base_link()
@@ -1976,8 +1984,11 @@ class ScenarioRunner:
             else:
                 _follow_weather_rules(scenario)
             # CARLA's pedestrian navigation (the AI walker controllers' choice
-            # of where to go) from the run's seed, before any walker is spawned.
-            world.set_pedestrians_seed(seed)
+            # of where to go) from the run's seed, before any walker is spawned:
+            # after the map's navigation mesh is probed, so that the probe's
+            # draws (the first run on a world only) come before the run's
+            # sequence and every run draws the same after its seed (#2448).
+            seed_navigation(world, seed)
             backend.prepare(
                 TrafficContext(
                     client=self._client,

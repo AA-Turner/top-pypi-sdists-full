@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -14,10 +14,8 @@ from __future__ import annotations
 
 import os
 import shutil
-from datetime import datetime
 
 import pytest
-from freezegun import freeze_time
 
 from babel import __version__ as VERSION
 from babel.dates import format_datetime
@@ -59,8 +57,7 @@ def test_no_locale(init_cmd):
         init_cmd.finalize_options()
 
 
-@freeze_time("1994-11-11")
-def test_with_output_dir(init_cmd):
+def test_with_output_dir(frozen_time, init_cmd):
     init_cmd.input_file = 'project/i18n/messages.pot'
     init_cmd.locale = 'en_US'
     init_cmd.output_dir = 'project/i18n'
@@ -68,8 +65,8 @@ def test_with_output_dir(init_cmd):
     init_cmd.finalize_options()
     init_cmd.run()
 
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# English (United States) translations for TestProject.
+    date = format_datetime(frozen_time, 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
+    expected_content = rf"""# English (United States) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -108,8 +105,7 @@ msgstr[1] ""
     assert expected_content == actual_content
 
 
-@freeze_time("1994-11-11")
-def test_keeps_catalog_non_fuzzy(init_cmd):
+def test_keeps_catalog_non_fuzzy(frozen_time, init_cmd):
     init_cmd.input_file = 'project/i18n/messages_non_fuzzy.pot'
     init_cmd.locale = 'en_US'
     init_cmd.output_dir = 'project/i18n'
@@ -117,8 +113,8 @@ def test_keeps_catalog_non_fuzzy(init_cmd):
     init_cmd.finalize_options()
     init_cmd.run()
 
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# English (United States) translations for TestProject.
+    date = format_datetime(frozen_time, 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
+    expected_content = rf"""# English (United States) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -157,8 +153,7 @@ msgstr[1] ""
     assert expected_content == actual_content
 
 
-@freeze_time("1994-11-11")
-def test_correct_init_more_than_2_plurals(init_cmd):
+def test_correct_init_more_than_2_plurals(frozen_time, init_cmd):
     init_cmd.input_file = 'project/i18n/messages.pot'
     init_cmd.locale = 'lv_LV'
     init_cmd.output_dir = 'project/i18n'
@@ -166,8 +161,8 @@ def test_correct_init_more_than_2_plurals(init_cmd):
     init_cmd.finalize_options()
     init_cmd.run()
 
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
-    expected_content = fr"""# Latvian (Latvia) translations for TestProject.
+    date = format_datetime(frozen_time, 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en')
+    expected_content = rf"""# Latvian (Latvia) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -182,8 +177,8 @@ msgstr ""
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: lv_LV\n"
 "Language-Team: lv_LV <LL@li.org>\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 :"
-" 2);\n"
+"Plural-Forms: nplurals=3; plural=(n % 10 == 0 || n % 100 >= 11 && n % 100"
+" <= 19 ? 0 : n % 10 == 1 && n % 100 != 11 ? 1 : 2);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -208,8 +203,7 @@ msgstr[2] ""
     assert expected_content == actual_content
 
 
-@freeze_time("1994-11-11")
-def test_correct_init_singular_plural_forms(init_cmd):
+def test_correct_init_singular_plural_forms(frozen_time, init_cmd):
     init_cmd.input_file = 'project/i18n/messages.pot'
     init_cmd.locale = 'ja_JP'
     init_cmd.output_dir = 'project/i18n'
@@ -217,8 +211,8 @@ def test_correct_init_singular_plural_forms(init_cmd):
     init_cmd.finalize_options()
     init_cmd.run()
 
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='ja_JP')
-    expected_content = fr"""# Japanese (Japan) translations for TestProject.
+    date = format_datetime(frozen_time, 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='ja_JP')
+    expected_content = rf"""# Japanese (Japan) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -256,8 +250,7 @@ msgstr[0] ""
     assert expected_content == actual_content
 
 
-@freeze_time("1994-11-11")
-def test_supports_no_wrap(init_cmd):
+def test_supports_no_wrap(frozen_time, init_cmd):
     init_cmd.input_file = 'project/i18n/long_messages.pot'
     init_cmd.locale = 'en_US'
     init_cmd.output_dir = 'project/i18n'
@@ -274,8 +267,8 @@ def test_supports_no_wrap(init_cmd):
     init_cmd.finalize_options()
     init_cmd.run()
 
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en_US')
-    expected_content = fr"""# English (United States) translations for TestProject.
+    date = format_datetime(frozen_time, 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en_US')
+    expected_content = rf"""# English (United States) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.
@@ -314,8 +307,7 @@ msgstr[1] ""
     assert expected_content == actual_content
 
 
-@freeze_time("1994-11-11")
-def test_supports_width(init_cmd):
+def test_supports_width(frozen_time, init_cmd):
     init_cmd.input_file = 'project/i18n/long_messages.pot'
     init_cmd.locale = 'en_US'
     init_cmd.output_dir = 'project/i18n'
@@ -331,8 +323,8 @@ def test_supports_width(init_cmd):
     init_cmd.finalize_options()
     init_cmd.run()
 
-    date = format_datetime(datetime(1994, 11, 11, 00, 00), 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en_US')
-    expected_content = fr"""# English (United States) translations for TestProject.
+    date = format_datetime(frozen_time, 'yyyy-MM-dd HH:mmZ', tzinfo=LOCALTZ, locale='en_US')
+    expected_content = rf"""# English (United States) translations for TestProject.
 # Copyright (C) 2007 FooBar, Inc.
 # This file is distributed under the same license as the TestProject
 # project.

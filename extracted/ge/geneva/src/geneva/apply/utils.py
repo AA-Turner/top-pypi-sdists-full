@@ -17,8 +17,17 @@ import pyarrow.compute as pc
 from lance.file import LanceFileSession
 from yarl import URL
 
+from geneva._context import get_current_context
 from geneva.apply.task import DEFAULT_CHECKPOINT_ROWS, MapTask
-from geneva.checkpoint import CheckpointStore
+from geneva.checkpoint import (
+    CheckpointStore,
+    FlatLanceCheckpointStore,
+    _normalize_store_layout,
+    configured_store_layout,
+    fragments_with_flat_progress,
+    keys_have_udf_version_mismatch,
+    unwrap_default_checkpoint_store,
+)
 from geneva.checkpoint_utils import hash_source_files
 from geneva.transformer import BACKFILL_SELECTED
 
@@ -782,43 +791,44 @@ def detect_backfill_mismatches(
 
     col_schema = table._ltbl.schema
     col_field = col_schema.field(col_name)
-    checkpoint_store = table.get_reference().open_checkpoint_store()
+    from geneva.table import (
+        _get_udf_name_from_field,
+        _open_checkpoint_stores_all_layouts,
+    )
 
-    # Multi-base tables keep fragment checkpoints in each fragment's storage
-    # base; wrap so mismatch detection sees the base-routed keys (mirrors
-    # Table.cleanup_checkpoints). Without this, has_udf_version_mismatch /
-    # has_srcfiles_hash_mismatch list an empty table root and silently skip
-    # recomputation of stale rows.
-    try:
-        from geneva.utils.multi_base import (
-            FragmentBasePlacement,
-            maybe_wrap_checkpoint_store_for_bases,
-        )
-
-        # to_lance: fresh — base placement needs the live manifest, once per call
-        placement = FragmentBasePlacement.from_dataset(table.to_lance())
-        checkpoint_store = maybe_wrap_checkpoint_store_for_bases(
-            checkpoint_store, placement, include_unused_bases=True
-        )
-    except Exception:
-        _LOG.debug(
-            "mismatch detection: failed to resolve multi-base roots",
-            exc_info=True,
-        )
-
-    from geneva.table import _get_udf_name_from_field
+    # Check every layout root (and multi-base root): checkpoints from before the
+    # hierarchical default live in the flat root. Missing a mismatch there
+    # would leave a populated column stale.
+    stores = _open_checkpoint_stores_all_layouts(table)
 
     udf_name = _get_udf_name_from_field(col_field)
     # Compare against the token embedded in the key (override or version), which
     # is what the store's has_udf_version_mismatch reads back from the key.
     udf_version = udf.checkpoint_version
     if udf_name and udf_version:
-        try:
-            udf_mismatch = checkpoint_store.has_udf_version_mismatch(
-                col_name, udf_version
-            )
-        except Exception as e:
-            _LOG.debug("Error checking checkpoint UDF versions: %s", e)
+        skipped_flat = _skipped_flat_store(stores)
+        for store in stores:
+            try:
+                if store is skipped_flat:
+                    # Reuse this one listing to spot progress the hierarchical
+                    # layout will not read.
+                    keys = list(store.list_keys(prefix="udf-"))
+                    mismatch = keys_have_udf_version_mismatch(
+                        keys, col_name, udf_version
+                    )
+                    try:
+                        _warn_skipped_flat_progress(
+                            table, store, keys, col_name, udf_version, read_version
+                        )
+                    except Exception:
+                        _LOG.debug("skipped-progress check failed", exc_info=True)
+                else:
+                    mismatch = store.has_udf_version_mismatch(col_name, udf_version)
+                if mismatch:
+                    udf_mismatch = True
+                    break
+            except Exception as e:
+                _LOG.debug("Error checking checkpoint UDF versions: %s", e)
 
     # Check for srcfiles mismatch (indicates input column data changed)
     if not udf_mismatch and udf.input_columns:
@@ -843,13 +853,96 @@ def detect_backfill_mismatches(
                         fragments[0], input_field_ids
                     )
                     current_hash = hash_source_files(current_src_files)
-                    srcfiles_mismatch = checkpoint_store.has_srcfiles_hash_mismatch(
-                        col_name, current_hash
+                    # Union across roots: a hash held by any root is known.
+                    stored_hashes: set[str] = set()
+                    for store in stores:
+                        # Per store: one root failing must not skip the other.
+                        try:
+                            stored_hashes |= store.srcfiles_hashes(col_name)
+                        except Exception as e:  # noqa: PERF203
+                            _LOG.debug("Error checking srcfiles hash: %s", e)
+                    srcfiles_mismatch = (
+                        bool(stored_hashes) and current_hash not in stored_hashes
                     )
         except Exception as e:
-            _LOG.debug("Error checking srcfiles hash: %s", e)
+            _LOG.debug("Error preparing srcfiles hash check: %s", e)
 
     return udf_mismatch, srcfiles_mismatch
+
+
+def _manifest_store_layout() -> str | None:
+    """Checkpoint layout set by the active context's manifest, if any."""
+    manifest = getattr(get_current_context(), "manifest", None)
+    env = (getattr(manifest, "env_vars", None) or {}).get("CHECKPOINT__STORE_LAYOUT")
+    return None if env is None else _normalize_store_layout(env)
+
+
+def _job_store_layout() -> str:
+    """Checkpoint layout the job is expected to run with: the manifest's
+    setting wins over the client's, as it does on the cluster."""
+    return _manifest_store_layout() or configured_store_layout()
+
+
+def _skipped_flat_store(stores: list[CheckpointStore]) -> CheckpointStore | None:
+    """The flat-root store when the job is expected to run hierarchical."""
+    if _job_store_layout() != "hierarchical":
+        return None
+    for store in stores:
+        if type(unwrap_default_checkpoint_store(store)) is FlatLanceCheckpointStore:
+            return store
+    return None
+
+
+def _warn_skipped_flat_progress(
+    table,
+    flat_store: CheckpointStore,
+    keys: list[str],
+    col_name: str,
+    udf_version: str,
+    read_version: int | None,
+) -> None:
+    """Warn when unfinished fragments have flat-layout progress that the
+    hierarchical layout ignores."""
+    frag_ids = fragments_with_flat_progress(keys, col_name, udf_version)
+    if not frag_ids:
+        return
+    from geneva.db import open_lance_dataset
+    from geneva.runners.ray.pipeline import (
+        _get_relevant_field_ids,
+        get_source_data_files,
+    )
+
+    dataset = open_lance_dataset(
+        table.uri, version=read_version, storage_options=table._storage_options
+    )
+    field_ids = _get_relevant_field_ids(dataset, [col_name])
+    if not field_ids:
+        return
+    # Fragments with no data file for the column have not been written yet;
+    # finished fragments keep their flat markers but need no recompute.
+    pending = sum(
+        1
+        for frag in dataset.get_fragments()
+        if frag.fragment_id in frag_ids and not get_source_data_files(frag, field_ids)
+    )
+    if pending:
+        # A manifest setting overrides the client's, so it is the one to change.
+        remedy = (
+            "the manifest's CHECKPOINT__STORE_LAYOUT=hierarchical is changed to flat"
+            if _manifest_store_layout() is not None
+            else "CHECKPOINT__STORE_LAYOUT=flat is set on the client or the cluster"
+        )
+        # The hierarchical root may already hold progress for these fragments,
+        # so a recompute is possible, not certain.
+        _LOG.warning(
+            "%d fragment(s) of column %r have progress saved in the flat "
+            "checkpoint layout (%s), which the hierarchical layout ignores; "
+            "they may need recomputing unless %s.",
+            pending,
+            col_name,
+            flat_store.uri(),
+            remedy,
+        )
 
 
 def resolve_backfill_where(

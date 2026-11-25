@@ -577,6 +577,61 @@ def test_init_ray_forwards_compaction_pause_env(monkeypatch) -> None:
     )
 
 
+@pytest.mark.parametrize("source", ["env_var", "config_file"])
+def test_init_ray_forwards_checkpoint_store_layout(
+    tmp_path, monkeypatch, source: str
+) -> None:
+    """A client-set flat checkpoint layout (env var or config file) reaches the
+    cluster; manifest env_vars and ray_init_kwargs still win over it."""
+    import geneva.runners.ray._mgr as ray_mgr_mod
+    from geneva.checkpoint import CheckpointConfig
+    from geneva.config import loader
+    from geneva.config.loader import from_file
+    from geneva.manifest.mgr import GenevaManifest
+
+    ray_init_called: dict[str, Any] = {}
+
+    def mock_ray_init(*args: Any, **kwargs: Any) -> None:
+        ray_init_called["kwargs"] = kwargs
+
+    def layout_sent(**kwargs: Any) -> str | None:
+        with ray_mgr_mod.ray_cluster(local=True, **kwargs):
+            pass
+        env_vars = ray_init_called["kwargs"]["runtime_env"]["env_vars"]
+        assert "CHECKPOINT__FLAT_SUBDIR" not in env_vars
+        return env_vars.get("CHECKPOINT__STORE_LAYOUT")
+
+    monkeypatch.setattr("ray.init", mock_ray_init)
+    monkeypatch.setattr("ray.shutdown", lambda: None)
+    monkeypatch.setattr("ray.is_initialized", lambda: False)
+    monkeypatch.delenv("CHECKPOINT__STORE_LAYOUT", raising=False)
+    monkeypatch.setenv("CHECKPOINT__FLAT_SUBDIR", "_ckp_other")
+    CheckpointConfig.get.cache_clear()
+    try:
+        assert layout_sent() is None
+
+        if source == "env_var":
+            monkeypatch.setenv("CHECKPOINT__STORE_LAYOUT", "flat")
+        else:
+            cfg_file = tmp_path / "geneva.toml"
+            cfg_file.write_text('[checkpoint]\nstore_layout = "flat"\n')
+            monkeypatch.setattr(
+                "geneva.config._CONFIG_LOADER", loader(from_file(cfg_file))
+            )
+            CheckpointConfig.get.cache_clear()
+        assert layout_sent() == "flat"
+        manifest = GenevaManifest(
+            name="m", env_vars={"CHECKPOINT__STORE_LAYOUT": "hierarchical"}
+        )
+        assert layout_sent(manifest=manifest) == "hierarchical"
+        cluster_env = {"env_vars": {"CHECKPOINT__STORE_LAYOUT": "hierarchical"}}
+        assert (
+            layout_sent(ray_init_kwargs={"runtime_env": cluster_env}) == "hierarchical"
+        )
+    finally:
+        CheckpointConfig.get.cache_clear()
+
+
 def test_init_ray_sets_telemetry_init_flag(monkeypatch) -> None:
     """Workers get the telemetry init-on-import flag; extra_env overrides."""
     import geneva.runners.ray._mgr as ray_mgr_mod

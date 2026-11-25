@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2007-2011 Edgewall Software, 2013-2025 the Babel team
+# Copyright (C) 2007-2011 Edgewall Software, 2013-2026 the Babel team
 # All rights reserved.
 #
 # This software is licensed as described in the file LICENSE, which
@@ -17,6 +17,7 @@ import os
 import pickle
 import re
 import sys
+import warnings
 from optparse import OptionParser
 from xml.etree import ElementTree
 
@@ -61,23 +62,6 @@ NAME_MAP = {
 log = logging.getLogger("import_cldr")
 
 
-def need_conversion(dst_filename, data_dict, source_filename):
-    with open(source_filename, 'rb') as f:
-        blob = f.read(4096)
-        version_match = re.search(b'version number="\\$Revision: (\\d+)', blob)
-        if not version_match:  # CLDR 36.0 was shipped without proper revision numbers
-            return True
-        version = int(version_match.group(1))
-
-    data_dict['_version'] = version
-    if not os.path.isfile(dst_filename):
-        return True
-
-    with open(dst_filename, 'rb') as f:
-        data = pickle.load(f)
-        return data.get('_version') != version
-
-
 def _translate_alias(ctxt, path):
     parts = path.split('/')
     keys = ctxt[:]
@@ -92,6 +76,19 @@ def _translate_alias(ctxt, path):
                 assert NAME_RE.match(part)
                 keys.append(NAME_MAP.get(part, part))
     return keys
+
+
+def _sibling_alias_type(alias_elem) -> str:
+    """
+    Extract target type from an alias path pointing at a sibling.
+
+    E.g. ``../unit[@type='duration-year']`` -> ``duration-year``.
+    """
+    path_attr = alias_elem.attrib['path']
+    parent, _, leaf = path_attr.rpartition('/')
+    if parent != "..":
+        raise ValueError(f"not a sibling alias: {path_attr}")
+    return TYPE_ATTR_RE.match(leaf).group(1)
 
 
 def _parse_currency_date(s):
@@ -164,7 +161,7 @@ def main():
     parser = OptionParser(usage='%prog path/to/cldr')
     parser.add_option(
         '-f', '--force', dest='force', action='store_true', default=False,
-        help='force import even if destination file seems up to date',
+        help='legacy option; conversion is always done',
     )
     parser.add_option(
         '-j', '--json', dest='dump_json', action='store_true', default=False,
@@ -186,22 +183,21 @@ def main():
     return process_data(
         srcdir=args[0],
         destdir=BABEL_PACKAGE_ROOT,
-        force=bool(options.force),
         dump_json=bool(options.dump_json),
     )
 
 
-def process_data(srcdir, destdir, force=False, dump_json=False):
+def process_data(srcdir, destdir, force=True, dump_json=False):
+    if not force:
+        warnings.warn("Setting `force=False` has no effect.", DeprecationWarning, stacklevel=2)
     sup_filename = os.path.join(srcdir, 'supplemental', 'supplementalData.xml')
     sup = parse(sup_filename)
 
     # Import global data from the supplemental files
     global_path = os.path.join(destdir, 'global.dat')
-    global_data = {}
-    if force or need_conversion(global_path, global_data, sup_filename):
-        global_data.update(parse_global(srcdir, sup))
-        write_datafile(global_path, global_data, dump_json=dump_json)
-    _process_local_datas(sup, srcdir, destdir, force=force, dump_json=dump_json)
+    global_data = parse_global(srcdir, sup)
+    write_datafile(global_path, global_data, dump_json=dump_json)
+    _process_local_datas(sup, srcdir, destdir, dump_json=dump_json, zone_aliases=global_data['zone_aliases'])
 
 
 def parse_global(srcdir, sup):
@@ -276,7 +272,8 @@ def parse_global(srcdir, sup):
     for elem in tzsup.findall('.//timezone'):
         for child in elem.findall('usesMetazone'):
             if 'to' not in child.attrib:  # FIXME: support old mappings
-                meta_zones[elem.attrib['type']] = child.attrib['mzone']
+                tzid = elem.attrib['type']
+                meta_zones[zone_aliases.get(tzid, tzid)] = child.attrib['mzone']
 
     # Language aliases
     for alias in sup_metadata.findall('.//alias/languageAlias'):
@@ -366,7 +363,9 @@ def parse_global(srcdir, sup):
     return global_data
 
 
-def _process_local_datas(sup, srcdir, destdir, force=False, dump_json=False):
+def _process_local_datas(sup, srcdir, destdir, force=True, dump_json=False, zone_aliases=None):
+    if not force:
+        warnings.warn("Setting `force=False` has no effect.", DeprecationWarning, stacklevel=2)
     day_period_rules = parse_day_period_rules(parse(os.path.join(srcdir, 'supplemental', 'dayPeriods.xml')))
     # build a territory containment mapping for inheritance
     regions = {}
@@ -401,8 +400,6 @@ def _process_local_datas(sup, srcdir, destdir, force=False, dump_json=False):
         data_filename = os.path.join(destdir, "locale-data", f"{stem}.dat")
 
         data = {}
-        if not (force or need_conversion(data_filename, data, full_filename)):
-            continue
 
         tree = parse(full_filename)
 
@@ -440,7 +437,7 @@ def _process_local_datas(sup, srcdir, destdir, force=False, dump_json=False):
         is_global = ("_" not in locale_id)
         parse_locale_display_names(data, tree, is_global=is_global)
         parse_list_patterns(data, tree)
-        parse_dates(data, tree, sup, regions, territory)
+        parse_dates(data, tree, sup, regions, territory, zone_aliases or {})
 
         for calendar in tree.findall('.//calendars/calendar'):
             if calendar.attrib['type'] != 'gregorian':
@@ -516,7 +513,15 @@ def _should_skip_elem(elem, type=None, dest=None):
 
 
 def _is_draft_or_alt(elem) -> bool:
-    return 'draft' in elem.attrib or 'alt' in elem.attrib
+    return _is_draft(elem) or _is_alt(elem)
+
+
+def _is_draft(elem) -> bool:
+    return 'draft' in elem.attrib
+
+
+def _is_alt(elem) -> bool:
+    return 'alt' in elem.attrib
 
 
 def _import_type_text(dest, elem, type=None, *, allow_variant_and_draft_fallback=True) -> None:
@@ -569,7 +574,7 @@ def parse_list_patterns(data, tree):
             list_patterns.setdefault(pattern_type, {})[pattern_part_type] = _text(pattern_part_el)
 
 
-def parse_dates(data, tree, sup, regions, territory):
+def parse_dates(data, tree, sup, regions, territory, zone_aliases):
     week_data = data.setdefault('week_data', {})
     supelem = sup.find('.//weekData')
     for elem in supelem.findall('minDays'):
@@ -601,6 +606,11 @@ def parse_dates(data, tree, sup, regions, territory):
         if not _should_skip_elem(elem):
             zone_formats['gmt'] = str(elem.text).replace('{0}', '%s')
             break
+    # Since CLDR 49, `gmtFormat[@alt="utc"]` is the localized "UTC" variant of `gmtFormat`.
+    for elem in tree.findall('.//timeZoneNames/gmtFormat[@alt="utc"]'):
+        if not _is_draft(elem):
+            zone_formats['gmt_utc'] = str(elem.text).replace('{0}', '%s')
+            break
     for elem in tree.findall('.//timeZoneNames/regionFormat'):
         if not _should_skip_elem(elem):
             zone_formats['region'] = str(elem.text).replace('{0}', '%s')
@@ -619,26 +629,41 @@ def parse_dates(data, tree, sup, regions, territory):
             break
     time_zones = data.setdefault('time_zones', {})
     for elem in tree.findall('.//timeZoneNames/zone'):
-        info = {}
-        city = elem.findtext('exemplarCity')
-        if city:
-            info['city'] = str(city)
-        for child in elem.findall('long/*'):
-            info.setdefault('long', {})[child.tag] = str(child.text)
-        for child in elem.findall('short/*'):
-            info.setdefault('short', {})[child.tag] = str(child.text)
-        time_zones[elem.attrib['type']] = info
+        tzid = elem.attrib['type']
+        tzid = zone_aliases.get(tzid, tzid)
+        time_zones[tzid] = _parse_zone_names(elem, ['time_zones', tzid])
     meta_zones = data.setdefault('meta_zones', {})
     for elem in tree.findall('.//timeZoneNames/metazone'):
-        info = {}
-        city = elem.findtext('exemplarCity')
-        if city:
-            info['city'] = str(city)
-        for child in elem.findall('long/*'):
-            info.setdefault('long', {})[child.tag] = str(child.text)
-        for child in elem.findall('short/*'):
-            info.setdefault('short', {})[child.tag] = str(child.text)
-        meta_zones[elem.attrib['type']] = info
+        mzid = elem.attrib['type']
+        meta_zones[mzid] = _parse_zone_names(elem, ['meta_zones', mzid])
+
+
+def _parse_zone_names(elem, ctxt):
+    """
+    Parse the names of a ``<zone>`` or ``<metazone>`` element.
+
+    Since CLDR 49, ``root.xml`` aliases ``<long>`` names of one metazone to
+    those of another (specifically ``British`` and ``Irish`` fall back to ``GMT``).
+    """
+    info = {}
+    city = elem.findtext('exemplarCity')
+    if city:
+        info['city'] = str(city)
+    for width in ('long', 'short'):
+        width_elem = elem.find(width)
+        if width_elem is None:
+            continue
+        names = {}
+        for child in width_elem:
+            if child.tag == 'alias':
+                info[width] = Alias(_translate_alias([*ctxt, width], child.attrib['path']))
+                break
+            names[child.tag] = str(child.text)
+        else:
+            # No alias found in (meta)zone, use the names instead
+            if names:
+                info[width] = names
+    return info
 
 
 def parse_calendar_months(data, calendar):
@@ -766,6 +791,7 @@ def parse_calendar_time_formats(data, calendar):
 
 def parse_calendar_datetime_skeletons(data, calendar):
     datetime_formats = data.setdefault('datetime_formats', {})
+    datetime_formats_relative = data.setdefault('datetime_formats_relative', {})
     datetime_skeletons = data.setdefault('datetime_skeletons', {})
     for format in calendar.findall('dateTimeFormats'):
         for elem in format:
@@ -774,7 +800,15 @@ def parse_calendar_datetime_skeletons(data, calendar):
                 if _should_skip_elem(elem, type, datetime_formats):
                     continue
                 try:
-                    datetime_formats[type] = str(elem.findtext('dateTimeFormat/pattern'))
+                    for dtf in elem.findall('dateTimeFormat'):
+                        pattern_elem = dtf.find('pattern')
+                        if pattern_elem is None or pattern_elem.text is None:
+                            continue
+                        pattern = str(pattern_elem.text)
+                        if dtf.attrib.get('type') == 'relative':
+                            datetime_formats_relative[type] = pattern
+                        elif 'type' not in dtf.attrib:
+                            datetime_formats[type] = pattern
                 except ValueError as e:
                     log.error(e)
             elif elem.tag == 'alias':
@@ -822,8 +856,20 @@ def parse_decimal_formats(data, tree):
             length_type = elem.attrib.get('type')
             if _should_skip_elem(elem, length_type, decimal_formats):
                 continue
-            if elem.findall('./alias'):
-                # TODO map the alias to its target
+            alias_elem = elem.find('./alias')
+            if alias_elem is not None:
+                if alias_elem.attrib['path'] != "../decimalFormatLength[@type='short']":
+                    raise ValueError("Unexpected decimal format alias in new CLDR data; this may require hand-holding.")
+                    # In particular: if you're reading this, the tribal knowledge below
+                    # (that this is compact_decimal_format) needs to be double-checked.
+
+                # `root.xml` aliases `long` to `short`.
+                # The typed lengths only carry compact patterns, so the alias lands in `compact_decimal_formats`.
+                # Only root has this.
+                compact_decimal_formats = data.setdefault('compact_decimal_formats', {})
+                compact_decimal_formats[length_type] = Alias(
+                    ('compact_decimal_formats', _sibling_alias_type(alias_elem)),
+                )
                 continue
             for pattern_el in elem.findall('./decimalFormat/pattern'):
                 pattern_type = pattern_el.attrib.get('type')
@@ -896,11 +942,58 @@ def parse_unit_patterns(data, tree):
     unit_patterns = data.setdefault('unit_patterns', {})
     compound_patterns = data.setdefault('compound_unit_patterns', {})
     unit_display_names = data.setdefault('unit_display_names', {})
+    # `root.xml` aliases the `long` and `narrow` unit lengths to `short`,
+    # and some units to others (e.g. `duration-day-person` to `duration-day`).
+    # This is keyed unit-first instead of length-first (XML),
+    # so length aliases are expanded into per-unit aliases below.
+    # Only root has aliases.
+    length_aliases = {}
 
     for elem in tree.findall('.//units/unitLength'):
         unit_length_type = elem.attrib['type']
+        alias_elem = elem.find('./alias')
+        if alias_elem is not None:
+            length_aliases[unit_length_type] = _sibling_alias_type(alias_elem)
+            continue
         for unit in elem.findall('unit'):
             unit_type = unit.attrib['type']
+            alias_elem = unit.find('./alias')
+            if alias_elem is not None:
+                target_unit = _sibling_alias_type(alias_elem)
+                if unit_type.endswith('-person'):
+                    # HACK (and this is a mouthful):
+                    # The `duration-*-person` units (used for formatting ages) are
+                    # aliased to their base units. The alias element only exists
+                    # inside `unitLength[short]`, so literal resolution would route
+                    # a long/narrow request through the short chain and lose the
+                    # requested length ("3 y" where "3 years" was wanted).
+                    # ICU considers this a deficiency of the alias data structure
+                    # (https://unicode-org.atlassian.net/browse/ICU-20400) and
+                    # compensates by stripping the `-person` suffix before lookup
+                    # This seems to make sense, so we do that too:
+                    # alias the whole unit, preserving the requested length.
+                    #
+                    # NB: this deliberately bends literal TR35 alias resolution to
+                    # match ICU's output. Should CLDR ever gain a length-preserving
+                    # alias representation, spec compliance is restored by deleting
+                    # this special-case `-person` branch and translating those
+                    # aliases as written, as the branch below does..
+                    unit_patterns[unit_type] = Alias(('unit_patterns', target_unit))
+                    unit_display_names[unit_type] = Alias(('unit_display_names', target_unit))
+                else:
+                    # The other aliased units (`graphics-dot*` -> `graphics-pixel*`,
+                    # `energy-foodcalorie` -> `energy-kilocalorie`) get no such
+                    # compensation in ICU and follow the literal chain: the alias
+                    # applies within this length only, and a locale's own data for
+                    # the unit at other lengths (plus the length aliases below)
+                    # takes precedence over the target unit's.
+                    unit_patterns.setdefault(unit_type, {})[unit_length_type] = Alias(
+                        ('unit_patterns', target_unit, unit_length_type),
+                    )
+                    unit_display_names.setdefault(unit_type, {})[unit_length_type] = Alias(
+                        ('unit_display_names', target_unit, unit_length_type),
+                    )
+                continue
             unit_and_length_patterns = unit_patterns.setdefault(unit_type, {}).setdefault(unit_length_type, {})
             for pattern in unit.findall('unitPattern'):
                 if pattern.attrib.get('case', 'nominative') != 'nominative':
@@ -939,17 +1032,45 @@ def parse_unit_patterns(data, tree):
                     compound_unit_info['compound_variations'] = compound_variations
             compound_patterns.setdefault(unit_type, {})[unit_length_type] = compound_unit_info
 
+    for aliased_length, target_length in length_aliases.items():
+        for dict_name, dst in (
+            ('unit_patterns', unit_patterns),
+            ('compound_unit_patterns', compound_patterns),
+            ('unit_display_names', unit_display_names),
+        ):
+            for unit_type, lengths in dst.items():
+                if isinstance(lengths, Alias):
+                    # A length-preserving whole-unit alias installed above.
+                    continue
+                lengths.setdefault(aliased_length, Alias((dict_name, unit_type, target_length)))
+
 
 def parse_date_fields(data, tree):
     date_fields = data.setdefault('date_fields', {})
     for elem in tree.findall('.//dates/fields/field'):
         field_type = elem.attrib['type']
+        # `root` aliases `x-narrow` to `x-short` and `x-short` to `x`.
+        # Locales defining only some length variants inherit these.
+        # Only root has these.
+        alias_elem = elem.find('alias')
+        if alias_elem is not None:
+            date_fields[field_type] = Alias(
+                _translate_alias(['date_fields', field_type], alias_elem.attrib['path']),
+            )
+            continue
         date_fields.setdefault(field_type, {})
         for rel_time in elem.findall('relativeTime'):
             rel_time_type = rel_time.attrib['type']
             for pattern in rel_time.findall('relativeTimePattern'):
                 type_dict = date_fields[field_type].setdefault(rel_time_type, {})
                 type_dict[pattern.attrib['count']] = str(pattern.text)
+        # Literal names for specific offsets, e.g. <relative type="-1">yesterday</relative>.
+        for rel in elem.findall('relative'):
+            if rel.text is None:
+                continue
+            offset = int(rel.attrib['type'])
+            names = date_fields[field_type].setdefault('relative', {})
+            names[offset] = str(rel.text)
 
 
 def parse_interval_formats(data, tree):

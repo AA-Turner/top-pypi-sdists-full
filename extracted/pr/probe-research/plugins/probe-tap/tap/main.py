@@ -79,6 +79,7 @@ from tap.hosted import (
     WAITING_DELETED,
     WAITING_INGESTION_OFF,
     WAITING_LOCAL,
+    WAITING_OFF_HERE,
     WAITING_OTHER_CHAT,
     WAITING_SERVER,
 )
@@ -950,7 +951,8 @@ def _run_durable_loop(c: cfg.WatchConfig, storage: Storage, *, offer: handback.H
                             log.warning("reconcile %s pending: %s", gap.session_id, exc)
             except _NothingToDrain:
                 if c.session_id not in deleted:
-                    _publish_waiting(c, None)  # Probe is off for it: its row's `off` says so
+                    # Probe is off for it by this loop's own check, which its row's `off` may not share.
+                    _publish_waiting(c, WAITING_OFF_HERE)
             except SessionDeleted as exc:
                 _settle_deleted(journal, exc, deleted, c.transcript_path)
             except SourceRewritten:

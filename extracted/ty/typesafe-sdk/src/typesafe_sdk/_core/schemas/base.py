@@ -2,11 +2,10 @@
 
 from collections.abc import Sequence
 from functools import cached_property
-from typing import Any, TypeVar, cast
+from typing import Any, Self, TypeVar, cast
 
 import httpx2
 from pydantic import BaseModel, ConfigDict, ValidationError
-from typing_extensions import Self
 
 from typesafe_sdk._core.constants import REQUEST_ID_HEADER
 from typesafe_sdk._core.errors import TypeSafeAPIResponseValidationError, TypeSafeError, api_error

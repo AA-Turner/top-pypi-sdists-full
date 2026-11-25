@@ -1,11 +1,11 @@
 """Question objects and raw input models."""
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeAlias, overload
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 from pydantic.functional_serializers import SerializerFunctionWrapHandler
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 from typesafe_sdk._core.content_types import Content
 from typesafe_sdk._schemas import models as wire
@@ -83,7 +83,9 @@ class BoxModel(TypedDict, closed=True):
 class _Question(BaseModel):
     """Reject unknown fields and omit optional fields left at their default from the wire form."""
 
-    model_config = ConfigDict(extra="forbid")
+    # Match `serialize`: emit non-finite numbers in `instructions`/`criteria` as "NaN"/"Infinity"/"-Infinity"
+    # instead of the model default `null`.
+    model_config = ConfigDict(extra="forbid", ser_json_inf_nan="strings")
 
     @model_serializer(mode="wrap")
     def _omit_none(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:

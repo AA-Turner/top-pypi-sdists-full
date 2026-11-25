@@ -1,4 +1,7 @@
 import re
+from typing import Callable
+
+LLMCall = Callable[[str], str]
 
 
 def extract_xml(text: str, tag: str) -> str:
@@ -16,7 +19,7 @@ def extract_xml(text: str, tag: str) -> str:
     return match.group(1) if match else ""
 
 
-def generate(llm_call, task: str, feedback: str = "") -> tuple[str, str]:
+def generate(llm_call: LLMCall, task: str, feedback: str = "") -> tuple[str, str]:
     """Generate and improve a solution based on feedback."""
     task = f"<task>\n{task}\n</task>"
     full_prompt = (
@@ -31,7 +34,7 @@ def generate(llm_call, task: str, feedback: str = "") -> tuple[str, str]:
     return thoughts, result
 
 
-def evaluate(llm_call, content: str, task: str) -> tuple[str, str]:
+def evaluate(llm_call: LLMCall, content: str, task: str) -> tuple[str, str]:
     """Evaluate if a solution meets requirements."""
     full_prompt = f"{evaluator_prompt}\n<original_task>\n{task}\n</original_task>\n<content_to_evaluate>\n{content}\n</content_to_evaluate>"
     response = llm_call(full_prompt)
@@ -41,7 +44,7 @@ def evaluate(llm_call, content: str, task: str) -> tuple[str, str]:
     return evaluation, feedback
 
 
-def loop(llm_call, task: str) -> str:
+def loop(llm_call: LLMCall, task: str) -> str:
     """Keep generating and evaluating until requirements are met."""
     memory = []
     chain_of_thought = []
@@ -77,7 +80,7 @@ def loop(llm_call, task: str) -> str:
 evaluator_prompt = """
 Evaluate this following code implementation for code correctness taking into account the user prompt and the instructions provided.
 
-You should be evaluating only and not attemping to solve the task.
+You should be evaluating only and not attempting to solve the task.
 Only output "PASS" if all criteria are met and the code won't fail at runtime.
 Output your evaluation concisely in the following format:
 

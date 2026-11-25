@@ -1,17 +1,21 @@
 import contextlib
+import copy
 import datetime
 import multiprocessing.dummy
+import operator
 import os
 import posixpath
 import re
 import shutil
 import tempfile
+import typing
 import warnings
 
 import numpy as np
 import pandas as pd
 
 from wfdb.io import _header, _signal, _url, download, header, util
+from wfdb.io._cloud import check_cloud_write, is_cloud_path, staged_cloud_write
 from wfdb.io._coreio import CLOUD_PROTOCOLS, _fsspec_open, _join_path, _split_path
 from wfdb.io.archive import WFDBArchive, archive_for_writing, is_archive_path
 
@@ -154,6 +158,30 @@ SIG_UNITS = {
     "uc": "nd",
     "vtip": "mV",
 }
+
+
+class SourceSegment(typing.NamedTuple):
+    """The range of a flattened record's frames that came from one segment.
+
+    `Record.source_segments` holds one of these for each segment of a
+    multi-segment record that contributed frames. It unpacks and compares like
+    a ``(name, start, stop)`` tuple.
+
+    Attributes
+    ----------
+    name : str
+        The name of the segment, or ``"~"`` for an empty segment.
+    start : int
+        The first frame of the segment in the flattened record.
+    stop : int
+        The frame after the last frame of the segment, so that the segment
+        covers ``start`` to ``stop - 1``.
+
+    """
+
+    name: str
+    start: int
+    stop: int
 
 
 class BaseRecord:
@@ -761,6 +789,12 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         A list of strings giving the signal name of each signal channel.
     comments : list, optional
         A list of string comments to be written to the header file.
+    source_segments : list of SourceSegment, optional
+        For a record flattened from a multi-segment record, the name of each
+        source segment and its range of the returned record's frames, as
+        `SourceSegment` tuples of ``(name, start, stop)``. Empty segments have
+        the name ``"~"``. The zero-length layout header is omitted. This
+        metadata is kept in memory and is not written to a WFDB header.
 
     Examples
     --------
@@ -800,6 +834,7 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         block_size=None,
         sig_name=None,
         comments=None,
+        source_segments=None,
     ):
         # Note the lack of the 'n_seg' field. Single segment records cannot
         # have this field. Even n_seg = 1 makes the header a multi-segment
@@ -836,6 +871,7 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         self.init_value = init_value
         self.checksum = checksum
         self.block_size = block_size
+        self.source_segments = source_segments
         # The skew already applied to the signals when they were read, if any
         self._applied_skew = None
 
@@ -856,9 +892,10 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
             Determines if the objects are equal (True) or not equal (False).
 
         """
-        # How the signals were read does not affect whether records are equal
-        att1 = {k: v for k, v in self.__dict__.items() if k != "_applied_skew"}
-        att2 = {k: v for k, v in other.__dict__.items() if k != "_applied_skew"}
+        # Read provenance does not affect whether record contents are equal.
+        read_metadata = {"_applied_skew", "source_segments"}
+        att1 = {k: v for k, v in self.__dict__.items() if k not in read_metadata}
+        att2 = {k: v for k, v in other.__dict__.items() if k not in read_metadata}
 
         if set(att1.keys()) != set(att2.keys()):
             if verbose:
@@ -908,13 +945,21 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         warning is given when writing would replace an existing signal file
         that is not listed by this record's own header in `write_dir`.
 
+        Records flattened from multi-segment records are prepared for writing
+        on a copy, leaving this object unchanged. Channels without a known
+        format, or with incompatible formats sharing a file, use format 32.
+        This can increase the output file size. Missing samples use that
+        format's digital missing marker; channels with no samples have
+        placeholder gain and baseline values. If the source segments have
+        conflicting units, set `units` explicitly first.
+
         Parameters
         ----------
         expanded : bool, optional
             Whether to write the expanded signal (e_d_signal) instead
             of the uniform signal (d_signal).
         write_dir : str, optional
-            The directory in which to write the files.
+            The local directory or cloud URI in which to write the files.
         wfdb_archive : str, os.PathLike or WFDBArchive, optional
             Write the record into a .wfdb archive instead of writing separate
             files to `write_dir`. A path creates a new archive, replacing any
@@ -938,6 +983,32 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
         >>> record.wrsamp()
 
         """
+        check_cloud_write(write_dir, wfdb_archive)
+        if is_cloud_path(write_dir):
+            if self.n_sig and self.file_name:
+                self._warn_about_replacing_other_files(write_dir)
+            with staged_cloud_write(write_dir, self.record_name + ".hea") as staging:
+                self.wrsamp(expanded=expanded, write_dir=staging)
+            return
+
+        if getattr(self, "source_segments", None) is not None:
+            writable = copy.copy(self)
+            for field, value in vars(self).items():
+                if isinstance(value, list):
+                    setattr(writable, field, value.copy())
+            writable.source_segments = None
+            writable._prepare_flattened_write(expanded)
+            if not expanded and writable.d_signal is None:
+                writable.d_signal = writable.adc()
+            elif expanded and writable.e_d_signal is None:
+                writable.e_d_signal = writable.adc(expanded=True)
+            writable.set_d_features(expanded=expanded)
+            writable.set_defaults()
+            writable.wrsamp(
+                expanded=expanded, write_dir=write_dir, wfdb_archive=wfdb_archive
+            )
+            return
+
         converted = None
         if not expanded and self.d_signal is None and self.p_signal is not None:
             self.d_signal = self.adc()
@@ -1003,6 +1074,73 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
             if converted:
                 setattr(self, converted, None)
 
+    def _prepare_flattened_write(self, expanded):
+        """Complete write metadata for a record flattened from a MultiRecord."""
+        if self.units is None:
+            raise ValueError(
+                "Flattened record has inconsistent units; set units before writing"
+            )
+        self.units = [unit if unit is not None else "NU" for unit in self.units]
+
+        formats_complete = self.fmt is not None and all(
+            fmt is not None for fmt in self.fmt
+        )
+        formats_share_files = False
+        if formats_complete and self.file_name is not None:
+            formats_by_file = {}
+            for name, fmt in zip(self.file_name, self.fmt):
+                if name in formats_by_file and formats_by_file[name] != fmt:
+                    formats_share_files = True
+                    break
+                formats_by_file[name] = fmt
+        complete_gain = self.adc_gain is not None and all(
+            gain is not None for gain in self.adc_gain
+        )
+        complete_baseline = self.baseline is not None and all(
+            value is not None for value in self.baseline
+        )
+
+        if self.p_signal is not None or self.e_p_signal is not None:
+            if not (
+                formats_complete
+                and not formats_share_files
+                and complete_gain
+                and complete_baseline
+            ):
+                self.fmt = ["32"] * self.n_sig
+                self.adc_gain, self.baseline = self.calc_adc_params()
+            return
+
+        if not formats_complete or formats_share_files:
+            old_formats = self.fmt or [None] * self.n_sig
+            new_nan = _signal._digi_nan("32")
+            signals = self.e_d_signal if expanded else self.d_signal.T
+            recoded = []
+            for signal, fmt in zip(signals, old_formats):
+                old_nan = (
+                    _signal._digi_nan(fmt)
+                    if fmt is not None
+                    else np.iinfo(signal.dtype).min
+                )
+                signal = signal.astype("int64", copy=True)
+                if old_nan is not None:
+                    signal[signal == old_nan] = new_nan
+                recoded.append(signal)
+            if expanded:
+                self.e_d_signal = recoded
+            else:
+                self.d_signal = np.column_stack(recoded)
+            self.fmt = ["32"] * self.n_sig
+
+        self.adc_gain = [
+            gain if gain is not None else 1.0
+            for gain in (self.adc_gain or [None] * self.n_sig)
+        ]
+        self.baseline = [
+            value if value is not None else 0
+            for value in (self.baseline or [None] * self.n_sig)
+        ]
+
     def _warn_about_replacing_other_files(self, write_dir):
         """Warn if writing would replace signal files of another record.
 
@@ -1023,17 +1161,23 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
 
         """
         record_name = self.record_name or ""
+
+        def file_exists(file_name):
+            path = _join_path(os.fspath(write_dir), file_name)
+            if is_cloud_path(write_dir):
+                opened = _fsspec_open(path)
+                return opened.fs.exists(opened.path)
+            return os.path.exists(path)
+
         existing = [
             file_name
             for file_name in dict.fromkeys(self.file_name)
-            if file_name
-            and file_name != "~"
-            and os.path.exists(os.path.join(write_dir, file_name))
+            if file_name and file_name != "~" and file_exists(file_name)
         ]
         if not existing:
             return
         try:
-            header = rdheader(os.path.join(write_dir, record_name))
+            header = rdheader(_join_path(os.fspath(write_dir), record_name))
             own = set(getattr(header, "file_name", None) or [])
         except Exception:
             # No readable header of this record, so no file is its own yet
@@ -1116,17 +1260,7 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
             nearest nanosecond.
 
         """
-        # Compute the time of each sample directly, rather than adding up a
-        # sample interval cut to whole nanoseconds, which drifts over
-        # long records. Work in place to avoid extra copies of the index.
-        offsets = np.arange(self.sig_len, dtype=np.float64)
-        offsets *= 1e9 / self.fs
-        offsets_ns = np.empty(self.sig_len, dtype=np.int64)
-        np.rint(offsets, out=offsets_ns, casting="unsafe")
-        del offsets
-        index = pd.to_timedelta(offsets_ns, unit="ns")
-        if self.base_datetime is not None:
-            index = pd.Timestamp(self.base_datetime) + index
+        index = _sample_time_index(self.fs, 0, self.sig_len, self.base_datetime)
 
         if self.p_signal is not None:
             data = self.p_signal
@@ -1140,6 +1274,18 @@ class Record(BaseRecord, _header.HeaderMixin, _signal.SignalMixin):
             raise ValueError("No signal in record.")
 
         return pd.DataFrame(data=data, index=index, columns=self.sig_name)
+
+
+def _sample_time_index(fs, sampfrom, sampto, base_datetime):
+    """Build an index from absolute sample positions without time drift."""
+    offsets = np.arange(sampfrom, sampto, dtype=np.float64)
+    offsets *= 1e9 / fs
+    offsets_ns = np.empty(sampto - sampfrom, dtype=np.int64)
+    np.rint(offsets, out=offsets_ns, casting="unsafe")
+    index = pd.to_timedelta(offsets_ns, unit="ns")
+    if base_datetime is not None:
+        index = pd.Timestamp(base_datetime) + index
+    return index
 
 
 def _move_files_into_place(source_dir, target_dir):
@@ -1242,9 +1388,9 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
     base_datetime : datetime.datetime, optional
         The date and time at the beginning of the record, equivalent to
         `datetime.combine(base_date, base_time)`.
-    seg_name : str, optional
-        The name of the segment.
-    seg_len : List[int], optional
+    seg_name : list of str, optional
+        The name of each segment.
+    seg_len : list of int, optional
         The length of each segment.
     comments : list, optional
         A list of string comments to be written to the header file.
@@ -1323,7 +1469,7 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
             instead of the uniform signal (`d_signal`). This flag is passed
             through to each segment's `Record.wrsamp()` call.
         write_dir : str, optional
-            The directory in which to write the files.
+            The local directory or cloud URI in which to write the files.
         wfdb_archive : str, os.PathLike or WFDBArchive, optional
             Write the record, including all its segments, into a .wfdb
             archive instead of writing separate files to `write_dir`. A
@@ -1336,6 +1482,12 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
         N/A
 
         """
+        check_cloud_write(write_dir, wfdb_archive)
+        if is_cloud_path(write_dir):
+            with staged_cloud_write(write_dir, self.record_name + ".hea") as staging:
+                self.wrsamp(expanded=expanded, write_dir=staging)
+            return
+
         # Validate the segments before writing anything.
         self._check_segment_cohesion()
         self._check_segment_signals(expanded)
@@ -1535,7 +1687,13 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
         return (seg_numbers, readsamps)
 
     def _required_channels(
-        self, seg_numbers, channels, dir_name, pn_dir, wfdb_archive=None
+        self,
+        seg_numbers,
+        channels,
+        dir_name,
+        pn_dir,
+        wfdb_archive=None,
+        header_cache=None,
     ):
         """Get the channel numbers to be read from each specified segment.
 
@@ -1590,6 +1748,7 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
                         dir_name,
                         pn_dir,
                         wfdb_archive,
+                        header_cache,
                     ).sig_name
                     required_channels.append(
                         _get_wanted_channels(w_sig_names, s_sig_names)
@@ -1720,6 +1879,23 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
         # The fields to transfer to the new object
         fields = self.__dict__.copy()
 
+        # Retain the original segment boundaries as read, before dropping the
+        # multi-segment header fields. _arrange_fields has already clipped
+        # seg_len to the requested sample window.
+        source_segments = []
+        start = 0
+        names = self.seg_name
+        if names is None:
+            names = [
+                segment.record_name if segment is not None else "~"
+                for segment in self.segments
+            ]
+        for name, length in zip(names, self.seg_len):
+            stop = start + int(length)
+            if stop > start:
+                source_segments.append(SourceSegment(name, start, stop))
+            start = stop
+
         # Remove multirecord fields
         for attr in ["segments", "seg_name", "seg_len", "n_seg"]:
             del fields[attr]
@@ -1824,7 +2000,15 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
                 sig_attr = "d_signal"
             # Figure out the largest required dtype
             dtype = _signal._np_dtype(return_res, discrete=True)
-            nan_vals = np.array([_signal._digi_nan(fields["fmt"])], dtype=dtype)
+            # A channel absent from every selected variable-layout segment has
+            # no known format. Keep it as an all-missing channel using the
+            # requested dtype's minimum value as its missing-sample marker.
+            unknown_fmt_nan = np.iinfo(dtype).min
+            nan_values = [
+                _signal._digi_nan(fmt) if fmt is not None else unknown_fmt_nan
+                for fmt in fields["fmt"]
+            ]
+            nan_vals = np.array([nan_values], dtype=dtype)
 
         samps_per_frame = fields["samps_per_frame"]
 
@@ -1884,6 +2068,7 @@ class MultiRecord(BaseRecord, _header.MultiHeaderMixin):
         record = Record()
         for field in fields:
             setattr(record, field, fields[field])
+        record.source_segments = source_segments
         setattr(record, sig_attr, combined_signal)
 
         # Use the signal to set record features
@@ -1919,6 +2104,8 @@ ALLOWED_TYPES.update(
 
 # Fields that must be lists
 LIST_FIELDS = tuple(_header.SIGNAL_SPECS.index) + (
+    "seg_name",
+    "seg_len",
     "comments",
     "e_p_signal",
     "e_d_signal",
@@ -2158,7 +2345,33 @@ def rdheader(record_name, pn_dir=None, rd_segments=False):
     return record
 
 
-def _read_record_header(record_name, dir_name, pn_dir, wfdb_archive):
+def _copy_record_header(record):
+    """Copy a parsed header and its mutable metadata lists."""
+    copied = copy.copy(record)
+    for field, value in vars(record).items():
+        if isinstance(value, list):
+            setattr(copied, field, value.copy())
+    return copied
+
+
+def _cached_record_header(record_name, pn_dir, wfdb_archive, header_cache):
+    """Read a header, or copy an iterator's cached header metadata."""
+    key = (os.fspath(record_name), pn_dir)
+    if header_cache is not None and key in header_cache:
+        return _copy_record_header(header_cache[key])
+
+    if wfdb_archive is not None:
+        segment_name = None if is_archive_path(record_name) else record_name
+        record = _parse_header_content(wfdb_archive.read_header(segment_name))
+    else:
+        record = rdheader(record_name, pn_dir=pn_dir, rd_segments=False)
+
+    if header_cache is not None:
+        header_cache[key] = _copy_record_header(record)
+    return record
+
+
+def _read_record_header(record_name, dir_name, pn_dir, wfdb_archive, header_cache=None):
     """Read the header of a record that is stored with another record.
 
     An example is a segment of a multi-segment record.
@@ -2175,6 +2388,8 @@ def _read_record_header(record_name, dir_name, pn_dir, wfdb_archive):
         PhysioNet.
     wfdb_archive : WFDBArchive or None
         The open .wfdb archive containing the record files, if any.
+    header_cache : dict or None
+        Parsed headers retained by one DataFrame iterator, if any.
 
     Returns
     -------
@@ -2183,10 +2398,12 @@ def _read_record_header(record_name, dir_name, pn_dir, wfdb_archive):
 
     """
     if wfdb_archive is not None:
-        return _parse_header_content(wfdb_archive.read_header(record_name))
+        return _cached_record_header(record_name, pn_dir, wfdb_archive, header_cache)
     if pn_dir is not None:
-        return rdheader(record_name, pn_dir=pn_dir)
-    return rdheader(_join_path(dir_name, record_name), pn_dir=pn_dir)
+        return _cached_record_header(record_name, pn_dir, None, header_cache)
+    return _cached_record_header(
+        _join_path(dir_name, record_name), None, None, header_cache
+    )
 
 
 def _read_segment_headers(record, dir_name, pn_dir, wfdb_archive):
@@ -2386,6 +2603,12 @@ def rdrecord(
     `channels=[0, 1, 2]` is specified when reading a 12 channel record,
     the 'n_sig' attribute will be 3, not 12.
 
+    When a digital variable-layout window has no samples for a requested
+    channel, its format and calibration fields are unknown. Its samples use
+    the minimum integer value of the requested `return_res` as a missing-value
+    marker. A wider window that contains the channel may instead use that
+    channel's format-specific missing-value marker for the same samples.
+
     The `rdsamp` function exists as a simple alternative to `rdrecord`
     for the common purpose of extracting the physical signals and a few
     important descriptor fields.
@@ -2437,6 +2660,7 @@ def _rdrecord(
     channel_names,
     warn_empty,
     wfdb_archive,
+    header_cache=None,
 ):
     """Read a WFDB record.
 
@@ -2457,38 +2681,17 @@ def _rdrecord(
     if pn_dir is not None:
         record_name, pn_dir = _resolve_pn_dir(record_name, pn_dir)
 
-    if wfdb_archive is not None:
-        segment_name = None if is_archive_path(record_name) else record_name
-        record = _parse_header_content(wfdb_archive.read_header(segment_name))
-    else:
-        record = rdheader(record_name, pn_dir=pn_dir, rd_segments=False)
+    record = _cached_record_header(record_name, pn_dir, wfdb_archive, header_cache)
+
+    # If the header omits the signal length, infer it from the first dat file
+    # before validating a requested window. This also permits ranged reads.
+    if record.sig_len is None:
+        record.sig_len = _record_sig_len(record, dir_name, pn_dir, wfdb_archive)
+        if header_cache is not None:
+            header_cache[(os.fspath(record_name), pn_dir)].sig_len = record.sig_len
 
     # Set defaults for sampto and channels input variables
     if sampto is None:
-        # If the header does not contain the signal length, figure it
-        # out from the first dat file. This is only possible for single
-        # segment records. If there are no signals, sig_len is 0.
-        if record.sig_len is None:
-            if record.n_sig == 0:
-                record.sig_len = 0
-            else:
-                # Calculate total number of samples per frame in the
-                # first dat file.
-                tsamps_per_frame = 0
-                for fname, spf in zip(record.file_name, record.samps_per_frame):
-                    if fname == record.file_name[0]:
-                        tsamps_per_frame += spf
-
-                # Calculate length from size of the dat file.
-                record.sig_len = _signal._infer_sig_len(
-                    file_name=record.file_name[0],
-                    fmt=record.fmt[0],
-                    tsamps_per_frame=tsamps_per_frame,
-                    byte_offset=record.byte_offset[0],
-                    dir_name=dir_name,
-                    pn_dir=pn_dir,
-                    wfdb_archive=wfdb_archive,
-                )
         sampto = record.sig_len
 
     # channel_names takes precedence over channels
@@ -2502,13 +2705,17 @@ def _rdrecord(
                 # names
                 first_seg_name = [n for n in record.seg_name if n != "~"][0]
                 reference_record = _read_record_header(
-                    first_seg_name, dir_name, pn_dir, wfdb_archive
+                    first_seg_name, dir_name, pn_dir, wfdb_archive, header_cache
                 )
             else:
                 # Use the layout specification header to get the signal
                 # names
                 reference_record = _read_record_header(
-                    record.seg_name[0], dir_name, pn_dir, wfdb_archive
+                    record.seg_name[0],
+                    dir_name,
+                    pn_dir,
+                    wfdb_archive,
+                    header_cache,
                 )
 
         channels = _get_wanted_channels(
@@ -2614,14 +2821,14 @@ def _rdrecord(
         # Variable layout, read the layout specification header
         if record.layout == "variable":
             record.segments[0] = _read_record_header(
-                record.seg_name[0], dir_name, pn_dir, wfdb_archive
+                record.seg_name[0], dir_name, pn_dir, wfdb_archive, header_cache
             )
 
         # The segment numbers and samples within each segment to read.
         seg_numbers, seg_ranges = record._required_segments(sampfrom, sampto)
         # The channels within each segment to read
         seg_channels = record._required_channels(
-            seg_numbers, channels, dir_name, pn_dir, wfdb_archive
+            seg_numbers, channels, dir_name, pn_dir, wfdb_archive, header_cache
         )
 
         # Read the desired samples in the relevant segments
@@ -2647,21 +2854,29 @@ def _rdrecord(
                     channel_names=None,
                     warn_empty=False,
                     wfdb_archive=wfdb_archive,
+                    header_cache=header_cache,
                 )
             else:
                 # On PhysioNet, the segments are in pn_dir, not in dir_name
                 segment_name = record.seg_name[seg_num]
                 if pn_dir is None:
                     segment_name = _join_path(dir_name, segment_name)
-                record.segments[seg_num] = rdrecord(
-                    segment_name,
+                record.segments[seg_num] = _rdrecord(
+                    record_name=segment_name,
                     sampfrom=seg_ranges[i][0],
                     sampto=seg_ranges[i][1],
                     channels=seg_channels[i],
                     physical=physical,
                     pn_dir=pn_dir,
+                    m2s=True,
                     smooth_frames=smooth_frames,
+                    ignore_skew=False,
                     return_res=return_res,
+                    force_channels=True,
+                    channel_names=None,
+                    warn_empty=False,
+                    wfdb_archive=None,
+                    header_cache=header_cache,
                 )
 
         # Arrange the fields of the layout specification segment, and
@@ -2687,6 +2902,196 @@ def _rdrecord(
         record.convert_dtype(physical, return_res, smooth_frames)
 
     return record
+
+
+def _record_sig_len(record, dir_name, pn_dir, wfdb_archive):
+    """Get a record's length, inferring it from a signal file if necessary."""
+    if record.sig_len is not None:
+        return record.sig_len
+    if record.n_sig == 0:
+        return 0
+    if not isinstance(record, Record):
+        raise ValueError("Cannot infer the length of a multi-segment record")
+
+    # A dat file can contain several channels, each with a different number
+    # of samples per frame.
+    first_file = record.file_name[0]
+    tsamps_per_frame = sum(
+        spf
+        for file_name, spf in zip(record.file_name, record.samps_per_frame)
+        if file_name == first_file
+    )
+    return _signal._infer_sig_len(
+        file_name=first_file,
+        fmt=record.fmt[0],
+        tsamps_per_frame=tsamps_per_frame,
+        byte_offset=record.byte_offset[0],
+        dir_name=dir_name,
+        pn_dir=pn_dir,
+        wfdb_archive=wfdb_archive,
+    )
+
+
+def iter_dataframes(
+    record_name,
+    chunk_size,
+    *,
+    sampfrom=0,
+    sampto=None,
+    channels=None,
+    physical=True,
+    pn_dir=None,
+    ignore_skew=False,
+    return_res=64,
+    channel_names=None,
+):
+    """Yield successive WFDB signal windows as pandas DataFrames.
+
+    The header is read when this function is called; signal windows are read
+    during iteration, one at a time. Each frame's index uses its absolute
+    position in the record, so consecutive chunks have a continuous time
+    index. Signals with multiple samples per frame are smoothed as in the
+    default `rdrecord` behavior. Multi-segment records are merged into a
+    single DataFrame for each window. Record and segment headers are reused
+    within one iterator, including for remote sources.
+    Digital variable-layout reads look ahead in segment headers when needed
+    so missing values are consistent across chunks.
+
+    Parameters
+    ----------
+    record_name : str
+        Local path or cloud URI of the record, without a file extension.
+        A local .wfdb archive path is also accepted.
+    chunk_size : int
+        Maximum number of sample frames in each DataFrame.
+    sampfrom : int, optional
+        First sample frame to read (inclusive).
+    sampto : int, optional
+        Last sample frame to read (exclusive). Defaults to the record length.
+    channels : list, optional
+        Channel indices to read. Defaults to all channels.
+    physical : bool, optional
+        Return physical values (True) or digital values (False).
+    pn_dir : str, optional
+        PhysioNet database directory, as for `rdrecord`.
+    ignore_skew : bool, optional
+        Whether to ignore signal skew, as for `rdrecord`.
+    return_res : int, optional
+        NumPy signal resolution, as for `rdrecord`.
+    channel_names : list, optional
+        Channel names to read, taking precedence over `channels`.
+
+    Returns
+    -------
+    iterator of pandas.DataFrame
+        Signal values for successive windows. Each index is a
+        DatetimeIndex if the record has a base date and time, otherwise a
+        TimedeltaIndex.
+
+    """
+    if isinstance(chunk_size, bool):
+        raise TypeError("chunk_size must be an integer")
+    chunk_size = operator.index(chunk_size)
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be a positive integer")
+
+    if pn_dir is not None:
+        record_name, pn_dir = _resolve_pn_dir(record_name, pn_dir)
+    header = rdheader(record_name, pn_dir=pn_dir)
+    dir_name, _ = _split_path(record_name)
+    if not any(dir_name.startswith(proto) for proto in CLOUD_PROTOCOLS):
+        dir_name = os.path.abspath(dir_name)
+
+    if is_archive_path(record_name) and header.sig_len is None:
+        with WFDBArchive(record_name, mode="r") as archive:
+            sig_len = _record_sig_len(header, dir_name, pn_dir, archive)
+    else:
+        sig_len = _record_sig_len(header, dir_name, pn_dir, None)
+    header.sig_len = sig_len
+    header_cache = {(os.fspath(record_name), pn_dir): header}
+
+    start = operator.index(sampfrom)
+    stop = sig_len if sampto is None else operator.index(sampto)
+    if start < 0 or start >= sig_len:
+        raise ValueError("sampfrom must be within the signal length")
+    if stop <= start or stop > sig_len:
+        raise ValueError(
+            "sampto must be greater than sampfrom and no more than sig_len"
+        )
+
+    need_formats = (
+        stop - start > chunk_size
+        and not physical
+        and isinstance(header, MultiRecord)
+        and header.layout == "variable"
+    )
+    known_formats = {}
+
+    def chunks():
+        for first in range(start, stop, chunk_size):
+            last = min(first + chunk_size, stop)
+            archive = (
+                WFDBArchive(record_name, mode="r")
+                if is_archive_path(record_name)
+                else contextlib.nullcontext()
+            )
+            with archive as wfdb_archive:
+                record = _rdrecord(
+                    record_name=record_name,
+                    sampfrom=first,
+                    sampto=last,
+                    channels=channels,
+                    physical=physical,
+                    pn_dir=pn_dir,
+                    m2s=True,
+                    smooth_frames=True,
+                    ignore_skew=ignore_skew,
+                    return_res=return_res,
+                    force_channels=True,
+                    channel_names=channel_names,
+                    warn_empty=False,
+                    wfdb_archive=wfdb_archive,
+                    header_cache=header_cache,
+                )
+                if need_formats and first == start and record.n_sig:
+                    wanted_names = set(record.sig_name)
+                    known_formats.update(
+                        (name, fmt)
+                        for name, fmt in zip(record.sig_name, record.fmt)
+                        if fmt is not None
+                    )
+                    if len(known_formats) < len(wanted_names):
+                        seg_numbers, _ = header._required_segments(start, stop)
+                        for seg_num in seg_numbers:
+                            seg_name = header.seg_name[seg_num]
+                            if seg_name == "~":
+                                continue
+                            segment = _read_record_header(
+                                seg_name,
+                                dir_name,
+                                pn_dir,
+                                wfdb_archive,
+                                header_cache,
+                            )
+                            for name, fmt in zip(segment.sig_name, segment.fmt):
+                                if name in wanted_names and fmt is not None:
+                                    known_formats.setdefault(name, fmt)
+                            if len(known_formats) == len(wanted_names):
+                                break
+            if known_formats:
+                for ch, (name, fmt) in enumerate(zip(record.sig_name, record.fmt)):
+                    if fmt is None and name in known_formats:
+                        record.d_signal[:, ch] = _signal._digi_nan(known_formats[name])
+            frame = record.to_dataframe()
+            del record
+            frame.index = _sample_time_index(
+                header.fs, first, last, header.base_datetime
+            )
+            yield frame
+            # Rebinding happens after the next read; release this chunk first.
+            del frame
+
+    return chunks()
 
 
 def rdsamp(
@@ -3386,7 +3791,7 @@ def wrsamp(
         The date and time at the beginning of the record, equivalent to
         setting both `base_date` and `base_time`.
     write_dir : str, optional
-        The directory in which to write the files.
+        The local directory or cloud URI in which to write the files.
     wfdb_archive : str, os.PathLike or WFDBArchive, optional
         Write the record into a .wfdb archive instead of writing separate
         files to `write_dir`. A path creates a new archive, replacing any

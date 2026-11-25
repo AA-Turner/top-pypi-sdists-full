@@ -52,6 +52,7 @@ from render.public_api.api.sandboxes import (
     retrieve_sandbox_group_credential,
     retrieve_sandbox_snapshot,
     set_default_sandbox_group,
+    suspend_sandbox,
     terminate_sandbox,
     update_sandbox_group,
     update_sandbox_group_credential,
@@ -84,6 +85,9 @@ from render.public_api.models.sandbox_credential_restore import (
 from render.public_api.models.sandbox_credential_update import SandboxCredentialUpdate
 from render.public_api.models.sandbox_credential_version import (
     SandboxCredentialVersion,
+)
+from render.public_api.models.sandbox_detail_response import (
+    SandboxDetailResponse,
 )
 from render.public_api.models.sandbox_egress_rule import SandboxEgressRule
 from render.public_api.models.sandbox_egress_rule_protocol import (
@@ -249,7 +253,7 @@ def _to_network_policy_post(policy: NetworkPolicy | str) -> SandboxNetworkPolicy
     return body
 
 
-def _to_sandbox(model: GeneratedSandbox) -> Sandbox:
+def _to_sandbox(model: GeneratedSandbox | SandboxDetailResponse) -> Sandbox:
     return Sandbox(
         id=model.id,
         sandbox_group_id=_set_or_none(model.sandbox_group_id),
@@ -507,7 +511,7 @@ class SandboxApi:
             _handle_image_api_error(response, image_ref, "create sandbox")
         else:
             _handle_sandbox_api_error(response, "create sandbox")
-        if not isinstance(response.parsed, GeneratedSandbox):
+        if not isinstance(response.parsed, SandboxDetailResponse):
             raise RenderError("Failed to create sandbox: unexpected response type")
         return _to_sandbox(response.parsed)
 
@@ -519,7 +523,7 @@ class SandboxApi:
         if response.status_code == 404:
             raise SandboxNotFoundError(f"sandbox {sandbox_id} not found")
         _handle_sandbox_api_error(response, "retrieve sandbox")
-        if not isinstance(response.parsed, GeneratedSandbox):
+        if not isinstance(response.parsed, SandboxDetailResponse):
             raise RenderError("Failed to retrieve sandbox: unexpected response type")
         return _to_sandbox(response.parsed)
 
@@ -686,6 +690,15 @@ class SandboxApi:
         if response.status_code == 404:
             raise SandboxNotFoundError(f"sandbox {sandbox_id} not found")
         _handle_sandbox_api_error(response, "terminate sandbox")
+
+    async def suspend(self, sandbox_id: str, owner_id: str) -> None:
+        with request_errors("suspend sandbox"):
+            response = await suspend_sandbox.asyncio_detailed(
+                sandbox_id, client=self.client, owner_id=owner_id
+            )
+        if response.status_code == 404:
+            raise SandboxNotFoundError(f"sandbox {sandbox_id} not found")
+        _handle_sandbox_api_error(response, "suspend sandbox")
 
     async def create_snapshot(
         self,

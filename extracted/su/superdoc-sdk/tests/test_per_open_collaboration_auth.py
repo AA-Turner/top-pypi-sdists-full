@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
-import threading
+import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -11,6 +13,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import pytest
 
 from superdoc import AsyncSuperDocClient, CollaborationAuth, SuperDocClient, SuperDocError
+
+from test_transport import _cleanup_wrapper, _mock_cli_bin
 
 
 TOKEN: CollaborationAuth = {
@@ -21,154 +25,182 @@ SECOND_TOKEN: CollaborationAuth = {
     'type': 'token',
     'token': 'python-client-auth-second-sentinel-0fc86e',
 }
+AUTH_REJECTED = {
+    'error': {
+        'code': -32000,
+        'message': 'authentication rejected',
+        'data': {'cliCode': 'COLLABORATION_AUTH_FAILED', 'message': 'authentication rejected'},
+    },
+}
 
 
-def test_sync_client_forwards_auth_only_on_open() -> None:
-    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
-    calls: list[tuple[str, dict, dict]] = []
+class _RecordingHost:
+    def __init__(self, responses: list) -> None:
+        log = tempfile.NamedTemporaryFile(prefix='mock_host_requests_', suffix='.jsonl', delete=False)
+        log.close()
+        self.log = log.name
+        self.release_file = f'{self.log}.release'
+        held = [
+            {**response, 'release_file': self.release_file} if response.pop('held', False) else response
+            for response in responses
+        ]
+        self.cli = _mock_cli_bin({'handshake': 'ok', 'request_log': self.log, 'responses': held})
 
-    def invoke(operation_id: str, params: dict, **options: object) -> dict:
-        calls.append((operation_id, params, options))
-        return {'contextId': 'sync-session'}
+    def requests(self) -> list:
+        with open(self.log, encoding='utf-8') as log:
+            return [json.loads(line) for line in log if line.strip()]
 
-    client._runtime.invoke = invoke  # type: ignore[method-assign]
-    document = client.open({'doc': 'fixture.docx'}, collaboration_auth=TOKEN)
+    def wait_for_requests(self, count: int) -> None:
+        deadline = time.monotonic() + 5
+        while len(self.requests()) < count:
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
+
+    def release(self) -> None:
+        with open(self.release_file, 'w', encoding='utf-8'):
+            pass
+
+    def close(self) -> None:
+        _cleanup_wrapper(self.cli)
+        for path in (self.log, self.release_file):
+            if os.path.exists(path):
+                os.unlink(path)
+
+
+@pytest.fixture
+def host_with():
+    hosts: list[_RecordingHost] = []
+
+    def start(*responses: dict) -> _RecordingHost:
+        hosts.append(_RecordingHost(list(responses)))
+        return hosts[-1]
+
+    yield start
+    for host in hosts:
+        host.close()
+
+
+def _open_request(doc: str, auth: CollaborationAuth, session_id: str | None = None) -> dict:
+    session = [] if session_id is None else ['--session', session_id]
+    return {
+        'method': 'cli.invoke',
+        'params': {
+            'argv': ['open', doc, *session, '--output', 'json'],
+            'stdinBase64': '',
+            'collaborationAuth': auth,
+        },
+    }
+
+
+def test_sync_client_forwards_auth_only_on_open(host_with) -> None:
+    host = host_with({'data': {'contextId': 'sync-session'}})
+    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': host.cli})
+    try:
+        document = client.open({'doc': 'fixture.docx'}, collaboration_auth=TOKEN)
+    finally:
+        client.dispose()
 
     assert document.session_id == 'sync-session'
-    assert calls == [(
-        'doc.open',
-        {'doc': 'fixture.docx'},
-        {'timeout_ms': None, 'stdin_bytes': None, 'collaboration_auth': TOKEN, 'identity_claim': None},
-    )]
+    assert host.requests() == [_open_request('fixture.docx', TOKEN)]
 
 
-def test_sync_client_reserves_an_explicit_session_during_open() -> None:
-    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
-    first_open_started = threading.Event()
-    release_first_open = threading.Event()
-    calls: list[CollaborationAuth] = []
-    calls_lock = threading.Lock()
-
-    def invoke(_operation_id: str, _params: dict, **options: object) -> dict:
-        with calls_lock:
-            calls.append(options['collaboration_auth'])  # type: ignore[arg-type]
-            call_number = len(calls)
-        if call_number == 1:
-            first_open_started.set()
-            assert release_first_open.wait(timeout=5)
-        return {'contextId': 'shared-sync-session'}
-
-    client._runtime.invoke = invoke  # type: ignore[method-assign]
+def test_sync_client_reserves_an_explicit_session_during_open(host_with) -> None:
+    host = host_with({'held': True, 'data': {'contextId': 'shared-sync-session'}})
+    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': host.cli})
     params = {'doc': 'fixture.docx', 'sessionId': 'shared-sync-session'}
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        first_open = executor.submit(client.open, params, collaboration_auth=TOKEN)
-        assert first_open_started.wait(timeout=5)
-        second_open = executor.submit(client.open, params, collaboration_auth=SECOND_TOKEN)
-        try:
-            with pytest.raises(SuperDocError) as error:
-                second_open.result(timeout=5)
-        finally:
-            release_first_open.set()
-        document = first_open.result(timeout=5)
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            first_open = executor.submit(client.open, params, collaboration_auth=TOKEN)
+            host.wait_for_requests(1)
+            try:
+                with pytest.raises(SuperDocError) as error:
+                    client.open(params, collaboration_auth=SECOND_TOKEN)
+                assert not first_open.done()
+            finally:
+                host.release()
+            document = first_open.result(timeout=5)
+    finally:
+        client.dispose()
 
     assert error.value.code == 'SESSION_ALREADY_OPEN'
     assert error.value.details == {'sessionId': 'shared-sync-session'}
     assert document.session_id == 'shared-sync-session'
-    assert calls == [TOKEN]
+    assert host.requests() == [_open_request('fixture.docx', TOKEN, 'shared-sync-session')]
 
 
-def test_sync_client_releases_an_explicit_session_when_open_fails() -> None:
-    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
-    attempts = 0
-
-    def invoke(_operation_id: str, _params: dict, **_options: object) -> dict:
-        nonlocal attempts
-        attempts += 1
-        if attempts == 1:
-            raise SuperDocError('authentication rejected', code='COLLABORATION_AUTH_FAILED')
-        return {'contextId': 'sync-retry-session'}
-
-    client._runtime.invoke = invoke  # type: ignore[method-assign]
+def test_sync_client_releases_an_explicit_session_when_open_fails(host_with) -> None:
+    host = host_with(AUTH_REJECTED, {'data': {'contextId': 'sync-retry-session'}})
+    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': host.cli})
     params = {'doc': 'fixture.docx', 'sessionId': 'sync-retry-session'}
 
-    with pytest.raises(SuperDocError, match='authentication rejected'):
-        client.open(params, collaboration_auth=TOKEN)
-    document = client.open(params, collaboration_auth=SECOND_TOKEN)
+    try:
+        with pytest.raises(SuperDocError, match='authentication rejected'):
+            client.open(params, collaboration_auth=TOKEN)
+        document = client.open(params, collaboration_auth=SECOND_TOKEN)
+    finally:
+        client.dispose()
 
     assert document.session_id == 'sync-retry-session'
-    assert attempts == 2
+    assert host.requests() == [
+        _open_request('fixture.docx', TOKEN, 'sync-retry-session'),
+        _open_request('fixture.docx', SECOND_TOKEN, 'sync-retry-session'),
+    ]
 
 
 @pytest.mark.asyncio
-async def test_async_client_forwards_auth_only_on_open() -> None:
-    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
-    calls: list[tuple[str, dict, dict]] = []
-
-    async def invoke(operation_id: str, params: dict, **options: object) -> dict:
-        calls.append((operation_id, params, options))
-        return {'contextId': 'async-session'}
-
-    client._runtime.invoke = invoke  # type: ignore[method-assign]
-    document = await client.open({'doc': 'fixture.docx'}, collaboration_auth=TOKEN)
+async def test_async_client_forwards_auth_only_on_open(host_with) -> None:
+    host = host_with({'data': {'contextId': 'async-session'}})
+    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': host.cli})
+    try:
+        document = await client.open({'doc': 'fixture.docx'}, collaboration_auth=TOKEN)
+    finally:
+        await client.dispose()
 
     assert document.session_id == 'async-session'
-    assert calls == [(
-        'doc.open',
-        {'doc': 'fixture.docx'},
-        {'timeout_ms': None, 'stdin_bytes': None, 'collaboration_auth': TOKEN, 'identity_claim': None},
-    )]
+    assert host.requests() == [_open_request('fixture.docx', TOKEN)]
 
 
 @pytest.mark.asyncio
-async def test_async_client_reserves_an_explicit_session_during_open() -> None:
-    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
-    first_open_started = asyncio.Event()
-    release_first_open = asyncio.Event()
-    calls: list[CollaborationAuth] = []
-
-    async def invoke(_operation_id: str, _params: dict, **options: object) -> dict:
-        calls.append(options['collaboration_auth'])  # type: ignore[arg-type]
-        if len(calls) == 1:
-            first_open_started.set()
-            await release_first_open.wait()
-        return {'contextId': 'shared-async-session'}
-
-    client._runtime.invoke = invoke  # type: ignore[method-assign]
+async def test_async_client_reserves_an_explicit_session_during_open(host_with) -> None:
+    host = host_with({'held': True, 'data': {'contextId': 'shared-async-session'}})
+    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': host.cli})
     params = {'doc': 'fixture.docx', 'sessionId': 'shared-async-session'}
-    first_open = asyncio.create_task(client.open(params, collaboration_auth=TOKEN))
-    await asyncio.wait_for(first_open_started.wait(), timeout=5)
-    second_open = asyncio.create_task(client.open(params, collaboration_auth=SECOND_TOKEN))
-    await asyncio.sleep(0)
-    release_first_open.set()
 
-    first_result, second_result = await asyncio.gather(first_open, second_open, return_exceptions=True)
+    try:
+        first_open = asyncio.create_task(client.open(params, collaboration_auth=TOKEN))
+        await asyncio.to_thread(host.wait_for_requests, 1)
+        try:
+            with pytest.raises(SuperDocError) as error:
+                await client.open(params, collaboration_auth=SECOND_TOKEN)
+            assert not first_open.done()
+        finally:
+            host.release()
+        document = await first_open
+    finally:
+        await client.dispose()
 
-    assert first_result.session_id == 'shared-async-session'  # type: ignore[union-attr]
-    assert isinstance(second_result, SuperDocError)
-    assert second_result.code == 'SESSION_ALREADY_OPEN'
-    assert second_result.details == {'sessionId': 'shared-async-session'}
-    assert calls == [TOKEN]
+    assert error.value.code == 'SESSION_ALREADY_OPEN'
+    assert error.value.details == {'sessionId': 'shared-async-session'}
+    assert document.session_id == 'shared-async-session'
+    assert host.requests() == [_open_request('fixture.docx', TOKEN, 'shared-async-session')]
 
 
 @pytest.mark.asyncio
-async def test_async_client_releases_an_explicit_session_when_open_fails() -> None:
-    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
-    attempts = 0
-
-    async def invoke(_operation_id: str, _params: dict, **_options: object) -> dict:
-        nonlocal attempts
-        attempts += 1
-        if attempts == 1:
-            raise SuperDocError('authentication rejected', code='COLLABORATION_AUTH_FAILED')
-        return {'contextId': 'async-retry-session'}
-
-    client._runtime.invoke = invoke  # type: ignore[method-assign]
+async def test_async_client_releases_an_explicit_session_when_open_fails(host_with) -> None:
+    host = host_with(AUTH_REJECTED, {'data': {'contextId': 'async-retry-session'}})
+    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': host.cli})
     params = {'doc': 'fixture.docx', 'sessionId': 'async-retry-session'}
 
-    with pytest.raises(SuperDocError, match='authentication rejected'):
-        await client.open(params, collaboration_auth=TOKEN)
-    document = await client.open(params, collaboration_auth=SECOND_TOKEN)
+    try:
+        with pytest.raises(SuperDocError, match='authentication rejected'):
+            await client.open(params, collaboration_auth=TOKEN)
+        document = await client.open(params, collaboration_auth=SECOND_TOKEN)
+    finally:
+        await client.dispose()
 
     assert document.session_id == 'async-retry-session'
-    assert attempts == 2
+    assert host.requests() == [
+        _open_request('fixture.docx', TOKEN, 'async-retry-session'),
+        _open_request('fixture.docx', SECOND_TOKEN, 'async-retry-session'),
+    ]

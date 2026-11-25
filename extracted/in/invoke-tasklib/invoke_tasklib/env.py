@@ -1,103 +1,273 @@
-r"""Environment and dependency management tasks."""
+r"""Environment and dependency management tasks (``env.*``).
+
+The tasks create and update the virtual environment with ``uv``
+(``create-venv``, ``install``, ``update``), show it (``show-installed-
+packages``, ``show-python-config``) and check the tools that the other
+tasks run (``check-tools``). The dependency groups come from
+``tasklib.groups`` and the Python version from
+``tasklib.package.python_version``.
+"""
 
 from __future__ import annotations
 
-import logging
+from pathlib import Path
+from shutil import which
 from typing import TYPE_CHECKING
 
+from invoke.exceptions import Exit
 from invoke.tasks import task
 
-from invoke_tasklib.config import get_config
+from invoke_tasklib.config import load_config
+from invoke_tasklib.output import report_failure, say, step
+from invoke_tasklib.runner import run
+from invoke_tasklib.tools import TOOLS, find_tool, not_found_message
 
 if TYPE_CHECKING:
     from invoke.context import Context
 
-logger: logging.Logger = logging.getLogger(__name__)
+NAMESPACE = "env"
+r"""The name of the namespace of the tasks of this module."""
+
+_PRE_COMMIT_CONFIG = ".pre-commit-config.yaml"
+r"""The pre-commit config; ``update`` updates the hooks if it exists."""
+
+_VENV_DIR = ".venv"
+r"""The directory of the virtual environment that ``uv`` creates."""
+
+_LOCK_FILE = "uv.lock"
+r"""The lock file; ``_install`` enforces it if it exists."""
 
 
-@task
-def create_venv(c: Context) -> None:
-    r"""Create a virtual environment and install invoke.
+def _confirm_clear(directory: str) -> None:
+    r"""Ask the user to confirm that an environment is cleared.
+
+    Args:
+        directory: The directory of the environment, e.g. ``".venv"``.
+
+    Raises:
+        Exit: If the answer is not ``y`` or ``yes``, if there is no
+            terminal to read the answer from (end of input), or if the
+            user interrupts the question.
+    """
+    try:
+        answer = input(f"Clear the existing environment '{directory}'? [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        msg = f"Environment '{directory}' not cleared: pass --yes to clear it without a terminal"
+        raise Exit(msg, code=1) from None
+    if answer.strip().lower() not in {"y", "yes"}:
+        msg = f"Environment '{directory}' not cleared"
+        raise Exit(msg, code=1)
+
+
+@task(
+    help={
+        "yes": "Do not ask for a confirmation before clearing an existing .venv.",
+        "dry_run": "Print what would be done, but do nothing.",
+    }
+)
+def create_venv(c: Context, *, yes: bool = False, dry_run: bool = False) -> None:
+    r"""Create a virtual environment and install the project in it.
+
+    The project is installed with ``env.install`` (``uv sync``), so the
+    environment gets ``invoke`` within the bounds of the project, and
+    the packages that ``tasks.py`` imports, such as ``invoke-tasklib``.
 
     Note:
-        The virtual environment will be created in the .venv directory and any
-        existing environment will be cleared.
-    """
-    cfg = get_config(c)
-    python_version = cfg["package"]["python_version"]
-    logger.info(f"🐍 Creating virtual environment with Python {python_version}...")
-    c.run(f"uv venv --python {python_version} --clear", pty=True)
-    logger.info("📦 Installing invoke...")
-    c.run("uv tool install invoke", pty=True)
-    logger.info("✅ Virtual environment created successfully")
-
-
-@task
-def install(c: Context, optional_deps: bool = True, groups: str | None = None) -> None:
-    r"""Install project dependencies and the package in editable mode.
+        The virtual environment will be created in the .venv directory
+        and any existing environment will be cleared, after a
+        confirmation (``--yes`` turns it off). The task itself runs with
+        ``invoke``, which is often installed in that very environment,
+        so ``invoke`` must be available from somewhere else to run it.
 
     Args:
         c: The invoke context.
-        optional_deps: If True, install all optional dependencies defined in
-            the project extras. Default is True.
-        groups: Comma-separated list of dependency groups to install, e.g.
-            ``"dev,docs"``. Use an empty string to install no group. Defaults
-            to the ``tasklib.groups.install`` config value (``"dev"`` unless
-            overridden in ``invoke.yaml``).
+        yes: If True, do not ask for a confirmation before clearing an
+            existing ``.venv``.
+        dry_run: If True, print what would be done and do nothing.
+
+    Raises:
+        Exit: If the confirmation is refused or cannot be asked.
+    """
+    cfg = load_config(c)
+    python_version = cfg.package.python_version
+    with_version = f" with Python {python_version}" if python_version else ""
+    if dry_run:
+        say(c, f"🐍 Would create .venv{with_version} (dry run)")
+        return
+    if not yes and Path(_VENV_DIR).exists():
+        _confirm_clear(_VENV_DIR)
+    start = f"🐍 Creating virtual environment{with_version}..."
+    with step(c, start, "✅ Virtual environment created successfully"):
+        option = ["--python", python_version] if python_version else []
+        run(c, ["uv", "venv", *option, "--clear"])
+        _install(c, ",".join(cfg.groups.install), optional_deps=True)
+
+
+@task(
+    help={
+        "optional_deps": "Install all the optional dependencies (extras) of the project.",
+        "groups": "Comma-separated dependency groups to install (default: tasklib.groups.install).",
+    }
+)
+def install(c: Context, *, optional_deps: bool = True, groups: str | None = None) -> None:
+    r"""Install the dependencies and the package (editable).
+
+    ``uv sync`` installs the project itself in editable mode, so no
+    other command is needed.
+
+    Args:
+        c: The invoke context.
+        optional_deps: If True, install all optional dependencies
+            defined in the project extras. Default is True.
+        groups: Comma-separated list of dependency groups to install,
+            e.g. ``"dev,docs"``. Use an empty string to install no
+            group. A group listed twice is installed once. Defaults to
+            the ``tasklib.groups.install`` config value (``"dev"``
+            unless overridden in ``invoke.yaml``).
     """
     if groups is None:
-        groups = get_config(c)["groups"]["install"]
-    logger.info("📦 Installing project dependencies...")
-    cmd = ["uv sync --frozen"]
+        groups = ",".join(load_config(c).groups.install)
+    with report_failure(c, "📦 Installing project dependencies..."):
+        _install(c, groups, optional_deps=optional_deps)
+
+
+def _install(c: Context, groups: str, *, optional_deps: bool) -> None:
+    r"""Install the dependencies and the package, without a report.
+
+    It is the body of ``install``, without its failure line. The
+    lock file is enforced (``uv sync --locked``) only if the project
+    has a ``uv.lock``; without one, ``uv sync`` resolves the
+    dependencies and creates it. A task that installs as one step of a
+    longer job (``create_venv``, ``update``) calls it inside its own
+    ``report_failure`` block, so a failure is reported once, with the
+    title of the outer job.
+
+    Args:
+        c: The invoke context.
+        groups: Comma-separated list of dependency groups to install.
+            An empty string installs no group, and a group listed
+            twice is installed once.
+        optional_deps: If True, install all the optional dependencies
+            (extras) of the project.
+    """
+    if Path(_LOCK_FILE).is_file():
+        say(c, f"📦 Installing from {_LOCK_FILE}...")
+        cmd = ["uv", "sync", "--locked"]
+    else:
+        say(c, f"📦 No {_LOCK_FILE}: resolving the dependencies...")
+        cmd = ["uv", "sync"]
     if optional_deps:
         cmd.append("--all-extras")
-    cmd.extend(f"--group {group}" for group in filter(None, (g.strip() for g in groups.split(","))))
-    c.run(" ".join(cmd), pty=True)
-    logger.info("🔧 Installing package in editable mode...")
-    c.run("uv pip install -e .", pty=True)
-    logger.info("✅ Installation complete")
+    names = dict.fromkeys(filter(None, (g.strip() for g in groups.split(","))))
+    for group in names:
+        cmd.extend(["--group", group])
+    run(c, cmd)
+    say(c, "✅ Installation complete")
 
 
-@task
-def update(c: Context, groups: str | None = None) -> None:
-    r"""Update dependencies and pre-commit hooks to their latest
-    versions.
+@task(
+    help={
+        "groups": "Comma-separated dependency groups to reinstall (default: tasklib.groups.update)."
+    }
+)
+def update(c: Context, *, groups: str | None = None) -> None:
+    r"""Update dependencies and pre-commit hooks.
+
+    The dependencies and the hooks are updated to their latest versions.
+    The hooks are only updated if the project has a
+    ``.pre-commit-config.yaml`` file. The ``uv`` tools installed on the
+    machine are not touched: they are not part of the project.
 
     Args:
         c: The invoke context.
-        groups: Comma-separated list of dependency groups to reinstall after
-            updating, e.g. ``"dev,docs"``. Defaults to the
-            ``tasklib.groups.update`` config value (``"dev,docs"`` unless
-            overridden in ``invoke.yaml``).
+        groups: Comma-separated list of dependency groups to reinstall
+            after updating, e.g. ``"dev,docs"``. Defaults to the
+            ``tasklib.groups.update`` config value (``"dev,docs"``
+            unless overridden in ``invoke.yaml``).
+
+    Note:
+        The lock file is upgraded first, then the environment is synced
+        once with the dependency groups.
 
     Warning:
-        This may introduce breaking changes. Review the changes and run tests
-        after updating.
+        This may introduce breaking changes. Review the changes and run
+        tests after updating.
     """
     if groups is None:
-        groups = get_config(c)["groups"]["update"]
-    logger.info("🔄 Updating dependencies...")
-    c.run("uv sync --upgrade", pty=True)
-    logger.info("🛠️  Upgrading uv tools...")
-    c.run("uv tool upgrade --all", pty=True)
-    logger.info("🪝 Updating pre-commit hooks...")
-    c.run("pre-commit autoupdate", pty=True)
-    logger.info(f"📦 Reinstalling with dependency groups: {groups}...")
-    install(c, groups=groups)
-    logger.info("✅ Update complete")
+        groups = ",".join(load_config(c).groups.update)
+    with step(c, "🔄 Updating dependencies...", "✅ Update complete"):
+        run(c, ["uv", "lock", "--upgrade"])
+        if Path(_PRE_COMMIT_CONFIG).is_file():
+            say(c, "🪝 Updating pre-commit hooks...")
+            run(c, ["pre-commit", "autoupdate"])
+        else:
+            say(c, f"⏭️  No {_PRE_COMMIT_CONFIG} file: skipping the pre-commit hooks")
+        say(c, f"📦 Reinstalling with dependency groups: {groups}...")
+        _install(c, groups, optional_deps=True)
 
 
 @task
 def show_installed_packages(c: Context) -> None:
-    r"""Show the installed packages."""
-    logger.info("📦 Listing installed packages...")
-    c.run("uv pip list", pty=True)
+    r"""Show the installed packages.
+
+    It runs ``uv pip list``.
+
+    Args:
+        c: The invoke context.
+    """
+    say(c, "📦 Listing installed packages...")
+    run(c, ["uv", "pip", "list"])
 
 
 @task
 def show_python_config(c: Context) -> None:
-    r"""Show the python configuration."""
-    logger.info("🐍 Python configuration:")
-    c.run("uv python list --only-installed", pty=True)
-    c.run("uv python find", pty=True)
-    c.run("which python", pty=True)
+    r"""Show the python configuration.
+
+    It lists the Python versions that ``uv`` knows, the one it would
+    use, and the ``python`` of the ``PATH``. Having no ``python`` on the
+    ``PATH`` is not an error of the task, and neither is a Python
+    version that ``uv`` would use but that is not installed (for
+    example a pinned ``.python-version``).
+
+    Args:
+        c: The invoke context.
+    """
+    say(c, "🐍 Python configuration:")
+    run(c, ["uv", "python", "list", "--only-installed"])
+    run(c, ["uv", "python", "find"], warn=True)
+    say(c, which("python") or "python: not found")
+
+
+@task
+def check_tools(c: Context) -> None:
+    r"""Check which tools of the tasks are available.
+
+    Every program (``ruff``, ``ty``, ``pyright``, ``uv``, ...) and every
+    Python module (``pytest``, ``coverage`` and the pytest plugins) that
+    the tasks run is looked up, and one line per tool says where it was
+    found, or how to install it. The tools are sorted by name. All the
+    tools are listed, so one run shows everything that is missing. The
+    config of the project is not needed, so the task can be run before
+    anything is set up.
+
+    Args:
+        c: The invoke context.
+
+    Raises:
+        Exit: With the code 127 if a tool is missing.
+    """
+    say(c, "🧰 Checking the tools of the tasks...")
+    lookups = sorted(TOOLS.values(), key=lambda tool: tool.name)
+    missing: list[str] = []
+    for tool in lookups:
+        module = tool.kind == "module"
+        found = find_tool(tool.name, module=module)
+        if found is not None:
+            say(c, f"✅ {tool.name}: {found}")
+            continue
+        missing.append(tool.name)
+        say(c, f"❌ {not_found_message(tool.name, module=module)}")
+    if missing:
+        msg = f"{len(missing)} of {len(lookups)} tool(s) missing: {', '.join(missing)}"
+        raise Exit(msg, code=127)
+    say(c, f"✅ All the {len(lookups)} tools are available")

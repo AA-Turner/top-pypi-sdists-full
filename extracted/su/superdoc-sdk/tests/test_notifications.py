@@ -316,19 +316,27 @@ class TestIdentityClaim:
             await transport.dispose()
             _cleanup_wrapper(cli)
 
-    def test_clients_forward_claim_only_on_open(self, monkeypatch):
+    def test_clients_forward_claim_only_on_open(self, monkeypatch, tmp_path):
         from superdoc import SuperDocClient
 
-        client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
-        calls: list = []
-
-        def invoke(operation_id: str, params: dict, **options: object) -> dict:
-            calls.append((operation_id, options))
-            return {'contextId': 'claim-session'}
-
-        monkeypatch.setattr(client._runtime, 'invoke', invoke)
-        client.open({'doc': 'fixture.docx'}, identity_claim=CLAIM_SENTINEL)
-        assert calls == [(
-            'doc.open',
-            {'timeout_ms': None, 'stdin_bytes': None, 'collaboration_auth': None, 'identity_claim': CLAIM_SENTINEL},
-        )]
+        monkeypatch.setattr(transport_module, 'IDENTITY_CLAIM_PER_OPEN_FEATURE', 'document.open.identityClaim')
+        request_log = tmp_path / 'requests.jsonl'
+        cli = _mock_cli_bin({
+            'handshake': 'identity_claim',
+            'request_log': str(request_log),
+            'responses': [{'data': {'contextId': 'claim-session'}}],
+        })
+        client = SuperDocClient(env={'SUPERDOC_CLI_BIN': cli})
+        try:
+            client.open({'doc': 'fixture.docx'}, identity_claim=CLAIM_SENTINEL)
+        finally:
+            client.dispose()
+            _cleanup_wrapper(cli)
+        assert [json.loads(line) for line in request_log.read_text().splitlines()] == [{
+            'method': 'cli.invoke',
+            'params': {
+                'argv': ['open', 'fixture.docx', '--output', 'json'],
+                'stdinBase64': '',
+                'identityClaim': CLAIM_SENTINEL,
+            },
+        }]

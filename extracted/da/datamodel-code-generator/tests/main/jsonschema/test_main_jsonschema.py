@@ -58,6 +58,7 @@ from datamodel_code_generator import (
     GenerateConfig,
     InputFileType,
     InvalidFileFormatError,
+    NamingHintWarning,
     PythonVersion,
     PythonVersionMin,
     SchemaResourceRefWarning,
@@ -3951,6 +3952,21 @@ def _decode_with_generated_model(output_model_type: str, model: Any, payload: st
     return f"{payload}: accepted {decoded!r}"
 
 
+def _decoded_package_verdicts(
+    output_dir: Path, output_model_type: str, decoded: list[tuple[str, str, list[str]]]
+) -> str:
+    """Import the generated package as Python does, its first module first, and describe each payload's decoding."""
+    verdicts = []
+    with _generated_package_module(output_dir, decoded[0][0]):
+        for module_path, model_name, payloads in decoded:
+            module = importlib.import_module(f"{output_dir.name}.{module_path}" if module_path else output_dir.name)
+            verdicts += [
+                _decode_with_generated_model(output_model_type, getattr(module, model_name), payload)
+                for payload in payloads
+            ]
+    return "\n".join(verdicts) + "\n"
+
+
 @pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "dataclasses.dataclass", "msgspec.Struct"])
 @pytest.mark.parametrize("target_python_version", ["3.10", "3.11"])
 def test_main_jsonschema_class_named_like_builtin_beside_submodule(
@@ -4403,6 +4419,30 @@ class a later rename moves off its name keeps its name.""",
             ],
             id="renamed-files",
         ),
+        *(
+            pytest.param(
+                input_name,
+                output_model_type,
+                "3.10",
+                ["--all-exports-scope", *scope_args],
+                [
+                    ("api", "Order", ['{"detail": {"message": "m", "note": {"text": "t"}}, "warn": {"count": 1}}']),
+                    ("pkg", "Warn", ['{"count": 1}', '{"count": "x"}']),
+                ],
+                id=f"{prefix}-all-exports-{suffix}",
+            )
+            for input_name, prefix in (
+                ("submodule_named_like_package_class_files", "class-files"),
+                ("submodule_named_like_package_class_ancestor_import", "class-ancestor-import"),
+            )
+            for output_model_type, suffix, scope_args in (
+                ("pydantic_v2.BaseModel", "children", ["children"]),
+                ("pydantic_v2.BaseModel", "recursive", ["recursive"]),
+                ("pydantic_v2.BaseModel", "treat-dot-as-module", ["recursive", "--treat-dot-as-module"]),
+                ("dataclasses.dataclass", "children-dataclasses", ["children"]),
+                ("msgspec.Struct", "children-msgspec", ["children"]),
+            )
+        ),
         pytest.param(
             "submodule_named_like_renamed_package_class_files",
             "pydantic_v2.BaseModel",
@@ -4492,6 +4532,54 @@ class a later rename moves off its name keeps its name.""",
             ],
             id="renamed-forwarded",
         ),
+        pytest.param(
+            "submodule_named_like_package_class_root_cycle.json",
+            "pydantic_v2.BaseModel",
+            "3.10",
+            [],
+            [
+                ("", "Top", ['{"detail": {"message": "m"}}', '{"detail": {"message": 1}}']),
+                ("pkg", "Warn", ['{"count": 1, "common": {"code": "c"}}', '{"count": "x"}']),
+            ],
+            id="class-root-cycle",
+        ),
+        pytest.param(
+            "submodule_named_like_nested_package_class_ancestor_import.json",
+            "pydantic_v2.BaseModel",
+            "3.10",
+            ["--all-exports-scope", "children"],
+            [
+                (
+                    "a.api",
+                    "Order",
+                    ['{"detail": {"message": "m"}, "warn": {"count": 1}}', '{"detail": {"message": 1}}'],
+                ),
+                ("a.b", "Warn", ['{"count": 1, "common": {"code": "c"}}', '{"count": "x"}']),
+            ],
+            id="class-nested-ancestor-import-all-exports-children",
+        ),
+        pytest.param(
+            "submodule_named_like_package_class_root_import.json",
+            "pydantic_v2.BaseModel",
+            "3.10",
+            ["--all-exports-scope", "children"],
+            [
+                ("", "Top", ['{"detail": {"message": "m"}}', '{"detail": {"message": 1}}']),
+                ("pkg", "Warn", ['{"count": 1, "common": {"code": "c"}}', '{"count": "x"}']),
+            ],
+            id="class-root-import-all-exports-children",
+        ),
+        *(
+            pytest.param(
+                "submodule_named_like_package_class_root_import.json",
+                output_model_type,
+                "3.10",
+                [],
+                [("pkg", "Warn", ['{"count": 1, "common": {"code": "c"}}', '{"count": "x"}'])],
+                id=f"class-root-import-{suffix}",
+            )
+            for output_model_type, suffix in (("dataclasses.dataclass", "dataclasses"), ("msgspec.Struct", "msgspec"))
+        ),
     ],
 )
 def test_main_jsonschema_submodule_hidden_by_package(
@@ -4512,15 +4600,16 @@ def test_main_jsonschema_submodule_hidden_by_package(
     new import too (``Literal[Kind.book]``, not ``Literal[annotations.Kind.book]``, #6069), a const beside the enum and
     a tag of ``--use-enum-values-in-discriminator`` alike, without the module import the type it replaced counted;
     msgspec writes such tags as values and imports nothing for them. Under ``--all-exports-scope`` the export imports of
-    the ``__init__.py`` load the submodule: where they
-    run before ``api`` the old import worked and only its form changes; where ``from . import api`` runs first it
-    failed. The enum members that ``--set-default-enum-member`` writes into defaults follow the new import
-    (``Kind.book``, not ``annotations.Kind.book``), a model named like an import of the module or a shared one takes
-    another name (``Counter_1`` beside ``collections.Counter``), and an ``__init__.py`` that loads ``pkg.Warn`` only for
-    the class of an enum member literal keeps its class bound too. Where ``pkg/__init__.py`` imports ``typing.Any``
-    and the output loads ``pkg/Any.py`` (#6066), ``from . import Any`` gave ``typing.Any``, and once the submodule
-    was loaded its name replaced the import that the classes of the ``__init__.py`` name: the import is now
-    ``Any_aliased``, unless no module loads ``pkg/Any.py``, and the validation helper of
+    the ``__init__.py`` load the submodule: where they run before ``api`` the old import worked and only its form
+    changes; where ``from . import api`` runs first it failed, also where ``pkg/__init__.py`` imports
+    ``from .. import common``: the root package has started before it, so the root's export of ``api`` loads nothing
+    while ``pkg/__init__.py`` runs. The enum members that ``--set-default-enum-member`` writes into defaults follow the
+    new import (``Kind.book``, not ``annotations.Kind.book``), a model named like an import of the module or a shared
+    one takes another name (``Counter_1`` beside ``collections.Counter``), and an ``__init__.py`` that loads
+    ``pkg.Warn`` only for the class of an enum member literal keeps its class bound too. Where ``pkg/__init__.py``
+    imports ``typing.Any`` and the output loads ``pkg/Any.py`` (#6066), ``from . import Any`` gave ``typing.Any``, and
+    once the submodule was loaded its name replaced the import that the classes of the ``__init__.py`` name: the import
+    is now ``Any_aliased``, unless no module loads ``pkg/Any.py``, and the validation helper of
     ``--generate-schema-validators`` follows it (``BaseModel_aliased``). Where ``pkg/api.py`` imports
     ``pydantic.BaseModel`` or ``typing.Literal`` beside ``from . import BaseModel`` or ``from . import Literal``
     (#6105), the later import named both: the models of ``pkg/BaseModel.py`` and ``pkg/Literal.py`` are imported from
@@ -4534,8 +4623,14 @@ def test_main_jsonschema_submodule_hidden_by_package(
     beside the import of ``decimal.Decimal``, ``Warn`` of ``--collapse-root-models-name-strategy parent``) the run is
     parsed again and renames that submodule (``pkg/Warn_1_.py``), and keeps a submodule whose class a later rename moves
     off its name (``pkg/Warn.py`` beside ``Warn_1``); a class that an import cycle merge moves into ``pkg/_internal.py``
-    is still bound by ``pkg/__init__.py``, so its submodule stays renamed. The models are decoded after the first module
-    named is imported, in one import of the package.
+    is still bound by ``pkg/__init__.py``, so its submodule stays renamed. Where the first parse would refuse the class
+    but its output runs into an import cycle (``pkg/__init__.py`` imports ``Common`` from the root package, which
+    imports ``pkg``), the refusal waits for the parse again, whose merge into ``_internal.py`` writes the class and
+    imports. Where only the root package imports the submodule (``from .pkg import Warn``, ``Warn.Detail``) and
+    ``pkg/__init__.py`` imports from the root, 0.90.0 to 0.100.0 wrote the output: the root gets the class, which only
+    fails where the root's class evaluates ``Warn.Detail`` as it is defined, so a dataclass or a Struct with deferred
+    annotations keeps it and every module imports. The models are decoded after the first module named is imported, in
+    one import of the package.
     """
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / input_name,
@@ -4553,15 +4648,7 @@ def test_main_jsonschema_submodule_hidden_by_package(
         ],
         force_exec_validation=True,
     )
-    verdicts = []
-    with _generated_package_module(output_dir, decoded[0][0]):
-        for module_path, model_name, payloads in decoded:
-            module = importlib.import_module(f"{output_dir.name}.{module_path}" if module_path else output_dir.name)
-            verdicts += [
-                _decode_with_generated_model(output_model_type, getattr(module, model_name), payload)
-                for payload in payloads
-            ]
-    assert_output("\n".join(verdicts) + "\n", name="payloads")
+    assert_output(_decoded_package_verdicts(output_dir, output_model_type, decoded), name="payloads")
 
 
 @pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "dataclasses.dataclass", "msgspec.Struct"])
@@ -4593,15 +4680,39 @@ def test_main_jsonschema_forwarded_class_beside_loaded_submodule(output_dir: Pat
         ("pkg.api", "Order", ['{"detail": {"message": "m"}, "warn": {"count": 1}}', '{"detail": {"message": 1}}']),
         ("pkg", "Warn", ['{"count": 1, "order": {"detail": {"message": "m"}}}', '{"count": "x"}']),
     ]
-    verdicts = []
-    with _generated_package_module(output_dir, "pkg.api"):
-        for module_path, model_name, payloads in decoded:
-            module = importlib.import_module(f"{output_dir.name}.{module_path}")
-            verdicts += [
-                _decode_with_generated_model(output_model_type, getattr(module, model_name), payload)
-                for payload in payloads
-            ]
-    assert_output("\n".join(verdicts) + "\n", name="payloads")
+    assert_output(_decoded_package_verdicts(output_dir, output_model_type, decoded), name="payloads")
+
+
+def test_main_jsonschema_submodule_hidden_by_package_loaded_through_module(output_dir: Path) -> None:
+    """Import a model of a submodule from it where the package's ``__init__.py`` loads it through another module.
+
+    Without an export scope, ``pkg/__init__.py`` imports ``pkg/other.py`` (``Warn.other``), which imports
+    ``pkg/Warn.py`` while the ``__init__.py`` runs, before its class ``Warn`` is defined: the class keeps the name, so
+    the refusal of a class beside a module does not apply. ``other`` runs in that import and keeps reading the module
+    by its name, and ``api``, which runs after the class exists, imports the model of the submodule from it (#7120).
+    The package is imported as Python imports it, a package before its modules: the code validation of the stored
+    outputs runs a module before its package, and ``pkg/other.py`` would then read the class.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "submodule_named_like_package_class_loaded_by_module",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        skip_code_validation=True,
+    )
+    decoded = [
+        ("api", "Order", ['{"detail": {"message": "m"}, "warn": {"count": 1}}', '{"detail": {"message": 1}}']),
+        ("pkg", "Warn", ['{"count": 1, "other": {"detail": {"message": "m"}}}', '{"count": "x"}']),
+    ]
+    assert_output(_decoded_package_verdicts(output_dir, "pydantic_v2.BaseModel", decoded), name="payloads")
 
 
 @pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "dataclasses.dataclass"])
@@ -30072,26 +30183,30 @@ def test_main_jsonschema_runtime_root_merges_generic_base_config(output_dir: Pat
 
 def test_main_jsonschema_property_count_cross_module_with_generic_base_class(output_dir: Path) -> None:
     """Reuse an imported generic base before runtime helpers in split modules."""
-    run_main_and_assert(
-        input_path=JSON_SCHEMA_DATA_PATH / "schema_validators_property_count_cross_module",
-        output_path=output_dir,
-        input_file_type="jsonschema",
-        extra_args=[
-            "--extra-fields",
-            "forbid",
-            "--generate-schema-validators",
-            "--output-model-type",
-            "pydantic_v2.BaseModel",
-            "--use-generic-base-class",
-            "--disable-timestamp",
-            "--formatters",
-            "builtin",
-        ],
-        force_exec_validation=True,
-        runtime_validation_module="property_parent",
-        runtime_validation_model_name="PropertyParent",
-        runtime_validation_data={"value": "x", "second": "y"},
-    )
+    with (
+        pytest.warns(UserWarning, match="an allOf over a union, which is no class a model can extend"),
+        pytest.warns(NamingHintWarning),
+    ):
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "schema_validators_property_count_cross_module",
+            output_path=output_dir,
+            input_file_type="jsonschema",
+            extra_args=[
+                "--extra-fields",
+                "forbid",
+                "--generate-schema-validators",
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--use-generic-base-class",
+                "--disable-timestamp",
+                "--formatters",
+                "builtin",
+            ],
+            force_exec_validation=True,
+            runtime_validation_module="property_parent",
+            runtime_validation_model_name="PropertyParent",
+            runtime_validation_data={"value": "x", "second": "y"},
+        )
     with _generated_package_module(output_dir, "property_parent") as module:
         validate_json = _model_json_validator(module.PropertyParent)
         _assert_model_json_invalid(validate_json, '{"value":"x"}', "value_error")
@@ -30100,23 +30215,27 @@ def test_main_jsonschema_property_count_cross_module_with_generic_base_class(out
 
 def test_main_jsonschema_property_count_cross_module_capabilities(output_dir: Path) -> None:
     """Retain property and core validators across module-boundary allOf inheritance."""
-    run_main_and_assert(
-        input_path=JSON_SCHEMA_DATA_PATH / "schema_validators_property_count_cross_module",
-        output_path=output_dir,
-        input_file_type="jsonschema",
-        extra_args=[
-            "--generate-schema-validators",
-            "--output-model-type",
-            "pydantic_v2.BaseModel",
-            "--disable-timestamp",
-            "--formatters",
-            "builtin",
-        ],
-        force_exec_validation=True,
-        runtime_validation_module="property_child",
-        runtime_validation_model_name="PropertyChild",
-        runtime_validation_data={"base": "x", "child": "y"},
-    )
+    with (
+        pytest.warns(UserWarning, match="an allOf over a union, which is no class a model can extend"),
+        pytest.warns(NamingHintWarning),
+    ):
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "schema_validators_property_count_cross_module",
+            output_path=output_dir,
+            input_file_type="jsonschema",
+            extra_args=[
+                "--generate-schema-validators",
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--disable-timestamp",
+                "--formatters",
+                "builtin",
+            ],
+            force_exec_validation=True,
+            runtime_validation_module="property_child",
+            runtime_validation_model_name="PropertyChild",
+            runtime_validation_data={"base": "x", "child": "y"},
+        )
     for module_path, model_name, valid_json, invalid_json, expected_error_type in (
         (
             "property_child",
@@ -35955,11 +36074,13 @@ MSGSPEC_INHERITANCE_CASES = json.loads((MSGSPEC_INHERITANCE_DATA / "cases.json")
 
 
 @pytest.mark.parametrize("entrypoint", ["cli", "api"])
-@pytest.mark.parametrize("case", [case for case in MSGSPEC_INHERITANCE_CASES if case["error"]], ids=itemgetter("name"))
+@pytest.mark.parametrize(
+    "case", [case for case in MSGSPEC_INHERITANCE_CASES if case.get("error")], ids=itemgetter("name")
+)
 def test_msgspec_inheritance_reject_conflicting_layouts(
     output_file: Path, capsys: pytest.CaptureFixture[str], entrypoint: str, case: dict
 ) -> None:
-    """Diagnose actual slot conflicts without writing unusable generated modules."""
+    """Diagnose slot conflicts that a type-overridden base hides without writing unusable generated modules."""
     if entrypoint == "cli":
         run_main_and_assert(
             input_path=MSGSPEC_INHERITANCE_DATA / case["schema"],
@@ -35984,7 +36105,7 @@ def test_msgspec_inheritance_reject_conflicting_layouts(
 
 @pytest.mark.parametrize("entrypoint", ["cli", "api"])
 @pytest.mark.parametrize(
-    "case", [case for case in MSGSPEC_INHERITANCE_CASES if not case["error"]], ids=itemgetter("name")
+    "case", [case for case in MSGSPEC_INHERITANCE_CASES if not case.get("error")], ids=itemgetter("name")
 )
 def test_msgspec_inheritance_preserve_compatible_layouts(output_file: Path, entrypoint: str, case: dict) -> None:
     """Preserve generated bytes, inherited slots, base order, MRO, and real decoding."""
@@ -35994,32 +36115,33 @@ def test_msgspec_inheritance_preserve_compatible_layouts(output_file: Path, entr
     if "custom_template_dir" in options:
         options["custom_template_dir"] = MSGSPEC_INHERITANCE_DATA / Path(options["custom_template_dir"]).name
 
-    if entrypoint == "cli":
-        run_main_and_assert(
-            input_path=MSGSPEC_INHERITANCE_DATA / case["schema"],
-            output_path=output_file,
-            input_file_type=case["format"],
-            extra_args=[
-                "--output-model-type",
-                "msgspec.Struct",
-                "--target-python-version",
-                "3.10",
-                "--disable-timestamp",
-                *case["cli"],
-            ],
-            force_exec_validation=True,
-        )
-    else:
-        run_generate_file_and_assert(
-            input_path=MSGSPEC_INHERITANCE_DATA / case["schema"],
-            output_path=output_file,
-            input_file_type=InputFileType(case["format"]),
-            output_model_type=DataModelType.MsgspecStruct,
-            target_python_version=PythonVersion.PY_310,
-            disable_timestamp=True,
-            unchanged_inputs={"options": options},
-            **options,
-        )
+    with pytest.warns(UserWarning, match=case["warns"]) if "warns" in case else nullcontext():
+        if entrypoint == "cli":
+            run_main_and_assert(
+                input_path=MSGSPEC_INHERITANCE_DATA / case["schema"],
+                output_path=output_file,
+                input_file_type=case["format"],
+                extra_args=[
+                    "--output-model-type",
+                    "msgspec.Struct",
+                    "--target-python-version",
+                    "3.10",
+                    "--disable-timestamp",
+                    *case["cli"],
+                ],
+                force_exec_validation=True,
+            )
+        else:
+            run_generate_file_and_assert(
+                input_path=MSGSPEC_INHERITANCE_DATA / case["schema"],
+                output_path=output_file,
+                input_file_type=InputFileType(case["format"]),
+                output_model_type=DataModelType.MsgspecStruct,
+                target_python_version=PythonVersion.PY_310,
+                disable_timestamp=True,
+                unchanged_inputs={"options": options},
+                **options,
+            )
     with _generated_model(output_file, "generated_msgspec_inheritance", "Payload") as model:
         converted = msgspec.convert(case["payload"], type=model)
         decoded = msgspec.json.decode(json.dumps(case["payload"]), type=model)
@@ -38437,43 +38559,6 @@ def test_main_jsonschema_reference_edges_of_parser_hooks(parser_type: type[JsonS
     assert_output(str(parser.parse()))
 
 
-class _SharedSchemaWriterParser(JsonSchemaParser):
-    """Writes the description of each schema a reference loads: a reader that changes the object the graph shares."""
-
-    def _load_ref_schema_object(self, ref: str) -> Any:
-        loaded = super()._load_ref_schema_object(ref)
-        loaded.description = "written"
-        return loaded
-
-
-@pytest.mark.parametrize("flag", ["check", "report", "off"])
-def test_schema_graph_check_of_a_reader_that_writes_a_shared_schema(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
-) -> None:
-    """A reader that writes a schema object the graph validated once and shares is reported, and generation goes on.
-
-    The check (`1`, as the test suite sets it) compares each shared object at the end of L1 with the fingerprint taken
-    when it was validated and raises, `report:<path>` appends the changed locations as a JSON line, and with the check
-    off (`0`) the parser generates from the written objects.
-    """
-    report_path = tmp_path / "checks.jsonl"
-    monkeypatch.setenv(CHECK_SCHEMA_GRAPH_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
-    parser = _SharedSchemaWriterParser(
-        JSON_SCHEMA_DATA_PATH / "ref_edges" / "redirect.json", formatters=[Formatter.BUILTIN]
-    )
-    if flag == "check":
-        with pytest.raises(
-            CheckFailure,
-            match=f"^{CHECK_SCHEMA_GRAPH_ENV}: shared schema objects changed after validation: "
-            "redirect.json#/properties/kept$",
-        ):
-            parser.parse()
-        return
-    assert_output(str(parser.parse()))
-    if flag == "report":
-        assert_output(report_path.read_text(encoding="utf-8"), name="report")
-
-
 class _LoadedDocumentWriterParser(JsonSchemaParser):
     """Writes a definition of the document being parsed when a reference loads: a reader that changes a loaded one."""
 
@@ -40446,15 +40531,21 @@ def test_main_jsonschema_distribute_allof_over_unions_through_ref(
     of ``Mid`` and ``Leaf``, across the three documents; a member naming a schema already read in place adds
     nothing, so ``Loop`` and ``Back``, each an allOf over the other, end (without the option their models fail to
     import). A member of another document is read as that document reads it: the ``$recursiveRef: "#"`` of ``Mid``
-    names the root of its own document (``child: RecursiveMid``), not that of ``Recursive``.
+    names the root of its own document (``child: RecursiveMid``), not that of ``Recursive``. Without the option the
+    dropped member warns.
     """
-    run_main_and_assert(
-        input_path=JSON_SCHEMA_DATA_PATH / "allof_union_through_ref_files" / input_name,
-        output_path=output_file,
-        input_file_type="jsonschema",
-        extra_args=[*extra_args, "--formatters", "builtin", "--disable-timestamp"],
-        force_exec_validation=True,
-    )
+    with (
+        nullcontext()
+        if extra_args
+        else pytest.warns(UserWarning, match="an allOf over a union, which is no class a model can extend")
+    ):
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "allof_union_through_ref_files" / input_name,
+            output_path=output_file,
+            input_file_type="jsonschema",
+            extra_args=[*extra_args, "--formatters", "builtin", "--disable-timestamp"],
+            force_exec_validation=True,
+        )
 
 
 @pytest.mark.parametrize(
@@ -40721,67 +40812,103 @@ def test_main_jsonschema_refuses_keyword_module(
     )
 
 
+_REFUSAL_BACKENDS = ("pydantic_v2.BaseModel", "dataclasses.dataclass", "msgspec.Struct")
+_PYDANTIC_BACKENDS = ("pydantic_v2.BaseModel", "pydantic_v2.dataclass")
+
+
 @pytest.mark.parametrize(
-    ("input_name", "extra_args", "message"),
+    ("output_model_type", "input_name", "extra_args", "message"),
     [
-        pytest.param(
-            "module_named_like_package_class_unloaded",
-            [],
-            "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn.py)",
-            id="module",
-        ),
-        pytest.param(
-            "module_named_like_package_class_directory",
-            [],
-            "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn/__init__.py)",
-            id="package",
-        ),
-        pytest.param(
-            "module_named_like_package_class_directory",
-            ["--all-exports-scope", "children"],
-            "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn/__init__.py)",
-            id="package-not-exported",
-        ),
-        pytest.param(
-            "module_named_like_root_class",
-            [],
-            "the class 'Warn' in the root package beside the module 'Warn' (Warn.py)",
-            id="root",
-        ),
-        pytest.param(
-            "submodule_named_like_import_renamed_class",
-            ["--type-overrides", '{"Other.a": "decimal.Decimal"}'],
-            "the class 'Decimal1' in the package 'pkg' beside the module 'pkg.Decimal1' (pkg/Decimal1.py)",
-            id="import-renamed",
-        ),
-        pytest.param(
-            "submodule_named_like_collapsed_root_class",
-            ["--collapse-root-models", "--collapse-root-models-name-strategy", "parent"],
-            "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn.py)",
-            id="collapse-renamed",
-        ),
-        pytest.param(
-            "submodule_named_like_forwarded_class",
-            [],
-            "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn.py)",
-            id="forwarded",
-        ),
-        pytest.param(
-            "shared_module_named_like_root_class",
-            [
-                "--rename-submodules-hidden-by-classes",
-                "--reuse-model",
-                "--reuse-scope",
-                "tree",
-                "--shared-module-name",
-                "Common",
-            ],
-            "the class 'Common' in the root package beside the module 'Common' (Common.py)",
-            id="shared-module",
-        ),
+        pytest.param(output_model_type, input_name, extra_args, message, id=f"{output_model_type}-{case_id}")
+        for input_name, extra_args, message, case_id, output_model_types in (
+            (
+                "module_named_like_package_class_unloaded",
+                [],
+                "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn.py)",
+                "module",
+                _REFUSAL_BACKENDS,
+            ),
+            (
+                "module_named_like_package_class_directory",
+                [],
+                "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn/__init__.py)",
+                "package",
+                _REFUSAL_BACKENDS,
+            ),
+            (
+                "module_named_like_package_class_directory",
+                ["--all-exports-scope", "children"],
+                "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn/__init__.py)",
+                "package-not-exported",
+                _REFUSAL_BACKENDS,
+            ),
+            (
+                "module_named_like_root_class",
+                [],
+                "the class 'Warn' in the root package beside the module 'Warn' (Warn.py)",
+                "root",
+                _REFUSAL_BACKENDS,
+            ),
+            (
+                "submodule_named_like_import_renamed_class",
+                ["--type-overrides", '{"Other.a": "decimal.Decimal"}'],
+                "the class 'Decimal1' in the package 'pkg' beside the module 'pkg.Decimal1' (pkg/Decimal1.py)",
+                "import-renamed",
+                _REFUSAL_BACKENDS,
+            ),
+            (
+                "submodule_named_like_collapsed_root_class",
+                ["--collapse-root-models", "--collapse-root-models-name-strategy", "parent"],
+                "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn.py)",
+                "collapse-renamed",
+                _REFUSAL_BACKENDS,
+            ),
+            (
+                "submodule_named_like_forwarded_class",
+                [],
+                "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn.py)",
+                "forwarded",
+                _REFUSAL_BACKENDS,
+            ),
+            (
+                "submodule_named_like_package_class_root_import",
+                [],
+                "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn.py)",
+                "root-import",
+                _PYDANTIC_BACKENDS,
+            ),
+            (
+                "submodule_named_like_package_class_root_import",
+                ["--disable-future-imports"],
+                "the class 'Warn' in the package 'pkg' beside the module 'pkg.Warn' (pkg/Warn.py)",
+                "root-import-evaluated",
+                ("dataclasses.dataclass", "msgspec.Struct"),
+            ),
+            (
+                "submodule_named_like_package_class_beside_keyword_directory",
+                [],
+                "the class 'Warn' in the package 'main.pkg' beside the module 'main.pkg.Warn' (main/pkg/Warn.py)",
+                "beside-keyword-directory",
+                _REFUSAL_BACKENDS,
+            ),
+            (
+                "shared_module_named_like_root_class",
+                [
+                    "--rename-submodules-hidden-by-classes",
+                    "--reuse-model",
+                    "--reuse-scope",
+                    "tree",
+                    "--shared-module-name",
+                    "Common",
+                ],
+                "the class 'Common' in the root package beside the module 'Common' (Common.py)",
+                "shared-module",
+                _REFUSAL_BACKENDS,
+            ),
+        )
+        for output_model_type in output_model_types
     ],
 )
-@pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "dataclasses.dataclass", "msgspec.Struct"])
 def test_main_jsonschema_refuses_class_named_like_submodule(
     output_dir: Path,
     capsys: pytest.CaptureFixture[str],
@@ -40795,7 +40922,15 @@ def test_main_jsonschema_refuses_class_named_like_submodule(
     Importing ``pkg.Warn`` binds ``Warn`` in ``pkg`` over the class, so the models that use the class failed to import
     or decode (#6067). The names are the models' and the files', so the run fails and names the class and the module;
     where the ``__init__.py`` loads the module before its classes are defined (it imports from it, or
-    ``--all-exports-scope`` re-exports a module of it) the output works and is written. The class names are the final
+    ``--all-exports-scope`` re-exports a module of it) the output works and is written. An import of the root package
+    (``from .. import common``) loads nothing while the ``__init__.py`` runs, as the root has started before it, so the
+    root's own import of ``pkg.Warn`` runs after the class is defined and gets the class: the run fails where the
+    classes evaluate their annotations as they are defined, so that the root's ``Warn.Detail`` fails at import
+    (Pydantic, which builds a class as it is defined, or without ``from __future__ import annotations``), and the other
+    output keeps the form of 0.90.0 to 0.100.0 (``test_main_jsonschema_submodule_hidden_by_package``). The refusal is
+    judged before
+    the modules are written, so it is the error a run reports where writing them fails too (a directory named like the
+    keyword ``class``). The class names are the final
     ones, a later rename included (``Decimal1`` beside the import of ``decimal.Decimal``, the ``parent`` name of a
     collapsed root model), and a class that an import cycle merge moves into ``pkg/_internal.py`` is bound by the
     ``__init__.py`` that re-exports it. The refusal names --rename-submodules-hidden-by-classes, which renames such a
@@ -40810,7 +40945,11 @@ def test_main_jsonschema_refuses_class_named_like_submodule(
         "module."
     )
     run_main_and_assert(
-        input_path=JSON_SCHEMA_DATA_PATH / f"{input_name}.json",
+        input_path=next(
+            path
+            for path in (JSON_SCHEMA_DATA_PATH / input_name, JSON_SCHEMA_DATA_PATH / f"{input_name}.json")
+            if path.exists()
+        ),
         output_path=output_dir,
         input_file_type="jsonschema",
         extra_args=[

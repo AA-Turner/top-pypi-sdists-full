@@ -1,0 +1,449 @@
+r"""Test, doctest, coverage and benchmark tasks (``test.*``).
+
+The tests run with pytest, through the running interpreter (``python -m
+pytest``). The directory of each scope (``unit``, ``integration``,
+``functional`` and ``benchmarks``) comes from the ``tasklib.paths``
+config; a scope whose directory does not exist is skipped with a ``⏭️``
+line, except ``test.benchmark``, which fails. The options of pytest come
+from ``tasklib.test``: the timeout of each scope, ``xdoctest``,
+``timeout``, ``cov_fail_under`` and ``cov_reports``.
+
+The module is named ``testing`` so that it does not shadow the standard
+library package ``test``; its namespace is ``test``, see ``NAMESPACE``.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from invoke.exceptions import Exit
+from invoke.tasks import task
+
+from invoke_tasklib._coverage import coverage_outputs
+from invoke_tasklib._files import project_files, require_path
+from invoke_tasklib._pyproject import read_pyproject
+from invoke_tasklib.config import load_config
+from invoke_tasklib.output import report_failure, say, step
+from invoke_tasklib.runner import (
+    ARGS_HELP,
+    TOOL_HELP,
+    build_command,
+    python_executable,
+    run,
+    split_args,
+)
+
+if TYPE_CHECKING:
+    from invoke.context import Context
+
+    from invoke_tasklib.config import TasklibConfig
+
+NAMESPACE = "test"
+r"""The name of the namespace of the tasks of this module."""
+
+_COV_HELP = "Generate coverage reports (the formats of tasklib.test.cov_reports)."
+_DOCTEST_OPTIONS = ["-o", "NORMALIZE_WHITESPACE", "-o", "ELLIPSIS", "-o", "REPORT_NDIFF"]
+_APPEND_HELP = (
+    "With --cov, add to the existing coverage data (--cov-append) instead of replacing it."
+)
+_PYTEST_HELP = {**TOOL_HELP, "cov": _COV_HELP}
+_APPEND_PYTEST_HELP = {**_PYTEST_HELP, "append": _APPEND_HELP}
+
+
+def _directory_exists(c: Context, path: str, what: str) -> bool:
+    r"""Check that the directory of a test scope exists.
+
+    Pytest exits with an error when it is given a path that does not
+    exist, so a project without, for example, integration tests would
+    fail the task. A message is written when the directory is missing so
+    that the skip is visible.
+
+    Args:
+        c: The invoke context.
+        path: The directory to check.
+        what: The name of the scope, used in the message, e.g.
+            ``"integration tests"``.
+
+    Returns:
+        ``True`` if the directory exists, ``False`` otherwise.
+
+    Example usage:
+
+    ```pycon
+    >>> from invoke.config import Config
+    >>> from invoke.context import Context
+    >>> from invoke_tasklib.testing import _directory_exists
+    >>> c = Context(config=Config())
+    >>> _ = _directory_exists(c, "no/such/dir", "benchmarks")
+    ⏭️  No 'no/such/dir' directory: skipping benchmarks
+
+    ```
+    """
+    if Path(path).is_dir():
+        return True
+    say(c, f"⏭️  No '{path}' directory: skipping {what}")
+    return False
+
+
+@task(help=TOOL_HELP)
+def doctest_src(c: Context, *, args: str | None = None, paths: str | None = None) -> None:
+    r"""Run doctests on source code.
+
+    The command always has ``--xdoctest``, whatever the value of
+    ``tasklib.test.xdoctest``, which only applies to the test scopes.
+    If the ``xdoctest`` package is missing, the task stops with a
+    message that names it.
+
+    Args:
+        c: The invoke context.
+        args: Extra arguments passed to pytest.
+        paths: The files or directories to run on instead of
+            ``paths.src``.
+
+    Raises:
+        Exit: With the code 2 if ``paths`` is not set and
+            ``paths.src`` does not exist.
+    """
+    cfg = load_config(c)
+    src = cfg.paths.src
+    if paths is None:
+        require_path(src, "tasklib.paths.src")
+    with step(c, "📚 Running doctests on source code...", "✅ Doctest validation complete"):
+        cmd = [python_executable(), "-m", "pytest", "--xdoctest"]
+        run(c, build_command(cmd, args=args, paths=paths, default_paths=[src]))
+
+
+@task(help=TOOL_HELP)
+def doctest_markdown(c: Context, *, args: str | None = None, paths: str | None = None) -> None:
+    r"""Run doctests on the Python examples of the markdown files.
+
+    The files are the ``*.md`` files of the project (the files that
+    git tracks, or all the files outside the excluded directories
+    when the project is not a git work tree), or ``paths``. They run
+    with ``python -m doctest`` and the options
+    ``NORMALIZE_WHITESPACE``, ``ELLIPSIS`` and ``REPORT_NDIFF``. A
+    project without markdown file passes.
+
+    Args:
+        c: The invoke context.
+        args: Extra arguments passed to ``python -m doctest``.
+        paths: The markdown files to check instead of every markdown
+            file of the project.
+    """
+    with report_failure(c, "📚 Running doctests on markdown files..."):
+        files = split_args(paths, "--paths") or [str(f) for f in project_files(c, Path(), ".md")]
+        say(c, f"📚 Found {len(files)} markdown files")
+        if files:
+            cmd = [python_executable(), "-m", "doctest", *_DOCTEST_OPTIONS]
+            run(c, build_command(cmd, args=args, paths=paths, default_paths=files))
+    say(c, f"✅ All {len(files)} markdown files have been checked")
+
+
+@task
+def doctest(c: Context) -> None:
+    r"""Run doctests on both source code and markdown files.
+
+    It runs ``test.doctest-src`` then ``test.doctest-markdown`` with
+    their defaults, and stops at the first failure.
+
+    Args:
+        c: The invoke context.
+    """
+    doctest_src(c)
+    doctest_markdown(c)
+
+
+def _run_pytest(
+    c: Context,
+    cfg: TasklibConfig,
+    path: str,
+    *,
+    label: str,
+    timeout: int,
+    cov: bool = False,
+    append: bool = False,
+    args: str | None = None,
+    paths: str | None = None,
+) -> None:
+    r"""Run pytest on a directory of tests.
+
+    The command is
+    ``python -m pytest [--xdoctest] [--timeout <timeout>]`` followed by
+    the coverage options and the path. ``--xdoctest`` is used unless
+    ``tasklib.test.xdoctest`` is false, ``--timeout`` is used unless
+    ``tasklib.test.timeout`` is false (the project does not have
+    ``pytest-timeout``), and ``--cov-fail-under`` is used with ``cov``
+    if ``tasklib.test.cov_fail_under`` is set.
+
+    A message is written and nothing is run when ``path`` is not an
+    existing directory, unless ``paths`` is set.
+
+    Args:
+        c: The invoke context.
+        cfg: The resolved config.
+        path: The directory (or file) of tests.
+        label: The name of the scope, used in the messages, e.g.
+            ``"unit tests"``.
+        timeout: The timeout in seconds of each test. It is not used if
+            ``tasklib.test.timeout`` is false.
+        cov: If True, generate the coverage reports of
+            ``tasklib.test.cov_reports`` (``html,xml,term`` by
+            default).
+        append: If True and ``cov`` is True, append to the coverage data
+            of the previous runs instead of replacing it.
+        args: Extra arguments passed to pytest, placed before the paths.
+        paths: Paths of the user that replace ``path``.
+
+    Raises:
+        UnexpectedExit: If pytest fails.
+
+    Example usage:
+
+    ```pycon
+    >>> from invoke.config import Config
+    >>> from invoke.context import MockContext
+    >>> from invoke_tasklib.config import load_config
+    >>> from invoke_tasklib.testing import _run_pytest
+    >>> overrides = {"tasklib": {"package": {"name": "mypkg"}}}
+    >>> c = MockContext(config=Config(overrides=overrides), run=True)
+    >>> cfg = load_config(c)
+    >>> _run_pytest(
+    ...     c, cfg, "tests/unit", label="unit tests", timeout=1
+    ... )  # doctest: +ELLIPSIS
+    🧪 Running unit tests...
+    ...
+    ✅ Unit tests complete
+
+    ```
+    """
+    if not paths and not _directory_exists(c, path, label):
+        return
+    options = cfg.test
+    with step(c, f"🧪 Running {label}...", f"✅ {label.capitalize()} complete"):
+        cmd = [python_executable(), "-m", "pytest"]
+        if options.xdoctest:
+            cmd.append("--xdoctest")
+        if options.timeout:
+            cmd.extend(["--timeout", str(timeout)])
+        if cov:
+            for report in options.cov_reports:
+                cmd.extend(["--cov-report", report])
+            if append:
+                cmd.append("--cov-append")
+            cmd.append(f"--cov={cfg.package.import_name}")
+            if options.cov_fail_under is not None:
+                cmd.append(f"--cov-fail-under={options.cov_fail_under}")
+            say(c, "📊 Coverage reports will be generated" + (" (appending)" if append else ""))
+        run(c, build_command(cmd, args=args, paths=paths, default_paths=[path]))
+
+
+@task(name="all", help=_PYTEST_HELP)
+def all_(
+    c: Context, *, cov: bool = False, args: str | None = None, paths: str | None = None
+) -> None:
+    r"""Run all tests (unit, integration, and functional).
+
+    The whole tests directory is run in one pytest call, so the timeout
+    of each test is the largest of the three scopes
+    (``tasklib.test.unit_timeout``, ``integration_timeout`` and
+    ``functional_timeout``). If the tests directory does not exist,
+    nothing is run.
+
+    Args:
+        c: The invoke context.
+        cov: If True, generate the coverage reports of
+            ``tasklib.test.cov_reports`` (``html,xml,term`` by
+            default). Default is False.
+        args: Extra arguments passed to pytest, e.g. ``"-k foo -x"``.
+        paths: The files or directories to run instead of the tests
+            directory.
+    """
+    cfg = load_config(c)
+    options = cfg.test
+    timeout = max(options.unit_timeout, options.integration_timeout, options.functional_timeout)
+    _run_pytest(
+        c,
+        cfg,
+        cfg.paths.tests,
+        label="all tests",
+        timeout=timeout,
+        cov=cov,
+        args=args,
+        paths=paths,
+    )
+
+
+@task(help=_PYTEST_HELP)
+def unit(
+    c: Context, *, cov: bool = False, args: str | None = None, paths: str | None = None
+) -> None:
+    r"""Run unit tests.
+
+    The timeout of each test is ``tasklib.test.unit_timeout`` (10
+    seconds by default). If the unit tests directory does not exist
+    (a flat ``tests`` layout), the whole tests directory is run
+    instead; if neither exists, nothing is run.
+
+    Args:
+        c: The invoke context.
+        cov: If True, generate the coverage reports of
+            ``tasklib.test.cov_reports``. Default is False.
+        args: Extra arguments passed to pytest, e.g. ``"-k foo -x"``.
+        paths: The files or directories to run instead of the tests of
+            this scope.
+    """
+    cfg = load_config(c)
+    path = cfg.paths.unit_tests
+    if not paths and not Path(path).is_dir() and Path(cfg.paths.tests).is_dir():
+        say(c, f"⏭️  No '{path}' directory: running '{cfg.paths.tests}' instead")
+        path = cfg.paths.tests
+    _run_pytest(
+        c,
+        cfg,
+        path,
+        label="unit tests",
+        timeout=cfg.test.unit_timeout,
+        cov=cov,
+        args=args,
+        paths=paths,
+    )
+
+
+@task(help=_APPEND_PYTEST_HELP)
+def integration(
+    c: Context,
+    *,
+    cov: bool = False,
+    append: bool = False,
+    args: str | None = None,
+    paths: str | None = None,
+) -> None:
+    r"""Run integration tests.
+
+    The timeout of each test is ``tasklib.test.integration_timeout`` (60
+    seconds by default). Nothing is run if the directory does not exist.
+
+    Args:
+        c: The invoke context.
+        cov: If True, generate the coverage reports of
+            ``tasklib.test.cov_reports``. Default is False.
+        append: If True and ``cov`` is True, add to the coverage data
+            of the previous runs (``--cov-append``) instead of
+            replacing it, e.g. after ``test.unit --cov``. Default is
+            False.
+        args: Extra arguments passed to pytest, e.g. ``"-k foo -x"``.
+        paths: The files or directories to run instead of the tests of
+            this scope.
+    """
+    cfg = load_config(c)
+    _run_pytest(
+        c,
+        cfg,
+        cfg.paths.integration_tests,
+        label="integration tests",
+        timeout=cfg.test.integration_timeout,
+        cov=cov,
+        args=args,
+        paths=paths,
+        append=append,
+    )
+
+
+@task(help=_APPEND_PYTEST_HELP)
+def functional(
+    c: Context,
+    *,
+    cov: bool = False,
+    append: bool = False,
+    args: str | None = None,
+    paths: str | None = None,
+) -> None:
+    r"""Run functional tests.
+
+    The timeout of each test is ``tasklib.test.functional_timeout`` (60
+    seconds by default). Nothing is run if the directory does not exist.
+
+    Args:
+        c: The invoke context.
+        cov: If True, generate the coverage reports of
+            ``tasklib.test.cov_reports``. Default is False.
+        append: If True and ``cov`` is True, add to the coverage data
+            of the previous runs (``--cov-append``) instead of
+            replacing it, e.g. after ``test.unit --cov``. Default is
+            False.
+        args: Extra arguments passed to pytest, e.g. ``"-k foo -x"``.
+        paths: The files or directories to run instead of the tests of
+            this scope.
+    """
+    cfg = load_config(c)
+    _run_pytest(
+        c,
+        cfg,
+        cfg.paths.functional_tests,
+        label="functional tests",
+        timeout=cfg.test.functional_timeout,
+        cov=cov,
+        args=args,
+        paths=paths,
+        append=append,
+    )
+
+
+@task(help={"open_browser": "Open the HTML report in the default web browser.", "args": ARGS_HELP})
+def coverage_report(c: Context, *, open_browser: bool = False, args: str | None = None) -> None:
+    r"""Generate an HTML coverage report.
+
+    The report is built from the last recorded coverage data, and the
+    terminal summary is printed. The report is written to the
+    directory of the ``html:<dir>`` value of
+    ``tasklib.test.cov_reports`` if there is one, else to the
+    ``directory`` of ``[tool.coverage.html]`` in ``pyproject.toml``
+    (``htmlcov`` by default).
+
+    Args:
+        c: The invoke context.
+        open_browser: If True, open the generated HTML report in the
+            default web browser. Default is False.
+        args: Extra arguments passed to ``coverage report``, e.g.
+            ``"--fail-under=90"``.
+    """
+    directory = coverage_outputs(load_config(c).test.cov_reports, read_pyproject()).html_dir
+    with step(
+        c, "📊 Generating coverage report...", f"✅ Coverage report generated in {directory}/"
+    ):
+        run(c, [python_executable(), "-m", "coverage", "html", "-d", directory])
+        run(c, build_command([python_executable(), "-m", "coverage", "report"], args=args))
+        if open_browser:
+            say(c, "🌐 Opening coverage report in the browser...")
+            run(c, [python_executable(), "-m", "webbrowser", "-t", f"{directory}/index.html"])
+
+
+@task(help=TOOL_HELP)
+def benchmark(c: Context, *, args: str | None = None, paths: str | None = None) -> None:
+    r"""Run performance benchmarks.
+
+    The command is ``pytest --benchmark-only --benchmark-enable``:
+    ``--benchmark-enable`` turns the benchmarks on even if the pytest
+    config disables them (``--benchmark-disable`` in ``addopts``, to
+    run each benchmark once in the normal test runs).
+
+    Args:
+        c: The invoke context.
+        args: Extra arguments passed to pytest.
+        paths: The files or directories to run on instead of
+            ``paths.benchmarks``.
+
+    Raises:
+        Exit: With the code 1 if ``paths.benchmarks`` does not exist
+            and ``paths`` is not given. The task is run on purpose, so
+            a nightly job does not pass without measuring anything.
+    """
+    cfg = load_config(c)
+    benchmarks = cfg.paths.benchmarks
+    if not paths and not Path(benchmarks).is_dir():
+        msg = f"No '{benchmarks}' directory: there is no benchmark to run"
+        raise Exit(msg, code=1)
+    with step(c, "⏱️  Running benchmarks...", "✅ Benchmarks complete"):
+        cmd = [python_executable(), "-m", "pytest", "--benchmark-only", "--benchmark-enable"]
+        run(c, build_command(cmd, args=args, paths=paths, default_paths=[benchmarks + "/"]))

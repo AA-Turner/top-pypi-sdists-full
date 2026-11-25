@@ -1,5 +1,7 @@
-from paddle_billing.ResponseParser import ResponseParser
-from paddle_billing.Entities.Collections import Paginator, EventTypeCollection
+from requests import Response
+
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
+from paddle_billing.Entities.Collections import Paginator as Paginator, EventTypeCollection as EventTypeCollection
 
 from typing import TYPE_CHECKING
 
@@ -10,7 +12,7 @@ if TYPE_CHECKING:
 class EventTypesClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(self) -> EventTypeCollection:
         self.response = self.client.get_raw("/event-types")

@@ -12,13 +12,15 @@ from __future__ import annotations
 
 import datetime
 import re
+from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from copy import copy
 from difflib import SequenceMatcher
 from email import message_from_string
 from heapq import nlargest
+from itertools import groupby
 from string import Formatter
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from babel import __version__ as VERSION
 from babel.core import Locale, UnknownLocaleError
@@ -180,8 +182,9 @@ class Message:
             self.flags.add('python-brace-format')
         else:
             self.flags.discard('python-brace-format')
-        self.auto_comments = list(dict.fromkeys(auto_comments)) if auto_comments else []
-        self.user_comments = list(dict.fromkeys(user_comments)) if user_comments else []
+        # Collapse consecutive repeats without losing repeated wrapped fragments.
+        self.auto_comments = [comment for comment, _ in groupby(auto_comments)] if auto_comments else []
+        self.user_comments = [comment for comment, _ in groupby(user_comments)] if user_comments else []
         if previous_id:
             if isinstance(previous_id, str):
                 self.previous_id = [previous_id]
@@ -206,21 +209,33 @@ class Message:
         return _cmp(values_to_compare(self), values_to_compare(other))
 
     def __gt__(self, other: object) -> bool:
+        if not isinstance(other, Message):
+            return NotImplemented
         return self.__cmp__(other) > 0
 
     def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Message):
+            return NotImplemented
         return self.__cmp__(other) < 0
 
     def __ge__(self, other: object) -> bool:
+        if not isinstance(other, Message):
+            return NotImplemented
         return self.__cmp__(other) >= 0
 
     def __le__(self, other: object) -> bool:
+        if not isinstance(other, Message):
+            return NotImplemented
         return self.__cmp__(other) <= 0
 
     def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Message):
+            return NotImplemented
         return self.__cmp__(other) == 0
 
     def __ne__(self, other: object) -> bool:
+        if not isinstance(other, Message):
+            return NotImplemented
         return self.__cmp__(other) != 0
 
     def is_identical(self, other: Message) -> bool:
@@ -274,8 +289,7 @@ class Message:
         True
         >>> msg
         <Message 'foo' (flags: ['fuzzy'])>
-
-        :type:  `bool`"""
+        """
         return 'fuzzy' in self.flags
 
     @property
@@ -286,8 +300,7 @@ class Message:
         False
         >>> Message(('foo', 'bar')).pluralizable
         True
-
-        :type:  `bool`"""
+        """
         return isinstance(self.id, (list, tuple))
 
     @property
@@ -298,8 +311,7 @@ class Message:
         True
         >>> Message(('foo %(name)s', 'foo %(name)s')).python_format
         True
-
-        :type:  `bool`"""
+        """
         ids = self.id
         if isinstance(ids, (list, tuple)):
             for id in ids:  # Explicit loop for performance reasons.
@@ -316,8 +328,7 @@ class Message:
         True
         >>> Message(('One apple', '{count} apples')).python_brace_format
         True
-
-        :type:  `bool`"""
+        """
         ids = self.id
         if isinstance(ids, (list, tuple)):
             for id in ids:  # Explicit loop for performance reasons.
@@ -355,6 +366,13 @@ def _force_text(s: str | bytes, encoding: str = 'utf-8', errors: str = 'strict')
     if isinstance(s, bytes):
         return s.decode(encoding, errors)
     return str(s)
+
+
+class ConflictInfo(TypedDict):
+    message: Message
+    filename: str
+    project: str
+    version: str
 
 
 class Catalog:
@@ -400,6 +418,7 @@ class Catalog:
         self.locale = locale
         self._header_comment = header_comment
         self._messages: dict[str | tuple[str, str], Message] = {}
+        self._conflicts: dict[str | tuple[str, str], list[ConflictInfo]] = defaultdict(list)
 
         self.project = project or 'PROJECT'
         self.version = version or 'VERSION'
@@ -453,14 +472,17 @@ class Catalog:
             f"`locale` must be a Locale, a locale identifier string, or None; got {locale!r}",
         )
 
-    def _get_locale(self) -> Locale | None:
+    @property
+    def locale(self) -> Locale | None:
         return self._locale
 
-    def _get_locale_identifier(self) -> str | None:
-        return self._locale_identifier
+    @locale.setter
+    def locale(self, locale: Locale | str | None) -> None:
+        self._set_locale(locale)
 
-    locale = property(_get_locale, _set_locale)
-    locale_identifier = property(_get_locale_identifier)
+    @property
+    def locale_identifier(self) -> str | None:
+        return self._locale_identifier
 
     def _get_header_comment(self) -> str:
         comment = self._header_comment
@@ -481,42 +503,43 @@ class Catalog:
     def _set_header_comment(self, string: str | None) -> None:
         self._header_comment = string
 
-    header_comment = property(
-        _get_header_comment,
-        _set_header_comment,
-        doc="""\
-    The header comment for the catalog.
+    @property
+    def header_comment(self) -> str:
+        """
+        The header comment for the catalog.
 
-    >>> catalog = Catalog(project='Foobar', version='1.0',
-    ...                   copyright_holder='Foo Company')
-    >>> print(catalog.header_comment) #doctest: +ELLIPSIS
-    # Translations template for Foobar.
-    # Copyright (C) ... Foo Company
-    # This file is distributed under the same license as the Foobar project.
-    # FIRST AUTHOR <EMAIL@ADDRESS>, ....
-    #
+        >>> catalog = Catalog(project='Foobar', version='1.0',
+        ...                   copyright_holder='Foo Company')
+        >>> print(catalog.header_comment) #doctest: +ELLIPSIS
+        # Translations template for Foobar.
+        # Copyright (C) ... Foo Company
+        # This file is distributed under the same license as the Foobar project.
+        # FIRST AUTHOR <EMAIL@ADDRESS>, ....
+        #
 
-    The header can also be set from a string. Any known upper-case variables
-    will be replaced when the header is retrieved again:
+        The header can also be set from a string. Any known upper-case variables
+        will be replaced when the header is retrieved again:
 
-    >>> catalog = Catalog(project='Foobar', version='1.0',
-    ...                   copyright_holder='Foo Company')
-    >>> catalog.header_comment = '''\\
-    ... # The POT for my really cool PROJECT project.
-    ... # Copyright (C) 1990-2003 ORGANIZATION
-    ... # This file is distributed under the same license as the PROJECT
-    ... # project.
-    ... #'''
-    >>> print(catalog.header_comment)
-    # The POT for my really cool Foobar project.
-    # Copyright (C) 1990-2003 Foo Company
-    # This file is distributed under the same license as the Foobar
-    # project.
-    #
+        >>> catalog = Catalog(project='Foobar', version='1.0',
+        ...                   copyright_holder='Foo Company')
+        >>> catalog.header_comment = '''\\
+        ... # The POT for my really cool PROJECT project.
+        ... # Copyright (C) 1990-2003 ORGANIZATION
+        ... # This file is distributed under the same license as the PROJECT
+        ... # project.
+        ... #'''
+        >>> print(catalog.header_comment)
+        # The POT for my really cool Foobar project.
+        # Copyright (C) 1990-2003 Foo Company
+        # This file is distributed under the same license as the Foobar
+        # project.
+        #
+        """
+        return self._get_header_comment()
 
-    :type: `unicode`
-    """,
-    )
+    @header_comment.setter
+    def header_comment(self, value: str) -> None:
+        self._set_header_comment(value)
 
     def _get_mime_headers(self) -> list[tuple[str, str]]:
         if isinstance(self.revision_date, (datetime.datetime, datetime.time, int, float)):
@@ -542,7 +565,8 @@ class Catalog:
         if self.locale_identifier:
             headers.append(('Language', str(self.locale_identifier)))
         headers.append(('Language-Team', language_team))
-        if self.locale is not None:
+        if self.locale is not None or self._num_plurals is not None:
+            # Keep explicit plural forms even when no locale set.
             headers.append(('Plural-Forms', self.plural_forms))
         headers += [
             ('MIME-Version', '1.0'),
@@ -575,74 +599,80 @@ class Catalog:
                 self.language_team = value
             elif name == 'content-type':
                 params = parse_separated_header(value)
-                if 'charset' in params:
-                    self.charset = params['charset'].lower()
+                charset = params.get('charset', '').lower()
+                # Ignore the placeholder in gettext's templates (`charset=CHARSET`).
+                if charset and charset != 'charset':
+                    self.charset = charset
             elif name == 'plural-forms':
                 params = parse_separated_header(f" ;{value}")
                 self._num_plurals = int(params.get('nplurals', 2))
                 self._plural_expr = params.get('plural', '(n != 1)')
             elif name == 'pot-creation-date':
-                self.creation_date = _parse_datetime_header(value)
+                # Keep last value instead of crashing on blank values
+                if value.strip():
+                    self.creation_date = _parse_datetime_header(value)
             elif name == 'po-revision-date':
                 # Keep the value if it's not the default one
-                if 'YEAR' not in value:
+                # and don't crash trying to parse blank values
+                if 'YEAR' not in value and value.strip():
                     self.revision_date = _parse_datetime_header(value)
 
-    mime_headers = property(
-        _get_mime_headers,
-        _set_mime_headers,
-        doc="""\
-    The MIME headers of the catalog, used for the special ``msgid ""`` entry.
+    @property
+    def mime_headers(self) -> list[tuple[str, str]]:
+        """
+        The MIME headers of the catalog, used for the special ``msgid ""`` entry.
 
-    The behavior of this property changes slightly depending on whether a locale
-    is set or not, the latter indicating that the catalog is actually a template
-    for actual translations.
+        The behavior of this property changes slightly depending on whether a locale
+        is set or not, the latter indicating that the catalog is actually a template
+        for actual translations.
 
-    Here's an example of the output for such a catalog template:
+        Here's an example of the output for such a catalog template:
 
-    >>> from babel.dates import UTC
-    >>> from datetime import datetime
-    >>> created = datetime(1990, 4, 1, 15, 30, tzinfo=UTC)
-    >>> catalog = Catalog(project='Foobar', version='1.0',
-    ...                   creation_date=created)
-    >>> for name, value in catalog.mime_headers:
-    ...     print('%s: %s' % (name, value))
-    Project-Id-Version: Foobar 1.0
-    Report-Msgid-Bugs-To: EMAIL@ADDRESS
-    POT-Creation-Date: 1990-04-01 15:30+0000
-    PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE
-    Last-Translator: FULL NAME <EMAIL@ADDRESS>
-    Language-Team: LANGUAGE <LL@li.org>
-    MIME-Version: 1.0
-    Content-Type: text/plain; charset=utf-8
-    Content-Transfer-Encoding: 8bit
-    Generated-By: Babel ...
+        >>> from babel.dates import UTC
+        >>> from datetime import datetime
+        >>> created = datetime(1990, 4, 1, 15, 30, tzinfo=UTC)
+        >>> catalog = Catalog(project='Foobar', version='1.0',
+        ...                   creation_date=created)
+        >>> for name, value in catalog.mime_headers:
+        ...     print('%s: %s' % (name, value))
+        Project-Id-Version: Foobar 1.0
+        Report-Msgid-Bugs-To: EMAIL@ADDRESS
+        POT-Creation-Date: 1990-04-01 15:30+0000
+        PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE
+        Last-Translator: FULL NAME <EMAIL@ADDRESS>
+        Language-Team: LANGUAGE <LL@li.org>
+        MIME-Version: 1.0
+        Content-Type: text/plain; charset=utf-8
+        Content-Transfer-Encoding: 8bit
+        Generated-By: Babel ...
 
-    And here's an example of the output when the locale is set:
+        And here's an example of the output when the locale is set:
 
-    >>> revised = datetime(1990, 8, 3, 12, 0, tzinfo=UTC)
-    >>> catalog = Catalog(locale='de_DE', project='Foobar', version='1.0',
-    ...                   creation_date=created, revision_date=revised,
-    ...                   last_translator='John Doe <jd@example.com>',
-    ...                   language_team='de_DE <de@example.com>')
-    >>> for name, value in catalog.mime_headers:
-    ...     print('%s: %s' % (name, value))
-    Project-Id-Version: Foobar 1.0
-    Report-Msgid-Bugs-To: EMAIL@ADDRESS
-    POT-Creation-Date: 1990-04-01 15:30+0000
-    PO-Revision-Date: 1990-08-03 12:00+0000
-    Last-Translator: John Doe <jd@example.com>
-    Language: de_DE
-    Language-Team: de_DE <de@example.com>
-    Plural-Forms: nplurals=2; plural=(n != 1);
-    MIME-Version: 1.0
-    Content-Type: text/plain; charset=utf-8
-    Content-Transfer-Encoding: 8bit
-    Generated-By: Babel ...
+        >>> revised = datetime(1990, 8, 3, 12, 0, tzinfo=UTC)
+        >>> catalog = Catalog(locale='de_DE', project='Foobar', version='1.0',
+        ...                   creation_date=created, revision_date=revised,
+        ...                   last_translator='John Doe <jd@example.com>',
+        ...                   language_team='de_DE <de@example.com>')
+        >>> for name, value in catalog.mime_headers:
+        ...     print('%s: %s' % (name, value))
+        Project-Id-Version: Foobar 1.0
+        Report-Msgid-Bugs-To: EMAIL@ADDRESS
+        POT-Creation-Date: 1990-04-01 15:30+0000
+        PO-Revision-Date: 1990-08-03 12:00+0000
+        Last-Translator: John Doe <jd@example.com>
+        Language: de_DE
+        Language-Team: de_DE <de@example.com>
+        Plural-Forms: nplurals=2; plural=(n != 1);
+        MIME-Version: 1.0
+        Content-Type: text/plain; charset=utf-8
+        Content-Transfer-Encoding: 8bit
+        Generated-By: Babel ...
+        """
+        return self._get_mime_headers()
 
-    :type: `list`
-    """,
-    )
+    @mime_headers.setter
+    def mime_headers(self, value: Iterable[tuple[str, str]]) -> None:
+        self._set_mime_headers(value)
 
     @property
     def num_plurals(self) -> int:
@@ -652,14 +682,12 @@ class Catalog:
         2
         >>> Catalog(locale='ga').num_plurals
         5
-
-        :type: `int`"""
-        if self._num_plurals is None:
-            num = 2
-            if self.locale:
-                num = get_plural(self.locale)[0]
-            self._num_plurals = num
-        return self._num_plurals
+        """
+        if self._num_plurals is not None:
+            return self._num_plurals
+        if self.locale:
+            return get_plural(self.locale)[0]
+        return 2
 
     @property
     def plural_expr(self) -> str:
@@ -668,17 +696,15 @@ class Catalog:
         >>> Catalog(locale='en').plural_expr
         '(n != 1)'
         >>> Catalog(locale='ga').plural_expr
-        '(n==1 ? 0 : n==2 ? 1 : n>=3 && n<=6 ? 2 : n>=7 && n<=10 ? 3 : 4)'
+        '(n == 1 ? 0 : n == 2 ? 1 : n >= 3 && n <= 6 ? 2 : n >= 7 && n <= 10 ? 3 : 4)'
         >>> Catalog(locale='ding').plural_expr  # unknown locale
         '(n != 1)'
-
-        :type: `str`"""
-        if self._plural_expr is None:
-            expr = '(n != 1)'
-            if self.locale:
-                expr = get_plural(self.locale)[1]
-            self._plural_expr = expr
-        return self._plural_expr
+        """
+        if self._plural_expr is not None:
+            return self._plural_expr
+        if self.locale:
+            return get_plural(self.locale)[1]
+        return '(n != 1)'
 
     @property
     def plural_forms(self) -> str:
@@ -687,9 +713,8 @@ class Catalog:
         >>> Catalog(locale='en').plural_forms
         'nplurals=2; plural=(n != 1);'
         >>> Catalog(locale='pt_BR').plural_forms
-        'nplurals=2; plural=(n > 1);'
-
-        :type: `str`"""
+        'nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;'
+        """
         return f"nplurals={self.num_plurals}; plural={self.plural_expr};"
 
     def __contains__(self, id: _MessageID) -> bool:
@@ -779,6 +804,37 @@ class Catalog:
                     f"Expected sequence but got {type(message.string)}"
                 )
             self._messages[key] = message
+
+    def add_conflict(self, message: Message, filename: str, project: str, version: str) -> None:
+        """Record a conflicting translation for a message.
+
+        When the same message ID has different translations across input files,
+        the conflicting entry is stored and the message is marked as fuzzy in
+        the output catalog.
+
+        :param message: the conflicting :class:`Message` object
+        :param filename: the basename of the file where the conflict originates
+        :param project: the project name of the conflicting file
+        :param version: the project version of the conflicting file
+        """
+        key = self._key_for(message.id, message.context)
+        self._conflicts[key].append({
+            'message': message.clone(),  # The catalog copy is mutable
+            'filename': filename,
+            'project': project,
+            'version': version,
+        })
+
+    def get_conflicts(self, id: _MessageID, context: str | None = None) -> list[ConflictInfo]:
+        """Return all recorded conflicts for a message ID.
+
+        :param id: the message ID to look up conflicts for
+        :param context: optional message context (msgctxt)
+        :return: list of :class:`ConflictInfo` dicts, or an empty list if none
+        """
+        # Guard against catalogs serialized prior to conflicts existing
+        conflicts = getattr(self, '_conflicts', None) or {}
+        return conflicts.get(self._key_for(id, context), [])
 
     def add(
         self,
@@ -1048,8 +1104,8 @@ class Catalog:
         """
         assert isinstance(other, Catalog)
         for key in self._messages.keys() | other._messages.keys():
-            message_1 = self.get(key)
-            message_2 = other.get(key)
+            message_1 = self._messages.get(key)
+            message_2 = other._messages.get(key)
             if message_1 is None or message_2 is None or not message_1.is_identical(message_2):
                 return False
         return dict(self.mime_headers) == dict(other.mime_headers)

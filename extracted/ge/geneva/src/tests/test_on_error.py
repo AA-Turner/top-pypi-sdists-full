@@ -932,6 +932,38 @@ def test_on_error_retry_all_fatal_worker_exit_integration(
     counter_file.unlink(missing_ok=True)
 
 
+def test_worker_metric_ends_at_zero_after_applier_crash(
+    db: Connection, local_ray_context, tmp_path: Path
+) -> None:
+    """A crashed applier leaves the ``workers`` count; only live actors count."""
+    marker = tmp_path / "crash-once"
+    marker.touch()
+    marker_path = str(marker)
+
+    @udf(data_type=pa.int32(), version=uuid.uuid4().hex)
+    def crash_once_udf(a: int) -> int:
+        import os
+
+        try:
+            os.remove(marker_path)
+        except FileNotFoundError:
+            return a * 2
+        os._exit(137)
+
+    tbl = db.open_table("test")
+    tbl.add_columns({"b": crash_once_udf})
+
+    result = tbl.backfill("b", concurrency=1, checkpoint_size=4, task_size=SIZE)
+    assert result.job_id
+
+    assert not marker.exists(), "the UDF never crashed an applier"
+    result_tbl = db.open_table("test")
+    assert result_tbl.count_rows("b = a * 2") == SIZE
+
+    metrics = {m.name: m for m in db.get_job(result.job_id).metrics or []}
+    assert metrics["workers"].n == 0
+
+
 def _make_poison_udf(kind: str, on_error, version: str):  # noqa: ANN001, ANN202
     """Build a poison UDF of the given arg type that SIGSEGVs the worker on the
     input containing ``a == 0``.
@@ -2106,6 +2138,8 @@ def test_actor_unavailable_oom_classification_is_wired_into_handler_and_fallback
             self.shutdown_called = True
 
     class _FakeFragmentWriterManager:
+        _reconciled_rows_checkpointed_total = 0
+
         def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
             return None
 

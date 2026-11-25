@@ -41,6 +41,12 @@ _PROVIDER_IMAGE_ID = re.compile(r"^(?:bpt_[A-Za-z0-9]+|im-[A-Za-z0-9]+)$")
 _RESERVED_TASK_ENV_NAMES = frozenset(
   {"MODEL_ENDPOINT_ID", "MODEL_ENDPOINT_ACCESS_TOKEN", "MODEL_ENDPOINT_URL"}
 )
+_TASK_NAME_MAX_LENGTH = 256
+_RUNTIME_ID_MAX_LENGTH = 64
+_RUNTIME_STRING_MAX_LENGTH = 8192
+_TAG_MAX_COUNT = 20
+_TAG_MAX_LENGTH = 64
+_MCP_SERVER_NAME_MAX_LENGTH = 64
 
 
 def ImageRef(ref: str) -> RuntimeSpec:
@@ -167,6 +173,9 @@ class _BenchmarkPackage:
     if not isinstance(manifest, BenchmarkSpec):
       raise TypeError("manifest must be a BenchmarkSpec")
     SubmissionUpload.validate_benchmark_name(manifest.name)
+    SubmissionUpload.validate_benchmark_description(manifest.description)
+    if manifest.runtime is not None:
+      self._validate_runtime_lengths(manifest.runtime, "Benchmark")
     self.manifest = manifest.model_copy(deep=True)
     self._root = Path(root).expanduser().resolve(strict=True)
     if not self._root.is_dir():
@@ -204,6 +213,8 @@ class _BenchmarkPackage:
     for task in self.manifest.tasks:
       if not task.name.strip():
         raise ValueError("Every benchmark task must have a non-empty name")
+      if len(task.name) > _TASK_NAME_MAX_LENGTH:
+        raise ValueError(f"Benchmark task name must be at most {_TASK_NAME_MAX_LENGTH} characters")
       if task.name in task_names:
         raise ValueError(f"Benchmark task names must be unique: {task.name!r}")
       if task.runtime is None and default_runtime is not None:
@@ -218,6 +229,23 @@ class _BenchmarkPackage:
 
   @staticmethod
   def _validate_task_fields(task: TaskSpec) -> None:
+    if len(task.run_command) > _RUNTIME_STRING_MAX_LENGTH:
+      raise ValueError(
+        f"Task {task.name!r} run_command must be at most {_RUNTIME_STRING_MAX_LENGTH} characters"
+      )
+    tags = task.tags or []
+    if len(tags) > _TAG_MAX_COUNT:
+      raise ValueError(f"Task {task.name!r} may have at most {_TAG_MAX_COUNT} tags")
+    if any(len(tag) > _TAG_MAX_LENGTH for tag in tags):
+      raise ValueError(f"Task {task.name!r} tags must be at most {_TAG_MAX_LENGTH} characters each")
+    if task.env_resources is not None:
+      for server in task.env_resources.mcp_servers or []:
+        if len(server.name) > _MCP_SERVER_NAME_MAX_LENGTH:
+          raise ValueError(
+            f"Task {task.name!r} MCP server name must be at most "
+            f"{_MCP_SERVER_NAME_MAX_LENGTH} characters"
+          )
+
     for name in task.env_vars or {}:
       if name.startswith("TRAJECTORY_") or name in _RESERVED_TASK_ENV_NAMES:
         raise ValueError(
@@ -231,7 +259,22 @@ class _BenchmarkPackage:
         "Docker image and re-ingest the benchmark"
       )
 
+  @staticmethod
+  def _validate_runtime_lengths(runtime: RuntimeSpec, where: str) -> None:
+    if runtime.runtime_id is not None and len(runtime.runtime_id) > _RUNTIME_ID_MAX_LENGTH:
+      raise ValueError(f"{where} runtime_id must be at most {_RUNTIME_ID_MAX_LENGTH} characters")
+    if runtime.source is not None:
+      for field, value in (
+        ("dockerfile_path", runtime.source.dockerfile_path),
+        ("image_ref", runtime.source.image_ref),
+      ):
+        if value is not None and len(value) > _RUNTIME_STRING_MAX_LENGTH:
+          raise ValueError(
+            f"{where} runtime source {field} must be at most {_RUNTIME_STRING_MAX_LENGTH} characters"
+          )
+
   def _collect_runtime(self, task_name: str, runtime: RuntimeSpec) -> None:
+    self._validate_runtime_lengths(runtime, f"Task {task_name!r}")
     has_runtime_id = isinstance(runtime.runtime_id, str) and bool(runtime.runtime_id.strip())
     has_source = runtime.source is not None
     if has_runtime_id == has_source:

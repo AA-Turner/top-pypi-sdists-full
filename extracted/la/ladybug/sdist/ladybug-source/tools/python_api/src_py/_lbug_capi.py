@@ -911,7 +911,7 @@ def _logical_type_to_str(logical_type: _LbugLogicalType) -> str:
 
 def _to_datetime_from_micros(value: int, *, tz_aware: bool = False) -> dt.datetime:
     seconds = value / 1_000_000
-    utc_dt = dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc)
+    utc_dt = dt.datetime.fromtimestamp(seconds, tz=dt.UTC)
     if tz_aware:
         return utc_dt
     return utc_dt.replace(tzinfo=None)
@@ -1074,7 +1074,7 @@ def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
         if value.tzinfo is not None:
             micros = int(value.timestamp() * 1_000_000)
             return _LIB.lbug_value_create_timestamp_tz(_LbugTimestamp(value=micros))
-        micros = int(value.replace(tzinfo=dt.timezone.utc).timestamp() * 1_000_000)
+        micros = int(value.replace(tzinfo=dt.UTC).timestamp() * 1_000_000)
         return _LIB.lbug_value_create_timestamp(_LbugTimestamp(value=micros))
     if isinstance(value, dt.timedelta):
         total_seconds = value.days * 86400 + value.seconds
@@ -1197,33 +1197,43 @@ class Database:
     def __init__(
         self,
         database_path: str,
-        buffer_pool_size: int = 0,
-        max_num_threads: int = 0,
-        compression: bool = True,
-        read_only: bool = False,
+        buffer_pool_size: int | None = None,
+        max_num_threads: int | None = None,
+        compression: bool | None = None,
+        read_only: bool | None = None,
         max_db_size: int | None = None,
-        auto_checkpoint: bool = True,
-        checkpoint_threshold: int = -1,
-        throw_on_wal_replay_failure: bool = True,
-        enable_checksums: bool = True,
-        enable_multi_writes: bool = False,
+        auto_checkpoint: bool | None = None,
+        checkpoint_threshold: int | None = None,
+        throw_on_wal_replay_failure: bool | None = None,
+        enable_checksums: bool | None = None,
+        enable_multi_writes: bool | None = None,
     ):
         self._database = _LbugDatabase()
+        # Start from the engine defaults and only apply explicitly set
+        # settings, so engine-side default changes propagate automatically.
         config = _LIB.lbug_default_system_config()
-        config.buffer_pool_size = buffer_pool_size
-        config.max_num_threads = max_num_threads
-        config.enable_compression = compression
-        config.read_only = read_only
+        if buffer_pool_size is not None:
+            config.buffer_pool_size = buffer_pool_size
+        if max_num_threads is not None:
+            config.max_num_threads = max_num_threads
+        if compression is not None:
+            config.enable_compression = compression
+        if read_only is not None:
+            config.read_only = read_only
 
         if max_db_size is not None:
             config.max_db_size = max_db_size
 
-        config.auto_checkpoint = auto_checkpoint
-        if checkpoint_threshold >= 0:
+        if auto_checkpoint is not None:
+            config.auto_checkpoint = auto_checkpoint
+        if checkpoint_threshold is not None and checkpoint_threshold >= 0:
             config.checkpoint_threshold = checkpoint_threshold
-        config.throw_on_wal_replay_failure = throw_on_wal_replay_failure
-        config.enable_checksums = enable_checksums
-        config.enable_multi_writes = enable_multi_writes
+        if throw_on_wal_replay_failure is not None:
+            config.throw_on_wal_replay_failure = throw_on_wal_replay_failure
+        if enable_checksums is not None:
+            config.enable_checksums = enable_checksums
+        if enable_multi_writes is not None:
+            config.enable_multi_writes = enable_multi_writes
 
         state = _LIB.lbug_database_init(
             database_path.encode("utf-8"), config, ctypes.byref(self._database)
@@ -1818,7 +1828,7 @@ class QueryResult:
                     "Failed to read timestamp_ms",
                 )
                 return dt.datetime.fromtimestamp(
-                    int(out.value) / 1000, tz=dt.timezone.utc
+                    int(out.value) / 1000, tz=dt.UTC
                 ).replace(tzinfo=None)
             if type_id == _LBUG_TIMESTAMP_SEC:
                 out = _LbugTimestamp()
@@ -1828,9 +1838,9 @@ class QueryResult:
                     ),
                     "Failed to read timestamp_sec",
                 )
-                return dt.datetime.fromtimestamp(
-                    int(out.value), tz=dt.timezone.utc
-                ).replace(tzinfo=None)
+                return dt.datetime.fromtimestamp(int(out.value), tz=dt.UTC).replace(
+                    tzinfo=None
+                )
             if type_id == _LBUG_TIMESTAMP_NS:
                 out = _LbugTimestamp()
                 _check_state(
@@ -1840,7 +1850,7 @@ class QueryResult:
                     "Failed to read timestamp_ns",
                 )
                 return dt.datetime.fromtimestamp(
-                    int(out.value) / 1_000_000_000, tz=dt.timezone.utc
+                    int(out.value) / 1_000_000_000, tz=dt.UTC
                 ).replace(tzinfo=None)
             if type_id == _LBUG_INTERVAL:
                 out = _LbugInterval()

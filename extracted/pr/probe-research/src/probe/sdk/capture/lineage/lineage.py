@@ -19,7 +19,9 @@ imported): ``pyarrow.parquet`` (``read_table``, ``ParquetFile``,
 cache), ``h5py.File`` (its mode says read or write), ``safetensors``
 (``safe_open``, ``load_file``; ``save_file`` is a write), and ``torch.save``,
 a write. Any other reader
-can call :func:`note_read`. What stays unseen is named in the run's
+can call :func:`note_read`. Cloud objects (GCS, S3, gcsfs, s3fs) are recorded by
+:mod:`probe.sdk.capture.lineage.object_store`, as (uri, endpoint, identity) rows.
+What stays unseen is named in the run's
 ``coverage`` so "no reads" is never mistaken for "read nothing".
 
 SHAPE. Every recording process -- the run's own, a forked DataLoader worker,
@@ -226,6 +228,9 @@ UNSEEN_READERS = (
     "other C/Rust readers (sqlite, zarr, lmdb, ...), and a wrapped function held before probe.init() "
     "other than as a module global (a default argument, an attribute)",
     "Python workers started by spawn or forkserver before probe.init(), or while several runs record in one process",
+    "cloud objects read other than through google-cloud-storage, boto3/botocore, s3fs or gcsfs "
+    "(gsutil, gcloud, the aws CLI, Azure, gcsfs zonal buckets)",
+    "boto3 downloads made by its CRT transfer client (awscrt installed, on an instance type boto3 picks it for)",
 )
 #: Writers the audit hook cannot see (`torch.save`, safetensors' `save_file`
 #: and `h5py.File` in a write mode are wrapped).
@@ -233,6 +238,10 @@ UNSEEN_WRITERS = (
     "C/Rust writers (pyarrow, sqlite)",
     "processes that are not Python (cp, rsync, a compiled tool)",
     "Python workers started by spawn or forkserver before probe.init(), or while several runs record in one process",
+    "cloud objects written other than through google-cloud-storage, boto3/botocore, s3fs or gcsfs "
+    "(gsutil, gcloud, the aws CLI, Azure, gcsfs zonal buckets, GCS XML multipart uploads)",
+    "GCS copies made on the server (copy_blob, rewrite, compose; gcsfs copy and merge), and boto3 "
+    "uploads made by its CRT transfer client (awscrt installed, on an instance type boto3 picks it for)",
 )
 #: How often the recording process looks at the files it wrote, and keeps the
 #: last identity of each in its ``.wf.json`` sidecar. A RECOVERY -- the writer
@@ -455,6 +464,10 @@ class _RunReads:
         self.write_seen: dict[str, tuple] = {}
         #: Where the last `check_writes` sweep stopped.
         self.write_cursor = 0
+        #: (reading, uri, host, fingerprint) of each cloud object recorded
+        #: (`object_store`). Bounded by the read and write caps.
+        self.objects: set[tuple] = set()
+        self.object_writes = 0
         #: path -> the identity last recorded for it. Bounded by MAX_PATHS:
         #: past the cap nothing is added, so a run over millions of files
         #: holds 10,000 entries, not millions.
@@ -550,6 +563,13 @@ class _RunReads:
         if os.getpid() == _hasher_pid:
             _hash_queue.put((self.run_id, path, ident))
 
+    def mark_writes_truncated(self) -> None:
+        """Say the write list was cut, once -- in the spool too (`mark_truncated`)."""
+        if not self.writes_truncated:
+            self.writes_truncated = True
+            with contextlib.suppress(OSError):
+                self.spool().write(json.dumps({"wtruncated": True}) + "\n")
+
     def record_write(self, path: str, since: tuple[str, int] | None = None) -> None:
         """Note that the run opened ``path`` for writing (or renamed a noted
         write to it: ``since`` is that write's first time). Once per path per
@@ -563,14 +583,33 @@ class _RunReads:
         if path in self.written:
             return
         if len(self.written) >= MAX_PATHS:
-            if not self.writes_truncated:
-                self.writes_truncated = True
-                with contextlib.suppress(OSError):
-                    self.spool().write(json.dumps({"wtruncated": True}) + "\n")
+            self.mark_writes_truncated()
             return
         first = since or (_now_iso(), time.time_ns())
         self.written[path] = first
         line = {"w": path, "t": first[0], "n": first[1], "o": uuid.uuid4().hex, "b": _before(path)}
+        with contextlib.suppress(OSError):
+            self.spool().write(json.dumps(line) + "\n")
+
+    def record_object(self, is_reading: bool, uri: str, host: str, fingerprint: str, size: Any) -> None:
+        """Spool one cloud object read or written (`object_store`), once per
+        (uri, host, identity): two versions of one object are two lines. A read
+        counts against the read cap, a write against the write cap."""
+        key = (is_reading, uri, host, fingerprint)
+        if key in self.objects:
+            return
+        if is_reading:
+            if self.count >= MAX_PATHS:
+                self.mark_truncated()
+                return
+            self.count += 1
+        elif len(self.written) + self.object_writes >= MAX_PATHS:
+            self.mark_writes_truncated()
+            return
+        else:
+            self.object_writes += 1
+        self.objects.add(key)
+        line = {"obj": "r" if is_reading else "w", "u": uri, "h": host, "f": fingerprint, "s": size, "t": _now_iso()}
         with contextlib.suppress(OSError):
             self.spool().write(json.dumps(line) + "\n")
 
@@ -766,6 +805,28 @@ def _wrapped_write(path: str, frame: Any) -> None:
     _note(path, reading=False, frame=frame)
 
 
+def _record_object(is_reading: bool, uri: str, host: str, fingerprint: str, size: Any, frame: Any) -> None:
+    """A cloud object the run read or wrote (`object_store`): recorded under
+    the same switches as a file (writes only while the run notes writes) and
+    never for Probe's own calls. Never raises."""
+    if getattr(_local, "internal", 0):
+        return
+    if _follow is not None:
+        _follow_binding()
+    if not _active:
+        return
+    _local.internal = getattr(_local, "internal", 0) + 1
+    try:
+        target = _pick_run(uri)
+        if target is None or (not is_reading and not target.writes) or _probe_is_calling(frame):
+            return
+        target.record_object(is_reading, uri, host, fingerprint, size)
+    except Exception:  # noqa: BLE001 -- a hook must never raise into user code
+        pass
+    finally:
+        _local.internal -= 1
+
+
 def _wrapped_active() -> bool:
     """Whether anything may record in this process now: a wrapper with a
     cost of its own asks first (`_readers`)."""
@@ -843,6 +904,8 @@ def _after_fork_in_child() -> None:
         reads.writes_truncated = False
         reads.write_seen = {}
         reads.write_cursor = 0
+        reads.objects = set()
+        reads.object_writes = 0
         reads.tail = {}
         reads.tailed = 0
     _open_runs.clear()  # the parent's handles; a child opens its own
@@ -1173,8 +1236,11 @@ def _install() -> None:
         # Readers that open files from C (pyarrow, h5py, safetensors) and
         # torch.save: patched when (and only if) they are imported.
         from . import c_readers as _readers
+        from . import object_store as _objects
 
-        _readers.install(_wrapped_read, _wrapped_write, _wrapped_truncated, _wrapped_active)
+        # Cloud objects (GCS, S3, gcsfs, s3fs): by the same finder.
+        hooks = _objects.make_patches(_record_object, _wrapped_active, warn=_diagnostics.warn)
+        _readers.install(_wrapped_read, _wrapped_write, _wrapped_truncated, _wrapped_active, extra=hooks)
         _installed = True
 
 
@@ -1668,6 +1734,7 @@ def collect_all(
     rules = ignore if ignore is not None else (state.ignore if state is not None else None)
     n_ignored = w_ignored = 0
     noted = _SpooledWrites(keep=writes)
+    objects = _SpooledObjects()
     opted_out: list[str] = []
     try:
         started = time.monotonic()
@@ -1677,7 +1744,7 @@ def collect_all(
         spools, pending = _spools(run_id, closing=not recovered)
         _consumed[run_id] = spools
         handed: list[Any] = []
-        observed, spool_truncated = _read_spools(spools, handed, writes=noted)
+        observed, spool_truncated = _read_spools(spools, handed, writes=noted, objects=objects)
         if noted.reads_off:
             opted_out.append("inputs")
         if noted.writes_off:
@@ -1822,6 +1889,22 @@ def collect_all(
             out_rows.append(row)
             if len(out_rows) >= MAX_PATHS:
                 break
+        read_on, write_on = reads and not noted.reads_off, writes and not noted.writes_off
+        got_objects = _build_object_rows(run_id, objects, should_read=read_on, should_write=write_on, rules=rules)
+        object_reads = got_objects.inputs[: max(MAX_PATHS - len(rows), 0)]
+        object_writes = got_objects.outputs[: max(MAX_PATHS - len(out_rows), 0)]
+        # Objects past the cap (this list's, or the spool reader's) are cut: coverage says so.
+        objects_cut = (
+            len(object_reads) < len(got_objects.inputs) or (read_on and "r" in objects.cut),
+            len(object_writes) < len(got_objects.outputs) or (write_on and "w" in objects.cut),
+        )
+        rows.extend(object_reads)
+        out_rows.extend(object_writes)
+        unsendable += got_objects.unsendable_inputs
+        w_unsendable += got_objects.unsendable_outputs
+        n_ignored += got_objects.ignored_inputs
+        w_ignored += got_objects.ignored_outputs
+        object_store = _build_object_coverage(objects.coverage)
     finally:
         with _lock:
             _collecting -= 1
@@ -1831,7 +1914,7 @@ def collect_all(
         "recorder": RECORDER,
         "unseen": list(UNSEEN_READERS),
         "count": len(rows),
-        "truncated": bool(state.truncated if state else False) or spool_truncated,
+        "truncated": bool(state.truncated if state else False) or spool_truncated or objects_cut[0],
         "ambiguous_opens": state.ambiguous if state else 0,
         "unhashed": unhashed,
         "unsendable_paths": unsendable,
@@ -1845,12 +1928,15 @@ def collect_all(
         **({"probeignore": n_ignored} if n_ignored else {}),
         # Why reads went unhashed: the run's I/O budget, or the close's time.
         **({"hash_cut": {k: v for k, v in read_cut.items() if v}} if unhashed else {}),
+        # Cloud objects among the rows, and which libraries were hooked (`object_store`).
+        **({"objects": len(object_reads)} if object_reads else {}),
+        **({"object_store": object_store} if object_store else {}),
     }
     out_coverage = {
         "recorder": RECORDER,
         "unseen": list(UNSEEN_WRITERS),
         "count": len(out_rows),
-        "truncated": bool(state.writes_truncated if state else False) or noted.truncated,
+        "truncated": bool(state.writes_truncated if state else False) or noted.truncated or objects_cut[1],
         "unhashed": w_unhashed,
         # Changed while it was hashed: sent without a hash.
         "unstable": w_unstable,
@@ -1867,6 +1953,8 @@ def collect_all(
         **({"malformed_rows": w_malformed} if w_malformed else {}),
         **({"probeignore": w_ignored} if w_ignored else {}),
         **({"hash_cut": {k: v for k, v in write_cut.items() if v}} if w_unhashed else {}),
+        **({"objects": len(object_writes)} if object_writes else {}),
+        **({"object_store": object_store} if object_store else {}),
     }
     return Collected(rows, coverage, out_rows, out_coverage, tuple(opted_out), tuple(late))
 
@@ -2069,9 +2157,11 @@ from probe.sdk.capture.lineage.identities import FULL_HASH_MAX_BYTES, RUN_HASH_B
 from probe.sdk.capture.lineage.recovery import recover_orphans  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.capture.lineage.rows import (  # noqa: E402 -- pieces need each other; the front door loads this one first
     _iso_from_ns,
+    _build_object_rows,
+    _build_object_coverage,
     _read_observation,
     _typed_output_row,
     _typed_row,
     _valid_instant,
 )
-from probe.sdk.capture.lineage.spool.reader import _SpooledWrites, _header, _read_spools, _spools  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.capture.lineage.spool.reader import _SpooledObjects, _SpooledWrites, _header, _read_spools, _spools  # noqa: E402 -- pieces need each other; the front door loads this one first

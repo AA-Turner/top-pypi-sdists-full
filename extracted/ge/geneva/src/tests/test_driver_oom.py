@@ -11,7 +11,7 @@ import time
 from concurrent.futures import Future
 from functools import partial
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 import pyarrow as pa
@@ -26,6 +26,13 @@ from geneva.runners.ray.jobtracker import job_tracker_options
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+
+def _submit_driver(
+    remote: Any, args: list[Any], tracker: Any, attempt: bytes | None
+) -> Any:
+    """Submit a driver task as dispatch does, with its attempt token."""
+    return remote.remote(*args, job_tracker=tracker, attempt=attempt)
 
 
 @pytest.mark.parametrize(
@@ -51,10 +58,9 @@ def test_driver_loss_persists_failed_without_waiting_on_job(
         saved.set()
 
     monkeypatch.setattr(hist, "set_failed", record_failure)
-    monkeypatch.setattr(pipeline.cloudpickle, "dumps", lambda ref: b"ref")
     result: Future = Future()
     ref = SimpleNamespace(future=lambda: result)
-    assert pipeline._submit_ray_job(hist, job.job_id, lambda: ref) is ref
+    assert pipeline._submit_ray_job(hist, job.job_id, lambda attempt: ref) is ref
 
     # No caller polls done() or result(); the submitting process observes the
     # OOM independently of the dead driver's Python exception handler.
@@ -70,18 +76,34 @@ def test_driver_loss_persists_failed_without_waiting_on_job(
     "error", [None, ray.exceptions.RayTaskError("driver", "trace", ValueError("bad"))]
 )
 def test_driver_observer_leaves_normal_finalization_to_driver(
-    monkeypatch: pytest.MonkeyPatch, error: Exception | None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: Exception | None
 ) -> None:
-    hist = Mock()
+    """When the driver saved its final status, the observer writes nothing."""
+    hist = geneva.connect(str(tmp_path))._history
+    job_id = hist.launch("t", "b").job_id
     result: Future = Future()
     ref = SimpleNamespace(future=lambda: result)
-    monkeypatch.setattr(pipeline.cloudpickle, "dumps", lambda ref: b"ref")
-    pipeline._submit_ray_job(hist, "job", lambda: ref)
+    state = pipeline.RayJobState(hist, job_id)
+    pipeline._submit_ray_job(hist, job_id, lambda attempt: ref, state=state)
+    hist.set_running(job_id)
+    if error is None:
+        hist.set_completed(job_id)
+    else:
+        hist.set_failed(job_id, "ValueError: bad")
+    final = hist.get(job_id)[0]
+    writes = Mock()
+    monkeypatch.setattr(hist, "set_failed", writes.set_failed)
+    monkeypatch.setattr(hist, "set_completed", writes.set_completed)
+
     if error is None:
         result.set_result(None)
     else:
         result.set_exception(error)
-    hist.set_failed.assert_not_called()
+
+    assert state.wait_result_recorded(5)
+    writes.set_failed.assert_not_called()
+    writes.set_completed.assert_not_called()
+    assert hist.get(job_id)[0].events == final.events
 
 
 def test_driver_loss_does_not_overwrite_cancellation(
@@ -99,10 +121,9 @@ def test_driver_loss_does_not_overwrite_cancellation(
         saved.set()
 
     monkeypatch.setattr(hist, "set_failed", record_failure)
-    monkeypatch.setattr(pipeline.cloudpickle, "dumps", lambda ref: b"ref")
     result: Future = Future()
     pipeline._submit_ray_job(
-        hist, job.job_id, lambda: SimpleNamespace(future=lambda: result)
+        hist, job.job_id, lambda attempt: SimpleNamespace(future=lambda: result)
     )
     result.set_exception(ray.exceptions.OutOfMemoryError("driver OOM"))
     assert saved.wait(5)
@@ -200,10 +221,9 @@ def test_old_driver_failure_does_not_fail_retry(
         saved.set()
 
     monkeypatch.setattr(hist, "set_failed", delayed_failure)
-    monkeypatch.setattr(pipeline.cloudpickle, "dumps", lambda ref: b"ref")
     result: Future = Future()
     pipeline._submit_ray_job(
-        hist, job_id, lambda: SimpleNamespace(future=lambda: result)
+        hist, job_id, lambda attempt: SimpleNamespace(future=lambda: result)
     )
     result.set_exception(ray.exceptions.WorkerCrashedError())
     try:
@@ -233,9 +253,11 @@ def test_observer_is_not_attached_without_a_persisted_attempt(
         raise RuntimeError("storage unavailable")
 
     monkeypatch.setattr(hist, "set_object_ref", fail_persist)
-    monkeypatch.setattr(pipeline.cloudpickle, "dumps", lambda ref: b"ref")
     ref = SimpleNamespace(future=watch)
-    assert pipeline._submit_ray_job(hist, job_id, lambda: ref) is ref
+    submit = Mock(return_value=ref)
+    with pytest.raises(geneva.JobNotSubmittedError, match="was not submitted"):
+        pipeline._submit_ray_job(hist, job_id, submit)
+    submit.assert_not_called()
     watch.assert_not_called()
 
 
@@ -338,7 +360,7 @@ def test_memory_monitor_terminates_driver_and_tracker(
         elif kind == "bulk_load":
             args.extend(["source.parquet", "a", ["b"]])
         ref = pipeline._submit_ray_job(
-            hist, job.job_id, partial(remote.remote, *args, job_tracker=tracker)
+            hist, job.job_id, partial(_submit_driver, remote, args, tracker)
         )
         with pytest.raises(ray.exceptions.OutOfMemoryError):
             ray.get(ref, timeout=30)

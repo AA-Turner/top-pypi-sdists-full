@@ -11,7 +11,7 @@ body:
 
         Describe who needs the feature, the problem it solves, why the current gap matters, the API you would like to use, and the observable criteria for success. Leave implementation choices to the people building the feature.
 
-        The SDK wraps the OpenShell gateway's API. A feature that needs a new gateway capability starts in [NVIDIA/OpenShell](https://github.com/NVIDIA/OpenShell/issues); link that issue here.
+        The SDK wraps the OpenShell gateway's API. A feature that needs a new gateway capability starts in [ai-openshell/openshell](https://github.com/ai-openshell/openshell/issues); link that issue here.
 
   - type: textarea
     id: user-story

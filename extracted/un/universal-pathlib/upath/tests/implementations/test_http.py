@@ -13,6 +13,8 @@ from ..utils import overrides_base
 from ..utils import skip_on_windows
 from ..utils import xfail_if_no_ssl_connection
 
+pytestmark = pytest.mark.network
+
 try:
     get_filesystem_class("http")
 except ImportError:
@@ -41,6 +43,8 @@ def test_httppath(internet_connection):
 def test_httpspath(internet_connection):
     path = UPath("https://example.com")
     assert isinstance(path, HTTPPath)
+    # exists() swallows all errors, call info() to surface them
+    path.fs.info(path.path)
     assert path.exists()
 
 

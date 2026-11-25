@@ -20,50 +20,56 @@
 
 """Classes for interacting with KiCad at a high level"""
 
+from __future__ import annotations
+
 import os
 import platform
 import random
 import string
+from collections.abc import Sequence
 from tempfile import gettempdir
-from typing import Optional, Sequence, Union
+
 from google.protobuf.empty_pb2 import Empty
 
 from kipy.board import Board
-from kipy.client import KiCadClient, ApiError
-from kipy.common_types import Text, TextBox, CompoundShape
+from kipy.client import ApiError, KiCadClient
+from kipy.common_types import CompoundShape, Text, TextBox
 from kipy.errors import FutureVersionError
 from kipy.geometry import Box2
+from kipy.kicad_api_version import KICAD_API_VERSION
 from kipy.project import Project
 from kipy.proto.common import commands
-from kipy.proto.common.types import base_types_pb2, DocumentType, DocumentSpecifier
 from kipy.proto.common.commands import base_commands_pb2
-from kipy.kicad_api_version import KICAD_API_VERSION
+from kipy.proto.common.types import DocumentSpecifier, DocumentType, base_types_pb2
 
 
 def _default_socket_path() -> str:
-    path = os.environ.get('KICAD_API_SOCKET')
+    path = os.environ.get("KICAD_API_SOCKET")
     if path is not None:
         return path
-    if platform.system() == 'Windows':
-        return f'ipc://{gettempdir()}\\kicad\\api.sock'
+    if platform.system() == "Windows":
+        return f"ipc://{gettempdir()}\\kicad\\api.sock"
     else:
         # Check for default socket path of KiCad flatpak on flathub
-        home = os.environ.get('HOME')
+        home = os.environ.get("HOME")
         if home is not None:
-            flatpak_socket_path = f'{home}/.var/app/org.kicad.KiCad/cache/tmp/kicad/api.sock'
+            flatpak_socket_path = f"{home}/.var/app/org.kicad.KiCad/cache/tmp/kicad/api.sock"
             if os.path.exists(flatpak_socket_path):
-                return f'ipc://{flatpak_socket_path}'
+                return f"ipc://{flatpak_socket_path}"
 
-        return 'ipc:///tmp/kicad/api.sock'
+        return "ipc:///tmp/kicad/api.sock"
+
 
 def _random_client_name() -> str:
-    return 'anonymous-'+''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    return "anonymous-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
 
 def _default_kicad_token() -> str:
-    token = os.environ.get('KICAD_API_TOKEN')
+    token = os.environ.get("KICAD_API_TOKEN")
     if token is not None:
         return token
     return ""
+
 
 class KiCadVersion:
     def __init__(self, major: int, minor: int, patch: int, full_version: str):
@@ -73,21 +79,21 @@ class KiCadVersion:
         self.full_version = full_version
 
     @staticmethod
-    def from_proto(proto: base_types_pb2.KiCadVersion) -> 'KiCadVersion':
+    def from_proto(proto: base_types_pb2.KiCadVersion) -> KiCadVersion:
         return KiCadVersion(proto.major, proto.minor, proto.patch, proto.full_version)
 
     @staticmethod
-    def from_git_describe(describe: str) -> 'KiCadVersion':
-        parts = describe.split('-')
+    def from_git_describe(describe: str) -> KiCadVersion:
+        parts = describe.split("-")
         version_part = parts[0]
 
         try:
-            major, minor, patch = map(int, version_part.split('.'))
+            major, minor, patch = map(int, version_part.split("."))
         except ValueError:
             return KiCadVersion(0, 0, 0, describe)
 
         if len(parts) > 1:
-            additional_info = '-'.join(parts[1:])
+            additional_info = "-".join(parts[1:])
             return KiCadVersion(major, minor, patch, f"{version_part}-{additional_info}")
 
         return KiCadVersion(major, minor, patch, f"{version_part}")
@@ -99,9 +105,7 @@ class KiCadVersion:
         if not isinstance(other, KiCadVersion):
             return NotImplemented
 
-        return (
-            (self.major, self.minor, self.patch) == (other.major, other.minor, other.patch)
-            )
+        return (self.major, self.minor, self.patch) == (other.major, other.minor, other.patch)
 
     def __lt__(self, other):
         if not isinstance(other, KiCadVersion):
@@ -117,11 +121,15 @@ class KiCadVersion:
     def __ge__(self, other):
         return not self < other
 
+
 class KiCad:
-    def __init__(self, socket_path: Optional[str]=None,
-                 client_name: Optional[str]=None,
-                 kicad_token: Optional[str]=None,
-                 timeout_ms: int=2000):
+    def __init__(
+        self,
+        socket_path: str | None = None,
+        client_name: str | None = None,
+        kicad_token: str | None = None,
+        timeout_ms: int = 2000,
+    ):
         """Creates a connection to a running KiCad instance
 
         :param socket_path: The path to the IPC API socket (leave default to read from the
@@ -239,10 +247,10 @@ class KiCad:
         return Box2.from_proto(reply)
 
     def get_text_as_shapes(
-        self, texts: Union[Text, TextBox, Sequence[Union[Text, TextBox]]]
+        self, texts: Text | TextBox | Sequence[Text | TextBox]
     ) -> list[CompoundShape]:
         """Returns polygonal shapes representing the given text objects"""
-        if isinstance(texts, Text) or isinstance(texts, TextBox):
+        if isinstance(texts, (Text, TextBox)):
             texts = [texts]
 
         cmd = base_commands_pb2.GetTextAsShapes()

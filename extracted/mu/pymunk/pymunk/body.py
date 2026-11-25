@@ -7,14 +7,13 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional  # Literal,
 from weakref import WeakKeyDictionary
 
 if TYPE_CHECKING:
-    from .space import Space
     from .constraints import Constraint
     from .shapes import Shape
+    from .space import Space
 
 from ._chipmunk_cffi import ffi, lib
 from ._pickle import PickleMixin, _State
 from ._typing_attr import TypingAttrMixing
-from ._util import _dead_ref
 from ._weakkeysview import WeakKeysView
 from .vec2d import Vec2d
 
@@ -27,7 +26,7 @@ _PositionFunc = Callable[["Body", float], None]
 _VelocityFunc = Callable[["Body", Vec2d, float, float], None]
 
 
-class Body(PickleMixin, TypingAttrMixing, object):
+class Body(PickleMixin, TypingAttrMixing):
     """A rigid body
 
     * Use forces to modify the rigid bodies if possible. This is likely to be
@@ -92,8 +91,8 @@ class Body(PickleMixin, TypingAttrMixing, object):
     _pickle_attrs_general = PickleMixin._pickle_attrs_general + [
         "force",
         "angle",
-        "position",
         "center_of_gravity",
+        "position",
         "velocity",
         "angular_velocity",
         "torque",
@@ -212,7 +211,7 @@ class Body(PickleMixin, TypingAttrMixing, object):
         elif body_type == Body.STATIC:
             self._body = ffi.gc(lib.cpBodyNewStatic(), freebody)
 
-        self._space: weakref.ref["Space"] = _dead_ref
+        self._space: Optional[weakref.ReferenceType["Space"]] = None
         self._constraints: WeakKeyDictionary["Constraint", None] = WeakKeyDictionary()
         self._shapes: dict["Shape", None] = {}
 
@@ -253,9 +252,9 @@ class Body(PickleMixin, TypingAttrMixing, object):
 
     @mass.setter
     def mass(self, mass: float) -> None:
-        assert (
-            self.space is None or 0 < mass < math.inf
-        ), "Dynamic bodies must have mass > 0 if they are attached to a Space."
+        assert self.space is None or 0 < mass < math.inf, (
+            "Dynamic bodies must have mass > 0 if they are attached to a Space."
+        )
         lib.cpBodySetMass(self._body, mass)
 
     @property
@@ -270,9 +269,9 @@ class Body(PickleMixin, TypingAttrMixing, object):
 
     @moment.setter
     def moment(self, moment: float) -> None:
-        assert (
-            self.space is None or moment > 0
-        ), "Dynamic bodies must have moment > 0 if they are attached to a Space"
+        assert self.space is None or moment > 0, (
+            "Dynamic bodies must have moment > 0 if they are attached to a Space"
+        )
         lib.cpBodySetMoment(self._body, moment)
 
     @property
@@ -390,7 +389,8 @@ class Body(PickleMixin, TypingAttrMixing, object):
             " references are not supported when using pickle or copy and"
             " might crash."
         )
-        return self._space()
+        ref = self._space
+        return None if ref is None else ref()
 
     @property
     def velocity_func(self) -> _VelocityFunc:
@@ -607,7 +607,9 @@ class Body(PickleMixin, TypingAttrMixing, object):
             for c in self.constraints:
                 assert (c.a != self and c.b.body_type == Body.DYNAMIC) or (
                     c.b != self and c.a.body_type == Body.DYNAMIC
-                ), "Cannot set a non-dynamic body type when Body is connected to a constraint {c} with a non-dynamic other body."
+                ), (
+                    "Cannot set a non-dynamic body type when Body is connected to a constraint {c} with a non-dynamic other body."
+                )
 
         lib.cpBodySetType(self._body, body_type)
 
@@ -715,7 +717,7 @@ class Body(PickleMixin, TypingAttrMixing, object):
         This method allows the usage of the :mod:`copy` and :mod:`pickle`
         modules with this class.
         """
-        d = super(Body, self).__getstate__()
+        d = super().__getstate__()
 
         d["special"].append(("is_sleeping", self.is_sleeping))
         d["special"].append(("_velocity_func", self._velocity_func))
@@ -729,7 +731,7 @@ class Body(PickleMixin, TypingAttrMixing, object):
         This method allows the usage of the :mod:`copy` and :mod:`pickle`
         modules with this class.
         """
-        super(Body, self).__setstate__(state)
+        super().__setstate__(state)
 
         for k, v in state["special"]:
             if k == "is_sleeping" and v:

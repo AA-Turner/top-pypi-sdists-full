@@ -31,10 +31,12 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import math
 import operator
+import os
 import traceback
 import typing
-from collections.abc import Awaitable, Callable, Generator
+from collections.abc import AsyncIterator, Awaitable, Callable, Generator
 from datetime import timedelta
 from typing import Any
 
@@ -63,21 +65,31 @@ logger = logging.getLogger(__name__)
 T = typing.TypeVar("T")
 
 HEARTBEAT_INTERVAL = timedelta(seconds=20)
-"""How often an attempt that works outside Restate tells it that it makes progress.
+"""How often an attempt in ``working`` tells Restate that it makes progress.
 
 Restate shuts down an attempt it heard nothing from for its inactivity timeout
-(a minute, by default), and the next one runs the handler from the start: a
-model request that takes longer would be made again by every attempt, and
-never answered. So an attempt heartbeats while its handler has nothing of
-Restate's outstanding (it is then working on its own: a model request, a
-tool), and while an annotation is open, which says the same of work that goes
-on beside a call. With an answer of Restate's outstanding and no annotation,
-it does not: Restate shuts the attempt down after the timeout, and starts the
-next when the answer comes, so that a wait of days holds no process. An
-answer is outstanding from the moment the call is made until Restate gives
-it, whether or not the handler awaits it: work done after a call whose result
-is left aside gets no heartbeat until that call is answered.
+(a minute, by default). That is the default: the attempt suspends on what it
+waits for (or, waiting for nothing, starts again at once), and a wait of days
+holds no process. Work that must not be cut off (a model request) says so with
+``working``: while any of it runs, the attempt heartbeats, whatever else it
+waits for. A deployment that shortens the timeout must shorten this with it
+(``RESTATE_SESSIONS_HEARTBEAT``, in milliseconds, sets it).
 """
+
+
+def heartbeat_interval() -> float:
+    """The heartbeat interval in seconds: ``RESTATE_SESSIONS_HEARTBEAT`` (milliseconds), or ``HEARTBEAT_INTERVAL``.
+
+    A value that is not a positive, finite number is ignored.
+    """
+    default = HEARTBEAT_INTERVAL.total_seconds()
+    raw = os.environ.get("RESTATE_SESSIONS_HEARTBEAT", "")
+    try:
+        millis = float(raw) if "_" not in raw else math.nan
+    except ValueError:
+        return default
+    return millis / 1000 if math.isfinite(millis) and millis > 0 else default
+
 
 SYNC_KEY = "v22/sync"
 """The state key a sync clears with an ack, under the state format's prefix, which tooling hides."""
@@ -132,9 +144,6 @@ class AttemptDriver:
         # The handles a cancellation leaves to settle, and is never carried to: the invocation
         # ids of the calls and sends, and the reads and acks of the database's store.
         self._left_to_settle: set[int] = set()
-        # The store's among them: the database waits for those, not the handler, and they come
-        # promptly, so they do not count as an answer of Restate's the handler waits for.
-        self._store_waits: set[int] = set()
         # A cancellation that failed nothing the handler awaits, carried to the next thing it
         # does: a result of Restate's (``future``), or a call of its database
         # (``take_carried_cancellation``). A retry of a cancelled invocation knows of it before
@@ -151,8 +160,20 @@ class AttemptDriver:
         self._writer: asyncio.Task[None] = asyncio.ensure_future(self._write_output())
         self._pump: asyncio.Task[None] | None = None
         self._handler: asyncio.Future[bytes] | None = None
-        self._open_traces: int = 0
-        self._heartbeats: asyncio.Task[None] | None = None
+        # The ``working`` scopes open: the attempt heartbeats while there is one.
+        self._scopes: int = 0
+        # The one timer of the heartbeats, armed for ``_beat_due``. It outlives a run of scopes, so the database's
+        # scopes (one a statement) do not start and cancel a timer each: it fires, finds no scope open, and is not
+        # armed again.
+        self._heartbeats: asyncio.TimerHandle | None = None
+        self._beat_due: float = 0.0
+        # The run of scopes now open: its interval, and when its next heartbeat is due.
+        self._run_every: float = 0.0
+        self._next_beat: float = 0.0
+        # The heartbeat interval, read from the environment on first use.
+        self._beat_every: float | None = None
+        # When the attempt last wrote to Restate, which restarts Restate's inactivity timer.
+        self._wrote_at: float = self._loop.time()
         self._end_listeners: list[Callable[[], None]] = []
         self.finished: asyncio.Event = asyncio.Event()
         self.ended: BaseException | None = None
@@ -193,7 +214,6 @@ class AttemptDriver:
         (a model request, say) stops, since nothing it does would count any more.
         """
         self._handler = asyncio.ensure_future(self._cancelled_calls_first(handler))
-        self._heartbeats = asyncio.ensure_future(self._heartbeat())
         try:
             output = await self._handler
             self._last(lambda vm: vm.end_success(output))
@@ -304,13 +324,13 @@ class AttemptDriver:
         output = self.vm.take_output()
         if output:
             self._output.put_nowait(output)
+            self._wrote_at = self._loop.time()
         if self.ended is not None:
             return
         try:
             while (notification := self.vm.take_notification()) is not None:
                 handle, value = notification
                 self._left_to_settle.discard(handle)
-                self._store_waits.discard(handle)
                 call = self._unanswered.pop(handle, None)
                 if call is not None:
                     call.answered = True
@@ -409,7 +429,6 @@ class AttemptDriver:
         with a journal codec.
         """
         self._left_to_settle.add(handle)
-        self._store_waits.add(handle)
         return self._future(handle)
 
     def _future(self, handle: int) -> asyncio.Future[Any]:
@@ -482,27 +501,81 @@ class AttemptDriver:
                 cancelled.append(invocation_id)
         return cancelled
 
-    def trace_opened(self) -> None:
-        """An annotation opened: the attempt heartbeats while any is, whatever else is outstanding."""
-        self._open_traces += 1
+    # --- Keeping the attempt alive
 
-    def trace_closed(self) -> None:
-        self._open_traces -= 1
+    @contextlib.asynccontextmanager
+    async def working(self) -> AsyncIterator[None]:
+        """Keep the attempt alive while the body runs (see ``HEARTBEAT_INTERVAL``).
 
-    def _awaits_restate(self) -> bool:
-        """Whether an answer of Restate's that the handler made for is outstanding: a result or an invocation id."""
-        return any(handle not in self._store_waits for handle in self._futures)
+        One heartbeat every interval, from the first scope opening to the last
+        closing. The first comes once the attempt has been silent for an
+        interval (at once, if it already has), so the silence never reaches more
+        than that; a scope that closes sooner (the database's, around each of its
+        calls) sends nothing. One timer serves scopes that follow one another.
 
-    async def _heartbeat(self) -> None:
-        """Tell Restate the attempt makes progress, while it works outside Restate (see ``HEARTBEAT_INTERVAL``)."""
-        while True:
-            await asyncio.sleep(HEARTBEAT_INTERVAL.total_seconds())
-            if self._open_traces == 0 and self._awaits_restate():
-                continue
-            try:
-                self.act(lambda vm: vm.heartbeat())
-            except SdkInternalBaseException:
+        Raises:
+            RuntimeError: Entered on another event loop than the attempt's (a
+                thread's own loop): the heartbeat is the attempt's.
+        """
+        if asyncio.get_running_loop() is not self._loop:
+            raise RuntimeError("ctx.working() must be entered on the attempt's own event loop, not another thread's")
+        if self._beat_every is None:
+            self._beat_every = heartbeat_interval()
+        self._scopes += 1
+        if self._scopes == 1:
+            self._start_heartbeats(self._beat_every)
+        try:
+            yield
+        finally:
+            self._scopes -= 1
+
+    def _start_heartbeats(self, every: float) -> None:
+        """A run of scopes opens: its first beat is due once the attempt has been silent for ``every`` (at once, if it
+        has), and the next ``every`` after each beat, while a scope stays open.
+
+        The timer is armed for the first. On firing it beats if the run it finds is that old, waits out the rest if a
+        run that opened later is younger, and is let go if no scope is open.
+        """
+        if self.ended is not None:
+            return
+        now = self._loop.time()
+        # The first once the silence reaches an interval: at once, if it already has.
+        first = self._wrote_at + every
+        if first <= now:
+            self._heartbeat()
+            first = now + every
+        self._run_every = every
+        self._next_beat = first
+        self._arm(first)
+
+    def _arm(self, due: float) -> None:
+        """Arm the timer for ``due``, unless it is armed for that or earlier."""
+        if self._heartbeats is not None:
+            if self._beat_due <= due:
                 return
+            self._heartbeats.cancel()
+        self._beat_due = due
+        self._heartbeats = self._loop.call_at(due, self._beat)
+
+    def _beat(self) -> None:
+        """The timer fired."""
+        self._heartbeats = None
+        if self.ended is not None or self._scopes == 0:
+            return
+        now = self._loop.time()
+        if now >= self._next_beat:
+            self._heartbeat()
+            self._next_beat = now + self._run_every
+        self._arm(self._next_beat)
+
+    def _heartbeat(self) -> None:
+        """Tell Restate the attempt makes progress."""
+        # If the attempt ended, the tick notices.
+        with contextlib.suppress(SdkInternalBaseException):
+            self.act(lambda vm: vm.heartbeat())
+            # The write restarts Restate's inactivity timer, as the tick will note: scopes opened before it do not beat
+            # again.
+            self._wrote_at = self._loop.time()
 
 
 def _cancelled_error() -> TerminalError:
@@ -678,13 +751,18 @@ class VmHost:
     def attach_invocation(self, invocation_id: str) -> Awaitable[bytes]:
         return self.driver.future(self.driver.act(lambda vm: vm.attach_invocation(invocation_id)))
 
+    def working(self) -> contextlib.AbstractAsyncContextManager[None]:
+        """The handler's ``ctx.working``: the attempt is kept alive while its body runs."""
+        return self.driver.working()
+
+    def database_working(self) -> contextlib.AbstractAsyncContextManager[None]:
+        """The same, around each call of the database (see ``_Boundary.alive``)."""
+        return self.driver.working()
+
     def open_annotation(self, name: str, parent: int | None = None) -> int | None:
-        trace = self.driver.act(lambda vm: vm.start_trace(name, parent))
-        self.driver.trace_opened()
-        return trace
+        return self.driver.act(lambda vm: vm.start_trace(name, parent))
 
     def close_annotation(self, handle: int, value: bytes, failure: str | None) -> None:
-        self.driver.trace_closed()
         try:
             if failure is None:
                 self.driver.act(lambda vm: vm.end_trace_success(handle, value))

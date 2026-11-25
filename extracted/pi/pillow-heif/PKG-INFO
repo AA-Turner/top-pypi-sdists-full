@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pillow_heif
-Version: 1.8.1
+Version: 1.9.0
 Summary: Python interface for libheif library
 Home-page: https://github.com/bigcat88/pillow_heif
 Author: Alexander Piskun
@@ -17,7 +17,6 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -29,11 +28,11 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: LICENSES_bundled.txt
-Requires-Dist: pillow>=11.1.0
+Requires-Dist: pillow>=13.0.0
 Provides-Extra: docs
 Requires-Dist: sphinx>=4.4; extra == "docs"
 Requires-Dist: sphinx-issues>=3.0.1; extra == "docs"
@@ -54,7 +53,7 @@ Requires-Dist: defusedxml; extra == "dev"
 Requires-Dist: packaging; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: pympler; extra == "dev"
-Requires-Dist: opencv-python==5.0.0.93; extra == "dev"
+Requires-Dist: opencv-python==5.1.0.95; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
@@ -69,7 +68,7 @@ Dynamic: license-file
 [![docs](https://readthedocs.org/projects/pillow-heif/badge/?version=latest)](https://pillow-heif.readthedocs.io/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/bigcat88/pillow_heif/branch/master/graph/badge.svg?token=JY64F2OL6V)](https://codecov.io/gh/bigcat88/pillow_heif)
 
-![PythonVersion](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14%20%7C%203.15-blue)
+![PythonVersion](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14%20%7C%203.15-blue)
 ![impl](https://img.shields.io/pypi/implementation/pillow_heif)
 ![pypi](https://img.shields.io/pypi/v/pillow_heif.svg)
 [![Downloads](https://static.pepy.tech/personalized-badge/pillow-heif?period=total&units=international_system&left_color=grey&right_color=orange&left_text=Downloads)](https://pepy.tech/project/pillow-heif)
@@ -94,7 +93,14 @@ Features:
  * (beta) Reading of `Auxiliary Images` by [johncf](https://github.com/johncf)
  * Adding HEIF support to Pillow in one line of code as a plugin.
 
-Note: The light version [pi-heif](https://pypi.org/project/pi-heif/) of this project is discontinued, `1.4.0` is its final release.
+> [!WARNING]
+> The lightweight variant [pi-heif](https://pypi.org/project/pi-heif/) is **discontinued**.
+> Version `1.4.0` is its final release and will not receive further updates.
+> Its prebuilt wheels bundle libheif `1.23.0`, which is affected by
+> [CVE-2026-84383](https://github.com/strukturag/libheif/security/advisories/GHSA-g89c-p67h-r497),
+> a heap buffer overflow that can be triggered by decoding a crafted HEIC file.
+> If you decode untrusted HEIC/HEIF files, **migrate to the latest `pillow-heif` release**.
+> Its prebuilt wheels include a libheif version that fixes this vulnerability.
 
 ### Install
 ```console
@@ -201,7 +207,6 @@ if im.info["depth_images"]:
 
 | **_Wheels table_** | macOS<br/>Intel | macOS<br/>Silicon | Windows* | musllinux* | manylinux* |
 |--------------------|:---------------:|:-----------------:|:------------:|:----------:|:----------:|
-| CPython 3.10       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.11       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.12       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.13       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
@@ -209,6 +214,7 @@ if im.info["depth_images"]:
 | CPython 3.14t      |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.15       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.15t      |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
-| PyPy 3.11 v7.3     |        ✅        |         ✅         |      ✅       |    N/A     |     ✅      |
+| PyPy 3.11 v8.0     |        ✅        |         ✅         |      ✅       |    N/A     |     ✅      |
+| PyPy 3.12 v8.0     |        ✅        |         ✅         |      ✅       |    N/A     |     ✅      |
 
 &ast; **x86_64**, **aarch64** wheels.

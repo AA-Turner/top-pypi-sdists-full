@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from hanzoai.cloud.models.sandbox_execution import SandboxExecution
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -26,8 +27,10 @@ class SandboxSessionIn(BaseModel):
     """
     SandboxSessionIn
     """ # noqa: E501
+    execution: Optional[SandboxExecution] = Field(default=None, description="Execution selects where the session runs and which credential backs its model calls: {via:\"cell\"} (default), {via:\"key\", account:\"...\"} or {via:\"desktop\", desktop:\"src_...\", provider:\"...\", instance:\"...\"} (HIP-1350).")
+    runtime: Optional[StrictStr] = Field(default=None, description="Runtime is who answers the session's frames: \"sandbox\" (the real Dev server in a cell), \"wasm\", \"source\" (a linked desktop via Execution) or \"auto\". Empty is \"sandbox\".")
     thread: Optional[StrictStr] = Field(default=None, description="Thread keeps a separate cell for this thread. Empty is the caller's own cell.")
-    __properties: ClassVar[List[str]] = ["thread"]
+    __properties: ClassVar[List[str]] = ["execution", "runtime", "thread"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -68,6 +71,9 @@ class SandboxSessionIn(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of execution
+        if self.execution:
+            _dict['execution'] = self.execution.to_dict()
         return _dict
 
     @classmethod
@@ -80,6 +86,8 @@ class SandboxSessionIn(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "execution": SandboxExecution.from_dict(obj["execution"]) if obj.get("execution") is not None else None,
+            "runtime": obj.get("runtime"),
             "thread": obj.get("thread")
         })
         return _obj

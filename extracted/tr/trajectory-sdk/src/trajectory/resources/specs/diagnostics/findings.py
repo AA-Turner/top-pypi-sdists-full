@@ -37,7 +37,7 @@ class Findings(APIResource):
   def create(
     self,
     *,
-    bench_id: str,
+    spec_id: str,
     title: str,
     explanation: str,
     detector_name: str,
@@ -74,7 +74,7 @@ class Findings(APIResource):
       cast_to=DataQcFinding,
       body=maybe_transform(
         {
-          "bench_id": bench_id,
+          "spec_id": spec_id,
           "title": title,
           "explanation": explanation,
           "detector_name": detector_name,
@@ -104,7 +104,7 @@ class Findings(APIResource):
   def list(
     self,
     *,
-    bench_id: str,
+    spec_id: str,
     task_id: str | None | Omit = omit,
     trajectory_id: str | None | Omit = omit,
     include_descendants: bool | Omit = omit,
@@ -137,7 +137,7 @@ class Findings(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "bench_id": bench_id,
+            "spec_id": spec_id,
             "task_id": task_id,
             "trajectory_id": trajectory_id,
             "include_descendants": include_descendants,
@@ -163,7 +163,7 @@ class Findings(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DataQcFinding:
-    """Get Data Qc Finding
+    """Get Spec Finding
 
     Args:
       extra_headers: Send extra headers

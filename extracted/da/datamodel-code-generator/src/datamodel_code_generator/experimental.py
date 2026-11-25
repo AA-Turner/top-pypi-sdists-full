@@ -34,6 +34,7 @@ ExperimentalFeatureId = Literal[
     "cli-option.use-missing-sentinel",
     "cli-option.use-type-alias",
     "cli-option.use-type-alias-type",
+    "cli-option.write-pyproject-config",
     "extra.httpx2",
     "input-format.asyncapi",
     "input-format.avro",
@@ -240,6 +241,8 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
             "--recommend-options reads the input schema, measures naming-relevant signals of OpenAPI, AsyncAPI, and "
             "JSON Schema documents, and prints the latest dated preset to start from with the options to add, as a "
             "command and a pyproject.toml block. Options set on the command line or in pyproject.toml are kept. "
+            "When no option, key or preset sets the target Python version, it takes the lower bound of the "
+            "project's requires-python (>=, ~= or == forms) and adds it to the command and the block. "
             "For schemas of up to 3000 estimated models, it also generates the candidate configurations in memory "
             "and recommends the one whose class names score best; nothing is written. With --generate-prompt, the "
             "prompt embeds the report, and its JSON output carries the recommend-options payload as recommendation."
@@ -311,6 +314,28 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
         note=(
             "The option implies --use-type-alias and selects TypeAliasType for Python 3.10 and 3.11. "
             "Python 3.12 and newer continue to use native type statements."
+        ),
+    ),
+    "cli-option.write-pyproject-config": ExperimentalFeature(
+        id="cli-option.write-pyproject-config",
+        kind="cli-option",
+        target=(
+            "--write-pyproject-config, its report, and the written key of the recommend-options and pyproject-config "
+            "JSON payloads"
+        ),
+        message=(
+            "Writing the pyproject.toml table is experimental; the file it chooses, the edits it refuses, and its "
+            "report may change."
+        ),
+        since_version="0.102.0",
+        note=(
+            "It writes the table --recommend-options prints into the pyproject.toml that gives the table, else into "
+            "./pyproject.toml, and the table of --generate-pyproject-config into ./pyproject.toml; a missing file is "
+            "created with the table alone. "
+            "Only the keys to add or change are set; the file keeps its other text, line endings and byte order "
+            "mark. An edit that tomllib does not read back as exactly those keys set, such as one of an inline "
+            "table or dotted keys, is refused: nothing is written and the block is printed as before. HTTP headers "
+            "and query parameters are never written, and URLs are written without credentials, query and fragment."
         ),
     ),
     "input-format.asyncapi": ExperimentalFeature(

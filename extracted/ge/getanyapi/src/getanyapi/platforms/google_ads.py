@@ -353,7 +353,7 @@ class GoogleAdsNamespace:
         domain or advertiser ID (creative ID, format, ad URL, and first/last shown
         dates) with cursor pagination.
 
-        Price: $0.00076 per request.
+        Price: $0.00072 per request.
 
         Example:
             res = client.google_ads.company_ads(domain="lululemon.com")
@@ -472,7 +472,7 @@ class AsyncGoogleAdsNamespace:
         domain or advertiser ID (creative ID, format, ad URL, and first/last shown
         dates) with cursor pagination.
 
-        Price: $0.00076 per request.
+        Price: $0.00072 per request.
 
         Example:
             res = client.google_ads.company_ads(domain="lululemon.com")

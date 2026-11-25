@@ -206,7 +206,7 @@ class WorkflowService:
       raise ValueError("limit must be between 1 and 100")
     if kind == "projects":
       return self.client.projects.list(
-        agent_id=[agent_id] if agent_id else omit, limit=limit, cursor=cursor or omit
+        project_id=[agent_id] if agent_id else omit, limit=limit, cursor=cursor or omit
       )
     if kind == "specs":
       if agent_id:

@@ -7,14 +7,14 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias
 from uuid import uuid4
 
 import anyio
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, SchemaSerializer, core_schema
 from pydantic_core.core_schema import SerializationInfo
-from typing_extensions import Buffer, Self
+from typing_extensions import Buffer
 
 from typesafe_sdk._core.errors import TypeSafeError
 

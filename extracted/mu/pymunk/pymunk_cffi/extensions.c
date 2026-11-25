@@ -180,13 +180,15 @@ void pmSpaceBodyGetIteratorFuncBatched(cpBody *body, void *data)
     {
         pmIntArrayPush(d->intArray, (uintptr_t)cpBodyGetUserData(body));
     }
-    if (d->fields & POSITION)
-    {
-        pmFloatArrayPushVect(d->floatArray, cpBodyGetPosition(body));
-    }
+    // Float packing order: ANGLE, POSITION, VELOCITY, ANGULAR_VELOCITY, FORCE, TORQUE.
+    // Keep pymunk.batch layout metadata in sync with this iterator.
     if (d->fields & ANGLE)
     {
         pmFloatArrayPush(d->floatArray, cpBodyGetAngle(body));
+    }
+    if (d->fields & POSITION)
+    {
+        pmFloatArrayPushVect(d->floatArray, cpBodyGetPosition(body));
     }
     if (d->fields & VELOCITY)
     {
@@ -214,13 +216,14 @@ void pmSpaceBodySetIteratorFuncBatched(cpBody *body, void *data)
     {
         // Ignored. Not possible to set Body ID
     }
-    if (d->fields & POSITION)
-    {
-        cpBodySetPosition(body, pmFloatArrayPopVect(d->floatArray));
-    }
     if (d->fields & ANGLE)
     {
         cpBodySetAngle(body, pmFloatArrayPop(d->floatArray));
+    }
+    if (d->fields & POSITION)
+    {
+        // Apply angle first: it moves the origin for an offset center of gravity.
+        cpBodySetPosition(body, pmFloatArrayPopVect(d->floatArray));
     }
     if (d->fields & VELOCITY)
     {

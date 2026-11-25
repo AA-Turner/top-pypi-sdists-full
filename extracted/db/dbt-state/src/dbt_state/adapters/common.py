@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from types import TracebackType
 
-from query_cache_common.utils import extract_select_from_ctas
+from query_cache_common.utils import extract_select_from_ctas, normalize_stage_reference
 from sqlglot import exp, parse_one
 from sqlglot.optimizer.qualify_tables import qualify_tables
 
@@ -31,13 +31,13 @@ class ViewTraversalResult:
     view_definitions: dict[str, ViewDefinition]
     """A mapping of view names to their SQL definitions. Each view name is fully qualified and quoted."""
     seen_tables: set[str]
-    """A set of all fully qualified and quoted table names that were seen during the traversal."""
+    """A set of all fully qualified and quoted table names that were seen during the traversal,
+    including normalized Snowflake stage references like '@"DB"."SCHEMA"."STAGE"/path/'."""
     unresolvable_tables: set[str]
     """A subset of seen_tables whose view definition could not be fetched"""
     unsupported_references: set[str] = field(default_factory=set)
-    """Raw text of table references that were skipped because their name is not an identifier,
-    e.g. Snowflake stage paths like '@db.schema.stage/my_file.csv', or table-valued functions
-    like table_changes(...). Their freshness can't be checked."""
+    """Raw text of references whose freshness can't be checked, e.g. Snowflake user and table
+    stages ('@~/f.csv', '@%my_table') or table-valued functions like table_changes(...)."""
 
     @property
     def view_definition_sql(self) -> t.Dict[str, str]:
@@ -78,8 +78,10 @@ class ViewDefinition:
         query = self.parsed()
         tables = find_tables(query)
 
+        # qualify_tables skips stage references, so qualify them here with the view's defaults
         return {
-            qualify_tables(
+            normalize_stage_reference(t, self.dialect, self.default_catalog, self.default_schema)
+            or qualify_tables(
                 t, db=self.default_schema, catalog=self.default_catalog, dialect=self.dialect
             )
             for t in tables

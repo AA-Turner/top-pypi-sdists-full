@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a367
+Version: 0.1.0a368
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-core==0.1.0a17
+Requires-Dist: dreamscale-core==0.1.0a18
 Requires-Dist: dreamscale-transport==0.1.1a165
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
@@ -90,7 +90,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a367"
+uv add "dreamscale==0.1.0a368"
 ```
 
 Install the CLI as a standalone tool:
@@ -119,10 +119,10 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a367"
-uv add "dreamscale[sim]==0.1.0a367"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a367"
-uv add "dreamscale[hud]==0.1.0a367"
+uv add "dreamscale[so101]==0.1.0a368"
+uv add "dreamscale[sim]==0.1.0a368"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a368"
+uv add "dreamscale[hud]==0.1.0a368"
 ```
 
 The base SDK supports Python 3.11 through 3.14. The `so101` extra currently
@@ -135,19 +135,25 @@ with Python 3.12. Inference runs in the cloud; a local NVIDIA GPU is not require
 
 ## Local benchmark simulation
 
-Choose the benchmark and model explicitly:
+Choose the benchmark, the model, and exactly one of `--all` (every task in the benchmark),
+`--task-suite <suite>` (every task in a suite), `--task-id <id>` (one task) or `--random` (one
+task, picked at random):
 
 ```bash
-dreamscale sim libero --model gr00t-n17-3b-libero --task-suite libero_object --task-id 0
-dreamscale sim robocasa365 --model xiaomi-robotics-1-robocasa365 --task-suite atomic --task-id CloseFridge --task-seed 7 --max-steps 1800
-dreamscale sim robocasa365 --model rldx-1-ft-rc365 --task-suite atomic --task-id CloseFridge
+dreamscale sim libero --model gr00t-n17-3b-libero --task-id libero_object/0
+dreamscale sim libero --model gr00t-n17-3b-libero --task-suite libero_object
+dreamscale sim robocasa365 --model xiaomi-robotics-1-robocasa365 --task-id CloseFridge --task-seed 7 --max-steps 1800
+dreamscale sim robocasa365 --model rldx-1-ft-rc365 --random
 ```
 
-`--list` shows what a benchmark offers, offline and without a model:
+A task's id names it across its benchmark, so `--task-id` never takes a suite. Several tasks run
+one after another, then print their success rate; with `--output-root`, each saves to its own
+folder. `--list` shows what a benchmark offers, offline and without a model:
 
 ```bash
 dreamscale sim robocasa365 --list                         # its task suites
 dreamscale sim robocasa365 --task-suite atomic --list     # that suite's --task-id values
+dreamscale sim robocasa365 --all --list                   # every task
 ```
 
 Simulation and robot CLI runs share `--keep-warm`: the default reserves loaded
@@ -158,8 +164,8 @@ loading the checkpoint again. The final sim output reports whether the server
 parked the session, released it, or could not confirm the release. An open Python
 SDK sim connection keeps its default of immediate release unless configured.
 
-RoboCasa365 accepts `atomic` (65 tasks) or `composite` (300 tasks), with a task
-name or a zero-based index within the selected suite. Xiaomi uses the reference
+RoboCasa365's suites are `atomic` (65 tasks) and `composite` (300 tasks); a task's id is its
+name. Xiaomi uses the reference
 `pretrain` kitchen split, four observations spaced two physics steps apart, and
 16-action chunks at 20 Hz. Inference runs asynchronously; while a request is
 pending, the simulator stops base and arm motion and retains the gripper command.
@@ -180,25 +186,22 @@ run downloads the pinned simulator and its scene/object assets; later runs reuse
 the cache. No local NVIDIA GPU is needed. Cosmos3 requires beta model access.
 
 ```bash
-# One episode from each of the nine All Combined benchmarks (default episode 0).
-dreamscale sim molmospaces --model cosmos3-nano-policy-droid
-
 # A single pick episode, with video, timing and oracle-success artifacts.
-dreamscale sim molmospaces --model cosmos3-nano-policy-droid --task-suite pick-v1.5 --task-id 0 --keep-warm 0 --output-root ./molmo-rollout
+dreamscale sim molmospaces --model cosmos3-nano-policy-droid --task-id pick-v1.5/0 --keep-warm 0 --output-root ./molmo-rollout
 
-# Full All Combined evaluation: 8,915 episodes.
-dreamscale sim molmospaces --model cosmos3-nano-policy-droid --task-suite all --task-id all --non-interactive --keep-warm 0 --output-root ./molmo-all
+# One benchmark's episodes, or the full All Combined evaluation: 8,915 episodes.
+dreamscale sim molmospaces --model cosmos3-nano-policy-droid --task-suite close-v1 --non-interactive --keep-warm 0
+dreamscale sim molmospaces --model cosmos3-nano-policy-droid --all --non-interactive --keep-warm 0 --output-root ./molmo-all
 
 # Cosmos3 Edge, NVIDIA's 4B Cosmos3 DROID policy (private beta), on the same wire.
-dreamscale sim molmospaces --model cosmos3-edge-policy-droid --task-suite pick-v1.5 --task-id 0 --keep-warm 0
+dreamscale sim molmospaces --model cosmos3-edge-policy-droid --random --keep-warm 0
 
 ```
 
 Suites: `open-v1`, `close-v1`, `pick-v1.5`, `pick-v2-classic`,
 `pick-v2-filament`, `pick-v2-rand-cam`, `pnp-v2`, `pnp-next-to-v2`,
-`pnp-color-v2`. Select an episode index or `all` with `--task-id`.
-`--task-suite all` selects all nine; a numeric episode index runs that episode
-in each suite. Close-v1 has 915 episodes and every other suite has 1,000.
+`pnp-color-v2`. A task's id is `<suite>/<episode>`, such as `pick-v1.5/0`.
+Close-v1 has 915 episodes and every other suite has 1,000.
 
 The Cosmos3 models are `cosmos3-nano-policy-droid` and `cosmos3-edge-policy-droid`.
 The adapter sends the current
@@ -230,16 +233,16 @@ runtime from [dreamscale-roboeval](https://github.com/Dreamscale-Labs/dreamscale
 
 ```bash
 # Lift Pot, static variant.
-dreamscale sim roboeval --model rho-roboeval
+dreamscale sim roboeval --model rho-roboeval --task-id LiftPot
 
-# Another task and variant, saving video and timing artifacts.
-dreamscale sim roboeval --model rho-roboeval --task-suite pack_box --task-id PackBoxPosition --output-root ./roboeval-run
+# Every Pack Box variant, saving video and timing artifacts.
+dreamscale sim roboeval --model rho-roboeval --task-suite pack_box --output-root ./roboeval-run
 ```
 
-Tasks (`--task-suite`): `lift_pot`, `stack_two_blocks`, `cube_handover`,
+Suites: `lift_pot`, `stack_two_blocks`, `cube_handover`,
 `pick_single_book_from_table`, `stack_single_book_shelf`, `pack_box`,
-`lift_tray`, `rotate_valve`. `--task-id` selects a variant by name or index;
-0 is the static variant, then position, orientation and combined randomization.
+`lift_tray`, `rotate_valve`. A task's id is its variant's name: the static
+variant (`LiftPot`), then position, orientation and combined randomization.
 
 The model receives the head and both wrist cameras at 224×224, both arms'
 world-frame end-effector poses with 6D rotations and gripper openness, and the
@@ -257,17 +260,17 @@ paced at the model's 30 Hz. The first run uses `uv` to prepare a Python 3.12 run
 downloads the task's assets (about 0.5 GB for the bottles task); later runs reuse them.
 
 ```bash
-# Put the plastic bottles in the bin, episode 0.
-dreamscale sim abc --model pi0.5-bimanualyam
+# Put the plastic bottles in the bin.
+dreamscale sim abc --model pi0.5-bimanualyam --task-id put_plastic_bottles_in_bin
 
-# Another task and episode, saving the three-camera video and a summary.
-dreamscale sim abc --model pi0.5-bimanualyam --task-suite turn_mug_right_side_up --task-id 3 --output-root ./abc-run
+# Another task in scene 3, saving the three-camera video and a summary.
+dreamscale sim abc --model pi0.5-bimanualyam --task-id turn_mug_right_side_up --task-seed 3 --output-root ./abc-run
 ```
 
-Tasks (`--task-suite`): `put_plastic_bottles_in_bin`,
+Tasks (`--task-id`, no suites): `put_plastic_bottles_in_bin`,
 `sweep_away_paper_scraps_from_table`, `turn_mug_right_side_up`,
-`load_plates_into_dish_rack`, `hang_mug_on_mug_rack`. `--task-id` is the episode: episode
-N's scene is world N of upstream's evaluation, and `--task-seed` shifts it.
+`load_plates_into_dish_rack`, `hang_mug_on_mug_rack`. `--task-seed N` runs world N of
+upstream's evaluation (0 by default).
 
 The model receives the top, left-wrist and right-wrist cameras at 224×168 and the 14
 measured joint values (each arm's six joints and its gripper, 0 closed to 1 open), and
@@ -996,7 +999,7 @@ Documentation: https://docs.dreamscalelabs.com
 Rho-LIBERO uses the same local simulator path:
 
 ```bash
-dreamscale sim libero --model rho-libero --task-suite libero_spatial --task-id 0
+dreamscale sim libero --model rho-libero --task-id libero_spatial/0
 ```
 
 It uses the checkpoint's 16-step horizon at 20 Hz. Raw simulator RGB images are

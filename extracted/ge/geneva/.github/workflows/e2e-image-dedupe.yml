@@ -10,7 +10,6 @@ on:
         type: choice
         options:
           - aws
-          - gcp
           - azure
         default: 'aws'
       num_images:

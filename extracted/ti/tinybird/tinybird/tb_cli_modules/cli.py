@@ -379,7 +379,7 @@ def check(filenames: List[str], debug: bool) -> None:
     if not filenames:
         filenames = get_project_filenames(".")
 
-    def process(filenames: Iterable):
+    def process(filenames: Iterable[str]) -> None:
         parser_matrix = {".pipe": parse_pipe, ".datasource": parse_datasource, ".token": parse_token}
         incl_suffix = ".incl"
         try:
@@ -557,8 +557,8 @@ async def push(
     wait: bool,
     yes: bool,
     only_response_times: bool,
-    workspace_map,
-    workspace,
+    workspace_map: Tuple[Tuple[str, str], ...],
+    workspace: Tuple[Tuple[str, str], ...],
     no_versions: bool,
     limit: int,
     sample_by_params: int,
@@ -656,7 +656,7 @@ async def pull(ctx: Context, folder: str, auto: bool, match: Optional[str], forc
     "--check-for-partial-replace",
     is_flag=True,
     default=False,
-    help="Retrieve dependant Data Sources that will have their data replaced if a partial replace is executed in the Data Source selected",
+    help="Retrieve dependent Data Sources that will have their data replaced if a partial replace is executed in the Data Source selected",
 )
 @click.option("--recursive", is_flag=True, default=False, help="Calculate recursive dependencies")
 @click.pass_context
@@ -713,7 +713,7 @@ async def dependencies(
 @click.pass_context
 @coro
 async def diff(
-    ctx: Context, filename: Optional[Tuple], fmt: bool, no_color: bool, no_verbose: bool, main: bool
+    ctx: Context, filename: Optional[Tuple[str, ...]], fmt: bool, no_color: bool, no_verbose: bool, main: bool
 ) -> None:
     only_resources_changed = no_verbose
     client: TinyB = ctx.ensure_object(dict)["client"]
@@ -979,7 +979,7 @@ async def materialize(
 
         return to_run
 
-    def _choose_node_name(pipe):
+    def _choose_node_name(pipe: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
         node = pipe["nodes"][0]
         materialized_nodes = [node for node in pipe["nodes"] if node["type"].lower() == "materialized"]
 
@@ -994,17 +994,17 @@ async def materialize(
         node_name = node["name"]
         return node, node_name
 
-    def _choose_target_datasource_name(pipe, node, node_name):
+    def _choose_target_datasource_name(pipe: Dict[str, Any], node: Dict[str, Any], node_name: str) -> str:
         return target_datasource or node.get("datasource", None) or f"mv_{pipe['resource_name']}_{node_name}"
 
-    def _save_local_backup_pipe(pipe):
+    def _save_local_backup_pipe(pipe: Dict[str, Any]) -> str:
         pipe_bak = f"{filename}_bak"
         shutil.copyfile(filename, pipe_bak)
         pipe_file_name = f"{pipe['resource_name']}.pipe"
         click.echo(FeedbackManager.info_pipe_backup_created(name=pipe_bak))
         return pipe_file_name
 
-    def _save_local_datasource(datasource_name, ds_datafile):
+    def _save_local_datasource(datasource_name: str, ds_datafile: str) -> Path:
         base = Path("datasources")
         if not base.exists():
             base = Path()
@@ -1016,10 +1016,10 @@ async def materialize(
         click.echo(FeedbackManager.success_generated_local_file(file=f))
         return f
 
-    async def _try_push_datasource(datasource_name, f):
+    async def _try_push_datasource(datasource_name: str, f: Path) -> Any:
         exists = False
         try:
-            exists = await cl.get_datasource(datasource_name)
+            exists = bool(await cl.get_datasource(datasource_name))
         except Exception:
             pass
 
@@ -1042,7 +1042,7 @@ async def materialize(
             verbose=verbose,
         )
 
-    def _save_local_pipe(pipe_file_name, pipe_datafile, pipe):
+    def _save_local_pipe(pipe_file_name: str, pipe_datafile: str, pipe: Dict[str, Any]) -> Path:
         base = Path("pipes")
         if not base.exists():
             base = Path()
@@ -1061,7 +1061,7 @@ async def materialize(
         click.echo(FeedbackManager.success_generated_local_file(file=f_pipe))
         return f_pipe
 
-    async def _try_push_pipe(f_pipe):
+    async def _try_push_pipe(f_pipe: Path) -> Any:
         if override_pipe:
             option = 2
         else:
@@ -1088,7 +1088,7 @@ async def materialize(
             verbose=verbose,
         )
 
-    async def _populate(pipe, node_name, f_pipe):
+    async def _populate(pipe: Dict[str, Any], node_name: str, f_pipe: Path) -> None:
         if force_populate or click.confirm(FeedbackManager.prompt_populate(file=f_pipe)):
             if not force_populate:
                 click.echo(FeedbackManager.info_materialize_populate_partial())
@@ -1097,7 +1097,7 @@ async def materialize(
             else:
                 option = 1 if force_populate == "subset" else 2
             populate = False
-            populate_subset = False
+            populate_subset: Union[bool, float] = False
             if option == 1:
                 populate_subset = 0.1
                 populate = True
@@ -1112,7 +1112,7 @@ async def materialize(
                     unlink_on_populate_error=unlink_on_populate_error,
                 )
                 if "job" not in response:
-                    raise CLIException(response)
+                    raise CLIException(str(response))
 
                 job_url = response.get("job", {}).get("job_url", None)
                 job_id = response.get("job", {}).get("job_id", None)
@@ -1163,7 +1163,7 @@ def __patch_click_output() -> None:
     if _env_patterns:
         CUSTOM_PATTERNS = _env_patterns.split(os.getenv("OBFUSCATE_PATTERN_SEPARATOR", "|"))
 
-    def _obfuscate(msg: Any, *args: Any, **kwargs: Any) -> Any:
+    def _obfuscate(msg: Any) -> Any:
         for pattern in CUSTOM_PATTERNS:
             msg = re.sub(pattern, "****...****", str(msg))
 
@@ -1175,11 +1175,11 @@ def __patch_click_output() -> None:
         return msg
 
     def _obfuscate_echo(msg: Any, *args: Any, **kwargs: Any) -> None:
-        msg = _obfuscate(msg, *args, **kwargs)
+        msg = _obfuscate(msg)
         __old_click_echo(msg, *args, **kwargs)
 
     def _obfuscate_secho(msg: Any, *args: Any, **kwargs: Any) -> None:
-        msg = _obfuscate(msg, *args, **kwargs)
+        msg = _obfuscate(msg)
         __old_click_secho(msg, *args, **kwargs)
 
     click.echo = lambda msg, *args, **kwargs: _obfuscate_echo(msg, *args, **kwargs)
@@ -1188,7 +1188,7 @@ def __patch_click_output() -> None:
 
 def __unpatch_click_output():
     click.echo = __old_click_echo
-    click.secho = __old_click_echo
+    click.secho = __old_click_secho
 
 
 @cli.command(short_help="Learn how to include info about the CLI in your shell PROMPT")
@@ -1307,8 +1307,8 @@ async def deploy(
     unlink_on_populate_error: bool,
     wait: bool,
     yes: bool,
-    workspace_map,
-    workspace,
+    workspace_map: Tuple[Tuple[str, str], ...],
+    workspace: Tuple[Tuple[str, str], ...],
     folder: str,
     user_token: Optional[str],
     fork_downstream: bool,

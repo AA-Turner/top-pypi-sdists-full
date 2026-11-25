@@ -243,6 +243,40 @@ def report_plan_progress(
             job_tracker.set.remote(PLAN_FRAGMENTS_METRIC, n)
 
 
+# Live gauges counting actors of the current run. A count restored from the
+# durable snapshot of a previous run describes actors that are gone, so the
+# first increase after a restore drops it (see _first_live_update). A tracker
+# actor that Ray reconstructed mid-run keeps its restored count: those actors
+# are still alive. Progress counts are not listed: a recovered job keeps its
+# progress.
+RESTART_STALE_METRICS = frozenset({"workers"})
+
+
+def _actor_was_reconstructed() -> bool:
+    """Whether Ray restarted this tracker actor; False outside an actor."""
+    try:
+        return bool(ray.get_runtime_context().was_current_actor_reconstructed)
+    except Exception:
+        return False
+
+
+def _first_live_update(
+    restored: set[str], name: str, m: dict[str, Any], delta: int
+) -> None:
+    """Mark ``name`` live; zero it first if it is a stale restored gauge.
+
+    A module function, not a tracker method: adding a method to _JobTracker
+    breaks submission from a newer client to workers on an older Geneva.
+    """
+    if name not in restored:
+        return
+    restored.discard(name)
+    if delta > 0 and name in RESTART_STALE_METRICS:
+        _LOG.info("Discarding stale restored count of %s: %s", name, m["n"])
+        m["n"] = 0
+        m["done"] = False
+
+
 # Metrics materialized at 0 when a tracker is constructed so they appear in the
 # persisted job record from the start of every job -- not only after the first
 # time they are incremented. rows_skipped_on_error is incremented lazily
@@ -321,6 +355,10 @@ class _JobTracker:
     # mutation. Otherwise a seed-only full-column save can erase prior metrics.
     _hydrated: bool = attrs.field(init=False, default=False)
     _hydration_lock: asyncio.Lock = attrs.field(init=False, factory=asyncio.Lock)
+    # Metrics whose count came from the durable snapshot and that no live
+    # update has changed since (see _first_live_update). A reconstructed
+    # actor leaves RESTART_STALE_METRICS out: its restored count is live.
+    _restored_metrics: set[str] = attrs.field(init=False, factory=set)
 
     # Save-pressure counters (diagnostic; GEN-566). Distinguish how saves are
     # driven: throttled saves are bounded by the (cluster-size-aware) interval,
@@ -449,6 +487,9 @@ class _JobTracker:
                 self._reset_db_handles()
                 raise
             self.metrics.update(persisted)
+            self._restored_metrics = set(persisted)
+            if _actor_was_reconstructed():
+                self._restored_metrics -= RESTART_STALE_METRICS
             for name, desc in SEED_METRICS.items():
                 self.metrics.setdefault(
                     name, {"n": 0, "total": 0, "done": False, "desc": desc}
@@ -499,6 +540,7 @@ class _JobTracker:
         if self._should_skip_row_update(name):
             return
         await self._upsert(name)
+        self._restored_metrics.discard(name)
         m = self.metrics[name]
         m["n"] = int(n)
         # Force only on the done transition; gauges can sit at their total.
@@ -512,6 +554,7 @@ class _JobTracker:
             return
         await self._upsert(name)
         m = self.metrics[name]
+        _first_live_update(self._restored_metrics, name, m, int(delta))
         m["n"] += int(delta)
         if m["total"] and m["n"] >= m["total"] and not m["done"]:
             m["done"] = True
@@ -542,6 +585,7 @@ class _JobTracker:
             if m is None:
                 m = {"n": 0, "total": 0, "done": False, "desc": name}
                 self.metrics[name] = m
+            _first_live_update(self._restored_metrics, name, m, inc)
             m["n"] += inc
             updated = True
             if m["total"] and m["n"] >= m["total"] and not m["done"]:
@@ -634,6 +678,7 @@ class _JobTracker:
             m["n"] = int(value)
             m["total"] = int(value)
             m["done"] = True
+            self._restored_metrics.discard(name)
         # Authoritative final state: persist synchronously but bounded so a
         # failing system DB cannot wedge job finalization.
         await self.flush()

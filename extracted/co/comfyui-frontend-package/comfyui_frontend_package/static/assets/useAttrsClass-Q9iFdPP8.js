@@ -1,0 +1,1 @@
+import"./rolldown-runtime-CM1DJQSe.js";import{P as e,ht as t}from"./vendor-vue-core-DyDHSBJn.js";function useAttrsClass(){let n=t();return{attrsClass:e(()=>n.class),attrsWithoutClass:e(()=>{let{class:e,...t}=n;return t})}}export{useAttrsClass as t};

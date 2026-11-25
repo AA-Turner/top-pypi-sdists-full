@@ -92,8 +92,11 @@ class ConfigDict(typing.TypedDict):
             ``connection_timeout_seconds`` makes the httpcore connection leak
             (encode/httpcore#1093) more likely under load.
 
-        max_connections (int): The maximum number of connections in the pool.
-            Defaults to 100.
+        max_connections (int | None): The maximum number of connections in the
+            pool, or ``None`` for no limit. With a lower ``max_concurrent_requests``,
+            it also limits open streaming exports to ``max_connections -
+            max_concurrent_requests``, so that exports cannot take the connections
+            requests need. Further exports wait for one to close. Defaults to 100.
 
         max_keepalive_connections (int): The maximum number of idle connections
             kept alive in the pool. Defaults to 20.
@@ -101,13 +104,16 @@ class ConfigDict(typing.TypedDict):
         max_concurrent_requests (int): The maximum number of requests in flight at
             once; further requests wait for a slot. Keep it below
             ``max_connections`` so a burst of slow requests cannot exhaust the pool.
+            A streaming export holds a slot only until its response headers arrive.
             Defaults to no limit.
 
         stream_read_timeout_seconds (float): How long a streaming conversation
-            search waits for the next chunk before raising ``httpx.ReadTimeout``.
-            Replaces the read timeout for streaming requests only, since the first
-            chunk arrives only once the LLM starts answering. Defaults to 60, the
-            server's own limit for an LLM response.
+            search or document export waits for the next chunk before raising
+            ``httpx.ReadTimeout``. Replaces the read timeout for streaming requests
+            only, since the first chunk arrives only once the LLM starts answering
+            or the server has found the documents to export. Time spent between
+            reads does not count. Defaults to 60, the server's own limit for an LLM
+            response.
     """
 
     nodes: typing.List[typing.Union[str, NodeConfigDict]]
@@ -127,7 +133,7 @@ class ConfigDict(typing.TypedDict):
     connection_timeout_seconds: typing.NotRequired[float]
     suppress_deprecation_warnings: typing.NotRequired[bool]
     pool_timeout_seconds: typing.NotRequired[float]
-    max_connections: typing.NotRequired[int]
+    max_connections: typing.NotRequired[typing.Optional[int]]
     max_keepalive_connections: typing.NotRequired[int]
     max_concurrent_requests: typing.NotRequired[int]
     stream_read_timeout_seconds: typing.NotRequired[float]
@@ -224,7 +230,7 @@ class Configuration:
         healthcheck_interval_seconds (int): The interval in seconds between health checks.
         verify (bool | str | ssl.SSLContext): Whether to verify the SSL certificate.
         pool_timeout_seconds (float): How long to wait for a free pooled connection.
-        max_connections (int): The maximum number of connections in the pool.
+        max_connections (int | None): The maximum number of pooled connections.
         max_keepalive_connections (int): The maximum number of idle pooled connections.
         max_concurrent_requests (int | None): The maximum number of requests in flight.
         stream_read_timeout_seconds (float): How long a stream waits for its next chunk.
@@ -276,7 +282,10 @@ class Configuration:
             "pool_timeout_seconds",
             self.connection_timeout_seconds,
         )
-        self.max_connections = config_dict.get("max_connections", 100)
+        self.max_connections: typing.Optional[int] = config_dict.get(
+            "max_connections",
+            100,
+        )
         self.max_keepalive_connections = config_dict.get(
             "max_keepalive_connections",
             20,

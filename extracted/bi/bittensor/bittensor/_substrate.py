@@ -132,8 +132,9 @@ class Substrate(Protocol):
         """Seconds per block, detected from the chain."""
         ...
 
-    async def spec_version(self) -> int:
-        """The connected runtime's ``spec_version`` (at the chain head)."""
+    async def spec_version(self, block_hash: Optional[str] = None) -> int:
+        """The connected runtime's ``spec_version``: at the chain head, or in the state
+        of ``block_hash``."""
         ...
 
     async def get_block(
@@ -202,6 +203,12 @@ class Substrate(Protocol):
 
     async def decode_scale(self, type_string: str, data: Any) -> Any:
         """Decode SCALE-encoded bytes against the connected runtime's types."""
+        ...
+
+    async def decode_commitment_registration(
+        self, data: Any, block_hash: Optional[str] = None
+    ) -> Any:
+        """Decode a channel commitment using its metadata-declared registration type."""
         ...
 
     def blocks(self, *, finalized: bool = False) -> AsyncIterator[dict]:
@@ -484,14 +491,15 @@ class RpcSubstrate:
             self._block_time = int(await self.constant("Aura", "SlotDuration")) / 1000.0
         return self._block_time
 
-    async def spec_version(self) -> int:
+    async def spec_version(self, block_hash: Optional[str] = None) -> int:
         """The connected runtime's ``spec_version``.
 
         Read from the transport's head codec (TTL-validated against
         ``state_getRuntimeVersion``), so a runtime upgrade mid-session is
-        picked up within about a block.
+        picked up within about a block. With ``block_hash`` it is the runtime in the
+        state of that block, which executes the next block.
         """
-        return await self._read(lambda raw: raw.runtime_spec_version())
+        return await self._read(lambda raw: raw.runtime_spec_version(block_hash))
 
     async def get_block(
         self, block_number: Optional[int] = None, block_hash: Optional[str] = None
@@ -598,6 +606,11 @@ class RpcSubstrate:
         multisig or timelock carries around, as a plain decoded dict.
         """
         return await self._read(lambda raw: raw.decode_scale(type_string, data))
+
+    async def decode_commitment_registration(
+        self, data: Any, block_hash: Optional[str] = None
+    ) -> Any:
+        return await self._read(lambda raw: raw.decode_commitment_registration(data, block_hash))
 
     async def blocks(self, *, finalized: bool = False) -> AsyncIterator[dict]:
         """Stream decoded block headers as they are produced (or finalized).

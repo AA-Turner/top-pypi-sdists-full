@@ -1,0 +1,16 @@
+---
+fixes:
+  - |
+    ``Transaction.commit()`` now waits at most ``timeout`` in total.
+    Previously waiting for room in the transaction queue and waiting for
+    the result each used a full timeout, the former the connection's
+    rather than the transaction's.
+  - |
+    When a transaction times out while the ``Connection`` run loop keeps
+    failing, for example because ``Idl.run()`` raises, the
+    ``TimeoutException`` now includes the last error of the loop next to
+    "TXN queue is full" or "Result queue is empty", which used to be the
+    only cause reported.
+  - |
+    A transaction whose caller has already timed out is no longer
+    committed when the connection recovers and picks it up from the queue.

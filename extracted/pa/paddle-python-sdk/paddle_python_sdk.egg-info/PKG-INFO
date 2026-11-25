@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: paddle-python-sdk
-Version: 1.18.0
+Version: 1.19.0
 Summary: Paddle's Python SDK for Paddle Billing
 Home-page: https://developer.paddle.com/api-reference/overview
 Author: Paddle and contributors
@@ -19,13 +19,14 @@ License-File: LICENSE
 Requires-Dist: requests>=2.31
 Requires-Dist: urllib3>=1.26.18
 Provides-Extra: dev
-Requires-Dist: pytest<9.2.0,>=7.4.4; extra == "dev"
+Requires-Dist: pytest<9.3.0,>=7.4.4; extra == "dev"
 Requires-Dist: pytest-cov<7.2,>=4.1; extra == "dev"
 Requires-Dist: requests-mock~=1.12.1; extra == "dev"
 Requires-Dist: setuptools>=69.0.3; extra == "dev"
 Requires-Dist: pre-commit>=3.8.0; extra == "dev"
 Requires-Dist: black>=24.8.0; extra == "dev"
 Requires-Dist: flake8>=7.1.1; extra == "dev"
+Requires-Dist: mypy<3,>=1.11; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -211,7 +212,7 @@ from paddle_billing.Notifications import Secret, Verifier
 integrity_check = Verifier().verify(request, Secret('WEBHOOK_SECRET_KEY'))
 ```
 
-The `verify()` method currently accepts any request object matching the `paddle_billing.Notifications.Requests.Request` protocol, and supports popular frameworks such as Flask and Django.
+The `verify()` method accepts the request object from popular frameworks such as Flask and Django. For other frameworks, or to wrap your own request, pass any object with `headers` and the raw body as `bytes` in a `body`, `content` or `data` attribute. To type your own code, use the matching protocol from `paddle_billing.Notifications.Requests`: `BodyRequest`, `ContentRequest` or `DataRequest`.
 
 Time drift max variance can be adjusted by passing `seconds` to `Verifier()` _(default: 5 seconds)_:
 

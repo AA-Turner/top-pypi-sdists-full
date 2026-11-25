@@ -309,8 +309,7 @@ def test_router_mismatch_detection_spans_base_stores(tmp_path: Path) -> None:
 
     assert not router.has_udf_version_mismatch("b", "1")
     assert router.has_udf_version_mismatch("b", "2")
-    assert not router.has_srcfiles_hash_mismatch("b", "abc123")
-    assert router.has_srcfiles_hash_mismatch("b", "def456")
+    assert router.srcfiles_hashes("b") == {"abc123"}
 
 
 def test_router_srcfiles_mismatch_uses_union_across_stores(tmp_path: Path) -> None:
@@ -325,9 +324,7 @@ def test_router_srcfiles_mismatch_uses_union_across_stores(tmp_path: Path) -> No
     router[key_frag1] = _batch()
     assert key_frag1 in router.base_stores[1]
 
-    assert not router.has_srcfiles_hash_mismatch("b", "abc123")
-    assert not router.has_srcfiles_hash_mismatch("b", "beef99")
-    assert router.has_srcfiles_hash_mismatch("b", "def456")
+    assert router.srcfiles_hashes("b") == {"abc123", "beef99"}
 
 
 # ---------------------------------------------------------------------------
@@ -464,11 +461,14 @@ def _assert_multi_base_backfill(
         data_root = Path(base_dir if expected_base == 1 else root) / "data"
         assert (data_root / out.path).exists()
 
-    # Fragment dedupe checkpoints live with their fragment's base.
-    root_keys = {p.stem for p in (Path(root) / "_ckp").glob("*.lance")}
-    base_ckp = Path(base_dir) / "_ckp"
+    # Fragment dedupe checkpoints live with their fragment's base. List through
+    # the stores so the check holds for either layout.
+    root_store = tbl.get_reference().open_checkpoint_store()
+    subdir = root_store.root.rstrip("/").rsplit("/", 1)[-1]
+    root_keys = set(root_store.list_keys())
+    base_ckp = Path(base_dir) / subdir
     base_keys = (
-        {p.stem for p in base_ckp.glob("*.lance")} if base_ckp.exists() else set()
+        set(type(root_store)(str(base_ckp)).list_keys()) if base_ckp.exists() else set()
     )
     frag_bases = {
         frag.fragment_id: frag.data_files()[0].base_id for frag in ds.get_fragments()

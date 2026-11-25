@@ -144,7 +144,7 @@ def _apply_writer_pragmas(conn: sqlite3.Connection) -> None:
     if mode is None or str(mode[0]).lower() != "wal":
         raise CollectionStoreUnavailable(
             "wal_unavailable",
-            "WAL journaling did not take effect on the state root. Keep the Exomem "
+            "WAL journaling did not take effect on the state root. Keep the Evermatter "
             "state root on a local filesystem (not a network or synced share).",
         )
     conn.execute("PRAGMA synchronous=FULL")
@@ -340,8 +340,14 @@ class WriterConnection:
     @contextmanager
     def transaction(
         self, *, resolve_divergence: bool = False, before_commit: Callable[[], None] | None = None,
+        collection_free: bool = False,
     ) -> Iterator[sqlite3.Connection]:
-        """One ``BEGIN IMMEDIATE`` transaction: commit on success, else roll back."""
+        """One ``BEGIN IMMEDIATE`` transaction: commit on success, else roll back.
+
+        ``collection_free`` declares that the body writes only the vault store's own tables, never a row
+        that a collection's release reads, so the release cache keeps what it holds across the commit
+        (``ReleaseCache.begin``).
+        """
         from sqlalchemy.exc import DBAPIError
 
         self.require_write_authority(allow_diverged=resolve_divergence)
@@ -355,7 +361,7 @@ class WriterConnection:
             self.core.begin()
         except DBAPIError as error:
             raise error.orig from error
-        cache.begin()
+        cache.begin(collection_free=collection_free)
         self._owns_transaction = True
         try:
             yield self.connection
@@ -500,7 +506,7 @@ class SnapshotHandle:
         raise CollectionStoreError("COLLECTION_STORE_SNAPSHOT_READ_ONLY", "a store snapshot cannot write")
 
     # The writer's two write entry points (``WriterConnection``), so a write refuses as designed.
-    def transaction(self, *, resolve_divergence: bool = False) -> None:
+    def transaction(self, *, resolve_divergence: bool = False, collection_free: bool = False) -> None:
         self.require_write_authority()
 
     def execute(self, statement, parameters=None) -> None:
@@ -746,7 +752,7 @@ def _recorded_version(conn: sqlite3.Connection) -> int:
     """The schema version a store records, read from ``store_meta`` alone so a head reader may ask.
 
     A lend checks this number only, where a fresh open also checks the alembic revision: a migration
-    changes both in one transaction, so only an edit from outside Exomem can set them apart.
+    changes both in one transaction, so only an edit from outside Evermatter can set them apart.
     """
     rows = conn.execute("SELECT value FROM store_meta WHERE key = ?", (schema.META_SCHEMA_VERSION,)).fetchall()
     try:

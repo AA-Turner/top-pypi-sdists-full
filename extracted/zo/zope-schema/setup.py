@@ -16,67 +16,8 @@
 # When developing and releasing this package, please follow the documented
 # Zope Toolkit policies as described by this documentation.
 ##############################################################################
-"""Setup for zope.schema package
-"""
-import os
-
 from setuptools import setup
 
 
-def read(*rnames):
-    with open(os.path.join(os.path.dirname(__file__), *rnames)) as f:
-        return f.read()
-
-
-REQUIRES = [
-    'zope.interface >= 5.0.0',
-    'zope.event',
-]
-
-
-TESTS_REQUIRE = [
-    'zope.i18nmessageid',
-    'zope.testing',
-    'zope.testrunner >= 6.4',
-]
-
-
-setup(
-    name='zope.schema',
-    version=read('version.txt').strip(),
-    url='https://github.com/zopefoundation/zope.schema',
-    license='ZPL-2.1',
-    description='zope.interface extension for defining data schemas',
-    author='Zope Foundation and Contributors',
-    author_email='zope-dev@zope.dev',
-    long_description=(read('README.rst') + '\n\n' + read('CHANGES.rst')),
-    install_requires=REQUIRES,
-    keywords="zope3 schema field interface typing",
-    classifiers=[
-        "Development Status :: 5 - Production/Stable",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: Zope Public License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-        "Programming Language :: Python :: Implementation :: CPython",
-        "Programming Language :: Python :: Implementation :: PyPy",
-        "Framework :: Zope :: 3",
-        "Topic :: Software Development :: Libraries :: Python Modules",
-    ],
-    python_requires='>=3.9',
-    include_package_data=True,
-    zip_safe=False,
-    extras_require={
-        'docs': [
-            'Sphinx',
-            'repoze.sphinx.autointerface',
-        ],
-        'test': TESTS_REQUIRE,
-    },
-)
+# See pyproject.toml for package metadata
+setup()

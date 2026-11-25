@@ -37,8 +37,9 @@ app = typer.Typer(
     help=(
         "Subnet emission weights: how a subnet splits its alpha emission between burn, "
         "recycle, the owner, validators, miners and gamma shares to other subnets.\n\n"
-        "Only the subnet owner coldkey can change the vector, once every 50,400 blocks "
-        "(about 7 days) per subnet. Root is paid its baseline share of emission off the top "
+        "Only the subnet owner coldkey can change the vector, subject to the configured "
+        "per-subnet rate limit (360 blocks by default). Root is paid its baseline share of "
+        "emission off the top "
         "of the validator slot every block, whatever the subnet sets. Burn + recycle together "
         "may be at most 33%. Add --dry-run to any write to preview the before/after vector "
         "and what root and validators keep; --json for machine-readable output.\n\n"
@@ -124,7 +125,7 @@ def _hours(blocks: int) -> str:
 def _next_change(rate: dict[str, Any]) -> tuple[str, str]:
     """``(value, note)`` for the "next owner change" row."""
     if rate["owner_can_change_now"]:
-        why = "first change" if not rate["last_change_block"] else "the weekly window has passed"
+        why = "first change" if not rate["last_change_block"] else "the rate limit has passed"
         return "now", f"{why}; owners may change once per {rate['limit_blocks']:,} blocks"
     return (
         f"block {rate['next_allowed_block']:,}",

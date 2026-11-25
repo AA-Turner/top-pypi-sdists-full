@@ -28,6 +28,7 @@ from geneva.jobs.compaction_pause import (
     PAUSE_NOTE,
     RENEWALS_KEY,
     TABLE_OVERRIDES_CONFIG_KEY,
+    CompactionCheckInterruptedError,
     CompactionPause,
     CompactionPauseConfig,
     CompactionPauseLapsedError,
@@ -49,9 +50,11 @@ from geneva.jobs.heartbeat import (
 from geneva.jobs.job_registry_reader import (
     FOOTER_KEY,
     U64_MAX,
+    WORKER_DRAIN_MARGIN_MS,
     LocalRecordReader,
     RegistryTableRef,
     S3RecordReader,
+    decode_footer,
     distribution_hash,
     in_flight_compactions,
 )
@@ -383,6 +386,105 @@ def test_unfinished_jobs_with_a_live_driver_hold_the_pause(history: Any) -> None
     assert sorted(holding) == sorted([running, quiet])
     assert pending not in holding
     assert legacy not in holding
+
+
+def test_resume_stops_checking_after_one_live_holder(
+    table_uri: str, history: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    live = _running(history)
+    _pause(table_uri, history, live)
+    ids = [f"job-{index:04}" for index in range(600)]
+    heartbeat = history.get_heartbeat(live)
+    checked: list[str] = []
+
+    def read(job_id: str) -> Any:
+        checked.append(job_id)
+        assert job_id == ids[0], "read another heartbeat after finding a live holder"
+        return heartbeat
+
+    monkeypatch.setattr(history, "unfinished_job_ids", lambda name: set(ids))
+    monkeypatch.setattr(history, "get_heartbeat", read)
+    assert not resume_if_idle(
+        table_name="t", open_dataset=_opener(table_uri), history=history
+    )
+    assert checked == [ids[0]]
+    assert _paused(table_uri)
+
+
+def test_interrupted_holder_check_leaves_compaction_paused(
+    table_uri: str, history: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stale = _running(history)
+    _beat(history, stale, silent_s=31 * 60)
+    _pause(table_uri, history, stale)
+    interrupted = [False]
+    original = history.get_heartbeat
+
+    def read(job_id: str) -> Any:
+        heartbeat = original(job_id)
+        interrupted[0] = True
+        return heartbeat
+
+    monkeypatch.setattr(history, "get_heartbeat", read)
+    with pytest.raises(CompactionCheckInterruptedError):
+        resume_if_idle(
+            table_name="t",
+            open_dataset=_opener(table_uri),
+            history=history,
+            stopped=lambda: interrupted[0],
+        )
+    assert _paused(table_uri)
+
+
+def test_resume_rechecks_for_late_jobs_after_its_budget_expires(
+    table_uri: str, history: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pause_compaction(_opener(table_uri))
+    expired = [False]
+    checks = []
+
+    def holding(*args: Any, **kwargs: Any) -> list[str]:
+        checks.append(kwargs["stopped"]())
+        assert not checks[-1], "budget interrupted the mandatory safety re-check"
+        if len(checks) == 1:
+            return []
+        return ["late-job"]
+
+    original_resume = cp._resume
+
+    def resume(*args: Any, **kwargs: Any) -> Any:
+        result = original_resume(*args, **kwargs)
+        expired[0] = True
+        return result
+
+    monkeypatch.setattr(cp, "jobs_holding_pause", holding)
+    monkeypatch.setattr(cp, "_resume", resume)
+    assert not resume_if_idle(
+        table_name="t",
+        open_dataset=_opener(table_uri),
+        history=history,
+        stopped=lambda: expired[0],
+    )
+    assert len(checks) == 2
+    assert _paused(table_uri)
+
+
+def test_failed_safety_recheck_pauses_compaction_again(
+    table_uri: str, history: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pause_compaction(_opener(table_uri))
+    answers = iter([[], OSError("heartbeat unavailable")])
+
+    def holding(*args: Any, **kwargs: Any) -> list[str]:
+        answer = next(answers)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(cp, "jobs_holding_pause", holding)
+    with pytest.raises(OSError, match="heartbeat unavailable"):
+        resume_if_idle(table_name="t", open_dataset=_opener(table_uri), history=history)
+    assert _paused(table_uri)
 
 
 def test_the_last_job_on_the_table_resumes_compaction(
@@ -1194,6 +1296,7 @@ def _compaction_record(
     file_state: str = "active",
     key: str = "agent_1",
     job_type: str = "compact",
+    **metadata: Any,
 ) -> tuple[str, str]:
     """A compaction record as Sophon's agent writes it; returns (job id, key)."""
     created = next(_created)
@@ -1204,22 +1307,31 @@ def _compaction_record(
     _write_record(
         root,
         record_key,
-        {"version": 4, "job_id": job_id, "job_type": job_type, "latest_state": state},
+        {
+            "version": 6,
+            "job_id": job_id,
+            "job_type": job_type,
+            "latest_state": state,
+            **metadata,
+        },
     )
     return job_id, record_key
 
 
 def _finish_compaction(root: Path, key: str) -> None:
     active = root.joinpath(*key.split("/"))
+    footer = decode_footer(active.read_bytes())
+    footer["latest_state"] = "succeeded"
     _write_record(
         root,
         key.replace("active.lance", "succeeded.lance"),
-        {"job_id": active.parent.name, "latest_state": "succeeded"},
+        footer,
     )
     active.unlink()
 
 
 def _wait_config(root: Path, **overrides: float) -> CompactionPauseConfig:
+    root.mkdir(exist_ok=True)
     values: dict[str, Any] = {
         "enabled": True,
         "job_registry_root_uri": str(root),
@@ -1231,33 +1343,32 @@ def _wait_config(root: Path, **overrides: float) -> CompactionPauseConfig:
     return CompactionPauseConfig(**values)
 
 
-def test_in_flight_compactions_are_unfinished_compactions_of_the_table(
+def test_in_flight_compactions_exclude_unstarted_and_finished_jobs(
     tmp_path: Path,
 ) -> None:
     running, _ = _compaction_record(tmp_path, key="agent_1")
-    queued, _ = _compaction_record(tmp_path, key="agent_2", state="queued")
+    _compaction_record(tmp_path, key="agent_2", state="queued")
     _compaction_record(tmp_path, key="agent_3", state="succeeded")  # finishing
-    _compaction_record(tmp_path, key="agent_4", file_state="succeeded")
+    _compaction_record(
+        tmp_path, key="agent_4", state="succeeded", file_state="succeeded"
+    )
     _compaction_record(tmp_path, key="agent_5", job_type="reindex_btree")
     other = RegistryTableRef.for_table("mydb", ["other"])
     _compaction_record(tmp_path, other, key="agent_6")
 
     found = in_flight_compactions(LocalRecordReader(str(tmp_path)), TABLE)
 
-    assert sorted(found) == sorted([running, queued])
+    assert found == [running]
 
 
-def test_unreadable_compaction_record_does_not_block(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_unreadable_compaction_record_stops_admission(tmp_path: Path) -> None:
     key = f"{TABLE.prefix}/{U64_MAX - 1:016x}-agent_1-compact/active.lance"
     path = tmp_path.joinpath(*key.split("/"))
     path.parent.mkdir(parents=True)
     path.write_bytes(b"?")
 
-    with caplog.at_level(logging.WARNING):
-        assert in_flight_compactions(LocalRecordReader(str(tmp_path)), TABLE) == []
-    assert "Could not read job registry record" in caplog.text
+    with pytest.raises(OSError, match="file|File"):
+        in_flight_compactions(LocalRecordReader(str(tmp_path)), TABLE)
 
 
 def test_no_wait_without_running_compactions(tmp_path: Path) -> None:
@@ -1292,9 +1403,7 @@ def test_waits_until_the_compaction_finishes(tmp_path: Path) -> None:
     assert polls == [0.0, 30.0, 30.0]
 
 
-def test_gives_up_waiting_after_the_timeout(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_wait_timeout_stops_backfill_admission(tmp_path: Path) -> None:
     job_id, _ = _compaction_record(tmp_path)
     now = [0.0]
 
@@ -1303,8 +1412,8 @@ def test_gives_up_waiting_after_the_timeout(
 
     config = _wait_config(tmp_path, compaction_wait_timeout_s=1800.0)
     events: list[str] = []
-    with caplog.at_level(logging.WARNING, logger=cp.__name__):
-        found = cp.wait_for_compactions(
+    with pytest.raises(TimeoutError, match="backfill stopped before planning"):
+        cp.wait_for_compactions(
             table_id=["items"],
             config=config,
             on_event=events.append,
@@ -1312,11 +1421,9 @@ def test_gives_up_waiting_after_the_timeout(
             clock=lambda: now[0],
         )
 
-    assert found == [job_id]
-    assert "still running after 1800s; proceeding" in caplog.text
-    assert events == [
-        f"Stopped waiting for compaction {job_id} after 1800s; planning anyway"
-    ]
+    assert len(events) == 1
+    assert job_id in events[0]
+    assert "backfill stopped before planning" in events[0]
 
 
 def test_a_failed_check_for_compactions_is_recorded(
@@ -1328,14 +1435,13 @@ def test_a_failed_check_for_compactions_is_recorded(
     monkeypatch.setattr(cp, "in_flight_compactions", broken)
     events: list[str] = []
 
-    found = cp.wait_for_compactions(
-        table_id=["items"],
-        config=_wait_config(tmp_path),
-        on_event=events.append,
-        sleep=lambda s: None,
-    )
-
-    assert found == []
+    with pytest.raises(RuntimeError, match="registry unreadable"):
+        cp.wait_for_compactions(
+            table_id=["items"],
+            config=_wait_config(tmp_path),
+            on_event=events.append,
+            sleep=lambda s: None,
+        )
     assert events == [
         "Could not check for running compactions: RuntimeError: registry unreadable"
     ]
@@ -1348,7 +1454,6 @@ def test_waiting_needs_the_registry_and_can_be_turned_off(tmp_path: Path) -> Non
         raise AssertionError("must not sleep")
 
     for config in [
-        _wait_config(tmp_path, compaction_wait_timeout_s=0.0),
         CompactionPauseConfig(enabled=True),
         CompactionPauseConfig(
             job_registry_root_uri=str(tmp_path), job_registry_database="mydb"
@@ -1358,6 +1463,133 @@ def test_waiting_needs_the_registry_and_can_be_turned_off(tmp_path: Path) -> Non
             cp.wait_for_compactions(table_id=["items"], config=config, sleep=unexpected)
             == []
         )
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"compaction_wait_timeout_s": 0},
+        {"compaction_wait_timeout_s": float("nan")},
+        {"compaction_wait_timeout_s": float("inf")},
+        {"job_registry_database": None},
+        {"job_registry_root_uri": None},
+        {"job_registry_root_uri": "gs://bucket/registry"},
+    ],
+)
+def test_incomplete_or_unsupported_registry_stops_admission(
+    tmp_path: Path, settings: dict[str, Any]
+) -> None:
+    with pytest.raises(ValueError, match="Compaction coordination"):
+        cp.wait_for_compactions(
+            table_id=["items"], config=_wait_config(tmp_path, **settings)
+        )
+
+
+@pytest.mark.parametrize("state", ["canceled", "failed", "timed_out"])
+def test_terminal_compactions_still_hold_admission_until_workers_drain(
+    tmp_path: Path, state: str
+) -> None:
+    completed = 100_000
+    ttl = 60_000
+    job_id, _ = _compaction_record(
+        tmp_path,
+        state=state,
+        file_state=state,
+        execution_started_at_millis=1,
+        execution_ttl_millis=ttl,
+        completed_at_millis=completed,
+    )
+    reader = LocalRecordReader(str(tmp_path))
+    assert in_flight_compactions(reader, TABLE, now_ms=completed) == [job_id]
+    assert (
+        in_flight_compactions(
+            reader, TABLE, now_ms=completed + ttl + WORKER_DRAIN_MARGIN_MS + 1
+        )
+        == []
+    )
+
+
+def test_undrained_paused_and_legacy_or_unbounded_workers_hold_admission(
+    tmp_path: Path,
+) -> None:
+    jobs = [
+        _compaction_record(
+            tmp_path, key="paused", state="queued", execution_started_at_millis=1
+        )[0],
+        _compaction_record(tmp_path, key="legacy", state="failed", version=3)[0],
+        _compaction_record(
+            tmp_path, key="unbounded", state="failed", execution_started_at_millis=1
+        )[0],
+    ]
+    _compaction_record(
+        tmp_path,
+        key="drained",
+        state="queued",
+        execution_started_at_millis=1,
+        pause_drained_at_millis=2,
+    )
+    assert set(in_flight_compactions(LocalRecordReader(str(tmp_path)), TABLE)) == set(
+        jobs
+    )
+
+
+def test_prelaunch_geneva_refusal_releases_a_simultaneous_start(tmp_path: Path) -> None:
+    _compaction_record(
+        tmp_path,
+        state="failed",
+        file_state="failed",
+        execution_started_at_millis=1,
+        failure={"phase": "geneva_backfill_active"},
+    )
+    assert in_flight_compactions(LocalRecordReader(str(tmp_path)), TABLE) == []
+
+
+def test_registry_disappearance_is_not_proof_of_worker_completion(
+    tmp_path: Path,
+) -> None:
+    _, key = _compaction_record(tmp_path)
+
+    class DisappearingReader(LocalRecordReader):
+        def get(self, key: str) -> bytes:
+            raise FileNotFoundError(key)
+
+    with pytest.raises(FileNotFoundError, match="active.lance"):
+        in_flight_compactions(DisappearingReader(str(tmp_path)), TABLE)
+
+
+def test_cancel_between_list_and_read_keeps_the_workers_blocking(
+    tmp_path: Path,
+) -> None:
+    job_id, active = _compaction_record(tmp_path, execution_started_at_millis=1)
+
+    class CancelingReader(LocalRecordReader):
+        def get(self, key: str) -> bytes:
+            if key == active:
+                footer = decode_footer(super().get(key))
+                footer["latest_state"] = "canceled"
+                _write_record(
+                    tmp_path, key.replace("active.lance", "canceled.lance"), footer
+                )
+                tmp_path.joinpath(*key.split("/")).unlink()
+            return super().get(key)
+
+    assert in_flight_compactions(CancelingReader(str(tmp_path)), TABLE) == [job_id]
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"latest_state": "unknown"},
+        {"job_id": None},
+        {"version": 8},
+    ],
+)
+def test_unknown_or_malformed_registry_metadata_stops_admission(
+    tmp_path: Path, metadata: dict[str, Any]
+) -> None:
+    _compaction_record(tmp_path, **metadata)
+    with pytest.raises(ValueError, match="Unknown compaction|Invalid compaction"):
+        in_flight_compactions(LocalRecordReader(str(tmp_path)), TABLE)
 
 
 def test_s3_reader_lists_keys_relative_to_the_root() -> None:
@@ -1462,6 +1694,87 @@ def test_backfill_driver_pauses_compaction_while_it_runs(
     assert during is not None
     assert during["job_types"]["compaction"]["enabled"] is False
     assert _latest_overrides(driver_env) is None
+
+
+def test_operator_disabled_compaction_still_publishes_active_backfill(
+    driver_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tbl = driver_env["table"]
+    policy = {"job_types": {"compaction": {"enabled": False}}}
+    tbl.to_lance().update_config({TABLE_OVERRIDES_CONFIG_KEY: json.dumps(policy)})
+    planned: list[str] = []
+
+    def work(*args: object, **kwargs: object) -> SparseUpdateResult:
+        history = geneva.connect(driver_env["db_uri"])._history
+        job = history.get(driver_env["job_id"])[0]
+        planned.append(job.status)
+        heartbeat = history.get_heartbeat(driver_env["job_id"])
+        assert heartbeat is not None
+        assert heartbeat.state == DRIVER_RUNNING
+        assert _latest_overrides(driver_env) == policy
+        return _sparse_result()
+
+    monkeypatch.setattr(sparse_pipeline, "run_ray_sparse_update", work)
+    _run_driver(driver_env)
+    assert planned == ["RUNNING"]
+    assert _latest_overrides(driver_env) == policy
+
+
+def test_coordinated_backfill_without_heartbeat_never_plans(
+    driver_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ray_pipeline, "_start_driver_heartbeat", lambda *args: None)
+    planned: list[bool] = []
+    monkeypatch.setattr(
+        sparse_pipeline,
+        "run_ray_sparse_update",
+        lambda *args, **kwargs: planned.append(True),
+    )
+    with pytest.raises(RuntimeError, match="could not publish its driver heartbeat"):
+        _run_driver(driver_env)
+    assert planned == []
+    assert _latest_overrides(driver_env) is None
+    assert driver_env["job_id"] not in cp._ACTIVE_PAUSES
+
+
+@pytest.mark.parametrize("status", [None, "CANCELLED", "FAILED", "DONE"])
+def test_backfill_without_an_active_announcement_cannot_plan(
+    driver_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, status: str | None
+) -> None:
+    planned: list[bool] = []
+    monkeypatch.setattr(ray_pipeline, "_saved_status", lambda *args: status)
+    monkeypatch.setattr(
+        sparse_pipeline,
+        "run_ray_sparse_update",
+        lambda *args, **kwargs: planned.append(True),
+    )
+    with pytest.raises(RuntimeError, match="no readable active history row"):
+        _run_driver(driver_env)
+    assert planned == []
+
+
+@pytest.mark.parametrize("failure", ["timeout", "unreadable"])
+def test_failed_registry_admission_never_plans_and_releases_its_pause(
+    driver_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    registry = driver_env["registry"]
+    _, key = _compaction_record(registry, RegistryTableRef.for_table("mydb", ["t"]))
+    if failure == "unreadable":
+        registry.joinpath(*key.split("/")).write_bytes(b"?")
+    _use_config(monkeypatch, _wait_config(registry, compaction_wait_timeout_s=0.001))
+    planned: list[bool] = []
+    monkeypatch.setattr(
+        sparse_pipeline,
+        "run_ray_sparse_update",
+        lambda *args, **kwargs: planned.append(True),
+    )
+    with pytest.raises(RuntimeError):
+        _run_driver(driver_env)
+    assert planned == []
+    assert _latest_overrides(driver_env) is None
+    assert driver_env["job_id"] not in cp._ACTIVE_PAUSES
+    job = geneva.connect(driver_env["db_uri"])._history.get(driver_env["job_id"])[0]
+    assert job.status == "FAILED"
 
 
 def test_failed_backfill_driver_resumes_compaction(

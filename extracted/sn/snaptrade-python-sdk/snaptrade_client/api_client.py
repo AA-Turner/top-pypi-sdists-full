@@ -71,7 +71,7 @@ class RequestField(RequestFieldBase):
         return self.__dict__ == other.__dict__
 
 
-TAuth = typing.TypeVar("TAuth", bound=AuthMode)
+TAuth = typing.TypeVar("TAuth", bound=typing.Optional[AuthMode])
 
 
 def DeprecationWarningOnce(func=None, *, prefix=None):
@@ -1175,7 +1175,7 @@ class ApiClient(typing.Generic[TAuth]):
             self.default_headers[header_name] = header_value
         self.cookie = cookie
         # Set default User-Agent.
-        self.user_agent = 'Konfig/13.4.9/python'
+        self.user_agent = 'Konfig/13.4.11/python'
 
     def __enter__(self):
         return self

@@ -23,7 +23,7 @@
 # sources needed to train it.
 
 """Runs a process but suppress output if it returns successfully before a given amount of time"""
-# ruff: ASYNC109 - Async function definition with a `timeout` parameter
+# ASYNC109 (ignored on purpose): Async function definition with a `timeout` parameter
 
 import signal
 import sys
@@ -48,14 +48,21 @@ async def print_after(
     timeout: float,
     abort: Queue[bool],
     buffer: LineQueue,
+    producers: int = 2,
 ) -> None:
-    """Wait for a given time or until aborted - print buffer contents if appropriate"""
+    """Wait for a given time or until aborted - print buffer contents if
+    appropriate, until each of @producers has sent its final `None`
+    """
     with suppress(AsyncTimeoutError):
         if await wait_for(abort.get(), timeout):
             return
-    while elem := await buffer.get():
+    while producers:
+        if (elem := await buffer.get()) is None:
+            producers -= 1
+            continue
         out_file, line = elem
         out_file.write(line.decode(errors="replace"))
+        out_file.flush()
 
 
 async def buffer_stream(

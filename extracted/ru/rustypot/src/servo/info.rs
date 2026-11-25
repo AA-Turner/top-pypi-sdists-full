@@ -152,6 +152,8 @@ pub enum RegisterError {
     },
     /// No motor with this id on the bus.
     UnknownMotor(u8),
+    /// A named block read needs at least one register.
+    EmptyRegisterBlock,
     /// A sync write needs one value per id.
     ValueCount { ids: usize, values: usize },
     /// The servo does not answer a ping sent to the broadcast id.
@@ -185,6 +187,7 @@ impl fmt::Display for RegisterError {
                 "{servo} speaks protocol v{servo_protocol}, the handler given speaks v{handler_protocol}"
             ),
             RegisterError::UnknownMotor(id) => write!(f, "no motor with id {id} on this bus"),
+            RegisterError::EmptyRegisterBlock => write!(f, "at least one register is required"),
             RegisterError::ValueCount { ids, values } => {
                 write!(f, "{values} values for {ids} ids")
             }
@@ -223,7 +226,7 @@ impl RegisterInfo {
         Ok(self.encoding.decode(order.from_bytes(bytes), self.size))
     }
 
-    fn integer_width(&self) -> Result<(), RegisterError> {
+    pub(crate) fn integer_width(&self) -> Result<(), RegisterError> {
         if self.size > 8 {
             return Err(RegisterError::NotAnInteger {
                 name: self.name,
@@ -275,6 +278,9 @@ pub struct ServoInfo {
     /// checked on hardware elsewhere: the Feetech SCS, the other Dynamixel X (Clear needs
     /// firmware v42 or later) and the Y.
     pub supports_turn_count_reset: bool,
+    /// Model numbers verified to reset their parameters to factory defaults, keeping their
+    /// ID. A servo definition can cover models that share a control table.
+    pub parameter_restore_models: &'static [u16],
 }
 
 /// Default encoding of a register type, when the servo definition says nothing about

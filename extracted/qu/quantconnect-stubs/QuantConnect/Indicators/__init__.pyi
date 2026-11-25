@@ -5578,6 +5578,73 @@ class Alpha(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndic
         ...
 
 
+class TimeSeriesInformationCoefficient(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.IBaseData], QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
+    """
+    The time-series information coefficient (IC) measures how well a signal times one asset: it is the Spearman
+    correlation, over a window of periods, between the signal's value at the end of each period and the asset's
+    return over the next period.
+    
+    The indicator owns its signal: each input updates the signal first, so the signal must not be updated elsewhere,
+    such as by an algorithm helper that registered it. The indicator throws when it detects such an update.
+    Because the indicator feeds its signal directly, the signal can't be built from other indicators: a
+    CompositeIndicator is rejected, and an indicator chained with IndicatorExtensions.Of{T}
+    would get the prices instead of its source's values.
+    The asset's price is the input's value.
+    """
+
+    @property
+    def signal(self) -> QuantConnect.Indicators.IIndicator:
+        """The signal whose information coefficient this indicator measures"""
+        ...
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @property
+    def warm_up_period(self) -> int:
+        """Required period, in data points, for the indicator to be ready and fully initialized."""
+        ...
+
+    @overload
+    def __init__(self, name: str, signal: QuantConnect.Indicators.IIndicator, period: int) -> None:
+        """
+        Creates a new time-series information coefficient indicator
+        
+        :param name: The name of this indicator
+        :param signal: The signal whose information coefficient to measure. This indicator updates it
+        :param period: The number of signal values and next returns to correlate
+        """
+        ...
+
+    @overload
+    def __init__(self, signal: QuantConnect.Indicators.IIndicator, period: int) -> None:
+        """
+        Creates a new time-series information coefficient indicator
+        
+        :param signal: The signal whose information coefficient to measure. This indicator updates it
+        :param period: The number of signal values and next returns to correlate
+        """
+        ...
+
+    def compute_next_value(self, input: QuantConnect.Data.IBaseData) -> float:
+        """
+        Updates the signal and, once a previous signal value exists, adds it with the return since then
+        
+        
+        This Class is protected.
+        
+        :param input: The input given to the indicator
+        :returns: The Spearman correlation between the signal values and their next returns.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator and its signal to their initial state"""
+        ...
+
+
 class FisherTransform(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
     The Fisher transform is a mathematical process which is used to convert any data set to a modified
@@ -7322,6 +7389,117 @@ class TimeProfile(QuantConnect.Indicators.MarketProfile):
         
         :param input: 
         :returns: 1.
+        """
+        ...
+
+
+class CrossSectionalInformationCoefficient(QuantConnect.Indicators.MultiSymbolIndicator[QuantConnect.Data.IBaseData]):
+    """
+    The cross-sectional information coefficient (IC) is the standard IC of factor research: each period, it is the
+    Spearman correlation across many assets between their signal values at the end of the previous period and
+    their returns over this period.
+    
+    The indicator owns one signal per asset: each input updates its asset's signal first, so the signals must not be
+    updated elsewhere, such as by an algorithm helper that registered them. The indicator throws when it detects such
+    an update. The signals can't be built from other indicators, as TimeSeriesInformationCoefficient
+    explains. An asset's price is its input's value.
+    
+    Inputs whose end times fall in the same UTC period, at the inputs' resolution, form a period, so assets whose bars
+    end at different local times, such as futures of different exchanges, share their daily periods. The indicator
+    correlates a period as soon as every asset it tracks has an input for it. Otherwise, such as when an asset was
+    delisted, it correlates the assets that have one when the next period starts. Each value has the end time of its
+    period's last input. A period needs at least three assets with a signal value and a return. An asset with no input
+    for a period pairs its last signal value with its return since then. Use add and
+    remove to follow a changing cross-section, such as a universe's constituents.
+    """
+
+    @property
+    def signals(self) -> typing.Dict[QuantConnect.Symbol, QuantConnect.Indicators.IIndicator]:
+        """The signal of each asset whose information coefficient this indicator measures"""
+        ...
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str, symbols: typing.List[QuantConnect.Symbol], signal_factory: typing.Callable[[QuantConnect.Symbol], QuantConnect.Indicators.IIndicator]) -> None:
+        """
+        Creates a new cross-sectional information coefficient indicator
+        
+        :param name: The name of this indicator
+        :param symbols: The assets to correlate across. A period needs at least three
+        :param signal_factory: Creates the signal of each asset. This indicator updates them
+        """
+        ...
+
+    @overload
+    def __init__(self, symbols: typing.List[QuantConnect.Symbol], signal_factory: typing.Callable[[QuantConnect.Symbol], QuantConnect.Indicators.IIndicator]) -> None:
+        """
+        Creates a new cross-sectional information coefficient indicator
+        
+        :param symbols: The assets to correlate across. A period needs at least three
+        :param signal_factory: Creates the signal of each asset. This indicator updates them
+        """
+        ...
+
+    def add(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Adds an asset to the cross-section, with a new signal from the signal factory. The indicator only gets the
+        asset's data it is given: for an indicator an algorithm helper created, also register it for the asset.
+        
+        :param symbol: The asset to add
+        """
+        ...
+
+    def compute_indicator(self) -> float:
+        """
+        Correlates the signal values and returns of the period's assets that have both, when at least three do
+        
+        
+        This Class is protected.
+        
+        :returns: The period's correlation, or else the last value.
+        """
+        ...
+
+    def compute_next_value(self, input: QuantConnect.Data.IBaseData) -> float:
+        """
+        Updates the input's asset, and correlates the period the input completes or ends
+        
+        
+        This Class is protected.
+        
+        :param input: The input given to the indicator
+        :returns: The correlation of the period the input completes or ends, or else the last one.
+        """
+        ...
+
+    def remove(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Removes an asset from the cross-section, such as one that left the universe. Its later inputs are ignored.
+        When every remaining asset already has an input for the current period, that period is correlated when the
+        next one starts.
+        
+        :param symbol: The asset to remove
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator and its signals to their initial state. It keeps tracking the same assets"""
+        ...
+
+    def validate_and_compute_next_value(self, input: QuantConnect.Data.IBaseData) -> QuantConnect.Indicators.IndicatorResult:
+        """
+        Leaves publishing to PublishPeriod, so indicators chained to this one get one value per period, and
+        each value has its own period's time
+        
+        
+        This Class is protected.
+        
+        :param input: The input given to the indicator
+        :returns: A result the base class doesn't publish.
         """
         ...
 

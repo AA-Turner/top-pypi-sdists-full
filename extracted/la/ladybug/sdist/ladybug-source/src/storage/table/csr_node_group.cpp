@@ -1,10 +1,12 @@
 #include "storage/table/csr_node_group.h"
 
 #include <algorithm>
+#include <exception>
 #include <limits>
 #include <vector>
 
 #include "common/constants.h"
+#include "common/exception/runtime.h"
 #include "common/serializer/buffer_reader.h"
 #include "common/serializer/buffer_writer.h"
 #include "common/serializer/deserializer.h"
@@ -17,6 +19,7 @@
 #include "storage/table/lazy_segment_scanner.h"
 #include "storage/table/rel_table.h"
 #include "transaction/transaction.h"
+#include <format>
 #include <ranges>
 
 using namespace lbug::common;
@@ -24,6 +27,18 @@ using namespace lbug::transaction;
 
 namespace lbug {
 namespace storage {
+
+namespace {
+std::string describeException(const std::exception_ptr& error) {
+    try {
+        std::rethrow_exception(error);
+    } catch (const std::exception& e) {
+        return e.what();
+    } catch (...) {
+        return "unknown exception";
+    }
+}
+} // namespace
 
 // Partial header decodes per node group before a scan decodes the group's whole CSR header.
 static constexpr idx_t MAX_HEADER_SPANS_PER_GROUP = 16;
@@ -801,6 +816,11 @@ void CSRNodeGroup::rollbackInsert(row_idx_t startRow) {
 
 void CSRNodeGroup::appendChunkedCSRGroup(const Transaction* transaction,
     const std::vector<column_id_t>& columnIDs, InMemChunkedCSRNodeGroup& chunkedGroup) {
+    // COPY visits all bound-node partitions, including those with no new rels. Do not
+    // allocate an in-memory chunk or CSR index for an empty partition.
+    if (chunkedGroup.getNumRows() == 0) {
+        return;
+    }
     const auto& csrHeader = chunkedGroup.getCSRHeader();
     std::vector<const ColumnChunkData*> chunkedGroupForProperties(chunkedGroup.getNumColumns());
     for (auto i = 0u; i < chunkedGroup.getNumColumns(); i++) {
@@ -839,6 +859,11 @@ CSRIndex& CSRNodeGroup::getCSRIndexForAppend(const UniqLock& /*lock*/) {
 
 void CSRNodeGroup::updateCSRIndex(CSRIndex& index, offset_t boundNodeOffsetInGroup,
     row_idx_t startRow, length_t length) {
+    // A CSR header contains entries for nodes with no insertions too. Leave their
+    // row vectors empty instead of allocating a [startRow, 0] pair.
+    if (length == 0) {
+        return;
+    }
     auto& nodeCSRIndex = index.indices[boundNodeOffsetInGroup];
     const auto isEmptyCSR = nodeCSRIndex.rowIndices.empty();
     const auto appendToEndOfCSR =
@@ -966,8 +991,8 @@ void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
         // the checkpoint's own deferral scope, exactly like a scan releasing its pin.
         pruneRetainedSnapshotsNoLock(csrState.openStartTSs);
     }
-    // The in-mem-only path resets nothing when there are no rels; anything captured there
-    // would alias live objects the checkpoint keeps mutating, so only prune there.
+    // With no in-memory rels and no persistent group there are no tuples to retain;
+    // the in-mem-only checkpoint only clears empty bookkeeping, so only prune there.
     auto numInMemRels = 0u;
     if (retentionPath && persistentChunkGroup == nullptr) {
         for (const auto& chunkedGroup : chunkedGroups.getAllGroups(lock)) {
@@ -1059,8 +1084,22 @@ void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
         if (deferredPages) {
             deferredPages->discard();
         }
-        // Restore the pre-checkpoint persistent chunks, then drop this group's shadow pages,
-        // so both reads and a retried checkpoint see the old data under the old header.
+        // Undo this group's shadow pages, then restore the pre-checkpoint persistent chunks,
+        // so both reads and a retried checkpoint see the old data under the old header. The
+        // shadow rollback runs first and cannot be skipped by a failing metadata restore; it
+        // always releases the savepoint, even if a page restore fails.
+        std::exception_ptr shadowRollbackError;
+        if (shadowFile != nullptr) {
+            try {
+                shadowFile->rollbackToSavepoint(shadowSavepoint);
+            } catch (...) {
+                shadowRollbackError = std::current_exception();
+                // Record it before the metadata restore below, which can throw too: the
+                // record is what makes Checkpointer::rollback poison the WAL. The combined
+                // message replaces it once both errors are known.
+                shadowFile->recordSavepointRollbackFailure(describeException(shadowRollbackError));
+            }
+        }
         if (persistentSnapshot != nullptr) {
             common::Deserializer deserializer{std::make_unique<common::BufferReader>(
                 persistentSnapshot->getBlobData(), persistentSnapshot->getSize())};
@@ -1082,10 +1121,22 @@ void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
             }
             persistentChunkGroup = std::move(restoredGroup);
         }
-        if (shadowFile != nullptr) {
-            shadowFile->rollbackToSavepoint(shadowSavepoint);
+        if (shadowRollbackError) {
+            // A shadow page that predates the savepoint may still hold this attempt's bytes.
+            // Record both errors on the shadow file: Checkpointer::rollback poisons the WAL with
+            // them, and its error is the one the caller sees.
+            auto message = std::format(
+                "Checkpoint of a rel table node group failed: {} Restoring its shadow pages also "
+                "failed: {}",
+                describeException(std::current_exception()),
+                describeException(shadowRollbackError));
+            shadowFile->recordSavepointRollbackFailure(message);
+            throw common::RuntimeException(std::move(message));
         }
         throw;
+    }
+    if (shadowFile != nullptr) {
+        shadowFile->releaseSavepoint();
     }
     if (retentionPath && !inMemNoop) {
         // Every merge path above resets version state, so the floor advances here. The
@@ -1106,6 +1157,15 @@ void CSRNodeGroup::reclaimStorage(PageAllocator& pageAllocator, const UniqLock& 
     if (persistentChunkGroup) {
         persistentChunkGroup->reclaimStorage(pageAllocator);
     }
+}
+
+bool CSRNodeGroup::vacuumInMemoryUpdates(transaction_t horizon) {
+    bool didWork = NodeGroup::vacuumInMemoryUpdates(horizon);
+    const auto lock = chunkedGroups.lock();
+    if (persistentChunkGroup && persistentChunkGroup->vacuumInMemoryUpdates(horizon)) {
+        didWork = true;
+    }
+    return didWork;
 }
 
 static std::unique_ptr<ChunkedCSRNodeGroup> createNewPersistentChunkGroup(
@@ -1141,6 +1201,11 @@ void CSRNodeGroup::checkpointInMemAndOnDisk(const UniqLock& lock, NodeGroupCheck
             // chunked group.
             persistentChunkGroup = createNewPersistentChunkGroup(
                 persistentChunkGroup->cast<ChunkedCSRNodeGroup>(), csrState);
+        }
+        // Empty appends from an earlier COPY may have left an index and empty chunks.
+        // Do not discard physical rows that may still be needed by versions/readers.
+        if (getNumRows() == 0) {
+            finalizeCheckpoint(lock);
         }
         return;
     }
@@ -1639,6 +1704,8 @@ void CSRNodeGroup::checkpointInMemOnly(const UniqLock& lock, NodeGroupCheckpoint
         numRels += chunkedGroup->getNumRows();
     }
     if (numRels == 0) {
+        // No tuples are left to publish; release any empty in-memory bookkeeping.
+        finalizeCheckpoint(lock);
         return;
     }
     // Construct in-mem csr header chunks.

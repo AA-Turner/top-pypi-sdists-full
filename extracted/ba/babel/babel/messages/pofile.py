@@ -17,7 +17,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal
 
 from babel.core import Locale
-from babel.messages.catalog import Catalog, Message
+from babel.messages.catalog import Catalog, ConflictInfo, Message
 from babel.util import TextWrapper
 
 if TYPE_CHECKING:
@@ -26,7 +26,10 @@ if TYPE_CHECKING:
     from _typeshed import SupportsWrite
 
 
-_unescape_re = re.compile(r'\\([\\trn"])')
+_unescape_re = re.compile(r'\\([\\abfnrtv"])')
+_unescape_map = {'a': '\a', 'b': '\b', 'f': '\f', 'n': '\n', 'r': '\r', 't': '\t', 'v': '\v'}
+
+CONFLICT_MARKER = "#-#-#-#-#"
 
 
 def unescape(string: str) -> str:
@@ -42,14 +45,8 @@ def unescape(string: str) -> str:
 
     def replace_escapes(match):
         m = match.group(1)
-        if m == 'n':
-            return '\n'
-        elif m == 't':
-            return '\t'
-        elif m == 'r':
-            return '\r'
-        # m is \ or "
-        return m
+        # m is a letter of a C escape, or \ or "
+        return _unescape_map.get(m, m)
 
     if "\\" not in string:  # Fast path: there's nothing to unescape
         return string[1:-1]
@@ -351,8 +348,11 @@ class PoFileParser:
                 continue
             if needs_decode:
                 line = line.decode(self.catalog.charset)
-            if line[0] == '#':
-                if line[:2] == '#~':
+            if line[:1] == '#':
+                if line[1:2] == '-':
+                    self._invalid_pofile(line, lineno, 'cannot parse po file with conflicts')
+
+                if line[1:2] == '~':
                     self._process_message_line(lineno, line[2:].lstrip(), obsolete=True)
                 else:
                     try:
@@ -646,6 +646,39 @@ def generate_po(
         for line in comment_wrapper.wrap(comment):
             yield f"#{prefix} {line.strip()}\n"
 
+    def _get_conflict_string(conflicts: list[ConflictInfo], plural_index: int | None = None) -> str:
+        parts = []
+        for conflict in conflicts:
+            parts.append(
+                f"{CONFLICT_MARKER}  "
+                f"{conflict['filename']} ({conflict['project']} {conflict['version']})"
+                f"  {CONFLICT_MARKER}",
+            )
+            string = conflict['message'].string
+            if plural_index is not None:
+                if isinstance(string, (list, tuple)):
+                    string = string[plural_index] if plural_index < len(string) else ''
+                elif plural_index:
+                    # A singular translation only contributes to the singular form.
+                    string = ''
+            parts.append(string)
+        return '\n'.join(parts)
+
+    def _format_conflict(message, conflicts: list[ConflictInfo], prefix=''):
+        if message.context:
+            yield f"{prefix}msgctxt {normalize(message.context, prefix=prefix, width=width)}\n"
+
+        if isinstance(message.id, (list, tuple)):
+            yield f"{prefix}msgid {normalize(message.id[0], prefix=prefix, width=width)}\n"
+            yield f"{prefix}msgid_plural {normalize(message.id[1], prefix=prefix, width=width)}\n"
+            for idx in range(catalog.num_plurals):
+                string = _get_conflict_string(conflicts, plural_index=idx)
+                yield f"{prefix}msgstr[{idx:d}] {normalize(string, prefix=prefix, width=width)}\n"
+        else:
+            yield f"{prefix}msgid {normalize(message.id, prefix=prefix, width=width)}\n"
+            string = _get_conflict_string(conflicts)
+            yield f"{prefix}msgstr {normalize(string, prefix=prefix, width=width)}\n"
+
     def _format_message(message, prefix=''):
         if isinstance(message.id, (list, tuple)):
             if message.context:
@@ -683,7 +716,7 @@ def generate_po(
             yield from _format_comment(comment, prefix='.')
 
         if not no_location:
-            locs = []
+            locs = {}
 
             # sort locations by filename and lineno.
             # if there's no <int> as lineno, use `-1`.
@@ -702,8 +735,7 @@ def generate_po(
                 location = _enclose_filename_if_necessary(location)
                 if lineno and include_lineno:
                     location = f"{location}:{lineno:d}"
-                if location not in locs:
-                    locs.append(location)
+                locs[location] = None
             yield from _format_comment(' '.join(locs), prefix=':')
         if message.flags:
             yield f"#{', '.join(['', *sorted(message.flags)])}\n"
@@ -717,7 +749,10 @@ def generate_po(
                 norm_previous_id = normalize(message.previous_id[1], width=width)
                 yield from _format_comment(f'msgid_plural {norm_previous_id}', prefix='|')
 
-        yield from _format_message(message)
+        if conflicts := catalog.get_conflicts(message.id, message.context):
+            yield from _format_conflict(message, conflicts)
+        else:
+            yield from _format_message(message)
         yield '\n'
 
     if not ignore_obsolete:

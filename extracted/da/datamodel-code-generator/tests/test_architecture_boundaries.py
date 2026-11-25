@@ -17,7 +17,7 @@ from tests.conftest import assert_output
 
 ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parent / "data" / "architecture_boundaries"
-CHECKER_FILES = ("check_architecture_boundaries.py", "_import_cycles.py", "_source_model.py")
+CHECKER_FILES = ("check_architecture_boundaries.py", "_source_model.py")
 """The guard and the modules it reads imports with, as a copy of the guard in a tree needs them."""
 
 
@@ -143,7 +143,6 @@ def test_architecture_boundary_source_classification() -> None:
         source_root / "model" / "__init__.py",
         source_root / "model" / "pydantic_v2" / "base_model.py",
         source_root / "model" / "runtime_validation.py",
-        source_root / "model" / "_views.py",
         source_root / "model" / "_decisions" / "nullability.py",
         source_root / "model" / "_decisions" / "enum_kind.py",
         source_root / "model" / "_decisions" / "tag_value.py",
@@ -168,17 +167,15 @@ def test_architecture_boundary_source_classification() -> None:
 def test_import_cycles_count_the_imports_that_close_them() -> None:
     """Each kind of import back raises the import-cycle keys it can close; the fixture's package says why.
 
-    Imports that run when their module is imported close ``module-level`` cycles, which the guard also rejects;
-    function-local and ``TYPE_CHECKING`` imports close ``lazy`` ones only.
+    Imports that run when their module is imported close ``module-level`` cycles; function-local and
+    ``TYPE_CHECKING`` imports close ``lazy`` ones only.
     """
     lines = []
     for fixture in sorted((FIXTURE_ROOT / "import_cycles").iterdir()):
         lines.append(f"== {fixture.name}")
         for key, found in import_cycles(fixture).items():
             lines += [f"{key}: {', '.join(f'{path}:{line}' for path, line in cycle)}" for cycle in found]
-        lines.append(
-            check_architecture_boundaries.format_report(check_architecture_boundaries.import_cycle_violations(fixture))
-        )
+        lines.append("")
     assert_output("\n".join(lines))
 
 

@@ -65,12 +65,19 @@ def walker_speed_command(speed_ms: float) -> float:
     return speed_ms * walker_speed_scale()
 
 
+def walker_held_speed(speed_mps: float) -> float:
+    """*speed_mps*, held at the fastest the server walks a walker
+    (:func:`~..carla_release.walker_max_speed_mps`: 2 m/s on CARLA 0.10,
+    10 m/s on 1.0), and never negative: the speed a walker sent at it walks."""
+    return min(max(speed_mps, 0.0), walker_max_speed_mps())
+
+
 def walker_control_speed(speed_mps: float) -> float:
     """The ``WalkerControl`` speed for *speed_mps*, capped at what CARLA walks.
 
     Capped rather than left to warn: a walk re-sends it every tick.
     """
-    return walker_speed_command(min(max(speed_mps, 0.0), walker_max_speed_mps()))
+    return walker_speed_command(walker_held_speed(speed_mps))
 
 
 def steer_walker(
@@ -211,12 +218,15 @@ class PedestrianEntity(WalkedEntity):
     ``scenario_pedestrians=sumo`` -- takes it, and the walker follows that
     backend's pedestrian.  Otherwise the entity walks its walker itself.
 
-    Walking it itself is commanded with :class:`carla.WalkerControl` rather than through
-    a ``controller.ai.walker``.  The AI controller exists to send a walker *to
-    a destination*, which is a different scenario primitive and one nothing
-    here asks for yet; using it to walk straight would mean inventing a
-    destination far enough away to look like "straight", and the walker would
-    then route around obstacles the scenario put there on purpose.
+    A straight walk it walks itself is commanded with :class:`carla.WalkerControl`
+    rather than through a ``controller.ai.walker``.  The AI controller exists
+    to send a walker *to a destination*, which is a different scenario
+    primitive: a routed walk (a ``RoutingAction`` in driver mode) uses it, to
+    walk the walker along its route through CARLA's navigation
+    (:mod:`~autoware_carla_scenario.entity._walker_ai`).  Using it to walk
+    straight would mean inventing a destination far enough away to look like
+    "straight", and the walker would then route around obstacles the scenario
+    put there on purpose.
     """
 
     # Declared for the static check (docs/typecheck.md): Codon types an
@@ -351,6 +361,10 @@ class PedestrianEntity(WalkedEntity):
         pedestrians (:meth:`~autoware_carla_scenario.traffic.base.TrafficBackend.walk_straight`);
         otherwise the walker is walked here.
 
+        A speed above the fastest the server walks a walker
+        (:func:`walker_held_speed`: 2 m/s on CARLA 0.10) is held at it, and
+        said in a warning: the walker could not walk it.
+
         Args:
             speed_ms: Walking speed in metres per second.  Zero stops the
                 walker where it stands.
@@ -363,10 +377,20 @@ class PedestrianEntity(WalkedEntity):
                 self._config.role_name,
             )
             return
+        held = walker_held_speed(speed_ms)
+        if held < speed_ms:
+            logger.warning(
+                "PedestrianEntity '%s': CARLA walks a pedestrian at %.2f m/s at "
+                "most; %.2f m/s asked for is held at %.2f m/s",
+                self._config.role_name,
+                held,
+                speed_ms,
+                held,
+            )
         backend = self._traffic_backend
         if backend is not None:
             walked: WalkedEntity = self
-            if backend.walk_straight(walked, speed_ms, yaw_deg=yaw_deg):
+            if backend.walk_straight(walked, held, yaw_deg=yaw_deg):
                 return
         if yaw_deg is None:
             direction = self._walker.get_transform().get_forward_vector()
@@ -374,9 +398,7 @@ class PedestrianEntity(WalkedEntity):
             yaw = math.radians(yaw_deg)
             direction = carla.Vector3D(x=math.cos(yaw), y=math.sin(yaw), z=0.0)
         self._walker.apply_control(
-            carla.WalkerControl(
-                direction=direction, speed=walker_speed_command(speed_ms)
-            )
+            carla.WalkerControl(direction=direction, speed=walker_speed_command(held))
         )
 
     def route_to(

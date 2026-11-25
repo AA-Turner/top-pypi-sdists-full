@@ -18,7 +18,8 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +28,8 @@ class PutRetrievedData(BaseModel):
     PutRetrievedData
     """ # noqa: E501
     content: StrictStr = Field(description="Serialized content.")
-    __properties: ClassVar[List[str]] = ["content"]
+    total_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = None
+    __properties: ClassVar[List[str]] = ["content", "total_count"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -68,6 +70,11 @@ class PutRetrievedData(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if total_count (nullable) is None
+        # and model_fields_set contains the field
+        if self.total_count is None and "total_count" in self.model_fields_set:
+            _dict['total_count'] = None
+
         return _dict
 
     @classmethod
@@ -80,7 +87,8 @@ class PutRetrievedData(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "content": obj.get("content")
+            "content": obj.get("content"),
+            "total_count": obj.get("total_count")
         })
         return _obj
 

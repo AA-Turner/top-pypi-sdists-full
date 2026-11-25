@@ -131,7 +131,7 @@ TEXTAREA_EXPANDABLE_CLASSES = [
 
 SELECT_CLASSES = [
     *BASE_INPUT_CLASSES,
-    "pr-8!",
+    "pe-8!",
     "max-w-2xl",
     "appearance-none",
     "text-ellipsis",
@@ -257,11 +257,11 @@ SWITCH_CLASSES = [
     "after:rounded-full",
     "after:shadow-xs",
     "after:transition-all",
-    "after:left-1",
+    "after:start-1",
     "after:top-1",
     "after:w-3",
     "checked:bg-green-500",
-    "checked:after:left-4",
+    "checked:after:start-4",
     "dark:bg-base-600",
     "dark:checked:bg-green-700",
 ]

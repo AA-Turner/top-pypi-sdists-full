@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    ``bfd_add(may_exist=True)`` updates to an existing BFD record are now
+    committed to the database. Previously the command set attributes on the
+    ``RowView`` wrapper returned by the row lookup, so the update was
+    silently lost.

@@ -657,7 +657,7 @@ class YoutubeChannelVideosData(BaseModel):
         description="Opaque cursor for the next page of videos, or null when this lane has no more. Pass it back as cursor to continue.",
     )
     videos: list[YoutubeChannelVideosVideo] = Field(
-        description="Populated whenever the provider has data for the entity."
+        description="The channel's regular videos, as its Videos tab lists them. Shorts are not included; they are returned by youtube.channel_shorts. Populated whenever the provider has data for the entity."
     )
 
 
@@ -1360,7 +1360,7 @@ class YoutubeNamespace:
         Fetch a YouTube channel's stats (subscribers, video count, total views,
         description) and the links on its About page, by handle or channel ID.
 
-        Price: $0.00036 per request.
+        Price: $0.00032 per request.
 
         Example:
             res = client.youtube.channel(handle="@mkbhd")
@@ -1610,10 +1610,12 @@ class YoutubeNamespace:
     ) -> RunResult[YoutubeChannelVideosData]:
         """YouTube Channel Videos
 
-        List a YouTube channel's videos by handle or channel ID with cursor
-        pagination (title, views, length, publish time).
+        List the regular videos on a YouTube channel's Videos tab by handle or
+        channel ID, with cursor pagination (title, views, length, publish time).
+        Shorts are not included; use youtube.channel_shorts for them and
+        youtube.channel_lives for live streams.
 
-        Price: $0.0007 per request.
+        Price: $0.00066 per request.
 
         Example:
             res = client.youtube.channel_videos(handle="@mkbhd")
@@ -1743,7 +1745,7 @@ class YoutubeNamespace:
         Search YouTube and get matching videos (title, channel, views, length,
         publish time) as normalized JSON.
 
-        Price: $0.00034 per request.
+        Price: $0.00028 per request.
 
         Example:
             res = client.youtube.search(query="how to cook rice")
@@ -1831,7 +1833,7 @@ class YoutubeNamespace:
         Search YouTube Shorts by keyword and get matching Shorts (title, views, URL)
         with cursor pagination as normalized JSON.
 
-        Price: $0.0012 per request.
+        Price: $0.00119 per request.
 
         Example:
             res = client.youtube.search_shorts(query="cats")
@@ -1896,7 +1898,7 @@ class YoutubeNamespace:
         Fetch a YouTube video or Short's metadata (title, channel, views, likes,
         duration, publish date) by URL or ID.
 
-        Price: $0.00059 per request.
+        Price: $0.00053 per request.
 
         Example:
             res = client.youtube.video(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -1917,7 +1919,7 @@ class YoutubeNamespace:
         List the comments on a YouTube video or Short by URL with cursor pagination
         (text, author, likes, reply count).
 
-        Price: $0.00072 per request.
+        Price: $0.00068 per request.
 
         Example:
             res = client.youtube.video_comments(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -1981,7 +1983,7 @@ class YoutubeNamespace:
 
         Fetch the transcript/captions of a YouTube video or Short by URL or ID.
 
-        Price: $0.0008 per request.
+        Price: $0.00076 per request.
 
         Example:
             res = client.youtube.video_transcript(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -2031,7 +2033,7 @@ class AsyncYoutubeNamespace:
         Fetch a YouTube channel's stats (subscribers, video count, total views,
         description) and the links on its About page, by handle or channel ID.
 
-        Price: $0.00036 per request.
+        Price: $0.00032 per request.
 
         Example:
             res = client.youtube.channel(handle="@mkbhd")
@@ -2283,10 +2285,12 @@ class AsyncYoutubeNamespace:
     ) -> RunResult[YoutubeChannelVideosData]:
         """YouTube Channel Videos
 
-        List a YouTube channel's videos by handle or channel ID with cursor
-        pagination (title, views, length, publish time).
+        List the regular videos on a YouTube channel's Videos tab by handle or
+        channel ID, with cursor pagination (title, views, length, publish time).
+        Shorts are not included; use youtube.channel_shorts for them and
+        youtube.channel_lives for live streams.
 
-        Price: $0.0007 per request.
+        Price: $0.00066 per request.
 
         Example:
             res = client.youtube.channel_videos(handle="@mkbhd")
@@ -2416,7 +2420,7 @@ class AsyncYoutubeNamespace:
         Search YouTube and get matching videos (title, channel, views, length,
         publish time) as normalized JSON.
 
-        Price: $0.00034 per request.
+        Price: $0.00028 per request.
 
         Example:
             res = client.youtube.search(query="how to cook rice")
@@ -2504,7 +2508,7 @@ class AsyncYoutubeNamespace:
         Search YouTube Shorts by keyword and get matching Shorts (title, views, URL)
         with cursor pagination as normalized JSON.
 
-        Price: $0.0012 per request.
+        Price: $0.00119 per request.
 
         Example:
             res = client.youtube.search_shorts(query="cats")
@@ -2569,7 +2573,7 @@ class AsyncYoutubeNamespace:
         Fetch a YouTube video or Short's metadata (title, channel, views, likes,
         duration, publish date) by URL or ID.
 
-        Price: $0.00059 per request.
+        Price: $0.00053 per request.
 
         Example:
             res = client.youtube.video(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -2590,7 +2594,7 @@ class AsyncYoutubeNamespace:
         List the comments on a YouTube video or Short by URL with cursor pagination
         (text, author, likes, reply count).
 
-        Price: $0.00072 per request.
+        Price: $0.00068 per request.
 
         Example:
             res = client.youtube.video_comments(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -2654,7 +2658,7 @@ class AsyncYoutubeNamespace:
 
         Fetch the transcript/captions of a YouTube video or Short by URL or ID.
 
-        Price: $0.0008 per request.
+        Price: $0.00076 per request.
 
         Example:
             res = client.youtube.video_transcript(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")

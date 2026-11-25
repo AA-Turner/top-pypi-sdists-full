@@ -1,8 +1,14 @@
-from paddle_billing.EnumStringify import enum_stringify
-from paddle_billing.HasParameters import HasParameters
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
-from paddle_billing.Resources.Shared.Operations import Pager
-from paddle_billing.Resources.SimulationRuns.Operations.SimulationRunInclude import SimulationRunInclude
+from typing import Any
+
+from paddle_billing.EnumStringify import enum_stringify as enum_stringify
+from paddle_billing.HasParameters import HasParameters as HasParameters
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
+from paddle_billing.Resources.Shared.Operations import Pager as Pager
+from paddle_billing.Resources.SimulationRuns.Operations.SimulationRunInclude import (
+    SimulationRunInclude as SimulationRunInclude,
+)
 
 
 class ListSimulationRuns(HasParameters):
@@ -17,10 +23,11 @@ class ListSimulationRuns(HasParameters):
         self.includes = includes if includes is not None else []
 
         # Validation
-        for field_name, field_value, field_type in [
+        validations: list[tuple[str, list[Any], type]] = [
             ("ids", self.ids, str),
             ("includes", self.includes, SimulationRunInclude),
-        ]:
+        ]
+        for field_name, field_value, field_type in validations:
             invalid_items = [item for item in field_value if not isinstance(item, field_type)]
             if invalid_items:
                 raise InvalidArgumentException.array_contains_invalid_types(

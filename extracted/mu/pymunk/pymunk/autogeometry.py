@@ -39,7 +39,8 @@ a Pymunk Poly or Segment::
 
 __docformat__ = "reStructuredText"
 
-from typing import TYPE_CHECKING, Callable, Sequence, Union, overload
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Callable, Union, overload
 
 if TYPE_CHECKING:
     from .bb import BB
@@ -64,15 +65,12 @@ def _to_chipmunk(polyline: _Polyline) -> ffi.CData:
     return _line
 
 
+def _from_polyline(_line: ffi.CData) -> list[Vec2d]:
+    return [Vec2d(_line.verts[i].x, _line.verts[i].y) for i in range(_line.count)]
+
+
 def _from_polyline_set(_set: ffi.CData) -> list[list[Vec2d]]:
-    lines = []
-    for i in range(_set.count):
-        line = []
-        l = _set.lines[i]
-        for j in range(l.count):
-            line.append(Vec2d(l.verts[j].x, l.verts[j].y))
-        lines.append(line)
-    return lines
+    return [_from_polyline(_set.lines[i]) for i in range(_set.count)]
 
 
 def is_closed(polyline: _Polyline) -> bool:
@@ -99,10 +97,10 @@ def simplify_curves(polyline: _Polyline, tolerance: float) -> list[Vec2d]:
     """
 
     _line = lib.cpPolylineSimplifyCurves(_to_chipmunk(polyline), tolerance)
-    simplified = []
-    for i in range(_line.count):
-        simplified.append(Vec2d(_line.verts[i].x, _line.verts[i].y))
-    return simplified
+    try:
+        return _from_polyline(_line)
+    finally:
+        lib.cpPolylineFree(_line)
 
 
 def simplify_vertexes(polyline: _Polyline, tolerance: float) -> list[Vec2d]:
@@ -117,10 +115,10 @@ def simplify_vertexes(polyline: _Polyline, tolerance: float) -> list[Vec2d]:
     :rtype: [(float,float)]
     """
     _line = lib.cpPolylineSimplifyVertexes(_to_chipmunk(polyline), tolerance)
-    simplified = []
-    for i in range(_line.count):
-        simplified.append(Vec2d(_line.verts[i].x, _line.verts[i].y))
-    return simplified
+    try:
+        return _from_polyline(_line)
+    finally:
+        lib.cpPolylineFree(_line)
 
 
 def to_convex_hull(polyline: _Polyline, tolerance: float) -> list[Vec2d]:
@@ -132,10 +130,10 @@ def to_convex_hull(polyline: _Polyline, tolerance: float) -> list[Vec2d]:
     :rtype: [(float,float)]
     """
     _line = lib.cpPolylineToConvexHull(_to_chipmunk(polyline), tolerance)
-    hull = []
-    for i in range(_line.count):
-        hull.append(Vec2d(_line.verts[i].x, _line.verts[i].y))
-    return hull
+    try:
+        return _from_polyline(_line)
+    finally:
+        lib.cpPolylineFree(_line)
 
 
 def convex_decomposition(polyline: _Polyline, tolerance: float) -> list[list[Vec2d]]:
@@ -155,13 +153,16 @@ def convex_decomposition(polyline: _Polyline, tolerance: float) -> list[list[Vec
     """
 
     assert is_closed(polyline), "Cannot decompose an open polygon."
-    assert (
-        area_for_poly(polyline) >= 0
-    ), "Winding is backwards. Try to reverse the vertices. (Are you passing a hole?)"
+    assert area_for_poly(polyline) >= 0, (
+        "Winding is backwards. Try to reverse the vertices. (Are you passing a hole?)"
+    )
 
     _line = _to_chipmunk(polyline)
     _set = lib.cpPolylineConvexDecomposition(_line, tolerance)
-    return _from_polyline_set(_set)
+    try:
+        return _from_polyline_set(_set)
+    finally:
+        lib.cpPolylineSetFree(_set, True)
 
 
 class PolylineSet(Sequence[list[Vec2d]]):
@@ -210,10 +211,13 @@ class PolylineSet(Sequence[list[Vec2d]]):
         self, index: Union[int, slice]
     ) -> Union[list[Vec2d], "PolylineSet"]:
         assert not isinstance(index, slice), "Slice indexing not supported"
-        if index >= self._set.count:
+        position = index
+        if position < 0:
+            position += self._set.count
+        if not 0 <= position < self._set.count:
             raise IndexError
         line = []
-        l = self._set.lines[index]
+        l = self._set.lines[position]
         for i in range(l.count):
             line.append(Vec2d(l.verts[i].x, l.verts[i].y))
         return line

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <optional>
 
 #include "catalog/catalog_entry/table_catalog_entry.h"
 #include "common/enums/rel_direction.h"
@@ -148,10 +149,16 @@ struct LBUG_API TableDeleteState {
 struct TableAddColumnState final {
     const binder::PropertyDefinition& propertyDefinition;
     evaluator::ExpressionEvaluator& defaultEvaluator;
+    // The catalog's column ID for the property. After a rolled-back ADD this is not the position
+    // of the storage column being appended.
+    // Currently consumed only by LocalNodeTable's uncommitted-stats merge; storage placement
+    // still appends positionally (see #1221), and all REL-table consumers ignore this field.
+    common::column_id_t columnID;
 
     TableAddColumnState(const binder::PropertyDefinition& propertyDefinition,
-        evaluator::ExpressionEvaluator& defaultEvaluator)
-        : propertyDefinition{propertyDefinition}, defaultEvaluator{defaultEvaluator} {}
+        evaluator::ExpressionEvaluator& defaultEvaluator, common::column_id_t columnID)
+        : propertyDefinition{propertyDefinition}, defaultEvaluator{defaultEvaluator},
+          columnID{columnID} {}
     ~TableAddColumnState() = default;
 };
 
@@ -197,6 +204,9 @@ public:
     // in-memory state that must not become visible if the checkpoint still fails.
     virtual void finalizeCheckpoint(main::ClientContext&) {};
     virtual void reclaimStorage(PageAllocator& pageAllocator) const = 0;
+    // Folds committed update chains below `horizon` into in-memory bases. Used by
+    // in-memory databases, which never checkpoint, to bound MVCC version memory.
+    virtual bool vacuumInMemoryUpdates(common::transaction_t) { return false; }
 
     virtual common::row_idx_t getNumTotalRows(const transaction::Transaction* transaction) = 0;
 
@@ -226,6 +236,26 @@ public:
 protected:
     virtual bool scanInternal(transaction::Transaction* transaction, TableScanState& scanState) = 0;
 
+    // A checkpoint that rolls back restores the epoch it replaced, so the next checkpoint does not
+    // skip the table as unchanged. finalizeCheckpoint drops the saved epoch (partition children
+    // are not finalized, so they keep theirs).
+    // A checkpoint of a table in the main storage is always finalized or rolled back, so no save is
+    // pending when it stores. Partition children are never finalized (#1407): a child keeps the
+    // epoch from before its first checkpoint since a rollback, and the next rollback restores it.
+    void storeCheckpointedEpoch(uint64_t epoch) {
+        if (!epochBeforeCheckpoint) {
+            epochBeforeCheckpoint = lastCheckpointedEpoch;
+        }
+        lastCheckpointedEpoch = epoch;
+    }
+    void restoreCheckpointedEpoch() {
+        if (epochBeforeCheckpoint) {
+            lastCheckpointedEpoch = *epochBeforeCheckpoint;
+            epochBeforeCheckpoint.reset();
+        }
+    }
+    void commitCheckpointedEpoch() { epochBeforeCheckpoint.reset(); }
+
 protected:
     common::TableType tableType;
     common::table_id_t tableID;
@@ -239,6 +269,7 @@ protected:
     // Epoch watermark of the last successful checkpoint for this table.
     // Only written by the checkpoint thread.
     uint64_t lastCheckpointedEpoch = 0;
+    std::optional<uint64_t> epochBeforeCheckpoint;
 };
 
 } // namespace storage

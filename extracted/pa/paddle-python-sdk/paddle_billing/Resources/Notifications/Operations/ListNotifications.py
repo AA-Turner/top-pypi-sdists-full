@@ -1,12 +1,16 @@
-from paddle_billing.EnumStringify import enum_stringify
-from paddle_billing.HasParameters import HasParameters
+from typing import Any
 
-from paddle_billing.Entities.DateTime import DateTime
-from paddle_billing.Entities.Notifications import NotificationStatus
+from paddle_billing.EnumStringify import enum_stringify as enum_stringify
+from paddle_billing.HasParameters import HasParameters as HasParameters
 
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
+from paddle_billing.Entities.DateTime import DateTime as DateTime
+from paddle_billing.Entities.Notifications import NotificationStatus as NotificationStatus
 
-from paddle_billing.Resources.Shared.Operations import Pager
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
+
+from paddle_billing.Resources.Shared.Operations import Pager as Pager
 
 
 class ListNotifications(HasParameters):
@@ -29,10 +33,11 @@ class ListNotifications(HasParameters):
         self.statuses = statuses if statuses is not None else []
 
         # Validation
-        for field_name, field_value, field_type in [
+        validations: list[tuple[str, list[Any], type]] = [
             ("notification_setting_ids", self.notification_setting_ids, str),
             ("statuses", self.statuses, NotificationStatus),
-        ]:
+        ]
+        for field_name, field_value, field_type in validations:
             invalid_items = [item for item in field_value if not isinstance(item, field_type)]
             if invalid_items:
                 raise InvalidArgumentException.array_contains_invalid_types(

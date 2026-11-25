@@ -13,11 +13,13 @@ def my_func():
 
 dotted_path = 'tests.test_popen_docs.Popen'
 
+import sys
+from subprocess import TimeoutExpired
 from unittest import TestCase
 
 from testfixtures.mock import call
 from testfixtures import Replacer, ShouldRaise, compare, SequenceComparison
-from testfixtures.popen import MockPopen, PopenBehaviour
+from testfixtures.popen import MockPopen, Passthrough, PopenBehaviour, Raises
 
 
 class TestMyFunc(TestCase):
@@ -103,6 +105,21 @@ class TestMyFunc(TestCase):
             call.Popen('a command'),
             call.Popen('a command').wait(),
         ])
+
+    def test_simulating_a_timeout(self):
+        # set up: simulate communicate() timing out, as it does when the
+        # timeout passed to subprocess.run elapses
+        Popen = MockPopen()
+        exception = TimeoutExpired(cmd='a command', timeout=5)
+        Popen.set_command('a command', returncode=-9, raises=Raises(communicate=exception))
+        # usage
+        process = Popen('a command')
+        with ShouldRaise(exception):
+            process.communicate(timeout=5)
+        # cleanup, as performed by subprocess.run's except TimeoutExpired handler,
+        # still behaves normally:
+        process.kill()
+        compare(process.wait(), expected=-9)
 
     def test_send_signal(self):
         # setup
@@ -214,6 +231,31 @@ class TestMyFunc(TestCase):
             p1.communicate(),
             ordered=False
         ))
+
+    def test_passthrough(self):
+        # set up: mock the one command we care about testing precisely,
+        # and let anything else run for real
+        self.Popen.set_command('svn ls -R foo', stdout=b'o', stderr=b'e')
+        self.Popen.set_default(behaviour=Passthrough())
+
+        # testing of results: the mocked command behaves as before
+        compare(my_func(), expected=b'o')
+
+        # any other command is passed through to the real subprocess.Popen
+        command = [sys.executable, '-c', 'print("hello")']
+        process = Popen(command, stdout=PIPE, text=True)
+        out, err = process.communicate()
+        compare(out, expected='hello\n')
+
+        # testing calls: both commands are recorded, including the one passed through
+        mocked = call.Popen(['svn', 'ls', '-R', 'foo'], stderr=PIPE, stdout=PIPE)
+        passed_through = call.Popen(command, stdout=PIPE, text=True)
+        compare(Popen.all_calls, expected=[
+            mocked,
+            mocked.communicate(),
+            passed_through,
+            passed_through.communicate(),
+        ])
 
 
 class CustomBehaviour:

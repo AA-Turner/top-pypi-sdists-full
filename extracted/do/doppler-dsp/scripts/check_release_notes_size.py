@@ -99,6 +99,11 @@ GENERATED_NOTES_RESERVE = 24_000
 
 BUDGET = GITHUB_BODY_LIMIT - PREAMBLE_RESERVE - GENERATED_NOTES_RESERVE
 
+#: The blob base the projected notes are checked against (see main). Any
+#: absolute base serves: the link check asks whether a link survives the
+#: rewrite, not where it points.
+PROJECTED_BLOB_BASE = "https://github.com/doppler-dsp/doppler/blob/main/"
+
 # Warn at half the budget. Low enough that a release is cut with room to spare,
 # high enough that an ordinary week stays silent.
 WARN_FRACTION = 0.5
@@ -258,6 +263,20 @@ def report(raw: int, publishable: int, entries: int, summarised: bool) -> int:
     return 0
 
 
+def _display_path(path: str) -> str:
+    """The path as the report names it: relative to the repo when it can be.
+
+    On Windows `relpath` raises ValueError across drives (a fragment on another
+    drive than the checkout). That raise came after the OK line had printed, so
+    the gate exited 1 with the reason on stderr and no FAIL line (#3335). The
+    absolute path names the file just as well.
+    """
+    try:
+        return os.path.relpath(path, ROOT)
+    except ValueError:
+        return path
+
+
 def oversized_entries(
     section: str, fragments: str
 ) -> list[tuple[str, int, str]]:
@@ -306,7 +325,7 @@ def oversized_entries(
                     continue
                 path = os.path.join(d, name)
                 with open(path, encoding="utf-8") as fh:
-                    scan(os.path.relpath(path, ROOT), fh.read())
+                    scan(_display_path(path), fh.read())
     return found
 
 
@@ -332,6 +351,58 @@ def report_entries(found: list[tuple[str, int, str]]) -> int:
     return 1
 
 
+# A markdown link's target: `](target)`. A space or a closing paren ends it.
+_LINK = re.compile(r"\]\(([^)\s]+)\)")
+
+
+def _resolved(target: str) -> bool:
+    """True for a link that needs no rewriting: absolute or an anchor."""
+    return target.startswith(("http://", "https://", "mailto:", "#"))
+
+
+def absolutize(text: str, base: str) -> str:
+    """Rewrite each repo-relative link in @p text to `base` + its path.
+
+    `base` is the blob URL of the tag the notes describe, ending in `/`. A
+    GitHub release page resolves a relative link under `/releases/tag/`, so
+    every `docs/...` link in a body 404s there (#3319). The anchor is kept,
+    `./` is dropped, and a leading `/` names the repo root. A `../` target
+    has no place on the tag and is left as written, so the link check below
+    names it.
+    """
+
+    def fix(m: re.Match[str]) -> str:
+        t = m.group(1)
+        if _resolved(t) or t.startswith("../"):
+            return m.group(0)
+        t = t.lstrip("/")
+        if t.startswith("./"):
+            t = t[2:]
+        return f"]({base}{t})"
+
+    return _LINK.sub(fix, text)
+
+
+def unresolved_links(text: str) -> list[str]:
+    """Every link target in @p text that is neither absolute nor an anchor."""
+    return [
+        m.group(1) for m in _LINK.finditer(text) if not _resolved(m.group(1))
+    ]
+
+
+def _report_links(where: str, text: str) -> int:
+    bad = unresolved_links(text)
+    if not bad:
+        return 0
+    print(
+        f"check_release_notes_size: {where} holds {len(bad)} link(s) that "
+        "are neither absolute nor an in-page anchor — FAIL"
+    )
+    for t in bad[:20]:
+        print(f"  ({t})")
+    return 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -344,6 +415,12 @@ def main() -> int:
         help="print the character budget and exit (so shell callers do not "
         "hard-code a second copy of it)",
     )
+    ap.add_argument(
+        "--absolutize",
+        metavar="BASE",
+        help="copy stdin to stdout with each repo-relative link rewritten to "
+        "BASE + its path; release-notes.sh renders the body with this",
+    )
     ap.add_argument("--changelog", default=CHANGELOG)
     ap.add_argument("--fragments", default=FRAGMENTS)
     args = ap.parse_args()
@@ -352,9 +429,14 @@ def main() -> int:
         print(BUDGET)
         return 0
 
+    if args.absolutize is not None:
+        sys.stdout.write(absolutize(sys.stdin.read(), args.absolutize))
+        return 0
+
     if args.body_file:
         with open(args.body_file, encoding="utf-8") as fh:
             body = fh.read()
+        links = _report_links("the rendered body", body)
         # A rendered body already carries the Install preamble, so only the
         # generated-notes reserve still has to be held back.
         limit = GITHUB_BODY_LIMIT - GENERATED_NOTES_RESERVE
@@ -369,7 +451,7 @@ def main() -> int:
             f"check_release_notes_size: rendered body is {size:,} characters "
             f"({100.0 * size / limit:.0f}% of {limit:,}) — OK"
         )
-        return 0
+        return links
 
     section = unreleased_section(args.changelog)
     frags, _ = fragment_text(args.fragments)
@@ -391,7 +473,16 @@ def main() -> int:
     # Both, always: reporting only the first would let a branch fix one and
     # discover the other on the next run.
     rc = report(raw, publishable, entries, summarised)
-    return report_entries(oversized_entries(section, args.fragments)) or rc
+    # The projected body, with the rewrite applied as release-notes.sh applies
+    # it. The base is a placeholder: only WHETHER a link survives matters here,
+    # and the release's own base is set when it is rendered.
+    projected = absolutize(whole, PROJECTED_BLOB_BASE)
+    links = _report_links("the projected notes", projected)
+    return (
+        report_entries(oversized_entries(section, args.fragments))
+        or rc
+        or links
+    )
 
 
 if __name__ == "__main__":

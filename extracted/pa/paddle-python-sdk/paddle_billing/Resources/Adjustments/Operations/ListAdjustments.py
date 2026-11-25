@@ -1,11 +1,15 @@
-from paddle_billing.EnumStringify import enum_stringify
-from paddle_billing.HasParameters import HasParameters
+from typing import Any
 
-from paddle_billing.Entities.Shared import Action, AdjustmentStatus
+from paddle_billing.EnumStringify import enum_stringify as enum_stringify
+from paddle_billing.HasParameters import HasParameters as HasParameters
 
-from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import InvalidArgumentException
+from paddle_billing.Entities.Shared import Action as Action, AdjustmentStatus as AdjustmentStatus
 
-from paddle_billing.Resources.Shared.Operations import Pager
+from paddle_billing.Exceptions.SdkExceptions.InvalidArgumentException import (
+    InvalidArgumentException as InvalidArgumentException,
+)
+
+from paddle_billing.Resources.Shared.Operations import Pager as Pager
 
 
 class ListAdjustments(HasParameters):
@@ -28,13 +32,14 @@ class ListAdjustments(HasParameters):
         self.subscription_ids = subscription_ids if subscription_ids is not None else []
 
         # Validation
-        for field_name, field_value, field_type in [
+        validations: list[tuple[str, list[Any], type]] = [
             ("ids", self.ids, str),
             ("customer_ids", self.customer_ids, str),
             ("statuses", self.statuses, AdjustmentStatus),
             ("subscription_ids", self.subscription_ids, str),
             ("transaction_ids", self.transaction_ids, str),
-        ]:
+        ]
+        for field_name, field_value, field_type in validations:
             invalid_items = [item for item in field_value if not isinstance(item, field_type)]
             if invalid_items:
                 raise InvalidArgumentException.array_contains_invalid_types(

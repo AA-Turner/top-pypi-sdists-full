@@ -49,6 +49,7 @@ from .details_body_format import DetailsBodyFormat
 from .details_comment import DetailsComment
 from .details_comment_format import DetailsCommentFormat
 from .error import Error
+from .failed_installation import FailedInstallation
 from .filter_state import FilterState
 from .forge import Forge
 from .forge_api_bucket import ForgeApiBucket
@@ -199,6 +200,7 @@ __all__ = (
     "DetailsComment",
     "DetailsCommentFormat",
     "Error",
+    "FailedInstallation",
     "FilterState",
     "Forge",
     "ForgeApiBucket",

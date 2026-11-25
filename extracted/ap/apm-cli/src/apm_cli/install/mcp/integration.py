@@ -56,6 +56,7 @@ def prepare_mcp_integration(  # noqa: PLR0913
     no_policy: bool = False,
     claude_native_keys: frozenset[str] = frozenset(),
     prospective_lock: "LockFile | None" = None,
+    dry_run: bool = False,
 ) -> PreparedMcpIntegration:
     """Collect and admit once, without native writes or ownership adoption.
 
@@ -66,7 +67,7 @@ def prepare_mcp_integration(  # noqa: PLR0913
     """
     from apm_cli.deps.lockfile import LockFile
     from apm_cli.integration.mcp_config_view import CurrentMcpConfigView
-    from apm_cli.security.trust import McpAdmission
+    from apm_cli.security.trust import McpAdmission, warn_one_off_trust
 
     # McpAdmission reads grants from the scope's manifest (APM_HOME/apm.yml
     # under -g, #3954) and discovers policy from the deploy root.
@@ -100,6 +101,10 @@ def prepare_mcp_integration(  # noqa: PLR0913
             claude_native_keys=claude_native_keys,
         )
     if should_install and current_view is not None:
+        if not dry_run:
+            from apm_cli.install.errors import refuse_policy_transitive
+
+            refuse_policy_transitive(current_view, admission)
         root_count = len(apm_package.get_all_mcp_dependencies())
         transitive_count = max(0, len(current_view.dependencies) - root_count)
         if transitive_count:
@@ -110,23 +115,6 @@ def prepare_mcp_integration(  # noqa: PLR0913
         mcp_deps,
         current_view if should_install else None,
         current_view,
-    )
-
-
-def warn_one_off_trust(one_off: tuple[tuple[str, str], ...], logger: "InstallLogger") -> None:
-    """Say that --trust-transitive-mcp consent lasts for this run only."""
-    if not one_off:
-        return
-    noun = "server" if len(one_off) == 1 else "servers"
-    shown = "; ".join(f"{name}, {package}" for name, package in one_off[:3])
-    more = f"; and {len(one_off) - 3} more" if len(one_off) > 3 else ""
-    first_package = one_off[0][1]
-    logger.warning(
-        f"--trust-transitive-mcp deployed {len(one_off)} unapproved MCP {noun} for this run "
-        f"only ({shown}{more})\n"
-        "    It is not saved: the next install without the flag removes it. "
-        f"Keep it: apm approve {first_package}",
-        symbol="warning",
     )
 
 
@@ -803,6 +791,12 @@ def run_mcp_integration(  # noqa: PLR0913
             deselected_mcp_claims,
             names_owned_by_active_peers,
         )
+        from apm_cli.install.mcp.retirement import (
+            reconcile_skipped_baseline,
+            record_refused_retirement,
+            retire_mcp_claims,
+            stale_claim_remover,
+        )
         from apm_cli.integration.mcp_integrator_install import mcp_servers_for_runtime
 
         # Targets the manifest itself stopped selecting leave every entry's reach;
@@ -822,6 +816,7 @@ def run_mcp_integration(  # noqa: PLR0913
             manifest_runtimes = _declared_manifest_runtimes(apm_package, user_scope=user_scope)
         retired_by_target: builtins.dict[str, builtins.set] = {}
         retained_names: builtins.set = builtins.set()
+        skipped_targets: builtins.set = builtins.set()
         for owned_target, owned in sorted(old_mcp_target_servers.items()):
             if owned_target in managed_target_servers:
                 # Declared servers whose `targets:` no longer select this runtime.
@@ -841,36 +836,30 @@ def run_mcp_integration(  # noqa: PLR0913
             if kept:
                 managed_target_servers[owned_target] = kept
                 retained_names |= kept
+                skipped_targets.add(owned_target)
             retired_by_target[owned_target] = builtins.set(owned) - kept
-        # A skipped target still holds the old declaration: keep that baseline
-        # so its next install sees the drift and applies the new one.
-        for name in MCPIntegrator._detect_mcp_config_drift(
-            [dep for dep in mcp_deps if getattr(dep, "name", None) in retained_names],
-            old_mcp_configs,
-        ):
-            new_mcp_configs[name] = old_mcp_configs[name]
         for removed_target, retired_names in retired_by_target.items():
             # An entry in a file the removed runtime shares (.mcp.json) stays
             # while an active runtime still owns it.
             retired_names -= names_owned_by_active_peers(
                 removed_target, retired_names, managed_target_servers, user_scope=user_scope
             )
-            if not retired_names:
-                continue
-            MCPIntegrator.remove_stale(
-                retired_names,
-                runtime=removed_target,
-                project_root=project_root,
-                user_scope=user_scope,
-                scope=scope,
-                fail_on_write_error=True,
-                stored_configs=old_mcp_configs,
-                native_hashes=old_native_hashes,
+        # A skipped target still holds the old declaration: keep that baseline
+        # so its next install sees the drift and applies the new one.
+        for name in MCPIntegrator._detect_mcp_config_drift(
+            [dep for dep in mcp_deps if getattr(dep, "name", None) in retained_names],
+            old_mcp_configs,
+        ):
+            reconcile_skipped_baseline(
+                name,
+                (new_mcp_configs, old_mcp_configs),
+                managed_target_servers,
+                native_hashes,
+                skipped=skipped_targets,
             )
-            logger.record_mcp_removed(retired_names)
-
         # Remove stale MCP servers that are no longer needed
         stale_servers = old_mcp_servers - new_mcp_servers
+        cleanup_owners: builtins.dict = {}
         if stale_servers:
             cleanup_owners = {
                 target: builtins.set(servers) for target, servers in old_mcp_target_servers.items()
@@ -885,24 +874,33 @@ def run_mcp_integration(  # noqa: PLR0913
                     runtime=runtime, target_decision=target_decision
                 ):
                     cleanup_owners.setdefault(legacy_runtime, builtins.set()).update(stale_servers)
-            for cleanup_runtime, owned_servers in sorted(
-                cleanup_owners.items(), key=lambda item: item[0] or ""
-            ):
-                scoped_stale = stale_servers.intersection(owned_servers)
-                if not scoped_stale:
-                    continue
-                MCPIntegrator.remove_stale(
-                    scoped_stale,
-                    cleanup_runtime,
-                    exclude,
-                    project_root=project_root,
-                    user_scope=user_scope,
-                    scope=scope,
-                    fail_on_write_error=True,
-                    stored_configs=old_mcp_configs,
-                    native_hashes=old_native_hashes,
-                )
-                logger.record_mcp_removed(scoped_stale)
+
+        _remove = stale_claim_remover(
+            logger, (project_root, user_scope, scope), (old_mcp_configs, old_native_hashes)
+        )
+
+        def _record_refusal(removed, planned) -> None:
+            # A preserved (edited) entry stopped retirement after this run's
+            # writes: record what reached disk, keep every claim not removed (#4792).
+            _keep_unhealed(healed)
+            record_refused_retirement(
+                lock_path,
+                logger,
+                managed_target_servers=managed_target_servers,
+                # cleanup_owners adds the runtimes a legacy lock's cleanup reached.
+                old_target_servers=cleanup_owners or old_mcp_target_servers,
+                removed=removed,
+                planned=planned,
+                servers=(new_mcp_servers, old_mcp_servers),
+                configs=(new_mcp_configs, old_mcp_configs),
+                provenance=(new_mcp_provenance, old_mcp_provenance),
+                native_hashes=(native_hashes, old_native_hashes),
+                stamp_version=translated,
+            )
+
+        retire_mcp_claims(
+            retired_by_target, (stale_servers, cleanup_owners, exclude), _remove, _record_refusal
+        )
 
         _keep_unhealed(healed)
         # Persist the new MCP server set, configs, and transitive provenance.
@@ -987,6 +985,10 @@ def run_mcp_integration(  # noqa: PLR0913
             exclude=exclude,
             logger=logger,
             retire=pre_install_lock is None and not frozen,
+            manifest=apm_package,
+            dependencies=mcp_deps,
+            runtime=runtime,
+            target_decision=target_decision,
         )
 
     if prepared.omission_view is not None and lockfile_exists(lock_path):

@@ -36,6 +36,9 @@ class Transaction(api.Transaction):
         self.results = queue.Queue(1)
         self.ovsdb_connection = ovsdb_connection
         self.timeout = timeout or ovsdb_connection.timeout
+        # Set by commit(), time.monotonic() value after which the caller
+        # has given up on the transaction
+        self.deadline = None
 
     def __str__(self):
         return ", ".join(str(cmd) for cmd in self.commands)
@@ -50,14 +53,19 @@ class Transaction(api.Transaction):
         return command
 
     def commit(self):
-        self.ovsdb_connection.queue_txn(self)
+        # Waiting for room in the queue and waiting for the result share a
+        # single timeout.
+        self.deadline = time.monotonic() + self.timeout
+        self.ovsdb_connection.queue_txn(self, timeout=self.timeout)
         try:
-            result = self.results.get(timeout=self.timeout)
+            result = self.results.get(
+                timeout=max(0, self.deadline - time.monotonic()))
         except queue.Empty as e:
             raise exceptions.TimeoutException(
                 commands=self.commands,
                 timeout=self.timeout,
-                cause='Result queue is empty') from e
+                cause=self.ovsdb_connection.timeout_cause(
+                    'Result queue is empty')) from e
         if isinstance(result, idlutils.ExceptionResult):
             if self.log_errors:
                 LOG.error(result.tb)
@@ -73,6 +81,14 @@ class Transaction(api.Transaction):
             command.post_commit(txn)
 
     def do_commit(self):
+        if self.deadline is not None and time.monotonic() > self.deadline:
+            # The caller has already timed out, do not commit behind its back
+            # once the connection recovers.
+            LOG.warning("Not committing transaction that expired in the "
+                        "queue: %s", self)
+            raise exceptions.TimeoutException(
+                commands=self.commands, timeout=self.timeout,
+                cause='Transaction expired in the queue')
         self.start_time = time.time()
         attempts = 0
         if not self.commands:

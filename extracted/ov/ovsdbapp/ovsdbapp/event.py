@@ -39,7 +39,7 @@ LockNotification = collections.namedtuple(
     "LockNotification", ["lock_name", "acquired"])
 
 
-class RowEvent(object, metaclass=abc.ABCMeta):
+class RowEvent(metaclass=abc.ABCMeta):
     ROW_CREATE = "create"
     ROW_UPDATE = "update"
     ROW_DELETE = "delete"
@@ -54,6 +54,19 @@ class RowEvent(object, metaclass=abc.ABCMeta):
 
     @property
     def key(self):
+        """Tuple identifying the event watch.
+
+        The default ``RowEvent`` equality and hash are value based:
+        two events of the same class with equal ``table``, ``events``,
+        ``conditions``, ``old_conditions`` and ``priority`` compare
+        equal, and only one of them can be registered at a time in a
+        ``RowEventHandler``.
+
+        A subclass that takes per-instance variables into account in
+        ``matches()`` or ``run()`` must override this property to
+        include them: instances that differ in those variables are
+        then distinct and can be watched simultaneously.
+        """
         return (self.__class__, self.table, tuple(self.events))
 
     def __hash__(self):
@@ -63,6 +76,7 @@ class RowEvent(object, metaclass=abc.ABCMeta):
         try:
             return (self.key == other.key and
                     self.conditions == other.conditions and
+                    self.old_conditions == other.old_conditions and
                     self.priority == other.priority)
         except AttributeError:
             return False
@@ -123,7 +137,7 @@ class WaitEvent(RowEvent):
         return self.event.wait(self.timeout)
 
 
-class RowEventHandler(object):
+class RowEventHandler:
     def __init__(self):
         self._queues = sortedcontainers.SortedDict(lambda p: -p)
         self._lock = threading.Lock()

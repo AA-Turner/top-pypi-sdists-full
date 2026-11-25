@@ -20,18 +20,24 @@
 
 from kipy.proto.common import ApiStatusCode
 
+
 class ConnectionError(Exception):
     """Raised when a connection to KiCad cannot be established"""
-    pass
+
 
 class ApiError(Exception):
     """Raised when KiCad returns an error from an API call.  This indicates that the communcation
     was successful, but the API call failed for some reason."""
-    def __init__(self, message: str, raw_message: str = "",
-                 code: ApiStatusCode.ValueType = ApiStatusCode.AS_BAD_REQUEST):
-         super().__init__(message)
-         self._raw_message = raw_message
-         self._code = code
+
+    def __init__(
+        self,
+        message: str,
+        raw_message: str = "",
+        code: ApiStatusCode.ValueType = ApiStatusCode.AS_BAD_REQUEST,
+    ):
+        super().__init__(message)
+        self._raw_message = raw_message
+        self._code = code
 
     @property
     def code(self) -> ApiStatusCode.ValueType:
@@ -41,7 +47,7 @@ class ApiError(Exception):
     def raw_message(self) -> str:
         return self.raw_message
 
+
 class FutureVersionError(Exception):
     """Raised when a version check shows that kicad-python is talking to a version of KiCad
     newer than the one it was built against"""
-    pass

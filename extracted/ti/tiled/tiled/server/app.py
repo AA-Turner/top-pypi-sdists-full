@@ -6,7 +6,6 @@ import logging
 import os
 import secrets
 import sys
-import urllib.parse
 import warnings
 from contextlib import asynccontextmanager
 from functools import cache, partial
@@ -44,6 +43,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..access_control.protocols import AccessPolicy
 from ..access_control.scopes import ScopeName
+from ..adapters.utils import ColumnMismatchError
 from ..authenticators import ProxiedOIDCAuthenticator
 from ..catalog.adapter import WouldDeleteData
 from ..config import (
@@ -88,6 +88,7 @@ from .utils import (
     get_trace_id,
     normalize_root_path,
     record_timing,
+    request_is_https,
     request_trace_id,
 )
 from .webhook_router import UrlValidator, get_webhook_router
@@ -500,6 +501,15 @@ def build_app(
             content={"detail": exc.args[0]},
         )
 
+    @app.exception_handler(ColumnMismatchError)
+    async def column_mismatch_exception_handler(
+        request: Request, exc: ColumnMismatchError
+    ):
+        return JSONResponse(
+            status_code=HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": exc.args[0]},
+        )
+
     # This list will be mutated when settings are processed at app startup.
     app.state.allow_origins = []
     app.add_middleware(
@@ -761,8 +771,10 @@ def build_app(
                 DatabaseUpgradeNeeded,
                 UninitializedDatabase,
                 check_database,
+                revisions_accepted_at_startup,
             )
             from ..authn_database import orm
+            from ..authn_database.alembic_constants import ALEMBIC_DIR
             from ..authn_database.core import (
                 ALL_REVISIONS,
                 REQUIRED_REVISION,
@@ -785,16 +797,26 @@ def build_app(
             else:
                 redacted_url = engine.url._replace(password="[redacted]")
                 try:
-                    await check_database(engine, REQUIRED_REVISION, ALL_REVISIONS)
+                    revision = await check_database(
+                        engine,
+                        REQUIRED_REVISION,
+                        ALL_REVISIONS,
+                        revisions_accepted_at_startup(ALEMBIC_DIR, REQUIRED_REVISION),
+                    )
                 except UninitializedDatabase:
                     if settings.database_init_if_not_exists:
                         # This is a blocking call (alembic drives its own event
                         # loop), so keep it off the event loop thread.
-                        await asyncio.to_thread(
+                        initialized = await asyncio.to_thread(
                             initialize_authn_database,
                             engine.url.render_as_string(hide_password=False),
                         )
-                        logger.info(f"Initialized new database at {redacted_url}.")
+                        if initialized:
+                            logger.info(f"Initialized new database at {redacted_url}.")
+                        else:
+                            logger.info(
+                                f"Connected to existing database at {redacted_url}."
+                            )
                     else:
                         print(
                             dedent(
@@ -829,6 +851,14 @@ def build_app(
                     raise err from None
                 else:
                     logger.info(f"Connected to existing database at {redacted_url}.")
+                    if revision != REQUIRED_REVISION:
+                        logger.warning(
+                            f"The database at {redacted_url} is at revision "
+                            f"{revision}, one behind the current revision "
+                            f"{REQUIRED_REVISION}. This version of Tiled runs with "
+                            "this database revision, but please upgrade it soon: "
+                            f"tiled admin upgrade-database {redacted_url}"
+                        )
             for admin in authentication.tiled_admins or []:
                 logger.info(
                     f"Ensuring that principal with identity {admin} has role 'admin'"
@@ -1002,8 +1032,7 @@ def build_app(
             # Get the token from the Header or (if not there) the query parameter.
             csrf_token = request.headers.get(CSRF_HEADER_NAME)
             if csrf_token is None:
-                parsed_query = urllib.parse.parse_qs(request.url.query)
-                csrf_token = parsed_query.get(CSRF_QUERY_PARAMETER)
+                csrf_token = request.query_params.get(CSRF_QUERY_PARAMETER)
             if not csrf_token:
                 return Response(
                     status_code=HTTP_403_FORBIDDEN,
@@ -1023,6 +1052,7 @@ def build_app(
                 value=secrets.token_urlsafe(32),
                 httponly=True,
                 samesite="lax",
+                secure=request_is_https(request),
             )
         return response
 
@@ -1068,6 +1098,8 @@ def build_app(
         for params in request.state.cookies_to_set:
             params.setdefault("httponly", True)
             params.setdefault("samesite", "lax")
+            # Over HTTPS, a cookie is sent back over HTTPS only.
+            params.setdefault("secure", request_is_https(request))
             response.set_cookie(**params)
         return response
 

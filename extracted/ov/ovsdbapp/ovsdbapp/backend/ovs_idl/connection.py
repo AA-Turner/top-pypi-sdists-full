@@ -29,7 +29,7 @@ from ovsdbapp import exceptions
 LOG = logging.getLogger(__name__)
 
 
-class TransactionQueue(queue.Queue, object):
+class TransactionQueue(queue.Queue):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._wait_queue = connection_utils.WaitQueue(
@@ -58,7 +58,7 @@ class TransactionQueue(queue.Queue, object):
         self._wait_queue.close()
 
 
-class Connection(object):
+class Connection:
 
     def __init__(self, idl, timeout):
         """Create a connection to an OVSDB server using the OVS IDL
@@ -73,6 +73,8 @@ class Connection(object):
         self.thread = None
         self.is_running = None
         self._last_has_lock = False
+        # The last unhandled exception in run(), None once a loop succeeds
+        self.last_error = None
 
     def __del__(self):
         self.txns.close()
@@ -120,7 +122,9 @@ class Connection(object):
                 # in python-ovs, or an unhandled exception in overridden
                 # Idl.notify() code
                 LOG.exception(e)
+                self.last_error = e
                 continue
+            self.last_error = None
             txn = self.txns.get_nowait()
             if txn is not None:
                 try:
@@ -160,15 +164,28 @@ class Connection(object):
         self.thread = None
         return True
 
-    def queue_txn(self, txn):
+    def queue_txn(self, txn, timeout=None):
         # Even if we aren't started, we can queue a transaction and it will
         # run when we are started
+        if timeout is None:
+            timeout = self.timeout
         try:
-            self.txns.put(txn, timeout=self.timeout)
+            self.txns.put(txn, timeout=timeout)
         except queue.Full as e:
-            raise exceptions.TimeoutException(commands=txn.commands,
-                                              timeout=self.timeout,
-                                              cause='TXN queue is full') from e
+            raise exceptions.TimeoutException(
+                commands=txn.commands, timeout=timeout,
+                cause=self.timeout_cause('TXN queue is full')) from e
+
+    def timeout_cause(self, cause):
+        """Append the last error of the run() loop to a timeout cause
+
+        A transaction usually times out because the run() loop could not
+        process it, and the error that kept the loop from doing so is the
+        actual cause, rather than the queue being full or empty.
+        """
+        if self.last_error is None:
+            return cause
+        return '%s, last connection error: %r' % (cause, self.last_error)
 
     def force_reconnect(self):
         self.idl.force_reconnect()

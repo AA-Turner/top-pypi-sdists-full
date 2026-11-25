@@ -7,7 +7,11 @@ from fontTools.designspaceLib import (
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.beyond64k import upper_tables
 from fontTools.ufoLib import UFOWriter, UFOLibError
-from fontTools.varLib.interpolatable import main as interpolatable_main
+from fontTools.varLib.interpolatable import (
+    main as interpolatable_main,
+    print_master_tree,
+    test_gen as interpolatable_test_gen,
+)
 from types import SimpleNamespace
 from fontTools.varLib.interpolatableHelpers import find_parents_and_order
 from contextlib import redirect_stdout
@@ -141,6 +145,7 @@ class InterpolatableTest(unittest.TestCase):
                     "master_1_idx": 2,
                     "master_2_idx": 3,
                     "tolerance": pytest.approx(0.9184032411892079),
+                    "actual_midpoint": True,
                 },
             ],
         )
@@ -151,7 +156,6 @@ class InterpolatableTest(unittest.TestCase):
         self.assertIsNone(interpolatable_main(ufo_paths))
 
     def test_interpolatable_cff2_json(self):
-        pytest.importorskip("scipy.sparse.csgraph")
         ttx_path = self.get_test_input(
             "variable_ttx_interpolatable_cff2", "interpolatable-test.ttx"
         )
@@ -289,23 +293,7 @@ class InterpolatableTest(unittest.TestCase):
     def test_sparse_designspace(self):
         designspace_path = self.get_test_input("SparseMasters_ufo.designspace")
 
-        problems = interpolatable_main(["--quiet", designspace_path])
-        self.assertEqual(
-            problems["a"],
-            [{"type": "missing", "master": "SparseMasters-Medium", "master_idx": 1}],
-        )
-        self.assertEqual(
-            problems["s"],
-            [{"type": "missing", "master": "SparseMasters-Medium", "master_idx": 1}],
-        )
-        self.assertEqual(
-            problems["edotabove"],
-            [{"type": "missing", "master": "SparseMasters-Medium", "master_idx": 1}],
-        )
-        self.assertEqual(
-            problems["dotabovecomb"],
-            [{"type": "missing", "master": "SparseMasters-Medium", "master_idx": 1}],
-        )
+        self.assertIsNone(interpolatable_main(["--quiet", designspace_path]))
 
         # normal order, with --ignore-missing
         self.assertIsNone(interpolatable_main(["--ignore-missing", designspace_path]))
@@ -384,19 +372,21 @@ class InterpolatableTest(unittest.TestCase):
         interpolatable_main((input_path,))
 
 
+def draw_contours(count, open_paths=False):
+    def draw(pen):
+        for i in range(count):
+            y = i * 300
+            pen.beginPath()
+            for j, point in enumerate([(0, y), (200, y), (200, y + 200), (0, y + 200)]):
+                segment_type = "move" if open_paths and j == 0 else "line"
+                pen.addPoint(point, segmentType=segment_type)
+            pen.endPath()
+
+    return draw
+
+
 @pytest.fixture
 def layered_designspace(tmp_path):
-    def draw_contours(count):
-        def draw(pen):
-            for i in range(count):
-                y = i * 300
-                pen.beginPath()
-                for point in [(0, y), (200, y), (200, y + 200), (0, y + 200)]:
-                    pen.addPoint(point, segmentType="line")
-                pen.endPath()
-
-        return draw
-
     paths = [tmp_path / "Regular.ufo", tmp_path / "Bold.ufo"]
     for path in paths:
         with UFOWriter(path, formatVersion=3) as writer:
@@ -435,7 +425,8 @@ def layered_designspace(tmp_path):
 
 
 @pytest.mark.parametrize("axes", ["continuous", "decreasing", "discrete"])
-def test_designspace_named_layer(layered_designspace, axes):
+@pytest.mark.parametrize("jobs", [1, 2])
+def test_designspace_named_layer(layered_designspace, axes, jobs):
     if axes == "decreasing":
         layered_designspace.axes[0].map = [(100, 900), (900, 100)]
         for source in layered_designspace.sources:
@@ -453,7 +444,7 @@ def test_designspace_named_layer(layered_designspace, axes):
         layered_designspace.addSource(source)
     layered_designspace.write(layered_designspace.path)
     problems = interpolatable_main(
-        ["--quiet", "--glyphs", "A", layered_designspace.path]
+        ["--quiet", "--jobs", str(jobs), "--glyphs", "A", layered_designspace.path]
     )
     assert problems["A"][0] == {
         "type": "path_count",
@@ -475,10 +466,179 @@ def test_designspace_default_layer(layered_designspace, layer):
 
 def test_designspace_sparse_layer(layered_designspace):
     args = ["--quiet", "--glyphs", "B", layered_designspace.path]
-    assert interpolatable_main(args)["B"] == [
-        {"type": "missing", "master": "Regular (intermediate)", "master_idx": 1}
-    ]
+    assert interpolatable_main(args) is None
     assert interpolatable_main(["--ignore-missing"] + args) is None
+
+
+@pytest.mark.parametrize(
+    "layer", [None, "public.default", "foreground", "intermediate"]
+)
+@pytest.mark.parametrize("filter_names", [False, True])
+def test_designspace_missing_default_source(
+    layered_designspace, tmp_path, layer, filter_names
+):
+    # Completeness is required at the Designspace default, regardless of
+    # which UFO layer it uses.
+    path = tmp_path / "Missing.ufo"
+    with UFOWriter(path, formatVersion=3) as writer:
+        writer.writeInfo(SimpleNamespace(unitsPerEm=1000))
+        if layer == "intermediate":
+            glyphset = writer.getGlyphSet()
+            glyphset.writeGlyph("A", SimpleNamespace(width=500), draw_contours(1))
+            glyphset.writeContents()
+        glyphset = writer.getGlyphSet(
+            layerName=layer, defaultLayer=layer != "intermediate"
+        )
+        glyphset.writeGlyph("B", SimpleNamespace(width=500), draw_contours(1))
+        glyphset.writeContents()
+        writer.writeLayerContents()
+    layered_designspace.sources[0].path = str(path)
+    layered_designspace.sources[0].layerName = layer
+    name = "Missing" if layer is None else f"Missing ({layer})"
+    args = ["--quiet", "--glyphs", "A"]
+    if filter_names:
+        # Filtering out an earlier sparse source must keep the remaining
+        # sources' sparse flags aligned with their glyph sets.
+        path = layered_designspace.sources[0].path
+        with UFOWriter(path) as writer:
+            writer.getGlyphSet(layerName="unused", defaultLayer=False).writeContents()
+            writer.writeLayerContents()
+        source = SourceDescriptor(
+            path=path, layerName="unused", location={"Weight": 250}
+        )
+        layered_designspace.sources.insert(0, source)
+        for accepted_name in [name, "Regular (intermediate)", "Bold"]:
+            args.extend(["--name", accepted_name])
+    layered_designspace.write(layered_designspace.path)
+    args.append(layered_designspace.path)
+    problems = interpolatable_main(args)["A"]
+    assert [p for p in problems if p["type"] == "missing"] == [
+        {"type": "missing", "master": name, "master_idx": 0}
+    ]
+    assert not any(
+        p["type"] == "missing"
+        for p in interpolatable_main(["--ignore-missing"] + args)["A"]
+    )
+
+
+@pytest.mark.parametrize("layer", [None, "public.default", "foreground"])
+@pytest.mark.parametrize("axes", ["continuous", "decreasing", "discrete"])
+def test_designspace_sparse_source(layered_designspace, tmp_path, layer, axes):
+    path = tmp_path / "Medium.ufo"
+    with UFOWriter(path, formatVersion=3) as writer:
+        writer.writeInfo(SimpleNamespace(unitsPerEm=1000))
+        glyphset = writer.getGlyphSet(layerName=layer, defaultLayer=True)
+        glyphset.writeGlyph("A", SimpleNamespace(width=500), draw_contours(1))
+        glyphset.writeContents()
+        writer.writeLayerContents()
+    layered_designspace.sources[1].path = str(path)
+    layered_designspace.sources[1].layerName = layer
+    # Put the sparse source first and the actual default last.
+    regular, medium, bold = layered_designspace.sources
+    layered_designspace.sources = [medium, bold, regular]
+    if axes == "decreasing":
+        layered_designspace.axes[0].map = [(100, 900), (900, 100)]
+        for source in layered_designspace.sources:
+            source.location["Weight"] = 1000 - source.location["Weight"]
+    elif axes == "discrete":
+        axis = DiscreteAxisDescriptor()
+        axis.name, axis.tag, axis.values, axis.default = "Style", "STYL", [0, 1], 0
+        layered_designspace.addAxis(axis)
+        for source in layered_designspace.sources:
+            source.location["Style"] = 1
+        layered_designspace.addSourceDescriptor(
+            path=regular.path, location={"Weight": 100, "Style": 0}
+        )
+    layered_designspace.write(layered_designspace.path)
+    assert (
+        interpolatable_main(["--quiet", "--glyphs", "B", layered_designspace.path])
+        is None
+    )
+
+
+def test_designspace_missing_discrete_default(layered_designspace):
+    axis = DiscreteAxisDescriptor()
+    axis.name, axis.tag, axis.values, axis.default = "Style", "STYL", [0, 1], 0
+    layered_designspace.addAxis(axis)
+    # The named layer contains A but lacks B. At the continuous default
+    # location it must still report B as missing, even in discrete subspace 1.
+    layered_designspace.addSourceDescriptor(
+        path=layered_designspace.sources[0].path,
+        layerName="intermediate",
+        location={"Weight": 100, "Style": 1},
+    )
+    layered_designspace.addSourceDescriptor(
+        path=layered_designspace.sources[2].path,
+        location={"Weight": 900, "Style": 1},
+    )
+    layered_designspace.write(layered_designspace.path)
+    problems = interpolatable_main(
+        ["--quiet", "--glyphs", "B", layered_designspace.path]
+    )
+    assert problems["B"] == [
+        {"type": "missing", "master": "Regular (intermediate)", "master_idx": 3}
+    ]
+
+
+@pytest.mark.parametrize("extra_sparse_source", [False, True])
+@pytest.mark.parametrize("empty_intermediate", [False, True])
+@pytest.mark.parametrize("bold_contours", [1, 2])
+def test_designspace_sparse_layer_comparison(
+    layered_designspace, extra_sparse_source, empty_intermediate, bold_contours
+):
+    if empty_intermediate:
+        with UFOWriter(layered_designspace.sources[0].path) as writer:
+            glyphset = writer.getGlyphSet(layerName="intermediate", defaultLayer=False)
+            glyphset.writeGlyph("B", SimpleNamespace(width=500), draw_contours(0))
+            glyphset.writeContents()
+    with UFOWriter(layered_designspace.sources[-1].path) as writer:
+        glyphset = writer.getGlyphSet()
+        glyphset.writeGlyph(
+            "B", SimpleNamespace(width=500), draw_contours(bold_contours)
+        )
+        glyphset.writeContents()
+    if extra_sparse_source:
+        source = SourceDescriptor(
+            path=layered_designspace.sources[0].path,
+            layerName="intermediate",
+            location={"Weight": 600},
+        )
+        layered_designspace.sources.insert(2, source)
+    layered_designspace.write(layered_designspace.path)
+    expected = {
+        "type": "nothing" if bold_contours == 1 else "path_count",
+        "master_1": "Regular",
+        "master_2": "Bold",
+        "master_1_idx": 0,
+        "master_2_idx": len(layered_designspace.sources) - 1,
+    }
+    if bold_contours != 1:
+        expected.update(value_1=1, value_2=bold_contours)
+    problems = interpolatable_main(
+        ["--quiet", "--show-all", "--glyphs", "B", layered_designspace.path]
+    )
+    assert problems["B"] == [expected]
+
+
+def test_designspace_sparse_layer_open_path(layered_designspace):
+    with UFOWriter(layered_designspace.sources[0].path) as writer:
+        glyphset = writer.getGlyphSet(layerName="intermediate", defaultLayer=False)
+        glyphset.writeGlyph(
+            "A", SimpleNamespace(width=500), draw_contours(2, open_paths=True)
+        )
+        glyphset.writeContents()
+    problems = interpolatable_main(
+        ["--quiet", "--glyphs", "A", layered_designspace.path]
+    )["A"]
+    assert [p for p in problems if p["type"] == "open_path"] == [
+        {
+            "type": "open_path",
+            "master": "Regular (intermediate)",
+            "master_idx": 1,
+            "contour": i,
+        }
+        for i in range(2)
+    ]
 
 
 def test_designspace_missing_layer(layered_designspace):
@@ -488,16 +648,28 @@ def test_designspace_missing_layer(layered_designspace):
         interpolatable_main(["--quiet", layered_designspace.path])
 
 
-def test_designspace_layer_name_filter(layered_designspace):
+@pytest.mark.parametrize("jobs", [1, 2])
+def test_designspace_layer_name_filter(layered_designspace, jobs):
     assert (
         interpolatable_main(
-            ["--quiet", "--name", "Regular", "--name", "Bold", layered_designspace.path]
+            [
+                "--quiet",
+                "--jobs",
+                str(jobs),
+                "--name",
+                "Regular",
+                "--name",
+                "Bold",
+                layered_designspace.path,
+            ]
         )
         is None
     )
     problems = interpolatable_main(
         [
             "--quiet",
+            "--jobs",
+            str(jobs),
             "--glyphs",
             "A",
             "--name",
@@ -509,6 +681,254 @@ def test_designspace_layer_name_filter(layered_designspace):
     )
     assert problems["A"][0]["type"] == "path_count"
     assert problems["A"][0]["master_2"] == "Regular (intermediate)"
+
+
+@pytest.mark.parametrize("output_file", [False, True])
+def test_show_graph(layered_designspace, tmp_path, capsys, monkeypatch, output_file):
+    def unexpected_test(*args, **kwargs):
+        pytest.fail("--show-graph must exit before checking glyphs")
+
+    monkeypatch.setattr("fontTools.varLib.interpolatable.test_gen", unexpected_test)
+    monkeypatch.setattr(
+        "fontTools.varLib.interpolatable._parallel_test_gen", unexpected_test
+    )
+    args = ["--show-graph", "--jobs", "2", layered_designspace.path]
+    if output_file:
+        path = tmp_path / "graphs" / "masters.txt"
+        args.extend(["--output", str(path)])
+    assert interpolatable_main(args) is None
+    expected = (
+        "[0] Regular (normalized: default)\n"
+        "└── [1] Regular (intermediate) (normalized: Weight=0.375)\n"
+        "    └── [2] Bold (normalized: Weight=1.0)\n"
+    )
+    if output_file:
+        assert capsys.readouterr().out == ""
+        assert path.read_text(encoding="utf-8") == expected
+    else:
+        assert capsys.readouterr().out == expected
+
+
+def test_show_graph_name_filter(layered_designspace, capsys):
+    assert (
+        interpolatable_main(
+            [
+                "--show-graph",
+                "--name",
+                "Regular",
+                "--name",
+                "Bold",
+                layered_designspace.path,
+            ]
+        )
+        is None
+    )
+    assert capsys.readouterr().out == (
+        "[0] Regular (normalized: default)\n" "└── [1] Bold (normalized: Weight=1.0)\n"
+    )
+
+
+def test_print_master_tree_branches_and_roots(capsys):
+    print_master_tree(
+        [None, 0, 0, 1, None, 4],
+        [0, 4, 1, 2, 5, 3],
+        ["Regular", "Medium", "Wide", "Bold", "Italic", "Bold Italic"],
+        [],
+    )
+    assert capsys.readouterr().out == (
+        "[0] Regular\n"
+        "├── [1] Medium\n"
+        "│   └── [3] Bold\n"
+        "└── [2] Wide\n"
+        "[4] Italic\n"
+        "└── [5] Bold Italic\n"
+    )
+
+
+def test_progress_callback_after_each_glyph():
+    def make_glyph(count):
+        def draw(pen, **kwargs):
+            for i in range(count):
+                y = i * 300
+                pen.moveTo((0, y))
+                pen.lineTo((200, y))
+                pen.lineTo((200, y + 200))
+                pen.lineTo((0, y + 200))
+                pen.closePath()
+
+        return SimpleNamespace(draw=draw)
+
+    glyphsets = [
+        {"A": make_glyph(1), "sparse": None, "empty": make_glyph(0)},
+        {"A": make_glyph(2), "sparse": make_glyph(1), "empty": make_glyph(0)},
+    ]
+    completed = []
+    problems = interpolatable_test_gen(
+        glyphsets,
+        glyphs=["A", "sparse", "empty"],
+        progressFunc=completed.append,
+    )
+    assert next(problems)[1]["type"] == "path_count"
+    assert completed == []
+    assert list(problems) == []
+    assert completed == ["A", "sparse", "empty"]
+
+
+@pytest.mark.parametrize(
+    "terminal, progress, quiet, expected",
+    [
+        (True, True, False, True),
+        (False, True, False, False),
+        (True, False, False, False),
+        (True, True, True, False),
+    ],
+)
+def test_progress_terminal_only(
+    layered_designspace, capsys, monkeypatch, terminal, progress, quiet, expected
+):
+    stderr = StringIO()
+    monkeypatch.setattr(stderr, "isatty", lambda: terminal)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    args = ["--json", "--glyphs", "A B", layered_designspace.path]
+    if progress:
+        args.append("--progress")
+    if quiet:
+        args.append("--quiet")
+    problems = interpolatable_main(args)
+    output = capsys.readouterr().out
+    if quiet:
+        assert output == ""
+    else:
+        assert json.loads(output) == problems
+    if expected:
+        assert "Checking glyphs:" in stderr.getvalue()
+        assert "2/2\n" in stderr.getvalue()
+    else:
+        assert stderr.getvalue() == ""
+
+
+@pytest.mark.parametrize("start_method", ["default", "spawn"])
+@pytest.mark.parametrize("kind", ["path_count", "missing", "open_path"])
+def test_parallel_designspace(
+    layered_designspace, capsys, monkeypatch, start_method, kind
+):
+    if kind == "missing":
+        with UFOWriter(layered_designspace.sources[0].path) as writer:
+            glyphset = writer.getGlyphSet()
+            glyphset.deleteGlyph("A")
+            glyphset.writeContents()
+    elif kind == "open_path":
+        with UFOWriter(layered_designspace.sources[0].path) as writer:
+            glyphset = writer.getGlyphSet(layerName="intermediate", defaultLayer=False)
+            glyphset.writeGlyph(
+                "A", SimpleNamespace(width=500), draw_contours(2, open_paths=True)
+            )
+            glyphset.writeContents()
+
+    args = ["--json", "--show-all", "--glyphs", "B A", layered_designspace.path]
+    expected = interpolatable_main(args)
+    serial_output = capsys.readouterr().out
+    assert any(problem["type"] == kind for problem in expected["A"])
+
+    if start_method == "spawn":
+        # A multithreaded parent must use the spawn fallback even on Linux.
+        monkeypatch.setattr("threading.active_count", lambda: 2)
+    completed = []
+    parent_pid = os.getpid()
+
+    def progress(glyph):
+        assert os.getpid() == parent_pid
+        completed.append(glyph)
+
+    monkeypatch.setattr(
+        "fontTools.varLib.interpolatable._make_progress",
+        lambda *args: progress,
+    )
+    actual = interpolatable_main(["--jobs", "2"] + args)
+    assert actual == expected
+    assert capsys.readouterr().out == serial_output
+    assert list(actual) == list(expected)
+    assert list(json.loads(serial_output)) == ["B", "A"]
+    assert sorted(completed) == ["A", "B"]
+
+
+@pytest.mark.parametrize("start_method", ["default", "spawn"])
+@pytest.mark.parametrize(
+    "source, suffix",
+    [
+        ("MutatorSans_All_Variable.ttx", ".ttf"),
+        ("variable_ttx_interpolatable_cff2/interpolatable-test.ttx", ".otf"),
+    ],
+)
+def test_parallel_variable_font(
+    tmp_path, capsys, monkeypatch, start_method, source, suffix
+):
+    font = TTFont(recalcBBoxes=False, recalcTimestamp=False)
+    font.importXML(os.path.join(os.path.dirname(__file__), "data", source))
+    path = tmp_path / ("font" + suffix)
+    font.save(path)
+    args = ["--json", "--show-all", str(path)]
+    expected = interpolatable_main(args)
+    serial_output = capsys.readouterr().out
+
+    if start_method == "spawn":
+        monkeypatch.setattr("threading.active_count", lambda: 2)
+    assert interpolatable_main(["-j", "2"] + args) == expected
+    assert capsys.readouterr().out == serial_output
+    if suffix == ".otf":
+        assert any(p.get("actual_midpoint") for p in expected["uni0408"])
+
+
+@pytest.mark.parametrize("start_method", ["default", "spawn"])
+def test_parallel_worker_error(layered_designspace, monkeypatch, start_method):
+    from fontTools.varLib import interpolatable
+
+    if start_method == "spawn":
+        monkeypatch.setattr("threading.active_count", lambda: 2)
+    args = ["--tolerance", "-1", layered_designspace.path]
+    glyphsets, options = interpolatable_main(args, _prepare=True)
+    # Tolerance is validated by test_gen, after input preparation succeeds.
+    with pytest.raises(AssertionError):
+        list(interpolatable._parallel_test_gen(glyphsets, options, 2, args))
+
+
+def test_jobs_all_cpus(layered_designspace, monkeypatch):
+    cpu_count = "process_cpu_count" if hasattr(os, "process_cpu_count") else "cpu_count"
+    monkeypatch.setattr(os, cpu_count, lambda: 2)
+    args = ["--quiet", "--show-all", layered_designspace.path]
+    assert interpolatable_main(["--jobs", "0"] + args) == interpolatable_main(args)
+
+
+def test_jobs_negative(capsys):
+    with pytest.raises(SystemExit) as error:
+        interpolatable_main(["--jobs", "-1", "font.ttf"])
+    assert error.value.code == 2
+    assert "--jobs must be zero or greater" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "source, suffix",
+    [
+        ("MutatorSans_All_Variable.ttx", ".ttf"),
+        ("variable_ttx_interpolatable_cff2/interpolatable-test.ttx", ".otf"),
+    ],
+)
+def test_show_graph_progress(tmp_path, capsys, monkeypatch, source, suffix):
+    font = TTFont(recalcBBoxes=False, recalcTimestamp=False)
+    font.importXML(os.path.join(os.path.dirname(__file__), "data", source))
+    total = len(font.getGlyphOrder())
+    path = tmp_path / ("font" + suffix)
+    font.save(path)
+    stderr = StringIO()
+    monkeypatch.setattr(stderr, "isatty", lambda: True)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    assert interpolatable_main(["--show-graph", "--progress", str(path)]) is None
+    output = capsys.readouterr().out
+    assert "[0]" in output
+    assert "Finding masters:" not in output
+    assert "Finding masters:" in stderr.getvalue()
+    assert f"{total}/{total}\n" in stderr.getvalue()
+    assert "Checking glyphs:" not in stderr.getvalue()
 
 
 @pytest.mark.parametrize(
@@ -533,10 +953,82 @@ def test_designspace_layer_name_filter(layered_designspace):
             [None, 0, None, 2],
             [0, 2, 1, 3],
         ),
+        pytest.param(
+            [{}, {"wght": 1, "wdth": 0.1}, {"wght": 1, "opsz": 0.1}],
+            set(),
+            [None, 0, 0],
+            [0, 1, 2],
+            id="incomparable-axis-sets",
+        ),
+        pytest.param(
+            [
+                {"wght": 0, "wdth": 0, "opsz": 0},
+                {"wght": 1, "wdth": 0.1, "opsz": 0},
+                {"wght": 1, "wdth": 0, "opsz": 0.1},
+            ],
+            set(),
+            [None, 0, 0],
+            [0, 1, 2],
+            id="explicit-zero-coordinates",
+        ),
+        pytest.param(
+            [
+                {},
+                {"wght": 1},
+                {"wght": 0.95, "wdth": 0.95},
+                {"wght": 1, "wdth": 1},
+            ],
+            set(),
+            [None, 0, 3, 1],
+            [0, 1, 3, 2],
+            id="fewer-coordinate-changes-before-distance",
+        ),
+        pytest.param(
+            [{}, {"wght": 0.5}, {"wght": 1, "wdth": 1}],
+            set(),
+            [None, 0, 1],
+            [0, 1, 2],
+            id="subset-with-different-values",
+        ),
+        pytest.param(
+            [
+                {"ital": 0},
+                {"ital": 0, "wght": 1, "wdth": 0.1},
+                {"ital": 0, "wght": 1, "opsz": 0.1},
+                {"ital": 1},
+                {"ital": 1, "wght": 1, "wdth": 0.1},
+                {"ital": 1, "wght": 1, "opsz": 0.1},
+            ],
+            {"ital"},
+            [None, 0, 0, None, 3, 3],
+            [0, 3, 1, 2, 4, 5],
+            id="axis-subsets-in-discrete-subspaces",
+        ),
+        pytest.param(
+            [{}, {"wght": 1 / 16384}, {"wght": 2 / 16384}],
+            set(),
+            [None, 0, 1],
+            [0, 1, 2],
+            id="nearby-masters",
+        ),
+        pytest.param(
+            [{}, {}, {"wght": 1}],
+            set(),
+            [None, None, 0],
+            [0, 1, 2],
+            id="duplicate-defaults",
+        ),
+        pytest.param(
+            [{}, {"wght": 1}, {"wght": 1}],
+            set(),
+            [None, 0, 1],
+            [0, 1, 2],
+            id="duplicate-nondefault-locations",
+        ),
     ],
 )
-def test_find_parents_and_order_scipy(locations, discrete_axes, parents, order):
-    pytest.importorskip("scipy.sparse.csgraph")
+def test_find_parents_and_order(locations, discrete_axes, parents, order, monkeypatch):
+    monkeypatch.setitem(sys.modules, "scipy.sparse.csgraph", None)
     actual_parents, actual_order = find_parents_and_order(
         [None] * len(locations), locations, discrete_axes=discrete_axes
     )

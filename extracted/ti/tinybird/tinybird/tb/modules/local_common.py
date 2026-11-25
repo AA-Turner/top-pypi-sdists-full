@@ -102,7 +102,7 @@ def get_tinybird_local_config(
         if test:
             # delete any Tinybird_Local_Test_* workspace
             user_workspaces = requests.get(
-                f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?with_organization=true&token={admin_token}"
+                f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?with_dedicated_cluster=false&with_member_notifications=false&with_organization=true&token={admin_token}"
             ).json()
             local_workspaces = user_workspaces.get("workspaces", [])
             for ws in local_workspaces:
@@ -123,7 +123,7 @@ def get_tinybird_local_config(
         logging.debug(f"Workspace used for build: {ws_name}")
 
         user_workspaces = requests.get(
-            f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?with_organization=true&token={admin_token}"
+            f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?with_dedicated_cluster=false&with_member_notifications=false&with_organization=true&token={admin_token}"
         ).json()
         user_org_id = user_workspaces.get("organization_id", {})
         local_workspaces = user_workspaces.get("workspaces", [])
@@ -139,7 +139,9 @@ def get_tinybird_local_config(
 
         if not ws:
             user_client.create_workspace(ws_name, assign_to_organization_id=user_org_id, version="v1")
-            user_workspaces = requests.get(f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?token={admin_token}").json()
+            user_workspaces = requests.get(
+                f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?with_dedicated_cluster=false&with_member_notifications=false&token={admin_token}"
+            ).json()
             ws = next((ws for ws in user_workspaces["workspaces"] if ws["name"] == ws_name), None)
             if not ws:
                 raise AuthNoTokenException()
@@ -894,7 +896,7 @@ def stream_logs_with_health_check(
                 # Print "ready" message when container becomes healthy
                 if container_ready.is_set() and not hasattr(stream_logs_with_health_check, "ready_printed"):
                     click.echo(FeedbackManager.success(message="✓ Tinybird Local is ready!"))
-                    stream_logs_with_health_check.ready_printed = True  # type: ignore
+                    stream_logs_with_health_check.ready_printed = True  # type: ignore[attr-defined]
 
                 for line in lines:
                     # Apply color to service label

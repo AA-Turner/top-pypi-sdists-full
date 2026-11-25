@@ -341,6 +341,65 @@ def locked_skill_sources(ctx: Any) -> LockedSkillSources | None:
     return LockedSkillSources(fetch, locked_commit)
 
 
+def reclaimed_members(
+    integrator: Any,
+    source: Path,
+    destination: Path,
+    *,
+    ignore: Callable[[str, list[str]], list[str]],
+    owner: str | None,
+) -> dict[Path, str]:
+    """Members a restored older lock no longer claims, still as *owner* wrote them (#5399).
+
+    Only this installation's own receipt for the deploying owner counts
+    (:mod:`apm_cli.core.deployment_reclaim`), and only when the bytes also equal
+    what this install renders there. A hand-made file has no such receipt, so it
+    keeps the unmanaged handling; nothing is reclaimed when no receipt qualifies.
+    Only the project's own writer (``.``) reclaims: remote packages are out of scope.
+    Each member qualifies on its own, so an unrelated sibling never blocks it.
+    """
+    from apm_cli.core.deployment_reclaim import has_unclaimed_receipts, own_unclaimed_receipt
+
+    session = integrator._materialization_session
+    if owner != "." or not has_unclaimed_receipts(session, owner):
+        return {}
+    found: dict[Path, str] = {}
+    expected = _rendered_members(
+        source, destination, walk_source=integrator.walk_source_tree, ignore=ignore
+    )
+    try:
+        for target, member in expected.items():
+            if target.is_symlink() or not target.is_file():
+                continue
+            receipted = own_unclaimed_receipt(session, target, owner)
+            if receipted is not None and target.read_bytes() == _expected_bytes(
+                integrator.resolve_links, member, target, source
+            ):
+                found[target] = receipted
+    except (OSError, UnicodeError):
+        return {}
+    return found
+
+
+def self_owned(prev_owner: str | None, parent_name: str, writer: Any, target: Path) -> bool:
+    """Whether the package writing a skill directory also wrote what is there (#5399).
+
+    The lock's owner map names a dependency by its key and the project's own
+    skills by ``PROJECT_SKILLS`` (``build_skill_ownership_maps``), the receipt
+    owner ``.``; either spelling of the current writer is a self-overwrite,
+    never "another package".
+    """
+    from apm_cli.integration.skill_support import PROJECT_SKILLS
+
+    # A package that already wrote this directory in this run is its owner now.
+    prev_owner = writer._native_skill_session_owners.get(target.resolve(), prev_owner)
+    if prev_owner is None:
+        return False
+    if prev_owner == PROJECT_SKILLS:
+        return getattr(writer, "_skill_current_owner", None) == "."
+    return prev_owner == parent_name
+
+
 def skill_tree_baselines(
     integrator: Any,
     source: Path,
@@ -378,8 +437,31 @@ def skill_tree_baselines(
     def trusted(path: Path) -> str | None:
         return session.baseline(path, targets)
 
+    reclaimed = reclaimed_members(integrator, source, destination, ignore=ignore, owner=owner)
     if all_files_receipted(destination, session.receipt_held):
-        return {}
+        return reclaimed
+    return {
+        **_render_baselines(
+            integrator, source, destination, ignore, owned, owner, commit, plan, targets, trusted
+        ),
+        **reclaimed,
+    }
+
+
+def _render_baselines(
+    integrator: Any,
+    source: Path,
+    destination: Path,
+    ignore: Callable[[str, list[str]], list[str]],
+    owned: Callable[[Path], bool],
+    owner: str | None,
+    commit: str | None,
+    plan: DeployableSourcePlan | None,
+    targets: Sequence[Any],
+    trusted: Callable[[Path], str | None],
+) -> dict[Path, str]:
+    """Whole-tree adoption against the current render, then the locked source's."""
+    session = integrator._materialization_session
     compare = partial(
         adoption_baselines, walk_source=integrator.walk_source_tree, owned=owned, trusted=trusted
     )
@@ -409,20 +491,26 @@ def skill_tree_baselines(
 _NON_SKILL_MEMBERS = frozenset({"bin", ".claude-plugin"})
 
 
-def _inactive_skill_roots(integrator: Any, project_root: Path) -> Iterator[tuple[Any, Path, bool]]:
-    """Yield (profile, skills root, legacy layout) for skill targets outside this install."""
+def _inactive_skill_roots(
+    integrator: Any, project_root: Path, holds: Callable[[Path], bool] = lambda _root: True
+) -> Iterator[tuple[Any, Path, bool]]:
+    """Yield (profile, skills root, legacy layout) for skill targets outside this install.
+
+    Only roots *holds* admits are resolved and yielded, so a caller that
+    skips roots without its entry pays no resolution for them.
+    """
     from apm_cli.install.helpers.reconciliation_scope import (
         _scoped_known_targets_for_reconciliation,
     )
     from apm_cli.integration.skill_layout import resolve_skill_layout
+    from apm_cli.utils.realpath import resolve_path
 
     targets = list(integrator._skill_targets or ())
-    active_names = {target.name for target in targets}
-    active_roots = {
-        target.skills_deploy_path(project_root).resolve()
-        for target in targets
-        if target.supports("skills")
-    }
+    # A harness a native plugin route serves is not outside this install (#5036).
+    active_names = {target.name for target in targets} | set(
+        getattr(integrator, "_skill_native_harnesses", frozenset())
+    )
+    active_roots: set[Path] | None = None
     profiles = _scoped_known_targets_for_reconciliation(
         user_scope=integrator.install_user_scope(), active_targets=targets, declared_targets=None
     )
@@ -436,7 +524,15 @@ def _inactive_skill_roots(integrator: Any, project_root: Path) -> Iterator[tuple
             if legacy and candidate is profile:
                 continue
             root = candidate.skills_deploy_path(project_root)
-            if root.resolve() not in active_roots:
+            if not holds(root):
+                continue
+            if active_roots is None:
+                active_roots = {
+                    resolve_path(target.skills_deploy_path(project_root))
+                    for target in targets
+                    if target.supports("skills")
+                }
+            if resolve_path(root) not in active_roots:
                 yield candidate, root, legacy
 
 
@@ -466,7 +562,9 @@ def report_stale_kept_copies(
     user_scope = integrator.install_user_scope()
     lockfile_root = get_apm_dir(InstallScope.USER) if user_scope else project_root
     _, recorded_owners = integrator._ownership_maps(lockfile_root)
-    for profile, root, legacy in _inactive_skill_roots(integrator, project_root):
+    for profile, root, legacy in _inactive_skill_roots(
+        integrator, project_root, lambda root: (root / destination.name).is_dir()
+    ):
         kept = root / destination.name
         if not kept.is_dir() or kept in integrator._stale_kept_reported:
             continue

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: docling-slim
-Version: 2.152.0
+Version: 2.153.0
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -41,13 +41,13 @@ Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'all'
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == 'all'
 Requires-Dist: docling-core[chunking]<3.0.0,>=2.108.0; extra == 'all'
 Requires-Dist: docling-ibm-models<5,>=4.0.2; extra == 'all'
-Requires-Dist: docling-parse<8.0.0,>=7.27.0; extra == 'all'
+Requires-Dist: docling-parse<8.0.0,>=7.28.0; extra == 'all'
 Requires-Dist: easyocr<2.0,>=1.7; extra == 'all'
 Requires-Dist: einops<1.0.0,>=0.8.1; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28; extra == 'all'
 Requires-Dist: huggingface-hub<3,>=0.23; extra == 'all'
 Requires-Dist: lxml<7.0.0,>=4.0.0; extra == 'all'
-Requires-Dist: mail-parser<5.0.0,>=4.1.4; extra == 'all'
+Requires-Dist: mail-parser<5.0.0,>=4.8.0; extra == 'all'
 Requires-Dist: marko<3.0.0,>=2.1.2; extra == 'all'
 Requires-Dist: mlx-audio<0.7.0,>=0.6.4; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'all'
 Requires-Dist: mlx-vlm<1.0.0,>=0.7.0; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'all'
@@ -147,7 +147,7 @@ Provides-Extra: format-docx
 Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'format-docx'
 Provides-Extra: format-email
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'format-email'
-Requires-Dist: mail-parser<5.0.0,>=4.1.4; extra == 'format-email'
+Requires-Dist: mail-parser<5.0.0,>=4.8.0; extra == 'format-email'
 Requires-Dist: python-oxmsg<0.1.0,>=0.0.2; extra == 'format-email'
 Provides-Extra: format-html
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'format-html'
@@ -167,10 +167,10 @@ Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'format-office'
 Provides-Extra: format-opendocument
 Requires-Dist: odfdo<4.0.0,>=3.22.0; extra == 'format-opendocument'
 Provides-Extra: format-pdf
-Requires-Dist: docling-parse<8.0.0,>=7.27.0; extra == 'format-pdf'
+Requires-Dist: docling-parse<8.0.0,>=7.28.0; extra == 'format-pdf'
 Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0; extra == 'format-pdf'
 Provides-Extra: format-pdf-docling
-Requires-Dist: docling-parse<8.0.0,>=7.27.0; extra == 'format-pdf-docling'
+Requires-Dist: docling-parse<8.0.0,>=7.28.0; extra == 'format-pdf-docling'
 Provides-Extra: format-pdf-pypdfium2
 Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0; extra == 'format-pdf-pypdfium2'
 Provides-Extra: format-pptx
@@ -245,10 +245,10 @@ Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'standard'
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == 'standard'
 Requires-Dist: docling-core[chunking]<3.0.0,>=2.108.0; extra == 'standard'
 Requires-Dist: docling-ibm-models<5,>=4.0.2; extra == 'standard'
-Requires-Dist: docling-parse<8.0.0,>=7.27.0; extra == 'standard'
+Requires-Dist: docling-parse<8.0.0,>=7.28.0; extra == 'standard'
 Requires-Dist: httpx<1.0.0,>=0.28; extra == 'standard'
 Requires-Dist: huggingface-hub<3,>=0.23; extra == 'standard'
-Requires-Dist: mail-parser<5.0.0,>=4.1.4; extra == 'standard'
+Requires-Dist: mail-parser<5.0.0,>=4.8.0; extra == 'standard'
 Requires-Dist: marko<3.0.0,>=2.1.2; extra == 'standard'
 Requires-Dist: numpy<3.0.0,>=1.24.0; extra == 'standard'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'standard'

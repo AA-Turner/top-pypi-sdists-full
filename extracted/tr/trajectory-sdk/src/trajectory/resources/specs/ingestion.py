@@ -37,25 +37,29 @@ class Ingestion(APIResource):
     self,
     *,
     idempotency_key: str,
-    bench_name: str,
     metadata: Mapping[str, Any],
     upload_digest: str,
-    agent_id: str | None | Omit = omit,
-    agent_name: str | None | Omit = omit,
+    spec_name: str,
     build_images: bool | Omit = omit,
+    skip_image_cache: bool | Omit = omit,
+    project_id: str | None | Omit = omit,
+    project_name: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkIngestionSession:
-    """Create Session
+    """Create Spec Submission Session
 
     Args:
-      bench_name: Reusing a benchmark name pushes a new version of that benchmark.
+      spec_name: Reusing a spec name pushes a new version of that spec.
 
-      agent_id: The benchmark's agent ID. Provide agent_id or agent_name for every ingestion.
+      skip_image_cache: Build every image from its Dockerfile without reusing one already built from the
+        same files. Requires build_images.
 
-      agent_name: The benchmark's agent name. Provide agent_id or agent_name for every ingestion.
+      project_id: The spec's project ID. Provide project_id or project_name for every ingestion.
+
+      project_name: The spec's project name. Provide project_id or project_name for every ingestion.
 
       extra_headers: Send extra headers
 
@@ -70,12 +74,13 @@ class Ingestion(APIResource):
       cast_to=BenchmarkIngestionSession,
       body=maybe_transform(
         {
-          "bench_name": bench_name,
           "metadata": metadata,
           "upload_digest": upload_digest,
-          "agent_id": agent_id,
-          "agent_name": agent_name,
+          "spec_name": spec_name,
           "build_images": build_images,
+          "skip_image_cache": skip_image_cache,
+          "project_id": project_id,
+          "project_name": project_name,
         },
         IngestionCreateSessionParams,
       ),
@@ -101,7 +106,7 @@ class Ingestion(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkIngestionUploadUrls:
-    """Allocate
+    """Allocate Spec Submission Uploads
 
     Args:
       files: At most 1000 files and 1024 KiB with `put`, or 5000 files and 4096 KiB with
@@ -193,7 +198,7 @@ class Ingestion(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkIngestionOperationStatus:
-    """Finalize
+    """Finalize Spec Submission
 
     Args:
       extra_headers: Send extra headers
@@ -238,7 +243,7 @@ class Ingestion(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkIngestionOperationStatus:
-    """Status
+    """Get Spec Submission Operation
 
     Args:
       extra_headers: Send extra headers
@@ -279,7 +284,7 @@ class Ingestion(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkIngestionOperationPage:
-    """Items
+    """List Spec Submission Items
 
     Args:
       extra_headers: Send extra headers

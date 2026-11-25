@@ -1,3 +1,5 @@
+#include <cctype>
+
 #include "binder/binder.h"
 #include "binder/bound_import_database.h"
 #include "common/copier_config/csv_reader_config.h"
@@ -109,6 +111,88 @@ static std::string stripIcebugStorageClauses(const std::string& schema) {
     return result;
 }
 
+// Databases exported before setval existed restore a SERIAL counter by dropping the sequence that
+// CREATE TABLE just made and creating it again at the saved value:
+//     DROP SEQUENCE IF EXISTS `t_id_serial`;
+//     CREATE SEQUENCE IF NOT EXISTS `t_id_serial` START 5 INCREMENT 1 MINVALUE 0
+//         MAXVALUE 9223372036854775807 NO CYCLE;
+//     RETURN nextval('t_id_serial');
+// A sequence that belongs to a SERIAL column cannot be dropped, so the triple is rewritten to the
+// equivalent RETURN setval('t_id_serial', 5). Only the exact triple EXPORT wrote, for a name that a
+// CREATE TABLE in the same schema derives from a SERIAL column, is rewritten. Windows line endings
+// are normalized to "\n" first, so a schema.cypher that went through a CRLF checkout still matches.
+// (This parses the schema once more than getNativeCopyStatements does; schemas are small, so the
+// parsed statements are not shared between the two.)
+static std::string mapLegacySerialRestore(const std::string& schema) {
+    if (schema.empty()) {
+        return schema;
+    }
+    // Strip every '\r': a CRLF file written through a Windows text-mode stream gains an extra
+    // '\r' per line ("\r\n" becomes "\r\r\n"), so skipping only "\r" before "\n" leaves a
+    // stray "\r" behind and the triple below no longer matches.
+    std::string result;
+    result.reserve(schema.size());
+    for (char c : schema) {
+        if (c == '\r') {
+            continue;
+        }
+        result += c;
+    }
+    std::vector<std::string> serialNames;
+    for (auto& parsedStatement : Parser::parseQuery(result)) {
+        if (parsedStatement->getStatementType() != StatementType::CREATE_TABLE) {
+            continue;
+        }
+        const auto& info = *parsedStatement->constCast<CreateTable>().getInfo();
+        for (auto& property : info.propertyDefinitions) {
+            if (StringUtils::getUpper(property.getType()) == "SERIAL") {
+                serialNames.push_back(
+                    std::format("{}_{}_serial", info.tableName, property.getName()));
+            }
+        }
+    }
+    for (auto& name : serialNames) {
+        const auto quoted = StringUtils::quoteIdentifier(name);
+        const auto head = std::format("DROP SEQUENCE IF EXISTS {};\n"
+                                      "CREATE SEQUENCE IF NOT EXISTS {} START ",
+            quoted, quoted);
+        // Older exports wrote the name into the string literal as is; escape it the way the
+        // current exporter does as well.
+        const auto tailStart = std::string(" INCREMENT 1 MINVALUE 0 MAXVALUE 9223372036854775807 "
+                                           "NO CYCLE;\nRETURN nextval(");
+        const std::string tails[] = {tailStart + "'" + name + "');",
+            tailStart + StringUtils::quoteStringLiteral(name) + ");"};
+        size_t from = 0;
+        size_t pos;
+        while ((pos = result.find(head, from)) != std::string::npos) {
+            const auto valueStart = pos + head.size();
+            auto valueEnd = valueStart;
+            while (valueEnd < result.size() &&
+                   std::isdigit(static_cast<unsigned char>(result[valueEnd]))) {
+                valueEnd++;
+            }
+            const std::string* tail = nullptr;
+            for (auto& candidate : tails) {
+                if (valueEnd != valueStart &&
+                    result.compare(valueEnd, candidate.size(), candidate) == 0) {
+                    tail = &candidate;
+                    break;
+                }
+            }
+            if (tail == nullptr) {
+                from = valueStart;
+                continue;
+            }
+            const auto replacement =
+                std::format("RETURN setval({}, {});", StringUtils::quoteStringLiteral(name),
+                    result.substr(valueStart, valueEnd - valueStart));
+            result.replace(pos, valueEnd + tail->size() - pos, replacement);
+            from = pos + replacement.size();
+        }
+    }
+    return result;
+}
+
 // Generates COPY statements that ingest the exported parquet data files into the native
 // tables created by the (stripped) schema.cypher statements. The exported layout is
 // nodes_<table>.parquet for node tables and rels_<rel>.parquet (from/to primary-key
@@ -132,18 +216,17 @@ static std::string getNativeCopyStatements(VirtualFileSystem* vfs, const std::st
         if (!vfs->fileOrPathExists(vfs->joinPath(boundFilePath, dataFile), context)) {
             continue;
         }
-        // Explicit column list for node tables (covers SERIAL pk values, which COPY FROM
-        // would otherwise auto-generate). Rel tables rely on positional binding: the flat
-        // file already stores from/to key columns followed by properties in schema order.
+        // Explicit property list, so that SERIAL values in the data file are read back instead of
+        // being auto-generated (COPY FROM would otherwise expect no column for them). For rel
+        // tables the list names the properties only: the flat file already stores the from/to
+        // key columns first, which COPY binds by position.
         std::string columns;
-        if (!isRel) {
-            std::vector<std::string> columnList;
-            for (auto& property : info.propertyDefinitions) {
-                columnList.push_back(StringUtils::quoteIdentifier(property.getName()));
-            }
-            if (!columnList.empty()) {
-                columns = std::format(" ({})", StringUtils::join(columnList, ", "));
-            }
+        std::vector<std::string> columnList;
+        for (auto& property : info.propertyDefinitions) {
+            columnList.push_back(StringUtils::quoteIdentifier(property.getName()));
+        }
+        if (!columnList.empty()) {
+            columns = std::format(" ({})", StringUtils::join(columnList, ", "));
         }
         copies += std::format("COPY {}{} FROM \"{}\";\n",
             StringUtils::quoteIdentifier(info.tableName), columns, filePath);
@@ -184,6 +267,7 @@ std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement
     std::string finalQueryStatements;
     auto schemaQuery =
         getQueryFromFile(fs, boundFilePath, PortDBConstants::SCHEMA_FILE_NAME, clientContext);
+    schemaQuery = mapLegacySerialRestore(schemaQuery);
     if (!mountIcebug) {
         schemaQuery = stripIcebugStorageClauses(schemaQuery);
         finalQueryStatements += schemaQuery;

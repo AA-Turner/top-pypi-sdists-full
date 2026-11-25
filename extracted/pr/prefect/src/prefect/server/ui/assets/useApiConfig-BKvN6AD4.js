@@ -1,0 +1,1 @@
+import{i as e}from"./usePrefectApi-Dn46CP0C.js";import{i as t}from"./index-DYMEosrp.js";async function n(n){let r=await e.get(`apiUrl`,void 0,n),i={baseUrl:r};return r.startsWith(`/`)&&t()===`development`&&(i.baseUrl=`http://127.0.0.1:4200${r}`),{config:i}}export{n as t};

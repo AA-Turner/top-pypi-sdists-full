@@ -4236,7 +4236,6 @@ def dispatch_review(
     diff_fetcher=None,
     commits_ahead_checker=None,
     commit_messages_fetcher=None,
-    compare_files_fetcher=None,
     compare_diff_fetcher=None,
     gate_a_manifest_fetcher=None,
     exempt_dependency_issue_is_closed_fetcher=None,
@@ -4294,21 +4293,25 @@ def dispatch_review(
     never shells out to a live ``gh``. Fail-open: an exception here yields an
     empty list, never a blocked dispatch.
 
-    *compare_files_fetcher* is an optional ``(repo_github: str, base: str,
-    head: str) -> list[str] | None`` callable (#3196) and *compare_diff_fetcher*
-    the matching ``(repo_github: str, base: str, head: str) -> str | None``
-    one. Default to :func:`coord.github_ops.get_compare_files` /
-    :func:`coord.github_ops.get_compare_diff` respectively; inject stubs in
-    tests. Together they cross-check *diff_fetcher*'s output (see the #3196
-    comment at the call site below) — ``gh pr diff`` resolves against
-    GitHub's PR-object diff computation, which a live incident showed can
-    disagree with the branch's real three-dot compare and surface an
+    *compare_diff_fetcher* is an optional ``(repo_github: str, base: str,
+    head: str) -> str | None`` callable (#3196, widened by #4106). Defaults
+    to :func:`coord.github_ops.get_compare_diff`; inject a stub in tests.
+    It cross-checks *diff_fetcher*'s output (see the #3196 comment at the
+    call site below) — ``gh pr diff`` resolves against GitHub's PR-object
+    diff computation, which can disagree with the branch's real three-dot
+    compare both in which files it names (a live incident surfaced an
     unrelated, already-merged commit's file as if this branch had touched
-    it. The compare API, queried directly with *base_branch*/
-    ``completed.branch`` (ref names GitHub always resolves to their current
-    tips), can't carry that same staleness, so it is the arbiter: any file
-    *diff_fetcher* claims that a fresh compare doesn't corroborate makes its
-    whole diff untrustworthy, and the compare's own diff replaces it outright.
+    it) and, separately, in its CONTENT even when the file set agrees (an
+    operator hand push the PR object hasn't caught up to yet, #4106 —
+    *diff_fetcher*'s head-commit field moves in lockstep with the branch's
+    real tip on a hand push, so comparing recorded SHAs can never observe
+    this; only the diff's own text can). The compare API, queried directly
+    with *base_branch*/``completed.branch`` (ref names GitHub always
+    resolves to their current tips), can't carry either staleness, so it is
+    the arbiter: any file *diff_fetcher* claims that a fresh compare doesn't
+    corroborate, or any content disagreement even when the file sets match,
+    makes its whole diff untrustworthy, and the compare's own diff (already
+    fetched to do the cross-check) replaces it outright.
 
     *gate_a_manifest_fetcher* is an optional ``(repo_github: str, path: str,
     branch: str) -> str`` callable (#3202), the ``file_fetcher`` passed
@@ -4442,7 +4445,9 @@ def dispatch_review(
         (
             a for a in list(board.active) + list(board.completed)
             if a.review_scoped_work_id == completed.assignment_id
-            and review_covers(a, completed.assignment_id, include_dead=False)
+            and review_covers(
+                a, completed.assignment_id, include_dead=False, board=board,
+            )
         ),
         None,
     )
@@ -4815,54 +4820,78 @@ def dispatch_review(
             except Exception:  # noqa: BLE001 — fail-safe: missing diff is not blocking
                 full_diff_text = None
 
-        # #3196: cross-check `pr_diff`'s file list against a fresh, explicit
-        # compare of the branch's own current refs before trusting it. A
-        # reviewer was briefed with a diff that showed CLAUDE.md as changed
-        # when the PR never touched it — content from an earlier, already-
-        # merged commit (this repo's seed commit) leaking in because `gh pr
-        # diff` resolves through GitHub's PR-object diff computation, which
-        # can disagree with the branch's real merge-base diff (async lag, or
-        # a rewritten base branch). `get_compare_files` queries the compare
-        # API directly with `base_branch`/`completed.branch` — ref *names*,
-        # which GitHub always resolves fresh to their current tips — so it
-        # can't carry that same staleness. Any file `full_diff_text` claims
-        # that this compare doesn't corroborate makes the whole diff
-        # untrustworthy (not just that one file — a diff computed against
-        # the wrong base is wrong throughout), so it's replaced outright by
-        # the compare's own diff rather than patched.
+        # #3196 (widened by #4106): cross-check `pr_diff`'s output — both its
+        # claimed file set AND its content — against a single fresh, direct
+        # compare of the branch's own current refs before trusting it.
+        # `get_compare_diff` is queried with `base_branch`/`completed.branch`
+        # — ref *names*, which GitHub always resolves fresh to their current
+        # tips — so it can't carry `pr_diff`'s own staleness, whichever shape
+        # that takes:
+        #
+        # - #3196: a reviewer was briefed with a diff that showed CLAUDE.md
+        #   as changed when the PR never touched it — content from an
+        #   earlier, already-merged commit (this repo's seed commit) leaking
+        #   in because `gh pr diff` resolves through GitHub's PR-object diff
+        #   computation, which can disagree with the branch's real
+        #   merge-base diff (async lag, or a rewritten base branch).
+        # - #4106: a drive resumed on a PR that was hand-pushed to AFTER the
+        #   work row being reviewed left the branch at an older commit. The
+        #   hand push rarely touches a file set the earlier commit didn't
+        #   already touch, so a file-list-only cross-check agrees with
+        #   `pr_diff` even though `pr_diff`'s content still reflects the PR
+        #   object's last-computed commit, not the branch's current tip —
+        #   and the PR object's own recorded head-commit field moves in
+        #   lockstep with the branch tip on a hand push, so comparing
+        #   recorded SHAs can never observe this either; only the diff's own
+        #   text can. Mirrors `coord.merge_queue.has_approved_review`'s own
+        #   "re-read the live branch, never trust a recorded value" posture
+        #   one stage earlier, at dispatch time rather than at merge time.
+        #
+        # Any file `full_diff_text` claims that this compare doesn't
+        # corroborate, or any content disagreement even once the file sets
+        # agree, makes the whole diff untrustworthy (not just one file or
+        # one hunk — a diff computed against the wrong commit is wrong
+        # throughout), so it's replaced outright by the compare's own diff
+        # (already fetched to run this check) rather than patched.
         #
         # #2364: skip entirely when `pr` is `None` — `full_diff_text` above
         # already came straight from `get_compare_diff`/*compare_diff_fetcher*,
         # the exact source this cross-check would otherwise fetch again to
-        # corroborate it against. Re-running it would just spend two more
-        # `gh` calls to confirm a diff agrees with itself.
+        # corroborate it against. Re-running it would just spend another
+        # `gh` call to confirm a diff agrees with itself.
         if full_diff_text and pr:
-            _compare_files = compare_files_fetcher or github_ops.get_compare_files
+            _compare_diff_check = compare_diff_fetcher or github_ops.get_compare_diff
             try:
-                known_files = _compare_files(repo.github, base_branch, completed.branch)
+                compare_diff_text = _compare_diff_check(
+                    repo.github, base_branch, completed.branch
+                )
             except Exception:  # noqa: BLE001 — fail-open: cross-check unavailable, trust pr_diff
-                known_files = None
-            if known_files is not None:
-                known_files_set = set(known_files)
+                compare_diff_text = None
+            if compare_diff_text is not None:
+                known_files_set = set(github_ops.diff_file_paths(compare_diff_text))
                 claimed_files = set(github_ops.diff_file_paths(full_diff_text))
                 # #3196 review: a pure rename (`diff --git a/old b/new`, no
                 # content change) makes `diff_file_paths` report BOTH `old`
                 # and `new` as "touched" — the a/b-side header line alone
                 # carries no signal they're the same content moving, exactly
                 # as `diff_pure_renames`'s own docstring documents for the
-                # sealed-tamper carve-out below. GitHub's compare API only
-                # ever reports the NEW path under `.files[].filename`
-                # (`previous_filename` is a separate field this cross-check
-                # doesn't read), so an unfiltered comparison would flag the
-                # old side of every rename-containing PR as "unexpected" and
-                # replace a diff that was never stale. Drop the old side of
-                # any pure rename whose new side the compare confirms before
-                # deciding anything is actually unexpected.
+                # sealed-tamper carve-out below. `compare_diff_text` runs
+                # through the same `diff_file_paths` parsing as
+                # `full_diff_text`, so it normally reports the old side too
+                # for a genuine, unmodified rename — this exclusion is
+                # defense-in-depth for the case where it doesn't (GitHub
+                # rendering a rename differently between the two diff
+                # endpoints, or the old side legitimately absent because the
+                # compare's own content has moved on further than the
+                # rename). Drop the old side of any pure rename whose new
+                # side the compare confirms before deciding anything is
+                # actually unexpected.
                 renamed_old_paths = {
                     old for old, new in github_ops.diff_pure_renames(full_diff_text)
                     if new in known_files_set
                 }
                 unexpected = claimed_files - known_files_set - renamed_old_paths
+                stale_content = full_diff_text != compare_diff_text
                 if unexpected:
                     log.warning(
                         "[review] %s: diff_fetcher reported file(s) %s not "
@@ -4871,13 +4900,17 @@ def dispatch_review(
                         completed.assignment_id, sorted(unexpected),
                         base_branch, completed.branch,
                     )
-                    _compare_diff = compare_diff_fetcher or github_ops.get_compare_diff
-                    try:
-                        replacement = _compare_diff(repo.github, base_branch, completed.branch)
-                    except Exception:  # noqa: BLE001 — fail-safe: keep original diff on error
-                        replacement = None
-                    if replacement is not None:
-                        full_diff_text = replacement
+                    full_diff_text = compare_diff_text
+                elif stale_content:
+                    log.warning(
+                        "[review] %s: diff_fetcher's content disagrees with a "
+                        "fresh compare(%s...%s) of the branch's live refs even "
+                        "though the file sets agree — likely a hand push after "
+                        "the PR object's diff was last computed (#4106); "
+                        "replacing with the compare diff",
+                        completed.assignment_id, base_branch, completed.branch,
+                    )
+                    full_diff_text = compare_diff_text
 
         diff_text = (
             github_ops.truncate_diff_text(full_diff_text) if full_diff_text is not None else None
@@ -5534,7 +5567,7 @@ def superseded_review_gap(
     ]
     if not reviews:
         return None
-    if any(review_covers(r, newest.assignment_id) for r in reviews):
+    if any(review_covers(r, newest.assignment_id, board=board) for r in reviews):
         return None
     latest = max(reviews, key=lambda a: (a.dispatched_at or 0.0, a.assignment_id or ""))
     # A review dispatched after the newest leg finished already saw its head
@@ -5610,7 +5643,7 @@ def heal_unreviewed_newest_work_legs(
             continue
         if newest_done_work_leg(board, c.repo_name, effective_issue_number(c)) is not c:
             continue
-        if any(review_covers(r, c.assignment_id) for r in pool):
+        if any(review_covers(r, c.assignment_id, board=board) for r in pool):
             continue
         head_ready_at = c.finished_at or c.dispatched_at or 0.0
         if any(
@@ -5871,7 +5904,7 @@ def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, n
             (
                 r.review_verdict
                 for r in board.active + board.completed
-                if review_covers(r, c.assignment_id)
+                if review_covers(r, c.assignment_id, board=board)
                 and r.review_verdict is not None
             ),
             None,
@@ -7122,7 +7155,9 @@ def newest_leg_already_reviewed(
     return any(
         a.assignment_id != prior_review.assignment_id
         and (a.dispatched_at or 0) > (prior_review.dispatched_at or 0)
-        and review_covers(a, newest.assignment_id, include_dead=False)
+        and review_covers(
+            a, newest.assignment_id, include_dead=False, board=board,
+        )
         for a in list(board.active) + list(board.completed)
     )
 

@@ -383,6 +383,7 @@ class BaseGenerateConfig(BaseModel):
     use_single_line_docstring: bool = False
     use_default_kwarg: bool = False
     apply_field_options_to_every_field: bool = False
+    apply_default_values_to_true_properties: bool = False
     deserialize_default_values: Sequence[DefaultValueType] = ()
     use_missing_sentinel: bool = False
     reuse_model: bool = False
@@ -428,6 +429,7 @@ class BaseGenerateConfig(BaseModel):
     intersect_allof_keywords: bool = False
     intersect_combined_schema_keywords: bool = False
     distribute_allof_over_unions: bool = False
+    distribute_allof_over_object_branches: bool = False
     intersect_merged_allof_members: bool = False
     read_allof_parents_as_their_models: bool = False
     read_allof_parents_in_mro_order: bool = False

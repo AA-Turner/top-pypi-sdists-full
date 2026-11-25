@@ -2,6 +2,7 @@
 
 import builtins
 import contextlib
+import json
 import shlex
 from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
@@ -16,6 +17,7 @@ from apm_cli.core.remediation import (
     MARKETPLACE_REF_UNRESOLVED,
     MCP_DEPENDENCY_DECLARED,
     REGISTRY_CANONICAL_UNRECORDED,
+    kept_note,
 )
 
 from ...bundle.local_bundle import looks_like_local_bundle
@@ -39,7 +41,12 @@ from ...models.dependency.selection import (
 from ...native_plugins.scopes import native_harnesses, native_source_current
 from ...utils.path_security import PathTraversalError, ensure_path_within, safe_rmtree
 from ...utils.paths import portable_relpath
-from .local_survivors import _surviving_local_refs_at_install_path
+from ...utils.realpath_win import release_held
+from .local_survivors import (
+    _reintegration_error_detail,
+    _surviving_local_refs_at_install_path,
+    read_survivor_direct_refs,
+)
 
 if TYPE_CHECKING:
     from ...core.deployment_ledger import DeploymentMaterializationSession
@@ -223,17 +230,6 @@ def _is_private_local_identity(value: str) -> bool:
     return value.startswith(("local:", "_local/")) or DependencyReference.is_local_path(value)
 
 
-def _reintegration_error_detail(
-    dependency: DependencyReference,
-    error: Exception,
-) -> str:
-    """Return verbose failure detail without exposing a local declaration."""
-    error_type = type(error).__name__
-    if dependency.is_local:
-        return error_type
-    return f"{error_type}: {error}"
-
-
 class _LocalRefreshLogger:
     """Redact declared source paths from local re-materialization failures."""
 
@@ -299,6 +295,7 @@ def _recover_local_refresh_backups(
         if install_path.exists():
             safe_rmtree(backup_path, apm_modules_dir)
             continue
+        release_held(backup_path)
         backup_path.rename(install_path)
         logger.progress(f"Recovered interrupted local materialization for _local/{target_name}")
 
@@ -404,6 +401,7 @@ def _activate_staged_local_refresh(
         raise LocalSurvivorRefreshError(
             "A stale local refresh backup must be recovered before activation."
         )
+    release_held(install_path)
     if install_path.exists():
         install_path.rename(backup_path)
     try:
@@ -416,54 +414,6 @@ def _activate_staged_local_refresh(
         ) from exc
     if backup_path.exists():
         safe_rmtree(backup_path, apm_modules_dir)
-
-
-def _read_survivor_direct_refs(apm_yml_path, packages_to_remove):
-    """Parse apm.yml's direct APM dependencies, excluding *packages_to_remove*.
-
-    Seeds the forward reachability walk (see
-    :func:`apm_cli.deps.reachability.compute_forward_reachable_keys`) with
-    the project's SURVIVING direct dependencies. For the real uninstall
-    path and ``--dry-run`` preview, *apm_yml_path* is still pre-edit.
-    Identity subtraction turns the pre-edit dependency list into the
-    correct post-removal survivor set, mirroring the identity
-    matching ``_validate_uninstall_packages`` already uses.
-
-    Returns ``(production_refs, dev_refs)`` so the walk can apply install's
-    ``is_dev`` rule. Returns empty lists -- never raises -- if *apm_yml_path* is ``None``,
-    missing, or malformed; the project's own manifest is a Step-1/3
-    concern here, not part of this walk's fail-closed contract, which
-    covers the manifests visited DURING the walk, not this seed step.
-    """
-    if apm_yml_path is None:
-        return [], []
-
-    removed_identities = builtins.set()
-    for pkg in packages_to_remove:
-        try:
-            removed_identities.add(_parse_dependency_entry(pkg).get_identity())
-        except (ValueError, TypeError, AttributeError, KeyError):
-            continue
-
-    import yaml
-
-    from ...utils.yaml_io import load_yaml
-
-    try:
-        data = load_yaml(apm_yml_path) or {}
-    except (FileNotFoundError, yaml.YAMLError):
-        return [], []
-
-    refs: dict[str, list] = {"dependencies": [], "devDependencies": []}
-    for section_name, section_refs in refs.items():
-        for dep_entry in data.get(section_name, {}).get("apm", []) or []:
-            try:
-                ref = _parse_dependency_entry(dep_entry)
-            except (ValueError, TypeError, AttributeError, KeyError):
-                continue
-            if ref.get_identity() not in removed_identities:
-                section_refs.append(ref)
-    return refs["dependencies"], refs["devDependencies"]
 
 
 def _warn_reachability_incomplete(reachability, logger):
@@ -507,7 +457,7 @@ def _uninstall_orphan_decision(
     candidate when that walk is incomplete. Only the real removal path may
     persist ``decision.repairs``; ``--dry-run`` stays read-only.
     """
-    direct_refs, dev_refs = _read_survivor_direct_refs(apm_yml_path, packages_to_remove)
+    direct_refs, dev_refs = read_survivor_direct_refs(apm_yml_path, packages_to_remove)
     decision = decide_orphan_removal(
         operation=OrphanOperation.UNINSTALL,
         roots=_removal_targets(packages_to_remove, lockfile) if lockfile else (),
@@ -871,9 +821,8 @@ def _validate_uninstall_packages(
             elif is_local and looks_like_local_bundle(Path(package)):
                 logger.error(
                     f"'{Path(package).name}' is a local bundle. Bundles "
-                    "installed with 'apm install <bundle>' are not recorded in apm.yml, "
-                    "and 'apm uninstall' cannot remove local-bundle content yet "
-                    "(tracked in #3887)."
+                    "installed with 'apm install <bundle>' are not recorded in apm.yml; "
+                    "uninstall them apart from other packages to remove their hooks."
                 )
             elif is_local:
                 logger.error(
@@ -1223,7 +1172,7 @@ def project_shrunk_selections(
         return {}
     from ...deps.reachability import declared_node_selections
 
-    direct_refs, dev_refs = _read_survivor_direct_refs(apm_yml_path, packages_to_remove)
+    direct_refs, dev_refs = read_survivor_direct_refs(apm_yml_path, packages_to_remove)
     declared = declared_node_selections(
         lockfile, apm_yml_path.parent, apm_modules_dir, direct_refs, dev_refs=dev_refs
     )
@@ -1349,6 +1298,7 @@ class IntegrationCleanupOutcome:
     failed_paths: list[str]
     error_count: int
     materialization_session: "DeploymentMaterializationSession | None" = None
+    package_failures: int = 0
 
     @property
     def complete(self) -> bool:
@@ -1730,6 +1680,7 @@ def _sync_integrations_after_uninstall(
             # Survivors redeploy exactly the selection install deployed (#3760).
             selection = effective_dependency_selection(dep_ref)
 
+            failures_before = reintegration_diagnostics.failed_package_count
             try:
                 integration_result = integrate_package_primitives(
                     pkg_info,
@@ -1755,10 +1706,18 @@ def _sync_integrations_after_uninstall(
                     f"Best-effort re-integration skipped for {pkg_id}. "
                     f"{INTEGRATED_FILES_STALE.sentence()}"
                 )
+                # Count the failed rebuild once so uninstall exits non-zero (#4954);
+                # an error the rebuild already recorded for it counts already.
+                if reintegration_diagnostics.failed_package_count == failures_before:
+                    reintegration_diagnostics.error(
+                        "Could not rebuild the surviving package's integrated files",
+                        package=pkg_id,
+                    )
                 logger.verbose_detail(
                     f"    Re-integration error: {_reintegration_error_detail(dep_ref, exc)}"
                 )
 
+    _warn_emptied_hook_files_kept(logger, result.get("kept_paths", []))
     reintegration_diagnostics.render_summary()
     return IntegrationCleanupOutcome(
         counts=counts,
@@ -1766,7 +1725,25 @@ def _sync_integrations_after_uninstall(
         failed_paths=failed_hook_paths,
         error_count=result.get("errors", 0),
         materialization_session=materialization_session,
+        package_failures=reintegration_diagnostics.failed_package_count,
     )
+
+
+def _warn_emptied_hook_files_kept(logger, kept_paths) -> None:
+    """Name each emptied hook file kept without deletion evidence and still hook-free (#4962)."""
+    for kept_path in sorted(kept_paths):
+        try:
+            data = json.loads(Path(kept_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and not data.get("hooks"):
+            logger.warning(
+                kept_note(
+                    kept_path,
+                    "it holds no hooks, but APM cannot show it created this file",
+                    "Delete it manually if it is no longer needed.",
+                )
+            )
 
 
 def _restage_changed_local_survivors(
@@ -1783,7 +1760,11 @@ def _restage_changed_local_survivors(
     hook whose local definition changed since approval is never re-judged.
     Returns the restaged lock keys; their lock rows record the new content hash.
     """
-    from ...install.phases.local_content import _copy_local_package, compute_local_package_hash
+    from ...install.phases.local_content import (
+        _copy_local_package,
+        compute_local_package_hash,
+        local_source_matches_copy,
+    )
 
     restaged: set[str] = set()
     for key, dep in sorted(lockfile.dependencies.items()):
@@ -1799,8 +1780,8 @@ def _restage_changed_local_survivors(
         except (OSError, ValueError, TypeError, PathTraversalError):
             continue
         # Judge the source against the materialized copy, not the lock row.
-        if not install_path.is_dir() or current == compute_local_package_hash(
-            install_path, framed=dep.content_hash_framed
+        if not install_path.is_dir() or local_source_matches_copy(
+            dep, source, install_path, source_hash=current
         ):
             continue
         staged_path = modules_dir / "_local" / f".apm-uninstall-refresh-{uuid4().hex}"
@@ -1965,6 +1946,8 @@ def _cleanup_stale_mcp(
     from apm_cli.integration.mcp_config_view import CurrentMcpConfigView
     from apm_cli.security.trust import McpAdmission
 
+    from .mcp_survivors import surviving_package_keys
+
     apm_modules_path = modules_dir if modules_dir is not None else Path.cwd() / APM_MODULES_DIR
     deploy_root = Path(project_root) if project_root is not None else Path.cwd()
     # A survivor the current gates no longer allow loses its servers, as on
@@ -1974,17 +1957,14 @@ def _cleanup_stale_mcp(
         lockfile, apm_modules_path, apm_package, deploy_root, user_scope=user_scope
     )
     denied = retirements.denied_packages if retirements is not None else {}
-    for key, why in sorted(denied.items()):
-        if logger is not None:
-            logger.warning(f"{key} is no longer allowed ({why}); removing its MCP servers")
     view = CurrentMcpConfigView.derive(
         apm_package,
         lockfile,
         apm_modules_path,
         admission=McpAdmission.for_project(deploy_root, user_scope=user_scope),
         logger=logger,
-        active_package_keys=(
-            frozenset(key for key in lockfile.dependencies if key not in denied) if denied else None
+        active_package_keys=surviving_package_keys(
+            lockfile, apm_package, apm_modules_path, denied, logger
         ),
     )
     # Uninstall never admits a server: only previously managed servers survive.

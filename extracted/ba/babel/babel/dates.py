@@ -146,9 +146,7 @@ def _get_datetime(instant: _Instant) -> datetime.datetime:
     True
 
     :param instant: date, time, datetime, integer, float or None
-    :type instant: date|time|datetime|int|float|None
     :return: a datetime
-    :rtype: datetime
     """
     if instant is None:
         return datetime.datetime.now(UTC).replace(tzinfo=None)
@@ -357,6 +355,57 @@ def get_era_names(
     return Locale.parse(locale or LC_TIME).eras[width]
 
 
+def get_relative_name(
+    field: str,
+    offset: int,
+    length: Literal['long', 'short', 'narrow'] = 'long',
+    locale: Locale | str | None = None,
+) -> str | None:
+    """Return the locale's literal name for a relative offset of a date field.
+
+    These are the CLDR ``<relative>`` strings such as "yesterday", "today",
+    "tomorrow" for ``field='day'``, or "last Monday"/"this Monday"/"next Monday"
+    for ``field='mon'``.
+
+    Returns ``None`` when the locale does not define a literal name for the
+    requested field/offset (in which case a phrase like "in 2 days" built
+    via :func:`format_timedelta` is typically the right fallback).
+
+    >>> get_relative_name('day', -1, locale='en')
+    'yesterday'
+    >>> get_relative_name('day', 1, locale='en')
+    'tomorrow'
+    >>> get_relative_name('day', -2, locale='de')
+    'vorgestern'
+    >>> get_relative_name('year', 1, locale='en')
+    'next year'
+    >>> get_relative_name('year', 1, length='short', locale='en')
+    'next yr.'
+    >>> get_relative_name('mon', 1, locale='en')
+    'next Monday'
+
+    Offsets without a literal name return ``None``:
+
+    >>> get_relative_name('day', 5, locale='en') is None
+    True
+
+    :param field: the date field, e.g. "day", "week", "month", "year",
+                  "hour", "minute", "second", "quarter", or a weekday
+                  abbreviation like "mon", "tue", etc.
+    :param offset: the offset from the current value of *field*.
+    :param length: "long", "short", or "narrow".
+    :param locale: a `Locale` object or a locale identifier.  Defaults to the
+                   system time locale.
+
+    .. versionadded:: 2.19
+    """
+    locale = Locale.parse(locale or LC_TIME)
+    date_fields = locale._data['date_fields']
+    key = field if length == 'long' else f'{field}-{length}'
+    data = date_fields.get(key) or date_fields.get(field) or {}
+    return data.get('relative', {}).get(offset)
+
+
 def get_date_format(
     format: _PredefinedTimeFormat = 'medium',
     locale: Locale | str | None = None,
@@ -420,6 +469,9 @@ def get_timezone_gmt(
     width: Literal['long', 'short', 'iso8601', 'iso8601_short'] = 'long',
     locale: Locale | str | None = None,
     return_z: bool = False,
+    # TODO(3.0): Make return_z kw-only too
+    *,
+    utc: bool = False,
 ) -> str:
     """Return the timezone associated with the given `datetime` object formatted
     as string indicating the offset from GMT.
@@ -447,6 +499,14 @@ def get_timezone_gmt(
     >>> get_timezone_gmt(dt, 'long', locale='fr_FR')
     'UTC-07:00'
 
+    Passing ``utc=True`` requests the localized equivalent of "UTC" instead of
+    "GMT":
+
+    >>> get_timezone_gmt(dt, locale='en', utc=True)
+    'UTC-07:00'
+    >>> get_timezone_gmt(dt, locale='ar', utc=True)
+    'التوقيت العالمي -07:00'
+
     .. versionadded:: 0.9
 
     :param datetime: the ``datetime`` object; if `None`, the current date and
@@ -455,24 +515,30 @@ def get_timezone_gmt(
     :param locale: the `Locale` object, or a locale string. Defaults to the system time locale.
     :param return_z: True or False; Function returns indicator "Z"
                      when local time offset is 0
+    :param utc: If ``True``, use the localized equivalent of "UTC" instead of
+                "GMT" in the long format. Only affects ``width='long'`` as
+                other widths have no GMT/UTC prefix.
+
+                .. versionadded:: 2.19
     """
     datetime = _ensure_datetime_tzinfo(_get_datetime(datetime))
     locale = Locale.parse(locale or LC_TIME)
 
     offset = datetime.tzinfo.utcoffset(datetime)
     seconds = offset.days * 24 * 60 * 60 + offset.seconds
-    hours, seconds = divmod(seconds, 3600)
-    if return_z and hours == 0 and seconds == 0:
+    if return_z and seconds == 0:
         return 'Z'
-    elif seconds == 0 and width == 'iso8601_short':
-        return '%+03d' % hours
+    sign = '-' if seconds < 0 else '+'
+    hours, seconds = divmod(abs(seconds), 3600)
+    if seconds == 0 and width == 'iso8601_short':
+        return '%s%02d' % (sign, hours)
     elif width == 'short' or width == 'iso8601_short':
-        pattern = '%+03d%02d'
+        pattern = '%s%02d%02d'
     elif width == 'iso8601':
-        pattern = '%+03d:%02d'
+        pattern = '%s%02d:%02d'
     else:
-        pattern = locale.zone_formats['gmt'] % '%+03d:%02d'
-    return pattern % (hours, seconds // 60)
+        pattern = locale.zone_formats['gmt_utc' if utc else 'gmt'] % '%s%02d:%02d'
+    return pattern % (sign, hours, seconds // 60)
 
 
 def get_timezone_location(
@@ -529,10 +595,10 @@ def get_timezone_location(
     territory = get_global('zone_territories').get(zone)
     if territory not in locale.territories:
         territory = 'ZZ'  # invalid/unknown
-    territory_name = locale.territories[territory]
+    territory_name = locale.territories.get(territory)
     if (
         not return_city
-        and territory
+        and territory_name
         and len(get_global('territory_zones').get(territory, [])) == 1
     ):
         return region_format % territory_name
@@ -546,13 +612,15 @@ def get_timezone_location(
         metazone_info = locale.meta_zones.get(metazone, {})
         if 'city' in metazone_info:
             city_name = metazone_info['city']
-        elif '/' in zone:
-            city_name = zone.split('/', 1)[1].replace('_', ' ')
         else:
-            city_name = zone.replace('_', ' ')
+            city_name = zone.rpartition('/')[2].replace('_', ' ')
 
     if return_city:
         return city_name
+    if territory_name is None:
+        # The locale has no name for the zone's region, not even for the
+        # "unknown region" fallback, so the region is left out.
+        return region_format % city_name
     return region_format % (
         fallback_format
         % {
@@ -767,6 +835,58 @@ def format_datetime(
         return parse_pattern(format).apply(datetime, locale)
 
 
+def format_relative_datetime(
+    relative_date: str,
+    time: datetime.time | datetime.datetime | float | None = None,
+    format: _PredefinedTimeFormat = 'medium',
+    tzinfo: datetime.tzinfo | None = None,
+    locale: Locale | str | None = None,
+) -> str:
+    """Combine a pre-formatted relative date with a time using the locale's
+    relative datetime pattern.
+
+    For instance, in English you might say "tomorrow at 3:30 PM" instead of
+    "tomorrow, 3:30 PM".
+
+    The caller supplies the relative date portion as a string
+    (such as "tomorrow" or "in 3 days"); this function formats the time and joins the two.
+
+    >>> from datetime import time
+    >>> format_relative_datetime('tomorrow', time(15, 30), locale='en', format='long')
+    'tomorrow at 3:30:00\u202fPM UTC'
+    >>> format_relative_datetime('morgen', time(15, 30), locale='de', format='long')
+    'morgen um 15:30:00 UTC'
+
+    When the locale does not define a relative pattern for the requested
+    width, its standard datetime pattern is used, as CLDR's root locale
+    aliases ``relative`` patterns to ``standard`` ones:
+
+    >>> format_relative_datetime('zítra', time(15, 30), locale='cs', format='short')
+    'zítra 15:30'
+
+    :param relative_date: the already-localized relative date string.
+    :param time: the time to combine with the relative date.
+                 If ``None`` the current time is used.
+    :param format: one of "full", "long", "medium", or "short".
+    :param tzinfo: the timezone to apply to the time for display.
+    :param locale: a `Locale` object or a locale identifier.
+                   Defaults to the system time locale.
+
+    .. versionadded:: 2.19
+    """
+    locale = Locale.parse(locale or LC_TIME)
+    pattern = (
+        locale.datetime_formats_relative.get(format)
+        or get_datetime_format(format, locale=locale)
+    )
+    return (
+        pattern
+        .replace("'", "")
+        .replace('{0}', format_time(time, format, tzinfo=tzinfo, locale=locale))
+        .replace('{1}', relative_date)
+    )
+
+
 def format_time(
     time: datetime.time | datetime.datetime | float | None = None,
     format: _PredefinedTimeFormat | str = 'medium',
@@ -870,7 +990,7 @@ def format_skeleton(
     >>> format_skeleton('GH', t, fuzzy=True, locale='fi_FI')  # GH is not in the Finnish locale and there is no close match, an error is thrown
     Traceback (most recent call last):
         ...
-    KeyError: None
+    KeyError: 'GH'
 
     After the skeleton is resolved to a pattern `format_datetime` is called so
     all timezone processing etc is the same as for that.
@@ -881,12 +1001,12 @@ def format_skeleton(
     :param tzinfo: the time-zone to apply to the time for display
     :param fuzzy: If the skeleton is not found, allow choosing a skeleton that's
                   close enough to it. If there is no close match, a `KeyError`
-                  is thrown.
+                  with the requested skeleton is thrown.
     :param locale: a `Locale` object or a locale identifier. Defaults to the system time locale.
     """
     locale = Locale.parse(locale or LC_TIME)
     if fuzzy and skeleton not in locale.datetime_skeletons:
-        skeleton = match_skeleton(skeleton, locale.datetime_skeletons)
+        skeleton = match_skeleton(skeleton, locale.datetime_skeletons) or skeleton
     format = locale.datetime_skeletons[skeleton]
     return format_datetime(datetime, format, tzinfo, locale)
 
@@ -983,7 +1103,7 @@ def format_timedelta(
         )
         format = 'long'
     if isinstance(delta, datetime.timedelta):
-        seconds = int((delta.days * 86400) + delta.seconds)
+        seconds = delta.total_seconds()
     else:
         seconds = delta
     locale = Locale.parse(locale or LC_TIME)
@@ -994,20 +1114,13 @@ def format_timedelta(
         if add_direction:
             # Try to find the length variant version first ("year-narrow")
             # before falling back to the default.
-            unit_rel_patterns = date_fields.get(f"{a_unit}-{format}") or date_fields[a_unit]
+            unit_rel_patterns = date_fields.get(f"{a_unit}-{format}") or date_fields.get(a_unit) or {}
             if seconds >= 0:
                 yield unit_rel_patterns['future']
             else:
                 yield unit_rel_patterns['past']
         a_unit = f"duration-{a_unit}"
-        unit_pats = unit_patterns.get(a_unit, {})
-        yield unit_pats.get(format)
-        # We do not support `<alias>` tags at all while ingesting CLDR data,
-        # so these aliases specified in `root.xml` are hard-coded here:
-        # <unitLength type="long"><alias source="locale" path="../unitLength[@type='short']"/></unitLength>
-        # <unitLength type="narrow"><alias source="locale" path="../unitLength[@type='short']"/></unitLength>
-        if format in ("long", "narrow"):
-            yield unit_pats.get("short")
+        yield unit_patterns.get(a_unit, {}).get(format)  # resolves aliases
 
     for unit, secs_per_unit in TIMEDELTA_UNITS:
         value = abs(seconds) / secs_per_unit
@@ -1253,6 +1366,21 @@ class ParseError(ValueError):
     pass
 
 
+def _expand_two_digit_year(year: int) -> int:
+    """Place a two-digit year within 80 years before and 20 years after today.
+
+    This is the rule ICU documents for parsing abbreviated years, see
+    https://unicode-org.github.io/icu-docs/apidoc/released/icu4j/com/ibm/icu/text/SimpleDateFormat.html
+    """
+    this_year = datetime.date.today().year
+    expanded = this_year - this_year % 100 + year
+    if expanded > this_year + 20:
+        return expanded - 100
+    if expanded <= this_year - 80:
+        return expanded + 100
+    return expanded
+
+
 def parse_date(
     string: str,
     locale: Locale | str | None = None,
@@ -1281,6 +1409,9 @@ def parse_date(
     datetime.date(2004, 4, 1)
     >>> parse_date('01.04.04', locale='de_DE', format='short')
     datetime.date(2004, 4, 1)
+
+    Two-digit years are placed within 80 years before and 20 years after
+    the current year.
 
     :param string: the string containing the date
     :param locale: a `Locale` object or a locale identifier
@@ -1325,12 +1456,17 @@ def parse_date(
     #        names, both in the requested locale, and english
 
     year = numbers[indexes['Y']]
-    year = 2000 + int(year) if len(year) == 2 else int(year)
+    year = _expand_two_digit_year(int(year)) if len(year) == 2 else int(year)
     month = int(numbers[indexes['M']])
     day = int(numbers[indexes['D']])
     if month > 12:
         month, day = day, month
-    return datetime.date(year, month, day)
+    try:
+        return datetime.date(year, month, day)
+    except ValueError as e:
+        raise ParseError(
+            f"'{string}' does not represent a valid date for format '{fmt.pattern}'",
+        ) from e
 
 
 def parse_time(
@@ -1383,19 +1519,28 @@ def parse_time(
     # TODO: support time zones
 
     # Check if the format specifies a period to be used;
-    # if it does, look for 'pm' to figure out an offset.
-    hour_offset = 0
-    if 'a' in format_str and 'pm' in string.lower():
-        hour_offset = 12
+    # if it does, convert the hour from the 12-hour clock, on which
+    # 12 AM and 12 PM are 00:00 and 12:00 respectively.
+    hour = int(numbers[indexes['H']])
+    if 'a' in format_str:
+        if 'pm' in string.lower():
+            if hour != 12:
+                hour += 12
+        elif 'am' in string.lower() and hour == 12:
+            hour = 0
 
     # Parse up to three numbers from the string.
     minute = second = 0
-    hour = int(numbers[indexes['H']]) + hour_offset
     if len(numbers) > 1:
         minute = int(numbers[indexes['M']])
         if len(numbers) > 2:
             second = int(numbers[indexes['S']])
-    return datetime.time(hour, minute, second)
+    try:
+        return datetime.time(hour, minute, second)
+    except ValueError as e:
+        raise ParseError(
+            f"'{string}' does not represent a valid time for format '{fmt.pattern}'",
+        ) from e
 
 
 class DateTimePattern:
@@ -1457,6 +1602,8 @@ class DateTimeFormat:
             return self.format_day_of_year(num)
         elif char == 'F':
             return self.format_day_of_week_in_month()
+        elif char == 'g':
+            return self.format_julian_day(num)
         elif char in ('E', 'e', 'c'):
             return self.format_weekday(char, num)
         elif char in ('a', 'b', 'B'):
@@ -1594,6 +1741,33 @@ class DateTimeFormat:
     def format_day_of_week_in_month(self) -> str:
         return str((self.value.day - 1) // 7 + 1)
 
+    def format_julian_day(self, num: int) -> str:
+        """
+        Return the modified Julian day.
+
+        This is different from the conventional Julian day number:
+        - It demarcates days at local zone midnight, rather than noon GMT.
+        - It depends on the local time zone.
+
+        >>> from datetime import date
+        >>> format = DateTimeFormat(date(2016, 2, 28), 'cs_CZ')
+        >>> format.format_julian_day(1)
+        '2457447'
+
+        :param num: count of format character
+
+        """
+        # Python defines `dt.toordinal()` which gives us the Gregorian day for
+        # a given date. To compute the Julian day for a given date, we just
+        # need to know the offset between the Julian and Gregorian calendars.
+        # This offset can be computed by taking the `JAN_1_1_JULIAN_DAY`
+        # constant defined in ICU and subtracting `1` from it. This is because
+        # `date(1, 1, 1).toordinal() == 1` since January 1, 1 is the start of
+        # the Gregorian calendar.
+        # See: https://github.com/unicode-org/icu/blob/6d18ecab418ac4cf5a3f51ec3b69b77ba713d719/icu4j/main/core/src/main/java/com/ibm/icu/util/Calendar.java#L1136-L1141
+        JULIAN_DAY_OFFSET = 1721426 - 1
+        return self.format(self.value.toordinal() + JULIAN_DAY_OFFSET, num)
+
     def format_period(self, char: str, num: int) -> str:
         """
         Return period from parsed datetime according to format pattern.
@@ -1642,11 +1816,12 @@ class DateTimeFormat:
     def format_frac_seconds(self, num: int) -> str:
         """ Return fractional seconds.
 
-        Rounds the time's microseconds to the precision given by the number \
-        of digits passed in.
+        Truncates the time's microseconds to the number of digits passed in,
+        as specified by UTS #35.
         """
-        value = self.value.microsecond / 1000000
-        return self.format(round(value, num) * 10**num, num)
+        micro = self.value.microsecond
+        frac = micro // 10**(6 - num) if num <= 6 else micro * 10**(num - 6)
+        return self.format(frac, num)
 
     def format_milliseconds_in_day(self, num):
         msecs = (
@@ -1761,7 +1936,7 @@ PATTERN_CHARS: dict[str, list[int] | None] = {
     'Q': [1, 2, 3, 4, 5], 'q': [1, 2, 3, 4, 5],                         # quarter
     'M': [1, 2, 3, 4, 5], 'L': [1, 2, 3, 4, 5],                         # month
     'w': [1, 2], 'W': [1],                                              # week
-    'd': [1, 2], 'D': [1, 2, 3], 'F': [1], 'g': None,                   # day
+    'd': [1, 2, 3], 'D': [1, 2, 3], 'F': [1], 'g': None,                # day
     'E': [1, 2, 3, 4, 5, 6], 'e': [1, 2, 3, 4, 5, 6], 'c': [1, 3, 4, 5, 6],  # week day
     'a': [1, 2, 3, 4, 5], 'b': [1, 2, 3, 4, 5], 'B': [1, 2, 3, 4, 5],   # period
     'h': [1, 2], 'H': [1, 2], 'K': [1, 2], 'k': [1, 2],                 # hour
@@ -1834,8 +2009,6 @@ def tokenize_pattern(pattern: str) -> list[tuple[str, str | tuple[str, int]]]:
     For "field" tokens, the value is a tuple of (field character, repetition count).
 
     :param pattern: Pattern string
-    :type pattern: str
-    :rtype: list[tuple]
     """
     result = []
     quotebuf = None
@@ -1895,9 +2068,6 @@ def untokenize_pattern(tokens: Iterable[tuple[str, str | tuple[str, int]]]) -> s
     Turn a date format pattern token stream back into a string.
 
     This is the reverse operation of ``tokenize_pattern``.
-
-    :type tokens: Iterable[tuple]
-    :rtype: str
     """
     output = []
     for tok_type, tok_value in tokens:
@@ -1971,13 +2141,9 @@ def match_skeleton(
     'hmv'
 
     :param skeleton: The skeleton to match
-    :type skeleton: str
     :param options: An iterable of other skeletons to match against
-    :type options: Iterable[str]
     :param allow_different_fields: Whether to allow a match that uses different fields
                                    than the skeleton requested.
-    :type allow_different_fields: bool
-
     :return: The closest skeleton match, or if no match was found, None.
     :rtype: str|None
     """

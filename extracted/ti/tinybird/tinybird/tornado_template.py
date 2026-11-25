@@ -204,7 +204,7 @@ import re
 import threading
 from io import StringIO
 from types import MappingProxyType
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TextIO, Tuple, Union, cast
 
 from tornado import escape
 from tornado.log import app_log
@@ -212,8 +212,17 @@ from tornado.util import ObjectDict, exec_in, unicode_type
 
 from .context import disable_template_security_validation
 
+if TYPE_CHECKING:
+    from typing import ContextManager
+
 _DEFAULT_AUTOESCAPE = "xhtml_escape"
-_UNSET = object()
+
+
+class _UnsetMarker:
+    pass
+
+
+_UNSET = _UnsetMarker()
 
 # Pre-compiled regex patterns for whitespace filtering (performance optimization)
 _PATTERN_TAB_SPACE = re.compile(r"([\t ]+)")
@@ -221,7 +230,7 @@ _PATTERN_NEWLINE_SPACE = re.compile(r"(\s*\n\s*)")
 _PATTERN_ALL_WHITESPACE = re.compile(r"(\s+)")
 
 
-def filter_whitespace(mode, text):
+def filter_whitespace(mode: str, text: str) -> str:
     """Transform whitespace in ``text`` according to ``mode``.
 
     Available modes are:
@@ -257,13 +266,13 @@ class Template:
 
     def __init__(
         self,
-        template_string,
-        name="<string>",
-        loader=None,
-        compress_whitespace=_UNSET,
-        autoescape=_UNSET,
-        whitespace=None,
-    ):
+        template_string: Union[str, bytes],
+        name: str = "<string>",
+        loader: Optional["BaseLoader"] = None,
+        compress_whitespace: Union[bool, _UnsetMarker] = _UNSET,
+        autoescape: Optional[Union[str, _UnsetMarker]] = _UNSET,
+        whitespace: Optional[str] = None,
+    ) -> None:
         """Construct a Template.
 
         :arg str template_string: the contents of the template file.
@@ -326,7 +335,7 @@ class Template:
             app_log.warning("%s code:\n%s", self.name, formatted_code)
             raise
 
-    def generate(self, **kwargs):
+    def generate(self, **kwargs: Any) -> bytes:
         """Generate this template with the given arguments."""
         namespace = {
             "escape": escape.xhtml_escape,
@@ -341,21 +350,21 @@ class Template:
             # __name__ and __loader__ allow the traceback mechanism to find
             # the generated source code.
             "__name__": self.name.replace(".", "_"),
-            "__loader__": ObjectDict(get_source=lambda name: self.code),
+            "__loader__": ObjectDict(get_source=lambda _name: self.code),
         }
         namespace.update(self.namespace)
         namespace.update(kwargs)
         # Set last so neither the loader namespace nor kwargs can swap in the real builtins
         namespace["__builtins__"] = SAFE_BUILTINS
         exec_in(self.compiled, namespace)
-        execute = namespace["_tt_execute"]
+        execute = cast(Callable[[], bytes], namespace["_tt_execute"])
         # Clear the traceback module's cache of source data now that
         # we've generated a new template (mainly for this module's
         # unittests, where different tests reuse the same name).
         linecache.clearcache()
         return execute()
 
-    def _generate_python(self, loader):
+    def _generate_python(self, loader: Optional["BaseLoader"]) -> str:
         buffer = StringIO()
         try:
             # named_blocks maps from names to _NamedBlock objects
@@ -370,7 +379,7 @@ class Template:
         finally:
             buffer.close()
 
-    def _get_ancestors(self, loader):
+    def _get_ancestors(self, loader: Optional["BaseLoader"]) -> List["_File"]:
         ancestors = [self.file]
         for chunk in self.file.body.chunks:
             if isinstance(chunk, _ExtendsBlock):
@@ -389,7 +398,12 @@ class BaseLoader:
     templates after they are loaded the first time.
     """
 
-    def __init__(self, autoescape=_DEFAULT_AUTOESCAPE, namespace=None, whitespace=None):
+    def __init__(
+        self,
+        autoescape: Optional[str] = _DEFAULT_AUTOESCAPE,
+        namespace: Optional[Dict[str, Any]] = None,
+        whitespace: Optional[str] = None,
+    ) -> None:
         """Construct a template loader.
 
         :arg str autoescape: The name of a function in the template
@@ -408,7 +422,7 @@ class BaseLoader:
         self.autoescape = autoescape
         self.namespace = namespace or {}
         self.whitespace = whitespace
-        self.templates = {}
+        self.templates: Dict[str, Template] = {}
         # self.lock protects self.templates.  It's a reentrant lock
         # because templates may load other templates via `include` or
         # `extends`.  Note that thanks to the GIL this code would be safe
@@ -421,11 +435,11 @@ class BaseLoader:
         with self.lock:
             self.templates = {}
 
-    def resolve_path(self, name, parent_path=None):
+    def resolve_path(self, name: str, parent_path: Optional[str] = None) -> str:
         """Converts a possibly-relative path to absolute (used internally)."""
         raise NotImplementedError()
 
-    def load(self, name, parent_path=None):
+    def load(self, name: str, parent_path: Optional[str] = None) -> Template:
         """Loads a template."""
         name = self.resolve_path(name, parent_path=parent_path)
         with self.lock:
@@ -433,18 +447,18 @@ class BaseLoader:
                 self.templates[name] = self._create_template(name)
             return self.templates[name]
 
-    def _create_template(self, name):
+    def _create_template(self, name: str) -> Template:
         raise NotImplementedError()
 
 
 class Loader(BaseLoader):
     """A template loader that loads from a single root directory."""
 
-    def __init__(self, root_directory, **kwargs):
+    def __init__(self, root_directory: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.root = os.path.abspath(root_directory)
 
-    def resolve_path(self, name, parent_path=None):
+    def resolve_path(self, name: str, parent_path: Optional[str] = None) -> str:
         if (
             parent_path
             and not parent_path.startswith("<")
@@ -458,7 +472,7 @@ class Loader(BaseLoader):
                 name = relative_path[len(self.root) + 1 :]
         return name
 
-    def _create_template(self, name):
+    def _create_template(self, name: str) -> Template:
         path = os.path.join(self.root, name)
         with open(path, "rb") as f:
             return Template(f.read(), name=name, loader=self)
@@ -468,21 +482,21 @@ class _Node:
     def each_child(self):
         return ()
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         raise NotImplementedError()
 
-    def find_named_blocks(self, loader, named_blocks):
+    def find_named_blocks(self, loader: Optional[BaseLoader], named_blocks: Dict[str, "_NamedBlock"]) -> None:
         for child in self.each_child():
             child.find_named_blocks(loader, named_blocks)
 
 
 class _File(_Node):
-    def __init__(self, template, body):
+    def __init__(self, template: Template, body: "_ChunkList") -> None:
         self.template = template
         self.body = body
         self.line = 0
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         writer.write_line("def _tt_execute():", self.line)
         with writer.indent():
             writer.write_line("_tt_buffer = []", self.line)
@@ -495,10 +509,10 @@ class _File(_Node):
 
 
 class _ChunkList(_Node):
-    def __init__(self, chunks):
+    def __init__(self, chunks: List[_Node]) -> None:
         self.chunks = chunks
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         for chunk in self.chunks:
             chunk.generate(writer)
 
@@ -507,7 +521,7 @@ class _ChunkList(_Node):
 
 
 class _NamedBlock(_Node):
-    def __init__(self, name, body, template, line):
+    def __init__(self, name: str, body: _Node, template: Template, line: int) -> None:
         self.name = name
         self.body = body
         self.template = template
@@ -516,23 +530,23 @@ class _NamedBlock(_Node):
     def each_child(self):
         return (self.body,)
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         block = writer.named_blocks[self.name]
         with writer.include(block.template, self.line):
             block.body.generate(writer)
 
-    def find_named_blocks(self, loader, named_blocks):
+    def find_named_blocks(self, loader: Optional[BaseLoader], named_blocks: Dict[str, "_NamedBlock"]) -> None:
         named_blocks[self.name] = self
         _Node.find_named_blocks(self, loader, named_blocks)
 
 
 class _ExtendsBlock(_Node):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
 
 
 class _ControlBlock(_Node):
-    def __init__(self, statement, line, body=None):
+    def __init__(self, statement: str, line: int, body: _Node) -> None:
         if not disable_template_security_validation.get(False):
             check_valid_control_statement(statement)
         self.statement = statement
@@ -542,7 +556,7 @@ class _ControlBlock(_Node):
     def each_child(self):
         return (self.body,)
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         writer.write_line("%s:" % self.statement, self.line)
         with writer.indent():
             self.body.generate(writer)
@@ -551,39 +565,39 @@ class _ControlBlock(_Node):
 
 
 class _IntermediateControlBlock(_Node):
-    def __init__(self, statement, line):
+    def __init__(self, statement: str, line: int) -> None:
         if not disable_template_security_validation.get(False):
             check_valid_control_statement(statement)
         self.statement = statement
         self.line = line
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         # In case the previous block was empty
         writer.write_line("pass", self.line)
         writer.write_line("%s:" % self.statement, self.line, writer.indent_size() - 1)
 
 
 class _Statement(_Node):
-    def __init__(self, statement, line):
+    def __init__(self, statement: str, line: int) -> None:
         # Backs both {% set %} (statement is the part after "set") and {% break/continue %}
         if not disable_template_security_validation.get(False) and statement not in ("break", "continue"):
             check_valid_set_statement(statement)
         self.statement = statement
         self.line = line
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         writer.write_line(self.statement, self.line)
 
 
 class _Expression(_Node):
-    def __init__(self, expression, line, raw=False):
+    def __init__(self, expression: str, line: int, raw: bool = False) -> None:
         if not disable_template_security_validation.get(False):
             check_valid_code(expression)
         self.expression = expression
         self.line = line
         self.raw = raw
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         writer.write_line("_tt_tmp = %s" % self.expression, self.line)
         writer.write_line("if isinstance(_tt_tmp, _tt_string_types): _tt_tmp = _tt_utf8(_tt_tmp)", self.line)
         writer.write_line("else: _tt_tmp = _tt_utf8(str(_tt_tmp))", self.line)
@@ -595,12 +609,12 @@ class _Expression(_Node):
 
 
 class _Text(_Node):
-    def __init__(self, value, line, whitespace):
+    def __init__(self, value: str, line: int, whitespace: str) -> None:
         self.value = value
         self.line = line
         self.whitespace = whitespace
 
-    def generate(self, writer):
+    def generate(self, writer: "_CodeWriter") -> None:
         value = self.value
 
         # Compress whitespace if requested, with a crude heuristic to avoid
@@ -646,7 +660,9 @@ class ParseError(Exception):
        Added ``filename`` and ``lineno`` attributes.
     """
 
-    def __init__(self, message, filename=None, lineno=0, text=None):
+    def __init__(
+        self, message: str, filename: Optional[str] = None, lineno: int = 0, text: Optional[str] = None
+    ) -> None:
         self.message = message
         # The names "filename" and "lineno" are chosen for consistency
         # with python SyntaxError.
@@ -659,13 +675,18 @@ class ParseError(Exception):
 
 
 class _CodeWriter:
-    def __init__(self, file, named_blocks, loader, current_template):
+    def __init__(
+        self,
+        file: TextIO,
+        named_blocks: Dict[str, _NamedBlock],
+        loader: Optional[BaseLoader],
+        current_template: Template,
+    ) -> None:
         self.file = file
         self.named_blocks = named_blocks
         self.loader = loader
         self.current_template = current_template
-        self.apply_counter = 0
-        self.include_stack = []
+        self.include_stack: List[Tuple[Template, int]] = []
         self._indent = 0
 
     def indent_size(self):
@@ -677,13 +698,13 @@ class _CodeWriter:
                 self._indent += 1
                 return self
 
-            def __exit__(_, *args):
+            def __exit__(_, *args: object) -> None:
                 assert self._indent > 0
                 self._indent -= 1
 
         return Indenter()
 
-    def include(self, template, line):
+    def include(self, template: Template, line: int) -> "ContextManager[None]":
         self.include_stack.append((self.current_template, line))
         self.current_template = template
 
@@ -691,12 +712,12 @@ class _CodeWriter:
             def __enter__(_):
                 return self
 
-            def __exit__(_, *args):
+            def __exit__(_, *args: object) -> None:
                 self.current_template = self.include_stack.pop()[0]
 
         return IncludeTemplate()
 
-    def write_line(self, line, line_number, indent=None):
+    def write_line(self, line: str, line_number: int, indent: Optional[int] = None) -> None:
         if indent is None:
             indent = self._indent
         line_comment = "  # %s:%d" % (self.current_template.name, line_number)
@@ -707,14 +728,14 @@ class _CodeWriter:
 
 
 class _TemplateReader:
-    def __init__(self, name, text, whitespace):
+    def __init__(self, name: str, text: str, whitespace: str) -> None:
         self.name = name
         self.text = text
         self.whitespace = whitespace
         self.line = 1
         self.pos = 0
 
-    def find(self, needle, start=0, end=None):
+    def find(self, needle: str, start: int = 0, end: Optional[int] = None) -> int:
         assert start >= 0, start
         pos = self.pos
         start += pos
@@ -728,7 +749,7 @@ class _TemplateReader:
             index -= pos
         return index
 
-    def consume(self, count=None):
+    def consume(self, count: Optional[int] = None) -> str:
         if count is None:
             count = len(self.text) - self.pos
         newpos = self.pos + count
@@ -743,7 +764,7 @@ class _TemplateReader:
     def __len__(self):
         return self.remaining()
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Union[int, slice]) -> str:
         if type(key) is slice:
             size = len(self)
             start, stop, step = key.indices(size)
@@ -761,17 +782,22 @@ class _TemplateReader:
     def __str__(self):
         return self.text[self.pos :]
 
-    def raise_parse_error(self, msg):
+    def raise_parse_error(self, msg: str) -> None:
         raise ParseError(msg, self.name, self.line, self.text)
 
 
-def _format_code(code):
+def _format_code(code: str) -> str:
     lines = code.splitlines()
     format = "%%%dd  %%s\n" % len(repr(len(lines) + 1))
     return "".join([format % (i + 1, line) for (i, line) in enumerate(lines)])
 
 
-def _parse(reader: _TemplateReader, template, in_block=None, in_loop=None):
+def _parse(
+    reader: _TemplateReader,
+    template: Template,
+    in_block: Optional[str] = None,
+    in_loop: Optional[str] = None,
+) -> _ChunkList:
     body = _ChunkList([])
     while True:
         # Find next template directive
@@ -1014,7 +1040,7 @@ class SecurityException(Exception):
     pass
 
 
-def check_valid_code(code):
+def check_valid_code(code: str) -> None:
     """
     >>> check_valid_code('''888**99 / 888**999998''')
     Traceback (most recent call last):
@@ -1070,7 +1096,7 @@ def check_valid_code(code):
         check_valid_expr(expr)
 
 
-def check_valid_expr(expr):
+def check_valid_expr(expr: Optional[ast.AST]) -> None:
     while isinstance(expr, ast.Expr):
         expr = expr.value
     if isinstance(expr, ast.Call):
@@ -1090,6 +1116,8 @@ def check_valid_expr(expr):
         # Keyword values never went through the allowlist and customers call functions it doesn't list
         # there, so they only get the checks that block reaching interpreter internals
         for keyword in expr.keywords:
+            if keyword.arg is None:
+                _log_keyword_unpacking()
             for node in ast.walk(keyword.value):
                 _check_node_is_safe(node)
     elif isinstance(expr, ast.Constant):
@@ -1152,7 +1180,7 @@ def check_valid_expr(expr):
         check_valid_expr(expr.body)
         check_valid_expr(expr.orelse)
     else:
-        raise SecurityException(f"Invalid expression type: {ast.dump(expr)}")
+        raise SecurityException(f"Invalid expression type: {ast.dump(expr) if expr is not None else expr}")
 
 
 # Names that allow evaluating code, reflection or reading attributes by string. They are not part of
@@ -1257,6 +1285,16 @@ def _check_node_is_safe(node: ast.AST) -> None:
             raise SecurityException(f"Invalid name: {node.name}")
     elif isinstance(node, (ast.Yield, ast.YieldFrom, ast.Await)):
         raise SecurityException(f"Invalid expression type: {ast.dump(node)}")
+    elif isinstance(node, ast.keyword) and node.arg is None:
+        _log_keyword_unpacking()
+
+
+def _log_keyword_unpacking() -> None:
+    """Track ``**`` keyword unpacking in templates before it becomes invalid syntax.
+
+    Do not log the template text: it can contain user credentials.
+    """
+    app_log.warning("Template uses ** keyword unpacking")
 
 
 def _check_valid_statement_tree(tree: ast.Module, expected_statements: int, statement: str) -> None:

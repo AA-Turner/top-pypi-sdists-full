@@ -1,6 +1,10 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class ClientTokenStatus(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    Active: "ClientTokenStatus" = "active"
-    Revoked: "ClientTokenStatus" = "revoked"
+    Active: "ClientTokenStatus" = member("active")
+    Revoked: "ClientTokenStatus" = member("revoked")

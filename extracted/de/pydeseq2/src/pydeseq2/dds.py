@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from formulaic_contrasts import FormulaicContrasts  # type: ignore[import-untyped]
 from matplotlib.axes import Axes
+from scipy.interpolate import make_interp_spline
 from scipy.optimize import minimize
 from scipy.special import polygamma  # type: ignore
 from scipy.stats import f  # type: ignore
@@ -24,10 +25,13 @@ from pydeseq2.distributions import nb_nll
 from pydeseq2.inference import Inference
 from pydeseq2.misc import n_or_more_replicates
 from pydeseq2.misc import test_valid_counts
+from pydeseq2.plotting import make_rle_plot
 from pydeseq2.plotting import make_scatter
 from pydeseq2.preprocessing import deseq2_norm_fit
 from pydeseq2.preprocessing import deseq2_norm_transform
+from pydeseq2.stats import fit_local_regression
 from pydeseq2.stats import mean_absolute_deviation
+from pydeseq2.stats import predict_local_regression
 from pydeseq2.stats import trimmed_mean
 
 # Ignore AnnData's FutureWarning about implicit data conversion.
@@ -51,6 +55,7 @@ class DeseqDataSet(ad.AnnData):
     counts
         Raw counts.
         One column per gene, rows are indexed by sample barcodes.
+        Gene names must be unique.
     metadata
         DataFrame containing sample metadata.
         Must be indexed by sample barcodes.
@@ -58,52 +63,53 @@ class DeseqDataSet(ad.AnnData):
         Model design.
         Can be either a pandas DataFrame representing a design matrix, or a formulaic formula in the format ``'x + z'`` or ``'~x+z'``.
         If a design matrix is provided, DeseqStats built from this DeseqDataSet will only support contrasts in the form of numeric vectors.
-        (Default: ``'~condition')``.
     design_factors
         Depecated.
         An optional list of factors to include in the design matrix.
-        Will be removed in a future release. (default: ``None``).
+        Will be removed in a future release.
     continuous_factors
         Deprecated.
-        Continuous factors are now automatically detected from the design, or cast to categorical using the C() operator in the formula. (default: ``None``).
+        Continuous factors are now automatically detected from the design, or cast to categorical using the C() operator in the formula.
     ref_level
         Deprecated.
+        Set the reference level in the design instead, e.g. with ``'~C(condition, contr.treatment(base="B"))'``.
     fit_type
-        Either ``"parametric"`` or ``"mean"`` for the type of fitting of dispersions to the mean intensity. ``"parametric"``: fit a dispersion-mean relation via a robust gamma-family GLM. ``"mean"``: use the mean of gene-wise dispersion estimates.
+        Either ``"parametric"``, ``"mean"`` or ``"local"`` for the type of fitting of dispersions to the mean intensity. ``"parametric"``: fit a dispersion-mean relation via a robust gamma-family GLM. ``"mean"``: use the mean of gene-wise dispersion estimates. ``"local"``: fit a local regression of log dispersions over log means.
         Will set the fit type for the DEA and the vst transformation.
-        If needed, it can be set separately for each method.(default: ``"parametric"``).
+        If needed, it can be set separately for each method.
     size_factors_fit_type
-        The normalization method to use: ``"ratio"``, ``"poscounts"`` or ``"iterative"``. ``"ratio"``: fit size factors using the median-of-ratios method. ``"poscounts"``: fit size factors using the method implemented in DESeq2 for the case where there may be few or no genes which have no zero values. ``"iterative"``: fit size factors iteratively. (default: ``"ratio"``).
+        The normalization method to use: ``"ratio"``, ``"poscounts"`` or ``"iterative"``. ``"ratio"``: fit size factors using the median-of-ratios method. ``"poscounts"``: fit size factors using the method implemented in DESeq2 for the case where there may be few or no genes which have no zero values. ``"iterative"``: fit size factors iteratively.
     control_genes
         Genes to use as control genes for size factor fitting.
         If provided, size factors will be fit using only these genes.
         This is useful when certain genes are known to be invariant across conditions (e.g., housekeeping genes).
-        Any valid AnnData indexer (bool array, integer positions, or gene name strings) can be used. (default: ``None``).
+        Any valid AnnData indexer (bool array, integer positions, or gene name strings) can be used.
     min_mu
-        Threshold for mean estimates. (default: ``0.5``).
+        Threshold for mean estimates.
     min_disp
-        Lower threshold for dispersion parameters. (default: ``1e-8``).
+        Lower threshold for dispersion parameters.
     max_disp
         Upper threshold for dispersion parameters.
-        Note: The threshold that is actually enforced is max(max_disp, len(counts)). (default: ``10``).
+        Note: The threshold that is actually enforced is max(max_disp, len(counts)).
     refit_cooks
-        Whether to refit cooks outliers. (default: ``True``).
+        Whether to refit cooks outliers.
     min_replicates
-        Minimum number of replicates a condition should have to allow refitting its samples. (default: ``7``).
+        Minimum number of replicates a condition should have to allow refitting its samples.
     beta_tol
-        Stopping criterion for IRWLS. (default: ``1e-8``).
+        Stopping criterion for IRWLS.
 
         .. math:: \vert dev_t - dev_{t+1}\vert / (\vert dev \vert + 0.1) < \beta_{tol}.
     n_cpus
         Number of cpus to use.
         If ``None`` and if ``inference`` is not provided, all available cpus will be used by the ``DefaultInference``.
-        If both are specified (i.e., ``n_cpus`` and ``inference`` are not ``None``), it will try to override the ``n_cpus`` attribute of the ``inference`` object. (default: ``None``).
+        If both are specified (i.e., ``n_cpus`` and ``inference`` are not ``None``), it will try to override the ``n_cpus`` attribute of the ``inference`` object.
     inference
-        Implementation of inference routines object instance. (default: :class:`DefaultInference <pydeseq2.default_inference.DefaultInference>`).
+        Implementation of inference routines object instance.
+        If None, a :class:`DefaultInference <pydeseq2.default_inference.DefaultInference>` is used.
     quiet
         Suppress deseq2 status updates during fit, which are otherwise logged at the info level.
     low_memory
-        Remove intermediate data structures from .layers and from .obsm that are no longer necessary after they are used during deseq2 run, such as Cook's distances. (default: False)
+        Remove intermediate data structures from .layers and from .obsm that are no longer necessary after they are used during deseq2 run, such as Cook's distances.
 
     Attributes
     ----------
@@ -173,7 +179,7 @@ class DeseqDataSet(ad.AnnData):
         design_factors: str | list[str] | None = None,
         continuous_factors: list[str] | None = None,
         ref_level: list[str] | None = None,
-        fit_type: Literal["parametric", "mean"] = "parametric",
+        fit_type: Literal["parametric", "mean", "local"] = "parametric",
         size_factors_fit_type: Literal["ratio", "poscounts", "iterative"] = "ratio",
         control_genes: np.ndarray | list[str] | list[int] | pd.Index | None = None,
         min_mu: float = 0.5,
@@ -208,6 +214,9 @@ class DeseqDataSet(ad.AnnData):
         else:
             raise ValueError("Either adata or both counts and metadata arguments must be provided.")
 
+        if not self.var_names.is_unique:
+            raise ValueError("Gene names must be unique. Rename or aggregate the duplicated genes.")
+
         self.fit_type = fit_type
         self.design = design
 
@@ -222,7 +231,8 @@ class DeseqDataSet(ad.AnnData):
 
         if ref_level is not None:
             warnings.warn(
-                "ref_level is deprecated and no longer has any effect. It will beremoved in a future release.",
+                "ref_level is deprecated and no longer has any effect. It will be removed in a future release. "
+                "Set the reference level in the design instead, e.g. with '~C(condition, contr.treatment(base=\"B\"))'.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -247,6 +257,8 @@ class DeseqDataSet(ad.AnnData):
             self.formulaic_contrasts = FormulaicContrasts(self.obs, self.design)
             self.obsm["design_matrix"] = pd.DataFrame(self.formulaic_contrasts.design_matrix)
         else:
+            if not self.design.index.equals(self.obs_names):
+                raise ValueError("The index of the design matrix must match the sample names of the counts.")
             self.obsm["design_matrix"] = self.design
 
         if self.obsm["design_matrix"].isna().any().any():
@@ -254,6 +266,7 @@ class DeseqDataSet(ad.AnnData):
 
         # Check that the design matrix has full rank
         self._check_full_rank_design()
+        self._check_design_scale()
 
         self.min_mu = min_mu
         self.min_disp = min_disp
@@ -296,7 +309,7 @@ class DeseqDataSet(ad.AnnData):
     def vst(
         self,
         use_design: bool = False,
-        fit_type: Literal["parametric", "mean"] | None = None,
+        fit_type: Literal["parametric", "mean", "local"] | None = None,
     ) -> None:
         """Fit a variance stabilizing transformation, and apply it to normalized counts.
 
@@ -306,15 +319,14 @@ class DeseqDataSet(ad.AnnData):
         ----------
         use_design
             Whether to use the full design matrix to fit dispersions and the trend curve.
-            If False, only an intercept is used. (default: ``False``).
+            If False, only an intercept is used.
         fit_type
             * ``None``: fit_type provided at initialization to fit
               the dispersions trend curve.
             * ``"parametric"``: fit a dispersion-mean relation via a robust
               gamma-family GLM.
             * ``"mean"``: use the mean of gene-wise dispersion estimates.
-
-            (default: ``None``).
+            * ``"local"``: fit a local regression of log dispersions over log means.
         """
         if fit_type is not None:
             self.vst_fit_type = fit_type
@@ -342,7 +354,7 @@ class DeseqDataSet(ad.AnnData):
         use_design
             Whether to use the full design matrix to fit dispersions and the trend curve.
             If False, only an intercept is used.
-            Only useful if ``fit_type = "parametric"`. (default: ``False``).
+            Only useful if ``fit_type`` is ``"parametric"`` or ``"local"``.
         """
         # Start by fitting median-of-ratio size factors if not already present,
         # or if they were computed iteratively
@@ -355,9 +367,11 @@ class DeseqDataSet(ad.AnnData):
         if use_design:
             if self.vst_fit_type == "parametric":
                 self._fit_parametric_dispersion_trend(vst=True)
+            elif self.vst_fit_type == "local":
+                self._fit_local_dispersion_trend(vst=True)
             else:
                 warnings.warn(
-                    "use_design=True is only useful when fit_type='parametric'. ",
+                    "use_design=True is only useful when fit_type is 'parametric' or 'local'. ",
                     UserWarning,
                     stacklevel=2,
                 )
@@ -371,6 +385,8 @@ class DeseqDataSet(ad.AnnData):
             self.fit_genewise_dispersions(vst=True)
             if self.vst_fit_type == "parametric":
                 self._fit_parametric_dispersion_trend(vst=True)
+            elif self.vst_fit_type == "local":
+                self._fit_local_dispersion_trend(vst=True)
 
             # Restore the design matrix and free buffer
             self.obsm["design_matrix"] = self.obsm["design_matrix_buffer"].copy()
@@ -385,7 +401,7 @@ class DeseqDataSet(ad.AnnData):
         ----------
         counts
             Counts to transform.
-            If ``None``, use the counts from the current dataset. (default: ``None``).
+            If ``None``, use the counts from the current dataset.
 
         Returns
         -------
@@ -436,10 +452,14 @@ class DeseqDataSet(ad.AnnData):
             use_for_mean = gene_dispersions > 10 * self.min_disp
             mean_disp = trim_mean(gene_dispersions[use_for_mean], proportiontocut=0.001)
             return (2 * np.arcsinh(np.sqrt(mean_disp * normed_counts)) - np.log(mean_disp) - np.log(4)) / np.log(2)
+        elif self.vst_fit_type == "local":
+            return self._vst_transform_local(normed_counts)
         else:
-            raise NotImplementedError(f"Found fit_type '{self.vst_fit_type}'. Expected 'parametric' or 'mean'.")
+            raise NotImplementedError(
+                f"Found fit_type '{self.vst_fit_type}'. Expected 'parametric', 'mean' or 'local'."
+            )
 
-    def deseq2(self, fit_type: Literal["parametric", "mean"] | None = None) -> None:
+    def deseq2(self, fit_type: Literal["parametric", "mean", "local"] | None = None) -> None:
         """Perform dispersion and log fold-change (LFC) estimation.
 
         Wrapper for the first part of the PyDESeq2 pipeline.
@@ -448,9 +468,9 @@ class DeseqDataSet(ad.AnnData):
         Parameters
         ----------
         fit_type
-            Either None, ``"parametric"`` or ``"mean"`` for the type of fitting of dispersions to the mean intensity.``"parametric"``: fit a dispersion-mean relation via a robust gamma-family GLM. ``"mean"``: use the mean of gene-wise dispersion estimates.
+            Either None, ``"parametric"``, ``"mean"`` or ``"local"`` for the type of fitting of dispersions to the mean intensity.``"parametric"``: fit a dispersion-mean relation via a robust gamma-family GLM. ``"mean"``: use the mean of gene-wise dispersion estimates. ``"local"``: fit a local regression of log dispersions over log means.
 
-            If None, the fit_type provided at class initialization is used. (default: ``None``).
+            If None, the fit_type provided at class initialization is used.
         """
         if fit_type is not None:
             self.fit_type = fit_type
@@ -536,11 +556,11 @@ class DeseqDataSet(ad.AnnData):
         Parameters
         ----------
         fit_type
-            The normalization method to use: "ratio", "poscounts" or "iterative". (default: ``"ratio"``).
+            The normalization method to use: "ratio", "poscounts" or "iterative".
         control_genes
             Genes to use as control genes for size factor fitting.
             If None, all genes are used.
-            Note that manually passing control genes here will override the `DeseqDataSet` `control_genes` attribute. (default: ``None``).
+            Note that manually passing control genes here will override the `DeseqDataSet` `control_genes` attribute.
         """
         if fit_type is None:
             fit_type = self.size_factors_fit_type
@@ -638,7 +658,7 @@ class DeseqDataSet(ad.AnnData):
         Parameters
         ----------
         vst
-            Whether the dispersion estimates are being fitted as part of the VST pipeline. (default: ``False``).
+            Whether the dispersion estimates are being fitted as part of the VST pipeline.
         """
         # Check that size factors are available. If not, compute them.
         if "size_factors" not in self.obs:
@@ -679,6 +699,7 @@ class DeseqDataSet(ad.AnnData):
                 min_mu=self.min_mu,
                 beta_tol=self.beta_tol,
             )
+            mu_hat_ = np.maximum(mu_hat_, self.min_mu)
 
         mu_param_name = "_vst_mu_hat" if vst else "_mu_hat"
         disp_param_name = "vst_genewise_dispersions" if vst else "genewise_dispersions"
@@ -716,7 +737,7 @@ class DeseqDataSet(ad.AnnData):
         Parameters
         ----------
         vst
-            Whether the dispersion trend curve is being fitted as part of the VST pipeline. (default: ``False``).
+            Whether the dispersion trend curve is being fitted as part of the VST pipeline.
         """
         disp_param_name = "vst_genewise_dispersions" if vst else "genewise_dispersions"
         fit_type = self.vst_fit_type if vst else self.fit_type
@@ -733,8 +754,12 @@ class DeseqDataSet(ad.AnnData):
             self._fit_parametric_dispersion_trend(vst)
         elif fit_type == "mean":
             self._fit_mean_dispersion_trend(vst)
+        elif fit_type == "local":
+            self._fit_local_dispersion_trend(vst)
         else:
-            raise NotImplementedError(f"Expected 'parametric' or 'mean' trend curve fit types, received {fit_type}")
+            raise NotImplementedError(
+                f"Expected 'parametric', 'mean' or 'local' trend curve fit types, received {fit_type}"
+            )
         end = time.time()
 
         if not self.quiet:
@@ -746,6 +771,8 @@ class DeseqDataSet(ad.AnnData):
             return dispersion_trend(x, self.uns["trend_coeffs"])
         elif self.uns["disp_function_type"] == "mean":
             return np.full_like(x, self.uns["mean_disp"])
+        elif self.uns["disp_function_type"] == "local":
+            return np.exp(predict_local_regression(self.uns["local_trend"], np.log(np.asarray(x))))
 
     def fit_dispersion_prior(self) -> None:
         """Fit dispersion variance priors and standard deviation of log-residuals.
@@ -984,11 +1011,12 @@ class DeseqDataSet(ad.AnnData):
         else:
             cooks_outlier = (self.layers["cooks"][use_for_max, :] > cooks_cutoff).any(axis=0)
 
-        pos = self.layers["cooks"][:, cooks_outlier].argmax(0)
-
-        cooks_outlier[cooks_outlier] = (
-            self.X[:, cooks_outlier] > self.X[:, cooks_outlier][pos, np.arange(len(pos))]
-        ).sum(axis=0) < 3
+        design_matrix = self.obsm["design_matrix"]
+        if design_matrix.shape[1] == 2 and len(design_matrix.value_counts()) == 2:
+            pos = self.layers["cooks"][:, cooks_outlier].argmax(0)
+            cooks_outlier[cooks_outlier] = (
+                self.X[:, cooks_outlier] > self.X[:, cooks_outlier][pos, np.arange(len(pos))]
+            ).sum(axis=0) < 3
 
         if self.low_memory:
             del self.layers["cooks"]
@@ -1054,13 +1082,13 @@ class DeseqDataSet(ad.AnnData):
         Parameters
         ----------
         log
-            Whether to log scale x and y axes (``default=True``).
+            Whether to log scale x and y axes.
         save_path
             The path where to save the plot.
-            If left None, the plot won't be saved (``default=None``).
+            If left None, the plot won't be saved.
         ax
             The axes to plot on.
-            If left None, a new figure is created and shown (``default=None``).
+            If left None, a new figure is created and shown.
         **kwargs
             Keyword arguments for the scatter plot.
         """
@@ -1080,6 +1108,36 @@ class DeseqDataSet(ad.AnnData):
             **kwargs,
         )
 
+    def plot_rle(self, normalize: bool = True, save_path: str | None = None, ax: Axes | None = None, **kwargs) -> None:
+        """Plot the relative log expression (RLE) of each sample.
+
+        Make a box plot per sample of the log counts of each gene minus its median across samples.
+        Boxes centered on zero with similar spreads indicate that the samples are well normalized.
+
+        Parameters
+        ----------
+        normalize
+            Whether to plot normalized counts instead of raw counts.
+            Size factors are fitted first if needed.
+        save_path
+            The path where to save the plot.
+            If left None, the plot won't be saved.
+        ax
+            The axes to plot on.
+            If left None, a new figure is created and shown.
+        **kwargs
+            Keyword arguments for the box plot.
+        """
+        if normalize and "normed_counts" not in self.layers:
+            self.fit_size_factors(fit_type=self.size_factors_fit_type)
+        make_rle_plot(
+            self.layers["normed_counts"] if normalize else self.X,
+            sample_names=self.obs_names,
+            save_path=save_path,
+            ax=ax,
+            **kwargs,
+        )
+
     def _fit_parametric_dispersion_trend(self, vst: bool = False):
         r"""Fit the dispersion curve according to a parametric model.
 
@@ -1088,7 +1146,7 @@ class DeseqDataSet(ad.AnnData):
         Parameters
         ----------
         vst
-            Whether the dispersion trend curve is being fitted as part of the VST pipeline. (default: ``False``).
+            Whether the dispersion trend curve is being fitted as part of the VST pipeline.
         """
         disp_param_name = "vst_genewise_dispersions" if vst else "genewise_dispersions"
 
@@ -1150,7 +1208,7 @@ class DeseqDataSet(ad.AnnData):
         Parameters
         ----------
         vst
-            Whether the dispersion trend curve is being fitted as part of the VST pipeline. (default: ``False``).
+            Whether the dispersion trend curve is being fitted as part of the VST pipeline.
         """
         disp_param_name = "vst_genewise_dispersions" if vst else "genewise_dispersions"
 
@@ -1164,6 +1222,64 @@ class DeseqDataSet(ad.AnnData):
         else:
             self.uns["disp_function_type"] = "mean"
         self.var["fitted_dispersions"] = np.full(self.n_vars, self.uns["mean_disp"])
+
+    def _fit_local_dispersion_trend(self, vst: bool = False):
+        """Fit the dispersion curve with a local regression of log dispersions over log means.
+
+        Parameters
+        ----------
+        vst
+            Whether the dispersion trend curve is being fitted as part of the VST pipeline.
+        """
+        disp_param_name = "vst_genewise_dispersions" if vst else "genewise_dispersions"
+
+        if disp_param_name not in self.var:
+            self.fit_genewise_dispersions(vst)
+
+        use_for_fit = self.var[disp_param_name] > 100 * self.min_disp
+        normed_means = self.var.loc[use_for_fit, "_normed_means"].to_numpy()
+        trend = fit_local_regression(
+            np.log(normed_means), np.log(self.var.loc[use_for_fit, disp_param_name].to_numpy()), weights=normed_means
+        )
+
+        if vst:
+            self.uns["vst_local_trend"] = trend
+        else:
+            self.uns["local_trend"] = trend
+
+            self.var["fitted_dispersions"] = np.full(self.n_vars, np.nan)
+            self.uns["disp_function_type"] = "local"
+            self.var.loc[self.var["non_zero"], "fitted_dispersions"] = self.disp_function(
+                self.var.loc[self.var["non_zero"], "_normed_means"]
+            )
+
+    def _vst_transform_local(self, normed_counts: np.ndarray) -> np.ndarray:
+        """Apply the variance stabilizing transformation of a local dispersion trend.
+
+        The transformation has no closed form.
+        As in DESeq2, the inverse standard deviation is integrated numerically over a grid of normalized counts, and the integral is interpolated with a cubic spline.
+
+        Parameters
+        ----------
+        normed_counts
+            Normalized counts to transform.
+
+        Returns
+        -------
+        Variance stabilized counts.
+        """
+        fitted_counts = self.layers["normed_counts"]
+        grid = np.sinh(np.linspace(0, np.arcsinh(np.nanmax(fitted_counts)), 1000))[1:]
+        dispersions = np.exp(predict_local_regression(self.uns["vst_local_trend"], np.log(grid)))
+        integrand = 1 / np.sqrt(dispersions * grid**2 + np.mean(1 / self.obs["size_factors"]) * grid)
+        knots = np.arcsinh((grid[1:] + grid[:-1]) / 2)
+        integral = np.cumsum(np.diff(grid) * (integrand[1:] + integrand[:-1]) / 2)
+        left, right = ([(3, 6 * np.polyfit(knots[end], integral[end], 3)[0])] for end in (slice(4), slice(-4, None)))
+        spline = make_interp_spline(knots, integral, bc_type=(left, right))  # type: ignore[arg-type]
+
+        low, high = np.nanquantile(fitted_counts.mean(axis=0), [0.95, 0.999])
+        scale = (np.log2(high) - np.log2(low)) / (spline(np.arcsinh(high)) - spline(np.arcsinh(low)))
+        return scale * (spline(np.arcsinh(normed_counts)) - spline(np.arcsinh(low))) + np.log2(low)
 
     def _replace_outliers(self) -> None:
         """Replace values that are filtered out (based on Cooks) with imputed values."""
@@ -1282,6 +1398,8 @@ class DeseqDataSet(ad.AnnData):
             sub_dds.uns["trend_coeffs"] = self.uns["trend_coeffs"]
         elif sub_dds.uns["disp_function_type"] == "mean":
             sub_dds.uns["mean_disp"] = self.uns["mean_disp"]
+        elif sub_dds.uns["disp_function_type"] == "local":
+            sub_dds.uns["local_trend"] = self.uns["local_trend"]
         sub_dds.var["_normed_means"] = sub_dds.layers["normed_counts"].mean(axis=0)
         # Reshape in case there's a single gene to refit
         sub_dds.var["fitted_dispersions"] = sub_dds.disp_function(sub_dds.var["_normed_means"])
@@ -1317,9 +1435,9 @@ class DeseqDataSet(ad.AnnData):
         Parameters
         ----------
         niter
-            Maximum number of iterations to perform (default: ``10``).
+            Maximum number of iterations to perform.
         quant
-            Quantile value at which negative likelihood is cut in the optimization (default: ``0.95``).
+            Quantile value at which negative likelihood is cut in the optimization.
 
         """
         # Initialize size factors and normed counts fields
@@ -1331,17 +1449,14 @@ class DeseqDataSet(ad.AnnData):
         self.obsm["design_matrix"] = pd.DataFrame(1, index=self.obs_names, columns=["Intercept"])
 
         # Fit size factors using MLE
-        def objective(p):
+        def objective(p, counts, unscaled_mu, dispersions):
             sf = np.exp(p - np.mean(p))
-            nll = nb_nll(
-                counts=self[:, self.non_zero_genes].X,
-                mu=self[:, self.non_zero_genes].layers["_mu_hat"]
-                / self.obs["size_factors"].values[:, None]
-                * sf[:, None],
-                alpha=self.var.loc[self.non_zero_genes, "dispersions"].values,
-            )
+            mu = unscaled_mu * sf[:, None]
+            nll = nb_nll(counts=counts, mu=mu, alpha=dispersions)
             # Take out the lowest likelihoods (highest neg) from the sum
-            return np.sum(nll[nll < np.quantile(nll, quant)])
+            kept = nll < np.quantile(nll, quant)
+            gradient = ((mu - counts) / (1 + dispersions * mu))[:, kept].sum(axis=1)
+            return nll[kept].sum(), gradient - gradient.mean()
 
         for i in range(niter):
             # Estimate dispersions based on current size factors
@@ -1367,7 +1482,17 @@ class DeseqDataSet(ad.AnnData):
             old_sf = self.obs["size_factors"].copy()
 
             # Fit size factors using MLE
-            res = minimize(objective, np.log(old_sf), method="Powell")
+            res = minimize(
+                objective,
+                np.log(old_sf),
+                args=(
+                    self.X[:, self.non_zero_idx],
+                    self.layers["_mu_hat"][:, self.non_zero_idx] / old_sf.to_numpy()[:, None],
+                    self.var.loc[self.var["non_zero"], "dispersions"].to_numpy(),
+                ),
+                jac=True,
+                method="L-BFGS-B",
+            )
 
             self.obs["size_factors"] = np.exp(res.x - np.mean(res.x))
 
@@ -1400,4 +1525,18 @@ class DeseqDataSet(ad.AnnData):
                 "variables that are linear combinations of others.",
                 UserWarning,
                 stacklevel=2,
+            )
+
+    def _check_design_scale(self):
+        """Check that the columns of the design matrix do not take large values."""
+        design_matrix = self.obsm["design_matrix"]
+        large = design_matrix.columns[(design_matrix.mean().abs() > 5) | (design_matrix.std() > 5)]
+
+        if len(large) > 0:
+            warnings.warn(
+                f"The columns {list(large)} of the design matrix have a mean or a standard deviation "
+                "larger than 5, which can make the model fits overflow or fail to converge. "
+                "Please center and scale the corresponding continuous covariates.",
+                UserWarning,
+                stacklevel=3,
             )

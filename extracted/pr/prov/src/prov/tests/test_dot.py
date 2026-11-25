@@ -12,8 +12,14 @@ import pytest
 
 pydot = pytest.importorskip("pydot")
 
-from prov.dot import htlm_link_if_uri, prov_to_dot
-from prov.model import Identifier, ProvBundle, ProvDocument, ProvUnificationError
+from prov.dot import prov_to_dot
+from prov.model import (
+    Identifier,
+    ProvBundle,
+    ProvDocument,
+    ProvUnificationError,
+    ProvWarning,
+)
 from prov.tests import examples
 
 MIN_SVG_SIZE = 850
@@ -36,44 +42,25 @@ def test_svg_render(build) -> None:
     )
 
 
-# Covers dot.htlm_link_if_uri() (planning/test-gap-checklist.md, T13 item under
-# dot.py); not called internally by prov_to_dot() but a module-level function
-# usable by external callers.
+# Covers prov_to_dot()'s direction handling, including the BT fallback.
 
 
-def test_value_with_uri_becomes_a_link() -> None:
-    doc = ProvDocument()
-    doc.add_namespace("ex", "http://example.org/")
-    e1 = doc.entity("ex:e1")
-    result = htlm_link_if_uri(e1.identifier)
-    assert "<a href=" in result
-    assert "http://example.org/e1" in result
-
-
-def test_plain_value_returned_as_str() -> None:
-    assert htlm_link_if_uri("just a string") == "just a string"
-
-
-# Covers the direction-validation fallback in prov_to_dot() (docs/test-gap-
-# checklist.md, T13 item under dot.py).
-
-
-def test_invalid_direction_falls_back_to_bt() -> None:
+@pytest.mark.parametrize(
+    ("direction", "expected"),
+    [
+        pytest.param("SIDEWAYS", "BT", id="invalid-falls-back"),
+        pytest.param("LR", "LR", id="valid-kept"),
+    ],
+)
+def test_direction_sets_the_rank_direction_or_falls_back_to_bt(
+    direction: str, expected: str
+) -> None:
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
     doc.entity("ex:e1")
 
-    dot = prov_to_dot(doc, direction="SIDEWAYS")
-    assert dot.get_rankdir() == "BT"
-
-
-def test_valid_direction_is_preserved() -> None:
-    doc = ProvDocument()
-    doc.add_namespace("ex", "http://example.org/")
-    doc.entity("ex:e1")
-
-    dot = prov_to_dot(doc, direction="LR")
-    assert dot.get_rankdir() == "LR"
+    dot = prov_to_dot(doc, direction=direction)
+    assert dot.get_rankdir() == expected
 
 
 def test_use_labels_draws_the_label_over_the_identifier_or_the_identifier_once() -> (
@@ -99,9 +86,8 @@ def test_use_labels_draws_the_label_over_the_identifier_or_the_identifier_once()
 
 
 def test_show_element_attributes_false_skips_annotation() -> None:
-    """Covers prov_to_dot(show_element_attributes=False) (docs/test-gap-
-    checklist.md, T13 item under dot.py); every other test in this module
-    leaves it at its True default."""
+    """Covers prov_to_dot(show_element_attributes=False); every other test in
+    this module leaves it at its True default."""
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
     doc.entity("ex:e1", other_attributes={"ex:extra": "value"})
@@ -256,15 +242,14 @@ def test_sub_minute_utc_offset_attribute_is_rendered_as_utc() -> None:
 def test_anyuri_value_is_linked_and_shown_as_its_text() -> None:
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
-    doc.entity("ex:e", {"ex:v": Identifier("http://example.org/v")})
+    doc.entity("ex:e", {"ex:v": Identifier("http://example.org/target")})
     dot_text = prov_to_dot(doc).to_string()
-    assert 'href="http://example.org/v"' in dot_text
+    assert 'href="http://example.org/target"' in dot_text
+    assert ">http://example.org/target<" in dot_text
     assert "xsd:anyURI" not in dot_text
 
 
 def test_unset_endpoint_is_drawn_to_a_blank_node_with_a_warning() -> None:
-    from prov.model import ProvWarning
-
     document = ProvDocument()
     document.add_namespace("ex", "http://example.org/")
     document.entity("ex:e1")
@@ -276,8 +261,6 @@ def test_unset_endpoint_is_drawn_to_a_blank_node_with_a_warning() -> None:
 
 
 def test_unset_endpoint_inside_a_bundle_reports_the_prov_to_dot_call_site() -> None:
-    from prov.model import ProvWarning
-
     document = ProvDocument()
     document.add_namespace("ex", "http://example.org/")
     bundle = document.bundle("ex:b")

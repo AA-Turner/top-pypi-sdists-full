@@ -54,6 +54,8 @@ class BillingTransferParamsTypedDict(TypedDict):
     r"""The entity to move the plan to. Omit to move the plan to the customer level."""
     customer_plan_id: NotRequired[Nullable[str]]
     r"""The ID of the customer's plan instance, when several instances of plan_id match."""
+    swap: NotRequired[Nullable[bool]]
+    r"""Swap plans: the destination's active plan in the same group moves to the source in the same request."""
 
 
 class BillingTransferParams(BaseModel):
@@ -72,10 +74,17 @@ class BillingTransferParams(BaseModel):
     customer_plan_id: OptionalNullable[str] = UNSET
     r"""The ID of the customer's plan instance, when several instances of plan_id match."""
 
+    swap: OptionalNullable[bool] = UNSET
+    r"""Swap plans: the destination's active plan in the same group moves to the source in the same request."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["from_entity_id", "to_entity_id", "customer_plan_id"])
-        nullable_fields = set(["from_entity_id", "to_entity_id", "customer_plan_id"])
+        optional_fields = set(
+            ["from_entity_id", "to_entity_id", "customer_plan_id", "swap"]
+        )
+        nullable_fields = set(
+            ["from_entity_id", "to_entity_id", "customer_plan_id", "swap"]
+        )
         serialized = handler(self)
         m = {}
 

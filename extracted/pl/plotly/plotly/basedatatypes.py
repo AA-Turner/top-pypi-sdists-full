@@ -339,7 +339,7 @@ x1: float or int
     docstr += """
 exclude_empty_subplots: Boolean
     If True (default) do not place the shape on subplots that have no data
-    plotted on them.
+    plotted on them. Ignored when row and col select a single subplot.
 row: None, int or 'all'
     Subplot row for shape indexed starting at 1. If 'all', addresses all rows in
     the specified column(s). If both row and col are None, addresses the
@@ -4003,6 +4003,15 @@ Invalid property path '{key_path_str}' for layout
         augmented_annotation = shapeannotation.axis_spanning_shape_annotation(
             annotation, shape_type, shape_args, annotation_kwargs
         )
+        if (
+            row is not None
+            and col is not None
+            and (
+                not _is_select_subplot_coordinates_arg(row, col)
+                or len(self._select_subplot_coordinates(row, col)) == 1
+            )
+        ):
+            exclude_empty_subplots = False
         self.add_shape(
             row=row,
             col=col,
@@ -4694,24 +4703,27 @@ class BasePlotlyType(object):
             if isinstance(validator, CompoundValidator):
                 if self._compound_props.get(prop, None) is None:
                     # Init compound objects
-                    self._compound_props[prop] = validator.data_class(
-                        _parent=self, plotly_name=prop
-                    )
+                    child = validator.data_class(_parent=self, plotly_name=prop)
                     # Update plotly_name value in case the validator applies
                     # non-standard name (e.g. imagedefaults instead of image)
-                    self._compound_props[prop]._plotly_name = prop
+                    child._plotly_name = prop
+                    # Concurrent readers may both construct a child, but they
+                    # must use the first child published to the cache.
+                    self._compound_props.setdefault(prop, child)
 
                 return validator.present(self._compound_props[prop])
             elif isinstance(validator, (CompoundArrayValidator, BaseDataValidator)):
                 if self._compound_array_props.get(prop, None) is None:
                     # Init list of compound objects
                     if self._props is not None:
-                        self._compound_array_props[prop] = [
+                        children = [
                             validator.data_class(_parent=self)
                             for _ in self._props.get(prop, [])
                         ]
                     else:
-                        self._compound_array_props[prop] = []
+                        children = []
+                    # Keep every concurrent reader attached to the same list.
+                    self._compound_array_props.setdefault(prop, children)
 
                 return validator.present(self._compound_array_props[prop])
             elif self._props is not None and prop in self._props:

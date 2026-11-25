@@ -1,6 +1,10 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
 
 class NotificationOrigin(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    Event: "NotificationOrigin" = "event"
-    Replay: "NotificationOrigin" = "replay"
+    Event: "NotificationOrigin" = member("event")
+    Replay: "NotificationOrigin" = member("replay")

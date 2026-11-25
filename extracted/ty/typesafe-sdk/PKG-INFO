@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typesafe-sdk
-Version: 0.7.5
+Version: 0.7.6
 Summary: Python SDK for TypeSafe AI API.
 Keywords: typesafe,sdk,api,ai
 Author: TypeSafe AI
@@ -16,7 +16,6 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -33,11 +32,11 @@ Requires-Dist: tenacity>=9.0.0
 Requires-Dist: truststore>=0.10.0 ; sys_platform != 'emscripten'
 Requires-Dist: typing-extensions>=4.13.0
 Requires-Dist: httpx2[http2]>=2.0.0 ; extra == 'http2'
-Requires-Dist: pillow>=11.0.0 ; extra == 'pil'
+Requires-Dist: pillow>=13.0.0 ; extra == 'pil'
 Requires-Dist: backports-zstd>=1.0.0 ; python_full_version < '3.14' and extra == 'zstd'
 Maintainer: Daniel Gafni
 Maintainer-email: Daniel Gafni <daniel@typesafe.ai>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Homepage, https://typesafe.ai
 Project-URL: Documentation, https://docs.typesafe.ai/go/python-sdk
 Project-URL: Changelog, https://docs.typesafe.ai/go/python-changelog
@@ -73,7 +72,7 @@ from typesafe_sdk import Choice, TypeSafeClient
 
 with TypeSafeClient() as client:
     response = client.system_one(
-        state={"document": "I was charged twice. Please fix this ASAP."},
+        state={"ticket": "I was charged twice. Please fix this ASAP."},
         questions={
             "category": Choice(
                 instructions="What is this ticket about?",

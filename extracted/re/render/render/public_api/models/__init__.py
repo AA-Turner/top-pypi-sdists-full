@@ -34,8 +34,11 @@ from .build import Build
 from .build_clear_cache import BuildClearCache
 from .build_config import BuildConfig
 from .build_config_update import BuildConfigUpdate
+from .build_deploy import BuildDeploy
 from .build_deploy_end_reason import BuildDeployEndReason
 from .build_deploy_end_reason_id import BuildDeployEndReasonID
+from .build_deploy_input import BuildDeployInput
+from .build_deploy_service_scope import BuildDeployServiceScope
 from .build_deploy_trigger import BuildDeployTrigger
 from .build_ended import BuildEnded
 from .build_filter import BuildFilter
@@ -43,6 +46,8 @@ from .build_plan import BuildPlan
 from .build_run import BuildRun
 from .build_run_runtime import BuildRunRuntime
 from .build_run_status import BuildRunStatus
+from .build_skipped_service import BuildSkippedService
+from .build_skipped_service_reason import BuildSkippedServiceReason
 from .build_source import BuildSource
 from .build_source_git import BuildSourceGit
 from .build_source_git_region import BuildSourceGitRegion
@@ -58,6 +63,7 @@ from .build_source_service_link import BuildSourceServiceLink
 from .build_source_with_cursor import BuildSourceWithCursor
 from .build_started import BuildStarted
 from .build_with_cursor import BuildWithCursor
+from .build_with_deploys import BuildWithDeploys
 from .cache import Cache
 from .cache_profile import CacheProfile
 from .cidr_block_and_description import CidrBlockAndDescription
@@ -376,8 +382,10 @@ from .sandbox_credential_injection_type import SandboxCredentialInjectionType
 from .sandbox_credential_restore import SandboxCredentialRestore
 from .sandbox_credential_update import SandboxCredentialUpdate
 from .sandbox_credential_version import SandboxCredentialVersion
+from .sandbox_detail_response import SandboxDetailResponse
 from .sandbox_egress_rule import SandboxEgressRule
 from .sandbox_egress_rule_protocol import SandboxEgressRuleProtocol
+from .sandbox_exposed_port import SandboxExposedPort
 from .sandbox_group import SandboxGroup
 from .sandbox_group_patch import SandboxGroupPATCH
 from .sandbox_group_post import SandboxGroupPOST
@@ -386,6 +394,10 @@ from .sandbox_network_policy import SandboxNetworkPolicy
 from .sandbox_network_policy_post import SandboxNetworkPolicyPOST
 from .sandbox_network_policy_type import SandboxNetworkPolicyType
 from .sandbox_plan import SandboxPlan
+from .sandbox_port import SandboxPort
+from .sandbox_port_limit_error import SandboxPortLimitError
+from .sandbox_port_limit_error_code import SandboxPortLimitErrorCode
+from .sandbox_port_protocol import SandboxPortProtocol
 from .sandbox_post import SandboxPOST
 from .sandbox_post_env import SandboxPOSTEnv
 from .sandbox_shared_filesystem import SandboxSharedFilesystem
@@ -520,8 +532,11 @@ __all__ = (
     "BuildClearCache",
     "BuildConfig",
     "BuildConfigUpdate",
+    "BuildDeploy",
     "BuildDeployEndReason",
     "BuildDeployEndReasonID",
+    "BuildDeployInput",
+    "BuildDeployServiceScope",
     "BuildDeployTrigger",
     "BuildEnded",
     "BuildFilter",
@@ -529,6 +544,8 @@ __all__ = (
     "BuildRun",
     "BuildRunRuntime",
     "BuildRunStatus",
+    "BuildSkippedService",
+    "BuildSkippedServiceReason",
     "BuildSource",
     "BuildSourceGit",
     "BuildSourceGitRegion",
@@ -544,6 +561,7 @@ __all__ = (
     "BuildSourceWithCursor",
     "BuildStarted",
     "BuildWithCursor",
+    "BuildWithDeploys",
     "Cache",
     "CacheProfile",
     "CidrBlockAndDescription",
@@ -860,8 +878,10 @@ __all__ = (
     "SandboxCredentialRestore",
     "SandboxCredentialUpdate",
     "SandboxCredentialVersion",
+    "SandboxDetailResponse",
     "SandboxEgressRule",
     "SandboxEgressRuleProtocol",
+    "SandboxExposedPort",
     "SandboxGroup",
     "SandboxGroupPATCH",
     "SandboxGroupPOST",
@@ -870,6 +890,10 @@ __all__ = (
     "SandboxNetworkPolicyPOST",
     "SandboxNetworkPolicyType",
     "SandboxPlan",
+    "SandboxPort",
+    "SandboxPortLimitError",
+    "SandboxPortLimitErrorCode",
+    "SandboxPortProtocol",
     "SandboxPOST",
     "SandboxPOSTEnv",
     "SandboxSharedFilesystem",

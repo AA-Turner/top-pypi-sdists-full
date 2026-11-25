@@ -1,12 +1,17 @@
-from paddle_billing.ResponseParser import ResponseParser
+from requests import Response
 
-from paddle_billing.Entities.Collections import NotificationSettingCollection, Paginator
-from paddle_billing.Entities.NotificationSetting import NotificationSetting
+from paddle_billing.ResponseParser import ResponseParser as ResponseParser
+
+from paddle_billing.Entities.Collections import (
+    NotificationSettingCollection as NotificationSettingCollection,
+    Paginator as Paginator,
+)
+from paddle_billing.Entities.NotificationSetting import NotificationSetting as NotificationSetting
 
 from paddle_billing.Resources.NotificationSettings.Operations import (
-    CreateNotificationSetting,
-    UpdateNotificationSetting,
-    ListNotificationSettings,
+    CreateNotificationSetting as CreateNotificationSetting,
+    UpdateNotificationSetting as UpdateNotificationSetting,
+    ListNotificationSettings as ListNotificationSettings,
 )
 
 from typing import TYPE_CHECKING
@@ -18,7 +23,7 @@ if TYPE_CHECKING:
 class NotificationSettingsClient:
     def __init__(self, client: "Client"):
         self.client = client
-        self.response = None
+        self.response: Response | None = None
 
     def list(self, operation: ListNotificationSettings | None = None) -> NotificationSettingCollection:
         if operation is None:

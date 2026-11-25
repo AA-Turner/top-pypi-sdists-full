@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -88,6 +89,11 @@ class DaemonHealth(BaseModel):
     rss_bytes: int | None = None
     dropped_points: int = 0
     open_breakers: list[str] = Field(default_factory=list)
+    #: GPUs (and their MIG slices) the daemon saw that NVML no longer answers for: fallen off the bus, Xid 79.
+    #: Their stints end `gpu_lost` instead of `exited` (conformance F-18).
+    lost_gpus: list[Annotated[str, Field(min_length=4, max_length=128)]] = Field(
+        default_factory=list, max_length=MAX_GPUS_PER_NODE
+    )
 
 
 #: NodeActivity.signals caps (experiment: agent-monitoring-spec 2a).
@@ -148,10 +154,75 @@ class NodeReportIn(BaseModel):
     activity: NodeActivity | None = None
 
 
+#: The largest spin-down scan a node may attach to an idle alert (`POST /v1/nodes/{id}/idle-scan`).
+MAX_IDLE_SCAN_BYTES = 256 * 1024
+
+
+class IdleScanRequest(BaseModel):
+    """The ack asks the node to run `probe-node spindown-scan` once (read-only) and attach the result to this
+    idle alert. Sent once, on the ack of the report that fired the alert; an older daemon ignores it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    alert_id: int = Field(ge=1)
+
+
+class IdleScanIn(BaseModel):
+    """A node's answer to `IdleScanRequest`: the JSON of `probe-node spindown-scan --json`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    alert_id: int = Field(ge=1)
+    scan: dict
+
+
+class IdleScanAck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    alert_id: int
+    at_risk: bool
+
+
+class UninstallOrder(BaseModel):
+    """What an admin's uninstall asks beyond removing probe-node itself. Sent with `node_state = uninstalling`;
+    the daemon runs its own fixed uninstall code, never a command from the server."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: Also remove SkyPilot itself, not only Probe's policy, plugin and sidecar (A21): its queue may hold jobs.
+    include_skypilot: bool = False
+    #: The whole cluster is being removed: a DaemonSet may delete its own release. False (one machine of it):
+    #: the pod only empties its state dir and stops reporting.
+    whole_cluster: bool = False
+
+
 class NodeReportAck(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     accepted_seq: int
     server_time: datetime
     min_daemon_version: str
+    node_state: NodeState
+    #: Present only when this report fired an idle alert whose team's action wants the machine's scan.
+    idle_scan: IdleScanRequest | None = None
+    #: Present only while `node_state` is `uninstalling`: the report was not stored.
+    uninstall: UninstallOrder | None = None
+
+
+#: The longest error a node may attach to its "uninstalled" answer.
+MAX_UNINSTALL_ERROR_CHARS = 1024
+
+
+class NodeUninstalledIn(BaseModel):
+    """`POST /v1/nodes/{node_id}/uninstalled`: the node removed Probe and is about to stop. `error` names what
+    it could not remove (the rest is gone); its credential is revoked either way."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    error: str | None = Field(default=None, max_length=MAX_UNINSTALL_ERROR_CHARS)
+
+
+class NodeUninstalledAck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     node_state: NodeState

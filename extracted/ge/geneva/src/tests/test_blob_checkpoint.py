@@ -263,6 +263,8 @@ def test_checkpointing_applier_writes_descriptor_checkpoint_with_normal_key(
             column_indices=[0],
             data_storage_version="2.2",
         ),
+        # The on-disk path asserted below is the flat layout's.
+        checkpoint_layout="flat",
     )
 
     result = applier._checkpoint_single_batch(
@@ -558,8 +560,9 @@ def _assert_nested_image_blob_backfill_uses_descriptor_checkpoints(
         if "_frag-" in key and "_range-" not in key
     )
     assert len(checkpoint_keys) == 1
-    checkpoint_file = (
-        _local_path(checkpoint_store.uri()) / f"{checkpoint_keys[0]}.lance"
+    # Resolve the key through the store so the check holds for either layout.
+    checkpoint_file = _local_path(
+        checkpoint_store._full_uri(checkpoint_store._make_path(checkpoint_keys[0]))
     )
     assert checkpoint_file.exists()
     assert checkpoint_file.stat().st_size < sum(

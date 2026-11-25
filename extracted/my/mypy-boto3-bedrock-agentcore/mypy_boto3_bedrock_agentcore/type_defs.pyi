@@ -620,6 +620,7 @@ __all__ = (
     "ViewPortTypeDef",
     "WebSearchFiltersTypeDef",
     "WebSearchResultTypeDef",
+    "WebSearchUserLocationTypeDef",
 )
 
 class AgentCardDefinitionTypeDef(TypedDict):
@@ -1414,6 +1415,9 @@ class InvokeAgentRuntimeCommandRequestBodyTypeDef(TypedDict):
 
 class RuntimeClientErrorTypeDef(TypedDict):
     message: NotRequired[str]
+
+class WebSearchUserLocationTypeDef(TypedDict):
+    country: NotRequired[str]
 
 class WebSearchResultTypeDef(TypedDict):
     text: str
@@ -2895,6 +2899,7 @@ class InvokeWebSearchInputTypeDef(TypedDict):
     searchQuery: str
     maxResults: NotRequired[int]
     filters: NotRequired[WebSearchFiltersTypeDef]
+    userLocation: NotRequired[WebSearchUserLocationTypeDef]
 
 class CloudWatchLogsSourceTypeDef(TypedDict):
     serviceNames: Sequence[str]

@@ -7,7 +7,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 
 def update_tags(resource_id: str, resource_name: str, resource_type: str, tags: List[str], tb_client: TinyB):
-    def get_tags_for_resource(all_tags: dict, resource_id: str, resource_name: str) -> List[str]:
+    def get_tags_for_resource(all_tags: Dict[str, Any], resource_id: str, resource_name: str) -> List[str]:
         tag_names = []
 
         for tag in all_tags.get("tags", []):
@@ -18,7 +18,7 @@ def update_tags(resource_id: str, resource_name: str, resource_type: str, tags: 
 
         return tag_names
 
-    def get_tag(all_tags: dict, tag_name: str) -> Optional[dict]:
+    def get_tag(all_tags: Dict[str, Any], tag_name: str) -> Optional[Dict[str, Any]]:
         for tag in all_tags.get("tags", []):
             if tag.get("name") == tag_name:
                 return tag

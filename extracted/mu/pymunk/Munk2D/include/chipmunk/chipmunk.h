@@ -131,9 +131,9 @@ typedef struct cpSpace cpSpace;
 
 #include "cpSpace.h"
 
-// Munk2D 2.0.0
+// Munk2D 2.4.1
 #define CP_VERSION_MAJOR 2
-#define CP_VERSION_MINOR 0
+#define CP_VERSION_MINOR 4
 #define CP_VERSION_RELEASE 1
 
 /// Version string.

@@ -1,7 +1,11 @@
-from paddle_billing.PaddleStrEnum import PaddleStrEnum, PaddleStrEnumMeta
+from paddle_billing.PaddleStrEnum import (
+    PaddleStrEnum as PaddleStrEnum,
+    PaddleStrEnumMeta as PaddleStrEnumMeta,
+    member as member,
+)
 
-from paddle_billing.Entities.Reports.ReportType import ReportType
+from paddle_billing.Entities.Reports.ReportType import ReportType as ReportType
 
 
 class DiscountsReportType(PaddleStrEnum, metaclass=PaddleStrEnumMeta):
-    Discounts: "DiscountsReportType" = ReportType.Discounts.value
+    Discounts: "DiscountsReportType" = member(ReportType.Discounts.value)

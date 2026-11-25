@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoware-carla-scenario
-Version: 29.0.11
+Version: 29.3.12
 Summary: CARLA scenario testing framework for Autoware
 Author: Masaya Kataoka
 Author-email: Masaya Kataoka <ms.kataoka@gmail.com>
@@ -50,7 +50,7 @@ Requires-Dist: hilspy>=0.17,<0.18 ; extra == 'hils-setup'
 Requires-Dist: ansible-runner>=2.4 ; extra == 'hils-setup'
 Requires-Dist: ansible-core>=2.15 ; extra == 'hils-setup'
 Requires-Dist: roadgen>=0.45.0 ; extra == 'map'
-Requires-Dist: carla-pack-registry>=0.3.2,<0.4 ; extra == 'pack'
+Requires-Dist: carla-pack-registry>=0.5,<0.6 ; extra == 'pack'
 Requires-Dist: autoware-carla-scenario-rerun>=0.3,<0.4 ; extra == 'rerun'
 Requires-Dist: rerun-sdk>=0.38.1,<0.39 ; extra == 'rerun'
 Requires-Dist: autoware-carla-scenario-rerun>=0.3,<0.4 ; extra == 'rerun-lidar'
@@ -122,7 +122,7 @@ The main CLI entry points (every command the package installs is in [CLI Command
 | Command | Framework | Purpose |
 |---------|-----------|---------|
 | `scenario` | Hydra | Run autonomous-driving scenario tests in CARLA |
-| `scenario-setup` | argparse | Download CARLA (1.0; `--nightly` for the nightly build) for `scenario` to launch |
+| `scenario-setup` | argparse | Download CARLA (1.0; `--nightly [DATE\|COMMIT]` for a nightly build) for `scenario` to launch |
 | `detect-no-3d-model` | argparse | Detect lanelets without a matching 3D ground model in CARLA |
 | `viewer` | FastAPI + Uvicorn | Web UI for browsing and monitoring scenario results |
 

@@ -2,37 +2,52 @@
 
 Writes follow the preview-then-confirm split: a ``plan_*`` method reads the
 current state and returns what would change without writing; ``apply_*``
-writes it and reads it back. A tool calls ``plan_*`` again at confirm time, so
-the write is built from fresh state rather than from the preview.
+writes it and reads it back. The confirmed methods (``set_file_service``,
+``add_nfs_connection``, ``update_nfs_connection``, ``remove_nfs_connection``)
+plan again and apply in one call, so the write is built from fresh state
+rather than from the preview.
 
-``PUT nfs/advanced-settings`` replaces the whole connection list. Every change
-to one client therefore sends every other client exactly as it was read (see
+``PATCH nfs/advanced-settings`` with ``connections`` replaces the whole
+connection list; it is how the Drive web app writes it. Every change to one client
+therefore sends every other client exactly as it was read (see
 :func:`unifi_core.drive.models.services.connections_for_put`). Two NFS writes
 must not interleave, or the second would send a list without the first one's
-client. The NFS write methods (``add_nfs_connection``,
-``update_nfs_connection``, ``remove_nfs_connection``) plan and apply under one
-lock per manager. ``apply_nfs_change`` also re-reads the list just before the
-``PUT`` and stops if it changed since the plan, which catches an edit made in
-the Drive web UI, or by another process, before that re-read.
+client. The caller's operation gate runs confirmed writes one at a time; this
+module takes no lock of its own. ``apply_nfs_change`` also re-reads the list
+just before the ``PATCH`` and stops if it changed since the plan, which catches
+an edit made in the Drive web UI, or by another process, before that re-read.
+
+A confirmed method whose write's hold budget runs out before the change is
+sent raises :class:`~unifi_core.drive.managers.connection_manager.DriveWriteNotSent`:
+only reads (and Drive's hostname check, which saves nothing) went out. A
+change that was sent and never answered raises
+:class:`~unifi_core.drive.managers.connection_manager.DriveWriteOutcomeUnknown`.
 
 Known risk: Drive keeps no version on this list, so nothing closes the gap
-between that re-read and the ``PUT``. The lock covers one manager instance, so
-a write from another process (a second MCP server or the API server against
-the same NAS) that lands in that gap is overwritten by this ``PUT``, and
-neither call reports it. The read-back only catches a write that lands after
-this one.
+between that re-read and the ``PATCH``. The operation gate covers one server
+process, so a write from another process (a second MCP server or the API
+server against the same NAS) that lands in that gap is overwritten by this
+``PATCH``, and neither call reports it. The read-back only catches a write that
+lands after this one.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import ValidationError
 
-from unifi_core.drive.managers.connection_manager import DriveConnectionManager, drive_path
+from unifi_core.drive.managers.connection_manager import (
+    DriveConnectionManager,
+    DriveWriteNotSent,
+    DriveWriteOutcomeUnknown,
+    drive_path,
+)
 from unifi_core.drive.managers.shared_drive_manager import SharedDriveManager
 from unifi_core.drive.models._coerce import as_dict, as_list, text
 from unifi_core.drive.models.services import (
@@ -57,6 +72,7 @@ from unifi_core.exceptions import (
     UniFiOperationError,
     UniFiValidationError,
 )
+from unifi_core.operation_gate import WriteRequestTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +95,9 @@ class ServiceChange:
 
 @dataclass(frozen=True)
 class NfsChange:
-    """A planned change to one NFS client, and the full list the ``PUT`` will send.
+    """A planned change to one NFS client, and the full list the ``PATCH`` will send.
 
-    ``based_on`` is the list the plan was built from, in ``PUT`` shape. The
+    ``based_on`` is the list the plan was built from, in write shape. The
     write refuses to go ahead if Drive's list no longer matches it.
     """
 
@@ -122,13 +138,31 @@ def _grant_label(grant: Any) -> str:
     return f"{grant.name or grant.id} {grant.permission or '?'}"
 
 
+@asynccontextmanager
+async def _before_the_change(what: str) -> AsyncIterator[None]:
+    """Requests made before a change is sent: a hold budget that runs out here means nothing was changed.
+
+    Drive's hostname check is a ``POST`` that saves nothing, so its unanswered
+    request is not a change of unknown outcome either.
+    """
+    try:
+        yield
+    except WriteRequestTimeout:
+        raise DriveWriteNotSent(
+            f"{what}: the write's time budget ran out before the change was sent, so nothing was changed"
+        ) from None
+    except DriveWriteOutcomeUnknown:
+        raise DriveWriteNotSent(
+            f"{what}: UniFi Drive did not answer a check made before the change, so nothing was changed"
+        ) from None
+
+
 class FileServiceManager:
     """Reads and changes ``/proxy/drive/api/v1/services/...``."""
 
     def __init__(self, connection: DriveConnectionManager, shared_drives: SharedDriveManager) -> None:
         self._connection = connection
         self._shared_drives = shared_drives
-        self._nfs_lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
     # Reads
@@ -195,7 +229,12 @@ class FileServiceManager:
         if service == "time_machine" and enabled and current.smb_enabled is False:
             raise UniFiValidationError("Time Machine runs over SMB. Enable SMB first.")
         if service == "smb" and not enabled and current.time_machine_enabled:
-            warnings.append("Time Machine runs over SMB, so Time Machine backups stop while SMB is off.")
+            warnings.append(
+                "Time Machine runs over SMB: turning SMB off turns Time Machine off too, and turning SMB back on "
+                "leaves it off. Turn Time Machine on again afterwards (drive_set_file_service)."
+            )
+        if service == "smb" and enabled and current.time_machine_enabled is False:
+            warnings.append("Time Machine stays off; turn it on with drive_set_file_service if it should run.")
         if service == "nfs" and not enabled:
             connections = await self.list_nfs_connections()
             if connections:
@@ -215,6 +254,17 @@ class FileServiceManager:
             warnings.append(f"Clients connected over {_SERVICE_LABELS[service]} are disconnected.")
         return ServiceChange(service=service, enabled_before=before, enabled_after=enabled, warnings=warnings)
 
+    async def set_file_service(self, service: str, enabled: bool) -> tuple[ServiceChange, bool]:
+        """Plan from fresh state and write the toggle; returns the plan and the state read back.
+
+        A toggle that changes nothing sends nothing and returns the current state.
+        """
+        async with _before_the_change(f"Set {_SERVICE_LABELS.get(service, service)}"):
+            change = await self.plan_set_file_service(service, enabled)
+        if not change.changes_anything:
+            return change, change.enabled_after
+        return change, await self.apply_set_file_service(change)
+
     async def apply_set_file_service(self, change: ServiceChange) -> bool:
         """Write the toggle and return the state read back afterwards."""
         path = drive_path(1, "services", SERVICE_PATHS[change.service], "settings")
@@ -232,12 +282,24 @@ class FileServiceManager:
     # ------------------------------------------------------------------
 
     async def _drive_names(self, grants: list[NfsSharedDriveAccess]) -> dict[str, str | None]:
-        """Shared drive id -> name, refusing ids that do not exist."""
-        drives = {drive.id: drive.name for drive in await self._shared_drives.list_shared_drives() if drive.id}
+        """Shared drive id -> name, refusing ids that do not exist and personal drives.
+
+        Drive exports only shared drives over NFS: a connection granting a
+        personal drive is answered with HTTP 500 and not saved.
+        """
+        listed = [drive for drive in await self._shared_drives.list_shared_drives() if drive.id]
+        drives = {drive.id: drive.name for drive in listed}
         unknown = [grant.id for grant in grants if grant.id not in drives]
         if unknown:
             raise UniFiValidationError(
                 f"Unknown shared drive id(s): {', '.join(unknown)}. Use drive_list_shared_drives for valid ids."
+            )
+        personal = {drive.id for drive in listed if drive.type == "personal"}
+        refused = [drives[grant.id] or grant.id for grant in grants if grant.id in personal]
+        if refused:
+            raise UniFiValidationError(
+                f"NFS can only export shared drives; {', '.join(refused)} is a personal drive. "
+                "Pick a drive whose type is shared in drive_list_shared_drives."
             )
         return drives
 
@@ -371,10 +433,10 @@ class FileServiceManager:
         )
 
     async def add_nfs_connection(self, connection: NfsConnectionInput) -> tuple[NfsChange, NfsConnection | None]:
-        """Plan and write an added client under the NFS lock."""
-        async with self._nfs_lock:
+        """Plan from fresh state and write an added client."""
+        async with _before_the_change("Add NFS connection"):
             change = await self.plan_add_nfs_connection(connection)
-            return change, await self._apply_nfs_change_locked(change)
+        return change, await self.apply_nfs_change(change)
 
     async def update_nfs_connection(
         self,
@@ -383,42 +445,40 @@ class FileServiceManager:
         shared_drives: list[NfsSharedDriveAccess] | None = None,
         async_writes: bool | None = None,
     ) -> tuple[NfsChange, NfsConnection | None]:
-        """Plan and write a client's update under the NFS lock."""
-        async with self._nfs_lock:
+        """Plan from fresh state and write a client's update."""
+        async with _before_the_change("Update NFS connection"):
             change = await self.plan_update_nfs_connection(
                 client, shared_drives=shared_drives, async_writes=async_writes
             )
-            return change, await self._apply_nfs_change_locked(change)
+        return change, await self.apply_nfs_change(change)
 
     async def remove_nfs_connection(self, client: str) -> NfsChange:
-        """Plan and write a client's removal under the NFS lock."""
-        async with self._nfs_lock:
+        """Plan from fresh state and write a client's removal."""
+        async with _before_the_change("Remove NFS connection"):
             change = await self.plan_remove_nfs_connection(client)
-            await self._apply_nfs_change_locked(change)
-            return change
+        await self.apply_nfs_change(change)
+        return change
 
     async def apply_nfs_change(self, change: NfsChange) -> NfsConnection | None:
         """Write the planned list and return the client's connection as read back (``None`` once removed).
 
-        Takes the NFS lock, so it waits for any write in progress; the plan is
-        refused if that write changed the list it was built from.
+        The plan is refused, with nothing written, if Drive's list no longer
+        matches the one it was built from.
         """
-        async with self._nfs_lock:
-            return await self._apply_nfs_change_locked(change)
-
-    async def _apply_nfs_change_locked(self, change: NfsChange) -> NfsConnection | None:
-        if change.action in ("add", "update"):
-            flagged = await self.check_nfs_hostnames([change.client])
-            if flagged:
-                codes = ", ".join(str(entry["error_code"]) for entry in flagged)
-                raise UniFiValidationError(f"UniFi Drive rejected NFS client {change.client}: {codes}")
-        # Last check before the PUT, which replaces the whole list.
-        if connections_for_put(await self._read_nfs_settings()) != change.based_on:
-            raise UniFiOperationError(
-                "The NFS connection list changed since this change was planned (another write, or an edit in "
-                "the Drive web UI). Nothing was written; run the change again."
-            )
-        await self._connection.put(
+        async with _before_the_change(f"{change.action.capitalize()} NFS connection"):
+            if change.action in ("add", "update"):
+                flagged = await self.check_nfs_hostnames([change.client])
+                if flagged:
+                    codes = ", ".join(str(entry["error_code"]) for entry in flagged)
+                    raise UniFiValidationError(f"UniFi Drive rejected NFS client {change.client}: {codes}")
+            # Last check before the PATCH, which replaces the whole list.
+            if connections_for_put(await self._read_nfs_settings()) != change.based_on:
+                raise UniFiOperationError(
+                    "The NFS connection list changed since this change was planned (another write, or an edit in "
+                    "the Drive web UI). Nothing was written; run the change again."
+                )
+        # The list alone: Drive keeps its other NFS settings as they are.
+        await self._connection.patch(
             drive_path(1, "services", "nfs", "advanced-settings"), {"connections": change.connections}
         )
         after = await self.list_nfs_connections()

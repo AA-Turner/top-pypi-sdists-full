@@ -182,18 +182,53 @@ expression_vector ExpressionChildrenCollector::collectRelChildren(const Expressi
     return result;
 }
 
+static bool isRandomFunction(const std::string& name) {
+    return name == function::GenRandomUUIDFunction::name || name == function::RandFunction::name;
+}
+
 bool ExpressionVisitor::isRandom(const Expression& expression) {
     if (expression.expressionType != ExpressionType::FUNCTION) {
         return false;
     }
-    auto& funcExpr = expression.constCast<ScalarFunctionExpression>();
-    auto funcName = funcExpr.getFunction().name;
-    if (funcName == function::GenRandomUUIDFunction::name ||
-        funcName == function::RandFunction::name) {
+    if (isRandomFunction(expression.constCast<ScalarFunctionExpression>().getFunction().name)) {
         return true;
     }
     for (auto& child : ExpressionChildrenCollector::collectChildren(expression)) {
         if (isRandom(*child)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Random functions, and functions that change state: nextval and setval (isReadOnly == false),
+// and setseed, which stays read-only because the read/write analyzer would count it as a write.
+static bool isRandomOrChangesState(const function::Function& function) {
+    return isRandomFunction(function.name) || !function.isReadOnly ||
+           function.name == function::SetSeedFunction::name;
+}
+
+// currval reads the state nextval and setval change.
+static bool isVolatileFunction(const function::Function& function) {
+    return isRandomOrChangesState(function) || function.name == function::CurrValFunction::name;
+}
+
+// A lambda's body is checked too, although collectChildren does not return it. A subquery is
+// planned on its own and joined in as a column, so moving an expression that uses it never
+// re-evaluates its body; checking its WHERE is only conservative.
+bool ExpressionVisitor::isVolatile(const Expression& expression) {
+    if (expression.expressionType == ExpressionType::LAMBDA) {
+        auto body = expression.constCast<LambdaExpression>().getFunctionExpr();
+        if (body != nullptr && isVolatile(*body)) {
+            return true;
+        }
+    }
+    if (expression.expressionType == ExpressionType::FUNCTION &&
+        isVolatileFunction(expression.constCast<ScalarFunctionExpression>().getFunction())) {
+        return true;
+    }
+    for (auto& child : ExpressionChildrenCollector::collectChildren(expression)) {
+        if (isVolatile(*child)) {
             return true;
         }
     }
@@ -300,14 +335,8 @@ bool ConstantExpressionVisitor::isConstant(const Expression& expr) {
 }
 
 bool ConstantExpressionVisitor::visitFunction(const Expression& expr) {
-    auto& funcExpr = expr.constCast<ScalarFunctionExpression>();
-    if (funcExpr.getFunction().name == function::NextValFunction::name) {
-        return false;
-    }
-    if (funcExpr.getFunction().name == function::GenRandomUUIDFunction::name) {
-        return false;
-    }
-    if (funcExpr.getFunction().name == function::RandFunction::name) {
+    // Unlike isVolatile, currval folds, so that {id: currval('s')} stays a primary-key lookup.
+    if (isRandomOrChangesState(expr.constCast<ScalarFunctionExpression>().getFunction())) {
         return false;
     }
     return visitChildren(expr);

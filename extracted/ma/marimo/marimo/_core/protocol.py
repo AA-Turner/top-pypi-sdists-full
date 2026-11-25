@@ -1,6 +1,6 @@
 # Copyright 2026 Marimo. All rights reserved.
 # AUTO-GENERATED FILE — DO NOT EDIT.
-# Generated from protocols/host/openapi.yaml.
+# Generated from packages/host-protocol.
 # Regenerate with `make host-protocol-codegen`.
 # ruff: noqa: TC003 - msgspec resolves annotations at runtime
 # ruff: noqa: RUF036 - the generator orders unions; the wire shape is the same
@@ -11,6 +11,26 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NewType, TypeAlias
 
 from msgspec import UNSET, Meta, Struct, UnsetType
+
+Identity: TypeAlias = Annotated[
+    str,
+    Meta(
+        description="The opaque client identity supplied by `Marimo-Attachment-Identity`.\nNull when none was supplied. Consumers can group attachments\nwith the same identity within a host. It does not identify an\nindividual connection or change its lifetime.\n",
+        max_length=128,
+        min_length=1,
+        pattern="^[!-~]+$",
+    ),
+]
+
+
+Name: TypeAlias = Annotated[
+    str,
+    Meta(
+        description="A label to show people, supplied by `Marimo-Attachment-Name`, such as the browser or editor's name. Null when the header is omitted or empty.",
+        max_length=256,
+    ),
+]
+
 
 if TYPE_CHECKING:
     AttachmentId = NewType("AttachmentId", str)
@@ -25,6 +45,10 @@ else:
             ),
         ],
     )
+
+
+class CancelledOutcome(Struct, frozen=True, tag_field="kind", tag="cancelled"):
+    pass
 
 
 class CellConfig(Struct, frozen=True):
@@ -47,11 +71,14 @@ class CellConfig(Struct, frozen=True):
         ),
     ]
     hide_code: Annotated[
-        bool, Meta(description="Whether clients hide the code by default.")
+        bool,
+        Meta(
+            description="Whether clients hide the code by default. This is a presentation preference; source availability is represented by `Cell.code`."
+        ),
     ]
 
 
-class CellConfigInput(Struct, frozen=True):
+class CellConfigInput(Struct, frozen=True, forbid_unknown_fields=True):
     column: int | None | UnsetType = UNSET
     disabled: bool | UnsetType = False
     expand_output: bool | UnsetType = False
@@ -73,7 +100,7 @@ else:
     )
 
 
-class CellInput(Struct, frozen=True):
+class CellInput(Struct, frozen=True, forbid_unknown_fields=True):
     code: Annotated[str, Meta(description="The cell's source code.")]
     id: Annotated[
         CellId,
@@ -91,74 +118,94 @@ class CellInput(Struct, frozen=True):
     ) = "_"
 
 
-class Custom(Struct, frozen=True):
-    data: Annotated[
-        Any,
-        Meta(
-            description="Any JSON value, including null. The producer defines its schema and consumers of the type validate it."
-        ),
-    ]
-    type: Annotated[
-        str,
-        Meta(
-            description="A namespaced event type under a namespace the producer controls, such as `marimo.pair.agent-message`. Clients ignore types they do not recognize while retaining the stream cursor.",
-            min_length=1,
-        ),
-    ]
-
-
-class CustomMessage(Struct, frozen=True):
-    custom: Custom
-    time: Annotated[
-        datetime,
-        Meta(
-            description="When the host emitted this event. Preserved on replay."
-        ),
-    ]
-    request_id: (
+if TYPE_CHECKING:
+    CodeFingerprint = NewType("CodeFingerprint", str)
+else:
+    CodeFingerprint = NewType(
+        "CodeFingerprint",
         Annotated[
             str,
             Meta(
-                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+                description="Opaque code identity assigned by the host. Clients compare cell and execution fingerprints for freshness. Incompatible schemes MUST produce distinct fingerprints.",
+                min_length=1,
             ),
-        ]
-        | UnsetType
-    ) = UNSET
+        ],
+    )
+
+
+class ConflictProblem(
+    Struct, frozen=True, tag_field="type", tag="urn:marimo:problem:conflict"
+):
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[409] = 409
+    title: str = "Conflict"
+
+
+class ConsoleText(Struct, frozen=True, tag_field="kind", tag="text"):
+    stream: Annotated[
+        Literal["stdout", "stderr"],
+        Meta(description="Which stream the text went to."),
+    ]
+    text: Annotated[str, Meta(description="The text, exactly as written.")]
+
+
+class CreateCell(
+    Struct,
+    frozen=True,
+    forbid_unknown_fields=True,
+    tag_field="kind",
+    tag="create_cell",
+):
+    cell: CellInput
 
 
 class DecisionOption(Struct, frozen=True):
     id: Annotated[str, Meta(description="Identifies this answer.")]
-    label: Annotated[str, Meta(description="Text to show a person.")]
+    label: Annotated[
+        str,
+        Meta(
+            description="Text to show a person.",
+            examples=["Sandbox from the notebook's dependencies"],
+        ),
+    ]
 
 
-class DeleteCell(Struct, frozen=True, tag_field="kind", tag="delete_cell"):
+class DeleteCell(
+    Struct,
+    frozen=True,
+    forbid_unknown_fields=True,
+    tag_field="kind",
+    tag="delete_cell",
+):
     base_etag: Annotated[
         str, Meta(description="The cell's etag as last read, or `*`.")
     ]
     id: Annotated[CellId, Meta(description="The cell to remove.")]
 
 
-class DisplayData(Struct, frozen=True):
-    data: Annotated[
-        str,
-        Meta(
-            description="The rendered value. JSON mimetypes are encoded as text; binary mimetypes are base64. Never a URL only the runtime can serve."
-        ),
-    ]
-    mimetype: Annotated[
-        str,
-        Meta(
-            description="The format of `data`, such as `text/html` or `image/png`."
-        ),
-    ]
+if TYPE_CHECKING:
+    Etag = NewType("Etag", str)
+else:
+    Etag = NewType(
+        "Etag",
+        Annotated[
+            str,
+            Meta(
+                description="An identifier a host derives from content, so the same content has the same etag. It is opaque to clients. They read etags from the stream and from responses, and send them back as preconditions.",
+                min_length=1,
+            ),
+        ],
+    )
 
 
-Etag: TypeAlias = Annotated[
-    str,
-    Meta(
-        description="An identifier derived from content, so that every host, kernel,\nand store computes the same value for the same state. It is the\nfirst 16 hexadecimal characters, in lower case, of SHA-256 over\nthe UTF-8 encoding of a canonical text. Each etag says what its\ntext is; a text made of several values is those values joined by\nnewlines. Clients do not compute etags. They read them from the\nstream and from responses, and send them back as preconditions.\n"
-    ),
-]
+class ExecuteRequest(Struct, frozen=True, forbid_unknown_fields=True):
+    code: Annotated[
+        str,
+        Meta(
+            description="Python code that can read the notebook's current values.\nAssignments stay local to the call. Changes to shared objects persist.\n"
+        ),
+    ]
 
 
 if TYPE_CHECKING:
@@ -176,6 +223,19 @@ else:
     )
 
 
+class ExecutionQueued(Struct, frozen=True, tag_field="status", tag="queued"):
+    pass
+
+
+class ForbiddenProblem(
+    Struct, frozen=True, tag_field="type", tag="urn:marimo:problem:forbidden"
+):
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[403] = 403
+    title: str = "Forbidden"
+
+
 class Host(Struct, frozen=True):
     operations: Annotated[
         tuple[str, ...],
@@ -185,32 +245,42 @@ class Host(Struct, frozen=True):
     ]
 
 
-class HostMessage(Struct, frozen=True):
-    host: Host
-    request_id: (
-        Annotated[
-            str,
-            Meta(
-                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-    time: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
+class InputReplyRequest(Struct, frozen=True, forbid_unknown_fields=True):
+    value: Annotated[
+        str,
+        Meta(
+            description="The text to deliver to the input exactly as submitted, including an empty string when the answer is empty."
+        ),
+    ]
 
 
-class InterruptedOutcome(
-    Struct, frozen=True, tag_field="kind", tag="interrupted"
+InputStatus: TypeAlias = Annotated[
+    Literal["pending", "answered", "cancelled"],
+    Meta(
+        description="An input starts `pending` while it waits for an answer. It becomes\n`answered` when the host accepts a reply for delivery, or `cancelled`\nwhen the host ends the wait while input is still pending. Both\n`answered` and `cancelled` are final. An answered input stays\nanswered if execution later fails before consuming the value.\n"
+    ),
+]
+
+
+class InternalProblem(
+    Struct, frozen=True, tag_field="type", tag="urn:marimo:problem:internal"
 ):
-    pass
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[500] = 500
+    title: str = "Internal error"
+
+
+class InvalidRequestProblem(
+    Struct,
+    frozen=True,
+    tag_field="type",
+    tag="urn:marimo:problem:invalid-request",
+):
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[400] = 400
+    title: str = "Invalid request"
 
 
 if TYPE_CHECKING:
@@ -221,19 +291,72 @@ else:
         Annotated[
             str,
             Meta(
-                description="Identifies a console, display, or variable item. Unique within the host; sending an item again with the same id replaces it.",
+                description="Identifies an output, console, input, or variable item uniquely within the host. Sending an item again with the same id replaces it.",
                 min_length=1,
             ),
         ],
     )
 
 
-Lifecycle: TypeAlias = Annotated[
-    Literal["queued", "running", "completed"],
-    Meta(
-        description="Where a run or execution is in its lifecycle. An execution is\n`queued` until it starts, `running` while code executes, and\n`completed` once it has ended. How it ended is its `outcome`.\n"
-    ),
-]
+if TYPE_CHECKING:
+    JsonValue: TypeAlias = (
+        str
+        | int
+        | float
+        | bool
+        | None
+        | list["JsonValue"]
+        | dict[str, "JsonValue"]
+    )
+else:
+    # msgspec cannot decode recursive aliases. Its JSON decoder returns JSON values.
+    JsonValue = object
+
+
+class Media(Struct, frozen=True):
+    data: Annotated[
+        str,
+        Meta(
+            description="The rendered value, embedded so clients can display it independently of the runtime. JSON mimetypes are encoded as text and binary mimetypes as base64."
+        ),
+    ]
+    mimetype: Annotated[
+        str,
+        Meta(
+            description="The format of `data`, such as `text/html` or `image/png`.",
+            examples=["text/html"],
+        ),
+    ]
+
+
+class MethodNotAllowedProblem(
+    Struct,
+    frozen=True,
+    tag_field="type",
+    tag="urn:marimo:problem:method-not-allowed",
+):
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[405] = 405
+    title: str = "Method not allowed"
+
+
+class NoRuntimeProblem(
+    Struct, frozen=True, tag_field="type", tag="urn:marimo:problem:no-runtime"
+):
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[409] = 409
+    title: str = "No runtime"
+
+
+class NotFoundProblem(
+    Struct, frozen=True, tag_field="type", tag="urn:marimo:problem:not-found"
+):
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[404] = 404
+    title: str = "Not found"
 
 
 if TYPE_CHECKING:
@@ -251,25 +374,26 @@ else:
     )
 
 
-ObjectType: TypeAlias = Annotated[
+ObjectKind: TypeAlias = Annotated[
     Literal[
         "host",
         "project",
         "notebook",
         "document",
-        "analysis",
         "cell",
         "runtime",
         "attachment",
         "run",
         "execution",
+        "output",
         "console",
-        "display",
+        "input",
         "variable",
+        "analysis",
         "custom",
     ],
     Meta(
-        description="The kinds a stream carries, and the values `types` accepts. The\ncatalog stream carries host, project, notebook, runtime, and\nattachment. A notebook's stream carries notebook, document,\nanalysis, cell, runtime, attachment, run, execution, console,\ndisplay, variable, and custom. Custom events describe occurrences\nrather than object state.\n"
+        description="The kinds a stream carries, and the values `kinds` accepts. The catalog stream carries host, project, notebook, runtime, and attachment. A notebook's stream carries notebook, document, cell, runtime, attachment, run, execution, output, console, input, variable, analysis, and custom. Custom events describe occurrences rather than object state."
     ),
 ]
 
@@ -278,9 +402,23 @@ class OpenNotebookResponse(Struct, frozen=True):
     url: Annotated[
         str,
         Meta(
-            description="The URL the host used to show the notebook. It never contains the host's token."
+            description="The URL the host used to show the notebook, with the host's token omitted."
         ),
     ]
+
+
+class Output(Struct, frozen=True):
+    execution_id: ExecutionId
+    id: ItemId
+    media: (
+        Annotated[
+            Media,
+            Meta(
+                description="The output as last rendered. Null when the code set it to nothing or cleared it."
+            ),
+        ]
+        | None
+    )
 
 
 class Position(Struct, frozen=True):
@@ -293,13 +431,6 @@ class Position(Struct, frozen=True):
     ]
     line: Annotated[
         int, Meta(description="Zero-based line within the code.", ge=0)
-    ]
-
-
-class Process(Struct, frozen=True):
-    pid: Annotated[int, Meta(description="The process id.", ge=1)]
-    started_at: Annotated[
-        datetime, Meta(description="When the process started.")
     ]
 
 
@@ -326,37 +457,6 @@ ProjectStatus: TypeAlias = Annotated[
 ]
 
 
-class PutCell(Struct, frozen=True, tag_field="kind", tag="put_cell"):
-    base_etag: (
-        Annotated[
-            str,
-            Meta(
-                description="The cell's etag as last read, `*` to skip the check, or null to create the cell. Null when the cell exists, or an etag when it does not, is a `conflict`."
-            ),
-        ]
-        | None
-    )
-    cell: CellInput
-    after: (
-        Annotated[
-            CellId,
-            Meta(
-                description="The cell a created cell goes after. Ignored for an existing cell."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-    before: (
-        Annotated[
-            CellId,
-            Meta(
-                description="The cell a created cell goes before. Ignored for an existing cell. With neither `after` nor `before`, a created cell goes at the end."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-
-
 class Range(Struct, frozen=True):
     end: Annotated[
         Position,
@@ -365,6 +465,17 @@ class Range(Struct, frozen=True):
         ),
     ]
     start: Position
+
+
+class ReadyEvent(Struct, frozen=True, tag_field="event", tag="ready"):
+    data: Annotated[dict[str, Any], Meta(max_length=0)]
+    id: Annotated[
+        str,
+        Meta(
+            description="The resume cursor. Omitted on snapshot and reset events.",
+            min_length=1,
+        ),
+    ]
 
 
 class Related(Struct, frozen=True):
@@ -381,37 +492,40 @@ class Related(Struct, frozen=True):
     )
 
 
-class RemovedMessage(Struct, frozen=True):
-    id: Annotated[
-        str, Meta(description="The id of the object that was removed.")
+class ReplaceCell(
+    Struct,
+    frozen=True,
+    forbid_unknown_fields=True,
+    tag_field="kind",
+    tag="replace_cell",
+):
+    base_etag: Annotated[
+        str, Meta(description="The cell's etag as last read, or `*`.")
     ]
-    request_id: (
-        Annotated[
-            str,
-            Meta(
-                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-    time: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
+    cell: CellInput
 
 
-class RequestedCell(Struct, frozen=True):
+class RequestedCell(Struct, frozen=True, forbid_unknown_fields=True):
     id: CellId
-    code_hash: (
+    etag: (
         Annotated[
             Etag,
             Meta(
-                description="The cell's `code_hash` as last read. A cell whose code differs is a `conflict`. Absent, the cell runs as it is."
+                description="The cell's `etag` as last read. A cell whose source, name, or config differs is `precondition-failed`. Absent, the cell runs as it is."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class ResetEvent(Struct, frozen=True, tag_field="event", tag="reset"):
+    data: Annotated[dict[str, Any], Meta(max_length=0)]
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
             ),
         ]
         | UnsetType
@@ -419,7 +533,7 @@ class RequestedCell(Struct, frozen=True):
 
 
 class Revision(Struct, frozen=True):
-    execution: Annotated[
+    execution_id: Annotated[
         ExecutionId,
         Meta(
             description="The execution whose evaluation produced the value. Usually the variable's `execution_id`, and earlier when the runtime carried the value forward."
@@ -432,6 +546,37 @@ class Revision(Struct, frozen=True):
             ge=0,
         ),
     ]
+
+
+class RunCellsOrigin(Struct, frozen=True, tag_field="kind", tag="cells"):
+    cell_ids: Annotated[
+        tuple[CellId, ...],
+        Meta(
+            description="The cells the run was requested for. Fixed when the run is accepted, so a client can tell which cells a queued run will reach before the runtime has planned their executions. Each one's execution in this run reports the fingerprint of the source accepted for it.",
+            min_length=1,
+        ),
+    ]
+
+
+class RunCodeOrigin(Struct, frozen=True, tag_field="kind", tag="code"):
+    code: Annotated[
+        str,
+        Meta(
+            description="The submitted code, which the run's scratch execution evaluates."
+        ),
+    ]
+
+
+class RunFailedOutcome(Struct, frozen=True, tag_field="kind", tag="failed"):
+    message: (
+        Annotated[
+            str,
+            Meta(
+                description="Why the host could not finish the cycle, to show people. Null when the run failed because an execution's code raised."
+            ),
+        ]
+        | None
+    )
 
 
 if TYPE_CHECKING:
@@ -449,29 +594,36 @@ else:
     )
 
 
-RunOutcome: TypeAlias = Annotated[
-    Literal["succeeded", "failed", "interrupted"],
-    Meta(
-        description="How a run ended. `succeeded` means its work settled without an\nexecution error or interruption. `failed` means an execution\nfailed or the host could not finish the cycle. `interrupted`\nmeans the cycle was cut short by interruption, even if an earlier\nexecution failed. Execution outcomes retain their individual results.\n"
-    ),
-]
+class RunQueued(Struct, frozen=True, tag_field="status", tag="queued"):
+    pass
 
 
-class RunRequest(Struct, frozen=True):
-    cells: (
+class RunRequest(Struct, frozen=True, forbid_unknown_fields=True):
+    cells: Annotated[
+        tuple[RequestedCell, ...],
+        Meta(
+            description="Cells to run by id. The notebook's execution settings determine their order and whether dependent cells run too.",
+            min_length=1,
+        ),
+    ]
+
+
+class RunRuntimeOrigin(Struct, frozen=True, tag_field="kind", tag="runtime"):
+    pass
+
+
+class RuntimeFailedOutcome(
+    Struct, frozen=True, tag_field="kind", tag="failed"
+):
+    message: (
         Annotated[
-            tuple[RequestedCell, ...],
+            str,
             Meta(
-                description="Cells of the document to run, in no particular order. The runtime's execution configuration determines whether dependent cells run too.",
-                min_length=1,
+                description="Why the kernel could not start or why it exited, to show people. Null when the host does not know."
             ),
         ]
-        | UnsetType
-    ) = UNSET
-    code: (
-        Annotated[str, Meta(description="Python code to run as scratch code.")]
-        | UnsetType
-    ) = UNSET
+        | None
+    )
 
 
 if TYPE_CHECKING:
@@ -489,15 +641,33 @@ else:
     )
 
 
-RuntimeStatus: TypeAlias = Annotated[
-    Literal["starting", "running", "terminating", "failed"],
-    Meta(
-        description="Where a runtime is in its life. A `starting` runtime is bringing\nits kernel up. A `running` runtime accepts work. A `terminating`\nruntime is shutting its kernel down. A `failed` runtime could not\nstart, or its kernel exited unexpectedly. A runtime that has\nended is removed rather than given a status.\n"
-    ),
-]
+class RuntimeReady(Struct, frozen=True, tag_field="status", tag="ready"):
+    pass
 
 
-class SaveRequest(Struct, frozen=True):
+class RuntimeStarting(Struct, frozen=True, tag_field="status", tag="starting"):
+    message: (
+        Annotated[
+            str,
+            Meta(
+                description="A note about progress, such as the packages being installed. Null when the host has nothing to report."
+            ),
+        ]
+        | None
+    )
+
+
+class RuntimeStoppedOutcome(
+    Struct, frozen=True, tag_field="kind", tag="stopped"
+):
+    pass
+
+
+class RuntimeStopping(Struct, frozen=True, tag_field="status", tag="stopping"):
+    pass
+
+
+class SaveRequest(Struct, frozen=True, forbid_unknown_fields=True):
     decisions: (
         Annotated[
             dict[str, str],
@@ -509,7 +679,13 @@ class SaveRequest(Struct, frozen=True):
     ) = UNSET
 
 
-class SetOrder(Struct, frozen=True, tag_field="kind", tag="set_order"):
+class SetOrder(
+    Struct,
+    frozen=True,
+    forbid_unknown_fields=True,
+    tag_field="kind",
+    tag="set_order",
+):
     base_etag: Annotated[
         str,
         Meta(description="The document's `order_etag` as last read, or `*`."),
@@ -522,19 +698,83 @@ class SetOrder(Struct, frozen=True, tag_field="kind", tag="set_order"):
     ]
 
 
-class StartRuntimeRequest(Struct, frozen=True):
+class StartRuntimeRequest(Struct, frozen=True, forbid_unknown_fields=True):
     decisions: (
         Annotated[
             dict[str, str],
             Meta(
-                description="Answers to the questions in a `decision-required` problem.\nEach key is a decision's `id` and each value is the `id` of\nthe chosen option. A client that already knows its choices can\nsend them the first time.\n"
+                description="Answers to the questions in a `decision-required` problem.\nEach key is a decision's `id` and each value is the `id` of\nthe chosen option. A client that already knows its choices can\nsend them the first time.\n",
+                examples=[{"environment": "sandbox"}],
             ),
         ]
         | UnsetType
     ) = UNSET
 
 
-class UpdateNotebookRequest(Struct, frozen=True):
+class SucceededOutcome(Struct, frozen=True, tag_field="kind", tag="succeeded"):
+    pass
+
+
+Timestamp: TypeAlias = Annotated[
+    datetime,
+    Meta(
+        description="A date and time with its offset from UTC, as RFC 3339 writes it."
+    ),
+]
+
+
+class UnauthorizedProblem(
+    Struct,
+    frozen=True,
+    tag_field="type",
+    tag="urn:marimo:problem:unauthorized",
+):
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[401] = 401
+    title: str = "Unauthorized"
+
+
+class UnknownProblem(Struct, frozen=True):
+    status: Annotated[
+        int,
+        Meta(
+            description="The HTTP status code of the response.", ge=400, le=599
+        ),
+    ]
+    title: Annotated[
+        str,
+        Meta(
+            description="A short, human-readable name for the kind of problem."
+        ),
+    ]
+    type: Annotated[
+        str, Meta(description="What kind of problem this is, as a URI.")
+    ]
+    detail: (
+        Annotated[
+            str,
+            Meta(
+                description="A human-readable explanation of what went wrong this time."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class UnsupportedOperationProblem(
+    Struct,
+    frozen=True,
+    tag_field="type",
+    tag="urn:marimo:problem:unsupported-operation",
+):
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[501] = 501
+    title: str = "Unsupported operation"
+
+
+class UpdateNotebookRequest(Struct, frozen=True, forbid_unknown_fields=True):
     name: (
         Annotated[str, Meta(description="The new label to show people.")]
         | UnsetType
@@ -548,18 +788,6 @@ class UpdateNotebookRequest(Struct, frozen=True):
         ]
         | UnsetType
     ) = UNSET
-
-
-class ValueOutcome(Struct, frozen=True, tag_field="kind", tag="value"):
-    display: (
-        Annotated[
-            DisplayData,
-            Meta(
-                description="The value as last rendered. Replaced as it grows. Null when the code produced no value."
-            ),
-        ]
-        | None
-    )
 
 
 class Variable(Struct, frozen=True):
@@ -602,9 +830,9 @@ class VariableMessage(Struct, frozen=True):
     ) = UNSET
     time: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
             ),
         ]
         | UnsetType
@@ -612,7 +840,17 @@ class VariableMessage(Struct, frozen=True):
 
 
 class Attachment(Struct, frozen=True):
+    created_at: Annotated[Timestamp, Meta(description="When it attached.")]
     id: AttachmentId
+    identity: (
+        Annotated[
+            Identity,
+            Meta(
+                description="The opaque client identity supplied by `Marimo-Attachment-Identity`.\nNull when none was supplied. Consumers can group attachments\nwith the same identity within a host. It does not identify an\nindividual connection or change its lifetime.\n"
+            ),
+        ]
+        | None
+    )
     kind: Annotated[
         str,
         Meta(
@@ -622,28 +860,14 @@ class Attachment(Struct, frozen=True):
     ]
     name: (
         Annotated[
-            str,
+            Name,
             Meta(
-                description="A label to show people, supplied by `Marimo-Attachment-Name`, such as the browser or editor's name. Null when the header is omitted or empty.",
-                max_length=256,
+                description="A label to show people, supplied by `Marimo-Attachment-Name`, such as the browser or editor's name. Null when the header is omitted or empty."
             ),
         ]
         | None
     )
     notebook_id: NotebookId
-    since: Annotated[datetime, Meta(description="When it attached.")]
-    identity: (
-        Annotated[
-            str,
-            Meta(
-                description="The opaque client identity supplied by `Marimo-Attachment-Identity`.\nOmitted when none was supplied. Consumers can group attachments\nwith the same identity within a host. It does not identify an\nindividual connection or change its lifetime.\n",
-                max_length=128,
-                min_length=1,
-                pattern="^[!-~]+$",
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
 
 
 class AttachmentMessage(Struct, frozen=True):
@@ -659,9 +883,9 @@ class AttachmentMessage(Struct, frozen=True):
     ) = UNSET
     time: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
             ),
         ]
         | UnsetType
@@ -669,23 +893,26 @@ class AttachmentMessage(Struct, frozen=True):
 
 
 class Cell(Struct, frozen=True):
-    code: Annotated[
-        str,
+    code: (
+        Annotated[
+            str,
+            Meta(
+                description="The cell's source code, with newline line endings, or null when the host does not expose source to this client. An empty string is an empty cell. A host normalizes other line endings when it loads a file. Source availability does not grant editing permission; see the notebook's operations."
+            ),
+        ]
+        | None
+    )
+    code_fingerprint: Annotated[
+        CodeFingerprint,
         Meta(
-            description="The cell's source code, with newline line endings. A host normalizes other line endings when it loads a file."
-        ),
-    ]
-    code_hash: Annotated[
-        Etag,
-        Meta(
-            description="Identifies the code alone. Its text is `code`. Unchanged by renaming the cell or editing its config. Compare with an execution's `code_hash` to tell whether a result came from the current code."
+            description="Fingerprint of the actual source, including when `code` is null. Formatting-only edits may preserve it. Independent of cell name, config, and source visibility."
         ),
     ]
     config: CellConfig
     etag: Annotated[
         Etag,
         Meta(
-            description="Identifies code, name, and config together, and is the precondition for editing the cell. Its text is `code_hash`, `name`, and the config values `column`, `disabled`, `hide_code`, and `expand_output` in that order, each written as a JSON scalar such as `null`, `0`, or `true`."
+            description="Precondition for edits and cell runs. Covers exact source, name, and config."
         ),
     ]
     id: CellId
@@ -705,6 +932,23 @@ class Cell(Struct, frozen=True):
     ]
 
 
+class CellDiagnostic(Struct, frozen=True):
+    kind: Annotated[str, Meta(description="Identifier scoped to the source.")]
+    message: str
+    range: (
+        Annotated[
+            Range,
+            Meta(
+                description="Span in this cell, or null for a whole-cell finding or unknown location."
+            ),
+        ]
+        | None
+    )
+    related: tuple[Related, ...]
+    severity: Literal["error", "warning", "information", "hint"]
+    source: Annotated[str, Meta(description="Analyzer that defines the kind.")]
+
+
 class CellMessage(Struct, frozen=True):
     cell: Cell
     request_id: (
@@ -718,9 +962,9 @@ class CellMessage(Struct, frozen=True):
     ) = UNSET
     time: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
             ),
         ]
         | UnsetType
@@ -728,7 +972,7 @@ class CellMessage(Struct, frozen=True):
 
 
 class CellVersion(Struct, frozen=True):
-    code_hash: Etag
+    code_fingerprint: CodeFingerprint
     etag: Etag
     version: Annotated[
         int, Meta(description="The cell's version after the edit.", ge=1)
@@ -736,51 +980,21 @@ class CellVersion(Struct, frozen=True):
 
 
 Change: TypeAlias = Annotated[
-    PutCell | DeleteCell | SetOrder,
+    CreateCell | ReplaceCell | DeleteCell | SetOrder,
     Meta(description="One change to the document, tagged on `kind`."),
 ]
 
 
-class Console(Struct, frozen=True):
-    execution_id: ExecutionId
-    id: ItemId
-    name: Annotated[
-        Literal["stdout", "stderr"],
-        Meta(description="Which stream the text went to."),
-    ]
-    seq: Annotated[
-        int,
+class ConsoleMedia(Struct, frozen=True, tag_field="kind", tag="media"):
+    media: Annotated[
+        Media,
         Meta(
-            description="Position among the execution's items, increasing in the order they were produced.",
-            ge=0,
+            description="Something rendered into the console, such as a figure from `plt.show()` or a formatted traceback."
         ),
     ]
-    text: Annotated[str, Meta(description="The text, exactly as written.")]
 
 
-class ConsoleMessage(Struct, frozen=True):
-    console: Console
-    request_id: (
-        Annotated[
-            str,
-            Meta(
-                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-    time: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-
-
-class CreateNotebookRequest(Struct, frozen=True):
+class CreateNotebookRequest(Struct, frozen=True, forbid_unknown_fields=True):
     project_id: ProjectId
     name: (
         Annotated[
@@ -795,7 +1009,43 @@ class CreateNotebookRequest(Struct, frozen=True):
         Annotated[
             str,
             Meta(
-                description="Where to put the file, relative to the project root and written the way the host's operating system writes paths."
+                description="Where to put the file, relative to the project root and written the way the host's operating system writes paths.",
+                examples=["analysis.py"],
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class Custom(Struct, frozen=True):
+    data: Annotated[
+        JsonValue,
+        Meta(
+            description="Any JSON value, including null. The producer defines its schema and consumers of the type validate it."
+        ),
+    ]
+    type: Annotated[
+        str,
+        Meta(
+            description="A namespaced event type under a namespace the producer controls, such as `marimo.pair.agent-message`. Clients ignore types they do not recognize while retaining the stream cursor.",
+            min_length=1,
+        ),
+    ]
+
+
+class CustomMessage(Struct, frozen=True):
+    custom: Custom
+    time: Annotated[
+        Timestamp,
+        Meta(
+            description="When the host published this event. Preserved on replay."
+        ),
+    ]
+    request_id: (
+        Annotated[
+            str,
+            Meta(
+                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
             ),
         ]
         | UnsetType
@@ -813,51 +1063,30 @@ class Decision(Struct, frozen=True):
         tuple[DecisionOption, ...], Meta(description="The possible answers.")
     ]
     prompt: Annotated[
-        str, Meta(description="The question, worded for a person.")
-    ]
-
-
-class Display(Struct, frozen=True):
-    data: Annotated[
         str,
         Meta(
-            description="The rendered value. JSON mimetypes are encoded as text; binary mimetypes are base64. Never a URL only the runtime can serve."
+            description="The question, worded for a person.",
+            examples=["Where should forecasts.py run?"],
         ),
     ]
-    execution_id: ExecutionId
-    id: ItemId
-    mimetype: Annotated[
-        str, Meta(description="The format of `data`, such as `image/png`.")
-    ]
-    seq: Annotated[
-        int,
+
+
+class DecisionRequiredProblem(
+    Struct,
+    frozen=True,
+    tag_field="type",
+    tag="urn:marimo:problem:decision-required",
+):
+    decisions: Annotated[
+        tuple[Decision, ...],
         Meta(
-            description="Position among the execution's items, increasing in the order they were produced.",
-            ge=0,
+            description="The choices the client has to make before the host can carry out the request."
         ),
     ]
-
-
-class DisplayMessage(Struct, frozen=True):
-    display: Display
-    request_id: (
-        Annotated[
-            str,
-            Meta(
-                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-    time: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[409] = 409
+    title: str = "Decision required"
 
 
 class Document(Struct, frozen=True):
@@ -868,15 +1097,12 @@ class Document(Struct, frozen=True):
         ),
     ]
     app_config_etag: Annotated[
-        Etag,
-        Meta(
-            description="Identifies the app config alone. Its text is the app config as canonical JSON, with keys sorted by code point, no whitespace, and strings carrying only the escapes JSON requires."
-        ),
+        Etag, Meta(description="Identifies the app config alone.")
     ]
     etag: Annotated[
         Etag,
         Meta(
-            description="Identifies the document as currently applied. Its text is `order_etag`, `app_config_etag`, and every cell's `etag` in order, so it changes when any of them does."
+            description="Identifies the document as currently applied. It changes when the order, the app config, or any cell's `etag` does."
         ),
     ]
     notebook_id: Annotated[
@@ -891,7 +1117,7 @@ class Document(Struct, frozen=True):
     order_etag: Annotated[
         Etag,
         Meta(
-            description="Identifies the order alone. Its text is the cell IDs in order as a JSON array, with no whitespace and strings carrying only the escapes JSON requires. Editing a cell does not change it."
+            description="Identifies the order alone. Editing a cell does not change it."
         ),
     ]
     saved_etag: (
@@ -925,36 +1151,16 @@ class DocumentMessage(Struct, frozen=True):
     ) = UNSET
     time: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
             ),
         ]
         | UnsetType
     ) = UNSET
 
 
-class EditConflict(Struct, frozen=True):
-    cell: (
-        Annotated[
-            Cell,
-            Meta(
-                description="The cell the change named, as it now is. Null when the document does not have it, or when the change named the order."
-            ),
-        ]
-        | None
-    )
-    change: Annotated[
-        int,
-        Meta(
-            description="The index of the stale change in the request's `changes`, or of the stale cell in a run's `cells`. `0` for a save with a stale `If-Match`.",
-            ge=0,
-        ),
-    ]
-    document: Document
-
-
-class EditRequest(Struct, frozen=True):
+class EditRequest(Struct, frozen=True, forbid_unknown_fields=True):
     changes: Annotated[
         tuple[Change, ...],
         Meta(description="The changes, applied in order as one unit."),
@@ -971,11 +1177,27 @@ class EditResponse(Struct, frozen=True):
     document: Document
 
 
+class EmitRequest(Struct, frozen=True, forbid_unknown_fields=True):
+    data: Annotated[
+        JsonValue,
+        Meta(
+            description="Any JSON value, including null. The producer defines its schema and consumers of the type validate it."
+        ),
+    ]
+    type: Annotated[
+        str,
+        Meta(
+            description="A namespaced event type under a namespace the producer controls, such as `marimo.pair.agent-message`. Clients ignore types they do not recognize while retaining the stream cursor.",
+            min_length=1,
+        ),
+    ]
+
+
 class Error(Struct, frozen=True):
     kind: Annotated[
         str,
         Meta(
-            description="The producer's identifier, scoped by source. Open; this protocol defines `exception`, `interrupted`, and `internal` for executions, and reserves `multiple-definitions` and `cycle-dependencies` for analysis, because every host schedules them the same way. Clients show unrecognized kinds as plain errors."
+            description="The producer's identifier, scoped by source. Open; this protocol defines `exception` and `internal` for executions. Clients show unrecognized kinds as plain errors."
         ),
     ]
     message: Annotated[
@@ -1017,7 +1239,7 @@ class Error(Struct, frozen=True):
     )
     traceback: (
         Annotated[
-            DisplayData,
+            Media,
             Meta(
                 description="The traceback as rendered by the runtime, plain text or HTML by its mimetype. Null when unavailable or not shown."
             ),
@@ -1026,41 +1248,123 @@ class Error(Struct, frozen=True):
     )
 
 
-class ErrorOutcome(Struct, frozen=True, tag_field="kind", tag="error"):
+class ExecutionFailedOutcome(
+    Struct, frozen=True, tag_field="kind", tag="failed"
+):
     error: Error
 
 
-class HostRecord(Struct, frozen=True):
-    name: Annotated[
+class ExecutionRunning(Struct, frozen=True, tag_field="status", tag="running"):
+    started_at: Annotated[
+        Timestamp, Meta(description="When the code started executing.")
+    ]
+
+
+class ExecutionSkippedOutcome(
+    Struct, frozen=True, tag_field="kind", tag="skipped"
+):
+    message: Annotated[
         str,
         Meta(
-            description="A label for the host to show people, such as `VS Code` or `marimo`. Two hosts can share a name; the filename is the identity."
+            description="Why the cell did not run, to show in place of its output."
         ),
     ]
-    process: Process
-    token: Annotated[
+    reason: Annotated[
         str,
         Meta(
-            description="The secret a client sends to prove it read the record.",
-            min_length=1,
+            description="Why the cell did not evaluate. The string is open. This protocol\ndefines `upstream-failed`, a cell it depends on did not produce\nits value because it raised or could not resolve a reference,\n`upstream-stopped`, a cell it depends on stopped the cycle on\npurpose, and `superseded`, a later execution of the same cell\nreplaced this one before it started because the cell's source\nchanged while it waited. Clients show unrecognized reasons as\nskipped, with the message.\n"
         ),
     ]
-    url: Annotated[
-        str,
+    related: Annotated[
+        tuple[Related, ...],
         Meta(
-            description="Where the host's API is. The scheme is `http`, and the host part is `127.0.0.1` or `[::1]`, written exactly that way."
+            description="The cells involved, the cause first and this cell last."
         ),
     ]
-    version: Annotated[
-        Literal[1],
+
+
+class HostMessage(Struct, frozen=True):
+    host: Host
+    request_id: (
+        Annotated[
+            str,
+            Meta(
+                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+    time: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class Input(Struct, frozen=True):
+    execution_id: ExecutionId
+    id: Annotated[
+        ItemId,
         Meta(
-            description="The version of this record's format. This document describes version 1."
+            description="Identifies this prompt uniquely across executions and runtime restarts."
         ),
     ]
+    password: Annotated[
+        bool,
+        Meta(
+            description="Whether clients must obscure the value as it is entered."
+        ),
+    ]
+    prompt: Annotated[
+        str, Meta(description="The prompt to display, which may be empty.")
+    ]
+    seq: Annotated[
+        int,
+        Meta(
+            description="Position among the execution's console and input items, increasing in production order.",
+            ge=0,
+        ),
+    ]
+    status: InputStatus
+
+
+class InputMessage(Struct, frozen=True):
+    input: Input
+    request_id: (
+        Annotated[
+            str,
+            Meta(
+                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+    time: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
 
 
 class Notebook(Struct, frozen=True):
     id: NotebookId
+    modified_at: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="A hint of when the file was last modified, for display and ordering. It can lag, since a host need not send the notebook again when only this value changes. Null when the host does not know."
+            ),
+        ]
+        | None
+    )
     name: Annotated[
         str,
         Meta(
@@ -1070,7 +1374,7 @@ class Notebook(Struct, frozen=True):
     operations: Annotated[
         tuple[str, ...],
         Meta(
-            description="Operations this client may call on the notebook, such as `notebook.edit` or `runtime.start`. A subset of `host.operations`, narrowed by permission and never by state; whether a runtime is attached shows in the `runtime` object, and preconditions still apply when an operation is called. The host sends the notebook again when it changes."
+            description="Operations this client may call on the notebook, such as `notebook.edit` or `runtime.start`. A subset of `host.operations` selected by the client's permissions, independently of the notebook's current state. The `runtime` object shows whether a runtime is attached, and preconditions still apply when an operation is called. The host sends the notebook again when it changes."
         ),
     ]
     path: (
@@ -1083,15 +1387,6 @@ class Notebook(Struct, frozen=True):
         | None
     )
     project_id: ProjectId
-    updated_at: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the file was last modified, as of the host's last look at it. Null when the host does not know."
-            ),
-        ]
-        | None
-    )
 
 
 class NotebookMessage(Struct, frozen=True):
@@ -1107,69 +1402,91 @@ class NotebookMessage(Struct, frozen=True):
     ) = UNSET
     time: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
             ),
         ]
         | UnsetType
     ) = UNSET
 
 
-Outcome: TypeAlias = Annotated[
-    ValueOutcome | ErrorOutcome | InterruptedOutcome,
+class OutputMessage(Struct, frozen=True):
+    output: Output
+    request_id: (
+        Annotated[
+            str,
+            Meta(
+                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+    time: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class PreconditionFailedProblem(
+    Struct,
+    frozen=True,
+    tag_field="type",
+    tag="urn:marimo:problem:precondition-failed",
+):
+    cell: (
+        Annotated[
+            Cell,
+            Meta(
+                description="The cell that entry named, as it now is. Null when the document does not have it, or when the entry named the order or the whole document."
+            ),
+        ]
+        | None
+    )
+    document: Annotated[
+        Document, Meta(description="The document as it now is.")
+    ]
+    index: Annotated[
+        int,
+        Meta(
+            description="The position of the first stale entry in the request, counted in an edit's `changes` or a run's `cells`. `0` for a save with a stale `If-Match`.",
+            ge=0,
+        ),
+    ]
+    detail: str | UnsetType = UNSET
+    instance: str | UnsetType = UNSET
+    status: Literal[412] = 412
+    title: str = "Precondition failed"
+
+
+Problem: TypeAlias = Annotated[
+    InvalidRequestProblem
+    | UnauthorizedProblem
+    | ForbiddenProblem
+    | NotFoundProblem
+    | MethodNotAllowedProblem
+    | ConflictProblem
+    | NoRuntimeProblem
+    | DecisionRequiredProblem
+    | PreconditionFailedProblem
+    | InternalProblem
+    | UnsupportedOperationProblem,
     Meta(
-        description="How an execution ended, tagged on `kind`. A `value` carries the\nexecution's value as last rendered; while the execution is\nrunning it is the value so far, and it is final once the\nexecution is `completed`. An `error` carries the error that ended it.\nAn `interrupted` execution was cancelled before or during execution. Other\nkinds are defined by later versions of this protocol.\n"
+        description="An error. Every error response is a problem, following RFC 9457, and is served as `application/problem+json`. `type` says which. A client ignores members it does not recognize. Hosts redact tokens from errors."
     ),
 ]
 
 
-class Problem(Struct, frozen=True):
-    status: Annotated[
-        int,
-        Meta(
-            description="The HTTP status code of the response.", ge=400, le=599
-        ),
+class Process(Struct, frozen=True):
+    pid: Annotated[int, Meta(description="The process id.", ge=1)]
+    started_at: Annotated[
+        Timestamp, Meta(description="When the process started.")
     ]
-    title: Annotated[
-        str,
-        Meta(
-            description="A short, human-readable name for the kind of problem."
-        ),
-    ]
-    type: Annotated[
-        str,
-        Meta(
-            description="What kind of problem this is, as a URI. The kinds this\nprotocol defines all start with `tag:marimo.io,2026:host/` and\nend with one of `invalid-request` (400), `unauthorized` (401),\n`forbidden` (403), `not-found` (404), `method-not-allowed`\n(405), `not-acceptable` (406), `conflict` (409), `no-runtime`\n(409), `decision-required` (409), `internal` (500), or\n`unsupported-operation` (501). A client that sees a kind it\ndoes not recognize falls back to `status`.\n"
-        ),
-    ]
-    decisions: (
-        Annotated[
-            tuple[Decision, ...],
-            Meta(
-                description="The choices the client has to make before the host can carry out the request. Only present for `decision-required`."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-    detail: (
-        Annotated[
-            str,
-            Meta(
-                description="A human-readable explanation of what went wrong this time."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-    edit: (
-        Annotated[
-            EditConflict,
-            Meta(
-                description="Which change was stale and what the host holds instead. Only present for a `conflict` answering an edit, a save, or a run of cells."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
 
 
 class Project(Struct, frozen=True):
@@ -1192,7 +1509,7 @@ class Project(Struct, frozen=True):
     operations: Annotated[
         tuple[str, ...],
         Meta(
-            description="Operations this client may call on the project, today `notebook.create`. A subset of `host.operations`, narrowed by permission and never by state. The host sends the project again when it changes."
+            description="Operations this client may call on the project, today `notebook.create`. A subset of `host.operations` selected by the client's permissions, independently of the project's current state. The host sends the project again when it changes."
         ),
     ]
     root: (
@@ -1220,64 +1537,19 @@ class ProjectMessage(Struct, frozen=True):
     ) = UNSET
     time: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
             ),
         ]
         | UnsetType
     ) = UNSET
 
 
-class Run(Struct, frozen=True):
-    caused_by: (
-        Annotated[
-            ExecutionId,
-            Meta(
-                description="The execution that caused this runtime-scheduled run. This records provenance, not membership in that execution's run, and does not extend the earlier run's lifetime. Null for a client request or when the runtime does not know the source."
-            ),
-        ]
-        | None
-    )
-    completed_at: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the run ended. Null until the run is `completed`."
-            ),
-        ]
-        | None
-    )
-    id: RunId
-    notebook_id: NotebookId
-    outcome: (
-        Annotated[
-            RunOutcome,
-            Meta(
-                description="Null until completed, then final. Published with the terminal status and completed_at. An execution failure does not complete a run while other work remains. Interruption must have taken effect, not merely been requested."
-            ),
-        ]
-        | None
-    )
-    started_at: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the first execution started. Null if none has started."
-            ),
-        ]
-        | None
-    )
-    status: Annotated[
-        Lifecycle,
-        Meta(
-            description="Queued until the first execution starts, running until the cycle has settled or been terminated, and completed once all member executions are terminal and no more can be scheduled in this run. A run can complete with no executions."
-        ),
+class RemovedMessage(Struct, frozen=True):
+    id: Annotated[
+        str, Meta(description="The id of the object that was removed.")
     ]
-
-
-class RunMessage(Struct, frozen=True):
-    run: Run
     request_id: (
         Annotated[
             str,
@@ -1289,58 +1561,133 @@ class RunMessage(Struct, frozen=True):
     ) = UNSET
     time: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
             ),
         ]
         | UnsetType
     ) = UNSET
 
 
-class Runtime(Struct, frozen=True):
-    id: RuntimeId
-    marimo_version: (
+RunOrigin: TypeAlias = Annotated[
+    RunCellsOrigin | RunCodeOrigin | RunRuntimeOrigin,
+    Meta(
+        description="What a run was given when it was created, tagged on `kind`. A\n`cells` run was given the cells in `cell_ids`. A `code` run was\ngiven the code in `code`, which its scratch execution evaluates. A\n`runtime` run was given neither. The runtime scheduled it in\nresponse to a change, such as the cells that read a UI element\nafter its value changes. Other kinds are defined by later versions\nof this protocol.\n"
+    ),
+]
+
+
+RunOutcome: TypeAlias = Annotated[
+    SucceededOutcome | RunFailedOutcome | CancelledOutcome,
+    Meta(
+        description="How a run ended, tagged on `kind`. `succeeded` means its work\nsettled without an execution failing or being cancelled. `failed`\nmeans an execution's code raised or the host could not finish the\ncycle. An execution skipped because of another cell does not fail\nits run. `cancelled` means the cycle was cut short by a cancel,\nan interrupt, or its runtime stopping, even if an earlier execution\nfailed. Execution outcomes retain their individual results.\n"
+    ),
+]
+
+
+class RunRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="run.removed"
+):
+    data: RemovedMessage
+    id: (
         Annotated[
             str,
             Meta(
-                description="The version of marimo running the kernel. Null until the host knows it."
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
             ),
         ]
-        | None
-    )
-    message: (
-        Annotated[
-            str,
-            Meta(
-                description="A note about the current status, such as progress while `starting` or the reason when `failed`. Null otherwise."
-            ),
-        ]
-        | None
-    )
-    notebook_id: NotebookId
+        | UnsetType
+    ) = UNSET
+
+
+class RunRunning(Struct, frozen=True, tag_field="status", tag="running"):
     started_at: Annotated[
-        datetime, Meta(description="When this runtime started.")
+        Timestamp, Meta(description="When the first execution started.")
     ]
-    status: RuntimeStatus
 
 
-class RuntimeMessage(Struct, frozen=True):
-    runtime: Runtime
-    request_id: (
+RuntimeOutcome: TypeAlias = Annotated[
+    RuntimeStoppedOutcome | RuntimeFailedOutcome,
+    Meta(
+        description="How a runtime ended, tagged on `kind`. A `stopped` runtime was\nended by a client or the host. A `failed` runtime could not start,\nor its kernel exited unexpectedly.\n"
+    ),
+]
+
+
+class RuntimeRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="runtime.removed"
+):
+    data: RemovedMessage
+    id: (
         Annotated[
             str,
             Meta(
-                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
             ),
         ]
         | UnsetType
     ) = UNSET
-    time: (
+
+
+class VariableEvent(Struct, frozen=True, tag_field="event", tag="variable"):
+    data: VariableMessage
+    id: (
         Annotated[
-            datetime,
+            str,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class VariableRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="variable.removed"
+):
+    data: RemovedMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class AttachmentEvent(
+    Struct, frozen=True, tag_field="event", tag="attachment"
+):
+    data: AttachmentMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class AttachmentRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="attachment.removed"
+):
+    data: RemovedMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
             ),
         ]
         | UnsetType
@@ -1351,8 +1698,8 @@ class CellAnalysis(Struct, frozen=True):
     defs: Annotated[
         tuple[str, ...], Meta(description="Names this cell defines.")
     ]
-    errors: Annotated[
-        tuple[Error, ...],
+    diagnostics: Annotated[
+        tuple[CellDiagnostic, ...],
         Meta(
             description="Diagnostics about the code. Only an `error` affects scheduling. `multiple-definitions` lists the definers in `related`, each `range` at its definition; `cycle-dependencies` lists the cycle. Both are reported on every cell involved, differing only in `range`. Every other kind belongs to the analyzer named in `source`."
         ),
@@ -1361,117 +1708,308 @@ class CellAnalysis(Struct, frozen=True):
         tuple[str, ...],
         Meta(description="Names this cell reads from other cells."),
     ]
-
-
-class Execution(Struct, frozen=True):
-    caused_by: (
+    parents: (
         Annotated[
-            ExecutionId,
+            tuple[CellId, ...],
             Meta(
-                description="The execution in the same run that caused this one. Null for executions requested directly."
+                description="Cell IDs of the direct dependencies in this revision. An empty list means no parents. Omitted when the host does not provide the graph."
             ),
         ]
-        | None
-    )
-    cell_id: (
-        Annotated[
-            CellId,
-            Meta(
-                description="The cell this execution belongs to. Null for scratch code, a cell outside the document."
-            ),
-        ]
-        | None
-    )
-    code: (
+        | UnsetType
+    ) = UNSET
+
+
+class CellEvent(Struct, frozen=True, tag_field="event", tag="cell"):
+    data: CellMessage
+    id: (
         Annotated[
             str,
             Meta(
-                description="The submitted code for an execution with no cell. Null for a cell's execution, since the cell holds its code."
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
             ),
         ]
-        | None
-    )
-    code_hash: Annotated[
-        Etag,
+        | UnsetType
+    ) = UNSET
+
+
+class CellRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="cell.removed"
+):
+    data: RemovedMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+ConsoleContent: TypeAlias = ConsoleText | ConsoleMedia
+
+
+class ConsoleRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="console.removed"
+):
+    data: RemovedMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class CustomEvent(Struct, frozen=True, tag_field="event", tag="custom"):
+    data: CustomMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class DocumentEvent(Struct, frozen=True, tag_field="event", tag="document"):
+    data: DocumentMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+ExecutionOutcome: TypeAlias = Annotated[
+    SucceededOutcome
+    | ExecutionFailedOutcome
+    | CancelledOutcome
+    | ExecutionSkippedOutcome,
+    Meta(
+        description="How an execution ended, tagged on `kind`. A `succeeded` execution\nevaluated its code without raising, and what it showed is its\n`output` item. A `failed` execution carries the error that ended it.\nA `cancelled` execution was stopped before or while it ran.\nA `skipped` execution did not evaluate because of another cell; it\nhas no value and binds no variables. Other kinds are defined by\nlater versions of this protocol.\n"
+    ),
+]
+
+
+class ExecutionRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="execution.removed"
+):
+    data: RemovedMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class HostEvent(Struct, frozen=True, tag_field="event", tag="host"):
+    data: HostMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class HostRecord(Struct, frozen=True):
+    name: Annotated[
+        str,
         Meta(
-            description="The `code_hash` of the code that was evaluated, computed as a cell's is."
+            description="A label for the host to show people, such as `VS Code` or `marimo`. Two hosts can share a name; the filename is the identity.",
+            examples=["marimo"],
         ),
     ]
-    completed_at: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the execution ended. Null until it is completed."
-            ),
-        ]
-        | None
-    )
-    depends_on: Annotated[
-        dict[str, Revision | None],
+    process: Process
+    token: Annotated[
+        str,
         Meta(
-            description="The variables the execution used, by name, each at the revision the runtime holds its result valid against. Null for a name no retained cell execution had bound. Empty while queued, stamped as the execution ends, and final from then on."
+            description="The secret a client sends to prove it read the record.",
+            min_length=1,
         ),
     ]
-    id: ExecutionId
-    outcome: (
+    url: Annotated[
+        str,
+        Meta(
+            description="Where the host's API is. The scheme is `http`, and the host part is `127.0.0.1` or `[::1]`, written exactly that way.",
+            examples=["http://127.0.0.1:2718/api/marimo/v1"],
+        ),
+    ]
+    version: Annotated[
+        Literal[1],
+        Meta(
+            description="The version of this record's format. This document describes version 1."
+        ),
+    ]
+
+
+class InputEvent(Struct, frozen=True, tag_field="event", tag="input"):
+    data: InputMessage
+    id: (
         Annotated[
-            Outcome,
+            str,
             Meta(
-                description="How the execution ended. Null while queued; while running, a value carries the display so far; final once completed."
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
             ),
         ]
-        | None
-    )
-    run_id: (
+        | UnsetType
+    ) = UNSET
+
+
+class NotebookEvent(Struct, frozen=True, tag_field="event", tag="notebook"):
+    data: NotebookMessage
+    id: (
         Annotated[
-            RunId,
+            str,
             Meta(
-                description="The run that owns this execution. Every live execution belongs to exactly one run. May name a run the host has dropped. Null only for a restored result whose run is unknown."
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
             ),
         ]
-        | None
-    )
-    runtime_id: (
+        | UnsetType
+    ) = UNSET
+
+
+class NotebookRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="notebook.removed"
+):
+    data: RemovedMessage
+    id: (
         Annotated[
-            RuntimeId,
+            str,
             Meta(
-                description="The runtime that produced this execution. Live when it equals the current runtime's id. Null when the producer is unknown."
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
             ),
         ]
-        | None
-    )
+        | UnsetType
+    ) = UNSET
+
+
+class OutputEvent(Struct, frozen=True, tag_field="event", tag="output"):
+    data: OutputMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class OutputRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="output.removed"
+):
+    data: RemovedMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class ProjectEvent(Struct, frozen=True, tag_field="event", tag="project"):
+    data: ProjectMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class ProjectRemovedEvent(
+    Struct, frozen=True, tag_field="event", tag="project.removed"
+):
+    data: RemovedMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class RunCompleted(Struct, frozen=True, tag_field="status", tag="completed"):
+    completed_at: Annotated[Timestamp, Meta(description="When the run ended.")]
+    outcome: Annotated[
+        RunOutcome,
+        Meta(
+            description="An execution failure does not complete a run while other work remains. Interruption must have taken effect, not merely been requested."
+        ),
+    ]
     started_at: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the code started executing. Null while queued and for an execution that never ran."
+                description="When the first execution started. Null if none started."
             ),
         ]
         | None
     )
-    status: Lifecycle
 
 
-class ExecutionMessage(Struct, frozen=True):
-    execution: Execution
-    request_id: (
-        Annotated[
-            str,
-            Meta(
-                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
-    time: (
-        Annotated[
-            datetime,
-            Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
-            ),
-        ]
-        | UnsetType
-    ) = UNSET
+RunState: TypeAlias = Annotated[
+    RunQueued | RunRunning | RunCompleted,
+    Meta(
+        description="Where a run is in its lifecycle, tagged on `status`. A run is\n`queued` until its first execution starts and `running` until the\ncycle has settled or been terminated. It is `completed` once all\nmember executions are terminal and no more can be scheduled in this\nrun, and that state is final. A run can complete with no executions.\n"
+    ),
+]
+
+
+class RuntimeEnded(Struct, frozen=True, tag_field="status", tag="ended"):
+    ended_at: Annotated[Timestamp, Meta(description="When the runtime ended.")]
+    outcome: RuntimeOutcome
+
+
+RuntimeState: TypeAlias = Annotated[
+    RuntimeStarting | RuntimeReady | RuntimeStopping | RuntimeEnded,
+    Meta(
+        description="Where a runtime is in its life, tagged on `status`. A `starting`\nruntime is bringing its kernel up. A `ready` runtime accepts work.\nA `stopping` runtime is shutting its kernel down. An `ended`\nruntime has no kernel and does not change again.\n"
+    ),
+]
 
 
 class Analysis(Struct, frozen=True):
@@ -1503,10 +2041,393 @@ class AnalysisMessage(Struct, frozen=True):
     ) = UNSET
     time: (
         Annotated[
-            datetime,
+            Timestamp,
             Meta(
-                description="When the host made this change. Present on live and replayed events; omitted on snapshots."
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
             ),
         ]
         | UnsetType
     ) = UNSET
+
+
+class Console(Struct, frozen=True):
+    content: Annotated[
+        ConsoleContent, Meta(description="What was written, tagged on `kind`.")
+    ]
+    execution_id: ExecutionId
+    id: ItemId
+    seq: Annotated[
+        int,
+        Meta(
+            description="Position among the execution's console and input items, increasing in the order they were produced.",
+            ge=0,
+        ),
+    ]
+
+
+class ConsoleMessage(Struct, frozen=True):
+    console: Console
+    request_id: (
+        Annotated[
+            str,
+            Meta(
+                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+    time: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class ExecutionCompleted(
+    Struct, frozen=True, tag_field="status", tag="completed"
+):
+    completed_at: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the execution ended. Null for a restored result whose store does not record it."
+            ),
+        ]
+        | None
+    )
+    depends_on: Annotated[
+        dict[str, Revision | None],
+        Meta(
+            description="The variable revisions this result is valid against, keyed by name. Null for a name no retained cell execution had bound. Stamped as the execution ends."
+        ),
+    ]
+    outcome: ExecutionOutcome
+    started_at: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the code started executing. Null if the execution never started or the start time of a restored result is unknown."
+            ),
+        ]
+        | None
+    )
+
+
+ExecutionState: TypeAlias = Annotated[
+    ExecutionQueued | ExecutionRunning | ExecutionCompleted,
+    Meta(
+        description="Where an execution is in its lifecycle, tagged on `status`. An\nexecution is `queued` until it starts, `running` while code\nexecutes, and `completed` once it has ended with its `outcome`.\n"
+    ),
+]
+
+
+class Run(Struct, frozen=True):
+    created_at: Annotated[
+        Timestamp,
+        Meta(
+            description="When the host accepted the run, or when the runtime scheduled it."
+        ),
+    ]
+    id: RunId
+    notebook_id: NotebookId
+    origin: RunOrigin
+    runtime_id: Annotated[
+        RuntimeId, Meta(description="The runtime that produced this run.")
+    ]
+    state: RunState
+
+
+class RunMessage(Struct, frozen=True):
+    run: Run
+    request_id: (
+        Annotated[
+            str,
+            Meta(
+                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+    time: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class Runtime(Struct, frozen=True):
+    created_at: Annotated[
+        Timestamp,
+        Meta(
+            description="When the host created this runtime and began starting it."
+        ),
+    ]
+    id: RuntimeId
+    marimo_version: (
+        Annotated[
+            str,
+            Meta(
+                description="The version of marimo running the kernel. Null until the host knows it."
+            ),
+        ]
+        | None
+    )
+    notebook_id: NotebookId
+    state: RuntimeState
+
+
+class RuntimeMessage(Struct, frozen=True):
+    runtime: Runtime
+    request_id: (
+        Annotated[
+            str,
+            Meta(
+                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+    time: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class AnalysisEvent(Struct, frozen=True, tag_field="event", tag="analysis"):
+    data: AnalysisMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class ConsoleEvent(Struct, frozen=True, tag_field="event", tag="console"):
+    data: ConsoleMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class Execution(Struct, frozen=True):
+    caused_by_id: (
+        Annotated[
+            ExecutionId,
+            Meta(
+                description="The execution in the same run whose code was running when this one was scheduled, such as scratch code that ran a cell, set a UI element's value, or wrote state, and the cells that reacted to it. Null for an execution a client requested and for the cells that reacted to one."
+            ),
+        ]
+        | None
+    )
+    cell_id: (
+        Annotated[
+            CellId,
+            Meta(
+                description="The cell this execution belongs to. Null for a scratch execution, which evaluates the code in its run's `origin`."
+            ),
+        ]
+        | None
+    )
+    code_fingerprint: Annotated[
+        CodeFingerprint,
+        Meta(
+            description="Fingerprint of the code the execution evaluates. Fixed when the execution is published, while it is still queued."
+        ),
+    ]
+    created_at: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the runtime scheduled this execution. Null for a restored result, whose timing is unknown."
+            ),
+        ]
+        | None
+    )
+    id: ExecutionId
+    run_id: (
+        Annotated[
+            RunId,
+            Meta(
+                description="The run that owns this execution. Every live execution belongs to exactly one run. May name a run the host has dropped. Null only for a restored result whose run is unknown."
+            ),
+        ]
+        | None
+    )
+    runtime_id: (
+        Annotated[
+            RuntimeId,
+            Meta(
+                description="The runtime that produced this execution. Live while that runtime is the notebook's and has not ended. Null when the producer is unknown."
+            ),
+        ]
+        | None
+    )
+    state: ExecutionState
+
+
+class ExecutionMessage(Struct, frozen=True):
+    execution: Execution
+    request_id: (
+        Annotated[
+            str,
+            Meta(
+                description="The `Idempotency-Key` of the request that caused this event. Omitted when no request did, and on snapshots unless that request's work is still in progress."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+    time: (
+        Annotated[
+            Timestamp,
+            Meta(
+                description="When the host published this event. Present on live and replayed events; omitted on snapshots."
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class RunEvent(Struct, frozen=True, tag_field="event", tag="run"):
+    data: RunMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+class RuntimeEvent(Struct, frozen=True, tag_field="event", tag="runtime"):
+    data: RuntimeMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+CatalogStreamEvent: TypeAlias = Annotated[
+    HostEvent
+    | ProjectEvent
+    | NotebookEvent
+    | RuntimeEvent
+    | AttachmentEvent
+    | ProjectRemovedEvent
+    | NotebookRemovedEvent
+    | RuntimeRemovedEvent
+    | AttachmentRemovedEvent
+    | ResetEvent
+    | ReadyEvent,
+    Meta(description="Any event the catalog stream carries."),
+]
+
+
+class ExecutionEvent(Struct, frozen=True, tag_field="event", tag="execution"):
+    data: ExecutionMessage
+    id: (
+        Annotated[
+            str,
+            Meta(
+                description="The resume cursor. Omitted on snapshot and reset events.",
+                min_length=1,
+            ),
+        ]
+        | UnsetType
+    ) = UNSET
+
+
+NotebookStreamEvent: TypeAlias = Annotated[
+    NotebookEvent
+    | DocumentEvent
+    | CellEvent
+    | RuntimeEvent
+    | AttachmentEvent
+    | RunEvent
+    | ExecutionEvent
+    | OutputEvent
+    | ConsoleEvent
+    | InputEvent
+    | VariableEvent
+    | AnalysisEvent
+    | CustomEvent
+    | NotebookRemovedEvent
+    | CellRemovedEvent
+    | RuntimeRemovedEvent
+    | AttachmentRemovedEvent
+    | RunRemovedEvent
+    | ExecutionRemovedEvent
+    | OutputRemovedEvent
+    | ConsoleRemovedEvent
+    | VariableRemovedEvent
+    | ResetEvent
+    | ReadyEvent,
+    Meta(description="Any event a notebook stream carries."),
+]
+
+
+Event: TypeAlias = Annotated[
+    HostEvent
+    | ProjectEvent
+    | NotebookEvent
+    | DocumentEvent
+    | CellEvent
+    | RuntimeEvent
+    | AttachmentEvent
+    | RunEvent
+    | ExecutionEvent
+    | OutputEvent
+    | ConsoleEvent
+    | InputEvent
+    | VariableEvent
+    | AnalysisEvent
+    | CustomEvent
+    | ProjectRemovedEvent
+    | NotebookRemovedEvent
+    | CellRemovedEvent
+    | RuntimeRemovedEvent
+    | AttachmentRemovedEvent
+    | RunRemovedEvent
+    | ExecutionRemovedEvent
+    | OutputRemovedEvent
+    | ConsoleRemovedEvent
+    | VariableRemovedEvent
+    | ResetEvent
+    | ReadyEvent,
+    Meta(
+        description="A record, removal, or control message from a host stream. The data is decoded JSON. Snapshot records and reset events omit the cursor, and ready and live events carry it. Unknown event names belong to later versions or host extensions."
+    ),
+]

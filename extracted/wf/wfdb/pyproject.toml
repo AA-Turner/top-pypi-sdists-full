@@ -4,8 +4,8 @@ build-backend = "uv_build"
 
 [project]
 name = "wfdb"
-version = "5.2.0"
-description = "The WFDB Python package: tools for reading, writing, and processing physiologic signals and annotations."
+version = "5.3.0"
+description = "Read, write, plot, and process physiologic waveforms and annotations."
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
@@ -14,7 +14,7 @@ dependencies = [
     "numpy >= 1.26.4",
     "scipy >= 1.13.0",
     "pandas >= 2.2.3",
-    "soundfile >= 0.12.1",
+    "soundfile >= 0.13.1",
     "matplotlib >= 3.8.0",
     "requests >= 2.31.0",
     "fsspec >= 2025.7.0",
@@ -30,6 +30,9 @@ email = "contact@physionet.org"
 homepage = "https://github.com/MIT-LCP/wfdb-python/"
 repository = "https://github.com/MIT-LCP/wfdb-python/"
 documentation = "https://wfdb.readthedocs.io/"
+wfdb-project = "https://wfdb.io/"
+issues = "https://github.com/MIT-LCP/wfdb-python/issues"
+changelog = "https://wfdb.readthedocs.io/en/latest/changes.html"
 
 [dependency-groups]
 dev = [

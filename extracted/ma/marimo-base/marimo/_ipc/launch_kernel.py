@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import os
+import signal
 import sys
 
+from marimo._config.config import parse_config
 from marimo._ipc.queue_manager import QueueManager
 from marimo._ipc.types import KernelArgs
 from marimo._runtime import runtime
@@ -26,6 +28,8 @@ def main() -> None:
     used by external consumers (e.g., marimo-lsp). Changing this path is a
     BREAKING CHANGE and should be done with care and proper deprecation.
     """
+    # Readiness makes the kernel interruptible before its handler is installed.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     args = KernelArgs.decode_json(sys.stdin.buffer.read())
     queue_manager = QueueManager.connect(args.connection_info)
 
@@ -45,7 +49,8 @@ def main() -> None:
         input_queue=queue_manager.input_queue,
         app_metadata=args.app_metadata,
         log_level=args.log_level,
-        user_config=args.user_config,
+        user_config=parse_config(args.user_config),
+        config_overrides=args.config_overrides,
         configs=args.configs,
         profile_path=args.profile_path,
         # None (the default) means no web server serves /@file/ URLs, so
@@ -56,7 +61,7 @@ def main() -> None:
         # NB: IPC kernels are always subprocesses (is_ipc=True) but may be
         # edit or run mode based on is_edit_mode.
         stream_queue=queue_manager.stream_queue,
-        socket_addr=None,
+        stream_target=None,
         is_edit_mode=not args.is_run_mode,
         is_ipc=True,
         redirect_console_to_browser=args.redirect_console_to_browser,

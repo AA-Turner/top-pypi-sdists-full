@@ -622,7 +622,12 @@ def connection_create_kafka(
 
 
 def list_kafka_topics(
-    bootstrap_servers, sasl_username, sasl_password, security_protocol, sasl_mechanism, ssl_ca_pem
+    bootstrap_servers: str,
+    sasl_username: str,
+    sasl_password: str,
+    security_protocol: str,
+    sasl_mechanism: str,
+    ssl_ca_pem: Optional[str],
 ) -> list[str]:
     conf = {
         "bootstrap.servers": bootstrap_servers,

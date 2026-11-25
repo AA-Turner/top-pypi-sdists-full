@@ -15,9 +15,19 @@
 #include <unistd.h>
 #endif
 
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
+
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
+#include <mutex>
+#include <optional>
+#include <set>
 #include <string>
+#include <unordered_map>
+#include <utility>
 
 #include "common/exception/exception.h"
 #include "common/file_system/virtual_file_system.h"
@@ -95,6 +105,84 @@ uint64_t getAvailableSystemMemory() {
 
 } // namespace
 
+namespace {
+// In-process guard for nodejs#29: POSIX fcntl locks are per-process, so a second
+// Database on the same path in the same process would otherwise open successfully
+// and its WAL would be stolen by the first DB's close-time checkpoint.
+// Track file-backed read-write opens; read-only and in-memory opens are exempt
+// (read-only second open while RW is alive is relied on by
+// WalTest.LargeWALRecordReplayWithPreviousDBAlive).
+//
+// Claims are keyed by the path with symlinks resolved and, once the file exists, by its
+// (device, inode), so a hard link or another spelling of the same file is refused too.
+using FileIdentity = std::pair<uint64_t, uint64_t>;
+std::mutex openDbMtx;
+std::unordered_map<std::string, std::optional<FileIdentity>> openRwDbPaths;
+std::set<FileIdentity> openRwDbFiles;
+
+std::string claimKey(const std::string& path) {
+    std::error_code ec;
+    auto canonical = std::filesystem::weakly_canonical(std::filesystem::path(path), ec);
+    return ec ? path : canonical.string();
+}
+
+std::optional<FileIdentity> fileIdentity(const std::string& path) {
+#ifdef _WIN32
+    // Windows file locks belong to the handle and already refuse a second writable open of the
+    // same file, whatever path it is reached by.
+    (void)path;
+    return std::nullopt;
+#else
+    struct stat st {};
+    if (stat(path.c_str(), &st) != 0) {
+        return std::nullopt;
+    }
+    return FileIdentity{static_cast<uint64_t>(st.st_dev), static_cast<uint64_t>(st.st_ino)};
+#endif
+}
+
+bool tryClaimOpenDbPath(const std::string& path) {
+    const auto key = claimKey(path);
+    const auto identity = fileIdentity(path);
+    std::lock_guard<std::mutex> lck{openDbMtx};
+    if (openRwDbPaths.contains(key) || (identity && openRwDbFiles.contains(*identity))) {
+        return false;
+    }
+    openRwDbPaths.emplace(key, identity);
+    if (identity) {
+        openRwDbFiles.insert(*identity);
+    }
+    return true;
+}
+
+// A database file created by this open had no identity when it was claimed. Record it now, so
+// a hard link made to it later is refused as well.
+void recordOpenDbFileIdentity(const std::string& path) {
+    const auto identity = fileIdentity(path);
+    if (!identity) {
+        return;
+    }
+    std::lock_guard<std::mutex> lck{openDbMtx};
+    auto it = openRwDbPaths.find(claimKey(path));
+    if (it != openRwDbPaths.end() && !it->second) {
+        it->second = identity;
+        openRwDbFiles.insert(*identity);
+    }
+}
+
+void releaseOpenDbPath(const std::string& path) {
+    std::lock_guard<std::mutex> lck{openDbMtx};
+    auto it = openRwDbPaths.find(claimKey(path));
+    if (it == openRwDbPaths.end()) {
+        return;
+    }
+    if (it->second) {
+        openRwDbFiles.erase(*it->second);
+    }
+    openRwDbPaths.erase(it);
+}
+} // namespace
+
 SystemConfig::SystemConfig(uint64_t bufferPoolSize_, uint64_t maxNumThreads, bool enableCompression,
     bool readOnly, uint64_t maxDBSize, bool autoCheckpoint, uint64_t checkpointThreshold,
     bool forceCheckpointOnClose, bool throwOnWalReplayFailure, bool enableChecksums,
@@ -169,35 +257,81 @@ void Database::initMembers(std::string_view dbPath, construct_bm_func_t initBmFu
     }
     vfs = std::make_unique<VirtualFileSystem>(databasePath);
     validatePathInReadOnly();
-
-    bufferManager = initBmFunc(*this);
-    memoryManager = std::make_unique<MemoryManager>(bufferManager.get(), vfs.get());
+    // Claim the path before any WAL/data file is touched so a second RW open
+    // in this process fails fast instead of corrupting the first DB's WAL on close.
+    const bool needsOpenClaim = !DBConfig::isDBPathInMemory(databasePath) && !dbConfig->readOnly;
+    if (needsOpenClaim) {
+        if (!tryClaimOpenDbPath(databasePath)) {
+            throw RuntimeException("Cannot open database at " + databasePath +
+                                   " in read-write mode: it is already open in this process. " +
+                                   "Close the existing Database first.");
+        }
+        ownsOpenPathClaim = true;
+    }
+    try {
+        bufferManager = initBmFunc(*this);
+        memoryManager = std::make_unique<MemoryManager>(bufferManager.get(), vfs.get());
 #if defined(__APPLE__)
-    queryProcessor =
-        std::make_unique<processor::QueryProcessor>(dbConfig->maxNumThreads, dbConfig->threadQos);
+        queryProcessor = std::make_unique<processor::QueryProcessor>(dbConfig->maxNumThreads,
+            dbConfig->threadQos);
 #else
-    queryProcessor = std::make_unique<processor::QueryProcessor>(dbConfig->maxNumThreads);
+        queryProcessor = std::make_unique<processor::QueryProcessor>(dbConfig->maxNumThreads);
 #endif
 
-    catalog = std::make_unique<Catalog>();
-    storageManager = std::make_unique<StorageManager>(databasePath, dbConfig->readOnly,
-        dbConfig->enableChecksums, *memoryManager, dbConfig->enableCompression,
-        dbConfig->enableDefaultHashIndex, vfs.get());
-    transactionManager = std::make_unique<TransactionManager>(storageManager->getWAL());
-    databaseManager = std::make_unique<DatabaseManager>();
+        catalog = std::make_unique<Catalog>();
+        storageManager = std::make_unique<StorageManager>(databasePath, dbConfig->readOnly,
+            dbConfig->enableChecksums, *memoryManager, dbConfig->enableCompression,
+            dbConfig->enableDefaultHashIndex, vfs.get());
+        transactionManager = std::make_unique<TransactionManager>(storageManager->getWAL());
+        databaseManager = std::make_unique<DatabaseManager>();
 
-    extensionManager = std::make_unique<extension::ExtensionManager>();
-    dbLifeCycleManager = std::make_shared<DatabaseLifeCycleManager>();
-    if (clientContext.isInMemory()) {
-        storageManager->initDataFileHandle(vfs.get(), &clientContext);
-        extensionManager->autoLoadLinkedExtensions(&clientContext);
-        return;
+        extensionManager = std::make_unique<extension::ExtensionManager>();
+        dbLifeCycleManager = std::make_shared<DatabaseLifeCycleManager>();
+        if (clientContext.isInMemory()) {
+            storageManager->initDataFileHandle(vfs.get(), &clientContext);
+            extensionManager->autoLoadLinkedExtensions(&clientContext);
+            return;
+        }
+        StorageManager::recover(clientContext, dbConfig->throwOnWalReplayFailure,
+            dbConfig->enableChecksums);
+
+        // Load graphs from system catalog
+        databaseManager->loadGraphsFromCatalog(memoryManager.get(), &clientContext);
+        if (ownsOpenPathClaim) {
+            recordOpenDbFileIdentity(databasePath);
+        }
+    } catch (...) {
+        if (ownsOpenPathClaim) {
+            // Close this open's files before another open can claim the path (see
+            // releaseMembersBeforeOpenPathClaim).
+            releaseMembersBeforeOpenPathClaim();
+            releaseOpenDbPath(databasePath);
+            ownsOpenPathClaim = false;
+        }
+        throw;
     }
-    StorageManager::recover(clientContext, dbConfig->throwOnWalReplayFailure,
-        dbConfig->enableChecksums);
+}
 
-    // Load graphs from system catalog
-    databaseManager->loadGraphsFromCatalog(memoryManager.get(), &clientContext);
+void Database::releaseMembersBeforeOpenPathClaim() {
+    // Closing any descriptor of a file drops all of this process's POSIX locks on it. If the
+    // claim were released first, a writable open on another thread could take its lock in
+    // between, and closing this open's descriptors would then drop that lock. So the members
+    // that own files are destroyed here, in the same order as implicit member destruction
+    // (reverse declaration order), before the claim is released.
+    mapperExtensions.clear();
+    plannerExtensions.clear();
+    binderExtensions.clear();
+    transformerExtensions.clear();
+    dbLifeCycleManager.reset();
+    extensionManager.reset();
+    databaseManager.reset();
+    lockFile.reset();
+    transactionManager.reset();
+    storageManager.reset();
+    catalog.reset();
+    queryProcessor.reset();
+    memoryManager.reset();
+    bufferManager.reset();
 }
 
 Database::~Database() {
@@ -208,6 +342,11 @@ Database::~Database() {
         } catch (...) {} // NOLINT
     }
     dbLifeCycleManager->isDatabaseClosed = true;
+    if (ownsOpenPathClaim) {
+        releaseMembersBeforeOpenPathClaim();
+        releaseOpenDbPath(databasePath);
+        ownsOpenPathClaim = false;
+    }
 }
 
 // NOLINTNEXTLINE(readability-make-member-function-const): Semantically non-const function.

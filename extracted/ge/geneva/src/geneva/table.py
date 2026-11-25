@@ -787,6 +787,8 @@ def _make_udtf_processor_actor() -> Any:
         source_name: str
         source_query_json_bytes: bytes | None
         ckp_store_uri: str
+        # from_uri re-selects the class on the worker; carry the flat pin.
+        ckp_store_layout: str = attrs.field(default="flat")
         source_api_key: Any = attrs.field(default=None, repr=False)
         source_host_override: str | None = attrs.field(default=None)
         error_handling_pickle_bytes: bytes | None = attrs.field(default=None)
@@ -832,7 +834,9 @@ def _make_udtf_processor_actor() -> Any:
 
             if self.source_version is not None:
                 self._tbl.checkout(self.source_version)
-            self._store = _ckp.CheckpointStore.from_uri(self.ckp_store_uri)
+            self._store = _ckp.CheckpointStore.from_uri(
+                self.ckp_store_uri, layout=self.ckp_store_layout
+            )
             if self.error_handling_pickle_bytes is not None:
                 self._error_config = _cp.loads(self.error_handling_pickle_bytes)
 
@@ -1403,6 +1407,47 @@ def _build_index_partition_work_items(
     return work_items, partition_ids
 
 
+def _open_checkpoint_stores_all_layouts(table: "Table") -> list[CheckpointStore]:
+    """Open the table's checkpoint stores for every layout, configured one first.
+
+    A table keeps checkpoints in the flat root (UDTF refresh, and UDF
+    checkpoints written before the hierarchical default) and in the configured
+    root. Multi-base tables are wrapped so per-base roots are covered too.
+    """
+    from geneva.checkpoint import configured_store_layout
+
+    ref = table.get_reference()
+    # The configured store must open; the other layout's root is best-effort.
+    stores = [ref.open_checkpoint_store()]
+    seen = {(stores[0].uri(), type(stores[0]))}
+    other = "flat" if configured_store_layout() == "hierarchical" else "hierarchical"
+    try:
+        store = ref.open_checkpoint_store(layout=other)
+        # Key on (uri, class): GENEVA_CHECKPOINT_SUBDIR puts both layouts in one
+        # root, where each reader sees different keys.
+        if (store.uri(), type(store)) not in seen:
+            stores.append(store)
+    except Exception:
+        _LOG.warning("failed to open %s checkpoint store", other, exc_info=True)
+    try:
+        from geneva.utils.multi_base import (
+            FragmentBasePlacement,
+            maybe_wrap_checkpoint_store_for_bases,
+        )
+
+        # to_lance: fresh — the base set must reflect the live manifest
+        placement = FragmentBasePlacement.from_dataset(table.to_lance())
+        stores = [
+            maybe_wrap_checkpoint_store_for_bases(
+                store, placement, include_unused_bases=True
+            )
+            for store in stores
+        ]
+    except Exception:
+        _LOG.debug("failed to resolve multi-base checkpoint roots", exc_info=True)
+    return stores
+
+
 def _get_udf_name_from_field(field: pa.Field) -> str | None:
     """Extract UDF name from column field metadata."""
     if field.metadata is None:
@@ -1669,9 +1714,13 @@ class TableReference:
         )
 
     def open_checkpoint_store(
-        self, *, use_worker_props: bool = False
+        self, *, use_worker_props: bool = False, layout: str | None = None
     ) -> CheckpointStore:
-        """Open a Lance checkpoint store for this table."""
+        """Open a Lance checkpoint store for this table.
+
+        ``layout`` (``"flat"`` / ``"hierarchical"``) pins the store class and
+        its per-table subdir regardless of the configured layout.
+        """
         try:
             namespace_config = (
                 self.namespace_config.for_worker()
@@ -1697,17 +1746,24 @@ class TableReference:
             # ``DEFAULT_TABLE_SUBDIR``.
             from geneva.checkpoint import (
                 CheckpointConfig,
-                _select_store_class,
+                _normalize_store_layout,
+                _store_class_for_layout,
+                configured_store_layout,
             )
 
-            store_cls = _select_store_class()
+            effective_layout = (
+                _normalize_store_layout(layout)
+                if layout is not None
+                else configured_store_layout()
+            )
+            store_cls = _store_class_for_layout(effective_layout)
             subdir = os.environ.get("GENEVA_CHECKPOINT_SUBDIR")
             if subdir is None:
                 try:
                     cfg = CheckpointConfig.get()
                     subdir = (
                         cfg.hierarchical_subdir
-                        if cfg.store_layout == "hierarchical"
+                        if effective_layout == "hierarchical"
                         else cfg.flat_subdir
                     )
                 except Exception:
@@ -2364,8 +2420,8 @@ class Table(LanceTable):
         concurrency: int
             (default = 8) This controls the number of processes that tasks run
             concurrently. For max throughput, ideally this is larger than the number
-            of nodes in the k8s cluster. This is the number of Ray actor processes
-            that are started.
+            of nodes in the k8s cluster. This is the maximum number of Ray actor
+            processes started; a job with fewer planned tasks starts fewer.
         intra_applier_concurrency: int
             (default = 1) This controls the number of threads used to execute tasks
             within a process. Multiplying this times `concurrency` roughly corresponds
@@ -3250,9 +3306,10 @@ class Table(LanceTable):
             strict=_admission_strict,
         )
 
-        # Open checkpoint store
+        # UDTF refresh stays on the flat store regardless of the configured
+        # layout, so refreshes started before the hierarchical default resume.
         table_ref = self.get_reference()
-        checkpoint_store = table_ref.open_checkpoint_store()
+        checkpoint_store = table_ref.open_checkpoint_store(layout="flat")
         top_prefix = format_udtf_checkpoint_prefix(
             udtf_name=udtf_obj.name,
             udtf_version=udtf_obj.version,
@@ -3325,6 +3382,7 @@ class Table(LanceTable):
             source_name=source_name,
             source_query_json_bytes=source_query_bytes,
             ckp_store_uri=ckp_uri,
+            ckp_store_layout="flat",
             error_handling_pickle_bytes=error_handling_pickle,
             job_id=job_id,
             dest_table_uri=dest_table_uri,
@@ -3754,8 +3812,8 @@ class Table(LanceTable):
         concurrency: int
             (default = 8) This controls the number of processes that tasks run
             concurrently. For max throughput, ideally this is larger than the number
-            of nodes in the k8s cluster.   This is the number of Ray actor processes
-            are started.
+            of nodes in the k8s cluster. This is the maximum number of Ray actor
+            processes started; a job with fewer planned tasks starts fewer.
         intra_applier_concurrency: int
             (default = 1) This controls the number of threads used to execute tasks
             within a process. Multiplying this times `concurrency` roughly corresponds
@@ -4165,8 +4223,8 @@ class Table(LanceTable):
         concurrency: int
             (default = 8) This controls the number of processes that tasks run
             concurrently. For max throughput, ideally this is larger than the number
-            of nodes in the k8s cluster.   This is the number of Ray actor processes
-            are started.
+            of nodes in the k8s cluster. This is the maximum number of Ray actor
+            processes started; a job with fewer planned tasks starts fewer.
         intra_applier_concurrency: int
             (default = 1) This controls the number of threads used to execute tasks
             within a process. Multiplying this times `concurrency` roughly corresponds
@@ -4267,7 +4325,7 @@ class Table(LanceTable):
 
         Examples
         --------
-        ``concurrency`` is how many applier actors run; ``num_cpus``,
+        ``concurrency`` caps how many applier actors run; ``num_cpus``,
         ``num_gpus`` and ``memory`` are what each one reserves, and default
         to the UDF's ``@udf(...)`` declaration. To run one registered UDF
         with two resource shapes, split the rows with ``where`` and pass the
@@ -4958,12 +5016,28 @@ class Table(LanceTable):
         if task_size is not None:
             plan_kwargs["task_size"] = task_size
 
+        output_columns = (
+            unpack_context.columns if unpack_context is not None else [col_name]
+        )
+        # Mirror backfill(): deferred carry-forward plans only windows that
+        # hold a matching row (GEN-1019).
+        from geneva.runners.ray.pipeline import deferred_carry_forward_columns
+
+        skip_unselected_windows = current_udf is not None and bool(
+            deferred_carry_forward_columns(
+                where,
+                [c for c in output_columns if c in self._ltbl.schema.names],
+                current_udf.input_columns or [],
+            )
+        )
+
         plan_result = _plan_read(
             self.uri,
             table_ref,
-            unpack_context.columns if unpack_context is not None else [col_name],
+            output_columns,
             read_version=read_version,
             where=where,
+            skip_unselected_windows=skip_unselected_windows,
             **plan_kwargs,
         )
 
@@ -5478,9 +5552,12 @@ class Table(LanceTable):
         _clean_orphan_fragments: bool = True,
         _clean_udtf_batches: bool = True,
     ) -> dict[str, int]:
-        """Sweep expired checkpoints from this table's checkpoint store."""
-        import re
+        """Sweep expired checkpoints from this table's checkpoint stores.
 
+        Covers the configured layout's root plus the flat root, which holds UDTF
+        refresh checkpoints and UDF checkpoints written before the hierarchical
+        default.
+        """
         empty_counts = {
             "batch_deleted": 0,
             "orphan_frag_deleted": 0,
@@ -5488,33 +5565,13 @@ class Table(LanceTable):
         }
 
         try:
-            store = self.get_reference().open_checkpoint_store()
+            stores = _open_checkpoint_stores_all_layouts(self)
         except Exception:
             _LOG.warning(
                 "cleanup_checkpoints: failed to open checkpoint store",
                 exc_info=True,
             )
             return empty_counts
-
-        # Multi-base datasets keep per-fragment checkpoints in each
-        # fragment's storage base; sweep those roots too. Includes bases
-        # with no current fragment so orphaned checkpoints are reachable.
-        try:
-            from geneva.utils.multi_base import (
-                FragmentBasePlacement,
-                maybe_wrap_checkpoint_store_for_bases,
-            )
-
-            # to_lance: fresh — the sweep needs the live base set
-            placement = FragmentBasePlacement.from_dataset(self.to_lance())
-            store = maybe_wrap_checkpoint_store_for_bases(
-                store, placement, include_unused_bases=True
-            )
-        except Exception:
-            _LOG.debug(
-                "cleanup_checkpoints: failed to resolve multi-base roots",
-                exc_info=True,
-            )
 
         current_frag_ids: set[int] = set()
         if _clean_orphan_fragments:
@@ -5529,10 +5586,40 @@ class Table(LanceTable):
                 )
                 return empty_counts
 
-        all_keys = list(store.list_keys())
+        counts = dict(empty_counts)
+        for store in stores:
+            try:
+                store_counts = self._sweep_checkpoint_store(
+                    store,
+                    current_frag_ids,
+                    clean_batches=_clean_batches,
+                    clean_orphan_fragments=_clean_orphan_fragments,
+                    clean_udtf_batches=_clean_udtf_batches,
+                )
+            except Exception:
+                _LOG.warning(
+                    "cleanup_checkpoints: failed to sweep %s", store, exc_info=True
+                )
+                continue
+            for name, n in store_counts.items():
+                counts[name] += n
+        return counts
+
+    @staticmethod
+    def _sweep_checkpoint_store(
+        store: CheckpointStore,
+        current_frag_ids: set[int],
+        *,
+        clean_batches: bool,
+        clean_orphan_fragments: bool,
+        clean_udtf_batches: bool,
+    ) -> dict[str, int]:
+        """Delete expired checkpoints from one store; return per-pass counts."""
+        import re
+
         udf_pattern = re.compile(r"^(udf-.+?_frag-(\d+))(_range-.+)?$")
         udtf_batch_pattern = re.compile(r"^(udtf_.+?)_batch-\d+$")
-
+        all_keys = list(store.list_keys())
         udf_dedupe_keys: set[str] = set()
         udf_batch_to_dedupe: dict[str, str] = {}
         udf_frag_id_by_key: dict[str, int] = {}
@@ -5572,14 +5659,14 @@ class Table(LanceTable):
 
         deleted_keys: set[str] = set()
         batch_deleted = 0
-        if _clean_batches:
+        if clean_batches:
             for batch_key, dedupe_key in udf_batch_to_dedupe.items():
                 if dedupe_key in udf_dedupe_keys and _safe_delete(batch_key):
                     batch_deleted += 1
                     deleted_keys.add(batch_key)
 
         orphan_frag_deleted = 0
-        if _clean_orphan_fragments:
+        if clean_orphan_fragments:
             for key, frag_id in udf_frag_id_by_key.items():
                 if key in deleted_keys:
                     continue
@@ -5588,7 +5675,7 @@ class Table(LanceTable):
                     deleted_keys.add(key)
 
         udtf_batch_deleted = 0
-        if _clean_udtf_batches:
+        if clean_udtf_batches:
             for batch_key, partition_prefix in udtf_batch_to_partition.items():
                 if partition_prefix in udtf_partition_complete and _safe_delete(
                     batch_key

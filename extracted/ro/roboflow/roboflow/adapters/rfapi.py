@@ -12,6 +12,7 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 from roboflow.config import API_URL, DEFAULT_BATCH_NAME, DEFAULT_JOB_NAME
 from roboflow.util import http
+from roboflow.util.autolabel_utils import existing_annotations_flags
 from roboflow.util.search_utils import normalize_media_types
 
 
@@ -1147,6 +1148,31 @@ def merge_annotation_batches(api_key, workspace_url, project_url, *, source_batc
     return _annotation_administration_response(response)
 
 
+# Per-call cap on images moved into a batch, for imageIds and for the images a tag resolves to.
+MAX_MOVE_TO_BATCH_IMAGES = 1000
+
+
+def move_images_to_batch(
+    api_key, workspace_url, project_url, *, batch_name=None, batch_id=None, image_ids=None, tag=None
+):
+    """POST /{ws}/{proj}/annotation-batches/move — move images, by IDs or tag, into a batch named or identified."""
+    payload: Dict[str, Any] = {}
+    if image_ids is not None:
+        payload["imageIds"] = image_ids
+    if tag is not None:
+        payload["tag"] = tag
+    if batch_name is not None:
+        payload["batchName"] = batch_name
+    if batch_id is not None:
+        payload["batchId"] = batch_id
+    response = http.post(
+        f"{API_URL}/{workspace_url}/{project_url}/annotation-batches/move",
+        params={"api_key": api_key},
+        json=payload,
+    )
+    return _annotation_administration_response(response)
+
+
 def delete_annotation_batch(api_key, workspace_url, project_url, batch_id, *, permanent=False):
     """Delete a batch, retaining its images as unassigned unless permanent is true."""
     response = http.delete(
@@ -1541,21 +1567,30 @@ def start_autolabel_job(
     run_nms=None,
     reviewer_email=None,
     model_options=None,
-    preserve_existing_annotations=None,
+    existing_annotations=None,
+    keypoint_confidence_threshold=None,
 ):
     """Start a hosted auto-label job over a batch.
 
     Calls ``POST /:workspace/:project/autolabel``. ``model_type`` is sent
     as-is: a catalog id from ``list_autolabel_models`` (for example
     ``gpt-6-astra-boxes`` or ``sam3-rle``) or ``custom_roboflow`` with the
-    Roboflow model id in ``model_options["modelId"]``. ``ontology`` is keyed
-    by prompt: ``{"kitten": "cat"}`` labels prompt matches as class ``cat``.
+    Roboflow model id in ``model_options["modelId"]``, or ``video-segment``
+    to label a batch of videos in an action-recognition project (see
+    ``Project.autolabel``). ``ontology`` is keyed by prompt:
+    ``{"kitten": "cat"}`` labels prompt matches as class ``cat``.
     The backend fans
     ``default_confidence`` out across the ontology when
     ``confidence_thresholds`` is omitted and defaults ``num_images_to_label``
-    to the whole batch. ``preserve_existing_annotations`` keeps annotations
-    already on the images and only adds new ones; the server default (False)
-    replaces them. Returns ``{jobId, annotationJobId, message}``.
+    to the whole batch. ``existing_annotations`` is ``"replace"`` (the server
+    default), ``"preserve"`` or ``"merge"``; see ``Project.autolabel``.
+    ``keypoint_confidence_threshold`` (0-1, keypoint-detection projects only)
+    is the lowest confidence a predicted keypoint needs to be saved as
+    visible; the server default is 0.6. Returns
+    ``{jobId, annotationJobId, message}``.
+
+    Raises:
+        ValueError: ``existing_annotations`` is not one of those modes.
     """
     payload = {"batchId": batch_id, "modelType": model_type}
     optional = {
@@ -1566,9 +1601,10 @@ def start_autolabel_job(
         "runNMS": run_nms,
         "reviewerEmail": reviewer_email,
         "modelOptions": model_options,
-        "preserveExistingAnnotations": preserve_existing_annotations,
+        "keypointConfidenceThreshold": keypoint_confidence_threshold,
     }
     payload.update({key: value for key, value in optional.items() if value is not None})
+    payload.update(existing_annotations_flags(existing_annotations))
     response = http.post(
         f"{API_URL}/{workspace_url}/{project_url}/autolabel",
         params={"api_key": api_key},
@@ -1580,7 +1616,8 @@ def start_autolabel_job(
 def get_autolabel_job(api_key, workspace_url, job_id):
     """Fetch per-subjob status and progress for a hosted auto-label job.
 
-    Calls ``GET /:workspace/autolabel/jobs/:jobId``.
+    Calls ``GET /:workspace/autolabel/jobs/:jobId``. Video jobs add
+    progress fields; ``Workspace.autolabel_job`` lists them.
     """
     response = http.get(
         f"{API_URL}/{workspace_url}/autolabel/jobs/{job_id}",

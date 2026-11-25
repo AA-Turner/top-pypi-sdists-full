@@ -249,8 +249,8 @@ impl SeriesTrait for SeriesWrap<DecimalChunked> {
         self.0.physical_mut().chunks_mut()
     }
 
-    fn slice(&self, offset: i64, length: usize) -> Series {
-        self.apply_physical_to_s(|ca| ca.slice(offset, length))
+    fn slice(&self, slice: Slice) -> Series {
+        self.apply_physical_to_s(|ca| ca.slice(slice))
     }
 
     fn split_at(&self, offset: i64) -> (Series, Series) {
@@ -550,7 +550,7 @@ impl SeriesTrait for SeriesWrap<DecimalChunked> {
                 .collect::<Float64Chunked>()
                 .into_series();
             Ok(Scalar::new(
-                DataType::List(Box::new(self.dtype().clone())),
+                DataType::List(Box::new(DataType::Float64)),
                 AnyValue::List(scaled_s),
             ))
         } else {

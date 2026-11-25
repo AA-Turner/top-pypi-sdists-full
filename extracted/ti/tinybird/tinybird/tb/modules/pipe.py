@@ -21,7 +21,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 @cli.group(hidden=False)
 @click.pass_context
-def pipe(ctx):
+def pipe(ctx: Context) -> None:
     """Pipe commands."""
 
 
