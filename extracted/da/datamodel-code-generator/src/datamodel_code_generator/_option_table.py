@@ -34,6 +34,7 @@ from datamodel_code_generator.enums import (
     ClientAsyncAPIPerspective,
     ClientBodyArguments,
     ClientSignatureStyle,
+    ClientTools,
     ClientType,
     CollapseRootModelsNameStrategy,
     ConstructorFieldOrder,
@@ -901,6 +902,28 @@ OPTIONS: Final[tuple[Option, ...]] = (
                 "--base-class or the class an --external-ref-mapping or x-python-import schema stands for, beside the "
                 "generated base class of --use-generic-base-class, so the model keeps their members and their import "
                 "is used."
+            ),
+        ),
+    ),
+    toggle(
+        (Section.MODEL, _G.MODEL_SHAPE),
+        "--keep-bases-of-typed-dicts-listed-before-their-parents",
+        help="Type a key that a TypedDict restates or requires and that its parent requires as the parent's bases "
+        "declare it, also where the TypedDict is listed before its parent in a module written before the parent's, "
+        "as when the parent is listed first, so the TypedDict keeps its generated bases (`class Child(Mid)` with "
+        "`x: int`). Without it such a TypedDict copies the parent's key before the key has a type, as in 0.102.0: it "
+        "declares the keys of its bases itself and drops them, and where it keeps its bases (a custom template, or a "
+        "base the output imports in place of a generated model) the key is typed `None`. Other output model types "
+        "type such a key either way.",
+        preset=PresetJoin(
+            "20261125",
+            {"keep_bases_of_typed_dicts_listed_before_their_parents": True},
+            title="Bases of TypedDicts listed before their parents",
+            description=(
+                "Type a key that a TypedDict restates or requires and that its parent requires as the parent's bases "
+                "declare it, also where the TypedDict is listed before its parent in a module written first, so the "
+                "TypedDict keeps its generated bases as when the parent is listed first, and no such key is typed "
+                "None."
             ),
         ),
     ),
@@ -2746,6 +2769,14 @@ OPTIONS: Final[tuple[Option, ...]] = (
         type=str,
         help="Pagination, polling, stream, WebSocket, cache, upload, and webhook helpers by name, as inline JSON or a "
         "JSON file path (experimental).",
+    ),
+    value(
+        Section.TARGET,
+        "--client-tools",
+        choices=_values(ClientTools),
+        help="Add a tool table over the client's operations for agents: tools.py, whose Toolset and AsyncToolset "
+        "search the tools, give their JSON schemas from the models, and call them with JSON arguments; mcp also adds "
+        "mcp_server.py, which serves them over MCP (experimental).",
     ),
 )
 COMMAND_DESTS: Final = frozenset(option.dest for option in OPTIONS if not option.config)

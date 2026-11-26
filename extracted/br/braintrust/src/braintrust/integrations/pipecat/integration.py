@@ -3,11 +3,12 @@
 from braintrust.integrations.base import BaseIntegration
 
 from .patchers import (
+    ContextAddMessagePatcher,
     EOUWaitPatcher,
     LLMServicePushFramePatcher,
     OpenAILivePatcher,
+    OpenAIRealtimePatcher,
     PipelineWorkerPatcher,
-    SegmentedSTTPushSegmentFramesPatcher,
     STTServiceProcessGeneratorPatcher,
 )
 
@@ -22,8 +23,9 @@ class PipecatIntegration(BaseIntegration):
     patchers = (
         EOUWaitPatcher,
         PipelineWorkerPatcher,
+        ContextAddMessagePatcher,
         LLMServicePushFramePatcher,
         STTServiceProcessGeneratorPatcher,
-        SegmentedSTTPushSegmentFramesPatcher,
         OpenAILivePatcher,
+        OpenAIRealtimePatcher,
     )

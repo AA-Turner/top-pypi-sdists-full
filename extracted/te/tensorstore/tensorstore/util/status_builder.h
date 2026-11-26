@@ -24,11 +24,11 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/types/source_location.h"
+#include "tensorstore/internal/meta/attributes.h"
 
 namespace tensorstore {
 
@@ -54,7 +54,7 @@ namespace tensorstore {
 /// `TENSORSTORE_ASSIGN_OR_RETURN` macros.
 ///
 /// \ingroup error handling
-class ABSL_MUST_USE_RESULT StatusBuilder {
+class TENSORSTORE_NODISCARD StatusBuilder {
  public:
   /// Creates a `StatusBuilder` from an existing status. If the `status` is not
   /// `absl::StatusCode::kOk`, the source location may be added to it.
@@ -84,7 +84,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   StatusBuilder& operator=(const StatusBuilder& other) = default;
 
   /// Returns whether the current status code is `absl::StatusCode::kOk`.
-  bool ok() const { return status_.ok(); }
+  TENSORSTORE_NODISCARD bool ok() const { return status_.ok(); }
 
   /// Returns the status code of the underlying status, or the overridden code
   /// if one has been set.
@@ -150,8 +150,9 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
     if (!status_.ok()) status_.SetPayload(type_url, absl::Cord(payload));
     return *this;
   }
-  template <typename T,
-            std::enable_if_t<std::is_same_v<T, std::string>, int> = 0>
+  template <
+      typename T,
+      std::enable_if_t<std::is_same_v<std::decay_t<T>, std::string>, int> = 0>
   StatusBuilder& SetPayload(std::string_view type_url, T&& payload) {
     if (!status_.ok())
       status_.SetPayload(type_url, absl::Cord(std::forward<T>(payload)));
@@ -195,13 +196,13 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   }
 
   /// Constructs an `absl::Status` from the current state.
-  ABSL_MUST_USE_RESULT absl::Status BuildStatus() const& {
+  TENSORSTORE_NODISCARD absl::Status BuildStatus() const& {
     if (do_build_status()) {
       return BuildStatusImpl();
     }
     return status_;
   }
-  ABSL_MUST_USE_RESULT absl::Status BuildStatus() && {
+  TENSORSTORE_NODISCARD absl::Status BuildStatus() && {
     if (do_build_status()) {
       return BuildStatusImpl();
     }
@@ -210,7 +211,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
 
   /// Converts to `absl::Status`.
   operator absl::Status() const& { return BuildStatus(); }
-  operator absl::Status() && { return BuildStatus(); }
+  operator absl::Status() && { return std::move(*this).BuildStatus(); }
 
  private:
   // Construct rep_ and initialize it properly.
@@ -256,12 +257,7 @@ inline StatusBuilder& StatusBuilder::SetCode(absl::StatusCode code) & {
 }
 
 inline StatusBuilder&& StatusBuilder::SetCode(absl::StatusCode code) && {
-  assert(code != absl::StatusCode::kOk);
-  if (status_.ok()) {
-    status_ = absl::Status(code, "", loc_);
-  } else {
-    rep_.code = code;
-  }
+  SetCode(code);
   return std::move(*this);
 }
 

@@ -254,7 +254,7 @@ class TruthsocialNamespace:
         List a Truth Social account's recent posts by handle - text, engagement
         (likes, comments, shares), and timestamps as clean JSON.
 
-        Price: $0.0012 per request.
+        Price: $0.0011 per request.
 
         Example:
             res = client.truthsocial.user_posts(handle="realDonaldTrump")
@@ -347,7 +347,7 @@ class AsyncTruthsocialNamespace:
         List a Truth Social account's recent posts by handle - text, engagement
         (likes, comments, shares), and timestamps as clean JSON.
 
-        Price: $0.0012 per request.
+        Price: $0.0011 per request.
 
         Example:
             res = client.truthsocial.user_posts(handle="realDonaldTrump")

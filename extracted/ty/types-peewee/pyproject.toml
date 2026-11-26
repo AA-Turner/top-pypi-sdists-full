@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-peewee"
-version = "4.5.3.20261124"
+version = "4.5.3.20261126"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for peewee"
@@ -30,12 +30,12 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
-* [pyrefly](https://pyrefly.org/) 1.4.1
+* [pyrefly](https://pyrefly.org/) 1.5.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.104
+* [ty](https://docs.astral.sh/ty/) 0.0.105
 
 It was generated from typeshed commit
-[`5b7a6f6f4f30b6ffd9f426412e1c9d076a4a3743`](https://github.com/python/typeshed/commit/5b7a6f6f4f30b6ffd9f426412e1c9d076a4a3743).
+[`70ee240799d3b2636e2a919be077adf0f979c82f`](https://github.com/python/typeshed/commit/70ee240799d3b2636e2a919be077adf0f979c82f).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

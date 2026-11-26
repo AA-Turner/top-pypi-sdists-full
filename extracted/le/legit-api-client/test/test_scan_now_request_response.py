@@ -37,7 +37,7 @@ class TestScanNowRequestResponse(unittest.TestCase):
             return ScanNowRequestResponse(
                 scan_request_id = '',
                 repository_id = '',
-                status = '',
+                status = 'InProgress',
                 already_running = True,
                 triggered_by = legit_api_client.models.scan_now_status_actor.ScanNowStatusActor(
                     type = '', 
@@ -60,7 +60,14 @@ class TestScanNowRequestResponse(unittest.TestCase):
                     tenant_limit = 56, 
                     repository_remaining = 56, 
                     tenant_remaining = 56, 
-                    reset_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
+                    reset_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), ),
+                skipped_targets = [
+                    legit_api_client.models.scan_now_skipped_target.ScanNowSkippedTarget(
+                        entity_id = '', 
+                        entity_type = null, 
+                        branch = '', 
+                        reason = null, )
+                    ]
             )
         else:
             return ScanNowRequestResponse(

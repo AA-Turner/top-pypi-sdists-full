@@ -4426,6 +4426,24 @@ class TestBucketTransport:
                 token=None,
             )
 
+    def test_long_script_arg_is_not_checked_as_a_file(self) -> None:
+        """A script argument too long to be a file name (e.g. a JSON string) is passed through as is."""
+        from huggingface_hub.hf_api import HfApi
+
+        long_arg = json.dumps({"key": "x" * 300})
+        command, _, _, extra_volumes = HfApi()._create_uv_command_env_and_secrets(
+            script="https://example.com/script.py",
+            script_args=["--config-json", long_arg],
+            dependencies=None,
+            python=None,
+            env=None,
+            secrets=None,
+            namespace="test-user",
+            token=None,
+        )
+        assert command == ["uv", "run", "https://example.com/script.py", "--config-json", long_arg]
+        assert extra_volumes == []
+
     def test_raises_when_mount_path_taken(self, tmp_path: Path) -> None:
         """If a user volume already uses the reserved artifacts mount path, raise instead of silently falling back."""
         from huggingface_hub.hf_api import HfApi
@@ -4838,6 +4856,17 @@ class TestVolume:
             )
 
 
+class TestJobSpecTimeout:
+    @pytest.mark.parametrize("timeout, expected", [(5400, 5400), ("5400", 5400), ("90m", 5400), ("1.5h", 5400)])
+    def test_valid_timeout(self, timeout: int | str, expected: int) -> None:
+        spec = _create_job_spec(image="img", command=["x"], env=None, secrets=None, flavor=None, timeout=timeout)
+        assert spec["timeoutSeconds"] == expected
+
+    def test_invalid_timeout_lists_valid_formats(self) -> None:
+        with pytest.raises(ValueError, match=r"Could not parse timeout '1h30m'.*'90m'"):
+            _create_job_spec(image="img", command=["x"], env=None, secrets=None, flavor=None, timeout="1h30m")
+
+
 class TestWebhooksCommand:
     def _make_webhook(self, **kwargs):
         from huggingface_hub.hf_api import WebhookInfo, WebhookWatchedItem
@@ -5030,12 +5059,24 @@ class TestWebhooksCommand:
         assert result.exit_code != 0
 
     def test_update(self, runner: CliRunner) -> None:
+        from huggingface_hub.hf_api import WebhookWatchedItem
+
         webhook = self._make_webhook(url="https://new.example.com/hook")
         with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
             api_cls.return_value.update_webhook.return_value = webhook
             result = runner.invoke(
                 app,
-                ["webhooks", "update", "wh-abc123", "--url", "https://new.example.com/hook"],
+                [
+                    "webhooks",
+                    "update",
+                    "wh-abc123",
+                    "--url",
+                    "https://new.example.com/hook",
+                    "--watch",
+                    "user:me",
+                    "--domain",
+                    "repo",
+                ],
             )
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
@@ -5044,11 +5085,25 @@ class TestWebhooksCommand:
             "wh-abc123",
             url="https://new.example.com/hook",
             job_id=None,
-            watched=None,
-            domains=None,
+            watched=[WebhookWatchedItem(type="user", name="me")],
+            domains=["repo"],
             secret=None,
             secrets=None,
         )
+
+    @pytest.mark.parametrize(
+        "options",
+        [
+            ["--url", "https://example.com", "--domain", "repo"],
+            ["--url", "https://example.com", "--watch", "user:me"],
+            ["--watch", "user:me", "--domain", "repo"],
+        ],
+    )
+    def test_update_requires_complete_configuration(self, runner: CliRunner, options: list[str]) -> None:
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["webhooks", "update", "wh-abc123", *options])
+        assert result.exit_code != 0
+        api_cls.assert_not_called()
 
     def test_update_with_job_secrets(self, runner: CliRunner) -> None:
         webhook = self._make_webhook(url=None)
@@ -5056,7 +5111,19 @@ class TestWebhooksCommand:
             api_cls.return_value.update_webhook.return_value = webhook
             result = runner.invoke(
                 app,
-                ["webhooks", "update", "wh-abc123", "--job-id", "687f911eaea852de79c4a50a", "--secrets", "A=b"],
+                [
+                    "webhooks",
+                    "update",
+                    "wh-abc123",
+                    "--job-id",
+                    "687f911eaea852de79c4a50a",
+                    "--watch",
+                    "user:me",
+                    "--domain",
+                    "repo",
+                    "--secrets",
+                    "A=b",
+                ],
             )
         assert result.exit_code == 0, result.output
         kwargs = api_cls.return_value.update_webhook.call_args.kwargs
@@ -5064,7 +5131,22 @@ class TestWebhooksCommand:
         assert kwargs["secrets"] == {"A": "b"}
 
     def test_update_secrets_require_job_id(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["webhooks", "update", "wh-abc123", "--secrets", "A=b"])
+        result = runner.invoke(
+            app,
+            [
+                "webhooks",
+                "update",
+                "wh-abc123",
+                "--url",
+                "https://example.com",
+                "--watch",
+                "user:me",
+                "--domain",
+                "repo",
+                "--secrets",
+                "A=b",
+            ],
+        )
         assert result.exit_code != 0
 
     def test_enable(self, runner: CliRunner) -> None:
@@ -5109,6 +5191,22 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
         assert result.exit_code != 0
         api_cls.return_value.delete_webhook.assert_not_called()
+
+
+class TestSandboxCreateNetwork:
+    def test_network_none_is_case_insensitive_and_shown(self, runner: CliRunner) -> None:
+        result, sandbox_cls = TestSecretHygiene._create_sandbox(runner, "--network", "None", "--format", "human")
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["network"] == "none"
+        assert "network: none" in result.stdout
+
+    def test_allowlist_is_shown(self, runner: CliRunner) -> None:
+        result, sandbox_cls = TestSecretHygiene._create_sandbox(
+            runner, "--network", "10.0.0.0/8, huggingface.co:443", "--format", "human"
+        )
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["network"] == {"allow": ["10.0.0.0/8", "huggingface.co:443"]}
+        assert "network: 10.0.0.0/8,huggingface.co:443" in result.stdout
 
 
 class TestSecretHygiene:
@@ -5424,7 +5522,8 @@ class TestSkillGeneration:
         # Common flags appear inline, except --token (kept in common-options glossary)
         assert "--token" not in download_line
         # Enum options render their choices inline rather than a generic CHOICE/VALUE hint
-        assert "--format [auto|human|agent|json|quiet]" in download_line
+        assert "--type [model|dataset|space|kernel]" in download_line
+        assert "--format" not in download_line
 
     def test_format_params_distinguishes_options_from_arguments(self) -> None:
         """Required options must render with --prefix, positional args as UPPER_CASE."""

@@ -14,13 +14,9 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import update_changelog
 
 # ---------------------------------------------------------------------------
@@ -372,6 +368,13 @@ class TestCategorizeCommits:
 
     @pytest.mark.parametrize("subject", ["test!: drop fixture", "revert!: undo api"])
     def test_breaking_marker_kept_in_other(self, subject: str) -> None:
+        cats = update_changelog.categorize_commits([_line(subject)])
+        assert cats["other"][0][2] == f"**BREAKING:** {subject}"
+
+    def test_breaking_marker_follows_the_release_bump_predicate(self) -> None:
+        """A subject release.py prices as a major carries the marker even when
+        it is not a conventional ``type!:`` subject (FND-4672)."""
+        subject = 'Revert "feat(api)!: drop v1"'
         cats = update_changelog.categorize_commits([_line(subject)])
         assert cats["other"][0][2] == f"**BREAKING:** {subject}"
 

@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "azure-containerapps-sandbox"
-version = "0.1.0b4"
-description = "Azure Container Apps Sandbox SDK for Python — data plane + sandbox group management. Community preview."
+version = "1.0.0b1"
+description = "Azure Container Apps Sandbox data-plane SDK for Python. Community preview."
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 authors = [{name = "Microsoft", email = "acasupport@microsoft.com"}]
 keywords = ["azure", "azure.containerapps", "azure sdk", "sandbox", "container apps"]
 classifiers = [
@@ -17,16 +17,21 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["azure-core>=1.30", "azure-mgmt-core>=1.4", "azure-identity>=1.15", "aiohttp>=3.0,<4", "certifi>=2023.7.22"]
+dependencies = [
+    "azure-core>=1.37.0",
+    "azure-identity>=1.15",
+    "aiohttp>=3.0,<4",
+    "certifi>=2023.7.22",
+    "isodate>=0.6.1",
+    "typing-extensions>=4.6.0",
+    "websockets>=15.0.1,<17",
+]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "build", "azure-mgmt-authorization>=4.0", "azure-mgmt-resource>=23.0", "azure-mgmt-subscription>=3.0"]
+dev = ["pytest", "pytest-asyncio", "build", "azure-mgmt-appcontainers>=5.1.0,<6"]
 
 [project.urls]
 Homepage = "https://github.com/microsoft/azure-container-apps"
@@ -39,5 +44,3 @@ include = ["azure*"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-
-

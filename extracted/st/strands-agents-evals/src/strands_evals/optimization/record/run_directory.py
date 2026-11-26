@@ -18,8 +18,10 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any, BinaryIO
 
+from pydantic import TypeAdapter
+
 from ...types.optimization import TrialRecord, TrialStatus
-from ...types.trace import Session
+from ...types.trace import MessageUnion, Session, SpanType
 from ..candidate import Candidate
 from ..declaration.files import _write_text_atomically
 from .events import EventLog, _encode, closed_events
@@ -38,6 +40,8 @@ _LOCK_NAME = "run.lock"
 # Windows locks are mandatory, so the locked byte sits far past the end of the empty lock file, where reading or
 # copying the file through another handle never touches it.
 _LOCK_OFFSET = 2**30
+# The type of `InferenceSpan.messages`, so a transcript's distinct messages validate as they would in a span.
+_MESSAGES: TypeAdapter[list[MessageUnion]] = TypeAdapter(list[MessageUnion])
 
 
 class RunDirectory:
@@ -45,10 +49,11 @@ class RunDirectory:
 
     `run_id` is `[<name>-]<YYYYMMDD-HHMMSS>-<6 hex>`, the start time in UTC. Layout: `run.json`,
     `events.jsonl` (the only source of truth on resume), `transcripts/<hash>.json` (each trajectory once,
-    named by the first 16 hex of the sha256 of its canonical JSON), `effects.json`, the review diffs,
-    `result.json` (the whole result, written last), `candidates/<id>/optimization_files/` (only when a
-    value reaches the agent as a path), and `run.lock` (empty; made by the first `lock()`). No per-candidate
-    values, trial, or report files.
+    a `Session` with each distinct message stored once, named by the first 16 hex of the sha256 of the
+    file's canonical JSON; `load_transcript` reads one back), `effects.json`, the review diffs,
+    `result.json` (the whole result, written last; it names transcripts by hash),
+    `candidates/<id>/optimization_files/` (only when a value reaches the agent as a path), and `run.lock`
+    (empty; made by the first `lock()`). No per-candidate values, trial, or report files.
 
     One writer per run. `open` only reads (`EventLog` cuts off a killed write's last line at its first append,
     not when it opens the log), and a writer calls `lock()` before it appends to a run it opened or created.
@@ -124,9 +129,13 @@ class RunDirectory:
         Every candidate is indexed, a killed iteration's too (so its number and values stay); those are
         marked, so proposing one again writes a full `propose` event (`save_candidate`).
 
+        Every trial event's transcript file must exist (each is checked, not read), since transcripts are read
+        only later: when a step asks for proposals, and when the result is built.
+
         Raises:
             ValueError: The log doesn't start with a `config` event, or was written by another
                 `schema_version`.
+            FileNotFoundError: A transcript file a trial event refers to is missing.
         """
         log = EventLog(path / "events.jsonl")
         events = log.read()
@@ -140,6 +149,7 @@ class RunDirectory:
             )
         run = cls(path, config, log)
         closed = {id(event) for event in closed_events(events)}
+        missing: set[str] = set()
         for event in events:
             if event["event"] == "propose" and not event["rescore"]:
                 candidate_id = event["candidate_id"]
@@ -151,6 +161,14 @@ class RunDirectory:
             elif event["event"] == "trial":
                 record = event["record"]
                 run._trials[(record["candidate_id"], record["run_index"], record["case_name"])] = record
+                transcript = record.get("transcript")
+                if transcript is not None and not (path / "transcripts" / f"{transcript['hash']}.json").exists():
+                    missing.add(transcript["hash"])
+        if missing:
+            raise FileNotFoundError(
+                f"{path}: {len(missing)} transcript file(s) its trial events refer to are missing from transcripts/"
+                f" (e.g. {sorted(missing)[0]}.json)"
+            )
         return run
 
     def lock(self) -> None:
@@ -264,15 +282,39 @@ class RunDirectory:
         saved = self._trials.get((candidate_id, run_index, case_name))
         return None if saved is None else self.record_from(saved)
 
-    def record_from(self, saved: Mapping[str, Any]) -> TrialRecord:
-        """A `trial` event's record, its transcript read back as trajectory."""
+    def record_from(self, saved: Mapping[str, Any], *, load_trajectory: bool = True) -> TrialRecord:
+        """A `trial` event's record, its transcript read back as trajectory.
+
+        Args:
+            saved: The event's `record`.
+            load_trajectory: False leaves `trajectory` None and reads no file; `load_transcript` reads it later.
+        """
         record = dict(saved)
         transcript = record.pop("transcript")
-        trajectory: Any = None
-        if transcript is not None:
-            data = json.loads((self.root / "transcripts" / f"{transcript['hash']}.json").read_text(encoding="utf-8"))
-            trajectory = Session.model_validate(data) if transcript["format"] == "session" else data
+        trajectory = self.load_transcript(transcript) if load_trajectory and transcript is not None else None
         return TrialRecord.model_validate({**record, "trajectory": trajectory})
+
+    def transcript(self, candidate_id: str, run_index: int, case_name: str) -> dict[str, str] | None:
+        """The last trial event's `transcript` for the key, from the index: `{hash, format}`, or None when the
+        record has no trajectory.
+
+        Raises:
+            KeyError: The trial was never saved.
+        """
+        transcript = self._trials[(candidate_id, run_index, case_name)]["transcript"]
+        return None if transcript is None else dict(transcript)
+
+    def load_transcript(self, transcript: Mapping[str, str]) -> list[Any] | Session:
+        """A `trial` event's `transcript` (`{hash, format}`) read back: the `Session`, or the rollout's own list.
+
+        A `packed_session` transcript's messages are built once each, so spans that repeat a message share
+        one object.
+
+        Raises:
+            FileNotFoundError: The transcript file is missing.
+            ValueError: An unknown `format`, or a hash that isn't 16 lowercase hex digits.
+        """
+        return read_transcript(self.root, transcript["hash"], transcript["format"])
 
     def trial_status(self, candidate_id: str, run_index: int, case_name: str) -> TrialStatus | None:
         """The last trial event's status for the key, from the index (no transcript read)."""
@@ -285,12 +327,13 @@ class RunDirectory:
         trajectory = saved.pop("trajectory")
         transcript = None
         if trajectory is not None:
-            text = json.dumps(trajectory, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+            packed = isinstance(record.trajectory, Session)
+            text = _canonical(_pack_session(trajectory) if packed else trajectory)
             digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
             path = self.root / "transcripts" / f"{digest}.json"
             if not path.exists():
                 _write_text_atomically(path, text)
-            transcript = {"hash": digest, "format": "session" if isinstance(record.trajectory, Session) else "list"}
+            transcript = {"hash": digest, "format": "packed_session" if packed else "list"}
         saved["transcript"] = transcript
         self.events.append("trial", record=saved)
         self._trials[(record.candidate_id, record.run_index, record.case_name)] = saved
@@ -317,11 +360,12 @@ class RunDirectory:
         _write_text_atomically(path.with_name(f"{path.name}.values.json"), text + "\n")
 
     def save_result(self, result: Mapping[str, Any]) -> None:
-        """`<root>/result.json`: the whole `OptimizationResult` (`to_dict()`), written last, after the diffs.
+        """`<root>/result.json`: the whole `OptimizationResult` (`to_dict()`) as compact JSON (no indentation),
+        written last, after the diffs.
 
         Derived from the events, so a resumed finished run rewrites it; never read on resume.
         """
-        text = json.dumps(result, indent=2, default=_encode, ensure_ascii=False, allow_nan=False)
+        text = json.dumps(result, separators=(",", ":"), default=_encode, ensure_ascii=False, allow_nan=False)
         _write_text_atomically(self.root / "result.json", text + "\n")
 
 
@@ -365,6 +409,92 @@ def _release(file: BinaryIO) -> None:
         else:
             fcntl.flock(file.fileno(), fcntl.LOCK_UN)
     file.close()
+
+
+def _canonical(value: Any) -> str:
+    """Compact JSON with sorted keys: a transcript's text, and the identity of one of its messages."""
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
+
+def _pack_session(session: dict[str, Any]) -> dict[str, Any]:
+    """A dumped `Session` with each distinct message stored once: `{"messages": [...], "session": {...}}`.
+
+    `messages` holds every distinct message (by `_canonical` text) in first-use order over the spans. In
+    `session`, each inference span's `messages` becomes half-open `[start, stop]` ranges into that list, in
+    order. A model call's messages repeat the conversation so far, so each span is usually one range and the
+    transcript grows with the conversation, not with its square.
+    """
+    messages: list[Any] = []
+    positions: dict[str, int] = {}
+    traces = []
+    for trace in session["traces"]:
+        spans = []
+        for span in trace["spans"]:
+            if span["span_type"] == SpanType.INFERENCE.value:
+                ranges: list[list[int]] = []
+                for message in span["messages"]:
+                    position = positions.setdefault(_canonical(message), len(messages))
+                    if position == len(messages):
+                        messages.append(message)
+                    if ranges and ranges[-1][1] == position:
+                        ranges[-1][1] = position + 1
+                    else:
+                        ranges.append([position, position + 1])
+                span = {**span, "messages": ranges}
+            spans.append(span)
+        traces.append({**trace, "spans": spans})
+    return {"messages": messages, "session": {**session, "traces": traces}}
+
+
+def _unpack_session(data: Mapping[str, Any]) -> Session:
+    """The `Session` `_pack_session` stored; each message is validated once and shared by the spans that hold it."""
+    messages = _MESSAGES.validate_python(data["messages"])
+    session = data["session"]
+    traces = [
+        {
+            **trace,
+            "spans": [
+                {**span, "messages": [messages[i] for start, stop in span["messages"] for i in range(start, stop)]}
+                if span["span_type"] == SpanType.INFERENCE.value
+                else span
+                for span in trace["spans"]
+            ],
+        }
+        for trace in session["traces"]
+    ]
+    return Session.model_validate({**session, "traces": traces})
+
+
+_TRANSCRIPT_HASH = re.compile(r"[0-9a-f]{16}")
+
+
+def read_transcript(root: Path, digest: str, format: str | None = None) -> list[Any] | Session:
+    """`<root>/transcripts/<digest>.json` read back: the `Session`, or the rollout's own list.
+
+    `format` is the trial event's (`packed_session`, `list`, or `session`, a whole `Session` dump as runs before
+    packing saved it); None tells it by the file's shape (a list; a dict with `messages` and `session`; else a
+    whole dump), for a caller that has only the hash.
+
+    Raises:
+        FileNotFoundError: The transcript file is missing.
+        ValueError: A `digest` that isn't 16 lowercase hex digits (as `save_trial` names files), or an unknown
+            `format`.
+    """
+    if not _TRANSCRIPT_HASH.fullmatch(digest):
+        raise ValueError(f"{digest!r} is not a transcript hash (16 lowercase hex digits)")
+    data = json.loads((root / "transcripts" / f"{digest}.json").read_text(encoding="utf-8"))
+    if format is None:
+        if isinstance(data, list):
+            format = "list"
+        else:
+            format = "packed_session" if "messages" in data and "session" in data else "session"
+    if format == "packed_session":
+        return _unpack_session(data)
+    if format == "session":
+        return Session.model_validate(data)
+    if format == "list":
+        return data
+    raise ValueError(f"transcript {digest}: unknown format {format!r}")
 
 
 def code_version() -> dict[str, Any]:

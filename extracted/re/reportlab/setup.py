@@ -1,6 +1,6 @@
-#Copyright ReportLab Europe Ltd. 2000-2025
+#Copyright ReportLab Europe Ltd. 2000-2026
 #see LICENSE for license details
-__version__='5.1.1'
+__version__='5.1.2'
 import os, sys, glob, shutil, re, sysconfig, traceback, io, subprocess
 from urllib.parse import quote as urlquote
 platform = sys.platform

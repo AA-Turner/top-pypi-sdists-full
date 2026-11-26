@@ -328,7 +328,7 @@ SKIP_GENERATED_DIRS = GENERATED_DIRS | {".hg", ".svn", "env", "virtualenv", ".eg
 #: component, on every path: the git listing, the directory walk and `include=`
 #: matches (the git path used to skip them only in the non-git walk, so an
 #: untracked `.secrets/wandb` inside a repo went up).
-SKIP_SECRET_DIRS = frozenset({".secrets", "secrets", ".aws", ".gnupg", ".ssh", ".docker"})
+SKIP_SECRET_DIRS = frozenset({".secrets", "secrets", ".aws", ".gnupg", ".ssh", ".docker", ".kube"})
 
 
 class TaggedCaches:
@@ -370,6 +370,11 @@ SKIP_SECRETS = (
 SKIP_SECRET_STEMS = ("credentials", "secrets", "secret_key", "id_rsa", "id_ed25519", "id_ecdsa")
 SKIP_SECRET_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".keystore", ".jks", ".ovpn", ".env")
 SKIP_SECRET_PREFIXES = ("id_rsa", "id_ed25519", "id_ecdsa", ".env.", ".env-")
+#: Opaque credentials no content rule can see (a session token, a cookie jar, a
+#: kubeconfig; T51). Untracked and walked files only, like the stems: a TRACKED
+#: one is the project's own, kept, and its content decides.
+SKIP_SECRET_UNTRACKED_NAMES = ("cookies.txt", "cookiejar", "cookie-jar.txt", "kubeconfig")
+SKIP_SECRET_UNTRACKED_SUFFIXES = (".token", ".kubeconfig")
 SKIP_FILE_SUFFIXES = (".pyc", ".pyo", ".so", ".o", ".DS_Store")
 #: A committed template of a credential file (`.env.example`) is documentation,
 #: not a credential; its CONTENT is still scanned like any file's.
@@ -384,7 +389,11 @@ def _secret_name(name: str, *, stems: bool) -> bool:
         return True
     if lowered.endswith(SKIP_SECRET_SUFFIXES):
         return True
-    return stems and any(stem in lowered for stem in SKIP_SECRET_STEMS)
+    if not stems:
+        return False
+    if lowered in SKIP_SECRET_UNTRACKED_NAMES or lowered.endswith(SKIP_SECRET_UNTRACKED_SUFFIXES):
+        return True
+    return any(stem in lowered for stem in SKIP_SECRET_STEMS)
 
 
 def _skip_reason(name: str) -> str | None:

@@ -18,6 +18,8 @@ from .meta import PROTOCOL_METHODS
 from .task import MessageSender, TaskSupervisor
 from .telemetry import span_context
 
+_logger = logging.getLogger(__name__)
+
 JsonValue = Any
 MethodHandler = Callable[[str, JsonValue | None, bool], Awaitable[JsonValue | None]]
 
@@ -76,7 +78,7 @@ class Connection:
         if reader is None:
             self._transport: Transport = cast("Transport", writer)
         else:
-            sender = MessageSender(cast("asyncio.StreamWriter", writer), self._tasks)
+            sender = MessageSender(cast("asyncio.StreamWriter", writer))
             self._transport = NdjsonTransport(reader, sender, receive_timeout=receive_timeout)
         self._observers: list[StreamObserver] = list(observers or [])
         if listening:
@@ -89,7 +91,11 @@ class Connection:
             self._recv_task = None
 
     async def close(self) -> None:
-        """Stop the receive loop and cancel any in-flight handler tasks."""
+        """Stop receiving and cancel other in-flight tasks.
+
+        A handler or async observer can await close itself. That calling task
+        is allowed to return; no response is guaranteed after transport closure.
+        """
         if self._closed:
             return
         self._closed = True
@@ -103,7 +109,7 @@ class Connection:
         try:
             await self._receive_loop()
         except Exception as exc:
-            logging.exception("Connection main loop failed", exc_info=exc)
+            _logger.exception("Connection main loop failed", exc_info=exc)
             self._on_receive_error(None, exc)  # type: ignore[arg-type]
             raise
 
@@ -186,7 +192,7 @@ class Connection:
             try:
                 result = observer(event)
             except Exception:
-                logging.exception("Stream observer failed", exc_info=True)
+                _logger.exception("Stream observer failed", exc_info=True)
                 continue
             if inspect.isawaitable(result):
                 self._tasks.create(
@@ -196,7 +202,7 @@ class Connection:
                 )
 
     def _on_observer_error(self, task: asyncio.Task[Any], exc: BaseException) -> None:
-        logging.exception("Stream observer coroutine failed", exc_info=exc)
+        _logger.exception("Stream observer coroutine failed", exc_info=exc)
 
     def _track_incoming(self, request_id: Any, task: asyncio.Task[Any]) -> None:
         # A ``$/cancel_request`` can only name a valid request id, and Python would alias an invalid
@@ -233,7 +239,7 @@ class Connection:
         )
 
     def _on_cancel_request_error(self, task: asyncio.Task[Any], exc: BaseException) -> None:
-        logging.debug("Failed to send %s", _CANCEL_REQUEST_METHOD, exc_info=exc)
+        _logger.debug("Failed to send %s", _CANCEL_REQUEST_METHOD, exc_info=exc)
 
     async def _run_request(
         self, message: dict[str, Any], handler: asyncio.Future[dict[str, Any]] | None = None
@@ -248,7 +254,14 @@ class Connection:
             payload = {"jsonrpc": "2.0", "id": message["id"], "error": RequestError.request_cancelled().to_error_obj()}
         else:
             payload = handler.result()
-        await self._transport.send(payload)
+        try:
+            await self._transport.send(payload)
+        except ConnectionError:
+            if self._closed or self._disconnected:
+                # The connection went away while the handler was running; nobody can receive it.
+                _logger.debug("Dropping response for request %r: connection closed", message["id"])
+                return
+            raise
         self._notify_observers(StreamDirection.OUTGOING, payload)
 
     async def _execute_request(self, message: dict[str, Any]) -> dict[str, Any]:
@@ -273,7 +286,7 @@ class Connection:
             except ValidationError as exc:
                 payload["error"] = RequestError.invalid_params({"errors": exc.errors()}).to_error_obj()
             except Exception as exc:
-                logging.exception(
+                _logger.exception(
                     "Unhandled error while handling request method=%s",
                     method,
                     exc_info=exc,
@@ -291,7 +304,7 @@ class Connection:
             try:
                 await self._handler(method, message.get("params"), True)
             except Exception as exc:
-                logging.exception(
+                _logger.exception(
                     "Unhandled error while handling notification method=%s",
                     method,
                     exc_info=exc,
@@ -305,26 +318,30 @@ class Connection:
         # with the integer ``1`` -- the same aliasing ``_track_incoming`` guards against.
         if not _is_request_id(request_id):
             return
-        future = self._pending.pop(request_id, None)
-        if future is None or future.done():
+        future = self._pending.get(request_id)
+        if future is None:
             return
-        if "result" in message:
-            future.set_result(message.get("result"))
-            return
-        if "error" in message:
-            error_obj = message.get("error") or {}
-            future.set_exception(
-                RequestError(error_obj.get("code", -32603), error_obj.get("message", "Error"), error_obj.get("data"))
-            )
-            return
-        future.set_result(None)
+        # Keep the request tracked until its response has been settled.
+        if not future.done():
+            if "result" in message:
+                future.set_result(message.get("result"))
+            elif "error" in message:
+                error_obj = message.get("error") or {}
+                future.set_exception(
+                    RequestError(
+                        error_obj.get("code", -32603), error_obj.get("message", "Error"), error_obj.get("data")
+                    )
+                )
+            else:
+                future.set_result(None)
+        self._pending.pop(request_id, None)
 
     def _on_receive_error(self, task: asyncio.Task[Any], exc: BaseException) -> None:
-        logging.exception("Receive loop failed", exc_info=exc)
+        _logger.exception("Receive loop failed", exc_info=exc)
         self._disconnect()
 
     def _on_task_error(self, task: asyncio.Task[Any], exc: BaseException) -> None:
-        logging.exception("Background task failed", exc_info=exc)
+        _logger.exception("Background task failed", exc_info=exc)
 
     def _disconnect(self) -> None:
         if self._disconnected:

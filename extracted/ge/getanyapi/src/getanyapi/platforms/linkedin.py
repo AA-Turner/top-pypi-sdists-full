@@ -6684,7 +6684,7 @@ class LinkedinNamespace:
         Cheap job index: title, company, location, posted date, URL. No description,
         salary, applicant counts, or seniority - for those use linkedin.jobs.
 
-        Price: $0.00051 per request.
+        Price: $0.0005 per request.
 
         Example:
             res = client.linkedin.jobs_thin(limit=3, location="United States", query="software engineer", workplaceType="remote")
@@ -6728,7 +6728,7 @@ class LinkedinNamespace:
         Fetch a single LinkedIn post or article by URL (title, text, author, like
         and comment counts, publish date).
 
-        Price: $0.00056 per request.
+        Price: $0.00055 per request.
 
         Example:
             res = client.linkedin.post(url="https://www.linkedin.com/posts/stripe_last-week-agent-traffic-surpassed-human-activity-7470882737390940160-2Nxs")
@@ -7680,7 +7680,7 @@ class AsyncLinkedinNamespace:
         Cheap job index: title, company, location, posted date, URL. No description,
         salary, applicant counts, or seniority - for those use linkedin.jobs.
 
-        Price: $0.00051 per request.
+        Price: $0.0005 per request.
 
         Example:
             res = client.linkedin.jobs_thin(limit=3, location="United States", query="software engineer", workplaceType="remote")
@@ -7724,7 +7724,7 @@ class AsyncLinkedinNamespace:
         Fetch a single LinkedIn post or article by URL (title, text, author, like
         and comment counts, publish date).
 
-        Price: $0.00056 per request.
+        Price: $0.00055 per request.
 
         Example:
             res = client.linkedin.post(url="https://www.linkedin.com/posts/stripe_last-week-agent-traffic-surpassed-human-activity-7470882737390940160-2Nxs")

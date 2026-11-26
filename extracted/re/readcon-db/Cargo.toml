@@ -1,6 +1,6 @@
 [package]
 name = "readcon-db"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 description = "Mmap-backed CON frame corpus (Heed/LMDB), xxHash exact match, multi-language FFI"
 license = "MIT"
@@ -19,6 +19,9 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [features]
 default = []
 python = ["dep:pyo3"]
+# Compiles the C ABI (src/ffi.rs and the rkrdb_* exports in src/archive.rs
+# and src/mpi_ingest.rs). Off by default so Rust consumers do not export
+# unmangled rkrdb_* symbols. C, Fortran and cargo-c builds must enable it.
 capi = []
 # Parallel ingest over a caller-supplied communicator (rsmpi). Needs an MPI
 # implementation and libclang at build time. See src/mpi_ingest.rs.
@@ -27,7 +30,15 @@ mpi = ["dep:mpi"]
 [dependencies]
 heed = "0.21"
 # The pinned writer provides exact numeric CON and JSON round trips.
-readcon-core = "=0.21.0"
+readcon-core = "=0.23.2"
+# readcon-core installs mimalloc as the global allocator and has no
+# feature to turn that off. The C objects default to initial-exec TLS,
+# which sets DF_STATIC_TLS on this cdylib. Cargo unifies
+# local_dynamic_tls onto that same mimalloc.
+mimalloc = { version = "0.1.43", default-features = false, features = [
+  "extended",
+  "local_dynamic_tls",
+] }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -41,10 +52,20 @@ mpi = { version = "0.8", optional = true, default-features = false }
 tempfile = "3"
 sha2 = "0.10"
 libc = "0.2"
+object = { version = "0.36", default-features = false, features = [
+  "read_core",
+  "archive",
+  "elf",
+  "macho",
+  "pe",
+  "coff",
+] }
 
 [package.metadata.docs.rs]
 all-features = false
 
+# cargo-c has no per-package default features: run
+# `cargo cbuild --features capi` / `cargo cinstall --features capi`.
 [package.metadata.capi]
 min_version = "0.10.17"
 

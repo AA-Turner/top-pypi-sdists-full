@@ -13,6 +13,66 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+#[tokio::test]
+async fn jq_compiled_filter_uses_current_values_and_input() {
+    let mut bash = crate::Bash::new();
+    let result = bash
+        .exec(
+            r#"
+            set -e
+            export BENCH_ENV=first
+            jq -r --arg x a --arg y b '$x + $y + env.BENCH_ENV + .value' <<< '{"value":"1"}'
+            export BENCH_ENV=second
+            jq -r --arg x c --arg y d '$x + $y + env.BENCH_ENV + .value' <<< '{"value":"2"}'
+            jq -r --arg y e --arg x f '$x + $y + env.BENCH_ENV + .value' <<< '{"value":"3"}'
+            "#,
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.exit_code, 0, "{}", result.stderr);
+    assert!(result.stderr.is_empty());
+    assert_eq!(result.stdout, "abfirst1\ncdsecond2\nfesecond3\n");
+}
+
+#[tokio::test]
+async fn jq_filter_file_is_read_again_on_each_call() {
+    let mut bash = crate::Bash::new();
+    let result = bash
+        .exec(
+            r#"
+            set -e
+            printf '%s\n' '.first' > /filter.jq
+            jq -r -f /filter.jq <<< '{"first":"one","second":"two"}'
+            printf '%s\n' '.second' > /filter.jq
+            jq -r -f /filter.jq <<< '{"first":"one","second":"two"}'
+            "#,
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.exit_code, 0, "{}", result.stderr);
+    assert!(result.stderr.is_empty());
+    assert_eq!(result.stdout, "one\ntwo\n");
+}
+
+#[tokio::test]
+async fn jq_user_definition_can_shadow_a_compatibility_helper() {
+    let filter = r#"def prior: join("-"); def join($sep): $sep; prior, join("user")"#;
+    let result = run_jq_result_with_args(&["-r", filter], r#"["a","b"]"#)
+        .await
+        .unwrap();
+    assert_eq!(result.exit_code, 0, "{}", result.stderr);
+    assert_eq!(result.stdout, "a-b\nuser\n");
+}
+
+#[tokio::test]
+async fn jq_filter_rejects_module_directives() {
+    for filter in [r#"include "example"; ."#, r#"import "data" as $x; $x"#] {
+        let result = run_jq_result(filter, "null").await.unwrap();
+        assert_eq!(result.exit_code, 3);
+        assert!(result.stdout.is_empty());
+    }
+}
+
 async fn run_jq(filter: &str, input: &str) -> Result<String> {
     run_jq_with_args(&[filter], input).await
 }
@@ -1544,6 +1604,49 @@ mod differential {
 
     use super::*;
 
+    #[tokio::test]
+    async fn diff_stream_token_events_and_partial_errors() {
+        for text in [
+            r#"{"a":[1,{"b":null}],"c":"d"}"#,
+            r#"[{},[],[[]],{"a":{}},true,false,null,-1.25,"a\\\"b"]"#,
+            r#"{"a":1,"a":2,"\u00e9":["\ud83d\ude00"]}"#,
+            "1 [] {} [1,2] {\"a\":3}\n",
+            "[1,]",
+            "[1",
+            "{\"a\":1,}",
+            "{\"a\" 1}",
+            "[}",
+            "[1] junk",
+            "1\u{1}2",
+            "[1\u{c},2]",
+            "\u{c}1",
+            "\"unterminated",
+        ] {
+            assert_matches(&["-c", "--stream", "."], text).await;
+        }
+        for text in [
+            "[\n1,\n{\"x\":2},\n[]\n]\n",
+            "{\"x\":1,\n\"y\":[\n2\n]}\n",
+            "1\n2\n3",
+        ] {
+            assert_matches(&["-c", "--stream", "[input_line_number,.]"], text).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn diff_scalar_controls_are_not_json_whitespace() {
+        // jq 1.7 may truncate stdin at NUL. The non-oracle regression below
+        // still requires rejecting NUL under Bashkit's strict-boundary policy.
+        for byte in 1u8..32 {
+            if [9, 10, 13].contains(&byte) {
+                continue;
+            }
+            let input = format!("1{}2", char::from(byte));
+            assert_matches(&["-c", "."], &input).await;
+            assert_matches(&["-c", "--stream", "."], &input).await;
+        }
+    }
+
     fn real_jq_available() -> bool {
         real_jq_version().is_some()
     }
@@ -2098,7 +2201,12 @@ async fn computed_floats_print_like_jq() {
 
 #[tokio::test]
 async fn input_number_literals_keep_their_form_until_computed() {
-    let out = run_jq_with_args(&["-c", "[.[], (.[0] + 1)]"], "[1.0, 2.50]")
+    // NB: `2.50` is intentionally not used here. Without
+    // `serde_json/arbitrary_precision` it normalizes to `2.5` via `visit_f64`,
+    // while with it (#2964) the exact token `2.50` is preserved like real jq
+    // (`echo '[1.0, 2.50]' | jq -c '[.[], (.[0] + 1)]'` prints `[1.0,2.50,2]`).
+    // Using `2.5` keeps this test green in both builds.
+    let out = run_jq_with_args(&["-c", "[.[], (.[0] + 1)]"], "[1.0, 2.5]")
         .await
         .unwrap();
     assert_eq!(out, "[1.0,2.5,2]\n");
@@ -2416,6 +2524,58 @@ async fn stream_flag_feeds_path_events() {
 }
 
 #[tokio::test]
+async fn lazy_input_stops_before_malformed_tail_and_slurp_rejects_it() {
+    for flags in [vec!["-nc", "input"], vec!["-nc", "--stream", "input"]] {
+        let result = run_jq_result_with_args(&flags, "1 \"unterminated")
+            .await
+            .unwrap();
+        assert_eq!(result.exit_code, 0, "{}", result.stderr);
+        assert!(result.stderr.is_empty());
+        assert_eq!(
+            result.stdout,
+            if flags.contains(&"--stream") {
+                "[[],1]\n"
+            } else {
+                "1\n"
+            }
+        );
+    }
+    for flags in [vec!["-sc", "."], vec!["-sc", "--stream", "."]] {
+        let result = run_jq_result_with_args(&flags, "1 [2,").await.unwrap();
+        assert_eq!(result.exit_code, 5);
+        assert_eq!(result.stdout, "");
+        assert!(result.stderr.contains("invalid JSON"), "{}", result.stderr);
+    }
+    for flags in [vec!["-nsc", "42"], vec!["-nsc", "--stream", "42"]] {
+        let result = run_jq_result_with_args(&flags, "1 [2,").await.unwrap();
+        assert_eq!(result.exit_code, 0, "{}", result.stderr);
+        assert!(result.stderr.is_empty());
+        assert_eq!(result.stdout, "42\n");
+    }
+}
+
+#[tokio::test]
+async fn stream_parser_rejects_depth_and_retains_control_normalization() {
+    let deep = format!("{}0{}", "[".repeat(102), "]".repeat(102));
+    let result = run_jq_result_with_args(&["--stream", "empty"], &deep)
+        .await
+        .unwrap();
+    assert_eq!(result.exit_code, 5);
+    assert!(
+        result.stderr.contains("JSON nesting too deep"),
+        "{}",
+        result.stderr
+    );
+    let out = run_jq_with_args(&["--stream", "-c", "."], "{\"a\n\":[\"b\t\"]}")
+        .await
+        .unwrap();
+    assert_eq!(
+        out,
+        "[[\"a\\n\",0],\"b\\t\"]\n[[\"a\\n\",0]]\n[[\"a\\n\"]]\n"
+    );
+}
+
+#[tokio::test]
 async fn stream_slurp_and_metadata_preserve_event_order() {
     let result = run_jq_with_files(
         &[
@@ -2449,6 +2609,46 @@ async fn seq_flag_uses_record_separators() {
         .await
         .unwrap();
     assert_eq!(out, "\x1e[1]\n\x1e2\n");
+}
+
+#[tokio::test]
+async fn raw_sequence_input_preserves_record_separator_characters() {
+    let text = "\x1eone\n\x1etwo\n";
+    for (flags, expected) in [
+        (
+            vec!["-Rc", "--seq", "."],
+            "\x1e\"\\u001eone\"\n\x1e\"\\u001etwo\"\n",
+        ),
+        (
+            vec!["-Rsc", "--seq", "."],
+            "\x1e\"\\u001eone\\n\\u001etwo\\n\"\n",
+        ),
+    ] {
+        let result = run_jq_result_with_args(&flags, text).await.unwrap();
+        assert_eq!(result.exit_code, 0, "{}", result.stderr);
+        assert!(result.stderr.is_empty());
+        assert_eq!(result.stdout, expected);
+    }
+}
+
+#[tokio::test]
+async fn scalar_control_characters_are_rejected_before_output() {
+    for byte in 0u8..32 {
+        if [9, 10, 13].contains(&byte) {
+            continue;
+        }
+        let input = format!("1{}2", char::from(byte));
+        for flags in [vec!["-c", "."], vec!["-c", "--stream", "."]] {
+            let result = run_jq_result_with_args(&flags, &input).await.unwrap();
+            assert_eq!(result.exit_code, 5, "control byte {byte}");
+            assert!(
+                result.stdout.is_empty(),
+                "control byte {byte}: {}",
+                result.stdout
+            );
+            assert!(result.stderr.contains("invalid JSON"), "{}", result.stderr);
+        }
+    }
 }
 
 #[tokio::test]

@@ -87,9 +87,11 @@ from .transform import (
     _ENUM_BASES,
     _TYPE_VAR_NAMES,
     _dotted,
+    _is_dataclass_node,
     _is_none,
     _members_or_self,
     _names_any,
+    _names_class_var,
     _union_members,
     callable_annotation,
     codon_annotation,
@@ -121,7 +123,6 @@ LIBRARY_PACKAGE = "_acs_lib"
 #: varied one at a time, the others taking their first member.
 MAX_CALLS = 16
 
-_DATACLASS = {"dataclass", "dataclasses.dataclass"}
 _FIELD_FUNCTIONS = {"field", "dataclasses.field"}
 #: OmegaConf's mandatory-value marker: a field "defaulted" to it is required.
 _MANDATORY = {"MISSING"}
@@ -670,10 +671,7 @@ class _Renderer:
         name = node.name
         bases = [(_dotted(b) or "").rsplit(".", 1)[-1] for b in node.bases]
         is_enum = any(b in _ENUM_BASES for b in bases)
-        decorators = {
-            _dotted(d.func if isinstance(d, ast.Call) else d)
-            for d in node.decorator_list
-        }
+        is_dataclass = _is_dataclass_node(node)
         methods = [
             m
             for m in node.body
@@ -684,9 +682,9 @@ class _Renderer:
             pass
         elif init is not None and not is_enum:
             self.calls(init, name, f"{name}.__init__", drop_first=True, owner=name)
-        elif decorators & _DATACLASS and not is_enum:
+        elif is_dataclass and not is_enum:
             self._dataclass_init(node)
-        if not is_enum and not decorators & _DATACLASS:
+        if not is_enum and not is_dataclass:
             self._class_defaults(node)
         for method in methods:
             if method.name == "__init__":
@@ -907,7 +905,9 @@ class _Renderer:
         annotation names ``Any`` (``dict[str, Any]``, a free-form Hydra
         mapping) is left out of the call, as the model leaves it out of its
         class, and the fields after it are passed by keyword; the checked
-        class keeps it, with a default of its type (``_field_default``).
+        class keeps it, with a default of its type (``_field_default``).  So
+        is a ``field(init=False)``, which Codon's constructor takes with the
+        empty value of its type the check gives it.
 
         The fields of a dataclass base class come first, as in Python's
         constructor and Codon's, a field redefined keeping its place.  Of
@@ -1031,10 +1031,8 @@ class _Renderer:
                 continue
             if (_dotted(stmt.annotation) or "").endswith("KW_ONLY"):
                 break  # keyword-only fields: not modelled, so not called
-            if isinstance(stmt.annotation, ast.Subscript) and (
-                _dotted(stmt.annotation.value) or ""
-            ).endswith("ClassVar"):
-                continue
+            if _names_class_var(stmt.annotation):
+                continue  # `ClassVar[T]` or a bare `ClassVar`: no field
             value = stmt.value
             if isinstance(value, ast.Call) and any(
                 kw.arg == "init"
@@ -1042,8 +1040,10 @@ class _Renderer:
                 and kw.value.value is False
                 for kw in value.keywords
             ):
-                # Not in the constructor, even redefining a base's field.
-                fields.pop(stmt.target.id, None)
+                # Not in the constructor, even redefining a base's field; but
+                # in Codon's, with its empty value (`_field_default`): the
+                # fields after it are passed by keyword.
+                fields[stmt.target.id] = (ast.arg(_LEFT_OUT, stmt.annotation), True)
                 continue
             name = stmt.target.id
             if value is not None and _names_any(stmt.annotation):
@@ -1065,7 +1065,7 @@ class _Renderer:
         base = self.classes.get((_dotted(base_node) or "").rsplit(".", 1)[-1])
         if base is None or base.name in seen:
             return []
-        if _is_dataclass(base):
+        if _is_dataclass_node(base):
             return [base]
         return [
             b for n in base.bases for b in self._dataclasses_of(n, seen | {base.name})
@@ -1149,13 +1149,6 @@ def _has_default(value: ast.expr | None) -> bool:
     if isinstance(value, ast.Call) and _dotted(value.func) in _FIELD_FUNCTIONS:
         return any(kw.arg in ("default", "default_factory") for kw in value.keywords)
     return True
-
-
-def _is_dataclass(node: ast.ClassDef) -> bool:
-    return bool(
-        {_dotted(d.func if isinstance(d, ast.Call) else d) for d in node.decorator_list}
-        & _DATACLASS
-    )
 
 
 def _never_returns(

@@ -105,8 +105,18 @@ impl<B: FsBackend> PosixFs<B> {
     }
 
     /// Normalize a path for consistent lookups.
-    fn normalize(path: &Path) -> PathBuf {
-        normalize_path(path)
+    fn normalize(path: &Path) -> Result<PathBuf> {
+        super::reject_empty_path(path)?;
+        Ok(normalize_path(path))
+    }
+
+    async fn check_directory(&self, path: &Path) -> Result<()> {
+        if let Ok(meta) = self.backend.stat(path).await
+            && !meta.file_type.is_dir()
+        {
+            return Err(fs_errors::not_a_directory());
+        }
+        Ok(())
     }
 
     /// Check if parent directory exists.
@@ -125,7 +135,15 @@ impl<B: FsBackend> PosixFs<B> {
 #[async_trait]
 impl<B: FsBackend + 'static> FileSystem for PosixFs<B> {
     async fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
-        let path = Self::normalize(path);
+        self.read_file_bounded(path, None).await
+    }
+
+    async fn read_file_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<u8>> {
+        let path = Self::normalize(path)?;
         if let Ok(meta) = self.backend.stat(&path).await {
             if meta.file_type.is_dir() {
                 return Err(fs_errors::is_a_directory());
@@ -136,11 +154,11 @@ impl<B: FsBackend + 'static> FileSystem for PosixFs<B> {
                 return Err(IoError::new(std::io::ErrorKind::NotFound, "file not found").into());
             }
         }
-        self.backend.read(&path).await
+        self.backend.read_bounded(&path, charge).await
     }
 
     async fn write_file(&self, path: &Path, content: &[u8]) -> Result<()> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         // Check parent exists
         self.check_parent_exists(&path).await?;
 
@@ -155,7 +173,7 @@ impl<B: FsBackend + 'static> FileSystem for PosixFs<B> {
     }
 
     async fn append_file(&self, path: &Path, content: &[u8]) -> Result<()> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         // Check parent exists
         self.check_parent_exists(&path).await?;
 
@@ -170,7 +188,7 @@ impl<B: FsBackend + 'static> FileSystem for PosixFs<B> {
     }
 
     async fn mkdir(&self, path: &Path, recursive: bool) -> Result<()> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         // Check if something already exists at this path
         if let Ok(meta) = self.backend.stat(&path).await {
             if meta.file_type.is_dir() {
@@ -210,40 +228,49 @@ impl<B: FsBackend + 'static> FileSystem for PosixFs<B> {
     }
 
     async fn remove(&self, path: &Path, recursive: bool) -> Result<()> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         self.backend.remove(&path, recursive).await
     }
 
     async fn stat(&self, path: &Path) -> Result<Metadata> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         self.backend.stat(&path).await
     }
 
     async fn read_dir(&self, path: &Path) -> Result<Vec<DirEntry>> {
-        let path = Self::normalize(path);
-        // Check if it's actually a directory
-        if let Ok(meta) = self.backend.stat(&path).await
-            && !meta.file_type.is_dir()
-        {
-            return Err(fs_errors::not_a_directory());
-        }
-        self.backend.read_dir(&path).await
+        self.read_dir_bounded(path, None).await
+    }
+
+    async fn read_dir_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<DirEntry>> {
+        let path = Self::normalize(path)?;
+        self.check_directory(&path).await?;
+        self.backend.read_dir_bounded(&path, charge).await
+    }
+
+    async fn read_dir_limited(&self, path: &Path, max_entries: usize) -> Result<Vec<DirEntry>> {
+        let path = Self::normalize(path)?;
+        self.check_directory(&path).await?;
+        self.backend.read_dir_limited(&path, max_entries).await
     }
 
     async fn exists(&self, path: &Path) -> Result<bool> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         self.backend.exists(&path).await
     }
 
     async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        let from = Self::normalize(from);
-        let to = Self::normalize(to);
+        let from = Self::normalize(from)?;
+        let to = Self::normalize(to)?;
         self.backend.rename(&from, &to).await
     }
 
     async fn copy(&self, from: &Path, to: &Path) -> Result<()> {
-        let from = Self::normalize(from);
-        let to = Self::normalize(to);
+        let from = Self::normalize(from)?;
+        let to = Self::normalize(to)?;
         // Check source is not a directory
         if let Ok(meta) = self.backend.stat(&from).await
             && meta.file_type.is_dir()
@@ -256,22 +283,22 @@ impl<B: FsBackend + 'static> FileSystem for PosixFs<B> {
     async fn symlink(&self, target: &Path, link: &Path) -> Result<()> {
         // Don't normalize target: symlink targets are stored as-is on disk.
         // Normalizing a relative target to absolute would break containment checks.
-        let link = Self::normalize(link);
+        let link = Self::normalize(link)?;
         self.backend.symlink(target, &link).await
     }
 
     async fn read_link(&self, path: &Path) -> Result<PathBuf> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         self.backend.read_link(&path).await
     }
 
     async fn chmod(&self, path: &Path, mode: u32) -> Result<()> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         self.backend.chmod(&path, mode).await
     }
 
     async fn set_modified_time(&self, path: &Path, time: SystemTime) -> Result<()> {
-        let path = Self::normalize(path);
+        let path = Self::normalize(path)?;
         self.backend.set_modified_time(&path, time).await
     }
 }

@@ -12,7 +12,7 @@ class PauseSaasServiceRequest(DaraModel):
     ):
         # The region ID of the service.
         self.region_id = region_id
-        # The service ID.
+        # The ID of the service.
         # 
         # This parameter is required.
         self.service_id = service_id

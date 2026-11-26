@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aliyun-log-python-sdk
-Version: 0.9.53
+Version: 0.9.55
 Summary: Aliyun log service Python client SDK
 Home-page: https://github.com/aliyun/aliyun-log-python-sdk
 Author: Aliyun
@@ -22,7 +22,7 @@ Requires-Dist: python-dateutil
 Requires-Dist: elasticsearch
 Requires-Dist: jmespath
 Requires-Dist: dateparser
-Requires-Dist: protobuf<6.0.0,>=3.20.3
+Requires-Dist: protobuf<8,>=3.20.3
 Requires-Dist: lz4
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"

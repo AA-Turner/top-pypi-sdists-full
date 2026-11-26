@@ -146,18 +146,32 @@ struct RecheckCached : public RecheckCacheOption {
   }
 };
 
+/// Specifies a resolved time bound on cached data or metadata.
+///
+/// \relates RecheckCacheOption
 class StalenessBound {
  public:
   /// The default StalenessBound of `absl::InfiniteFuture()` ensures data is
   /// never stale.
+  ///
+  /// \id default
   StalenessBound() = default;
 
+  /// Constructs from a `RecheckCacheOption`.
+  ///
+  /// \id option
   StalenessBound(RecheckCacheOption option)
       : time(option.time),
         bounded_by_open_time(option.flags == RecheckCacheOption::kAtOpen) {}
 
+  /// Constructs from the specified `newer_than_time` bound.
+  ///
+  /// \id time
   StalenessBound(absl::Time newer_than_time) : time(newer_than_time) {}
 
+  /// Constructs a bound of `absl::Now() - duration_before_now`.
+  ///
+  /// \id duration
   StalenessBound(absl::Duration duration_before_now)
       : time(absl::Now() - duration_before_now) {}
 
@@ -181,7 +195,7 @@ class StalenessBound {
     return result;
   }
 
-  /// Returns a new staleness bound with `bounded_at_open_time == true`.
+  /// Returns a new staleness bound with `bounded_by_open_time == true`.
   static StalenessBound BoundedByOpen() {
     StalenessBound b;
     b.bounded_by_open_time = true;
@@ -196,6 +210,7 @@ class StalenessBound {
   /// rather than as a timestamp.
   bool bounded_by_open_time = false;
 
+  /// Compares two `StalenessBound` values for equality.
   friend bool operator==(const StalenessBound& a, const StalenessBound& b) {
     return a.time == b.time && a.bounded_by_open_time == b.bounded_by_open_time;
   }
@@ -209,31 +224,46 @@ class StalenessBound {
   };
 };
 
-// Combines staleness bound for metadata and data.
+/// Combines staleness bounds for metadata and data.
+///
+/// \relates StalenessBound
 struct StalenessBounds {
   /// Initializes the `metadata` and `data` bound to `absl::InfiniteFuture()`,
   /// which ensures stale data is never seen.
+  ///
+  /// \id default
   StalenessBounds() = default;
 
   /// Initializes the `metadata` and `data` bounds separately.
+  ///
+  /// \id metadata, data
   StalenessBounds(StalenessBound metadata, StalenessBound data)
       : metadata(metadata), data(data) {}
 
   /// Initializes both the `metadata` and `data` bounds to `bound`.
+  ///
+  /// \id bound
   StalenessBounds(StalenessBound bound) : metadata(bound), data(bound) {}
 
   /// Initializes both the `metadata` and `data` bounds to `newer_than_time`.
+  ///
+  /// \id time
   StalenessBounds(absl::Time newer_than_time)
       : StalenessBounds(StalenessBound(newer_than_time)) {}
 
   /// Initializes both the `metadata` and `data` bounds to
   /// `duration_before_now`.
+  ///
+  /// \id duration
   StalenessBounds(absl::Duration duration_before_now)
       : StalenessBounds(StalenessBound(duration_before_now)) {}
 
+  /// Staleness bound for metadata.
   StalenessBound metadata;
+  /// Staleness bound for data.
   StalenessBound data;
 
+  /// Returns the effective bounds given the specified `open_time`.
   StalenessBounds BoundAtOpen(absl::Time open_time) const {
     return StalenessBounds(metadata.BoundAtOpen(open_time),
                            data.BoundAtOpen(open_time));

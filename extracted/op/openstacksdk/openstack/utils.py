@@ -51,9 +51,9 @@ def urljoin(*args: str | None) -> str:
 
 
 def iterate_timeout(
-    timeout: int | float | None,
+    timeout: float | None,
     message: str,
-    wait: int | float | None = 2,
+    wait: float | None = 2,
 ) -> Generator[int, None, None]:
     """Iterate and raise an exception on timeout.
 
@@ -241,7 +241,7 @@ def ensure_service_version(proxy: Any, version: str) -> Any:
 
 def supports_microversion(
     adapter: ks_adapter.Adapter,
-    microversion: str | int | float | Iterable[str | int | float],
+    microversion: str | float | Iterable[str | int | float],
     raise_exception: bool = False,
 ) -> bool:
     """Determine if the given adapter supports the given microversion.
@@ -517,7 +517,7 @@ class TinyDAG:
     def add_edge(self, u: str, v: str) -> None:
         self._graph[u].add(v)
 
-    def walk(self, timeout: int | float | None = None) -> 'TinyDAG':
+    def walk(self, timeout: float | None = None) -> 'TinyDAG':
         """Start the walking from the beginning."""
         if timeout:
             self._wait_timeout = timeout
@@ -594,7 +594,7 @@ class TinyDAG:
 class Munch(dict[str, Any]):
     """A slightly stripped version of munch.Munch class"""
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.update(*args, **kwargs)
 
     # only called if k not found in normal places

@@ -10,7 +10,7 @@ import random
 import threading
 import warnings
 from collections import Counter
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -65,6 +65,7 @@ from .result import (
     _iteration_rows,
     _proposal_rows,
     _reports,
+    _run_cost,
 )
 from .score_model.bayesbench import BayesBenchModel
 from .score_model.effects import effects_json
@@ -79,7 +80,7 @@ from .selection.top_ranked import TopRanked
 from .setup.budget import Budget, BudgetTracker, end_phase_reserve
 from .setup.splits import Split
 
-_DEFAULT_BASE_DIR = Path(".strands-evals/optimization/runs")
+_DEFAULT_BASE_DIR = Path("optimization/runs")
 _BINDING = threading.Lock()  # one optimizer at a time checks and binds proposers, across threads
 
 
@@ -143,7 +144,7 @@ class Optimizer:
         name: str | None = None,
         on_iteration: Callable[[IterationRecord], Awaitable[None] | None] | None = None,
     ):
-        """`base_dir=None` puts runs under `.strands-evals/optimization/runs/`, relative to the working directory.
+        """`base_dir=None` puts runs under `optimization/runs/`, relative to the working directory.
 
         Args:
             experiment: Supplies the cases and evaluators; it is never run itself.
@@ -185,7 +186,7 @@ class Optimizer:
                 read_timeout=120)`; it sets the 120 s read timeout only when given no `boto_client_config`. More
                 attempts also mean longer throttling backoff and more retried timeouts.
             seed: Seeds the split (unless `Split(seed=)` is set), selection, TPE, and Thompson.
-            base_dir: Where run directories go.
+            base_dir: Where run directories go; a relative path is relative to the working directory.
             name: The run folder's prefix (lowercase letters, digits, `-`, `_`); for reading only.
             on_iteration: Called with each finished iteration, after its `iteration_end` event; an `async def`
                 callback is awaited, on the optimizer's own event loop under `run()` (use `run_async()` for
@@ -338,8 +339,11 @@ class Optimizer:
         self._run: RunDirectory | None = None  # created by run_async; set by resume
         self._resumed: ResumeState | None = None  # set by resume: what the event log already holds
         self._started = False  # set by run_async: an Optimizer runs once
-        # Candidate id -> (case name, run index) -> its trial record, as scored this process.
+        # Candidate id -> (case name, run index) -> its trial record, as scored this process, without its trajectory
+        # (`_with_trajectories` reads it back from the transcript).
         self._records: dict[str, dict[tuple[str, int], TrialRecord]] = {}
+        # The same keys -> the record's transcript (`{hash, format}`), None when it has no trajectory.
+        self._transcripts: dict[str, dict[tuple[str, int], dict[str, str] | None]] = {}
         self._rollouts: dict[tuple[str, SplitName], int] = {}  # a _score call's spend, until its event
 
     @property
@@ -574,8 +578,6 @@ class Optimizer:
             self._restore(self._resumed)
             return
         self._init_state(self._baseline)
-        if self._resumed is not None:  # killed in iteration 1: its proposers were already paid
-            self._search_cost = self._resumed.search_cost
         self._candidates[self._baseline.id] = self._baseline
         self._train[self._baseline.id] = scores
         self._refit(scored=True)
@@ -626,7 +628,6 @@ class Optimizer:
         self._build_errors: set[str] = set()  # infrastructure errors the build check has warned about
         self._saved: dict[str, Candidate] = {baseline.id: baseline}  # every saved candidate, by id
         self._open_rounds: list[OpenRound] = []
-        self._search_cost = Usage.zero()
         self._iteration = 0
 
     def _restore(self, state: ResumeState) -> None:
@@ -641,16 +642,18 @@ class Optimizer:
             candidate = run.load_candidate(candidate_id)
             self._saved[candidate_id] = candidate
             # As the closed iterations left them, not as a killed iteration may have replaced them.
-            records = {
-                (case, index): run.record_from(saved_trial)
+            saved = {
+                (case, index): saved_trial
                 for split in SPLIT_NAMES
                 for case in getattr(self._case_split, split)
                 for index in range(self._runs_per_candidate)
                 if (saved_trial := state.trials.get((candidate_id, index, case))) is not None
             }
-            if not records:
+            if not saved:
                 continue  # defensive: every candidate of a closed iteration has trials
+            records = {key: run.record_from(s, load_trajectory=False) for key, s in saved.items()}
             self._records[candidate_id] = records
+            self._transcripts[candidate_id] = {key: s["transcript"] for key, s in saved.items()}
             train = [r for r in records.values() if r.split == "train"]
             if train:
                 self._candidates[candidate_id] = candidate
@@ -691,7 +694,6 @@ class Optimizer:
         self._iterations = list(state.iterations)
         self._history = list(state.history)
         self._open_rounds = list(state.open_rounds)
-        self._search_cost = state.search_cost
         self._iteration = state.iteration
 
     async def _run_search(self) -> StopReason:
@@ -905,21 +907,8 @@ class Optimizer:
         run.save_diff("best", champion.diff(), champion.changed_values())
         for c in report.front if criteria.is_pareto else []:
             run.save_diff(f"front/{views[c].number}-{c}", views[c].diff(), views[c].changed_values())
-        agent_cost: dict[SplitName, Usage] = {split: Usage.zero() for split in SPLIT_NAMES}
-        judge_cost = retry_cost = benchmark_cost = Usage.zero()
-        # Every saved trial, as `spent` counts them: after a resume, a killed iteration's trials too.
-        for saved in run._trials.values():
-            agent_cost[saved["split"]] = agent_cost[saved["split"]] + Usage.model_validate(saved["usage"])
-            for usage in saved["judge_usage"].values():
-                judge_cost = judge_cost + Usage.model_validate(usage)
-            for attempt in saved["previous_attempts"]:
-                retry_cost = (
-                    retry_cost + Usage.model_validate(attempt["usage"]) + Usage.model_validate(attempt["judge_usage"])
-                )
-            # Absent from trials saved before benchmark usage was recorded.
-            for spent in (saved, *saved["previous_attempts"]):
-                if spent.get("benchmark_usage") is not None:
-                    benchmark_cost = benchmark_cost + Usage.model_validate(spent["benchmark_usage"])
+        # Every saved trial, as `spent` counts them, and every event: after a resume, a killed iteration's too.
+        cost = _run_cost(run._trials.values(), run.events.read(), blocks=[_block_name(b) for b, _ in self._blocks])
         result = OptimizationResult(
             run_id=run.root.name,
             run_dir=run.root,
@@ -942,12 +931,14 @@ class Optimizer:
             if self._resumed is None or self._resumed.stop_max_rollouts is None
             else self._resumed.stop_max_rollouts,
             stop_reason=stop_reason,
-            agent_cost=agent_cost,
-            search_cost=self._search_cost,
-            judge_cost=judge_cost,
-            retry_cost=retry_cost,
-            benchmark_cost=benchmark_cost,
-            reports=_reports(self._records, cases=self._cases, evaluators=self._evaluators, split=self._case_split),
+            cost=cost,
+            reports=_reports(
+                self._records,
+                self._transcripts,
+                cases=self._cases,
+                evaluators=self._evaluators,
+                split=self._case_split,
+            ),
             rows=self._rows(views, finalists, report),
         )
         data = result.to_dict()
@@ -982,6 +973,7 @@ class Optimizer:
             "case": _case_rows(
                 events,
                 self._records,
+                self._transcripts,
                 candidates=views,
                 split=self._case_split,
                 evaluators=[e.get_name() for e in self._evaluators],
@@ -1224,6 +1216,20 @@ class Optimizer:
             if r.split == split and r.status is TrialStatus.COMPLETED
         )
 
+    def _with_trajectories(
+        self,
+        records: Mapping[tuple[str, int], TrialRecord],
+        transcripts: Mapping[tuple[str, int], dict[str, str] | None],
+    ) -> dict[tuple[str, int], TrialRecord]:
+        """`records` (a candidate's, from `_records`), each with its trajectory read from its transcript."""
+        assert self._run is not None
+        return {
+            key: record
+            if (transcript := transcripts[key]) is None
+            else record.model_copy(update={"trajectory": self._run.load_transcript(transcript)})
+            for key, record in records.items()
+        }
+
     async def _step(
         self,
         step: Step,
@@ -1251,6 +1257,10 @@ class Optimizer:
         opened: _Draw | None = None  # an opener repeating a measured candidate: the round opens on it
         need = n
         recorded = self._recorded_draws(step, parent, n)
+        # Read back once for the whole step, only if a proposer reads them, from the records as the step starts.
+        held = {k: r for k, r in self._records[parent.id].items() if r.split == "train"}
+        transcripts = dict(self._transcripts[parent.id])
+        parent_trials = _ParentTrials(lambda: list(self._with_trajectories(held, transcripts).values()))
         drawn: list[list[_Draw]] = []  # per redraw, asked or replayed: the step's `draw` event
         for redraw in range(self._search.redraws + 1):
             if need <= 0 or opened is not None:
@@ -1259,7 +1269,9 @@ class Optimizer:
                 fill = self._fill(ranking)
                 drawn.append([self._merge(parent, patches, fill) for patches in recorded[redraw]])
             else:
-                drawn.append(await self._draw(step, parent, need, redraw, ranking, assessments, summaries))
+                drawn.append(
+                    await self._draw(step, parent, need, redraw, ranking, assessments, summaries, parent_trials)
+                )
             for draw in drawn[-1]:
                 if need <= 0:
                     # A replayed batch can hold more than the step still needs: the step is narrower on resume,
@@ -1469,18 +1481,20 @@ class Optimizer:
         ranking: list[str],
         assessments: Mapping[str, Assessment],
         summaries: list[CandidateSummary],
+        trials: Sequence[TrialRecord],
     ) -> list[_Draw]:
         """Up to `need` proposals on `parent`, each merging one patch of every block of the step.
 
         One block: its proposer asked once for `need` patches (a concurrent one: `need` calls at once). Several
         blocks: each slot built in turn, structural blocks first (each later block asked for 1 patch on the
         slot's values so far, so it sees the structure chosen for the slot), a block with no key active under
-        those values skipped; the slots drawn at once when any of the step's proposers is concurrent.
+        those values skipped; the slots drawn at once when any of the step's proposers is concurrent. Every
+        request gets `trials`, the parent's train trials.
         """
         fill = self._fill(ranking)
         if len(step.blocks) == 1:
             block = step.blocks[0]
-            patches = await self._ask(block, parent, parent, need, redraw, summaries)
+            patches = await self._ask(block, parent, parent, need, redraw, summaries, trials)
             return [self._merge(parent, {_block_name(block): p}, fill) for p in patches[:need]]
         order = sorted(step.blocks, key=lambda b: not self._is_structural(b))
         keys = dict((_block_name(b), k) for b, k in self._blocks)
@@ -1498,7 +1512,7 @@ class Optimizer:
             for block in order:
                 if not any(self._space.is_active(k, current.values) for k in keys[_block_name(block)]):
                     continue
-                got = await self._ask(block, parent, current, 1, redraw, summaries)
+                got = await self._ask(block, parent, current, 1, redraw, summaries, trials)
                 if not got:
                     continue
                 patches[_block_name(block)] = got[0]
@@ -1523,11 +1537,13 @@ class Optimizer:
         n: int,
         redraw: int,
         summaries: list[CandidateSummary],
+        trials: Sequence[TrialRecord],
     ) -> list[Patch]:
         """`block`'s patches for one request; a non-concurrent proposer proposes under the step's lock.
 
-        `parent` is the step's parent (its train trials and scores go in the request); `request_parent` is
-        what the proposer changes: the parent, or, inside a merged slot, the slot's values so far.
+        `parent` is the step's parent (its train scores go in the request, and `trials` are its train trials
+        with their trajectories); `request_parent` is what the proposer changes: the parent, or, inside a
+        merged slot, the slot's values so far.
 
         Raises:
             _ProposerFailed: The proposer raised, returned more than `n` patches, or a patch whose state isn't
@@ -1543,8 +1559,8 @@ class Optimizer:
                 raise ValueError(
                     f"a proposer may log only 'screened', 'proposer_retry', and 'proposer_usage' events, not {event!r}"
                 )
-            if event == "proposer_usage":  # spend on no returned patch: counted here, once
-                self._search_cost = self._search_cost + fields["usage"]
+            if event == "proposer_usage" and not isinstance(fields.get("usage"), Usage):
+                raise TypeError(f"a 'proposer_usage' event needs usage= a Usage, not {fields.get('usage')!r}")
             run.events.append(event, iteration=iteration, block=name, redraw=redraw, **fields)  # type: ignore[arg-type]
 
         train = list(self._case_split.train)
@@ -1555,7 +1571,7 @@ class Optimizer:
                 space=self._space,
                 keys=dict((_block_name(b), k) for b, k in self._blocks)[name],
                 parent=request_parent,
-                trials=[r for r in self._records[parent.id].values() if r.split == "train"],
+                trials=trials,
                 scores=self._train[parent.id],
                 inputs={c: cases[c].input for c in train},
                 fit=self._fit,
@@ -1610,7 +1626,6 @@ class Optimizer:
             usage = Usage.zero()
             for patch_usage in spent:
                 usage = usage + patch_usage
-            self._search_cost = self._search_cost + usage
             run.events.append("proposer_usage", iteration=iteration, block=name, redraw=redraw, usage=usage)
         return patches
 
@@ -1941,7 +1956,12 @@ class Optimizer:
         self._budget.spend(rollouts)
         scores = getattr(score(candidate.id, records, self._criteria, self._case_split), split)
         assert scores is not None  # every requested trial has a record on this split
-        self._records.setdefault(candidate.id, {}).update({(r.case_name, r.run_index): r for r in records})
+        held = self._records.setdefault(candidate.id, {})
+        transcripts = self._transcripts.setdefault(candidate.id, {})
+        for record in records:  # each was just saved or read from the run directory, so its index has it
+            key = (record.case_name, record.run_index)
+            held[key] = record.model_copy(update={"trajectory": None})
+            transcripts[key] = self._run.transcript(candidate.id, record.run_index, record.case_name)
         self._rollouts[(candidate.id, split)] = rollouts
         return scores
 
@@ -2306,6 +2326,31 @@ class ProposerError(RuntimeError):
 class _ProposerFailed(Exception):
     """A proposer raised (the `__cause__`; `args[0]` is the block's name); its `proposer_error` event is written,
     then `_run_search` raises `ProposerError`."""
+
+
+class _ParentTrials(Sequence[TrialRecord]):
+    """A step's parent's train trials, with their trajectories read from the run directory the first time
+    anything reads them (TPE and Thompson never do), once for every request of the step."""
+
+    def __init__(self, load: Callable[[], list[TrialRecord]]) -> None:
+        self._load = load
+        self._trials: list[TrialRecord] | None = None
+        self._lock = threading.Lock()  # Reflection reads them from worker threads, several at once
+
+    def _loaded(self) -> list[TrialRecord]:
+        with self._lock:
+            if self._trials is None:
+                self._trials = self._load()
+            return self._trials
+
+    def __getitem__(self, index: Any) -> Any:
+        return self._loaded()[index]
+
+    def __len__(self) -> int:
+        return len(self._loaded())
+
+    def __iter__(self) -> Iterator[TrialRecord]:
+        return iter(self._loaded())
 
 
 @dataclass(frozen=True)

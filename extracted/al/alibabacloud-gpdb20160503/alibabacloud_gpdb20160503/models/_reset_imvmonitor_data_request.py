@@ -10,9 +10,9 @@ class ResetIMVMonitorDataRequest(DaraModel):
         dbinstance_id: str = None,
         database: str = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specified region, including instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

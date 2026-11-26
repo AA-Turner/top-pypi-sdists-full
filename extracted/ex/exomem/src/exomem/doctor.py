@@ -4049,6 +4049,69 @@ def _check_managed_hook_refresh() -> DoctorCheck:
     )
 
 
+def _check_legacy_tool_references() -> DoctorCheck:
+    """Warn about permission rules and hooks of the user's that no server answers any more.
+
+    A rule that names `mcp__exomem__` matches while the client holds an `exomem` server, and one
+    that names the plugin's `mcp__plugin_exomem_exomem__` matches while an `exomem` plugin is
+    enabled. Each is dead once nothing answers it. A warning, never a failure: the install works
+    either way. Read-only; setup never edits what the user wrote.
+    """
+    from . import client_config
+    from .install_skill import client_home
+
+    try:
+        dead, read = client_config.dead_references(
+            claude_home=client_home("claude"),
+            codex_home=client_home("codex"),
+            claude_config_path=client_config.default_claude_config_path(dict(os.environ)),
+            project_dir=Path.cwd(),
+        )
+    except ValueError as exc:
+        return _check(
+            "migration.tool_prefix",
+            "warn",
+            f"could not read a client's server registrations, so no rule naming "
+            f"`{client_config.LEGACY_TOOL_PREFIX}` or `{client_config.LEGACY_PLUGIN_TOOL_PREFIX}` "
+            f"was judged: {exc}",
+        )
+    if not dead:
+        checked = ", ".join(str(path) for path in read) or "no Claude or Codex settings file found"
+        return _check(
+            "migration.tool_prefix",
+            "pass",
+            f"checked {checked}: no permission rule or hook there names "
+            f"`{client_config.LEGACY_TOOL_PREFIX}` in a client without an `exomem` server, or "
+            f"`{client_config.LEGACY_PLUGIN_TOOL_PREFIX}` in a Claude Code without an `exomem` "
+            "plugin. A rule that still names one matches that server or plugin. "
+            "Rules kept anywhere else are not read.",
+        )
+    listed = "; ".join(f"{ref.kind} {ref.name} in {ref.path}" for ref in dead)
+    return _check(
+        "migration.tool_prefix",
+        "warn",
+        f"{len(dead)} permission rule(s) or hook(s) of yours name an old tool prefix "
+        f"(`{client_config.LEGACY_TOOL_PREFIX}` or `{client_config.LEGACY_PLUGIN_TOOL_PREFIX}`) "
+        f"that no server or plugin answers now, so they match no tool: {listed}",
+        "Change each listed rule or hook to the prefix named in its details: "
+        f"`{client_config.TOOL_PREFIX}` or `{client_config.PLUGIN_TOOL_PREFIX}`. "
+        "Setup never edits what you wrote.",
+        details={
+            "references": [
+                {
+                    "client": ref.client,
+                    "path": str(ref.path),
+                    "kind": ref.kind,
+                    "name": ref.name,
+                    "old_prefix": ref.prefix,
+                    "new_prefix": ref.replacement,
+                }
+                for ref in dead
+            ]
+        },
+    )
+
+
 def _check_edge_ingress(*, probe: bool) -> list[DoctorCheck]:
     """Doctor's `edge-ingress` section (design.md Decision 3): verifies the public
     apex is fronted by the HA edge worker rather than tunnel-direct. Skipped
@@ -4308,6 +4371,7 @@ def _doctor_report(vault_root, vault_check, *, profile, probe, replica_urls):
     checks.append(_check_recall_canary())
     checks.append(_check_idempotency_store())
     checks.append(_check_managed_hook_refresh())
+    checks.append(_check_legacy_tool_references())
 
     return DoctorReport(profile=profile, checks=checks)
 

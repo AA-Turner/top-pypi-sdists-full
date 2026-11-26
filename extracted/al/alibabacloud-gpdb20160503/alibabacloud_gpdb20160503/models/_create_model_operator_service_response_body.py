@@ -13,9 +13,9 @@ class CreateModelOperatorServiceResponseBody(DaraModel):
     ):
         # The ID of the sales order generated when the model creation operator sub-service is created.
         self.order_id = order_id
-        # The ID of the request, which is used to locate and troubleshoot the request.
+        # The ID of the request. You can use the ID to locate and troubleshoot the request.
         self.request_id = request_id
-        # The ID of the model operator service corresponding to the sales order. The return of this ID does not indicate that the service has been activated. You can call ListModelOperatorServices to query the subsequent status.
+        # The ID of the model operator service that corresponds to the sales order. The return of this ID does not indicate that the service has been activated. You can call ListModelOperatorServices to query the subsequent status.
         self.service_id = service_id
 
     def validate(self):

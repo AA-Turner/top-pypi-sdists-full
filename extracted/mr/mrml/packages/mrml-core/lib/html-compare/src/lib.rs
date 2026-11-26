@@ -1,5 +1,6 @@
 #![allow(clippy::result_large_err)]
 
+mod css;
 mod error;
 mod helper;
 mod stack;
@@ -171,7 +172,8 @@ fn compare_attributes<'a>(
     let exp_keys = exp_attrs
         .iter()
         .filter(|attr| {
-            // if attribute is `class` or `style`, and the value is empty, we can ignore it
+            // if attribute is `class` or `style`, and the value is empty, we
+            // can ignore it
             if ["alt", "class", "style"].contains(&attr.local.as_str()) {
                 attr.value.is_some_and(|v| !v.is_empty())
             } else {
@@ -299,7 +301,7 @@ fn compare_tokens<'a>(
         }
         (Token::Text { text: exp_text }, Token::Text { text: res_text }) => {
             if parent == "style" {
-                css_compare::compare(exp_text.as_str(), res_text.as_str()).map_err(|error| {
+                crate::css::compare(exp_text.as_str(), res_text.as_str()).map_err(|error| {
                     ErrorKind::CssMismatch {
                         expected: exp_text,
                         generated: res_text,

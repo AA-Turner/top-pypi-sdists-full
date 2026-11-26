@@ -1,34 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-iothub
-Version: 4.0.0
-Summary: Microsoft Azure IoT Hub Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 5.0.0
+Summary: Microsoft Azure Iothub Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.3.2
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure IoT Hub Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +38,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -51,7 +50,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -87,8 +86,164 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 5.0.0 (2026-11-12)
+
+### Features Added
+
+  - Client `IotHubClient` added parameter `cloud_setting` in method `__init__`
+  - Client `IotHubClient` added method `send_request`
+  - Model `CertificateDescription` added property `system_data`
+  - Model `CertificateProperties` added property `certificate_authority_resource_id`
+  - Model `CertificatePropertiesWithNonce` added property `certificate_authority_resource_id`
+  - Model `EventHubConsumerGroupInfo` added property `system_data`
+  - Model `IotHubProperties` added property `device_host_name`
+  - Model `IotHubProperties` added property `device_registry`
+  - Model `IotHubProperties` added property `iot_hub_details`
+  - Model `IotHubProperties` added property `service_host_name`
+  - Model `PrivateEndpointConnection` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Model `RoutingEndpoints` added property `event_streams`
+  - Added model `DeviceRegistry`
+  - Added model `DeviceRegistryIdentity`
+  - Added enum `DeviceRegistryIdentityType`
+  - Added model `DeviceRegistryLinkingProperties`
+  - Added enum `DeviceRegistryLinkingState`
+  - Added enum `EventStreamAuthenticationType`
+  - Added enum `FallbackRouteSource`
+  - Added enum `GatewayVersion`
+  - Added model `IotHubDetails`
+  - Added model `ProxyResource`
+  - Added model `RoutingEventStreamProperties`
+  - Added model `TrackedResource`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - For the method breakings, please refer to https://aka.ms/azsdk/python/migrate/operations for migration.
+  - Model `IotHubProperties` deleted or renamed its instance variable `device_streams`
+  - Model `IotHubProperties` deleted or renamed its instance variable `encryption`
+  - Model `IotHubProperties` deleted or renamed its instance variable `ip_version`
+  - Model `IotHubProperties` deleted or renamed its instance variable `root_certificate`
+  - Deleted or renamed enum value `JobType.IMPORT_ENUM`
+  - Model `Resource` deleted or renamed its instance variable `location`
+  - Model `Resource` deleted or renamed its instance variable `tags`
+  - Deleted or renamed enum value `RoutingSource.DIGITAL_TWIN_CHANGE_EVENTS`
+  - Deleted or renamed enum value `RoutingSource.MQTT_BROKER_MESSAGES`
+  - Deleted or renamed model `CertificateBodyDescription`
+  - Deleted or renamed model `EncryptionPropertiesDescription`
+  - Deleted or renamed model `IotHubPropertiesDeviceStreams`
+  - Deleted or renamed enum `IpVersion`
+  - Deleted or renamed model `KeyVaultKeyProperties`
+  - Deleted or renamed model `RootCertificateProperties`
+  - Method `CertificatesOperations.create_or_update` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+  - Method `CertificatesOperations.delete` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+  - Method `CertificatesOperations.generate_verification_code` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+  - Method `CertificatesOperations.verify` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+  - Method `IotHubResourceOperations.begin_create_or_update` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+
+### Other Changes
+
+  - Deleted model `EndpointHealthDataListResult`/`EventHubConsumerGroupsListResult`/`IotHubDescriptionListResult`/`IotHubQuotaMetricInfoListResult`/`IotHubSkuDescriptionListResult`/`JobResponseListResult`/`OperationListResult`/`SharedAccessSignatureAuthorizationRuleListResult` which actually were not used by SDK users
+
+## 5.0.0b5 (2026-10-09)
+
+### Features Added
+
+  - Model `CertificateProperties` added property `certificate_authority_resource_id`
+  - Model `CertificatePropertiesWithNonce` added property `certificate_authority_resource_id`
+  - Model `DeviceRegistry` added property `data_plane_host_name`
+  - Model `DeviceRegistry` added property `identity`
+  - Model `DeviceRegistry` added property `linking_properties`
+  - Model `DeviceRegistry` added property `namespace_uuid`
+  - Model `IotHubProperties` added property `connection_profile`
+  - Model `IotHubProperties` added property `mqtt_v5_settings`
+  - Model `RouteProperties` added property `data_schema`
+  - Model `RoutingCosmosDBSqlApiProperties` added property `message_payload_format`
+  - Model `RoutingEventHubProperties` added property `message_payload_format`
+  - Model `RoutingEventStreamProperties` added property `message_payload_format`
+  - Model `RoutingServiceBusQueueEndpointProperties` added property `message_payload_format`
+  - Model `RoutingServiceBusTopicEndpointProperties` added property `message_payload_format`
+  - Model `RoutingStorageContainerProperties` added property `message_payload_format`
+  - Added enum `ConnectionProfile`
+  - Added model `DeviceRegistryIdentity`
+  - Added enum `DeviceRegistryIdentityType`
+  - Added model `DeviceRegistryLinkingProperties`
+  - Added enum `DeviceRegistryLinkingState`
+  - Added enum `MessagePayloadFormat`
+  - Added model `MqttV5Settings`
+  - Added model `TopicGroup`
+
+### Breaking Changes
+
+  - Model `CertificateProperties` deleted or renamed its instance variable `policy_resource_id`
+  - Model `CertificatePropertiesWithNonce` deleted or renamed its instance variable `policy_resource_id`
+  - Model `DeviceRegistry` deleted or renamed its instance variable `identity_resource_id`
+
+## 5.0.0b4 (2026-07-21)
+
+### Features Added
+
+  - Model `RoutingEndpoints` added property `event_streams`
+  - Added enum `EventStreamAuthenticationType`
+  - Added model `RoutingEventStreamProperties`
+
+### Breaking Changes
+
+  - Deleted or renamed enum value `IotHubSku.GEN2`
+  - Deleted or renamed enum value `IotHubSkuTier.GENERATION2`
+
+## 5.0.0b3 (2026-05-20)
+
+### Features Added
+
+  - Client `IotHubClient` added method `send_request`
+  - Model `CertificateDescription` added property `system_data`
+  - Model `EventHubConsumerGroupInfo` added property `system_data`
+  - Model `IotHubProperties` added property `device_host_name`
+  - Model `IotHubProperties` added property `service_host_name`
+  - Model `IotHubProperties` added property `iot_hub_details`
+  - Model `PrivateEndpointConnection` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Added enum `GatewayVersion`
+  - Added model `IotHubDetails`
+  - Added model `ProxyResource`
+  - Added model `TrackedResource`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - For the method breakings, please refer to https://aka.ms/azsdk/python/migrate/operations for migration.
+  - Model `Resource` deleted or renamed its instance variable `location`
+  - Model `Resource` deleted or renamed its instance variable `tags`
+  - Method `CertificatesOperations.create_or_update` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+  - Method `CertificatesOperations.delete` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+  - Method `CertificatesOperations.generate_verification_code` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+  - Method `CertificatesOperations.verify` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+  - Method `IotHubResourceOperations.begin_create_or_update` replaced positional_or_keyword `if_match` to keyword_only `etag`/`match_condition`
+
+### Other Changes
+
+  - Deleted model `CertificateBodyDescription` which actually were not used by SDK users
+
+## 5.0.0b2 (2025-10-20)
+
+### Features Added
+
+  - Model `IotHubClient` added parameter `cloud_setting` in method `__init__`
+  - Model `CertificateProperties` added property `policy_resource_id`
+  - Model `CertificatePropertiesWithNonce` added property `policy_resource_id`
+  - Model `IotHubProperties` added property `device_registry`
+  - Enum `IotHubSku` added member `GEN2`
+  - Enum `IotHubSkuTier` added member `GENERATION2`
+  - Added model `DeviceRegistry`
+
+## 5.0.0b1 (2025-08-14)
+
+### Breaking Changes
+
+- This package now only targets the latest Api-Version available on Azure and removes APIs of other Api-Version. After this change, the package can have much smaller size. If your application requires a specific and non-latest Api-Version, it's recommended to pin this package to the previous released version; If your application always only use latest Api-Version, please ignore this change.
 
 ## 4.0.0 (2025-04-09)
 

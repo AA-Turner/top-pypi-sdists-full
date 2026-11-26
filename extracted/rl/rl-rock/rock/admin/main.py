@@ -23,7 +23,10 @@ from rock.admin.core.db_provider import DatabaseProvider
 from rock.admin.core.ray_service import RayService
 from rock.admin.core.sandbox_table import SandboxTable
 from rock.admin.core.scheduler_task_table import SchedulerTaskTable
+from rock.admin.core.template_table import TemplateTable
 from rock.admin.entrypoints.admin_ops_api import admin_ops_router, set_ops_service
+from rock.admin.entrypoints.e2b_api import e2b_router, set_e2b_sandbox_manager
+from rock.admin.entrypoints.e2b_proxy_api import e2b_proxy_router, set_e2b_proxy_service
 from rock.admin.entrypoints.sandbox_api import sandbox_router, set_sandbox_manager
 from rock.admin.entrypoints.sandbox_proxy_api import sandbox_proxy_router, set_sandbox_proxy_service
 from rock.admin.entrypoints.warmup_api import set_warmup_service, warmup_router
@@ -42,12 +45,20 @@ from rock.admin.scheduler.tasks.sandbox_log_archive_task import (
 from rock.admin.scheduler.tasks.sandbox_log_archive_task import (
     set_sandbox_table_provider as set_archive_sandbox_table_provider,
 )
+from rock.admin.service.e2b_proxy_service import E2BProxyService
+from rock.admin.service.e2b_service import E2BService
+from rock.admin.service.image_resolver import create_image_resolver
 from rock.admin.service.ops_service import OpsService
 from rock.common.exception import request_validation_exception_handler
 from rock.config import DatabaseConfig, RockConfig, SchedulerConfig
 from rock.logger import configure_logging, init_logger, reset_log_file
 from rock.sandbox.gem_manager import GemManager
-from rock.sandbox.operator.factory import OperatorContext, OperatorFactory, operator_requires_ray
+from rock.sandbox.operator.factory import (
+    OperatorContext,
+    OperatorFactory,
+    operator_requires_ray,
+    operator_supports_scheduler,
+)
 from rock.sandbox.sandbox_meta_store import SandboxMetaStore
 from rock.sandbox.service.factory import create_sandbox_proxy_service
 from rock.sandbox.service.warmup_service import WarmupService
@@ -93,6 +104,13 @@ def _init_ops_service(
     scheduler_task_table: "SchedulerTaskTable",
 ) -> OpsService:
     """Build OpsService with task registry from scheduler config."""
+    if not operator_supports_scheduler(rock_config.runtime.operator_type):
+        return OpsService(
+            task_table=scheduler_task_table,
+            task_registry={},
+            alive_workers_provider=set,
+        )
+
     ops_task_registry: dict[str, BaseTask] = {}
     if rock_config.scheduler.enabled:
         for task_config in rock_config.scheduler.tasks:
@@ -122,7 +140,7 @@ async def lifespan(app: FastAPI):
     rock_config = RockConfig.from_env(config_file_path)
     _apply_logging_config(rock_config)
 
-    # Override config from Nacos if available (sandbox_config, proxy_service, lifecycle via update(); scheduler separately)
+    # Override config from Nacos before creating services and startup-scoped plugins.
     if rock_config.nacos_provider:
         await rock_config.update()
         nacos_config = await rock_config.nacos_provider.get_config()
@@ -155,6 +173,7 @@ async def lifespan(app: FastAPI):
     if not rock_config.database.url:
         await db_provider.create_tables()
     sandbox_table = SandboxTable(db_provider, rock_config=rock_config)
+    template_table = TemplateTable(db_provider)
     meta_store = SandboxMetaStore(redis_provider=redis_provider, sandbox_table=sandbox_table, rock_config=rock_config)
 
     # Wire SandboxLogArchiveTask deps. Providers (vs static set) so Nacos
@@ -173,6 +192,7 @@ async def lifespan(app: FastAPI):
 
     # init sandbox service
     proxy_service_ref = None
+    e2b_proxy_service_ref = None
     if env_vars.ROCK_ADMIN_ROLE == "admin":
         # init ray service only for operators that need a local Ray cluster.
         # opensandbox delegates the full lifecycle to an external service, so it
@@ -195,6 +215,7 @@ async def lifespan(app: FastAPI):
             nacos_provider=rock_config.nacos_provider,
             k8s_config=rock_config.k8s,
             opensandbox_config=rock_config.opensandbox,
+            remote_config=rock_config.remote,
         )
         operator = OperatorFactory.create_operator(operator_context)
 
@@ -218,12 +239,27 @@ async def lifespan(app: FastAPI):
                 meta_store=meta_store,
             )
         set_sandbox_manager(sandbox_manager)
+        set_e2b_sandbox_manager(
+            E2BService(
+                sandbox_manager,
+                template_table,
+                image_resolver=create_image_resolver(
+                    rock_config.e2b_image_resolver, rock_config.http_pool_manager, redis_provider
+                ),
+            )
+        )
         warmup_service = WarmupService(rock_config.warmup)
         await warmup_service.init()
         set_warmup_service(warmup_service)
         set_env_service(sandbox_manager)
 
-        if rock_config.scheduler.enabled and is_primary_pod():
+        scheduler_supported = operator_supports_scheduler(rock_config.runtime.operator_type)
+        if rock_config.scheduler.enabled and not scheduler_supported:
+            logger.warning(
+                "Scheduler is enabled but unsupported for operator_type=%s; skipping worker scheduler",
+                rock_config.runtime.operator_type,
+            )
+        elif rock_config.scheduler.enabled and is_primary_pod():
             scheduler_metrics_monitor, scheduler_metrics = _init_scheduler_metrics(rock_config)
             scheduler_thread = SchedulerThread(
                 scheduler_config=rock_config.scheduler,
@@ -239,35 +275,45 @@ async def lifespan(app: FastAPI):
 
     else:
         sandbox_manager = create_sandbox_proxy_service(rock_config=rock_config, meta_store=meta_store)
+        e2b_proxy_service_ref = E2BProxyService(
+            sandbox_manager=sandbox_manager,
+            meta_store=meta_store,
+        )
+        set_e2b_proxy_service(e2b_proxy_service_ref)
         set_sandbox_proxy_service(sandbox_manager)
         proxy_service_ref = sandbox_manager
 
     logger.info("rock-admin start")
 
-    yield
+    try:
+        yield
+    finally:
+        # stop scheduler thread
+        if scheduler_thread:
+            scheduler_thread.stop()
+            logger.info("Scheduler thread stopped")
+        if scheduler_metrics_monitor:
+            await asyncio.to_thread(scheduler_metrics_monitor.shutdown)
+            logger.info("Scheduler metrics monitor stopped")
 
-    # stop scheduler thread
-    if scheduler_thread:
-        scheduler_thread.stop()
-        logger.info("Scheduler thread stopped")
-    if scheduler_metrics_monitor:
-        await asyncio.to_thread(scheduler_metrics_monitor.shutdown)
-        logger.info("Scheduler metrics monitor stopped")
+        if e2b_proxy_service_ref is not None:
+            await e2b_proxy_service_ref.aclose()
+            logger.info("E2B proxy process tasks closed")
 
-    if proxy_service_ref is not None:
-        await proxy_service_ref.aclose()
-        logger.info("proxy httpx clients closed")
+        if proxy_service_ref is not None:
+            await proxy_service_ref.aclose()
+            logger.info("proxy httpx clients closed")
 
-    await rock_config.http_pool_manager.aclose_all()
-    logger.info("http pool manager closed")
+        await rock_config.http_pool_manager.aclose_all()
+        logger.info("http pool manager closed")
 
-    if db_provider:
-        await db_provider.close()
+        if db_provider:
+            await db_provider.close()
 
-    if redis_provider:
-        await redis_provider.close_pool()
+        if redis_provider:
+            await redis_provider.close_pool()
 
-    logger.info("rock-admin exit")
+        logger.info("rock-admin exit")
 
 
 async def base_exception_handler(request: Request, exc: Exception):
@@ -324,9 +370,11 @@ async def log_requests_and_responses(request: Request, call_next):
 
 def _include_routers(app: FastAPI, role: str) -> None:
     if role == "admin":
+        app.include_router(e2b_router, tags=["e2b"])
         app.include_router(sandbox_router, prefix="/apis/envs/sandbox/v1", tags=["sandbox"])
         app.include_router(admin_ops_router, prefix="/apis/envs/sandbox/v1/ops", tags=["admin-ops"])
     else:
+        app.include_router(e2b_proxy_router, tags=["e2b"])
         app.include_router(sandbox_proxy_router, prefix="/apis/envs/sandbox/v1", tags=["sandbox"])
     app.include_router(warmup_router, prefix="/apis/envs/sandbox/v1", tags=["warmup"])
     app.include_router(gem_router, prefix="/apis/v1/envs/gem", tags=["gem"])
@@ -438,8 +486,8 @@ def main():
     os.environ["ROCK_ADMIN_ENV"] = args.env
     os.environ["ROCK_ADMIN_ROLE"] = args.role
 
-    # Clear the log file once at deploy (master), then make every worker append
-    # to the shared file. Must run before workers spawn so only the master clears.
+    # Clear legacy shared logs before spawning workers. Per-process rotating
+    # logs skip this reset and keep their current file and backups on startup.
     reset_log_file()
     os.environ["ROCK_LOGGING_APPEND"] = "true"
 

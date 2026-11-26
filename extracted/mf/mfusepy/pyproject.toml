@@ -7,15 +7,16 @@
 # https://github.com/pypa/setuptools/issues/4903
 # Use setuptools >= 77 for project.license-files support
 # https://setuptools.readthedocs.io/en/latest/history.html#id284
-# Use setuptools <= 82 because the license specification changes backward-incompatible in 2026-02.
+# Use setuptools < 85 for compatibility with distributions that ship newer setuptools. The license
+# specification changes backward-incompatibly in 2027-02, so keep the upper bound.
 # https://github.com/pypa/setuptools/issues/4903#issuecomment-2923109576
 # <= major must not be used for pinning because it will only match major.0.0 not any higher version!
-requires = ["setuptools >= 61, < 83"]
+requires = ["setuptools >= 61, < 85"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mfusepy"
-version = "3.1.1"
+version = "3.2.0"
 description = "Ctypes bindings for the high-level API in libfuse 2 and 3"
 authors = [{name = "Maximilian Knespel", email = "mxmlnknp@gmail.com"}]
 license = {text = "ISC"}
@@ -28,14 +29,13 @@ classifiers = [
     "Operating System :: POSIX :: BSD :: FreeBSD",
     "Operating System :: POSIX :: BSD :: OpenBSD",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: System :: Filesystems",
 ]
 urls = {Homepage = "https://github.com/mxmlnkn/mfusepy"}
@@ -48,3 +48,141 @@ content-type = "text/markdown"
 [tool.setuptools]
 py-modules = ["mfusepy"]
 license-files = ["LICENSE"]
+
+[tool.pytest.ini_options]
+# Needed by tests/conftest.py to count the executed assertions. It lives here instead of tests/pytest.ini so
+# that it also applies when pytest is invoked without an explicit tests path, e.g., by a package manager.
+enable_assertion_pass_hook = true
+testpaths = ["tests"]
+# Declare the mark explicitly so that a run without pytest-order still does not warn about an unknown mark.
+# If pytest-order is installed, it turns this into an actual ordering directive.
+markers = [
+    "order: run tests in the given order; provided by pytest-order",
+]
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "A", "B", "E", "F", "G", "I", "W", "N", "ASYNC", "C4", "COM", "FLY", "FURB", "ICN", "INT", "ISC", "LOG",
+    "PERF", "PIE", "PLW", "PT", "PYI", "RET", "RSE", "RUF", "SIM", "TID", "TC", "UP", "YTT"
+]
+ignore = [
+    # Preview. Complaining about spaces (aligned arguments) should be a formatter option, not a linter one!
+    # https://github.com/astral-sh/ruff/issues/2402
+    "E201", "E202", "E203", "E211", "E221", "E226", "E251", "E265", "E266",
+    "E501",     # A linter should lint, not check for line lengths!
+    "F401",     # Wants to from .version import __version__ as __version__ which clashes with pylint errors!
+    "B904",
+    "N801",     # Some class names are snake_case to match ctypes
+    "COM812",   # Do not force trailing commas where it makes no sense, e.g., function calls for which I'll
+                # never add more arguments.
+    "PLW0603",  # Cannot live without global statements, especially for subprocessing.
+    "PT017",
+    "RET504",   # https://github.com/astral-sh/ruff/issues/17292#issuecomment-3039232890
+    "RUF100",   # BUG: removes necessary noqa: E402 in tests!
+    "RUF012",   # Mutable class attributes should be annotated with `typing.ClassVar`, but _fields_ is not mutable.
+
+    "SIM102",   # Sometimes, nested if-statements are more readable.
+    "SIM105",
+
+    # Bug: SIM118 removes the keys() from row.keys(), which is an sqlite3.Row not a Dict!
+]
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+external = ["B036", "B042", "W212"]
+
+[tool.ruff.format]
+line-ending = "lf"
+quote-style = "preserve"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pylint.format]
+# Maximum number of characters on a single line.
+max-line-length = 120
+
+[tool.pylint.messages_control]
+# Disable the message, report, category or checker with the given id(s). You can either use message names or
+# IDs. Some checks are disabled because they are intended to be enabled globally and overridden per file.
+disable = [
+    "broad-except",
+    "invalid-name",
+    "too-many-arguments",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-locals",
+    "too-many-lines",
+    "too-many-positional-arguments",
+    "too-many-public-methods",
+    "too-many-statements",
+    "too-few-public-methods",
+    # I don't need the style checker to bother me with missing docstrings and todos.
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "fixme",
+    "unused-argument",
+    "comparison-with-callable",
+    "R0801",
+    "global-statement",
+    "chained-comparison",  # Only since Python 3.8
+    # For testing our own library, protected access is valid and ctypes and the generated ABI types expose
+    # required details through underscore-prefixed members such as _Pointer.
+    "protected-access",
+    # One might argue that imports outside top-level are even more correct and more robust to platform-specific
+    # differences. If it is required more than once or twice, though top-level is still better.
+    # PEP 810 finally brings explicit lazy imports to Python 3.15, which will be a real saver, but I am still
+    # supporting 3.9, so I guess in 8 years then.
+    "import-outside-toplevel",
+    "wrong-import-position",
+]
+
+# Development-only dependencies. PEP 735 groups are metadata only: they are shipped in the sdist's
+# pyproject.toml but never in the wheel's METADATA, and they are not exposed as an extra. Unlike an extra, a
+# group can be installed without also installing the package itself.
+[dependency-groups]
+test = [
+    "pytest",
+    "pytest-order",
+    # Only used by the ioctl test in tests/test_examples.py, which only runs on Linux.
+    "ioctl-opt; sys_platform == 'linux'",
+]
+lint = [
+    "bandit",
+    "black",
+    "codespell",
+    "flake8",
+    "flake8-bugbear",
+    "mypy",
+    "pylint",
+    "pytype",
+    # Pin ruff to a minor version because new rules can fail the CI without any change here.
+    # Use three components because for 0.x releases "ruff~=0.16" would still allow any 0.x.
+    "ruff~=0.16.0",
+    "types-paramiko",
+]
+examples = [
+    "paramiko",
+]
+build = [
+    "build",
+    # Keep in sync with the constraint in [build-system].requires.
+    "setuptools >= 61, < 85",
+    "twine",
+    "wheel",
+]
+dev = [
+    {include-group = "test"},
+    {include-group = "lint"},
+    {include-group = "examples"},
+    {include-group = "build"},
+]

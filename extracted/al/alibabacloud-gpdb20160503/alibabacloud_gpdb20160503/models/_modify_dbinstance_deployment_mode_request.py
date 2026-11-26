@@ -14,7 +14,7 @@ class ModifyDBInstanceDeploymentModeRequest(DaraModel):
     ):
         # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances in a region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances in the specified region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -24,13 +24,13 @@ class ModifyDBInstanceDeploymentModeRequest(DaraModel):
         # 
         # This parameter is required.
         self.deploy_mode = deploy_mode
-        # The vSwitch ID in the secondary zone.
+        # The vSwitch ID of the secondary zone.
         # 
         # > 
         # > - This parameter is required only for multi-zone deployment.
-        # > - The zone of the vSwitch specified by this parameter must be the same as the zone specified by StandbyZoneId.
+        # > - The zone of the vSwitch in the secondary zone must match the StandbyZoneId.
         self.standby_vswitch_id = standby_vswitch_id
-        # The secondary zone ID.
+        # The ID of the secondary zone.
         # 
         # > 
         # > - This parameter is required only for multi-zone deployment.

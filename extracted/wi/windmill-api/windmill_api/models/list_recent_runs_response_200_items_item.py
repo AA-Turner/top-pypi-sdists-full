@@ -21,7 +21,7 @@ class ListRecentRunsResponse200ItemsItem:
         path (str):
         kind (ListRecentRunsResponse200ItemsItemKind):
         status (ListRecentRunsResponse200ItemsItemStatus): a failure someone or something marked as handled is
-            `resolved`, not `failure`
+            `resolved`, not `failure`; a run waiting for an approval is `suspended`, not `running`
         failed_runs (int): unresolved failed runs of the item over the whole window, not only those in runs
         runs (List['ListRecentRunsResponse200ItemsItemRunsItem']):
         summary (Union[Unset, str]):

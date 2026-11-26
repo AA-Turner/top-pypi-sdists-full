@@ -8,7 +8,6 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..models.action_error_code import ActionErrorCode
 from ..types import UNSET, Unset
 from typing import cast
 import datetime
@@ -32,7 +31,12 @@ class ActionError:
                 is the same plain words as `message`, since the raw text
                 (internal prefixes, API paths, URLs) goes to the server log.
                 With any other code it is the forge's own text, for logs.
-            code (ActionErrorCode): Why the action was refused, from a re-read of the pull
+            code (str): One of the values above today, and the server may learn more.
+                A client should treat a code it doesn't know like `unknown`
+                and show `message`, not fail to decode. Declared with
+                `x-extensible-enum` so adding a value is a minor SDK release.
+
+                Why the action was refused, from a re-read of the pull
                 request's real state. `already_merged` and `already_closed`
                 mean the dashboard's row was stale: the pull request has
                 nothing left to merge.
@@ -73,7 +77,7 @@ class ActionError:
      """
 
     error: str
-    code: ActionErrorCode
+    code: str
     message: str
     resets_at: datetime.datetime | Unset = UNSET
     upstream_status: int | Unset = UNSET
@@ -87,7 +91,7 @@ class ActionError:
     def to_dict(self) -> dict[str, Any]:
         error = self.error
 
-        code = self.code.value
+        code = self.code
 
         message = self.message
 
@@ -123,10 +127,7 @@ class ActionError:
         d = dict(src_dict)
         error = d.pop("error")
 
-        code = ActionErrorCode(d.pop("code"))
-
-
-
+        code = d.pop("code")
 
         message = d.pop("message")
 

@@ -19,6 +19,8 @@ _SESSIONS_ROUTE_MAX = 50
 
 #: What a captured-session row keeps (AgentSessionOut). The OWNER is the point:
 #: "who made this" is answered by a person, not a session id.
+#: `started_at` is the session's own start; `first_seen_at` is when it first touched
+#: this entity (#5705).
 _SESSION_ROW_FIELDS = (
     "name",
     "title",
@@ -27,6 +29,7 @@ _SESSION_ROW_FIELDS = (
     "owner_email",
     "device_label",
     "first_seen_at",
+    "started_at",
     "last_seen_at",
 )
 

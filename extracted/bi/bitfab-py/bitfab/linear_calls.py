@@ -118,7 +118,9 @@ def _save_to_store(change: Callable[[LinearRecording], None]) -> None:
         LinearRecording,
         change,
         lambda recording: copy.deepcopy(recording.state),
-        lambda state: client.sandbox_stores.seed(LINEAR_SANDBOX_NAME, trace_id, state),
+        lambda state, version: client.http_client.send_sandbox_store_write(
+            trace_id, LINEAR_SANDBOX_NAME, state, version
+        ),
     )
 
 

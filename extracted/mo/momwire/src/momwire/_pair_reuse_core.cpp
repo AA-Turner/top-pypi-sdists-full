@@ -4,6 +4,7 @@
 // fill computes passes through it (momwire#1187).
 #include "_pair_reuse_core.h"
 
+#include <cstring>
 #include <chrono>
 #include <type_traits>
 #include <cstdio>
@@ -107,6 +108,7 @@ std::mutex g_cache_mtx;
 std::list<Entry> g_cache;  // most recent first
 std::map<std::string, Counters> g_counters;
 int64_t g_cache_bytes = -1;  // the test hook's; < 0: SHARED_PLAN_BYTES
+std::atomic<double> g_cap_compression{CLASS_CAP_COMPRESSION};
 
 }  // namespace
 
@@ -115,7 +117,7 @@ namespace detail {
 void finish(FamilyPlan &f, const std::vector<Rep> &reps, int64_t singles, const Policy &pol) {
     f.classes = static_cast<int64_t>(reps.size());
     f.pairs = static_cast<int64_t>(f.spec.n_blocks) * f.spec.rows * f.spec.cols;
-    f.near = (f.spec.near_singles ? singles : 0) + static_cast<int64_t>(f.near_flat.size());
+    f.near = (f.spec.near_singles ? singles : 0) + static_cast<int64_t>(f.near_flat.size()) + f.near_unlisted;
     f.rep_code.resize(reps.size());
     for (size_t c = 0; c < reps.size(); c++) f.rep_code[c] = reps[c].code;
     if (f.spec.keep_reps) {
@@ -127,7 +129,7 @@ void finish(FamilyPlan &f, const std::vector<Rep> &reps, int64_t singles, const 
         build_groups(reps, f.spec.rows, f.spec.cols, f.spec.n_blocks, pol.rep_rows, f.groups, f.rep_evals);
     // The fill report's split (momwire#2016): integers read off the census.
     // A near class is a single (`near_singles`) or a Key::Near class.
-    const bool near_classes = f.spec.near_singles || !f.near_flat.empty();
+    const bool near_classes = f.spec.near_singles || !f.near_flat.empty() || f.near_unlisted > 0;
     if (near_classes) f.near_bits.assign((reps.size() + 63) / 64, 0);
     for (size_t c = 0; c < reps.size(); c++) {
         f.cls_block[reps[c].block]++;
@@ -237,10 +239,27 @@ int64_t held_bytes(const Plan &p) {
     return b;
 }
 
-std::string budget_reason(int64_t budget_bytes) {
+void set_cap_compression(double c) { g_cap_compression.store(c > 0.0 ? c : CLASS_CAP_COMPRESSION); }
+double cap_compression() { return g_cap_compression.load(); }
+int64_t cap_key() {
+    const double c = cap_compression();
+    int64_t k;
+    std::memcpy(&k, &c, sizeof k);
+    return k;
+}
+
+std::string cap_reason(int64_t pairs) {
+    // %.4g, as Python's `cap_reason` writes it: "1.333x", "1x".
+    char buf[160];
+    std::snprintf(buf, sizeof buf, "more than %lld classes for %lld pairs (the cap is %.4gx compression)",
+                  static_cast<long long>(class_cap(pairs)), static_cast<long long>(pairs), cap_compression());
+    return buf;
+}
+
+std::string allowance_reason(int64_t allowance_bytes) {
     char buf[96];
-    std::snprintf(buf, sizeof buf, "the plan and its census would exceed the %.6g MB budget",
-                  static_cast<double>(budget_bytes) / double(1 << 20));
+    std::snprintf(buf, sizeof buf, "the kept plan would exceed its allowance of %.6g MB",
+                  static_cast<double>(allowance_bytes) / double(1 << 20));
     return buf;
 }
 
@@ -254,9 +273,30 @@ void decline(Plan &p, const std::string &why) {
     p.budget_bytes = 0;
 }
 
+namespace {
+
+// Drop the least recently used entries past the newest `keep` while the
+// cache holds more than `limit` bytes (the caller holds the lock).
+void trim(size_t limit, int keep) {
+    size_t total = 0;
+    int i = 0;
+    for (auto it = g_cache.begin(); it != g_cache.end(); i++) {
+        total += it->plan->nbytes();
+        if (i >= keep && total > limit)
+            it = g_cache.erase(it);
+        else
+            ++it;
+    }
+}
+
+size_t cache_limit() { return g_cache_bytes < 0 ? SHARED_PLAN_BYTES : static_cast<size_t>(g_cache_bytes); }
+
+}  // namespace
+
 std::shared_ptr<const Plan> plan_for(const std::string &basis, std::string fingerprint,
-                                     const std::function<void(Plan &)> &build, bool *built) {
+                                     const std::function<void(Plan &)> &build, bool *built, int keep) {
     if (built) *built = false;
+    keep = std::max(1, keep);
     {
         std::lock_guard<std::mutex> lock(g_cache_mtx);
         for (auto it = g_cache.begin(); it != g_cache.end(); ++it)
@@ -267,6 +307,9 @@ std::shared_ptr<const Plan> plan_for(const std::string &basis, std::string finge
                 g_counters[basis].found++;
                 return e.plan;
             }
+        // A census never runs beside more than the cap of older plans, the
+        // ones this fill has just used (the newest keep - 1) excepted.
+        trim(cache_limit(), keep - 1);
     }
     auto plan = std::make_shared<Plan>();
     plan->basis = basis;
@@ -281,16 +324,8 @@ std::shared_ptr<const Plan> plan_for(const std::string &basis, std::string finge
     c.built++;
     if (!p->declined.empty()) c.declined++;
     if (g_cache_bytes == 0) return p;
-    const size_t limit = g_cache_bytes < 0 ? SHARED_PLAN_BYTES : static_cast<size_t>(g_cache_bytes);
     g_cache.push_front(Entry{basis, p});
-    size_t total = 0;
-    for (auto it = g_cache.begin(); it != g_cache.end();) {
-        total += it->plan->nbytes();
-        if (it != g_cache.begin() && total > limit)
-            it = g_cache.erase(it);
-        else
-            ++it;
-    }
+    trim(cache_limit(), keep);
     return p;
 }
 

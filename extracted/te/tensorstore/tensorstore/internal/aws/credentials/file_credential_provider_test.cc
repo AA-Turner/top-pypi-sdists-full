@@ -25,6 +25,7 @@
 #include "tensorstore/internal/aws/http_mocking.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/testing/env_saver.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -39,6 +40,7 @@ using ::tensorstore::internal_aws::DisableAwsHttpMocking;
 using ::tensorstore::internal_aws::EnableAwsHttpMocking;
 using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_aws::MakeProfile;
+using ::tensorstore::internal_testing::EnvSaver;
 
 class TestData
     : public tensorstore::internal_testing::ScopedTemporaryDirectory {
@@ -83,6 +85,8 @@ class FileCredentialProviderTest : public ::testing::Test {
     }
   }
   void TearDown() override { DisableAwsHttpMocking(); }
+
+  EnvSaver env_saver_;
 };
 
 TEST_F(FileCredentialProviderTest, DefaultSharedCredentialsFile) {
@@ -167,6 +171,21 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileOverride) {
     ASSERT_EQ(credentials.GetSecretAccessKey(),
               "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
     ASSERT_EQ(credentials.GetSessionToken(), "");
+  }
+
+  {
+    SetEnv("AWS_CONFIG_FILE", config_filename.c_str());
+    std::string empty;
+    AwsCredentialsProvider provider =
+        MakeProfile(empty, credentials_filename, empty);
+    auto credentials_future = GetAwsCredentials(provider.get());
+    ASSERT_THAT(credentials_future, IsOk());
+
+    auto credentials = std::move(credentials_future.result()).value();
+    EXPECT_EQ(credentials.GetAccessKeyId(), "AKIAIOSFODNN7EXAMPLE");
+    EXPECT_EQ(credentials.GetSecretAccessKey(),
+              "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
+    EXPECT_EQ(credentials.GetSessionToken(), "abcdef1234567890");
   }
 }
 

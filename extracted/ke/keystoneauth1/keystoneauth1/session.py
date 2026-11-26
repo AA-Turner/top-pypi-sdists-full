@@ -25,12 +25,14 @@ import ssl
 import sys
 import time
 import types
-from typing import Any, cast, Literal
-import urllib
+from typing import Any, Literal, Self, cast
+import urllib.parse
 import uuid
 
 import requests
+import requests.adapters
 import requests.auth
+import requests.structures
 
 import keystoneauth1
 from keystoneauth1 import _utils as utils
@@ -435,6 +437,17 @@ class Session:
 
         self._json = _JSONEncoder()
 
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
+        self.close()
+
     def close(self) -> None:
         """Release resources held by this session.
 
@@ -477,12 +490,8 @@ class Session:
         except Exception:  # noqa: S110
             pass
 
-    # TODO(stephenfin): The types from typeshed are very generic. This would be
-    # more accurate:
-    #
-    #     collections.OrderedDict[str, requests.adapters.BaseAdapter]
     @property
-    def adapters(self) -> MutableMapping[Any, Any]:
+    def adapters(self) -> MutableMapping[str, requests.adapters.BaseAdapter]:
         return self.session.adapters
 
     @adapters.setter
@@ -607,13 +616,14 @@ class Session:
                     '-H "{}: {}"'.format(*self._process_header(header))
                 )
         if json:
-            data = self._json.encode(json)
+            data = self._json.encode(utils.mask_sensitive_data(json))
         if data:
             if isinstance(data, bytes):
                 try:
                     data = data.decode("ascii")
                 except UnicodeDecodeError:
                     data = "<binary_data>"
+            data = utils.mask_sensitive_string(data)
             string_parts.append(f"-d '{data}'")
 
         _logger.debug(' '.join(string_parts))

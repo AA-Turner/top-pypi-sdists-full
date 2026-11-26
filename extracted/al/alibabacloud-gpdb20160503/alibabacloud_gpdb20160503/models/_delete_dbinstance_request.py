@@ -12,16 +12,16 @@ class DeleteDBInstanceRequest(DaraModel):
         owner_id: int = None,
         resource_group_id: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. For more information, see [How to ensure idempotence](https://help.aliyun.com/document_detail/327176.html).
+        # The client token that is used to ensure idempotence. For more information, see [How to ensure idempotence](https://help.aliyun.com/document_detail/327176.html).
         self.client_token = client_token
-        # The ID of the instance.
+        # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         self.owner_id = owner_id
-        # This parameter is no longer used.
+        # **[Deprecated]** This parameter is deprecated. You do not need to specify this parameter.
         self.resource_group_id = resource_group_id
 
     def validate(self):

@@ -22,9 +22,9 @@ class ChatWithKnowledgeBaseShrinkRequest(DaraModel):
         self.dbinstance_id = dbinstance_id
         # Specifies whether to return the recall results. Default value: false.
         self.include_knowledge_base_results = include_knowledge_base_results
-        # The knowledge retrieval parameter object. If this parameter is not specified, only chat is performed.
+        # The knowledge retrieval parameters. If this parameter is not specified, only chat is performed.
         self.knowledge_params_shrink = knowledge_params_shrink
-        # The large language model (LLM) call parameter object.
+        # The call parameter object for the large language model (LLM).
         # 
         # This parameter is required.
         self.model_params_shrink = model_params_shrink

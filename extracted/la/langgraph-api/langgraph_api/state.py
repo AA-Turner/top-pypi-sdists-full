@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing
 from contextlib import aclosing
 
+import structlog
 from langgraph.constants import TASKS
 from langgraph.pregel import Pregel
 from langgraph.types import Interrupt, StateSnapshot
@@ -17,6 +18,8 @@ if typing.TYPE_CHECKING:
 
     from langgraph_api.schema import Checkpoint, DeprecatedInterrupt, ThreadState
     from langgraph_api.schema import Interrupt as InterruptSchema
+
+logger = structlog.stdlib.get_logger(__name__)
 
 
 def runnable_config_to_checkpoint(
@@ -197,12 +200,13 @@ _GraphT = typing.TypeVar("_GraphT")
 def narrow_history_reads(
     graph: _GraphT, config: RunnableConfig, value_keys: Iterable[str] | None
 ) -> _GraphT:
-    """``graph``, set to load only what history needs to return ``value_keys``.
+    """``graph``, set to load only what a state or history read needs to return
+    ``value_keys``.
 
-    Applies to root history of Python graphs whose checkpointer can load part
-    of each checkpoint (``with_load_channels``). Subgraph namespaces have their
-    own triggers, so they load every channel. Returns ``graph`` unchanged when
-    it doesn't apply.
+    Applies to root state and history reads of Python graphs whose
+    checkpointer can load part of each checkpoint (``with_load_channels``).
+    Subgraph namespaces have their own triggers, so they load every channel.
+    Returns ``graph`` unchanged when it doesn't apply.
     """
     if (
         value_keys is None
@@ -217,3 +221,76 @@ def narrow_history_reads(
     if channels is None:
         return graph
     return graph.copy(update={"checkpointer": with_load_channels(channels)})
+
+
+async def read_state(
+    graph: Pregel, config: RunnableConfig, value_keys: Iterable[str] | None
+) -> StateSnapshot:
+    """The root state at ``config``, loading only what returning ``value_keys``
+    needs when the read can be narrowed.
+
+    LangGraph applies the checkpoint's pending writes while reading it, also to
+    channels a narrowed read left unloaded, where a reducer can fail, as
+    add_messages does deleting a message it can't find. Such a read loads every
+    channel instead.
+    """
+    narrowed = narrow_history_reads(graph, config, value_keys)
+    if narrowed is graph:
+        return await graph.aget_state(config)
+    try:
+        return await narrowed.aget_state(config)
+    except Exception as exc:
+        logger.info("Narrowed state read failed, loading every channel", error=exc)
+        return await graph.aget_state(config)
+
+
+async def read_state_history(
+    graph: Pregel,
+    config: RunnableConfig,
+    value_keys: Iterable[str] | None,
+    *,
+    limit: int,
+    filter: dict[str, typing.Any] | None = None,
+    before: RunnableConfig | None = None,
+    incremental: bool = False,
+) -> AsyncIterator[StateSnapshot]:
+    """Yield up to ``limit`` history entries, loading only what returning
+    ``value_keys`` needs when the read can be narrowed.
+
+    A narrowed entry that fails to load, as in ``read_state``, is read again
+    with every channel, along with the rest of the history.
+    """
+
+    def read(reader: Pregel, before: RunnableConfig | None, limit: int):
+        if incremental:
+            return iter_state_history(
+                reader, config, limit=limit, filter=filter, before=before
+            )
+        return reader.aget_state_history(
+            config, limit=limit, filter=filter, before=before
+        )
+
+    reader = narrow_history_reads(graph, config, value_keys)
+    if reader is not graph:
+        async with aclosing(read(reader, before, limit)) as states:
+            while True:
+                try:
+                    state = await anext(states)
+                except StopAsyncIteration:
+                    return
+                except Exception as exc:
+                    logger.info(
+                        "Narrowed history read failed, loading every channel",
+                        error=exc,
+                    )
+                    break
+                if limit > 0:
+                    limit -= 1
+                before = state.config
+                yield state
+                # Drop the entry before the next page loads.
+                del state
+    async with aclosing(read(graph, before, limit)) as states:
+        async for state in states:
+            yield state
+            del state

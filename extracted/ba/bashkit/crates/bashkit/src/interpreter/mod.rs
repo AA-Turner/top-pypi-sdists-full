@@ -42,6 +42,10 @@
 // with a diagnostic; handler logic failures never disturb the interrupted
 // command (TM-DOS-030), while the first resource-limit trip fails the exec.
 mod arithmetic;
+#[macro_use]
+mod command_dispatch;
+#[macro_use]
+mod control_dispatch;
 mod brace_expansion;
 mod completion;
 mod coproc;
@@ -57,6 +61,8 @@ mod prompt;
 mod readline_bind;
 mod readline_defaults;
 mod redirection;
+#[cfg(feature = "experimental_execution_plan")]
+mod script_plan;
 mod state;
 mod time_command;
 mod xtrace;
@@ -2078,6 +2084,18 @@ pub struct Interpreter {
     /// Element words of `name=(...)` arguments of the command being run;
     /// see `declare::COMPOUND_MARK`.
     pending_compound_args: Vec<Vec<Word>>,
+    /// THREAT[TM-INJ-027]: `failglob` refused the command being expanded:
+    /// the rendered `no match: <pattern>` diagnostic, waiting for the
+    /// dispatch site.
+    ///
+    /// Out of band on purpose. This used to ride the expanded argument
+    /// vector as a `\0ERR\0`-prefixed first word, which made it forgeable:
+    /// `echo '<NUL>ERR<NUL>X'` expanded to a word carrying those bytes, so
+    /// script data chose the exit code, put its own tail on stderr and
+    /// abandoned the rest of the line. The `$empty cmd` path, which promotes
+    /// the first argument field to the command name, never checked the
+    /// prefix at all and ran the sentinel as a command.
+    pending_failglob: Option<String>,
     /// Set while prefix assignments (`x=1 cmd`) run: bash stores those
     /// without applying `-i`/`-l`/`-u`.
     assign_raw: bool,
@@ -2345,9 +2363,9 @@ impl Interpreter {
         builtins.insert("jq".to_string(), Arc::new(builtins::Jq));
         #[cfg(feature = "jq")]
         builtins.insert("yq".to_string(), Arc::new(builtins::Yq));
-        #[cfg(all(feature = "markkit", not(target_arch = "wasm32")))]
+        #[cfg(all(feature = "markkit", not(target_family = "wasm")))]
         builtins.insert("markkit".to_string(), Arc::new(builtins::Markkit));
-        #[cfg(all(feature = "fetchkit", not(target_arch = "wasm32")))]
+        #[cfg(all(feature = "fetchkit", not(target_family = "wasm")))]
         builtins.insert("fetchkit".to_string(), Arc::new(builtins::Fetchkit));
 
         // Custom-construction builtins that need parameters
@@ -2654,6 +2672,7 @@ impl Interpreter {
             builtin_discard: false,
             subscript_warnings: StdMutex::new(String::new()),
             pending_compound_args: Vec::new(),
+            pending_failglob: None,
             assign_raw: false,
         }
     }
@@ -2880,6 +2899,7 @@ impl Interpreter {
             builtin_discard: false,
             subscript_warnings: StdMutex::new(String::new()),
             pending_compound_args: Vec::new(),
+            pending_failglob: None,
             assign_raw: false,
         }
     }
@@ -4033,26 +4053,26 @@ impl Interpreter {
             // lose the shell's ends, as when a script exits.
             self.close_coprocs();
             jobs.finish_all().await;
-            let (out, err) = jobs.lock().take_finished_output();
-            // Jobs completing after the last command boundary still owe their
-            // output to live sinks. Drain before closing the execution writers;
-            // keep cleanup unconditional when delivery fails.
-            let emission = if result.is_ok()
-                && self.output_callback.is_some()
-                && (!out.is_empty() || !err.is_empty())
-            {
-                self.maybe_emit_output(&out, &err, self.output_emit_count)
-                    .await
-                    .map(|_| ())
-            } else {
+            let emission = async {
+                let (out, err) = jobs.lock().take_finished_output(&self.execution_budget)?;
+                // Jobs can finish after the final command boundary.
+                if result.is_ok()
+                    && self.output_callback.is_some()
+                    && (!out.is_empty() || !err.is_empty())
+                {
+                    self.maybe_emit_output(&out, &err, self.output_emit_count)
+                        .await?;
+                }
+                if self.retain_streamed_output()
+                    && let Ok(r) = &mut result
+                {
+                    self.append_output(&mut r.stdout, &mut r.stderr, &out, &err, true)?;
+                    r.stdout_truncated |= r.stdout.was_truncated();
+                    r.stderr_truncated |= r.stderr.was_truncated();
+                }
                 Ok(())
-            };
-            if self.retain_streamed_output()
-                && let Ok(r) = &mut result
-            {
-                r.stdout.append(&out);
-                r.stderr.append(&err);
             }
+            .await;
             jobs.lock().clear();
             if let Some(error) = &self.memory_limit_error {
                 Err(crate::error::Error::ResourceLimit(error.clone()))
@@ -4243,7 +4263,7 @@ impl Interpreter {
             self.route_exec_output(&mut result, emitted, (0, 0), None)
                 .await?;
             if self.merge_stderr {
-                Self::merge_stderr_into_stdout(&mut result);
+                self.merge_stderr_into_stdout(&mut result)?;
             }
             let emit_before = self.output_emit_count;
             self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
@@ -4288,6 +4308,12 @@ impl Interpreter {
         run_exit_trap: bool,
         fire_exit_hook: bool,
     ) -> Result<ExecResult> {
+        #[cfg(feature = "experimental_execution_plan")]
+        let plan = if self.execution_plan_enabled() {
+            script_plan::ScriptPlan::compile(script, &self.execution_budget)?
+        } else {
+            None
+        };
         let mut stdout = crate::StreamData::new();
         let mut stderr = crate::StreamData::new();
         let mut exit_code = 0;
@@ -4328,14 +4354,12 @@ impl Interpreter {
                     self.top_level_line(script, index, Self::command_start_line(command))
             {
                 let (out, err) = self.top_level_line_async(false).await;
-                stdout.append(&out);
-                stderr.append(&err);
+                self.append_output(&mut stdout, &mut stderr, &out, &err, true)?;
             }
             self.check_cancelled()?;
             if let Some(echo) = self.before_body_command(script, index, command, run_exit_trap) {
                 let echo = self.route_verbose_echo(echo).await?;
-                stdout.append(&echo.stdout);
-                stderr.append(&echo.stderr);
+                self.append_output(&mut stdout, &mut stderr, &echo.stdout, &echo.stderr, true)?;
             }
             let emit_before = self.output_emit_count;
             let emitted_before = (
@@ -4344,6 +4368,18 @@ impl Interpreter {
             );
             self.route_top_list = top_level && matches!(command, Command::List(_));
             self.top_list_routed = None;
+            #[cfg(feature = "experimental_execution_plan")]
+            let result = self
+                .execute_command_with_program(
+                    command,
+                    if matches!(view, ScriptView::Parsed(_)) {
+                        plan.as_ref().and_then(|p| p.command(index))
+                    } else {
+                        None
+                    },
+                )
+                .await;
+            #[cfg(not(feature = "experimental_execution_plan"))]
             let result = self.execute_command(command).await;
             self.route_top_list = false;
             let list_routed = self.top_list_routed.take();
@@ -4351,9 +4387,8 @@ impl Interpreter {
             if top_level {
                 // Background jobs that finished meanwhile report here, as
                 // bash prints their output while the script continues.
-                let (out, err) = self.take_finished_job_output();
-                result.stdout.append(&out);
-                result.stderr.append(&err);
+                let (out, err) = self.take_finished_job_output()?;
+                self.append_output(&mut result.stdout, &mut result.stderr, &out, &err, false)?;
             }
             self.reap_coprocs();
             self.check_cancelled()?;
@@ -4367,7 +4402,7 @@ impl Interpreter {
                 .await?;
             }
             if self.merge_stderr {
-                Self::merge_stderr_into_stdout(&mut result);
+                self.merge_stderr_into_stdout(&mut result)?;
             }
             self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
                 .await?;
@@ -4375,38 +4410,15 @@ impl Interpreter {
                 Box::pin(self.flush_exec_passthrough(&mut result)).await?;
             }
 
-            // Accumulate stdout with truncation
             if retain_output && !stdout_truncated {
-                let remaining = max_stdout.saturating_sub(stdout.len());
-                if remaining == 0 {
-                    if !result.stdout.is_empty() {
-                        stdout_truncated = true;
-                    }
-                } else if result.stdout.len() <= remaining {
-                    stdout.append(&result.stdout);
-                } else {
-                    stdout.append(&result.stdout.prefix(remaining));
-                    stdout_truncated = true;
-                }
+                stdout_truncated =
+                    stdout.try_append(&result.stdout, max_stdout, &self.execution_budget)?;
             }
-
-            // Accumulate stderr with truncation
             if retain_output && !stderr_truncated {
-                let remaining = max_stderr.saturating_sub(stderr.len());
-                if remaining == 0 {
-                    if !result.stderr.is_empty() {
-                        stderr_truncated = true;
-                    }
-                } else if result.stderr.len() <= remaining {
-                    stderr.append(&result.stderr);
-                } else {
-                    stderr.append(&result.stderr.prefix(remaining));
-                    stderr_truncated = true;
-                }
+                stderr_truncated =
+                    stderr.try_append(&result.stderr, max_stderr, &self.execution_budget)?;
             }
-            if !retain_output {
-                stdout_truncated |= result.stdout_truncated;
-            }
+            stdout_truncated |= result.stdout_truncated;
             stderr_truncated |= result.stderr_truncated;
 
             exit_code = result.exit_code;
@@ -4509,8 +4521,7 @@ impl Interpreter {
                 .is_some_and(|r| r.interactive && r.reads(view.get()))
         {
             let (out, err) = self.top_level_line_async(true).await;
-            stdout.append(&out);
-            stderr.append(&err);
+            self.append_output(&mut stdout, &mut stderr, &out, &err, true)?;
         }
 
         // Syntax error after the commands that ran: bash reads and runs a
@@ -4521,7 +4532,7 @@ impl Interpreter {
             self.maybe_emit_output(&crate::StreamData::new(), &err, emit_before)
                 .await?;
             if !stderr_truncated {
-                stderr.append(&err);
+                stderr.try_append(&err, max_stderr, &self.execution_budget)?;
             }
             exit_code = 2;
             self.last_exit_code = 2;
@@ -4543,8 +4554,13 @@ impl Interpreter {
                             emit_before,
                         )
                         .await?;
-                        stdout.append(&trap_result.stdout);
-                        stderr.append(&trap_result.stderr);
+                        self.append_output(
+                            &mut stdout,
+                            &mut stderr,
+                            &trap_result.stdout,
+                            &trap_result.stderr,
+                            true,
+                        )?;
                         // `exit N` in the handler is the shell's status.
                         if let ControlFlow::Exit(code) = trap_result.control_flow {
                             exit_code = code;
@@ -4587,6 +4603,8 @@ impl Interpreter {
 
         let events = self.trace.take_events();
 
+        stdout_truncated |= stdout.was_truncated();
+        stderr_truncated |= stderr.was_truncated();
         Ok(ExecResult {
             stdout,
             stderr,
@@ -4705,71 +4723,9 @@ impl Interpreter {
     fn execute_command<'a>(
         &'a mut self,
         command: &'a Command,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ExecResult>> + Send + 'a>> {
-        // THREAT[TM-DOS-142]: every nesting level passes through here, so
-        // each poll gets enough native stack (see grow_stack.rs).
-        Box::pin(grow_stack::GrowStack::new(async move {
-            // Whether ERR may fire after this command: bash decides before
-            // running it, so a trap the command itself sets (`f` setting
-            // ERR inside) does not fire for that same command.
-            if self.counters.commands > 0
-                && self.counters.commands.is_multiple_of(64)
-                && self.execution_output().is_some()
-            {
-                crate::execution::yield_once().await;
-            }
-            let skip_stage = std::mem::take(&mut self.err_trap_skip_stage);
-            let err_armed = !skip_stage && self.err_trap_armed() && Self::fires_err_trap(command);
-            let emit_before = self.output_emit_count;
-            self.check_cancelled()?;
-            // Update current line for $LINENO
-            self.set_command_lineno(command);
-            if let Some(name) = Self::command_name(command) {
-                self.last_command_name = name.to_string();
-            }
-
-            // `set -n`: read commands without running them for the rest of
-            // this exec (bash does the same in scripts; nothing can undo it,
-            // since `set +n` is not run either).
-            if self.flags.contains(BashFlags::NOEXEC) {
-                return Ok(ExecResult::ok(String::new()));
-            }
-
-            // Fail point: inject failures during command execution
-            #[cfg(feature = "failpoints")]
-            fail_point!("interp::execute_command", |action| {
-                match action.as_deref() {
-                    Some("panic") => {
-                        // Test panic recovery
-                        panic!("injected panic in execute_command");
-                    }
-                    Some("error") => {
-                        return Err(Error::Execution("injected execution error".to_string()));
-                    }
-                    Some("exit_nonzero") => {
-                        // Return non-zero exit code without error
-                        return Ok(ExecResult {
-                            stdout: crate::StreamData::new(),
-                            stderr: "injected failure".into(),
-                            exit_code: 127,
-                            control_flow: ControlFlow::None,
-                            ..Default::default()
-                        });
-                    }
-                    _ => {}
-                }
-                Ok(ExecResult::ok(String::new()))
-            });
-
-            self.charge_command_execution()?;
-
-            if self.pipe_out.is_some()
-                && let Some(killed) = Box::pin(self.wait_for_pipe_room()).await
-            {
-                return Ok(killed);
-            }
-
-            let result = match command {
+    ) -> command_dispatch::CommandFuture<'a> {
+        command_future!(self, command, {
+            match command {
                 Command::Simple(simple) => {
                     // One Result local (not `?` + a second ExecResult copy):
                     // this frame repeats per `$(...)` nesting level.
@@ -4838,23 +4794,20 @@ impl Interpreter {
                     result
                 }
                 Command::Function(func_def) => Ok(self.define_function(func_def)),
-            };
-            let mut result = result;
-            self.settle_pending_subst_stderr(&mut result);
-            let mut result = self.abort_line_on_error(result);
-            if err_armed
-                && let Ok(r) = &mut result
-                && r.exit_code != 0
-                && r.control_flow == ControlFlow::None
-                && !r.errexit_suppressed
-                && !self.is_in_condition_sequence()
-            {
-                // `$LINENO` in the handler is the failing command's line.
-                self.set_command_lineno(command);
-                Box::pin(self.run_err_trap_after(r, emit_before)).await;
             }
-            result
-        }))
+        })
+    }
+
+    #[cfg(feature = "experimental_execution_plan")]
+    fn execute_command_with_program<'a>(
+        &'a mut self,
+        command: &'a Command,
+        program: Option<script_plan::ProgramRef<'a, 'a>>,
+    ) -> command_dispatch::CommandFuture<'a> {
+        let Some(program) = program.filter(|p| p.eligible(self)) else {
+            return self.execute_command(command);
+        };
+        command_future!(self, command, Box::pin(self.execute_program(program)).await)
     }
 
     /// Queue stderr written inside `$(...)` for the command that expanded it
@@ -5218,187 +5171,12 @@ impl Interpreter {
 
     /// Execute an if statement
     async fn execute_if(&mut self, if_cmd: &IfCommand) -> Result<ExecResult> {
-        // Accumulate stdout/stderr from all condition evaluations
-        let mut cond_stdout = crate::StreamData::new();
-        let mut cond_stderr = crate::StreamData::new();
-
-        // Execute condition (no errexit checking - conditions are expected to fail)
-        let condition_result = self.execute_condition_sequence(&if_cmd.condition).await?;
-        cond_stdout.append(&condition_result.stdout);
-        cond_stderr.append(&condition_result.stderr);
-        // `exit`/`return`/`break` (or a fatal expansion error) inside the
-        // condition ends the `if` with that control flow.
-        if condition_result.control_flow != ControlFlow::None {
-            return Ok(ExecResult {
-                stdout: cond_stdout,
-                stderr: cond_stderr,
-                exit_code: condition_result.exit_code,
-                control_flow: condition_result.control_flow,
-                ..Default::default()
-            });
-        }
-
-        if condition_result.exit_code == 0 {
-            // Condition succeeded, execute then branch
-            let mut result = self.execute_command_sequence(&if_cmd.then_branch).await?;
-            result.stdout = cond_stdout + &result.stdout;
-            result.stderr = cond_stderr + &result.stderr;
-            return Ok(result);
-        }
-
-        // Check elif branches
-        for (elif_condition, elif_body) in &if_cmd.elif_branches {
-            let elif_result = self.execute_condition_sequence(elif_condition).await?;
-            cond_stdout.append(&elif_result.stdout);
-            cond_stderr.append(&elif_result.stderr);
-            if elif_result.control_flow != ControlFlow::None {
-                return Ok(ExecResult {
-                    stdout: cond_stdout,
-                    stderr: cond_stderr,
-                    exit_code: elif_result.exit_code,
-                    control_flow: elif_result.control_flow,
-                    ..Default::default()
-                });
-            }
-
-            if elif_result.exit_code == 0 {
-                let mut result = self.execute_command_sequence(elif_body).await?;
-                result.stdout = cond_stdout + &result.stdout;
-                result.stderr = cond_stderr + &result.stderr;
-                return Ok(result);
-            }
-        }
-
-        // Execute else branch if present
-        if let Some(else_branch) = &if_cmd.else_branch {
-            let mut result = self.execute_command_sequence(else_branch).await?;
-            result.stdout = cond_stdout + &result.stdout;
-            result.stderr = cond_stderr + &result.stderr;
-            return Ok(result);
-        }
-
-        // No branch executed, return condition output with success exit code
-        Ok(ExecResult {
-            stdout: cond_stdout,
-            stderr: cond_stderr,
-            exit_code: 0,
-            ..Default::default()
-        })
+        if_body!(plain, self, if_cmd)
     }
 
     /// Execute a for loop
     async fn execute_for(&mut self, for_cmd: &ForCommand) -> Result<ExecResult> {
-        // Validate for-loop variable name (bash rejects invalid names at runtime, exit 1)
-        if !is_valid_var_name(&for_cmd.variable) {
-            return Ok(ExecResult::err(
-                self.diag(format!("`{}': not a valid identifier\n", for_cmd.variable)),
-                1,
-            ));
-        }
-
-        let mut acc = state::LoopAccumulator::new(self.retain_streamed_output());
-
-        // Get iteration values: expand fields, then apply brace/glob expansion
-        let values: Vec<String> = if let Some(words) = &for_cmd.words {
-            let mut vals = Vec::new();
-            for w0 in words {
-                // Brace expansion runs first, on the unexpanded word.
-                let braced = self.brace_expand_word(w0);
-                for w in braced.as_deref().unwrap_or(std::slice::from_ref(w0)) {
-                    let fields = self.expand_word_to_fields(w).await?;
-
-                    // Quoted words skip brace/glob expansion — unless the
-                    // word has unquoted glob chars (e.g. `"$var"*.ext`)
-                    if w.quoted && !w.has_unquoted_glob {
-                        vals.extend(fields);
-                        continue;
-                    }
-
-                    for expanded in fields {
-                        for item in [expanded] {
-                            match self
-                                .expand_glob_item(&item, w.quoted && w.has_unquoted_glob)
-                                .await
-                            {
-                                Ok(items) => vals.extend(items),
-                                Err(pat) => {
-                                    self.last_exit_code = 1;
-                                    return Ok(ExecResult::err(
-                                        self.diag(format!("no match: {pat}\n")),
-                                        1,
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            vals
-        } else {
-            // No words specified - iterate over positional parameters ($@)
-            self.call_stack
-                .last()
-                .map(|frame| frame.positional.clone())
-                .unwrap_or_default()
-        };
-
-        self.counters.enter_loop();
-        let result = async {
-            for value in values {
-                // Check loop iteration limit
-                self.counters.tick_loop(&self.limits)?;
-
-                // Set loop variable (respects nameref). `value` is moved
-                // straight into `set_variable` — previously we cloned it
-                // even though `values` already owned the String for us.
-                // A nameref control variable is re-pointed at each word
-                // (bash: `declare -n r; for r in a b` binds r to a, then b).
-                if self.scoped.namerefs.contains_key(&for_cmd.variable)
-                    && declare::valid_nameref_target(&value)
-                {
-                    self.set_nameref(&for_cmd.variable, value);
-                } else {
-                    self.set_variable(for_cmd.variable.clone(), value);
-                }
-
-                // DEBUG runs for each round, at the `for` line.
-                let mut debug = if self.has_debug_trap() {
-                    self.current_line = self.line_at(for_cmd.span.line());
-                    self.debug_trap_now().await
-                } else {
-                    None
-                };
-                if let Some(r) = DebugTrapOutput::exit_result(&mut debug) {
-                    return Ok(r);
-                }
-
-                // Execute body
-                let emit_before = self.output_emit_count;
-                let result = self.execute_command_sequence(&for_cmd.body).await;
-                let result = DebugTrapOutput::prepend_opt(debug, result)?;
-                self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
-                    .await?;
-                let should_errexit = self.errexit_active()
-                    && result.exit_code != 0
-                    && result.control_flow == ControlFlow::None
-                    && !result.errexit_suppressed;
-                match acc.accumulate(result) {
-                    state::LoopAction::None => {
-                        if should_errexit {
-                            return Ok(acc.finish());
-                        }
-                    }
-                    state::LoopAction::Break => break,
-                    state::LoopAction::Continue => continue,
-                    state::LoopAction::Exit(r) => return Ok(*r),
-                }
-            }
-
-            Ok(acc.finish())
-        }
-        .await;
-        self.counters.exit_loop();
-        result
+        for_body!(plain, self, for_cmd)
     }
 
     /// Execute a select loop: select var in list; do body; done
@@ -5525,7 +5303,7 @@ impl Interpreter {
                 // Output menu to stderr, or straight to the terminal when
                 // the choice is typed there.
                 if self.pipeline_stdin.is_some() || !self.has_terminal() {
-                    stderr.append(&menu_text);
+                    stderr.try_append(&menu_text, usize::MAX, &self.execution_budget)?;
                 }
 
                 // Read a line from pipeline_stdin
@@ -5585,8 +5363,13 @@ impl Interpreter {
                 self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
                     .await?;
                 if self.retain_streamed_output() {
-                    stdout.append(&result.stdout);
-                    stderr.append(&result.stderr);
+                    self.append_output(
+                        &mut stdout,
+                        &mut stderr,
+                        &result.stdout,
+                        &result.stderr,
+                        false,
+                    )?;
                 }
                 exit_code = result.exit_code;
 
@@ -5667,87 +5450,7 @@ impl Interpreter {
         &mut self,
         arith_for: &ArithmeticForCommand,
     ) -> Result<ExecResult> {
-        let mut acc = state::LoopAccumulator::new(self.retain_streamed_output());
-        // DEBUG output of the clauses (bash runs it before each one), put
-        // ahead of the next body's output or the loop's result.
-        let mut debug: Option<Box<DebugTrapOutput>> = None;
-
-        // Execute initialization
-        if !arith_for.init.is_empty() {
-            if self.has_debug_trap() {
-                self.current_line = self.line_at(arith_for.span.line());
-                Self::absorb_debug(&mut debug, self.debug_trap_now().await);
-                if let Some(r) = DebugTrapOutput::exit_result(&mut debug) {
-                    return Ok(r);
-                }
-            }
-            let init = self.arith_for_expr(&arith_for.init).await?;
-            self.execute_arithmetic_with_side_effects(&init);
-        }
-
-        self.counters.enter_loop();
-        let result = async {
-            loop {
-                // Check loop iteration limit
-                self.counters.tick_loop(&self.limits)?;
-
-                // Check condition (if empty, always true)
-                // The clauses see the `for` line, not the body's last one.
-                let for_line = self.line_at(arith_for.span.line());
-                self.current_line = for_line;
-                if self.has_debug_trap() {
-                    Self::absorb_debug(&mut debug, self.debug_trap_now().await);
-                    if let Some(r) = DebugTrapOutput::exit_result(&mut debug) {
-                        return Ok(r);
-                    }
-                }
-                if !arith_for.condition.is_empty() {
-                    let condition = self.arith_for_expr(&arith_for.condition).await?;
-                    let cond_result = self.evaluate_arithmetic(&condition);
-                    if cond_result == 0 {
-                        break;
-                    }
-                }
-
-                // Execute body
-                let emit_before = self.output_emit_count;
-                let result = self.execute_command_sequence(&arith_for.body).await;
-                let result = DebugTrapOutput::prepend_opt(debug.take(), result)?;
-                self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
-                    .await?;
-                let should_errexit = self.errexit_active()
-                    && result.exit_code != 0
-                    && result.control_flow == ControlFlow::None
-                    && !result.errexit_suppressed;
-                match acc.accumulate(result) {
-                    state::LoopAction::None | state::LoopAction::Continue => {
-                        if should_errexit {
-                            return Ok(acc.finish());
-                        }
-                    }
-                    state::LoopAction::Break => break,
-                    state::LoopAction::Exit(r) => return Ok(*r),
-                }
-
-                // Execute step
-                if !arith_for.step.is_empty() {
-                    self.current_line = for_line;
-                    if self.has_debug_trap() {
-                        Self::absorb_debug(&mut debug, self.debug_trap_now().await);
-                        if let Some(r) = DebugTrapOutput::exit_result(&mut debug) {
-                            return Ok(r);
-                        }
-                    }
-                    let step = self.arith_for_expr(&arith_for.step).await?;
-                    self.execute_arithmetic_with_side_effects(&step);
-                }
-            }
-
-            Ok(acc.finish())
-        }
-        .await;
-        self.counters.exit_loop();
-        DebugTrapOutput::prepend_opt(debug, result)
+        arithmetic_for_body!(plain, self, arith_for)
     }
 
     /// Add a DEBUG run's output to the pending one.
@@ -6064,42 +5767,21 @@ impl Interpreter {
             match args.len() {
                 1 => !args[0].is_empty(),
                 2 => {
-                    // Unary operators
-                    let resolve = |p: &str| -> std::path::PathBuf {
-                        let path = std::path::Path::new(p);
-                        let joined = if path.has_root() {
-                            path.to_path_buf()
-                        } else {
-                            crate::fs::vfs_join(&self.cwd, path)
-                        };
-                        crate::fs::normalize_path(&joined)
-                    };
+                    let arg = &args[1];
                     match args[0].as_str() {
-                        "-z" => args[1].is_empty(),
-                        "-n" => !args[1].is_empty(),
-                        "-v" => self.cond_var_is_set(&args[1]),
-                        "-e" | "-a" => self.fs.exists(&resolve(&args[1])).await.unwrap_or(false),
-                        "-f" => self
-                            .fs
-                            .stat(&resolve(&args[1]))
-                            .await
-                            .map(|m| m.file_type.is_file())
-                            .unwrap_or(false),
-                        "-d" => self
-                            .fs
-                            .stat(&resolve(&args[1]))
-                            .await
-                            .map(|m| m.file_type.is_dir())
-                            .unwrap_or(false),
-                        "-r" | "-w" | "-x" => {
-                            self.fs.exists(&resolve(&args[1])).await.unwrap_or(false)
+                        "-z" => arg.is_empty(),
+                        "-n" => !arg.is_empty(),
+                        "-v" => self.cond_var_is_set(arg),
+                        // The conditional's executable predicate uses VFS existence.
+                        "-x" => {
+                            !arg.is_empty()
+                                && self
+                                    .fs
+                                    .exists(&self.resolve_path(arg))
+                                    .await
+                                    .unwrap_or(false)
                         }
-                        "-s" => self
-                            .fs
-                            .stat(&resolve(&args[1]))
-                            .await
-                            .map(|m| m.size > 0)
-                            .unwrap_or(false),
+                        "-N" if arg.is_empty() => false,
                         "-t" => {
                             // fd is a terminal — configurable via _TTY_N variables
                             let fd_key = format!("_TTY_{}", args[1]);
@@ -6109,7 +5791,9 @@ impl Interpreter {
                                 .map(|v| v == "1")
                                 .unwrap_or(false)
                         }
-                        _ => !args[0].is_empty(),
+                        op => builtins::test_file_unary(op, arg, &self.fs, &self.cwd)
+                            .await
+                            .unwrap_or(!op.is_empty()),
                     }
                 }
                 3 => {
@@ -6141,34 +5825,9 @@ impl Interpreter {
                         "-gt" => self.cond_int_cmp(&args[0], &args[2], |a, b| a > b),
                         "-ge" => self.cond_int_cmp(&args[0], &args[2], |a, b| a >= b),
                         "=~" => self.regex_match(&args[0], &args[2]),
-                        "-nt" => {
-                            let lm = self.fs.stat(std::path::Path::new(&args[0])).await;
-                            let rm = self.fs.stat(std::path::Path::new(&args[2])).await;
-                            match (lm, rm) {
-                                (Ok(l), Ok(r)) => l.modified > r.modified,
-                                (Ok(_), Err(_)) => true,
-                                _ => false,
-                            }
-                        }
-                        "-ot" => {
-                            let lm = self.fs.stat(std::path::Path::new(&args[0])).await;
-                            let rm = self.fs.stat(std::path::Path::new(&args[2])).await;
-                            match (lm, rm) {
-                                (Ok(l), Ok(r)) => l.modified < r.modified,
-                                (Err(_), Ok(_)) => true,
-                                _ => false,
-                            }
-                        }
-                        "-ef" => {
-                            let lp = crate::builtins::resolve_path(
-                                &std::path::PathBuf::from("/"),
-                                &args[0],
-                            );
-                            let rp = crate::builtins::resolve_path(
-                                &std::path::PathBuf::from("/"),
-                                &args[2],
-                            );
-                            lp == rp
+                        op @ ("-nt" | "-ot" | "-ef") => {
+                            builtins::test_file_binary(&args[0], op, &args[2], &self.fs, &self.cwd)
+                                .await
                         }
                         _ => false,
                     }
@@ -6234,7 +5893,11 @@ impl Interpreter {
                     // Set BASH_REMATCH array
                     let mut rematch = HashMap::new();
                     for (i, m) in captures.iter().enumerate() {
-                        rematch.insert(i, m.map(|m| m.as_str().to_string()).unwrap_or_default());
+                        rematch.insert(
+                            i,
+                            m.map(|m| string[m.start..m.end].to_string())
+                                .unwrap_or_default(),
+                        );
                     }
                     self.arrays_mut()
                         .insert("BASH_REMATCH".to_string(), rematch);
@@ -6322,74 +5985,7 @@ impl Interpreter {
         body: &[Command],
         break_on_zero: bool,
     ) -> Result<ExecResult> {
-        let mut acc = state::LoopAccumulator::new(self.retain_streamed_output());
-
-        self.counters.enter_loop();
-        let result = async {
-            loop {
-                // Check loop iteration limit
-                self.counters.tick_loop(&self.limits)?;
-
-                // Check condition (no errexit - conditions are expected to fail)
-                let emit_before_cond = self.output_emit_count;
-                let condition_result = self.execute_condition_sequence(condition).await?;
-                // Condition commands produce visible output (e.g., `while cat <<EOF; do ... done`)
-                self.maybe_emit_output(
-                    &condition_result.stdout,
-                    &condition_result.stderr,
-                    emit_before_cond,
-                )
-                .await?;
-                acc.stdout.append(&condition_result.stdout);
-                acc.stderr.append(&condition_result.stderr);
-                // `while break; do` leaves the loop from its condition.
-                if condition_result.control_flow != ControlFlow::None {
-                    match acc.accumulate(ExecResult {
-                        exit_code: condition_result.exit_code,
-                        control_flow: condition_result.control_flow,
-                        ..Default::default()
-                    }) {
-                        state::LoopAction::None => {}
-                        state::LoopAction::Break => break,
-                        state::LoopAction::Continue => continue,
-                        state::LoopAction::Exit(r) => return Ok(*r),
-                    }
-                }
-                let should_break = if break_on_zero {
-                    condition_result.exit_code == 0
-                } else {
-                    condition_result.exit_code != 0
-                };
-                if should_break {
-                    break;
-                }
-
-                // Execute body
-                let emit_before = self.output_emit_count;
-                let result = self.execute_command_sequence(body).await?;
-                self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
-                    .await?;
-                let should_errexit = self.errexit_active()
-                    && result.exit_code != 0
-                    && result.control_flow == ControlFlow::None
-                    && !result.errexit_suppressed;
-                match acc.accumulate(result) {
-                    state::LoopAction::None => {
-                        if should_errexit {
-                            return Ok(acc.finish());
-                        }
-                    }
-                    state::LoopAction::Break => break,
-                    state::LoopAction::Continue => continue,
-                    state::LoopAction::Exit(r) => return Ok(*r),
-                }
-            }
-
-            Ok(acc.finish())
-        }
-        .await;
-        self.counters.exit_loop();
-        result
+        condition_loop_body!(plain, self, condition, body, break_on_zero)
     }
 
     /// Execute a case statement
@@ -6423,8 +6019,7 @@ impl Interpreter {
 
             if matched {
                 let r = self.execute_command_sequence(&case_item.commands).await?;
-                stdout.append(&r.stdout);
-                stderr.append(&r.stderr);
+                self.append_output(&mut stdout, &mut stderr, &r.stdout, &r.stderr, false)?;
                 exit_code = r.exit_code;
                 if r.control_flow != ControlFlow::None {
                     return Ok(ExecResult {
@@ -7197,11 +6792,18 @@ impl Interpreter {
         }
     }
 
-    fn merge_stderr_into_stdout(result: &mut ExecResult) {
+    fn merge_stderr_into_stdout(&self, result: &mut ExecResult) -> Result<()> {
         if !result.stderr.is_empty() {
             let err = std::mem::take(&mut result.stderr);
-            result.stdout.append(&err);
+            if result.stdout.is_empty() && !result.stdout.was_truncated() {
+                result.stdout = err;
+            } else {
+                result
+                    .stdout
+                    .try_append(&err, usize::MAX, &self.execution_budget)?;
+            }
         }
+        Ok(())
     }
 
     /// Enter the body of a command whose `redirects` route output: its
@@ -7718,64 +7320,7 @@ impl Interpreter {
         commands: &[Command],
         check_errexit: bool,
     ) -> Result<ExecResult> {
-        let mut stdout = crate::StreamData::new();
-        let mut stderr = crate::StreamData::new();
-        let mut exit_code = 0;
-        let mut last_errexit_suppressed = false;
-
-        for command in commands {
-            let emit_before = self.output_emit_count;
-            self.sequence_accum = (stdout.len(), stderr.len());
-            let mut result = self.execute_command(command).await?;
-            if self.merge_stderr {
-                Self::merge_stderr_into_stdout(&mut result);
-            }
-            self.reap_coprocs();
-            self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
-                .await?;
-            if self.retain_streamed_output() {
-                stdout.append(&result.stdout);
-                stderr.append(&result.stderr);
-            }
-            exit_code = result.exit_code;
-            self.last_exit_code = exit_code;
-
-            // Propagate control flow
-            if result.control_flow != ControlFlow::None {
-                return Ok(ExecResult {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    control_flow: result.control_flow,
-                    ..Default::default()
-                });
-            }
-
-            // Check for errexit (set -e) if enabled.
-            // Suppression is decided by the callee and surfaced through
-            // result.errexit_suppressed (e.g. AND-OR lists).
-            let suppress = result.errexit_suppressed;
-            if check_errexit && self.errexit_active() && exit_code != 0 && !suppress {
-                self.errexit_fired = true;
-                return Ok(ExecResult {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    control_flow: ControlFlow::None,
-                    ..Default::default()
-                });
-            }
-            last_errexit_suppressed = suppress && exit_code != 0;
-        }
-
-        Ok(ExecResult {
-            stdout,
-            stderr,
-            exit_code,
-            control_flow: ControlFlow::None,
-            errexit_suppressed: last_errexit_suppressed,
-            ..Default::default()
-        })
+        sequence_body!(plain, self, commands, check_errexit)
     }
 
     /// Execute a pipeline (cmd1 | cmd2 | cmd3)
@@ -8053,6 +7598,24 @@ impl Interpreter {
             .ok()
     }
 
+    fn append_output(
+        &self,
+        stdout: &mut crate::StreamData,
+        stderr: &mut crate::StreamData,
+        out: &crate::StreamData,
+        err: &crate::StreamData,
+        capture: bool,
+    ) -> Result<()> {
+        let (out_limit, err_limit) = if capture {
+            (self.limits.max_stdout_bytes, self.limits.max_stderr_bytes)
+        } else {
+            (usize::MAX, usize::MAX)
+        };
+        stdout.try_append(out, out_limit, &self.execution_budget)?;
+        stderr.try_append(err, err_limit, &self.execution_budget)?;
+        Ok(())
+    }
+
     /// Caller-delivered bytes belong to output pumps, not every list/loop.
     fn retain_streamed_output(&self) -> bool {
         self.output_callback.is_none()
@@ -8149,10 +7712,9 @@ impl Interpreter {
                 let jobs = Arc::clone(&child.jobs);
                 let result = jobs::with_jobs(&jobs, child.execute_command(command)).await;
                 jobs.finish_all().await;
-                let (out, err) = jobs.lock().take_finished_output();
+                let (out, err) = jobs.lock().take_finished_output(&child.execution_budget)?;
                 let mut r = result?;
-                r.stdout.append(&out);
-                r.stderr.append(&err);
+                child.append_output(&mut r.stdout, &mut r.stderr, &out, &err, false)?;
                 // Output not yet sent at a command boundary goes now.
                 let sent = child.output_stream_stdout_bytes;
                 if r.stdout.len() > sent {
@@ -8402,6 +7964,7 @@ impl Interpreter {
         cmd: &Command,
         parent_stdout: &mut crate::StreamData,
         parent_stderr: &mut crate::StreamData,
+        capture: bool,
     ) -> Result<()> {
         let text = describe_command(cmd);
         let emit_before = self.output_emit_count;
@@ -8420,7 +7983,15 @@ impl Interpreter {
                     self.limits.max_background_jobs,
                     self.limits.max_subshell_depth
                 );
-                parent_stderr.append(&crate::StreamData::from(msg));
+                parent_stderr.try_append(
+                    &crate::StreamData::from(msg),
+                    if capture {
+                        self.limits.max_stderr_bytes
+                    } else {
+                        usize::MAX
+                    },
+                    &self.execution_budget,
+                )?;
                 self.last_exit_code = 1;
                 return Ok(());
             };
@@ -8432,11 +8003,15 @@ impl Interpreter {
                 let jobs = Arc::clone(&child.jobs);
                 let result = jobs::with_jobs(&jobs, child.execute_command(&cmd)).await;
                 jobs.finish_all().await;
-                let (out, err) = jobs.lock().take_finished_output();
+                let result = result.and_then(|mut r| {
+                    let (out, err) = jobs.lock().take_finished_output(&child.execution_budget)?;
+                    child.append_output(&mut r.stdout, &mut r.stderr, &out, &err, false)?;
+                    r.stdout.admit_storage(&child.execution_budget)?;
+                    r.stderr.admit_storage(&child.execution_budget)?;
+                    Ok(r)
+                });
                 match result {
                     Ok(mut r) => {
-                        r.stdout.append(&out);
-                        r.stderr.append(&err);
                         if let ControlFlow::Exit(code) = r.control_flow {
                             r.exit_code = code;
                         }
@@ -8466,8 +8041,13 @@ impl Interpreter {
             self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
                 .await?;
             // Emit output immediately (background output goes to terminal in real bash)
-            parent_stdout.append(&result.stdout);
-            parent_stderr.append(&result.stderr);
+            self.append_output(
+                parent_stdout,
+                parent_stderr,
+                &result.stdout,
+                &result.stderr,
+                capture,
+            )?;
             let (_, pid) = self.jobs.lock().spawn_finished(text, result);
             self.last_bg_pid = Some(pid.to_string());
         }
@@ -8479,8 +8059,10 @@ impl Interpreter {
     }
 
     /// Output of background jobs that finished since the last report.
-    fn take_finished_job_output(&self) -> (crate::StreamData, crate::StreamData) {
-        self.jobs.lock().take_finished_output()
+    fn take_finished_job_output(&self) -> Result<(crate::StreamData, crate::StreamData)> {
+        self.jobs
+            .lock()
+            .take_finished_output(&self.execution_budget)
     }
 
     /// Execute a command list (cmd1 && cmd2 || cmd3)
@@ -8488,217 +8070,18 @@ impl Interpreter {
     /// `route`: this list is a top-level command; route each element's output
     /// through the `exec` fd table as it finishes (see `route_top_list`).
     async fn execute_list(&mut self, list: &CommandList, route: bool) -> Result<ExecResult> {
-        let mut stdout = crate::StreamData::new();
-        let mut stderr = crate::StreamData::new();
-        let mut exit_code;
-        let mut control_flow;
-        let mut exit_code_from_conditional_context = false;
+        list_body!(plain, self, list, route)
+    }
 
-        // Determine if the first command should run in the background.
-        // The `&` terminator for first appears as rest[0].op == Background.
-        let first_is_bg = matches!(list.rest.first(), Some((ListOperator::Background, _)));
-
-        if first_is_bg {
-            // Boxed: the job path holds a forked Interpreter across an await,
-            // which would otherwise bloat every recursive execute_list frame.
-            Box::pin(self.spawn_in_background(&list.first, &mut stdout, &mut stderr)).await?;
-            exit_code = 0;
-            control_flow = ControlFlow::None;
-            exit_code_from_conditional_context = false;
-        } else {
-            let emit_before = self.output_emit_count;
-            let emitted_before = (
-                self.output_stream_stdout_bytes,
-                self.output_stream_stderr_bytes,
-            );
-            self.sequence_accum = (0, 0);
-            // A non-final `&&`/`||` element runs with errexit ignored.
-            let conditional = list
-                .rest
-                .first()
-                .is_some_and(|(op, _)| matches!(op, ListOperator::And | ListOperator::Or));
-            self.condition_sequence_depth += usize::from(conditional);
-            let result = self.execute_command(&list.first).await;
-            self.condition_sequence_depth -= usize::from(conditional);
-            let mut result = result?;
-            if route {
-                Box::pin(self.route_exec_output(
-                    &mut result,
-                    emitted_before,
-                    (0, 0),
-                    Self::command_name(&list.first),
-                ))
-                .await?;
-            }
-            if self.merge_stderr {
-                Self::merge_stderr_into_stdout(&mut result);
-            }
-            self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
-                .await?;
-            if route {
-                Box::pin(self.flush_exec_passthrough(&mut result)).await?;
-            }
-            if self.retain_streamed_output() {
-                stdout.append(&result.stdout);
-                stderr.append(&result.stderr);
-            }
-            exit_code = result.exit_code;
-            self.last_exit_code = exit_code;
-            control_flow = result.control_flow;
-            exit_code_from_conditional_context = result.errexit_suppressed
-                || list
-                    .rest
-                    .first()
-                    .is_some_and(|(op, _)| matches!(op, ListOperator::And | ListOperator::Or));
-
-            // If first command signaled control flow, return immediately
-            if control_flow != ControlFlow::None {
-                return Ok(ExecResult {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    control_flow,
-                    ..Default::default()
-                });
-            }
-        }
-
-        for (i, (op, cmd)) in list.rest.iter().enumerate() {
-            // Skip empty sentinel commands (produced by trailing `&`)
-            if Self::is_empty_sentinel(cmd) {
-                continue;
-            }
-
-            // Check if this command is followed by another && / || operator.
-            // POSIX `errexit` suppression applies to non-final commands in an
-            // AND-OR list; the final executed command can still abort on failure.
-            let current_is_conditional = matches!(op, ListOperator::And | ListOperator::Or);
-
-            // Determine if THIS command should be backgrounded.
-            // A command is backgrounded when the NEXT separator is Background
-            // (the `&` terminates the current command).
-            let should_background =
-                matches!(list.rest.get(i + 1), Some((ListOperator::Background, _)));
-
-            // Check errexit before executing next semicolon-separated command:
-            // if previous command failed outside conditional context, exit now.
-            let should_check_errexit = matches!(op, ListOperator::Semicolon)
-                && self.errexit_active()
-                && exit_code != 0
-                && !exit_code_from_conditional_context;
-
-            if should_check_errexit {
-                return Ok(ExecResult {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    control_flow: ControlFlow::None,
-                    ..Default::default()
-                });
-            }
-
-            let should_execute = match op {
-                ListOperator::And => exit_code == 0,
-                ListOperator::Or => exit_code != 0,
-                ListOperator::Semicolon | ListOperator::Background => true,
-            };
-
-            if !should_execute && current_is_conditional {
-                // Short-circuited && / ||: the carried exit code came from
-                // a conditional chain, so errexit must not fire on it.
-                exit_code_from_conditional_context = true;
-            }
-
-            if should_execute {
-                if should_background {
-                    Box::pin(self.spawn_in_background(cmd, &mut stdout, &mut stderr)).await?;
-                    exit_code = 0;
-                    exit_code_from_conditional_context = false;
-                } else {
-                    let emit_before = self.output_emit_count;
-                    let emitted_before = (
-                        self.output_stream_stdout_bytes,
-                        self.output_stream_stderr_bytes,
-                    );
-                    self.sequence_accum = (stdout.len(), stderr.len());
-                    let followed_by_conditional_op =
-                        list.rest.get(i + 1).is_some_and(|(op, cmd)| {
-                            !Self::is_empty_sentinel(cmd)
-                                && matches!(op, ListOperator::And | ListOperator::Or)
-                        });
-                    self.condition_sequence_depth += usize::from(followed_by_conditional_op);
-                    let result = self.execute_command(cmd).await;
-                    self.condition_sequence_depth -= usize::from(followed_by_conditional_op);
-                    let mut result = result?;
-                    if route {
-                        Box::pin(self.route_exec_output(
-                            &mut result,
-                            emitted_before,
-                            (0, 0),
-                            Self::command_name(cmd),
-                        ))
-                        .await?;
-                    }
-                    if self.merge_stderr {
-                        Self::merge_stderr_into_stdout(&mut result);
-                    }
-                    self.maybe_emit_output(&result.stdout, &result.stderr, emit_before)
-                        .await?;
-                    if route {
-                        Box::pin(self.flush_exec_passthrough(&mut result)).await?;
-                    }
-                    if self.retain_streamed_output() {
-                        stdout.append(&result.stdout);
-                        stderr.append(&result.stderr);
-                    }
-                    exit_code = result.exit_code;
-                    self.last_exit_code = exit_code;
-                    control_flow = result.control_flow;
-                    // Bash suppresses errexit for AND-OR list elements except the
-                    // command following the final &&/|| operator.
-                    exit_code_from_conditional_context =
-                        followed_by_conditional_op || result.errexit_suppressed;
-
-                    // If command signaled control flow, return immediately
-                    if control_flow != ControlFlow::None {
-                        return Ok(ExecResult {
-                            stdout,
-                            stderr,
-                            exit_code,
-                            control_flow,
-                            ..Default::default()
-                        });
-                    }
-                }
-            }
-        }
-
-        // Final errexit check for the last command. A non-zero status only
-        // remains suppressed when it was carried from a short-circuited or
-        // non-final AND-OR list element; a failing final &&/|| command exits.
-        let should_final_errexit_check = self.errexit_active()
-            && exit_code != 0
-            && !exit_code_from_conditional_context
-            && !self.is_in_condition_sequence();
-
-        if should_final_errexit_check {
-            return Ok(ExecResult {
-                stdout,
-                stderr,
-                exit_code,
-                control_flow: ControlFlow::None,
-                ..Default::default()
-            });
-        }
-
-        Ok(ExecResult {
-            stdout,
-            stderr,
-            exit_code,
-            control_flow: ControlFlow::None,
-            errexit_suppressed: exit_code_from_conditional_context && exit_code != 0,
-            ..Default::default()
-        })
+    #[cfg(feature = "experimental_execution_plan")]
+    #[allow(unused_assignments)]
+    async fn execute_prepared_list(
+        &mut self,
+        list: &CommandList,
+        route: bool,
+        commands: script_plan::PreparedCommands<'_, '_>,
+    ) -> Result<ExecResult> {
+        list_body!(prepared, self, list, route, commands)
     }
 
     /// Process variable assignments from a command's prefix (e.g. `VAR=val cmd`).
@@ -8930,9 +8313,17 @@ impl Interpreter {
                         break;
                     }
                 };
-                if let Ok(r) = result {
-                    r.stdout.append(&cmd_result.stdout);
-                    r.stderr.append(&cmd_result.stderr);
+                if let Ok(r) = result
+                    && let Err(error) = self.append_output(
+                        &mut r.stdout,
+                        &mut r.stderr,
+                        &cmd_result.stdout,
+                        &cmd_result.stderr,
+                        false,
+                    )
+                {
+                    run = Err(error);
+                    break;
                 }
                 if matches!(
                     cmd_result.control_flow,
@@ -9165,6 +8556,11 @@ impl Interpreter {
                 return Ok(self.expansion_error_result(err_msg));
             }
 
+            // A command that aborted between setting `pending_failglob` and
+            // reading it (an arithmetic abort raised earlier in the same
+            // expansion, say) must not hand its refusal to this one.
+            self.pending_failglob = None;
+
             // `$empty cmd args`: the name word expanded to no fields, so
             // the first argument word that yields a field is the command.
             let mut args_consumed = false;
@@ -9312,11 +8708,10 @@ impl Interpreter {
 
             let args = pre_expanded_args.unwrap_or_default();
 
-            // Check for glob error sentinel
-            if let Some(first) = args.first()
-                && first.starts_with("\x00ERR\x00")
-            {
-                let err_msg = first.trim_start_matches("\x00ERR\x00").to_string();
+            // THREAT[TM-INJ-027]: `failglob` refused this command during
+            // argument expansion. Read out of band: a word that merely looks
+            // like an error must stay data, whatever bytes it carries.
+            if let Some(err_msg) = self.pending_failglob.take() {
                 self.last_exit_code = 1;
                 self.restore_variables(var_saves);
                 self.discard_deferred_proc_subs_from(deferred_proc_sub_start);
@@ -9452,12 +8847,12 @@ impl Interpreter {
                             {
                                 Ok(items) => args.extend(items),
                                 Err(pat) => {
+                                    // THREAT[TM-INJ-027]: report out of band;
+                                    // never as a prefix on an expanded word.
                                     self.last_exit_code = 1;
-                                    return Ok(vec![format!(
-                                        "\x00ERR\x00{}no match: {}\n",
-                                        self.diag_prefix(),
-                                        pat
-                                    )]);
+                                    self.pending_failglob =
+                                        Some(format!("{}no match: {}\n", self.diag_prefix(), pat));
+                                    return Ok(Vec::new());
                                 }
                             }
                         }
@@ -10179,9 +9574,13 @@ impl Interpreter {
                     shell: Some(shell_ref),
                 };
 
-                let plan_result = AssertUnwindSafe(builtin.execution_plan(&plan_ctx))
-                    .catch_unwind()
-                    .await;
+                // Call the trait object directly so Arc forwarding does not
+                // allocate and poll an additional async wrapper.
+                // Construct the future inside the catch boundary as well.
+                let plan_result =
+                    AssertUnwindSafe(async { builtin.as_ref().execution_plan(&plan_ctx).await })
+                        .catch_unwind()
+                        .await;
 
                 match plan_result {
                     Ok(Ok(Some(plan))) => {
@@ -10299,7 +9698,9 @@ impl Interpreter {
             };
 
             // THREAT[TM-INT-001]: Execute builtin with panic catching for security
-            let result = AssertUnwindSafe(builtin.execute(ctx)).catch_unwind().await;
+            let result = AssertUnwindSafe(async { builtin.as_ref().execute(ctx).await })
+                .catch_unwind()
+                .await;
 
             let mut result = match result {
                 Ok(Ok(exec_result)) => exec_result,
@@ -11654,10 +11055,13 @@ impl Interpreter {
         };
         let mut result = match DebugTrapOutput::exit_result(&mut entry_debug) {
             Some(stop) => Ok(stop),
-            None => DebugTrapOutput::prepend_opt(
-                entry_debug,
-                self.execute_command(&func_def.body).await,
-            ),
+            None => {
+                #[cfg(feature = "experimental_execution_plan")]
+                let body = self.execute_planned_function_body(&func_def.body);
+                #[cfg(not(feature = "experimental_execution_plan"))]
+                let body = self.execute_command(&func_def.body);
+                DebugTrapOutput::prepend_opt(entry_debug, body.await)
+            }
         };
         if let Ok(r) = &mut result {
             // Still in the function: the handler sees its locals.
@@ -12622,8 +12026,13 @@ impl Interpreter {
                     let result = self.execute_command(&inner_cmd).await;
                     self.pipeline_stdin = saved_stdin;
                     let result = result?;
-                    combined_stdout.append(&result.stdout);
-                    combined_stderr.append(&result.stderr);
+                    self.append_output(
+                        &mut combined_stdout,
+                        &mut combined_stderr,
+                        &result.stdout,
+                        &result.stderr,
+                        false,
+                    )?;
                     last_exit_code = result.exit_code;
                 }
 
@@ -12651,8 +12060,13 @@ impl Interpreter {
                     let result = self.execute_command(&inner_cmd).await;
                     self.pipeline_stdin = saved_stdin;
                     let result = result?;
-                    combined_stdout.append(&result.stdout);
-                    combined_stderr.append(&result.stderr);
+                    self.append_output(
+                        &mut combined_stdout,
+                        &mut combined_stderr,
+                        &result.stdout,
+                        &result.stderr,
+                        false,
+                    )?;
                     last_exit_code = result.exit_code;
                 }
 
@@ -13256,84 +12670,7 @@ impl Interpreter {
         compound: &'a CompoundCommand,
         redirects: &'a [Redirect],
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ExecResult>> + Send + 'a>> {
-        Box::pin(async move {
-            let end_line = (!redirects.is_empty())
-                .then(|| Self::compound_end_line(compound))
-                .flatten();
-            if let Some(line) = end_line {
-                self.current_line = line;
-            }
-            // Process input redirections before executing compound.
-            // WTF: a coproc fd as a compound's stdin (`while read l; do
-            // ...; done <&${C[0]}`) is read to end of input up front, not
-            // line by line as the loop runs.
-            let stdin_setup = match self
-                .process_input_redirections(None, redirects, StdinDemand::All, HighFdStdin::Any)
-                .await
-            {
-                Ok(s) => s,
-                Err(crate::error::Error::CommandFailure(msg)) => {
-                    return Ok(ExecResult::err(msg, 1));
-                }
-                Err(e) => return Err(e),
-            };
-            // Keep stdin's byte/text storage admitted through the body.
-            let _stdin_storage = stdin_setup.stdin_lease;
-            let stdin = stdin_setup.stdin;
-            let prev_pipeline_stdin = if stdin.is_some() {
-                let prev = self.pipeline_stdin.take();
-                self.pipeline_stdin = stdin;
-                Some(prev)
-            } else {
-                None
-            };
-
-            // Suspend output callback while output redirects are active
-            // so that maybe_emit_output inside the compound body does not
-            // leak output that will be redirected (e.g. `{ cmd; } 2>/dev/null`).
-            let region = self.enter_output_region(redirects);
-
-            let has_dup_output = redirects.iter().any(|r| r.kind == RedirectKind::DupOutput);
-            let has_file_redirect = redirects.iter().any(|r| {
-                matches!(
-                    r.kind,
-                    RedirectKind::Output
-                        | RedirectKind::Clobber
-                        | RedirectKind::Append
-                        | RedirectKind::OutputBoth
-                )
-            });
-            let capture_pending_fd = (has_dup_output && has_file_redirect)
-                || redirection::has_high_fd_file_redirect(redirects);
-            if capture_pending_fd {
-                if self.pending_fd_capture_depth == 0 {
-                    self.clear_pending_fd_redirect_state();
-                }
-                self.pending_fd_capture_depth += 1;
-            }
-            let result = self.execute_compound(compound).await;
-            if capture_pending_fd {
-                self.pending_fd_capture_depth = self.pending_fd_capture_depth.saturating_sub(1);
-                if result.is_err() {
-                    self.clear_pending_fd_redirect_state();
-                }
-            }
-            // Restore callback before applying redirections
-            self.leave_output_region(region);
-            let result = result?;
-
-            if let Some(prev) = prev_pipeline_stdin {
-                self.pipeline_stdin = prev;
-            }
-            if redirects.is_empty() {
-                Ok(result)
-            } else {
-                if let Some(line) = end_line {
-                    self.current_line = line;
-                }
-                self.apply_redirections(result, redirects).await
-            }
-        })
+        compound_redirect_body!(plain, self, compound, redirects)
     }
 
     fn execute_cmd_subst<'a>(
@@ -15031,8 +14368,16 @@ impl Interpreter {
         self.maybe_emit_output(&trap_result.stdout, &trap_result.stderr, emit_before)
             .await
             .ok();
-        stdout.append(&trap_result.stdout);
-        stderr.append(&trap_result.stderr);
+        if let Err(crate::error::Error::ResourceLimit(limit)) = self.append_output(
+            stdout,
+            stderr,
+            &trap_result.stdout,
+            &trap_result.stderr,
+            false,
+        ) {
+            self.note_trap_depth_error(limit);
+            return None;
+        }
         Some((trap_result.control_flow, trap_result.exit_code))
     }
 

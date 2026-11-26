@@ -10,13 +10,13 @@ class DeleteDatabaseRequest(DaraModel):
         dbinstance_id: str = None,
         database_name: str = None,
     ):
-        # The cluster ID.
+        # Instance ID of the instance.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances in the specified region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query instance IDs of all AnalyticDB for PostgreSQL instances in the specified region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The name of the queried database.
+        # The name of the database.
         # 
         # This parameter is required.
         self.database_name = database_name

@@ -92,6 +92,7 @@ from dstack._internal.server.services.fleets import (
     get_fleet_spec,
     get_next_instance_num,
     is_cloud_cluster,
+    new_instances_in_fleet_require_create_instance_support,
 )
 from dstack._internal.server.services.instances import (
     filter_non_placeholder_instances,
@@ -412,9 +413,8 @@ class _TerminateSubmittedJobResult:
 
 @dataclass
 class _VolumeAttachmentPayload:
-    volume_id: uuid.UUID
+    volume_model: VolumeModel
     attachment_data: str
-    volume_name: str
 
 
 @dataclass
@@ -580,6 +580,12 @@ async def _select_assignment(
             message="Could not reuse any instance for this job",
         )
 
+    if preconditions.prepared_job_volumes.volumes and fleet_model.project_id != context.project.id:
+        return _TerminateSubmittedJobResult(
+            reason=JobTerminationReason.FAILED_TO_START_DUE_TO_NO_CAPACITY,
+            message="Cannot provision instances for jobs with volumes in imported fleets",
+        )
+
     return _NewCapacityAssignment(fleet_id=fleet_model.id)
 
 
@@ -663,9 +669,7 @@ async def _apply_assignment_result(
                     await _reset_job_lock_for_retry(session=session, item=item)
                     return
                 fleet_spec = get_fleet_spec(fleet_model)
-                if not can_create_new_cloud_instance_in_fleet(
-                    fleet_model, fleet_spec, job_project_id=context.project.id
-                ):
+                if not can_create_new_cloud_instance_in_fleet(fleet_model, fleet_spec):
                     await _terminate_submitted_job(
                         session=session,
                         job_model=job_model,
@@ -676,7 +680,6 @@ async def _apply_assignment_result(
                 instance_model = _create_placeholder_instance(
                     session=session,
                     fleet_model=fleet_model,
-                    project=context.project,
                     job_model=job_model,
                 )
                 session.add(instance_model)
@@ -788,6 +791,11 @@ async def _load_submitted_job_context(
                 FleetModel.instances.and_(InstanceModel.deleted == False)
             )
         )
+        .options(
+            joinedload(JobModel.fleet)
+            .joinedload(FleetModel.project)
+            .selectinload(ProjectModel.backends)
+        )
         .execution_options(populate_existing=True)
     )
     job_model = res.unique().scalar_one()
@@ -883,6 +891,11 @@ async def _fetch_run_model_for_submitted_job(
             joinedload(RunModel.fleet).selectinload(
                 FleetModel.instances.and_(InstanceModel.deleted == False)
             )
+        )
+        .options(
+            joinedload(RunModel.fleet)
+            .joinedload(FleetModel.project)
+            .selectinload(ProjectModel.backends)
         )
         .options(contains_eager(RunModel.jobs, alias=job_alias))
         .execution_options(populate_existing=True)
@@ -1186,7 +1199,6 @@ async def _lock_fleet_for_placeholder(
 def _create_placeholder_instance(
     session: AsyncSession,
     fleet_model: FleetModel,
-    project: ProjectModel,
     job_model: JobModel,
 ) -> InstanceModel:
     taken_instance_nums = {i.instance_num for i in fleet_model.instances}
@@ -1197,7 +1209,7 @@ def _create_placeholder_instance(
         id=instance_id,
         name=instance_name,
         instance_num=instance_num,
-        project=project,
+        project_id=fleet_model.project_id,
         fleet=fleet_model,
         status=InstanceStatus.PENDING,
         unreachable=False,
@@ -1207,7 +1219,7 @@ def _create_placeholder_instance(
         # if it's deleted after a failed `run_job()`.
         provider_ref=issue_provider_ref(
             session=session,
-            project=project,
+            project_id=fleet_model.project_id,
             owner_type=OwnerType.INSTANCE,
             owner_id=instance_id,
             owner_name=instance_name,
@@ -1358,7 +1370,6 @@ async def _apply_provisioning_result(
                 await _persist_placement_group_cleanup(
                     session=session,
                     fleet_model=cleanup_fleet_model,
-                    project=cleanup_fleet_model.project,
                     placement_group_cleanup=provisioning.placement_group_cleanup,
                 )
             await _unlock_related_fleet(
@@ -1502,8 +1513,6 @@ async def _process_new_capacity_provisioning(
         job_model=context.job_model,
         run=context.run,
         jobs=context.jobs_to_provision,
-        project_ssh_public_key=context.project.ssh_public_key,
-        project_ssh_private_key=context.project.ssh_private_key,
         master_job_provisioning_data=master_provisioning_data,
         volumes=preconditions.prepared_job_volumes.volumes,
     )
@@ -1601,7 +1610,6 @@ async def _apply_new_capacity_provisioning(
     await _persist_placement_group_cleanup(
         session=session,
         fleet_model=fleet_model,
-        project=fresh_context.project,
         placement_group_cleanup=provisioning.placement_group_cleanup,
     )
 
@@ -1691,7 +1699,7 @@ def _resolve_provisioned_jobs_and_data(
     if isinstance(provisioning_data, ComputeGroupProvisioningData):
         compute_group_model = ComputeGroupModel(
             id=uuid.uuid4(),
-            project=context.project,
+            project=fleet_model.project,
             fleet=fleet_model,
             status=ComputeGroupStatus.RUNNING,
             provisioning_data=provisioning_data.model_dump_json(),
@@ -1744,7 +1752,6 @@ async def _promote_or_create_instance_models_for_provisioned_jobs(
         else:
             instance_num = get_next_instance_num(taken_instance_nums)
             instance_model = _create_instance_model_for_job(
-                project=context.project,
                 fleet_model=fleet_model,
                 compute_group_model=compute_group_model,
                 job_model=provisioned_job_model,
@@ -1801,7 +1808,6 @@ def _get_job_placeholder_instance(
 
 
 def _create_instance_model_for_job(
-    project: ProjectModel,
     fleet_model: FleetModel,
     compute_group_model: Optional[ComputeGroupModel],
     job_model: JobModel,
@@ -1821,7 +1827,7 @@ def _create_instance_model_for_job(
         id=uuid.uuid4(),
         name=f"{fleet_model.name}-{instance_num}",
         instance_num=instance_num,
-        project=project,
+        project=fleet_model.project,
         fleet=fleet_model,
         compute_group=compute_group_model,
         created_at=get_current_datetime(),
@@ -1947,9 +1953,8 @@ async def _process_volume_attachments(
                     )
                     attachments.append(
                         _VolumeAttachmentPayload(
-                            volume_id=volume_model.id,
+                            volume_model=volume_model,
                             attachment_data=attachment_data.model_dump_json(),
-                            volume_name=volume.name,
                         )
                     )
                     break
@@ -2114,11 +2119,13 @@ async def _apply_volume_attachment_result(
 ) -> None:
     job_runtime_data = get_or_error(get_job_runtime_data(job_model))
     job_runtime_data.volume_names = [
-        attachment.volume_name for attachment in volume_attachment_result.attachments
+        attachment.volume_model.name for attachment in volume_attachment_result.attachments
     ]
     job_model.job_runtime_data = job_runtime_data.model_dump_json()
 
-    volume_ids = [attachment.volume_id for attachment in volume_attachment_result.attachments]
+    volume_ids = [
+        attachment.volume_model.id for attachment in volume_attachment_result.attachments
+    ]
     if volume_ids:
         now = get_current_datetime()
         await session.execute(
@@ -2129,10 +2136,20 @@ async def _apply_volume_attachment_result(
         for attachment in volume_attachment_result.attachments:
             session.add(
                 VolumeAttachmentModel(
-                    volume_id=attachment.volume_id,
+                    volume_id=attachment.volume_model.id,
                     instance=instance_model,
                     attachment_data=attachment.attachment_data,
                 )
+            )
+            events.emit(
+                session,
+                "Volume attached to instance",
+                actor=events.SystemActor(),
+                targets=[
+                    events.Target.from_model(attachment.volume_model),
+                    events.Target.from_model(instance_model),
+                    events.Target.from_model(job_model),
+                ],
             )
 
     if volume_attachment_result.termination_message is None:
@@ -2181,9 +2198,7 @@ async def _resolve_related_cluster_master_fleet(
                 .where(
                     FleetModel.id == fleet_id,
                 )
-                .options(
-                    joinedload(FleetModel.project).load_only(ProjectModel.id, ProjectModel.name)
-                )
+                .options(joinedload(FleetModel.project).joinedload(ProjectModel.backends))
                 .options(selectinload(FleetModel.instances.and_(InstanceModel.deleted == False)))
                 .execution_options(populate_existing=True)
                 .with_for_update(skip_locked=True, of=FleetModel)
@@ -2391,8 +2406,6 @@ async def _provision_new_capacity(
     job_model: JobModel,
     run: Run,
     jobs: list[Job],
-    project_ssh_public_key: str,
-    project_ssh_private_key: str,
     master_job_provisioning_data: Optional[JobProvisioningData] = None,
     volumes: Optional[list[list[Volume]]] = None,
 ) -> Union[
@@ -2438,7 +2451,10 @@ async def _provision_new_capacity(
         fleet_model=fleet_model,
     )
     multinode = requirements.multinode or is_multinode_job(job)
-    async with backends_cache.lease_project_backends(project) as backends:
+    # New instances belong to the fleet's project, which differs from
+    # the job's project if the fleet is imported.
+    fleet_project = fleet_model.project
+    async with backends_cache.lease_project_backends(fleet_project) as backends:
         offers = await get_offers_by_requirements(
             backends=backends,
             profile=profile,
@@ -2449,6 +2465,9 @@ async def _provision_new_capacity(
             volumes=volumes,
             privileged=job.job_spec.privileged,
             instance_mounts=check_run_spec_requires_instance_mounts(run.run_spec),
+            create_instance_support=new_instances_in_fleet_require_create_instance_support(
+                fleet_model, job_project_id=project.id
+            ),
             placement_group=placement_group_model_to_placement_group_optional(
                 placement_group_model
             ),
@@ -2525,8 +2544,9 @@ async def _provision_new_capacity(
                         run,
                         job_configurations,
                         offer,
-                        project_ssh_public_key,
-                        project_ssh_private_key,
+                        fleet_project.name,
+                        fleet_project.ssh_public_key,
+                        fleet_project.ssh_private_key,
                         placement_group_model_to_placement_group_optional(placement_group_model),
                         requirements,
                         extra_authorized_keys,
@@ -2557,8 +2577,9 @@ async def _provision_new_capacity(
                     run,
                     job,
                     offer,
-                    project_ssh_public_key,
-                    project_ssh_private_key,
+                    fleet_project.name,
+                    fleet_project.ssh_public_key,
+                    fleet_project.ssh_private_key,
                     offer_volumes,
                     placement_group_model_to_placement_group_optional(placement_group_model),
                     requirements,
@@ -2708,7 +2729,6 @@ async def _load_placement_group_cleanup_fleet(
 async def _persist_placement_group_cleanup(
     session: AsyncSession,
     fleet_model: FleetModel,
-    project: ProjectModel,
     placement_group_cleanup: Optional[_PlacementGroupCleanup],
 ) -> None:
     if placement_group_cleanup is None:
@@ -2724,7 +2744,7 @@ async def _persist_placement_group_cleanup(
         except_placement_group_ids=except_placement_group_ids,
     )
     for placement_group_model in placement_group_cleanup.new_placement_group_models:
-        placement_group_model.project = project
+        placement_group_model.project = fleet_model.project
         placement_group_model.fleet = fleet_model
         placement_group_model.fleet_deleted = (
             placement_group_model.id != placement_group_cleanup.selected_placement_group_id

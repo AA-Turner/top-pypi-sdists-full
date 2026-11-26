@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-containerregistry
-Version: 15.0.0
+Version: 16.0.0
 Summary: Microsoft Azure Containerregistry Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -10,12 +10,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
@@ -26,7 +27,7 @@ Dynamic: license-file
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Container Registry Client Library.
-This package has been tested with Python 3.9+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -37,7 +38,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.9+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -49,7 +50,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -86,6 +87,143 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 16.0.0 (2026-11-20)
+
+### Features Added
+
+  - Model `NetworkRuleSet` added property `virtual_network_rules`
+  - Model `RegistryProperties` added property `endpoint_protocol`
+  - Model `RegistryProperties` added property `regional_endpoint_host_names`
+  - Model `RegistryProperties` added property `regional_endpoints`
+  - Model `RegistryPropertiesUpdateParameters` added property `endpoint_protocol`
+  - Model `RegistryPropertiesUpdateParameters` added property `regional_endpoints`
+  - Added enum `EndpointProtocol`
+  - Added enum `RegionalEndpoints`
+  - Added model `VirtualNetworkRule`
+
+### Breaking Changes
+
+  - Model `SyncProperties` property `token_id` (JSON `tokenId`) is no longer required and is now `Optional[str]` with constructor default `None`; type-checked readers may need to handle `None`.
+
+## 15.1.0b4 (2026-11-11)
+
+### Features Added
+
+  - Enum `AdditionalAuthenticationType` added member `AWS_ELASTIC_CONTAINER_REGISTRY`
+  - Enum `AdditionalAuthenticationType` added member `ENTRA_FEDERATED_IDENTITY_CREDENTIAL`
+  - Added model `AdditionalAuthenticationUpdateProperties`
+  - Added model `EcrAuthenticationProperties`
+  - Added model `EcrAuthenticationUpdateProperties`
+  - Added model `EntraFederatedIdentityCredentialAuthenticationProperties`
+  - Added model `EntraFederatedIdentityCredentialAuthenticationUpdateProperties`
+  - Added model `GarAuthenticationUpdateProperties`
+
+## 15.1.0b3 (2026-09-06)
+
+### Features Added
+
+  - Updated API version to `2026-09-01-preview`
+  - Model `ConnectedRegistry` added property `identity`
+  - Model `ConnectedRegistryUpdateParameters` added property `identity`
+  - Model `StatusDetailProperties` added property `available_gib` for available disk space in gibibytes
+  - Model `StatusDetailProperties` added property `total_gib` for total disk space in gibibytes
+  - Model `SyncProperties` added property `auth_type`
+  - Model `SyncUpdateProperties` added property `auth_type`
+  - Added enum `AuthType` with values `SyncToken` and `ManagedIdentity` for connected registry synchronization authentication
+  - Added model `ManagedServiceIdentity`
+  - Added enum `ManagedServiceIdentityType`
+  - Added model `UserAssignedIdentity`
+
+### Breaking Changes
+
+  - Model `SyncProperties` property `token_id` (JSON `tokenId`) is no longer required and is now `Optional[str]` with constructor default `None`; type-checked readers may need to handle `None`.
+  - Removed response-only `TypedDict` definitions from `azure.mgmt.containerregistry.types`, including `ArchiveVersion`, `Webhook`, `RegistryNameStatus`, and `RegistryListCredentialsResult`; corresponding model classes remain available in `azure.mgmt.containerregistry.models`.
+
+## 15.1.0b2 (2026-07-03)
+
+### Features Added
+
+  - Model `CacheRuleProperties` added property `additional_authentication_properties`
+  - Model `CacheRuleUpdateProperties` added property `additional_authentication_properties`
+  - Model `NetworkRuleSet` added property `virtual_network_rules`
+  - Model `RegistryProperties` added property `writable_cache_repos`
+  - Model `RegistryPropertiesUpdateParameters` added property `writable_cache_repos`
+  - Added model `AdditionalAuthenticationProperties`
+  - Added enum `AdditionalAuthenticationType`
+  - Added model `GarAuthenticationProperties`
+  - Added model `VirtualNetworkRule`
+  - Added enum `WritableCacheRepos`
+
+## 15.1.0b1 (2026-03-20)
+
+### Features Added
+
+  - Client `ContainerRegistryManagementClient` added operation group `archives`
+  - Client `ContainerRegistryManagementClient` added operation group `archive_versions`
+  - Client `ContainerRegistryManagementClient` added operation group `export_pipelines`
+  - Client `ContainerRegistryManagementClient` added operation group `import_pipelines`
+  - Client `ContainerRegistryManagementClient` added operation group `pipeline_runs`
+  - Model `CacheRule` added property `identity`
+  - Model `CacheRuleUpdateParameters` added property `identity`
+  - Model `ConnectedRegistryProperties` added property `registry_sync_result`
+  - Model `Policies` added property `soft_delete_policy`
+  - Model `RegistryNameCheckRequest` added property `resource_group_name`
+  - Model `RegistryNameCheckRequest` added property `auto_generated_domain_name_label_scope`
+  - Model `RegistryNameStatus` added property `available_login_server_name`
+  - Model `RegistryProperties` added property `regional_endpoints`
+  - Model `RegistryProperties` added property `regional_endpoint_host_names`
+  - Model `RegistryProperties` added property `endpoint_protocol`
+  - Model `RegistryProperties` added property `metadata_search`
+  - Model `RegistryProperties` added property `auto_generated_domain_name_label_scope`
+  - Model `RegistryPropertiesUpdateParameters` added property `regional_endpoints`
+  - Model `RegistryPropertiesUpdateParameters` added property `endpoint_protocol`
+  - Model `RegistryPropertiesUpdateParameters` added property `metadata_search`
+  - Added model `Archive`
+  - Added model `ArchivePackageSourceProperties`
+  - Added model `ArchiveProperties`
+  - Added model `ArchiveUpdateParameters`
+  - Added model `ArchiveUpdateProperties`
+  - Added model `ArchiveVersion`
+  - Added model `ArchiveVersionProperties`
+  - Added enum `AutoGeneratedDomainNameLabelScope`
+  - Added enum `EndpointProtocol`
+  - Added model `ExportPipeline`
+  - Added model `ExportPipelineProperties`
+  - Added model `ExportPipelineTargetProperties`
+  - Added model `ImportPipeline`
+  - Added model `ImportPipelineProperties`
+  - Added model `ImportPipelineSourceProperties`
+  - Added enum `MetadataSearch`
+  - Added enum `PackageSourceType`
+  - Added enum `PipelineOptions`
+  - Added model `PipelineRun`
+  - Added model `PipelineRunProperties`
+  - Added model `PipelineRunRequest`
+  - Added model `PipelineRunResponse`
+  - Added model `PipelineRunSourceProperties`
+  - Added enum `PipelineRunSourceType`
+  - Added model `PipelineRunTargetProperties`
+  - Added enum `PipelineRunTargetType`
+  - Added model `PipelineSourceTriggerDescriptor`
+  - Added model `PipelineSourceTriggerProperties`
+  - Added enum `PipelineSourceType`
+  - Added model `PipelineTriggerDescriptor`
+  - Added model `PipelineTriggerProperties`
+  - Added model `ProgressProperties`
+  - Added enum `RegionalEndpoints`
+  - Added model `RegistrySyncResult`
+  - Added model `SoftDeletePolicy`
+  - Added enum `StorageAccessMode`
+  - Added enum `SyncState`
+  - Added enum `SyncTrigger`
+  - Added enum `TriggerStatus`
+  - Operation group `ConnectedRegistriesOperations` added method `resync`
+  - Added operation group `ArchiveVersionsOperations`
+  - Added operation group `ArchivesOperations`
+  - Added operation group `ExportPipelinesOperations`
+  - Added operation group `ImportPipelinesOperations`
+  - Added operation group `PipelineRunsOperations`
 
 ## 15.0.0 (2026-03-17)
 

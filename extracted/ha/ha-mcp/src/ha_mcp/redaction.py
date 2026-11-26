@@ -44,7 +44,6 @@ from __future__ import annotations
 
 import copy
 import json
-import logging
 import re
 import threading
 from collections.abc import Callable, Iterable, Sequence
@@ -57,8 +56,6 @@ from ha_mcp._vendor.fastmcp.server.middleware.middleware import (
 )
 
 from .config import get_global_settings
-
-logger = logging.getLogger(__name__)
 
 # Sentinels emitted in place of secret values. SET/EMPTY preserve the
 # "configured at all?" diagnostic on schema-redacted surfaces; KNOWN marks a
@@ -274,26 +271,23 @@ def redact_addon_info(
     return {**addon, "options": redacted}, warnings
 
 
-def redact_addon_options(options: Any, schema: Any, slug: str) -> Any:
+def _redact_addon_options(
+    options: Any, schema: Any, listed: frozenset[str], whole: bool = False
+) -> Any:
     """Copy of ``options`` with secret values sentinel-replaced.
 
     A value is secret when its schema entry carries ``format: password``, its
-    name (or the name of a group containing it) is listed for ``slug`` in
-    ``redact_app_option_keys``, or it holds a PEM private key. Listed names
+    name (or the name of a group containing it) is in ``listed`` (the names
+    ``redact_app_option_keys`` lists for the app), or it holds a PEM private key. Listed names
     are also redacted in values Supervisor kept after an app update dropped
     the option or changed it between a group and a plain field, keeping the
     stored shape around them. Walks nested option groups recursively (a
     group's value may be a dict or, with ``multiple``, a list of dicts).
     Other keys without a schema entry pass through untouched. Non-dict
     ``options`` are returned as-is.
+
+    ``whole``: the options sit inside a listed group, so all are secret.
     """
-    return _redact_addon_options(options, schema, _operator_listed_option_keys(slug))
-
-
-def _redact_addon_options(
-    options: Any, schema: Any, listed: frozenset[str], whole: bool = False
-) -> Any:
-    """``whole``: the options sit inside a listed group, so all are secret."""
     if not isinstance(options, dict):
         return options
     out = dict(options)
@@ -356,7 +350,7 @@ def _redact_stored(value: Any, listed: frozenset[str], secret: bool) -> Any:
 
 
 def collect_addon_secret_values(options: Any, schema: Any, slug: str) -> set[str]:
-    """Live secret option values (see ``redact_addon_options``), for the scrub."""
+    """Live secret option values (see ``_redact_addon_options``), for the scrub."""
     return _collect_addon_secret_values(
         options, schema, _operator_listed_option_keys(slug)
     )
@@ -605,7 +599,7 @@ def known_secret_values() -> tuple[str, ...]:
         return tuple(sorted(_known_secrets, key=len, reverse=True))
 
 
-def _clear_known_secret_values() -> None:
+def clear_known_secret_values() -> None:
     """Test hook: empty the known-secrets set."""
     with _known_secrets_lock:
         _known_secrets.clear()

@@ -705,11 +705,25 @@ class SessionsOperations:
 
         ``manifest_yaml`` holds only the sections to change (``tools``, ``env``,
         ``secrets``, ``egress``); absent sections are untouched. ``tools`` is the full
-        replacement list, but only Action Gateway (``do.actions``) entries can
-        change: include the session's custom MCP servers exactly as they are
-        (adding, removing or changing one is ``422``). ``env`` and ``secrets`` are
+        replacement list: Action Gateway (``do.actions``) entries can change, and
+        a custom MCP server (``name`` and ``url``) can be added, modified or
+        removed only where the session's ``mutability.custom_tools`` is true (and
+        ``tools`` is too); otherwise it is ``409``. Include the session's other
+        custom MCP servers exactly as they are. ``env`` and ``secrets`` are
         full sets (a key left out is removed). A top-level ``model`` or
         ``permissions`` section is ``400``.
+
+        A custom MCP server change restarts the agent when it alters the agent's
+        environment (a server added, removed or moved, or a changed credential),
+        and the update then ends ``APPLIED_RESTARTED``; a change that doesn't,
+        such as editing the ``tools`` allowlist of an existing server, ends
+        ``APPLIED``. A server with ``auth`` that is added, moved to
+        another ``url`` or given another secret slot must carry its credential in
+        the same request: send the secret's value in ``secrets``, or use a
+        URL-bound secret whose ``url`` covers the server's URL (the host, a path
+        prefix and the default port; it needs that even when you send the value).
+        Otherwise it is ``400``. A new server host under an egress allowlist also
+        needs ``mutability.egress``.
 
         The model is set in ``env``, in the key that matches the endpoint the
         session was created with:
@@ -763,6 +777,23 @@ class SessionsOperations:
         otherwise). A session created with unrestricted egress and no URL-bound
         secrets cannot gain either one: the update ends ``FAILED`` with
         ``requires_new_session``.
+
+        OAuth connection: an OAuth secret that names a provider connection with
+        ``actor`` can switch to another connection of the same provider. In
+        ``secrets``, set it to ``{source: oauth, provider, actor}`` with the new
+        connection's ``user_id`` as ``actor`` (see
+        :meth:`list_connections`), and keep every other secret as ``{}``. The
+        new connection must be active and owned by you (``400`` otherwise,
+        including for another team member's connection); switching back to the
+        connection the agent config names doesn't need that. The agent restarts to read the new token;
+        sending the connection the secret already uses is ``UNCHANGED``. The
+        switch applies to this session only: new sessions from the same config
+        start on the config's connection, and a rollback or fork uses the
+        connection recorded in its checkpoint. Action Gateway (``do.actions``)
+        tools keep using the connection Action Gateway picks for the session.
+        Adding or removing an OAuth secret, changing its provider, or switching
+        one that has no ``actor`` is ``422``; switching must be enabled for the
+        team (``403`` otherwise).
 
         The session status must be ``SESSION_STATUS_READY``,
         ``SESSION_STATUS_DETACHED`` or ``SESSION_STATUS_PAUSED`` (a paused session

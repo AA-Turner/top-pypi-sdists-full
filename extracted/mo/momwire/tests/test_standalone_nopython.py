@@ -1013,19 +1013,32 @@ def _reuse_ran(built: int, declined: int) -> bool:
     return built - declined >= 1
 
 
+# The two spellings nec5-razor2p takes: the one fill-reuse switch, which it
+# maps to its part (`EXE_PARTS`), and the part's own older variable. Each
+# names itself on line 2, as Python's stamp does.
+_REUSE_VARS_1971 = ("MOMWIRE_X_PAIR_REUSE", "MOMWIRE_X_RAZOR_PAIR_REUSE")
+
+
+def _no_reuse_vars(monkeypatch):
+    for var in _REUSE_VARS_1971:
+        monkeypatch.delenv(var, raising=False)
+
+
 @pytest.mark.skipif(BASIS != "razor2p", reason="razor2p's feature")
+@pytest.mark.parametrize("var", _REUSE_VARS_1971)
 @pytest.mark.parametrize("ground", sorted(_REUSE_DECKS_1971))
-def test_razor_pair_reuse_runs_as_the_launcher(ground, tmp_path, monkeypatch):
+def test_razor_pair_reuse_runs_as_the_launcher(ground, var, tmp_path, monkeypatch):
     """Reach 8 covers the nec5 executables (levels 6 to 8). On ("1") and
-    off ("0"), the executable's printout is the launcher's byte for byte,
-    line 2 naming +razor_pair_reuse on both sides only when it is on. The
-    executable and the launcher share the C++ core, so that alone cannot
-    catch a fault in the core: the reuse is also shown to RUN (MW_EXE_TIMES's
-    reuse line: a plan built that did not decline when on, none built when
-    off) and on is held to off
-    byte for byte except line 2 (the reuse moves Zin ~1e-13 here, far under
-    a printed digit)."""
-    monkeypatch.delenv("MOMWIRE_X_RAZOR_PAIR_REUSE", raising=False)
+    off ("0"), by either spelling, the executable's printout is the
+    launcher's byte for byte, line 2 naming the variable's feature on both
+    sides only when it is on. The executable and the launcher share the
+    C++ core, so that alone cannot catch a fault in the core: the reuse is
+    also shown to RUN (MW_EXE_TIMES's reuse line: a plan built that did not
+    decline when on, none built when off) and on is held to off byte for
+    byte except line 2 (the reuse moves Zin ~1e-13 here, far under a
+    printed digit)."""
+    _no_reuse_vars(monkeypatch)
+    stamp = b" +" + var.removeprefix("MOMWIRE_X_").lower().encode()
     name = f"reuse_{ground}.nec"
 
     def prepare(d):
@@ -1039,7 +1052,7 @@ def test_razor_pair_reuse_runs_as_the_launcher(ground, tmp_path, monkeypatch):
             [name, "reuse.out"],
             run,
             prepare=prepare,
-            env={"MOMWIRE_X_RAZOR_PAIR_REUSE": state, "MW_EXE_TIMES": "1"},
+            env={var: state, "MW_EXE_TIMES": "1"},
         )
         assert exe.returncode == 0, exe.stderr
         _same(exe, ref, de, dl)
@@ -1049,12 +1062,196 @@ def test_razor_pair_reuse_runs_as_the_launcher(ground, tmp_path, monkeypatch):
         else:
             assert built == 0 and found == 0, (built, declined, found)
         lines[state] = (de / "reuse.out").read_bytes().split(b"\n")
-        assert (b"+razor_pair_reuse" in lines[state][1]) == (state == "1"), lines[
-            state
-        ][1]
+        assert (b"+" in lines[state][1]) == (state == "1"), lines[state][1]
     on, off = lines["1"], lines["0"]
-    assert on[1].rstrip() == off[1].rstrip() + b" +razor_pair_reuse", (on[1], off[1])
+    assert on[1].rstrip() == off[1].rstrip() + stamp, (on[1], off[1])
     assert on[:1] + on[2:] == off[:1] + off[2:]
+
+
+@pytest.mark.skipif(BASIS != "razor2p", reason="razor2p's feature")
+@pytest.mark.parametrize(
+    ("part", "stamp", "runs"),
+    [("0", b"", False), ("1", b" +pair_reuse+razor_pair_reuse", True)],
+)
+def test_the_part_variable_decides_under_the_whole(
+    part, stamp, runs, tmp_path, monkeypatch
+):
+    """MOMWIRE_X_PAIR_REUSE=1 with the part's own variable set: the part's
+    value wins (`_features.enabled`'s order). At 0 nothing reuses and line 2
+    names neither, as Python's stamp names a whole only where it runs; at 1
+    both are named, in registry order. The launcher's bytes either way."""
+    _no_reuse_vars(monkeypatch)
+    name = "reuse_free.nec"
+
+    def prepare(d):
+        (d / name).write_text(_REUSE_DECKS_1971["free"], newline="")
+
+    exe, ref, de, dl = _both(
+        [name, "reuse.out"],
+        tmp_path,
+        prepare=prepare,
+        env={
+            "MOMWIRE_X_PAIR_REUSE": "1",
+            "MOMWIRE_X_RAZOR_PAIR_REUSE": part,
+            "MW_EXE_TIMES": "1",
+        },
+    )
+    assert exe.returncode == 0, exe.stderr
+    _same(exe, ref, de, dl)
+    built, declined, _found = _reuse_counts(exe.stderr)
+    assert _reuse_ran(built, declined) == runs, (built, declined)
+    line2 = (de / "reuse.out").read_bytes().split(b"\n")[1]
+    line2 = line2.rstrip()
+    assert line2.endswith(stamp) if stamp else b"+" not in line2, line2
+
+
+# nec5-bs2's two spellings: the one fill-reuse switch, which turns on the
+# census (`_bspline_pair_reuse_core.h`, the whole's own slot) and bs2's part
+# `offset_reuse` (`EXE_PARTS`), and both at once by their own variables.
+_BS2_REUSE_ENVS = {
+    "whole": ({"MOMWIRE_X_PAIR_REUSE": "1"}, b" +pair_reuse"),
+    "both": (
+        {"MOMWIRE_X_PAIR_REUSE": "1", "MOMWIRE_X_OFFSET_REUSE": "1"},
+        b" +pair_reuse+offset_reuse",
+    ),
+}
+
+
+# bs2's census steps aside under 200 segments (`SMALL_DECK_SEGS`,
+# `_bspline_pair_reuse_core.h`), one threshold on every ground, so its
+# Sommerfeld deck is two 101-segment dipoles (202) where razor2p's is 122.
+_BS2_REUSE_DECKS = {
+    "free": _REUSE_DECKS_1971["free"],
+    "pec": _REUSE_DECKS_1971["pec"],
+    "sommerfeld": (
+        "CM momwire#2063: two parallel dipoles over Sommerfeld ground, 202 segments\n"
+        "CE\nGW 1 101 0 -2.5 6 0 2.5 6 0.001\nGW 2 101 2 -2.5 6 2 2.5 6 0.001\n"
+        "GE 0\nGN 0 0 0 0 13.0 -50.0\nEX 0 1 51 0 1 0\nFR 0 1 0 0 28.5 0\nXQ\nEN\n"
+    ),
+}
+
+
+def _no_bs2_reuse_vars(monkeypatch):
+    for var in ("MOMWIRE_X_PAIR_REUSE", "MOMWIRE_X_OFFSET_REUSE"):
+        monkeypatch.delenv(var, raising=False)
+
+
+def _coeffs(arrays: Path) -> bytes:
+    """Every finished run's coefficients (MW_EXE_ARRAYS), in run order."""
+    return b"".join(p.read_bytes() for p in sorted(arrays.glob("*_coeffs.bin")))
+
+
+@pytest.mark.skipif(BASIS != "bs2", reason="nec5-bs2's reuse")
+@pytest.mark.parametrize("spelling", sorted(_BS2_REUSE_ENVS))
+@pytest.mark.parametrize("ground", sorted(_BS2_REUSE_DECKS))
+def test_bs2_pair_reuse_runs_as_the_launcher(ground, spelling, tmp_path, monkeypatch):
+    """bs2's C++ fill runs the census and `offset_reuse` (momwire#2063), as
+    the Python route does. On, the executable's printout is the launcher's
+    byte for byte, line 2 naming what is on; the census RAN (a plan built
+    that did not decline); and on is held to off byte for byte except line
+    2. Off (unset), no plan is built."""
+    _no_bs2_reuse_vars(monkeypatch)
+    env_on, stamp = _BS2_REUSE_ENVS[spelling]
+    name = f"reuse_{ground}.nec"
+
+    def prepare(d):
+        (d / name).write_text(_BS2_REUSE_DECKS[ground], newline="")
+
+    lines = {}
+    for state in ("on", "off"):
+        run = tmp_path / state
+        run.mkdir()
+        env = dict(env_on if state == "on" else {}, MW_EXE_TIMES="1")
+        exe, ref, de, dl = _both([name, "reuse.out"], run, prepare=prepare, env=env)
+        assert exe.returncode == 0, exe.stderr
+        _same(exe, ref, de, dl)
+        built, declined, found = _reuse_counts(exe.stderr)
+        if state == "on":
+            assert _reuse_ran(built, declined), (built, declined, found)
+        else:
+            assert built == 0 and found == 0, (built, declined, found)
+        lines[state] = (de / "reuse.out").read_bytes().split(b"\n")
+        assert b"NEC ERROR" not in lines[state][0]
+    on, off = lines["on"], lines["off"]
+    assert on[1].rstrip() == off[1].rstrip() + stamp, (on[1], off[1])
+    assert on[:1] + on[2:] == off[:1] + off[2:]
+
+
+@pytest.mark.skipif(BASIS != "bs2", reason="nec5-bs2's reuse")
+def test_bs2_reuse_runs_both_its_parts(tmp_path, monkeypatch):
+    """The adversarial case for `test_bs2_pair_reuse_runs_as_the_launcher`:
+    the printout bytes cannot tell a part that ran from one withheld (both
+    move Z far under a printed digit), so the solved coefficients
+    (MW_EXE_ARRAYS) are compared bit for bit. The census alone
+    (MOMWIRE_X_OFFSET_REUSE=0 under the whole), the part alone, and both
+    each give coefficients of their own: an executable that withheld either
+    one would print two of the three alike."""
+    _no_bs2_reuse_vars(monkeypatch)
+    deck = tmp_path / "reuse_free.nec"
+    deck.write_text(_REUSE_DECKS_1971["free"], newline="")
+    runs = {
+        "off": {},
+        "census": {"MOMWIRE_X_PAIR_REUSE": "1", "MOMWIRE_X_OFFSET_REUSE": "0"},
+        "part": {"MOMWIRE_X_OFFSET_REUSE": "1"},
+        "both": {"MOMWIRE_X_PAIR_REUSE": "1"},
+    }
+    coeffs, counts = {}, {}
+    for label, extra in runs.items():
+        arrays = tmp_path / label
+        arrays.mkdir()
+        env = dict(os.environ, MW_EXE_TIMES="1", MW_EXE_ARRAYS=str(arrays), **extra)
+        r = subprocess.run(
+            [EXE, deck.name, f"{label}.out"],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            check=False,
+        )
+        assert r.returncode == 0, r.stderr
+        coeffs[label] = _coeffs(arrays)
+        assert coeffs[label], label
+        counts[label] = _reuse_counts(r.stderr)
+    assert len(set(coeffs.values())) == len(coeffs), "a part did not run"
+    for label in ("census", "both"):
+        assert _reuse_ran(*counts[label][:2]), (label, counts[label])
+    for label in ("off", "part"):
+        assert counts[label][0] == 0, (label, counts[label])
+
+
+@pytest.mark.skipif(BASIS != "bs2", reason="nec5-bs2's reuse")
+@pytest.mark.parametrize(
+    ("part", "stamp", "census"),
+    [("0", b"", True), ("1", b" +pair_reuse+offset_reuse", True)],
+)
+def test_bs2_the_part_variable_decides_under_the_whole(
+    part, stamp, census, tmp_path, monkeypatch
+):
+    """MOMWIRE_X_PAIR_REUSE=1 with MOMWIRE_X_OFFSET_REUSE set: the part's
+    value decides the part, and line 2 names the whole only where its part
+    runs (`_features.stamp`); the census follows the whole either way, as
+    `BSplineSolver._reuse_on` does. The launcher's bytes either way."""
+    _no_bs2_reuse_vars(monkeypatch)
+    name = "reuse_free.nec"
+
+    def prepare(d):
+        (d / name).write_text(_REUSE_DECKS_1971["free"], newline="")
+
+    exe, ref, de, dl = _both(
+        [name, "reuse.out"],
+        tmp_path,
+        prepare=prepare,
+        env={
+            "MOMWIRE_X_PAIR_REUSE": "1",
+            "MOMWIRE_X_OFFSET_REUSE": part,
+            "MW_EXE_TIMES": "1",
+        },
+    )
+    assert exe.returncode == 0, exe.stderr
+    _same(exe, ref, de, dl)
+    built, declined, _found = _reuse_counts(exe.stderr)
+    assert _reuse_ran(built, declined) == census, (built, declined)
+    line2 = (de / "reuse.out").read_bytes().split(b"\n")[1].rstrip()
+    assert line2.endswith(stamp) if stamp else b"+" not in line2, line2
 
 
 # Eight wires of random place and direction over Sommerfeld ground (the
@@ -1085,7 +1282,7 @@ def test_razor_pair_reuse_gate_does_not_count_a_declined_plan(tmp_path, monkeypa
     gate that counted plans built would pass it without the reuse having
     run. The reuse line counts that plan as declined, and the gate's proof
     (`_reuse_ran`) is false on it."""
-    monkeypatch.delenv("MOMWIRE_X_RAZOR_PAIR_REUSE", raising=False)
+    _no_reuse_vars(monkeypatch)
     name = "reuse_declines.nec"
 
     def prepare(d):
@@ -1108,12 +1305,13 @@ def test_razor_pair_reuse_gate_does_not_count_a_declined_plan(tmp_path, monkeypa
 def test_razor_pair_reuse_unset_or_off_moves_no_byte(deck, tmp_path, monkeypatch):
     """Unset or off, either executable's printout is the launcher's, byte for
     byte, with no feature on line 2."""
-    monkeypatch.delenv("MOMWIRE_X_RAZOR_PAIR_REUSE", raising=False)
+    _no_reuse_vars(monkeypatch)
 
     def prepare(d):
         shutil.copy(deck, d / deck.name)
 
-    for i, env in enumerate((None, {"MOMWIRE_X_RAZOR_PAIR_REUSE": "0"})):
+    offs = [None] + [{var: "0"} for var in _REUSE_VARS_1971]
+    for i, env in enumerate(offs):
         run = tmp_path / str(i)
         run.mkdir()
         exe, ref, de, dl = _both(
@@ -1122,7 +1320,7 @@ def test_razor_pair_reuse_unset_or_off_moves_no_byte(deck, tmp_path, monkeypatch
         assert exe.returncode == 0, exe.stderr
         _same(exe, ref, de, dl)
         line2 = (de / "reuse.out").read_bytes().split(b"\n")[1]
-        assert b"+razor_pair_reuse" not in line2, line2
+        assert b"+" not in line2, line2
 
 
 @pytest.mark.skipif(BASIS != "bs2", reason="nec5-bs2's refusal")
@@ -1147,6 +1345,216 @@ def test_nec5_bspline_refuses_razor_pair_reuse_by_basis(tmp_path, monkeypatch):
     assert r.returncode == 2, (r.stdout, r.stderr)
     assert r.stderr == _features.EXE_REFUSAL.format(name="razor_pair_reuse") + "\n"
     assert not (tmp_path / "reuse.out").exists()
+
+
+# --- per-deck pragmas: `CM momwire: <name>` (`_features.deck_pragmas`) --------
+#
+# A deck's pragma card reads as the feature's variable set on, for that deck
+# alone, through the same resolution the variable takes (`DeckPragmas` in
+# standalone/momwire_razor2p.cpp): nec5-razor2p runs its part, nec5-bs2
+# withholds the whole, and the variable at "0" beats the card. These
+# executables carry pair_reuse only: a rotational_symmetry card is ignored,
+# never refused, and named on line 2.
+
+_PRAGMA = "CM momwire: pair_reuse\n"
+_ROT_PRAGMA = "CM momwire: rotational_symmetry\n"
+_ROT_NOTE = b" (pragma ignored: rotational_symmetry)"
+
+
+@pytest.mark.skipif(BASIS != "razor2p", reason="razor2p's reuse")
+@pytest.mark.parametrize("ground", sorted(_REUSE_DECKS_1971))
+def test_the_pair_reuse_pragma_runs_as_the_launcher(ground, tmp_path, monkeypatch):
+    """The card alone: the launcher's bytes, line 2 naming +pair_reuse on
+    both, the reuse RUN (a plan built that did not decline), and every other
+    byte the variable's. The variable at "0" beats it: no plan, no stamp,
+    still the launcher's bytes."""
+    _no_reuse_vars(monkeypatch)
+    name = "pragma.nec"
+
+    def prepare(d):
+        (d / name).write_text(_PRAGMA + _REUSE_DECKS_1971[ground], newline="")
+
+    lines = {}
+    for state in (None, "1", "0"):
+        run = tmp_path / str(state)
+        run.mkdir()
+        env = {"MW_EXE_TIMES": "1"}
+        if state is not None:
+            env["MOMWIRE_X_PAIR_REUSE"] = state
+        exe, ref, de, dl = _both([name, "p.out"], run, prepare=prepare, env=env)
+        assert exe.returncode == 0, exe.stderr
+        _same(exe, ref, de, dl)
+        built, declined, _found = _reuse_counts(exe.stderr)
+        assert _reuse_ran(built, declined) == (state != "0"), (state, built, declined)
+        lines[state] = (de / "p.out").read_bytes()
+    assert lines[None] == lines["1"]
+    assert lines[None].split(b"\n")[1].rstrip().endswith(b" +pair_reuse")
+    assert b"+" not in lines["0"].split(b"\n")[1]
+
+
+@pytest.mark.skipif(BASIS != "bs2", reason="nec5-bs2's reuse")
+def test_nec5_bspline_runs_the_pair_reuse_pragma_as_the_variable(tmp_path, monkeypatch):
+    """nec5-bs2 runs bs2's reuse (momwire#2063), so the card does what the
+    variable does on this executable: a plan built, line 2 naming
+    +pair_reuse, and the card's printout the variable's, byte for byte."""
+    _no_reuse_vars(monkeypatch)
+    deck = tmp_path / "pragma.nec"
+    deck.write_text(_PRAGMA + _REUSE_DECKS_1971["free"], newline="")
+    outs = {}
+    for state in (None, "1"):
+        env = dict(os.environ, MW_EXE_TIMES="1")
+        if state is not None:
+            env["MOMWIRE_X_PAIR_REUSE"] = state
+        out = tmp_path / f"{state}.out"
+        r = subprocess.run(
+            [EXE, deck.name, out.name], cwd=tmp_path, env=env, capture_output=True
+        )
+        assert r.returncode == 0, r.stderr
+        assert _reuse_counts(r.stderr)[0] >= 1, r.stderr
+        outs[state] = out.read_bytes()
+    assert b"NEC ERROR" not in outs[None]
+    assert outs[None] == outs["1"]
+    assert b"+pair_reuse" in outs[None].split(b"\n")[1]
+
+
+def test_a_rotational_symmetry_pragma_is_ignored_not_refused(tmp_path, monkeypatch):
+    """The executables carry no rotational symmetry (the drop-ins' alone),
+    so its card is ignored: exit 0, a printout, and line 2 says so; every
+    other byte is the deck's with the card spelled as prose."""
+    _no_reuse_vars(monkeypatch)
+    monkeypatch.delenv("MOMWIRE_X_ROTATIONAL_SYMMETRY", raising=False)
+    body = DIPOLE.read_text(encoding="latin-1")
+    outs = {}
+    for key, head in (
+        ("card", _ROT_PRAGMA),
+        ("prose", "CM momwire- rotational_symmetry\n"),
+    ):
+        deck = tmp_path / f"{key}.nec"
+        deck.write_text(head + body, encoding="latin-1", newline="")
+        out = tmp_path / f"{key}.out"
+        r = subprocess.run(
+            [EXE, deck.name, out.name], cwd=tmp_path, capture_output=True, check=False
+        )
+        assert r.returncode == 0 and r.stderr == b"", r
+        outs[key] = out.read_bytes().split(b"\n")
+    card, prose = outs["card"], outs["prose"]
+    assert card[1].rstrip(b"\r") == prose[1].rstrip(b"\r") + _ROT_NOTE
+    assert [x.replace(b"momwire:", b"momwire-") for x in card[2:]] == prose[2:]
+
+
+# The reader's table (tests/test_deck_pragma.py) through both programs: every
+# name is one this build does not take, so line 2's "(pragma ignored: ...)"
+# shows exactly what each reader found, in order.
+_READER_CASES = (
+    "CM momwire: zq\n",
+    "cm MOMWIRE: Zq\n",
+    "  \tCM \t momwire:\t  zq tail\n",
+    "CM \tmomwire: zq\n",
+    "CMmomwire:zq\n",
+    "CM momwire: zq,zr\n",
+    "CM momwire: zq-x\n",
+    "CM momwire: 42x\n",
+    "CM momwire:\n",
+    "CM momwire: ??? zq\n",
+    "CM uses momwire: zq\n",
+    "CM momwire : zq\n",
+    "CE momwire: zq\n",
+    "CM momwire: zq\nCM momwire: zr\nCM momwire: ZQ\n",
+    "CM a\r\nCM momwire: zq\r\n",
+    "CM momwire: zq\xe9x\n",
+    "CM momwire: \xb2zq\n",
+)
+
+
+@pytest.mark.parametrize("cards", _READER_CASES)
+def test_the_pragma_reader_is_pythons(cards, tmp_path):
+    from momwire import _features
+
+    name = "reader.nec"
+
+    def prepare(d):
+        body = DIPOLE.read_bytes().decode("latin-1")
+        (d / name).write_bytes((cards + body).encode("latin-1"))
+
+    exe, ref, de, dl = _both([name, "r.out"], tmp_path, prepare=prepare)
+    assert exe.returncode == 0, exe.stderr
+    _same(exe, ref, de, dl)
+    line2 = (de / "r.out").read_bytes().split(b"\n")[1].rstrip(b"\r").decode("latin-1")
+    found = _features.deck_pragmas(cards)
+    if found:
+        assert line2.endswith(f" (pragma ignored: {', '.join(found)})"), line2
+    else:
+        assert "pragma" not in line2, line2
+
+
+# Line 2 past its 79 columns (momwire#2158): the note's names go first, then
+# the note, and the basis name stays. Ten ignored names, one card each, overflow
+# with the names and fit as "(pragma ignored)"; one name of a hundred and
+# twenty characters is cut the same way, since the note's short form fits.
+_OVERLONG_CASES = (
+    "".join(f"CM momwire: zq{i:02d}\n" for i in range(10)),
+    "CM momwire: " + "z" * 120 + "\n",
+)
+
+
+@pytest.mark.parametrize("cards", _OVERLONG_CASES, ids=["ten-names", "one-long-name"])
+def test_an_overlong_line_2_is_cut_as_pythons(cards, tmp_path):
+    name = "long.nec"
+
+    def prepare(d):
+        body = DIPOLE.read_bytes().decode("latin-1")
+        (d / name).write_bytes((cards + body).encode("latin-1"))
+
+    exe, ref, de, dl = _both([name, "r.out"], tmp_path, prepare=prepare)
+    assert exe.returncode == 0, exe.stderr
+    _same(exe, ref, de, dl)
+    line2 = (de / "r.out").read_bytes().split(b"\n")[1].rstrip(b"\r").decode("latin-1")
+    assert len(line2) <= 79, line2
+    assert f" {BASIS} " in line2, line2
+    assert line2.endswith(" (pragma ignored)"), line2
+
+
+@pytest.mark.skipif(BASIS != "razor2p", reason="razor2p's reuse")
+def test_the_pragma_is_per_structure_in_a_stream(tmp_path, monkeypatch):
+    """SimNEC's `- -`, one process: a structure with the card, one without,
+    one with again. Each printout is the launcher's, line 2 naming the
+    reuse on the first and third only, and the plans built are the two
+    structures that asked."""
+    _no_reuse_vars(monkeypatch)
+    body = _REUSE_DECKS_1971["free"].replace("EN\n", "NX\n")
+    stream = (_PRAGMA + body + body + _PRAGMA + body).encode("latin-1")
+    runs = []
+    for name, prog in (("exe", EXE), ("launcher", _launcher())):
+        d = tmp_path / name
+        d.mkdir()
+        runs.append(
+            subprocess.run(
+                [prog, "-", "-"],
+                cwd=d,
+                input=stream,
+                env=dict(os.environ, MW_EXE_TIMES="1"),
+                capture_output=True,
+                check=False,
+            )
+        )
+    exe, ref = runs
+    assert (
+        (exe.returncode, exe.stdout) == (ref.returncode, ref.stdout) == (0, ref.stdout)
+    )
+    # MW_EXE_TIMES's reuse line after each structure (process totals)
+    totals = [
+        (int(m[1]) - int(m[2]), int(m[3]))
+        for m in _REUSE_LINE.finditer(exe.stderr.decode("latin-1"))
+    ]
+    assert len(totals) == 3, exe.stderr
+    ran = [b != a for a, b in zip([(0, 0), *totals], totals, strict=False)]
+    assert ran == [True, False, True], totals
+    stamps = [
+        b" +pair_reuse" in line
+        for line in exe.stdout.split(b"\n")
+        if line.startswith(b" momwire ")
+    ]
+    assert stamps == [True, False, True], stamps
 
 
 # --- one bound across every build's store (momwire#2014) ----------------------

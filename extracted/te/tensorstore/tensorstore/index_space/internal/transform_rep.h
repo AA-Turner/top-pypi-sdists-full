@@ -297,7 +297,10 @@ struct TransformRep {
   ///        `index_array_data.byte_strides[0:input_rank]` must specify a valid
   ///        array of shape `input_shape()[0:input_rank]`.
   span<OutputIndexMap> output_index_maps() {
-    return span(reinterpret_cast<OutputIndexMap*>(this) - output_rank_capacity,
+    return span(reinterpret_cast<OutputIndexMap*>(
+                    reinterpret_cast<unsigned char*>(this) -
+                    static_cast<ptrdiff_t>(sizeof(OutputIndexMap)) *
+                        output_rank_capacity),
                 output_rank_capacity);
   }
 
@@ -466,13 +469,13 @@ class InputDimensionsView {
   DimensionIndex size_;
 };
 
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE InputDimensionsView
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline InputDimensionsView
 TransformRep::all_input_dimensions(DimensionIndex rank) {
   assert(rank >= 0 && rank <= input_rank_capacity);
   return InputDimensionsView(this, rank);
 }
 
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE InputDimensionRef
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline InputDimensionRef
 TransformRep::input_dimension(DimensionIndex i) {
   assert(i >= 0 && i <= input_rank_capacity);
   return InputDimensionRef(this, i);

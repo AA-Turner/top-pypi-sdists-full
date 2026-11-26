@@ -19,7 +19,7 @@ class DescribeDBInstanceDataBloatResponseBody(DaraModel):
         self.items = items
         # The current page number.
         self.page_number = page_number
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
         # The total number of tables. The total number of pages is calculated by dividing this value by the page size.
         self.total_count = total_count
@@ -86,17 +86,17 @@ class DescribeDBInstanceDataBloatResponseBodyItems(DaraModel):
         time_last_updated: str = None,
         time_last_vacuumed: str = None,
     ):
-        # The data bloat coefficient. The bloat coefficient is calculated by using the following formula:
+        # The data bloat coefficient. The formula for calculating the bloat coefficient is as follows:
         # 
-        # Number of dead rows counted by the system / Number of live rows counted by the system.
+        # Number of dead rows counted by the system / Number of active rows counted by the system.
         self.bloat_ceoff = bloat_ceoff
-        # The size of the bloated data, which indicates the amount of space that can be reclaimed.
+        # The size of the bloated table, which indicates the amount of space that can be released.
         self.bloat_size = bloat_size
         # The name of the database.
         self.database_name = database_name
         # The expected table size.
         # 
-        # The expected table size is the estimated size of the table when no data bloat occurs.
+        # The expected table size is the estimated table size when no data bloat occurs.
         self.expect_table_size = expect_table_size
         # The actual table size.
         self.real_table_size = real_table_size
@@ -106,9 +106,9 @@ class DescribeDBInstanceDataBloatResponseBodyItems(DaraModel):
         self.sequence = sequence
         # The storage type of the table. Valid values:
         # 
-        # - **Heap Table**: heap table
-        # - **Append-Only Heap Table**: append-only heap table
-        # - **Append-Only Columnar Table**: column-oriented table
+        # - **Heap Table**: Heap table.
+        # - **Append-Only Heap Table**: Append-Only heap table.
+        # - **Append-Only Columnar Table**: Column-oriented table.
         self.storage_type = storage_type
         # This parameter is not returned.
         self.suggested_action = suggested_action
@@ -116,7 +116,7 @@ class DescribeDBInstanceDataBloatResponseBodyItems(DaraModel):
         self.table_name = table_name
         # The time when the table was last updated by a DELETE, INSERT, or UPDATE operation.
         self.time_last_updated = time_last_updated
-        # The time when the table was last vacuumed. The time is displayed in UTC.
+        # The time when the table was last vacuumed (UTC).
         self.time_last_vacuumed = time_last_vacuumed
 
     def validate(self):

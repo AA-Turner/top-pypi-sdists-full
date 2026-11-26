@@ -139,8 +139,8 @@ class Hooks:
 
             if post_hooks:
                 try:
-                    _, pre_hook_last_modified = (
-                        self._freshness.get_target_table_type_and_last_modified_epoch(node)
+                    pre_hook_last_modified = self._baseline_last_modified_epochs([node]).get(
+                        node.unique_id
                     )
                 except Exception:
                     events.fire_debug_event(
@@ -245,11 +245,15 @@ class Hooks:
                 the target table, as the next run will then rebuild the model
         """
         try:
-            _, post_hook_last_modified = (
-                self._freshness.get_target_table_type_and_last_modified_epoch(node)
-            )
+            post_hook_last_modified = self._freshness.get_target_actual_last_modified_epochs(
+                [node]
+            ).get(node.unique_id)
 
-            if post_hook_last_modified is None or post_hook_last_modified == pre_hook_last_modified:
+            if (
+                post_hook_last_modified is None
+                or pre_hook_last_modified is None
+                or not self._table_changed(pre_hook_last_modified, post_hook_last_modified)
+            ):
                 return
 
             if skip_update:
@@ -318,16 +322,31 @@ class Hooks:
                 self._on_run_end_targets.append((parts, tracked_execution.unique_id))
         self._baseline_on_run_end_targets()
 
+    def _table_changed(self, before: int, after: int) -> bool:
+        """Heuristic baselines are a "now" estimate, so only a later epoch is a change. Real epochs can
+        decrease (e.g. Postgres after deleting the newest row), so any difference is a change."""
+        if self._freshness.uses_heuristic_clock_for_last_modified:
+            return after > before
+        return after != before
+
+    def _baseline_last_modified_epochs(
+        self, nodes: t.Sequence[ModelOrSnapshotOrTestOrSeedNode]
+    ) -> t.Dict[str, t.Optional[int]]:
+        """Pre-write baseline for detecting hook writes. Never touches the last-modified cache on heuristic engines."""
+        if not nodes:
+            return {}
+        if self._freshness.uses_heuristic_clock_for_last_modified and (
+            now := self._freshness.get_heuristic_now_epoch()
+        ):
+            return {node.unique_id: now for node in nodes}
+        return self._freshness.get_target_actual_last_modified_epochs(nodes)
+
     def _baseline_on_run_end_targets(self) -> None:
         unique_ids = [uid for _, uid in self._on_run_end_targets]
         if not unique_ids:
             return
-        if self._freshness.uses_heuristic_clock_for_last_modified:
-            epoch = self._freshness.get_heuristic_now_epoch()
-            self._on_run_end_baseline = {uid: epoch for uid in unique_ids}
-            return
         nodes = [self._tracked_executions[uid].node for uid in unique_ids]
-        epochs = self._freshness.get_target_actual_last_modified_epochs(nodes)
+        epochs = self._baseline_last_modified_epochs(nodes)
         self._on_run_end_baseline = {uid: epochs.get(uid) for uid in unique_ids}
 
     def _match_tracked_node(self, parts: t.List[str]) -> t.Optional[str]:
@@ -380,7 +399,7 @@ class Hooks:
             tracked_execution = self._tracked_executions[unique_id]
             try:
                 after = afters.get(unique_id)
-                if after is None or before is None or after <= before:
+                if after is None or before is None or not self._table_changed(before, after):
                     continue
                 if tracked_execution.skip_update:
                     if tracked_execution.warn_on_skip:

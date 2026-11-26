@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import math
 import time
 import zoneinfo
 from datetime import timezone
@@ -17,7 +18,7 @@ from rock.actions import (
     WriteFileResponse,
 )
 from rock.actions.sandbox.response import State
-from rock.actions.sandbox.sandbox_info import SandboxInfo
+from rock.actions.sandbox.sandbox_info import SandboxInfo, is_missing_host_ip
 from rock.admin.core.ray_service import RayService
 from rock.admin.metrics.decorator import monitor_sandbox_operation
 from rock.admin.proto.request import ClusterInfo, UserInfo
@@ -31,6 +32,7 @@ from rock.admin.proto.response import SandboxStartResponse, SandboxStatusRespons
 from rock.common.constants import DeleteReason, StopReason
 from rock.config import RockConfig, RuntimeConfig
 from rock.deployments.config import DeploymentConfig, DockerDeploymentConfig
+from rock.deployments.start_config import apply_start_config
 from rock.logger import init_logger
 from rock.rocklet import __version__ as swe_version
 from rock.sandbox import __version__ as gateway_version
@@ -45,13 +47,16 @@ from rock.sandbox.sandbox_statemachine import (
 )
 from rock.sandbox.service.factory import create_sandbox_proxy_service
 from rock.sandbox.utils.timeout import SandboxTimeoutHelper
-from rock.sdk.common.exceptions import BadRequestRockError
+from rock.sdk.common.exceptions import BadRequestRockError, SandboxNotFoundRockError
 from rock.utils import REQUEST_TIMEOUT_SECONDS, StageTimer
 from rock.utils.crypto_utils import AESEncryption
 from rock.utils.format import convert_to_gb, parse_size_to_bytes
 from rock.utils.system import get_iso8601_timestamp
 
 logger = init_logger(__name__)
+
+# Bound batch-wide fan-out to protect the Ray control plane.
+_AUTO_DELETE_CONCURRENCY = 50
 
 
 class SandboxManager(BaseManager):
@@ -83,6 +88,10 @@ class SandboxManager(BaseManager):
         self._aes_encrypter = AESEncryption(aes_encrypt_key)
         self._proxy_service = create_sandbox_proxy_service(rock_config=rock_config, meta_store=meta_store)
         logger.info("sandbox service init success")
+
+    @property
+    def supports_running_delete(self) -> bool:
+        return bool(self._operator and self._operator.supports_running_delete)
 
     def _init_archive_storage(self, rock_config: RockConfig) -> None:
         archive_cfg = rock_config.lifecycle.archive
@@ -139,28 +148,48 @@ class SandboxManager(BaseManager):
 
     @monitor_sandbox_operation()
     async def start_async(
-        self, config: DeploymentConfig, user_info: UserInfo = {}, cluster_info: ClusterInfo = {}
+        self,
+        config: DeploymentConfig,
+        user_info: UserInfo = {},
+        cluster_info: ClusterInfo = {},
+        *,
+        use_template_resource_spec: bool = False,
+        apply_image_mirror: bool = True,
     ) -> SandboxStartResponse:
         await self._check_sandbox_exists_in_redis(config)
+
+        if isinstance(config, DockerDeploymentConfig):
+            await self.rock_config.update()
+            await apply_start_config(
+                self.rock_config,
+                config,
+                user_info.get("rock_authorization"),
+                apply_image_mirror=apply_image_mirror,
+            )
+
         with StageTimer("startup_timing", f"[{config.image}] Init config", logger):
-            docker_deployment_config: DockerDeploymentConfig = await self.deployment_manager.init_config(config)
-        # init_config refreshes the cached Nacos settings; validate only after
-        # that refresh so a changed max_allowed_spec applies to this request.
+            if isinstance(config, DockerDeploymentConfig):
+                docker_deployment_config: DockerDeploymentConfig = await self.deployment_manager.init_config(
+                    config,
+                    refresh_config=False,
+                )
+            else:
+                docker_deployment_config = await self.deployment_manager.init_config(config)
+        # Nacos is refreshed before normalization for Docker configs, or by
+        # init_config for other config types. Validate only after that refresh.
         self.validate_sandbox_spec(self.rock_config.runtime, config)
 
         sandbox_id = docker_deployment_config.container_name
-        if self.rock_config.runtime.use_standard_spec_only:
-            logger.info(
-                f"[{sandbox_id}] Using standard spec only: "
-                f"cpus={self.rock_config.runtime.standard_spec.cpus}, "
-                f"memory={self.rock_config.runtime.standard_spec.memory}"
-            )
-            docker_deployment_config.cpus = self.rock_config.runtime.standard_spec.cpus
-            docker_deployment_config.memory = self.rock_config.runtime.standard_spec.memory
+        self._apply_standard_spec(
+            docker_deployment_config,
+            use_template_resource_spec=use_template_resource_spec,
+        )
 
         sandbox_info: SandboxInfo = {
             "sandbox_id": sandbox_id,
             "image": docker_deployment_config.image,
+            "metadata": dict(docker_deployment_config.metadata),
+            "env": dict(docker_deployment_config.env_vars),
             "cpus": docker_deployment_config.cpus,
             "memory": docker_deployment_config.memory,
             "num_gpus": docker_deployment_config.num_gpus,
@@ -215,6 +244,21 @@ class SandboxManager(BaseManager):
             disk=sandbox_info.get("disk"),
             disk_limit_rootfs=sandbox_info.get("disk"),
         )
+
+    def _apply_standard_spec(
+        self,
+        config: DockerDeploymentConfig,
+        *,
+        use_template_resource_spec: bool = False,
+    ) -> None:
+        if self.rock_config.runtime.use_standard_spec_only and not use_template_resource_spec:
+            logger.info(
+                f"[{config.container_name}] Using standard spec only: "
+                f"cpus={self.rock_config.runtime.standard_spec.cpus}, "
+                f"memory={self.rock_config.runtime.standard_spec.memory}"
+            )
+            config.cpus = self.rock_config.runtime.standard_spec.cpus
+            config.memory = self.rock_config.runtime.standard_spec.memory
 
     def _apply_user_auto_transition_policy(self, config: DockerDeploymentConfig) -> None:
         """Resolve the effective policy and enforce the cluster deadline cap."""
@@ -277,18 +321,64 @@ class SandboxManager(BaseManager):
         )
 
     @monitor_sandbox_operation()
-    async def start(self, config: DeploymentConfig) -> SandboxStartResponse:
-        response = await self.start_async(config)
+    async def start(
+        self,
+        config: DeploymentConfig,
+        user_info: UserInfo = {},
+        cluster_info: ClusterInfo = {},
+    ) -> SandboxStartResponse:
+        return await self._start_and_wait(config, user_info=user_info, cluster_info=cluster_info)
+
+    @monitor_sandbox_operation()
+    async def start_from_template(
+        self,
+        config: DeploymentConfig,
+        user_info: UserInfo = {},
+        cluster_info: ClusterInfo = {},
+        *,
+        wait_timeout: float | None = None,
+    ) -> SandboxStartResponse:
+        return await self._start_and_wait(
+            config,
+            user_info=user_info,
+            cluster_info=cluster_info,
+            use_template_resource_spec=True,
+            apply_image_mirror=False,
+            wait_timeout=wait_timeout,
+        )
+
+    async def _start_and_wait(
+        self,
+        config: DeploymentConfig,
+        user_info: UserInfo,
+        cluster_info: ClusterInfo,
+        *,
+        use_template_resource_spec: bool = False,
+        wait_timeout: float | None = None,
+        apply_image_mirror: bool = True,
+    ) -> SandboxStartResponse:
+        response = await self.start_async(
+            config,
+            user_info=user_info,
+            cluster_info=cluster_info,
+            use_template_resource_spec=use_template_resource_spec,
+            apply_image_mirror=apply_image_mirror,
+        )
         sandbox_id = response.sandbox_id
-        deadline = time.time() + REQUEST_TIMEOUT_SECONDS
-        with StageTimer("startup_timing", f"[{sandbox_id}] Wait sandbox running", logger):
+        wait_timeout = REQUEST_TIMEOUT_SECONDS if wait_timeout is None else wait_timeout
+
+        async def poll_until_running():
             while True:
-                status = await self.get_status(sandbox_id)
-                if status.is_alive:
-                    break
-                if time.time() >= deadline:
-                    raise TimeoutError(f"sandbox {sandbox_id} not running after {REQUEST_TIMEOUT_SECONDS}s")
                 await asyncio.sleep(1)
+                status = await self.get_status(sandbox_id)
+                if status.is_alive and status.host_ip:
+                    return
+
+        with StageTimer("startup_timing", f"[{sandbox_id}] Wait sandbox running", logger):
+            try:
+                await asyncio.wait_for(poll_until_running(), timeout=wait_timeout)
+            except asyncio.TimeoutError as exc:
+                raise TimeoutError(f"sandbox {sandbox_id} not running after {wait_timeout}s") from exc
         return response
 
     @monitor_sandbox_operation()
@@ -415,13 +505,19 @@ class SandboxManager(BaseManager):
         return operator_sandbox_info
 
     @monitor_sandbox_operation()
-    async def get_status(self, sandbox_id, include_all_states: bool = False) -> SandboxStatusResponse:
+    async def get_status(
+        self,
+        sandbox_id,
+        include_all_states: bool = False,
+        refresh_timeout: bool = True,
+    ) -> SandboxStatusResponse:
         sandbox_info = await self._meta_store.get(sandbox_id, check_db=True)
         if sandbox_info is None:
             raise BadRequestRockError(f"Sandbox {sandbox_id} not found")
 
         state = sandbox_info.get("state")
         is_alive = False
+        status_persisted = False
         operator_sandbox_info: SandboxInfo | None = await self._operator.get_status(sandbox_id=sandbox_id)
         if operator_sandbox_info is not None:
             is_alive = operator_sandbox_info.get("state") == State.RUNNING
@@ -432,8 +528,18 @@ class SandboxManager(BaseManager):
                     await sm.send(
                         "alive", sandbox_id=sandbox_id, meta_store=self._meta_store, sandbox_info=operator_sandbox_info
                     )
+                    status_persisted = True
 
-            if operator_sandbox_info.get("state") in (State.PENDING, State.RUNNING):
+            operator_host_ip = operator_sandbox_info.get("host_ip")
+            if (
+                not status_persisted
+                and is_missing_host_ip(sandbox_info.get("host_ip"))
+                and isinstance(operator_host_ip, str)
+                and not is_missing_host_ip(operator_host_ip)
+            ):
+                await self._meta_store.update_host_ip_if_missing(sandbox_id, operator_host_ip)
+
+            if refresh_timeout and operator_sandbox_info.get("state") in (State.PENDING, State.RUNNING):
                 await self._refresh_timeout(sandbox_id)
 
         if state == State.ARCHIVING:
@@ -467,6 +573,7 @@ class SandboxManager(BaseManager):
             host_ip=sandbox_info.get("host_ip"),
             is_alive=is_alive,
             image=sandbox_info.get("image"),
+            metadata=sandbox_info.get("metadata"),
             swe_rex_version=swe_version,
             gateway_version=gateway_version,
             user_id=sandbox_info.get("user_id"),
@@ -526,6 +633,22 @@ class SandboxManager(BaseManager):
     @monitor_sandbox_operation()
     async def upload(self, file: UploadFile, target_path: str, sandbox_id: str) -> UploadResponse:
         return await self._proxy_service.upload(file, target_path, sandbox_id)
+
+    async def set_timeout(self, sandbox_id: str, timeout_seconds: int) -> None:
+        try:
+            status = await self.get_status(
+                sandbox_id,
+                include_all_states=True,
+                refresh_timeout=False,
+            )
+        except BadRequestRockError:
+            raise SandboxNotFoundRockError(f"Sandbox {sandbox_id} not found") from None
+        if status.state != State.RUNNING:
+            raise BadRequestRockError(f"Sandbox {sandbox_id} is not running")
+        await self._meta_store.update_timeout(
+            sandbox_id,
+            SandboxTimeoutHelper.make_timeout_info(math.ceil(timeout_seconds / 60)),
+        )
 
     async def _refresh_timeout(self, sandbox_id: str) -> None:
         timeout_info = await self._meta_store.get_timeout(sandbox_id)
@@ -592,33 +715,50 @@ class SandboxManager(BaseManager):
                 State.STOPPED.value,
                 State.DELETED.value,
                 now,
-                limit=1000,
+                limit=2000,
             )
         except Exception as e:
             logger.warning(f"[auto_delete] list_expired_by failed: {e}")
             return
 
         logger.info(f"[auto_delete] candidates={len(candidates)}, due_at={now.isoformat(timespec='seconds')}")
-        deleted_count = 0
-        for info in candidates:
+        deleted_count = await self._delete_expired_candidates(candidates, now, log_prefix="auto_delete")
+        logger.info(f"[auto_delete] done: deleted={deleted_count}/{len(candidates)}")
+
+    async def _delete_expired_candidates(
+        self,
+        candidates: list[SandboxInfo],
+        now: datetime.datetime,
+        *,
+        log_prefix: str,
+    ) -> int:
+        """Delete due candidates concurrently without exceeding the Ray call budget."""
+        semaphore = asyncio.Semaphore(_AUTO_DELETE_CONCURRENCY)
+
+        async def delete_one(info: SandboxInfo) -> bool:
             sandbox_id = info.get("sandbox_id", "")
             if not sandbox_id:
-                continue
+                return False
 
             due_time = SandboxLifecycleHelper.parse_iso8601_timestamp(info.get("auto_transition_time"))
             if due_time is None:
-                continue
+                return False
 
             if now < due_time:
-                logger.info(f"[auto_delete] {sandbox_id} (state={info.get('state')}) not due until {due_time}")
-                continue
-            try:
-                logger.info(f"[auto_delete] {sandbox_id} (state={info.get('state')}) due at {due_time}, deleting")
-                await self.delete(sandbox_id, reason=DeleteReason.EXPIRED)
-                deleted_count += 1
-            except Exception as e:
-                logger.error(f"[auto_delete] {sandbox_id}: {e}", exc_info=True)
-        logger.info(f"[auto_delete] done: deleted={deleted_count}/{len(candidates)}")
+                logger.info(f"[{log_prefix}] {sandbox_id} (state={info.get('state')}) not due until {due_time}")
+                return False
+
+            async with semaphore:
+                try:
+                    logger.info(f"[{log_prefix}] {sandbox_id} (state={info.get('state')}) due at {due_time}, deleting")
+                    await self.delete(sandbox_id, reason=DeleteReason.EXPIRED)
+                    return True
+                except Exception as e:
+                    logger.error(f"[{log_prefix}] {sandbox_id}: {e}", exc_info=True)
+                    return False
+
+        results = await asyncio.gather(*(delete_one(info) for info in candidates))
+        return sum(results)
 
     async def _auto_delete_archived(self) -> None:
         """Delete ARCHIVED sandboxes at the cluster archive-retention deadline."""
@@ -636,25 +776,7 @@ class SandboxManager(BaseManager):
             return
 
         logger.info(f"[auto_delete_archived] candidates={len(candidates)}, due_at={now.isoformat(timespec='seconds')}")
-        deleted_count = 0
-        for info in candidates:
-            sandbox_id = info.get("sandbox_id", "")
-            if not sandbox_id:
-                continue
-
-            due_time = SandboxLifecycleHelper.parse_iso8601_timestamp(info.get("auto_transition_time"))
-            if due_time is None:
-                continue
-            if now < due_time:
-                logger.info(f"[auto_delete_archived] {sandbox_id} not due until {due_time}")
-                continue
-
-            try:
-                logger.info(f"[auto_delete_archived] {sandbox_id} due at {due_time}, deleting")
-                await self.delete(sandbox_id, reason=DeleteReason.EXPIRED)
-                deleted_count += 1
-            except Exception as e:
-                logger.error(f"[auto_delete_archived] {sandbox_id}: {e}", exc_info=True)
+        deleted_count = await self._delete_expired_candidates(candidates, now, log_prefix="auto_delete_archived")
         logger.info(f"[auto_delete_archived] done: deleted={deleted_count}/{len(candidates)}")
 
     async def _auto_archive_stopped(self) -> None:

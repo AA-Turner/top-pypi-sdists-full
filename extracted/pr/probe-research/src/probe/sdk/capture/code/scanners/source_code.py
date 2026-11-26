@@ -25,6 +25,9 @@ _SOURCE_SUFFIXES = (
 #: The shared rules, picked once: every rule with decoding, or the quick check past FULL_SCAN_MAX_BYTES.
 _FULL_SCANNER = get_scanner(ScanDepth.FULL)
 _QUICK_SCANNER = get_scanner(ScanDepth.QUICK)
+#: What a source file gets instead (T51 R1-B): every rule read `name = <expr>` code as a key
+#: (14 of 2,117 files in agent/src withheld, 3.9 s); the vendor shapes never do (0.45 s).
+_VENDOR_SCANNER = get_scanner(ScanDepth.VENDOR)
 _KEY_NAME_RULE = "anchored-secret"
 #: A field name that marks its value as a credential, matched anywhere in the
 #: KEY of a `key = value` / `key: value` pair (camelCase included). The scanner
@@ -321,8 +324,17 @@ def _notebook_rules(raw: bytes | bytearray, deadline: float | None = None) -> se
     return _counted_rules(code, findings, True, deadline)
 
 
+def find_vendor_shapes(raw: bytes | bytearray, codec: str | None = None) -> set[str]:
+    """Rule names of the vendor-shaped credentials in ``raw`` (`VendorScanner`), in each
+    text view. A scanner failure is a finding (``inspection-failed``)."""
+    try:
+        return {f.rule for text, _ in _text_views(raw, codec) for f in _VENDOR_SCANNER.scan(text)}
+    except Exception:  # noqa: BLE001 -- fail closed: unscanned bytes stay home
+        return {"inspection-failed"}
+
+
 def credential_rules(
-    raw: bytes | bytearray, name: str, *, deadline: float | None = None
+    raw: bytes | bytearray, name: str, *, deadline: float | None = None, is_vendor_only: bool = False
 ) -> tuple[str, ...]:
     """Rule names (never a matched value) of the credentials in ``raw``; empty
     when it looks clean. ``name`` is the file's basename. Past ``deadline`` (a
@@ -342,11 +354,17 @@ def credential_rules(
     are opened separately (``_archive_rules``); a notebook's code cells are read
     again, JSON-decoded, as Python source (``_notebook_rules``).
 
+    A source file (and any file when ``is_vendor_only``: the snapshot's time is spent)
+    gets only the vendor-shaped rules (``find_vendor_shapes``): a key with no maker's
+    shape typed into code is a known miss (T51 R1-B).
+
     A scanner failure is a finding: a file that could not be checked does not
     ship.
     """
     lowered = name.lower()
     code = lowered.endswith(_SOURCE_SUFFIXES)
+    if code or is_vendor_only:
+        return tuple(sorted(find_vendor_shapes(raw)))
     rules: set[str] = set()
     try:
         for text, is_text in _text_views(raw):
@@ -365,11 +383,16 @@ def credential_rules(
     return tuple(sorted(rules))
 
 
-def _chunk_rules(chunk: bytes | bytearray, name: str, codec: str | None = None) -> set[str]:
+def _chunk_rules(
+    chunk: bytes | bytearray, name: str, codec: str | None = None, *, is_vendor_only: bool = False
+) -> set[str]:
     """One window of a big file: the quick check over a latin-1 view (length-
     preserving, so lowering it is cheap; every rule's shape is ASCII), plus a
-    UTF-16 view when the file is UTF-16 (windows stay on even byte offsets)."""
+    UTF-16 view when the file is UTF-16 (windows stay on even byte offsets). A
+    source file's window (or any, ``is_vendor_only``) gets the vendor-shaped rules only."""
     code = name.lower().endswith(_SOURCE_SUFFIXES)
+    if code or is_vendor_only:
+        return find_vendor_shapes(chunk, codec)
     views = [(chunk.decode("latin-1"), code)]
     if codec:
         views.insert(0, (bytes(chunk).decode(codec, "replace"), code))

@@ -19,6 +19,8 @@ categories.workspace = true
 readme = "README.md"
 
 [features]
+# Opt-in script compiler; preserves ordinary Bash syntax and AST fallback.
+experimental_execution_plan = ["bashkit/experimental_execution_plan"]
 default = []
 # Expose registry tools to embedded Python (`python`/`python3` builtins).
 python = ["bashkit/python"]
@@ -30,7 +32,7 @@ jq = ["bashkit/jq"]
 tracing = ["dep:tracing"]
 
 [dependencies]
-bashkit = { path = "../bashkit", version = "0.21.1", default-features = false, features = ["bash_tool"] }
+bashkit = { path = "../bashkit", version = "0.22.0", default-features = false, features = ["bash_tool"] }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 tower = { workspace = true }

@@ -15,14 +15,14 @@ class DescribeDiagnosisMonitorPerformanceResponseBody(DaraModel):
         performances_truncated: bool = None,
         request_id: str = None,
     ):
-        # Details of query execution.
+        # The list of SQL queries.
         self.performances = performances
         # The threshold for the number of queries.
         self.performances_threshold = performances_threshold
-        # Indicates whether the queries are truncated when the number of queries exceeds the threshold. Valid values:
+        # Indicates whether the number of queries is truncated. Valid values:
         # 
-        # *   **true**: The queries are truncated.
-        # *   **false**: The queries are not truncated.
+        # - **true**: Truncated.
+        # - **false**: Not truncated.
         self.performances_truncated = performances_truncated
         # The ID of the request.
         self.request_id = request_id
@@ -83,20 +83,20 @@ class DescribeDiagnosisMonitorPerformanceResponseBodyPerformances(DaraModel):
         status: str = None,
         user: str = None,
     ):
-        # The execution duration of the query. Unit: milliseconds.
+        # The total execution time of the query. Unit: milliseconds.
         self.cost = cost
         # The name of the database.
         self.database = database
-        # The ID of the query. It is a unique identifier of the query.
+        # The ID of the query, which is the unique identifier of the query.
         self.query_id = query_id
-        # The start time of the query. This value is a UNIX timestamp representing the number of milliseconds that have elapsed since the epoch time January 1, 1970, 00:00:00 UTC.
+        # The start time of the query. The value is a UNIX timestamp in milliseconds.
         self.start_time = start_time
-        # The execution state of the query. Valid values:
+        # The execution status of the query. Valid values:
         # 
-        # *   **running**: The query is being executed.
-        # *   **finished**: The query is complete.
+        # - **running**: Running.
+        # - **finished**: Completed.
         self.status = status
-        # The name of the database account.
+        # The username.
         self.user = user
 
     def validate(self):

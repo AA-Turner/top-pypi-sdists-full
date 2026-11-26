@@ -16,11 +16,11 @@ class ListApiKeysResponseBody(DaraModel):
         request_id: str = None,
         total_record_count: int = None,
     ):
-        # The list of items.
+        # The list of plans.
         self.items = items
-        # The maximum number of records to return in this request.
+        # The maximum number of records to return for the current request.
         self.max_results = max_results
-        # The token for the next paging query.
+        # The start token for the next paging query.
         self.next_token = next_token
         # The request ID.
         self.request_id = request_id
@@ -89,7 +89,7 @@ class ListApiKeysResponseBodyItems(DaraModel):
         key_name: str = None,
         key_prefix: str = None,
     ):
-        # The service IDs.
+        # The service ID.
         self.auth_services = auth_services
         # The creation time.
         self.create_time = create_time
@@ -166,7 +166,7 @@ class ListApiKeysResponseBodyItemsAuthServices(DaraModel):
         service_id: str = None,
         service_type: str = None,
     ):
-        # The service IDs.
+        # The service ID.
         self.service_id = service_id
         # The service type.
         # 

@@ -1,0 +1,1 @@
+"""Air-gap update link: update an offline machine through a temporary, paired relay."""

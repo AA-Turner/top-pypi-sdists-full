@@ -44,6 +44,9 @@ def result_from_chunk(
             server_total_ms - worker_preprocess_ms - server_inference_ms,
         )
     obs_to_action_ms = (end_ns - start_ns) / 1_000_000.0
+    uplink_ms, downlink_ms, uncertainty_ms = _directional_network(
+        transport, chunk, send_start_ns=send_start_ns, end_ns=end_ns
+    )
     client_overhead_ms = (
         obs_to_action_ms - server_total_ms if server_total_ms is not None else None
     )
@@ -79,6 +82,9 @@ def result_from_chunk(
             worker_preprocess_ms=worker_preprocess_ms,
             worker_inference_ms=server_inference_ms,
             worker_postprocess_ms=worker_postprocess_ms,
+            uplink_ms=uplink_ms,
+            downlink_ms=downlink_ms,
+            clock_offset_uncertainty_ms=uncertainty_ms,
         ),
         transport_mode=getattr(transport, "mode", None),
         raw_chunk=chunk,
@@ -115,6 +121,38 @@ def _prefix_rows(chunk: Any) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         return 0
     return value
+
+
+def _directional_network(
+    transport: Any, chunk: Any, *, send_start_ns: int, end_ns: int
+) -> tuple[float | None, float | None, float | None]:
+    """Uplink (send → the server's receive stamp) and downlink (the server's send stamp →
+    receipt), in ms, through the transport's measured clock offset to the worker, with the
+    offset's uncertainty. ``(None, None, None)`` without an offset or stamps, or when the
+    stamps contradict the offset beyond its uncertainty (a clock other than the worker's
+    monotonic one): never a guessed split."""
+    clock_offset = getattr(transport, "clock_offset", None)
+    if not callable(clock_offset):
+        return None, None, None
+    try:
+        measured = clock_offset()
+    except Exception:  # noqa: BLE001 - a timing extra never breaks a request
+        return None, None, None
+    receive = _int_attr(chunk, "server_receive_time_ns")
+    send = _int_attr(chunk, "server_send_time_ns")
+    if measured is None or receive is None or send is None:
+        return None, None, None
+    offset_ns, uncertainty_ns = measured
+    uplink_ns = (receive - offset_ns) - send_start_ns
+    downlink_ns = end_ns - (send - offset_ns)
+    tolerance_ns = uncertainty_ns + 1_000_000
+    if uplink_ns < -tolerance_ns or downlink_ns < -tolerance_ns:
+        return None, None, None
+    return (
+        max(0, uplink_ns) / 1_000_000.0,
+        max(0, downlink_ns) / 1_000_000.0,
+        uncertainty_ns / 1_000_000.0,
+    )
 
 
 def _server_timings(chunk: Any) -> tuple[float | None, float | None, float | None]:

@@ -87,7 +87,7 @@ class DescribeSQLLogCountResponseBodyItems(DaraModel):
     ):
         # The instance name.
         self.name = name
-        # The set of returned values.
+        # The collection of return values.
         self.series = series
 
     def validate(self):
@@ -129,7 +129,7 @@ class DescribeSQLLogCountResponseBodyItemsSeries(DaraModel):
         self,
         values: List[main_models.DescribeSQLLogCountResponseBodyItemsSeriesValues] = None,
     ):
-        # The returned values.
+        # The return values.
         self.values = values
 
     def validate(self):
@@ -165,7 +165,7 @@ class DescribeSQLLogCountResponseBodyItemsSeriesValues(DaraModel):
         self,
         point: List[str] = None,
     ):
-        # None.
+        # The list of audit log statistical points. Each element contains the generation time and count of audit logs.
         self.point = point
 
     def validate(self):

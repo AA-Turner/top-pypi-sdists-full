@@ -21,6 +21,7 @@ from starlette.exceptions import HTTPException
 from langgraph_api.auth.custom import handle_event as auth_handle_event
 from langgraph_api.encryption.context import get_encryption_context
 from langgraph_api.encryption.shared import using_encryption
+from langgraph_api.errors import StreamCutError
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils import get_auth_ctx
 
@@ -186,6 +187,8 @@ def _handle_grpc_error(error: AioRpcError) -> None:
     - A string. This we can return verbatim.
     Always return detail as a string here.
     """
+    if error.code() == StatusCode.ABORTED:
+        raise StreamCutError(error.details()) from error
     error_details = error.details()
     retry_after_seconds = None
     if error_details is not None:

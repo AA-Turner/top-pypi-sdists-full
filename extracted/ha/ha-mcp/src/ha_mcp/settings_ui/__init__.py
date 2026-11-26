@@ -34,17 +34,11 @@ from ._handlers_server import (
 )
 from ._handlers_theme import build_theme_handlers
 from ._handlers_tools import build_tools_handlers
-from ._i18n import (
-    LOCALE_COOKIE,
-    build_payload,
-    select_locale,
-    serialize_payload,
-)
+from ._handlers_transfer import build_transfer_handlers
 from ._persistence import (
     _atomic_write_json,
     _get_backup_settings_override_path,
     _get_config_path,
-    _get_override_file_lock,
     _load_backup_settings_override,
     _save_backup_settings_override,
     dump_tool_metadata_cache,
@@ -72,6 +66,13 @@ from ._tools_meta import (
     _get_tool_metadata,
     apply_tool_visibility,
     effective_mandatory_tools,
+    primary_tag,
+)
+from .i18n import (
+    LOCALE_COOKIE,
+    build_payload,
+    select_locale,
+    serialize_payload,
 )
 
 if TYPE_CHECKING:
@@ -155,7 +156,7 @@ except OSError as exc:  # pragma: no cover - packaging guard
 #   __HA_MCP_CSS__         -> settings.css contents (inside <style>)
 #   __HA_MCP_JS__          -> settings_js/ contents (inside <script>)
 #   __HA_MCP_THEME_PREFS__ -> per-request server-seeded theme prefs JSON,
-#                             substituted in _render_settings_html()
+#                             substituted in render_settings_html()
 #   __HA_MCP_I18N__        -> selected merged translation catalog JSON
 #   __HA_MCP_LANG__        -> selected locale code for the html lang attribute
 #   __HA_MCP_DIR__         -> selected catalog text direction (ltr / rtl)
@@ -190,7 +191,7 @@ for _sentinel in (
         )
 
 # CSS and JS are injected once at import; __HA_MCP_THEME_PREFS__ remains in the
-# string and is substituted per-request in _render_settings_html().
+# string and is substituted per-request in render_settings_html().
 _SETTINGS_HTML = _settings_html_template.replace(
     "__HA_MCP_CSS__", _SETTINGS_CSS
 ).replace("__HA_MCP_JS__", _SETTINGS_JS)
@@ -373,9 +374,11 @@ def _build_visibility_handlers(*, data_dir: Path) -> dict[str, Any]:
     }
 
 
-def _render_settings_html(request: Request | None = None) -> str:
-    """Substitute theme preferences and the request-selected locale.
+def render_settings_html(request: Request | None = None) -> str:
+    """Render the settings page every settings-page route serves.
 
+    Substitutes theme preferences and the request-selected locale. Public
+    because the JS behaviour tests load the served page from here.
     The ``server-prefs`` head script carries a ``data-prefs`` attribute
     with a placeholder token; request-time substitution keeps
     ``_SETTINGS_HTML`` a static import-time constant (and keeps the script
@@ -455,10 +458,10 @@ def build_settings_handlers(
     """
 
     async def _root_page(request: Request) -> HTMLResponse:
-        return HTMLResponse(_render_settings_html(request))
+        return HTMLResponse(render_settings_html(request))
 
     async def _settings_page(request: Request) -> HTMLResponse:
-        return HTMLResponse(_render_settings_html(request))
+        return HTMLResponse(render_settings_html(request))
 
     handlers: dict[str, Any] = {
         "root_page": _root_page,
@@ -495,6 +498,7 @@ def build_settings_handlers(
     handlers.update(build_server_handlers(server, is_sidecar=is_sidecar))
     handlers.update(build_advanced_handlers(server))
     handlers.update(build_oauth_callback_handlers(server))
+    handlers.update(build_transfer_handlers(server))
 
     return handlers
 
@@ -594,6 +598,13 @@ def is_http_settings_mounted() -> bool:
     return _http_settings_mounted
 
 
+def reset_http_settings_state() -> None:
+    """Forget process-local route advertisement between isolated server starts."""
+    global _http_settings_prefix, _http_settings_mounted
+    _http_settings_prefix = None
+    _http_settings_mounted = False
+
+
 # Every settings route except the add-on-only root mount is defined once in
 # this table. register_settings_routes mounts it under each active prefix: at
 # root in add-on mode (so HA ingress can proxy localhost:9583/), and under the
@@ -633,6 +644,10 @@ SETTINGS_ROUTES: tuple[tuple[str, list[str], str], ...] = (
     # None-mode OAuth callback allowlist (#2427) — component-owned list
     ("/api/settings/oauth-callbacks", ["GET"], "get_oauth_callbacks"),
     ("/api/settings/oauth-callbacks", ["POST"], "save_oauth_callbacks"),
+    # Settings export / import (#3099); the HA sidebar panel answers these
+    # itself so it can also move the component's config entries.
+    ("/api/settings/transfer/export", ["POST"], "export_settings"),
+    ("/api/settings/transfer/import", ["POST"], "import_settings"),
     # Tool security policies endpoints
     ("/api/policy/config", ["GET"], "policy_get_config"),
     ("/api/policy/config", ["PUT"], "policy_put_config"),

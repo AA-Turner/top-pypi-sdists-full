@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from os import environ, getenv
 from typing import TYPE_CHECKING, Annotated, Literal, TypeVar, cast
+from urllib.parse import urlsplit
 
 import structlog
 from langgraph.version import __version__ as langgraph_version
@@ -101,10 +102,9 @@ CHECKPOINT_MAX_BATCH_SIZE: int | None = env(
 )
 CHECKPOINT_BATCH_DELAY: float = env("CHECKPOINT_BATCH_DELAY", cast=float, default=0.0)
 
-RESUMABLE_STREAM_TTL_SECONDS = env(
-    "RESUMABLE_STREAM_TTL_SECONDS",
-    cast=int,
-    default=120,  # 2 minutes
+# The Go core also reads 0 as the default.
+RESUMABLE_STREAM_TTL_SECONDS = (
+    env("RESUMABLE_STREAM_TTL_SECONDS", cast=int, default=120) or 120  # 2 minutes
 )
 
 
@@ -138,6 +138,7 @@ AES_JSON_DISALLOWED_KEYS = frozenset(
         "langgraph_plan",
         "langgraph_host",
         "langgraph_api_url",
+        "langgraph_graph_load_ms",
         "langgraph_request_id",
         "langgraph_auth_user_id",
         "langgraph_auth_permissions",
@@ -201,9 +202,25 @@ def _validate_aes_rotation(
 
 _validate_aes_rotation(PREFER_GRPC_CHECKPOINTER, is_postgres=IS_POSTGRES_BACKEND)
 
+LANGGRAPH_CLOUD_LICENSE_KEY = env("LANGGRAPH_CLOUD_LICENSE_KEY", cast=str, default="")
+
+# When true, the Go core-server owns Postgres schema setup (DB migrations +
+# vector index)
+DB_MIGRATION_BY_CORE_API = env("DB_MIGRATION_BY_CORE_API", cast=bool, default=True)
+# Bounds core-server startup, including migrations, and how long Python waits
+# for it. Core-server reads the same env var. Keep under the startup probe.
+# Not in public docs: infrastructure, set by platform
+STARTUP_TIMEOUT_SECONDS = env("STARTUP_TIMEOUT_SECONDS", cast=float, default=270.0)
+if STARTUP_TIMEOUT_SECONDS <= 0:
+    STARTUP_TIMEOUT_SECONDS = 270.0
+
 # redis
 # Not in public docs: infrastructure, set by platform
-REDIS_URI = env("REDIS_URI_CUSTOM", cast=str, default="") or env("REDIS_URI", cast=str)
+REDIS_URI = env("REDIS_URI_CUSTOM", cast=str, default="") or (
+    env("REDIS_URI", cast=str, default="")
+    if DB_MIGRATION_BY_CORE_API and not LANGGRAPH_CLOUD_LICENSE_KEY
+    else env("REDIS_URI", cast=str)
+)
 REDIS_CLUSTER = env("REDIS_CLUSTER", cast=bool, default=False)
 AGENT_REDIS_IAM_AUTH_PROVIDER = env(
     "AGENT_REDIS_IAM_AUTH_PROVIDER", cast=str, default=""
@@ -312,8 +329,8 @@ LSD_GRPC_SERVER_ADDRESS = env(
 PYTHON_GRPC_SERVER_PORT = 50071
 PYTHON_GRPC_BIND_HOST = env("PYTHON_GRPC_BIND_HOST", cast=str, default="127.0.0.1")
 
-# Minimum payload size to use the dedicated thread pool for JSON parsing.
-# (Otherwise, the payload is parsed directly in the event loop.)
+# Minimum payload size to parse JSON or compress a response in a worker thread.
+# (Otherwise, the work runs directly in the event loop.)
 JSON_THREAD_POOL_MINIMUM_SIZE_BYTES = 100 * 1024  # 100 KB
 
 # Not in public docs: populated by langgraph.json config, not set as env var directly
@@ -342,9 +359,6 @@ WEBHOOKS_ENABLED = HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks")
 STORE_CONFIG = env(
     "LANGGRAPH_STORE", cast=_parse.parse_schema(StoreConfig), default=None
 )
-# When true, the Go core-server owns Postgres schema setup (DB migrations +
-# vector index)
-DB_MIGRATION_BY_CORE_API = env("DB_MIGRATION_BY_CORE_API", cast=bool, default=True)
 
 
 def _validate_mount_prefix(mount_prefix: str | None) -> str | None:
@@ -553,7 +567,6 @@ STREAM_PUBLISH_RETRY_JITTER = env(
 
 FF_ASYNC_PUBLISH_QUEUE = env("FF_ASYNC_PUBLISH_QUEUE", cast=bool, default=False)
 FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
-FF_LOG_DROPPED_EVENTS = env("FF_LOG_DROPPED_EVENTS", cast=bool, default=False)
 FF_LOG_QUERY_AND_PARAMS = env("FF_LOG_QUERY_AND_PARAMS", cast=bool, default=False)
 # Opt-in handling of drained runs: the server's control signalling to the
 # graph and its handling of drained runs, together. On, a Postgres-backed
@@ -646,6 +659,13 @@ else:
         ),
     )
 
+
+def langsmith_api_url(path: str) -> str:
+    """Return the LangSmith API URL for a /v1 path, since self-hosted endpoints already end in /api/v1."""
+    base = (LANGSMITH_AUTH_ENDPOINT or "").rstrip("/")
+    return base + ("" if urlsplit(base).path.endswith("/api/v1") else "/v1") + path
+
+
 # Webhooks
 
 
@@ -661,8 +681,6 @@ WEBHOOKS_CONFIG = env(
 )
 
 # license
-
-LANGGRAPH_CLOUD_LICENSE_KEY = env("LANGGRAPH_CLOUD_LICENSE_KEY", cast=str, default="")
 
 # Products that are built on top of langgraph-api can be configured
 # to check for additional claims in the LangSmith license key. By default,
@@ -685,6 +703,22 @@ LANGSMITH_API_KEY = env(
 # to facilitate license key verification and metadata submission.
 LANGSMITH_CONTROL_PLANE_API_KEY = env(
     "LANGSMITH_CONTROL_PLANE_API_KEY", cast=str, default=LANGSMITH_API_KEY
+)
+# IAM role assumed through the AWS SDK's web identity variables; the API key must be bound to an agent.
+LANGSMITH_AWS_ROLE_ARN = env("LANGSMITH_AWS_ROLE_ARN", cast=str, default=None)
+# Entra app or managed identity reached through azure-identity's workload identity variables; both must be set.
+LANGSMITH_AZURE_CLIENT_ID = env("LANGSMITH_AZURE_CLIENT_ID", cast=str, default=None)
+LANGSMITH_AZURE_TENANT_ID = env("LANGSMITH_AZURE_TENANT_ID", cast=str, default=None)
+# Google workload identity provider (//iam.googleapis.com/... resource name), and an optional service account to impersonate.
+LANGSMITH_GCP_WORKLOAD_IDENTITY_PROVIDER = env(
+    "LANGSMITH_GCP_WORKLOAD_IDENTITY_PROVIDER", cast=str, default=None
+)
+LANGSMITH_GCP_SERVICE_ACCOUNT = env(
+    "LANGSMITH_GCP_SERVICE_ACCOUNT", cast=str, default=None
+)
+# Not in public docs: set by the SaaS control plane on deployments that prove their agent identity with a pod token.
+LANGSMITH_AGENT_AUTH_POD_TOKEN_PATH = env(
+    "LANGSMITH_AGENT_AUTH_POD_TOKEN_PATH", cast=str, default=None
 )
 
 
@@ -865,7 +899,6 @@ __all__ = [
     "DISPATCH_MODE",
     "EXPOSE_INTERNAL_METRICS_PROMETHEUS",
     "FF_CRONS_ENABLED",
-    "FF_LOG_DROPPED_EVENTS",
     "FF_LOG_QUERY_AND_PARAMS",
     "FF_PYSPY_PROFILING_ENABLED",
     "FF_PYSPY_PROFILING_MAX_DURATION_SECS",
@@ -895,7 +928,12 @@ __all__ = [
     "LANGSMITH_API_KEY",
     "LANGSMITH_AUTH_ENDPOINT",
     "LANGSMITH_AUTH_VERIFY_TENANT_ID",
+    "LANGSMITH_AWS_ROLE_ARN",
+    "LANGSMITH_AZURE_CLIENT_ID",
+    "LANGSMITH_AZURE_TENANT_ID",
     "LANGSMITH_CONTROL_PLANE_API_KEY",
+    "LANGSMITH_GCP_SERVICE_ACCOUNT",
+    "LANGSMITH_GCP_WORKLOAD_IDENTITY_PROVIDER",
     "LANGSMITH_TENANT_ID",
     "LSD_DD_API_KEY",
     "LSD_DD_ENDPOINT",

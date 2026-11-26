@@ -24,8 +24,7 @@ T = TypeVar("T", bound="SettingsSummary")
 class SettingsSummary:
     """ The signed-in user's settings as `GET /api/v1/settings/summary` and the
     `get_settings` MCP tool return them: every field of
-    SettingsResponse except `webhookToken` and `webhookSecret`, which are
-    never part of it, plus `webhookConfigured`. No forge token appears,
+    SettingsResponse, plus `webhookConfigured`. No forge token appears,
     only whether one is set. Field meanings are those of the same-named
     SettingsResponse properties.
 
@@ -41,6 +40,7 @@ class SettingsSummary:
             forgejo_o_auth_connected (bool):
             github_o_auth_configured (bool):
             github_o_auth_connected (bool):
+            github_login (str):
             webhook_configured (bool): Whether this user's webhook token and secret exist. They are
                 created the first time the Settings page reads
                 `GET /api/v1/settings`, never by this read, so this is false for a
@@ -51,8 +51,9 @@ class SettingsSummary:
             ignored_titles (list[str]):
             ignored_title_counts (list[int | None]):
             forgejo_skipped_avatar_hosts (list[str]): Other hosts a Forgejo avatar was refused for lately: the image
-                proxy only fetches from the saved instance, so an avatar on
-                Gravatar or Libravatar is skipped and the page shows an initial.
+                proxy fetches from the saved instance and from Gravatar and
+                Libravatar's own hosts, so an avatar on any other host is skipped
+                and the page shows an initial.
                 Lowercase, sorted, at most eight, and never the instance's own
                 host. A host is listed while its avatars keep being asked for and
                 drops off after about ten minutes without one, so the list is
@@ -72,6 +73,7 @@ class SettingsSummary:
     forgejo_o_auth_connected: bool
     github_o_auth_configured: bool
     github_o_auth_connected: bool
+    github_login: str
     webhook_configured: bool
     renovate_rebase_label: str
     renovate_authors: list[str]
@@ -109,6 +111,8 @@ class SettingsSummary:
         github_o_auth_configured = self.github_o_auth_configured
 
         github_o_auth_connected = self.github_o_auth_connected
+
+        github_login = self.github_login
 
         webhook_configured = self.webhook_configured
 
@@ -155,6 +159,7 @@ class SettingsSummary:
             "forgejoOAuthConnected": forgejo_o_auth_connected,
             "githubOAuthConfigured": github_o_auth_configured,
             "githubOAuthConnected": github_o_auth_connected,
+            "githubLogin": github_login,
             "webhookConfigured": webhook_configured,
             "renovateRebaseLabel": renovate_rebase_label,
             "renovateAuthors": renovate_authors,
@@ -194,6 +199,8 @@ class SettingsSummary:
         github_o_auth_configured = d.pop("githubOAuthConfigured")
 
         github_o_auth_connected = d.pop("githubOAuthConnected")
+
+        github_login = d.pop("githubLogin")
 
         webhook_configured = d.pop("webhookConfigured")
 
@@ -242,6 +249,7 @@ class SettingsSummary:
             forgejo_o_auth_connected=forgejo_o_auth_connected,
             github_o_auth_configured=github_o_auth_configured,
             github_o_auth_connected=github_o_auth_connected,
+            github_login=github_login,
             webhook_configured=webhook_configured,
             renovate_rebase_label=renovate_rebase_label,
             renovate_authors=renovate_authors,

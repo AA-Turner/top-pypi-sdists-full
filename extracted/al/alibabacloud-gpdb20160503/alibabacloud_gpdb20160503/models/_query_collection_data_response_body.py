@@ -22,8 +22,8 @@ class QueryCollectionDataResponseBody(DaraModel):
         # The request ID.
         self.request_id = request_id
         # The status. Valid values:
-        # - **success**: The request is successful.
-        # - **fail**: The request fails.
+        # - **success**: Successful.
+        # - **fail**: Failed.
         self.status = status
         # The total number of hits for the search condition. This parameter is returned only when the Offset parameter in the request is not 0.
         self.total = total

@@ -82,6 +82,10 @@ _RULES: tuple[_Rule, ...] = (
     _r("probe-run-token",
        r"\bprobe_run_[A-Za-z0-9_\-]{10,200}\.[A-Za-z0-9_\-]{10,4000}\.[A-Za-z0-9_\-]{20,200}",
        ("probe_run_",)),
+    # Compute node credentials (app/compute/credentials.py): an enrollment token
+    # joins nodes, a node credential is one node's own key. Prefix + 48 hex.
+    _r("probe-node-credential", r"\b(?:probe_nodeenroll_|probe_node_)[0-9a-f]{48}\b",
+       ("probe_nodeenroll_", "probe_node_")),
     # OpenAI, both the project-scoped and the classic shape.
     _r("openai-api-key", r"\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{40,200}\b",
        ("sk-proj-", "sk-svcacct-", "sk-admin-")),
@@ -111,7 +115,10 @@ _RULES: tuple[_Rule, ...] = (
     _r("npm-token", r"\bnpm_[A-Za-z0-9]{36}\b", ("npm_",)),
     # Weights & Biases keys are 40 hex with no prefix, so they are ONLY safe to
     # match next to the literal `wandb` — a bare 40-hex rule is a git-sha rule.
-    _r("wandb-key", r"(?i)\bwandb(?:[_ -]?(?:api[_ -]?)?key[\"']?\s*[:=]\s*|\s+login\s+|\s*[:=]\s*|\.login\(\s*key\s*=\s*)[\"']?[0-9a-f]{40}\b", ("wandb",)),
+    # The key-name form also takes how a script writes one: `os.environ["WANDB_API_KEY"] = "..."`,
+    # `setdefault("WANDB_API_KEY", "...")`, `getenv(..., default="...")`, `add_argument("--wandb-api-key", type=str, default="...")`,
+    # `wandb.login(relogin=True, key="...")`: up to 3 short `name=value` arguments before the key.
+    _r("wandb-key", r"(?i)\bwandb(?:[_ -]?(?:api[_ -]?)?key[\"']?\]?\s*(?:[:=]\s*|,\s*(?:(?:[a-z_]{1,20}\s*=\s*[\w.]{1,40}\s*,\s*){0,3}default\s*=\s*)?)|\s+login\s+|\s*[:=]\s*|\.login\(\s*(?:[a-z_]{1,20}\s*=\s*[\w.]{1,40}\s*,\s*){0,3}key\s*=\s*)[\"']?[0-9a-f]{40}\b", ("wandb",)),
     # A private key block. The body requirement stops a bare header comment
     # from matching.
     _r("private-key-block",

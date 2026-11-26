@@ -424,7 +424,20 @@ async def get_graph(
             if graph_obj.name == "LangGraph":
                 update["name"] = graph_id
             if isinstance(graph_obj, BaseRemotePregel):
-                update["config"] = config
+                # JS factories run in the sidecar and only see this config, so they
+                # get the same read-vs-run signal as Python factories here.
+                config = config or {}
+                update["config"] = {
+                    **config,
+                    "configurable": {
+                        **(config.get("configurable") or {}),
+                        "__is_for_execution__": is_for_execution(access_context),
+                    },
+                }
+                update["access_context"] = access_context
+                # The sidecar builds the factory after the run context is filtered
+                # by its schema, so it also gets the unfiltered context here.
+                update["factory_context"] = context
             yield graph_obj.copy(update=update)
     finally:
         var_child_runnable_config.set(None)

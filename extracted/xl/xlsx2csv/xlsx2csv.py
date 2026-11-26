@@ -24,7 +24,7 @@
 
 __author__ = "Dilshod Temirkhodjaev <tdilshod@gmail.com>"
 __license__ = "MIT"
-__version__ = "0.8.6"
+__version__ = "0.8.7"
 
 import csv, datetime, zipfile, sys, os, re, signal, io
 import xml.parsers.expat
@@ -135,6 +135,14 @@ STANDARD_FORMATS = {
     48: '##0.0e+0',
     49: '@',
 }
+
+
+def strip_format_literals(format_str):
+    """Remove literal text from a number format code: quoted text such as
+    0 "pcs" and _x / *x padding. What is left holds only format characters."""
+    return re.sub(r'"[^"]*"|[_*].', '', format_str)
+
+
 EXCEL_ERROR_VALUES = [
     '#N/A', '#REF!', '#DIV/0!', '#CALC!', '#NAME?', '#NULL!', '#NUM!', '#SPILL!', '#VALUE!'
 ]
@@ -220,6 +228,7 @@ class Xlsx2csv:
         options.setdefault("outputencoding", "utf-8")
         options.setdefault("skip_hidden_rows", True)
         options.setdefault("ignore_invalid_char_data", False)
+        options.setdefault("ignore_percentage", False)
 
         self.options = options
         self.py3 = sys.version_info[0] == 3
@@ -344,27 +353,12 @@ class Xlsx2csv:
                 self._convert(s['index'], of)
 
     def _convert(self, sheet_index, outfile):
+        sheets_filtered = list(filter(lambda s: s['index'] == sheet_index, self.workbook.sheets))
+        if len(sheets_filtered) == 0:
+            raise XlsxValueError("Sheet with index %i not found or can't be handled" % sheet_index)
+
         closefile = False
-        if isinstance(outfile, str):
-            if sys.version_info[0] == 2:
-                outfile = open(outfile, 'wb+')
-            elif sys.version_info[0] == 3:
-                outfile = open(outfile, 'w+', encoding=self.options['outputencoding'], newline="")
-            else:
-                raise XlsxException("error: version of your Python is not supported: " + str(sys.version_info) + "\n")
-            closefile = True
-        elif hasattr(outfile, "open"):
-            outfile = outfile.open("w+", encoding=self.options['outputencoding'], newline="")
-            closefile = True
-
         try:
-            writer = csv.writer(outfile, quoting=self.options['quoting'], delimiter=self.options['delimiter'],
-                                lineterminator=self.options['lineterminator'])
-
-            sheets_filtered = list(filter(lambda s: s['index'] == sheet_index, self.workbook.sheets))
-            if len(sheets_filtered) == 0:
-                raise XlsxValueError("Sheet with index %i not found or can't be handled" % sheet_index)
-
             sheet_path = None
             # using sheet relation information
             if 'relation_id' in sheets_filtered[0] and sheets_filtered[0]['relation_id'] is not None:
@@ -399,6 +393,21 @@ class Xlsx2csv:
                 raise SheetNotFoundException("Sheet %i not found" % sheet_index)
             sheet = Sheet(self.workbook, self.shared_strings, self.styles, sheet_file)
             try:
+                # open output only after the sheet is found, so a failed lookup leaves it untouched
+                if isinstance(outfile, str):
+                    if sys.version_info[0] == 2:
+                        outfile = open(outfile, 'wb+')
+                    elif sys.version_info[0] == 3:
+                        outfile = open(outfile, 'w+', encoding=self.options['outputencoding'], newline="")
+                    else:
+                        raise XlsxException("error: version of your Python is not supported: " + str(sys.version_info) + "\n")
+                    closefile = True
+                elif hasattr(outfile, "open"):
+                    outfile = outfile.open("w+", encoding=self.options['outputencoding'], newline="")
+                    closefile = True
+                writer = csv.writer(outfile, quoting=self.options['quoting'], delimiter=self.options['delimiter'],
+                                    lineterminator=self.options['lineterminator'])
+
                 relationships_path = os.path.join(os.path.dirname(sheet_path),
                                                   "_rels",
                                                   os.path.basename(sheet_path) + ".rels")
@@ -414,6 +423,7 @@ class Xlsx2csv:
                 sheet.set_ignore_formats(self.options['ignore_formats'])
                 sheet.set_skip_hidden_rows(self.options['skip_hidden_rows'])
                 sheet.set_no_line_breaks(self.options['no_line_breaks'])
+                sheet.set_ignore_percentage(self.options['ignore_percentage'])
                 if self.options['escape_strings'] and sheet.filedata:
                     sheet.filedata = re.sub(r"(<v>[^<>]+)&#10;([^<>]+</v>)", r"\1\\n\2",
                                             re.sub(r"(<v>[^<>]+)&#9;([^<>]+</v>)", r"\1\\t\2",
@@ -473,12 +483,12 @@ class Workbook:
                 self.date1904 = \
                     workbookDoc.firstChild.getElementsByTagNameNS(
                         workbookDoc.firstChild.namespaceURI, "workbookPr")[0]._attrs['date1904'].value.lower().strip() \
-                    != "false"
+                    in ("1", "true")
             else:
                 self.date1904 = \
                     workbookDoc.firstChild.getElementsByTagName("workbookPr")[0] \
                         ._attrs['date1904'].value.lower().strip() \
-                    != "false"
+                    in ("1", "true")
         except:
             pass
 
@@ -608,7 +618,7 @@ class Styles:
                 if cellXfs._attrs and 'numFmtId' in cellXfs._attrs:
                     numFmtId = int(cellXfs._attrs['numFmtId'].value)
                     if self.chk_exists(numFmtId) == None:
-                        numFmtId = int(cellXfs._attrs['applyNumberFormat'].value)
+                        numFmtId = int(cellXfs.getAttribute('applyNumberFormat') or 0)
                     self.cellXfs.append(numFmtId)
                 else:
                     self.cellXfs.append(None)
@@ -701,6 +711,7 @@ class Sheet:
         self.in_row = False
         self.in_cell = False
         self.in_cell_value = False
+        self.in_phonetic = False
 
         self.columns = {}
         self.lastRowNum = 0
@@ -728,6 +739,7 @@ class Sheet:
         self.ignore_formats = []
         self.skip_hidden_rows = False
         self.no_line_breaks = False
+        self.ignore_percentage = False
 
         self.colIndex = 0
         self.colNum = ""
@@ -760,6 +772,9 @@ class Sheet:
 
     def set_no_line_breaks(self, no_line_breaks):
         self.no_line_breaks = no_line_breaks
+
+    def set_ignore_percentage(self, ignore_percentage):
+        self.ignore_percentage = ignore_percentage
 
     def set_merge_cells(self, mergecells):
         if not mergecells:
@@ -868,7 +883,16 @@ class Sheet:
             self.data += data
             if self.colType == "s":  # shared string
                 format_type = "string"
-                self.data = self.sharedStrings[int(data)]
+                # Out-of-range SST index (missing/corrupt sharedStrings) -> empty cell.
+                try:
+                    sst_idx = int(data)
+                except ValueError:
+                    self.data = ""
+                else:
+                    if 0 <= sst_idx < len(self.sharedStrings):
+                        self.data = self.sharedStrings[sst_idx]
+                    else:
+                        self.data = ""
 
                 # Handle cell string data that has \r\n by changing the value that expat uses for the \r to an empty string.
                 # This happens a lot with older versions of excel, and the character conversion is happening inside expat.
@@ -901,7 +925,7 @@ class Sheet:
 
                 if format_str in FORMATS:
                     format_type = FORMATS[format_str]
-                elif re.match(r"^\d+(\.\d+)?$", self.data) and re.match(".*[hsmdyY]", format_str) and not re.match(
+                elif re.match(r"^\d+(\.\d+)?$", self.data) and re.match(".*[hsmdyY]", strip_format_literals(format_str)) and not re.match(
                         r".*\[.*[dmhys].*\]", format_str):
                     # it must be date format
                     if float(self.data) < 1:
@@ -925,7 +949,11 @@ class Sheet:
                         if self.workbook.date1904:
                             date = datetime.datetime(1904, 1, 1) + datetime.timedelta(float(self.data))
                         else:
-                            date = datetime.datetime(1899, 12, 30) + datetime.timedelta(float(self.data))
+                            serial = float(self.data)
+                            # The fictitious 1900 leap day is after these dates.
+                            if 1 <= serial < 60:
+                                serial += 1
+                            date = datetime.datetime(1899, 12, 30) + datetime.timedelta(serial)
                         if self.dateformat:
                             # str(dateformat) - python2.5 bug, see: http://bugs.python.org/issue2782
                             self.data = date.strftime(str(self.dateformat))
@@ -949,32 +977,49 @@ class Sheet:
                             # repr(float(...)) - workaround to correctly round precision for floats
                             # repr gives same result on python 2 and 3, while str is different on python 2
                             self.data = "%i" % Decimal(repr(float(self.data)))
-                        elif ('E' in self.data or 'e' in self.data) or self.floatformat:
-                            self.data = (str(self.floatformat or '%f') % data).rstrip('0').rstrip('.')
+                        elif self.floatformat and self.floatformat != '%f':
+                            self.data = str(self.floatformat) % data
+                        elif 'E' in self.data or 'e' in self.data:
+                            self.data = ("%f" % data).rstrip('0').rstrip('.')
                         # if cell is general, be aggressive about stripping any trailing 0s, decimal points, etc.
                         elif format_str == 'general':
                             self.data = ("%f" % data).rstrip('0').rstrip('.')
                         elif format_str[0:3] == '0.0':
                             if self.floatformat:
-                                self.data = str(self.floatformat) % data
+                                # self.floatformat can only be '%f'
+                                # here; a custom format is already handled above.
+                                self.data = ("%f" % data).rstrip('0').rstrip('.')
                             else:
-                                L = len(format_str.split(".")[1])
-                                if '%' in format_str:
-                                    L += 1
+                                # count the digit placeholders only, not literal text such as 0.0 "mm"
+                                fmt = strip_format_literals(format_str)
+                                frac = fmt.split(".")[1]
+                                if re.search(r"e[+-]", frac):
+                                    # scientific notation (0.00e+00): keep the previous count
+                                    L = len(frac)
+                                    if '%' in fmt:
+                                        L += 1
+                                else:
+                                    L = len(re.match(r"[0#?]*", frac).group())
+                                    if '%' in fmt:
+                                        L += 2
                                 self.data = ("%." + str(L) + "f") % data
                         else:
                             # unsupported float formatting
                             self.data = ("%f" % data).rstrip('0').rstrip('.')
                     elif format_type == 'percentage':
-                        # Always round .5 up, not to nearest even as round() does.
-                        with localcontext() as ctx:
-                            ctx.rounding = ROUND_HALF_UP
-                            if format_str == "0.00%":
-                                quant = "1.00"
-                            else:
-                                quant = "1"
-                            data = (Decimal(self.data) * 100).quantize(Decimal(quant))
-                            self.data = str(data) + "%"
+                        if not self.ignore_percentage:
+                            # Always round .5 up, not to nearest even as round() does.
+                            with localcontext() as ctx:
+                                ctx.rounding = ROUND_HALF_UP
+                                if format_str == "0.00%":
+                                    quant = "1.00"
+                                else:
+                                    quant = "1"
+                                data = (Decimal(self.data) * 100).quantize(Decimal(quant))
+                                self.data = str(data) + "%"
+                        else:
+                            # When ignoring percentage formatting, output the raw decimal value
+                            self.data = ("%f" % float(self.data)).rstrip('0').rstrip('.')
 
                 except (ValueError, OverflowError):  # this catch must be removed, it's hiding potential problems
                     if self.options['ignore_invalid_char_data']:
@@ -997,10 +1042,16 @@ class Sheet:
                 self.colIndex += 1
             self.data = ""
             self.in_cell = True
-        elif self.in_cell and ((name == 'v' or name == 't') or (has_namespace and name.endswith(':v'))):
-            self.in_cell_value = True
-        elif self.in_sheet and (name == 'row' or (has_namespace and name.endswith(':row'))) and ('r' in attrs) and not (self.skip_hidden_rows and 'hidden' in attrs and attrs['hidden'] == '1'):
-            self.rowNum = attrs['r']
+        elif self.in_cell and (name == 'rPh' or (has_namespace and name.endswith(':rPh'))):
+            self.in_phonetic = True
+        elif self.in_cell and ((name == 'v' or name == 't') or (has_namespace and (name.endswith(':v') or name.endswith(':t')))):
+            self.in_cell_value = not self.in_phonetic
+        elif self.in_sheet and (name == 'row' or (has_namespace and name.endswith(':row'))) and not (self.skip_hidden_rows and 'hidden' in attrs and attrs['hidden'] in ('1', 'true')):
+            self.rowIndex += 1
+            if 'r' in attrs:
+                self.rowNum = attrs['r']
+            else:
+                self.rowNum = str(self.rowIndex)
             self.in_row = True
             self.colIndex = 0
             self.colNum = ""
@@ -1008,9 +1059,13 @@ class Sheet:
             self.spans = None
             if 'spans' in attrs:
                 self.spans = [int(i) for i in attrs['spans'].split(" ")[-1].split(":")]
+        elif self.in_sheet and (name == 'row' or (has_namespace and name.endswith(':row'))):
+            # skipped hidden row: it is not a gap, so don't write an empty line for it
+            self.lastRowNum += 1
 
         elif name == 'sheetData' or (has_namespace and name.endswith(':sheetData')):
             self.in_sheet = True
+            self.rowIndex = 0
         elif name == 'dimension':
             rng = attrs.get("ref").split(":")
             if len(rng) > 1:
@@ -1025,7 +1080,9 @@ class Sheet:
 
     def handleEndElement(self, name):
         has_namespace = name.find(":") > 0
-        if self.in_cell and ((name == 'v' or name == 't') or (has_namespace and name.endswith(':v'))):
+        if self.in_cell and (name == 'rPh' or (has_namespace and name.endswith(':rPh'))):
+            self.in_phonetic = False
+        if self.in_cell and ((name == 'v' or name == 't') or (has_namespace and (name.endswith(':v') or name.endswith(':t')))):
             self.in_cell_value = False
         elif self.in_cell and (name == 'c' or (has_namespace and name.endswith(':c'))):
             t = 0
@@ -1127,12 +1184,12 @@ class Sheet:
                     t = t // 26 - 1
 
 
-def convert_recursive(path, sheetid, outfile, kwargs, continue_on_error=False):
-    # type: (str, int, Union[str, TextIO], Dict[str, Any], bool) -> None
+def convert_recursive(path, sheetid, outfile, kwargs, continue_on_error=False, sheetname=None):
+    # type: (str, int, Union[str, TextIO], Dict[str, Any], bool, Optional[str]) -> None
     for name in os.listdir(path):
         fullpath = os.path.join(path, name)
         if os.path.isdir(fullpath):
-            convert_recursive(fullpath, sheetid, outfile, kwargs, continue_on_error)
+            convert_recursive(fullpath, sheetid, outfile, kwargs, continue_on_error, sheetname)
         else:
             outfilepath = outfile
             if isinstance(outfilepath, type(sys.stdout)):
@@ -1145,7 +1202,7 @@ def convert_recursive(path, sheetid, outfile, kwargs, continue_on_error=False):
             print("Converting %s to %s" % (fullpath, outfilepath))
             try:
                 with Xlsx2csv(fullpath, **kwargs) as xlsx2csv:
-                    xlsx2csv.convert(outfilepath, sheetid)
+                    xlsx2csv.convert(outfilepath, sheetid, sheetname)
             except Exception as e:
                 if continue_on_error:
                     print("ERROR processing file '%s': %s" % (fullpath, str(e)), file=sys.stderr)
@@ -1230,6 +1287,8 @@ def main():
                         help="include hidden rows")
     parser.add_argument("--continue-on-error", dest="continue_on_error", default=False, action="store_true",
                         help="continue processing remaining files when an error occurs during batch processing")
+    parser.add_argument("--ignore-percentage", dest="ignore_percentage", default=False, action="store_true",
+                        help="ignore percentage formatting and output raw values")
 
     if argparser:
         options = parser.parse_args()
@@ -1307,7 +1366,8 @@ def main():
         'outputencoding': options.outputencoding,
         'lineterminator': options.lineterminator,
         'ignore_formats': options.ignore_formats,
-        'skip_hidden_rows': not options.include_hidden_rows
+        'skip_hidden_rows': not options.include_hidden_rows,
+        'ignore_percentage': options.ignore_percentage
     }
     sheetid = options.sheetid
     if options.all:
@@ -1316,7 +1376,7 @@ def main():
     outfile = options.outfile or sys.stdout
     try:
         if os.path.isdir(options.infile):
-            convert_recursive(options.infile, sheetid, outfile, kwargs, options.continue_on_error)
+            convert_recursive(options.infile, sheetid, outfile, kwargs, options.continue_on_error, options.sheetname)
         elif not os.path.exists(options.infile) and options.infile != "-":
             raise InvalidXlsxFileException("Input file not found!")
         else:

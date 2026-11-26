@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lxml_html_clean
-Version: 0.4.6
+Version: 0.4.7
 Summary: HTML cleaner from lxml project
 Home-page: https://github.com/fedora-python/lxml_html_clean/
 Author: Lumír Balhar

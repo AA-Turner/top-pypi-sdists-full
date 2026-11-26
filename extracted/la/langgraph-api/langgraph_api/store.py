@@ -19,7 +19,7 @@ from langgraph_api.encryption.middleware import (
     encrypt_request,
 )
 from langgraph_api.encryption.shared import ENCRYPTION_CONTEXT_KEY
-from langgraph_api.feature_flags import IS_POSTGRES_BACKEND
+from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor
 
@@ -48,12 +48,12 @@ async def get_store() -> BaseStore:
 # Go core encrypts the postgres built-in store, and custom stores own their data
 # format and remain plaintext here; only the in-memory store is encrypted here.
 def _bypass_store_encryption() -> bool:
-    return IS_POSTGRES_BACKEND or CUSTOM_STORE is not None
+    return IS_POSTGRES_OR_GRPC_BACKEND or CUSTOM_STORE is not None
 
 
 def _bypass_store_decryption(item: dict[str, Any]) -> bool:
     if CUSTOM_STORE is None:
-        return IS_POSTGRES_BACKEND
+        return IS_POSTGRES_OR_GRPC_BACKEND
     value = item.get("value")
     return not isinstance(value, dict) or ENCRYPTION_CONTEXT_KEY not in value
 

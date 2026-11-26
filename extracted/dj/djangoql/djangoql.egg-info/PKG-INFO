@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangoql
-Version: 0.19.1
+Version: 0.19.2
 Summary: DjangoQL: Advanced search language for Django
 Home-page: https://github.com/ivelum/djangoql/
 Author: Denis Stebunov

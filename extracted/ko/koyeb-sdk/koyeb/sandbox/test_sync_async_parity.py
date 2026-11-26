@@ -34,6 +34,12 @@ from koyeb.sandbox.sandbox import (
     Sandbox,
     _cleanup_after_failure,
     _cleanup_after_failure_async,
+    _create_sidecars,
+    _create_sidecars_async,
+    _wait_sidecars,
+    _wait_sidecars_async,
+    _sidecar_ready,
+    _sidecar_ready_async,
 )
 from koyeb.sandbox.clients import (
     create_async_sandbox_client,
@@ -57,6 +63,9 @@ FUNCTION_PAIRS = [
     ("list_claims", list_claims, list_claims_async),
     ("wait_claim_ready", wait_claim_ready, wait_claim_ready_async),
     ("_cleanup_after_failure", _cleanup_after_failure, _cleanup_after_failure_async),
+    ("_create_sidecars", _create_sidecars, _create_sidecars_async),
+    ("_wait_sidecars", _wait_sidecars, _wait_sidecars_async),
+    ("_sidecar_ready", _sidecar_ready, _sidecar_ready_async),
     ("get_api_clients", get_api_clients, get_async_api_clients),
     ("create_sandbox_client", create_sandbox_client, create_async_sandbox_client),
 ]
@@ -67,7 +76,8 @@ STRUCTURAL_ALLOWLIST = {("Sandbox", "__init__")}
 # Sync-only public surface per class; async either inlines these or lacks
 # a twin. New entries are deliberate decisions, not accidents.
 SYNC_ONLY_PUBLIC_ALLOWLIST = {
-    "Sandbox": {"get_domain", "get_tcp_proxy_info", "template"},
+    # sidecar() only reads state set at create time, so it has no async twin.
+    "Sandbox": {"get_domain", "get_tcp_proxy_info", "sidecar", "template"},
     "ServicePool": set(),
     "SandboxExecutor": set(),
     "SandboxFilesystem": set(),

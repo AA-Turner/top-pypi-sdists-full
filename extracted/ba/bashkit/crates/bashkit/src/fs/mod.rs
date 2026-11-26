@@ -479,6 +479,17 @@ pub fn vfs_join(base: &Path, child: impl AsRef<Path>) -> PathBuf {
     }
 }
 
+/// Validate an operand before normalization can turn it into the VFS root.
+pub(crate) fn reject_empty_path(path: &Path) -> std::io::Result<()> {
+    if path.as_os_str().is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "empty filesystem path",
+        ));
+    }
+    Ok(())
+}
+
 /// Normalize a virtual filesystem path by resolving `.` and `..` components.
 ///
 /// Returns a canonical absolute path. If the result would be empty (e.g., from
@@ -697,6 +708,50 @@ pub(crate) async fn canonicalize(fs: &dyn FileSystem, path: &Path) -> crate::Res
         }
     }
     Ok(out)
+}
+
+/// A callback invoked before allocating response storage for a VFS read.
+/// An error aborts the read. `None` selects the ordinary read behavior.
+#[cfg(any(
+    not(target_family = "wasm"),
+    feature = "python",
+    feature = "typescript"
+))]
+pub type ReadCharge<'a> = Option<&'a (dyn Fn(usize) -> crate::error::Result<()> + Sync)>;
+
+/// Read admission is inactive in WebAssembly builds without embedded runtimes.
+#[cfg(all(
+    target_family = "wasm",
+    not(any(feature = "python", feature = "typescript"))
+))]
+pub type ReadCharge<'a> = Option<std::convert::Infallible>;
+
+#[cfg(any(
+    not(target_family = "wasm"),
+    feature = "python",
+    feature = "typescript"
+))]
+pub(crate) fn charge_read(charge: ReadCharge<'_>, bytes: usize) -> crate::error::Result<()> {
+    charge.map_or(Ok(()), |charge| charge(bytes))
+}
+
+#[cfg(all(
+    target_family = "wasm",
+    not(any(feature = "python", feature = "typescript"))
+))]
+pub(crate) fn charge_read(_charge: ReadCharge<'_>, _bytes: usize) -> crate::error::Result<()> {
+    Ok(())
+}
+
+// Allow for vector capacity growth, metadata and wrapper merge storage.
+pub(crate) fn charge_dir_entry(
+    charge: ReadCharge<'_>,
+    name_bytes: usize,
+) -> crate::error::Result<()> {
+    charge_read(
+        charge,
+        (4 * std::mem::size_of::<DirEntry>()).saturating_add(name_bytes.saturating_mul(4)),
+    )
 }
 
 #[cfg(test)]

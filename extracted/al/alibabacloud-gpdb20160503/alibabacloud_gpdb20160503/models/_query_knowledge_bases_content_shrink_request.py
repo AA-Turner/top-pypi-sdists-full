@@ -43,13 +43,13 @@ class QueryKnowledgeBasesContentShrinkRequest(DaraModel):
         # > - Reranking is slow when document chunks are sparse.
         # > - We recommend that the number of reranked items (TopK × Factor, rounded up) does not exceed 50.
         self.rerank_factor = rerank_factor
-        # The parameters of the reranking model used to rerank the merged multi-channel results.
+        # The reranking model parameters used to rerank the merged multi-channel results.
         self.rerank_model_shrink = rerank_model_shrink
         # The information about multiple collections to be retrieved.
         # 
         # This parameter is required.
         self.source_collection_shrink = source_collection_shrink
-        # The number of top results to return after multi-channel recall results are merged.
+        # The number of top results to return after the multi-channel recall results are merged.
         self.top_k = top_k
 
     def validate(self):

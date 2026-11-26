@@ -1967,6 +1967,13 @@ class BinProvider(BaseModel):
             self.INSTALLER_BIN,
         )
 
+    @classmethod
+    def installer_version_fingerprint_paths(
+        cls,
+        abspath: HostBinPath,
+    ) -> list[Path]:
+        return []
+
     def installer_version_handler(
         self,
         bin_name: BinName,
@@ -3103,6 +3110,37 @@ class BinProvider(BaseModel):
             )
             if sudo_abspath:
                 sudo_cmd = [sudo_abspath, "-n"]
+                # sudo otherwise drops the caller's transport configuration,
+                # bypassing its package cache or losing apt's custom CA bundle.
+                # Preserve only these settings, not unrelated caller credentials.
+                transport_env = [
+                    name
+                    for name in (
+                        "http_proxy",
+                        "https_proxy",
+                        "all_proxy",
+                        "no_proxy",
+                        "HTTP_PROXY",
+                        "HTTPS_PROXY",
+                        "ALL_PROXY",
+                        "NO_PROXY",
+                        "APT_CONFIG",
+                        "SSL_CERT_FILE",
+                        "SSL_CERT_DIR",
+                        "CURL_CA_BUNDLE",
+                        "REQUESTS_CA_BUNDLE",
+                        "NODE_EXTRA_CA_CERTS",
+                        "NODE_USE_ENV_PROXY",
+                        "GIT_SSL_CAINFO",
+                        "CARGO_HTTP_CAINFO",
+                        "PIP_CERT",
+                        "HOMEBREW_CURLRC",
+                        "WGETRC",
+                    )
+                    if name in sudo_env
+                ]
+                if transport_env:
+                    sudo_cmd.append("--preserve-env=" + ",".join(transport_env))
                 if run_as_uid != 0:
                     sudo_cmd.extend(["-u", target_pw_record.pw_name])
                 sudo_cmd.extend(["--", *cmd])
@@ -4571,6 +4609,16 @@ class EnvProvider(BinProvider):
         # metadata. The ordered host candidates invalidate resolution when a
         # PATH entry appears, disappears, moves, or changes without probes.
         cache_info["fingerprint_paths"].extend(self._host_candidates(bin_name))
+
+        # An installer can update its version metadata without changing the
+        # launcher itself (for example Homebrew's repository update).
+        from . import PROVIDER_CLASS_BY_INSTALLER_BIN
+
+        owner = PROVIDER_CLASS_BY_INSTALLER_BIN.get(str(bin_name))
+        if owner is not None:
+            cache_info["fingerprint_paths"].extend(
+                owner.installer_version_fingerprint_paths(abspath),
+            )
         return cache_info
 
     def _exec_bin_abspath(self, bin_abspath: Path) -> Path:

@@ -33,9 +33,9 @@ from typing import Optional
 import txaio
 
 from autobahn.asyncio.util import (
+    create_tls_channel_id,
     create_transport_details,
     get_serializers,
-    transport_channel_id,
 )
 from autobahn.util import _LazyHexFormatter, hltype, public
 from autobahn.wamp.exception import ProtocolError, SerializationError, TransportLost
@@ -115,6 +115,7 @@ class PrefixProtocol(asyncio.Protocol):
 
     def protocol_error(self, msg):
         self.log.error(msg)
+        assert self.transport is not None, "called on received data only"
         self.transport.close()
 
     def sendString(self, data):
@@ -122,6 +123,9 @@ class PrefixProtocol(asyncio.Protocol):
         if l > self.max_length_send:
             raise ValueError("Data too big")
         header = struct.pack(self.prefix_format, len(data))
+        if self.transport is None:
+            # connection_lost() already ran (e.g. sending from onClose)
+            raise TransportLost()
         self.transport.write(header)
         self.transport.write(data)
 
@@ -291,6 +295,7 @@ class RawSocketServerProtocol(RawSocketProtocol):
     def process_handshake(self):
         def send_response(lexp, ser_id):
             b2 = lexp << 4 | (ser_id & 0x0F)
+            assert self.transport is not None, "called on received data only"
             self.transport.write(bytes(bytearray([MAGIC_BYTE, b2, 0, 0])))
 
         ser_id, _lexp = self.parse_handshake()
@@ -311,13 +316,10 @@ class WampRawSocketMixinGeneral:
         try:
             if self._transport_details.is_secure:
                 # now that the TLS opening handshake is complete, the actual TLS channel ID
-                # will be available. make sure to set it!
-                channel_id = {
-                    "tls-unique": transport_channel_id(
-                        self.transport, self._transport_details.is_server, "tls-unique"
-                    ),
-                }
-                self._transport_details.channel_id = channel_id
+                # will be available. make sure to set it (by negotiated TLS version, #2078)!
+                self._transport_details.channel_id = create_tls_channel_id(
+                    self.transport, self._transport_details.is_server
+                )
 
             self._session = self.factory._factory()
             self._session.onOpen(self)
@@ -331,13 +333,13 @@ class WampRawSocketMixinGeneral:
         else:
             self.log.info("ApplicationSession started.")
 
-    def stringReceived(self, payload):
+    def stringReceived(self, data):
         self.log.debug(
             "WampRawSocketProtocol: RX octets: {octets}",
-            octets=_LazyHexFormatter(payload),
+            octets=_LazyHexFormatter(data),
         )
         try:
-            for msg in self._serializer.unserialize(payload):
+            for msg in self._serializer.unserialize(data):
                 self.log.debug("WampRawSocketProtocol: RX WAMP message: {msg}", msg=msg)
                 self._session.onMessage(msg)
 
@@ -395,7 +397,11 @@ class WampRawSocketMixinAsyncio:
     def _on_connection_lost(self, exc):
         try:
             wasClean = exc is None
-            self._session.onClose(wasClean)
+            # no session when the connection closes before the opening
+            # handshake completed
+            session = getattr(self, "_session", None)
+            if session is not None:
+                session.onClose(wasClean)
         except Exception as e:
             # silently ignore exceptions raised here ..
             self.log.warn(

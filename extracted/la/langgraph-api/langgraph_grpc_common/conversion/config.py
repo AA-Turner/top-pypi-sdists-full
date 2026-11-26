@@ -132,8 +132,6 @@ def _configurable_from_proto(
         # preserves root modes through nested subgraph calls
         configurable[CONFIG_KEY_ROOT_STREAM_MODES] = root_modes
 
-    # Handle runtime
-    # TODO need context schema to create runtime here. Handle to ensure_runtime for now, but only called during executetasks
     if config_proto.HasField("runtime"):
         runtime_proto = config_proto.runtime
         configurable[CONFIG_KEY_RUNTIME] = {
@@ -311,7 +309,7 @@ def _inject_configurable_into_proto(
                         conversion.value.any_to_serialized_value(v)
                     )
         elif key == CONFIG_KEY_RUNTIME:
-            if value is not None:
+            if value is not None and not skip_private_configurable:
                 proto.runtime.CopyFrom(runtime_to_proto(value))
         elif key == CONFIG_KEY_DURABILITY:
             if value is not None:

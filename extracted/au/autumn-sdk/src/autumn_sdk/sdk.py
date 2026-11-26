@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from autumn_sdk.entities import Entities
     from autumn_sdk.events import Events
     from autumn_sdk.features import Features
+    from autumn_sdk.feedback import Feedback
     from autumn_sdk.invoices import Invoices
     from autumn_sdk.keys import Keys
     from autumn_sdk.licenses import Licenses
@@ -68,6 +69,7 @@ class Autumn(BaseSDK):
     keys: "Keys"
     auth: "Auth"
     sandboxes: "Sandboxes"
+    feedback: "Feedback"
     webhooks: "Webhooks"
     approval_rules: "ApprovalRules"
     _sub_sdk_map = {
@@ -89,6 +91,7 @@ class Autumn(BaseSDK):
         "keys": ("autumn_sdk.keys", "Keys"),
         "auth": ("autumn_sdk.auth", "Auth"),
         "sandboxes": ("autumn_sdk.sandboxes", "Sandboxes"),
+        "feedback": ("autumn_sdk.feedback", "Feedback"),
         "webhooks": ("autumn_sdk.webhooks", "Webhooks"),
         "approval_rules": ("autumn_sdk.approval_rules", "ApprovalRules"),
     }

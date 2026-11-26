@@ -18,6 +18,7 @@ from bernstein.cli.helpers import (
     print_banner,
 )
 from bernstein.cli.run_confirm import (
+    _config_cli_value,
     _demo_exit_code,
     _DemoOutcome,
     _fetch_demo_outcome,
@@ -124,6 +125,19 @@ def _setup_quickstart_project(project_dir: Path, adapter: str) -> None:
         )
         (project_dir / "requirements.txt").write_text("flask>=3.0.0\npytest>=8.0.0\n")
 
+    # Ensure bernstein.yaml exists with an explicit merge-gate policy even in
+    # the inline fallback (pip/wheel without examples/quickstart) so
+    # run_started journals gate_config and `bernstein trace export` works.
+    if not (project_dir / "bernstein.yaml").exists():
+        (project_dir / "bernstein.yaml").write_text(
+            'goal: "Add input validation, error handling, and tests to the TODO API"\n'
+            "cli: auto\n"
+            "max_agents: 2\n"
+            'budget: "$5"\n'
+            "quality_gates:\n"
+            "  enabled: false\n"
+        )
+
     # Create .sdd directory structure
     for d in SDD_DIRS:
         (project_dir / d).mkdir(parents=True, exist_ok=True)
@@ -136,7 +150,7 @@ def _setup_quickstart_project(project_dir: Path, adapter: str) -> None:
         "max_workers: 2\n"
         "default_model: sonnet\n"
         "default_effort: normal\n"
-        f"cli: {adapter}\n"
+        f"cli: {_config_cli_value(adapter)}\n"
     )
     (project_dir / ".sdd" / "runtime" / ".gitignore").write_text("*.pid\n*.log\ntasks.jsonl\n")
 

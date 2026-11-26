@@ -14,6 +14,7 @@ from ...artifact.hashing import fingerprint, local_file_uri
 # scanning disabled: from .secret_gate import FIELD_NAME_RULE, CredentialBlocked, _findings, prepare_upload
 from ...secret_gate import CredentialBlocked
 from ...artifact.limits import AUTO_UPLOAD_MAX_BYTES, SCAN_PREFIX_BYTES
+from .. import code as _snapshot
 
 #: Every captured output is named under this prefix (see WHY THE PREFIXES).
 OUTPUT_PREFIX = "outputs/"
@@ -28,6 +29,17 @@ HEAD_SCAN_RESERVE_SECONDS = 15.0
 #: file between the inspection limit and `AUTO_UPLOAD_MAX_BYTES` in parts.
 AUTO_MULTIPART_FEATURE = "artifact_auto_multipart"
 
+
+
+def _has_key_in_staged_head(path: str) -> bool:
+    """Whether the first `SCAN_PREFIX_BYTES` of a staged copy hold a vendor-shaped key (T51 R2-A):
+    those bytes go up in parts, unredacted. Unreadable counts as a hit."""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(SCAN_PREFIX_BYTES)
+    except OSError:
+        return True
+    return bool(_snapshot.find_vendor_shapes(head))
 
 class OutputQueueMixin:
     """Part of OutputCapture: its methods run with `self` the OutputCapture; compose() folds them into OutputCapture."""
@@ -63,7 +75,7 @@ class OutputQueueMixin:
 
     def _queue_in_parts(self, rel: str, full: str, storage: dict, deadline: float) -> str | None:
         """Queue one big output file as a multipart upload. ``"queued"``;
-        ``"secret"`` when its PATH holds a credential; None when it cannot go
+        ``"secret"`` when its staged head holds a vendor-shaped key; None when it cannot go
         this way, and the caller records the pointer (or lists it) as before:
         switched off, out of the close's time, not stageable without a copy,
         over 5 GiB once staged, or a head that is not clean.
@@ -76,9 +88,8 @@ class OutputQueueMixin:
         prefix nothing is scanned, as with any multipart upload."""
         if time.monotonic() >= deadline:
             return None
-        # scanning disabled: if _findings(full)[0]:
-        if False:
-            return "secret"
+        # The PATH check (`_findings(full)`) stays off with the SDK's other scans (0.352.3);
+        # the staged HEAD is checked below (T51).
         try:
             from ...delivery.transport.deadlines import deadline_scope
 
@@ -111,8 +122,13 @@ class OutputQueueMixin:
             staged["identity"]["size"] > AUTO_UPLOAD_MAX_BYTES  # it grew after the folder walk
             or time.monotonic() + HEAD_SCAN_RESERVE_SECONDS >= deadline  # no time to scan it
             or not _head_is_clean(staged["staged_path"], SCAN_PREFIX_BYTES)
-            or time.monotonic() >= deadline  # the scan ran the close out of time
         ):
+            _multipart.release_staged(staged)
+            return None
+        if _has_key_in_staged_head(staged["staged_path"]):
+            _multipart.release_staged(staged)
+            return "secret"
+        if time.monotonic() >= deadline:  # the scan ran the close out of time
             _multipart.release_staged(staged)
             return None
         try:

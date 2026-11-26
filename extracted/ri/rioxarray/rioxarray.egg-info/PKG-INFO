@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rioxarray
-Version: 0.25.0
+Version: 0.25.1
 Summary: geospatial xarray extension powered by rasterio
 Maintainer: rioxarray Contributors
 License-Expression: Apache-2.0

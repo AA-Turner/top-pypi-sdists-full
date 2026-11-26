@@ -453,7 +453,7 @@ class Reference(BaseModel, Generic[PrefixType_co]):
     >>> Reference.from_curie("chebi:1234")
     Reference(prefix='chebi', identifier='1234')
 
-    A reference can also be constructued using Pydantic's parsing utilities, but keep in
+    A reference can also be constructed using Pydantic's parsing utilities, but keep in
     mind if you're using Pydantic v1 or Pydantic v2.
 
     A reference can be formatted as a CURIE string with the ``curie`` attribute
@@ -759,6 +759,7 @@ class Record(BaseModel):
         Field(
             title="URI prefix",
             description="The canonical URI prefix, used in the forward prefix map",
+            min_length=1,
         ),
     ]
     prefix_synonyms: list[str] = Field(default_factory=list, title="CURIE prefix synonyms")
@@ -785,6 +786,9 @@ class Record(BaseModel):
     def uri_prefix_not_in_synonyms(cls, v: str, values: Mapping[str, Any]) -> str:
         """Check that the canonical URI prefix does not apper in the URI prefix synonym list."""
         uri_prefix = _get_field_validator_values(values, "uri_prefix")
+        for value in v:
+            if not value.strip():
+                raise ValueError("empty URI prefix synonym")
         if uri_prefix in v:
             raise ValueError(
                 f"Duplicate of canonical URI prefix `{uri_prefix}` in URI prefix synonyms"
@@ -1069,10 +1073,10 @@ class Converter:
         else:
             for prefix in external._all_prefixes:
                 if record := self._prefix_ci_to_record.get(prefix.casefold()):
-                    rv[record.prefix].append("prefix case-insenstive match")
+                    rv[record.prefix].append("prefix case-insensitive match")
             for uri_prefix in external._all_uri_prefixes:
                 if record := self._uri_prefix_ci_to_record.get(uri_prefix.casefold()):
-                    rv[record.prefix].append("URI case-insenstive prefix match")
+                    rv[record.prefix].append("URI case-insensitive prefix match")
 
         return dict(rv)
 
@@ -1148,7 +1152,7 @@ class Converter:
             record = self._prefix_to_record[prefix]
         except KeyError as e:
             raise KeyError(
-                f"can not add prefix synoynm {prefix_synonym} to prefix {prefix} since {prefix} is not already indexed"
+                f"can not add prefix synonym {prefix_synonym} to prefix {prefix} since {prefix} is not already indexed"
             ) from e
 
         sr = self._prefix_to_record.get(prefix_synonym)
@@ -1173,7 +1177,7 @@ class Converter:
             record = self._prefix_to_record[prefix]
         except KeyError as e:
             raise KeyError(
-                f"can't add URI prefix synoynm {uri_prefix_synonym} to prefix {prefix} because "
+                f"can't add URI prefix synonym {uri_prefix_synonym} to prefix {prefix} because "
                 f"{prefix} is not already indexed"
             ) from e
 
@@ -1181,7 +1185,7 @@ class Converter:
         if sr is not None:
             if sr.prefix != record.prefix:
                 raise ValueError(
-                    f"can't add URI prefix synonym {uri_prefix_synonym} to {prefix} becauase "
+                    f"can't add URI prefix synonym {uri_prefix_synonym} to {prefix} because "
                     f"it is already taken by record for {sr.prefix}"
                 )
             return
@@ -1257,8 +1261,8 @@ class Converter:
             - An iterable of :class:`curies.Record` objects or dictionaries that will
               get converted into record objects that together constitute an extended
               prefix map
-            - A string containing a remote location of a JSON file containg an extended
-              prefix map
+            - A string containing a remote location of a JSON file containing an
+              extended prefix map
             - A string or :class:`pathlib.Path` object corresponding to a local file
               path to a JSON file containing an extended prefix map
         :param kwargs: Keyword arguments to pass to :meth:`curies.Converter.__init__`
@@ -1373,7 +1377,8 @@ class Converter:
 
             - A mapping whose keys represent CURIE prefixes and values represent URI
               prefixes
-            - A string containing a remote location of a JSON file containg a prefix map
+            - A string containing a remote location of a JSON file containing a prefix
+              map
             - A string or :class:`pathlib.Path` object corresponding to a local file
               path to a JSON file containing a prefix map
         :param kwargs: Keyword arguments to pass to :meth:`curies.Converter.__init__`
@@ -1428,7 +1433,7 @@ class Converter:
         >>> converter.compress("https://www.ebi.ac.uk/chebi/searchId.do?chebiId=138488")
         'CHEBI:138488'
 
-        Altenatively, get content from the internet like
+        Alternatively, get content from the internet like
 
         >>> url = "https://github.com/biopragmatics/bioregistry/raw/main/exports/contexts/bioregistry.rpm.json"
         >>> converter = Converter.from_reverse_prefix_map(url)
@@ -2945,7 +2950,7 @@ def load_prefix_map(prefix_map: LocationOr[Mapping[str, str]], **kwargs: Any) ->
 
         - A mapping whose keys represent CURIE prefixes and values represent URI
           prefixes
-        - A string containing a remote location of a JSON file containg a prefix map
+        - A string containing a remote location of a JSON file containing a prefix map
         - A string or :class:`pathlib.Path` object corresponding to a local file path to
           a JSON file containing a prefix map
     :param kwargs: Keyword arguments to pass to :meth:`curies.Converter.__init__`
@@ -2975,7 +2980,7 @@ def load_extended_prefix_map(
 
         - An iterable of :class:`curies.Record` objects or dictionaries that will get
           converted into record objects that together constitute an extended prefix map
-        - A string containing a remote location of a JSON file containg an extended
+        - A string containing a remote location of a JSON file containing an extended
           prefix map
         - A string or :class:`pathlib.Path` object corresponding to a local file path to
           a JSON file containing an extended prefix map
@@ -3100,7 +3105,7 @@ def _ensure_path(path: str | Path) -> Path:
     return path
 
 
-def _get_jsonld_context(
+def get_jsonld_context(
     converter: Converter, *, expand: bool = False, include_synonyms: bool = False
 ) -> dict[str, Any]:
     """Get a JSON-LD context based on the converter."""
@@ -3111,7 +3116,7 @@ def _get_jsonld_context(
         if include_synonyms:
             for prefix_synonym in record.prefix_synonyms:
                 context[prefix_synonym] = term
-    return {"@context": context}
+    return context
 
 
 def write_jsonld_context(
@@ -3179,7 +3184,9 @@ def write_jsonld_context(
         }
     """
     path = _ensure_path(path)
-    obj = _get_jsonld_context(converter, include_synonyms=include_synonyms, expand=expand)
+    obj = {
+        "@context": get_jsonld_context(converter, expand=expand, include_synonyms=include_synonyms)
+    }
     with path.open("w") as file:
         json.dump(obj, file, indent=4, sort_keys=True)
 
@@ -3317,7 +3324,7 @@ def upgrade_prefix_map(prefix_map: Mapping[str, str]) -> list[Record]:
     However, it is both possible and frequent to have duplicate values. This happens
     because many semantic spaces have multiple synonymous CURIE prefixes. For example,
     the `OBO in OWL <https://bioregistry.io/oboinowl>`_ vocabulary has two common,
-    interchangable prefixes: ``oio`` and ``oboInOwl`` (and the case variant
+    interchangeable prefixes: ``oio`` and ``oboInOwl`` (and the case variant
     ``oboinowl``). Therefore, a prefix map might contain the following parts that make
     it non-bijective:
 
@@ -3328,7 +3335,7 @@ def upgrade_prefix_map(prefix_map: Mapping[str, str]) -> list[Record]:
           "oboInOwl": "http://www.geneontology.org/formats/oboInOwl#"
         }
 
-    This is bad because this prefix map can't be used to determinstically compress a
+    This is bad because this prefix map can't be used to deterministically compress a
     URI. For example, should ``http://www.geneontology.org/formats/oboInOwl#hasDbXref``
     be compressed to ``oio:hasDbXref`` or ``oboInOwl:hasDbXref``? Neither is necessarily
     incorrect, but the issue here is that there is not an explicit choice by the data

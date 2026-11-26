@@ -11,6 +11,12 @@ signup_url: https://app.tavily.com
 api_key_url: https://app.tavily.com/home
 setup: "A key from the [Tavily dashboard](https://app.tavily.com/home), in `TAVILY_API_KEY`; the docs are at [docs.tavily.com](https://docs.tavily.com)."
 
+# A local process again (the user, 26 November 2026: "Put back tavily as local
+# process but make it optional, so agent can launch on kagent without tavily"):
+# Tavily's hosted server (agentspecs 0.1.22 and 0.1.23) left codemode agents
+# without its tools, codemode's registry reaching only local servers and plain
+# HTTP ones. The key is read in this process, so an engine whose sandbox holds
+# no secret (Kagent) cannot run it: the agents that name it list it optional.
 command: npx
 args:
   - "-y"

@@ -39,7 +39,7 @@ from langgraph_grpc_common.proto import (
 from langgraph_sdk import Auth
 from starlette.exceptions import HTTPException
 
-from langgraph_api.asyncio import ValueEvent
+from langgraph_api.asyncio import ValueEvent, create_task
 from langgraph_api.auth.custom import handle_event as auth_handle_event
 from langgraph_api.config import (
     STREAM_PUBLISH_RETRY_BACKOFF_FACTOR,
@@ -281,6 +281,8 @@ class GrpcStreamHandler:
         ignore_run_not_found: bool = False,
         cancel_on_disconnect: bool = False,
         last_event_id: str | None = None,
+        namespaces: list[str] | None = None,
+        checkpoint_id: str | None = None,
     ):
         """Send JoinRunRequest and yield events.
 
@@ -300,6 +302,10 @@ class GrpcStreamHandler:
             join_kwargs["stream_modes"] = stream_modes
         if last_event_id is not None:
             join_kwargs["last_event_id"] = last_event_id
+        if namespaces:
+            join_kwargs["namespaces"] = namespaces
+        if checkpoint_id is not None:
+            join_kwargs["checkpoint_id"] = checkpoint_id
 
         # Send JoinRunRequest
         join_msg = pb.StreamRunClientMessage(join=pb.JoinRunRequest(**join_kwargs))
@@ -346,6 +352,48 @@ class GrpcStreamHandler:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
+
+
+async def _cancel_dropped_join(
+    run_id: UUID,
+    thread_id: UUID,
+    ctx: Any,
+    filters: list[pb.AuthFilter] | None,
+) -> None:
+    try:
+        async with asyncio.timeout(10):
+            # Same filters and reason as the core's own cancel when a joined stream drops.
+            # No filters means the drop interrupted the stream's own read check.
+            if filters is None:
+                filters = await Runs.Stream.handle_event(
+                    ctx,
+                    "read",
+                    Auth.types.ThreadsRead(run_id=run_id, thread_id=thread_id),
+                )
+            client = await get_shared_client()
+            try:
+                await client.runs.Cancel(
+                    pb.CancelRunRequest(
+                        filters=filters,
+                        action=enum_cancel_run_action.interrupt,
+                        reason="client disconnected from the run stream (on_disconnect=cancel)",
+                        run_ids=pb.CancelRunIdsTarget(
+                            thread_id=pb.UUID(value=str(thread_id)),
+                            run_ids=[pb.UUID(value=str(run_id))],
+                        ),
+                    )
+                )
+            except AioRpcError as e:
+                if e.code() != StatusCode.NOT_FOUND:
+                    raise
+    except TimeoutError:
+        await logger.awarning(
+            "Timed out trying to cancel run on disconnect; investigate whether the run is still running",
+            run_id=run_id,
+            thread_id=thread_id,
+            timeout_seconds=10,
+        )
+        raise
 
 
 def _map_multitask_strategy(
@@ -459,6 +507,8 @@ def _proto_kwargs_to_dict(kwargs: pb.RunKwargs) -> dict:
         else True,
         "durability": kwargs.durability if kwargs.HasField("durability") else None,
     }
+    if kwargs.HasField("strict_resume") and kwargs.strict_resume:
+        result["strict_resume"] = True
     return result
 
 
@@ -644,18 +694,31 @@ class Runs(Authenticated):
         *,
         thread_id: UUID,
         ctx: Any = None,
+        read_mask_paths: list[str] | None = None,
     ) -> AsyncIterator[Run]:
-        """Get a run by ID."""
+        """Get a run by ID.
+
+        Args:
+            read_mask_paths: When set, "metadata" and "kwargs" are read only if
+                listed, and every other field always is; omitting "kwargs" skips
+                the run's input. None reads every field.
+        """
         auth_filters = await Runs.handle_event(
             ctx,
             "read",
             Auth.types.ThreadsRead(run_id=run_id, thread_id=thread_id),
         )
 
+        read_mask = (
+            field_mask_pb2.FieldMask(paths=read_mask_paths)
+            if read_mask_paths is not None
+            else None
+        )
         request = pb.GetRunRequest(
             run_id=pb.UUID(value=str(run_id)),
             thread_id=pb.UUID(value=str(thread_id)),
             filters=auth_filters,
+            read_mask=read_mask,
         )
 
         client = await get_shared_client()
@@ -1129,6 +1192,8 @@ class Runs(Authenticated):
             cancel_on_disconnect: bool = False,
             stream_mode: list[str] | None = None,
             last_event_id: str | None = None,
+            namespaces: list[str] | None = None,
+            checkpoint_id: str | None = None,
             ctx: Any = None,
         ):
             """Join the run stream and start receiving events.
@@ -1138,21 +1203,23 @@ class Runs(Authenticated):
             Yields tuples of (event_bytes, message_bytes, stream_id_bytes|None).
             """
             handler: GrpcStreamHandler = stream_channel
-            auth_filters = await Runs.Stream.handle_event(
-                ctx,
-                "read",
-                Auth.types.ThreadsRead(run_id=run_id, thread_id=thread_id),
-            )
-
             stream_modes_pb = _map_stream_modes(stream_mode)
+            auth_filters: list[pb.AuthFilter] | None = None
 
             try:
+                auth_filters = await Runs.Stream.handle_event(
+                    ctx,
+                    "read",
+                    Auth.types.ThreadsRead(run_id=run_id, thread_id=thread_id),
+                )
                 async for event_bytes, message_bytes, stream_id_bytes in handler.join(
                     auth_filters=auth_filters,
                     stream_modes=stream_modes_pb or None,
                     ignore_run_not_found=ignore_404,
                     cancel_on_disconnect=cancel_on_disconnect,
                     last_event_id=last_event_id,
+                    namespaces=namespaces,
+                    checkpoint_id=checkpoint_id,
                 ):
                     yield (event_bytes, message_bytes, stream_id_bytes)
             except AioRpcError as e:
@@ -1161,6 +1228,13 @@ class Runs(Authenticated):
                     return  # Return empty stream
                 # Convert all other gRPC errors to HTTP exceptions
                 _handle_grpc_error(e)
+            except asyncio.CancelledError:
+                if cancel_on_disconnect:
+                    create_task(
+                        _cancel_dropped_join(run_id, thread_id, ctx, auth_filters),
+                        ignore_exceptions=(HTTPException,),
+                    )
+                raise
             finally:
                 await handler.close()
 
@@ -1201,6 +1275,8 @@ class Runs(Authenticated):
             thread_id: UUID | str,
             *,
             resumable: bool = False,
+            publisher_id: str | None = None,
+            seq: int | None = None,
         ) -> None:
             """Publish a message to the run stream via gRPC.
 
@@ -1209,7 +1285,12 @@ class Runs(Authenticated):
                 event: Event type (e.g. 'values', 'updates', 'messages', etc.)
                 message: Event payload (serialized JSON or raw bytes)
                 thread_id: The thread ID
-                resumable: If true, message will be cached with TTL for resumable streaming
+                resumable: Whether the in-memory runtime keeps the message for a
+                    resumed stream. Redis keeps every message for its TTL.
+                publisher_id: With `seq`, lets the Redis publish script drop a
+                    retried publish instead of adding it twice; the in-memory
+                    runtime ignores both. Pass both or neither.
+                seq: The event's number within the publisher; retries resend it
             """
             run_id_pb = (
                 None if run_id is None or run_id == "*" else pb.UUID(value=str(run_id))
@@ -1221,6 +1302,8 @@ class Runs(Authenticated):
                 event_type=event,
                 message=message,
                 resumable=resumable,
+                publisher_id=publisher_id,
+                seq=seq,
             )
             max_duration_secs = max(0.0, STREAM_PUBLISH_RETRY_MAX_DURATION_SECS)
             initial_interval_secs = max(

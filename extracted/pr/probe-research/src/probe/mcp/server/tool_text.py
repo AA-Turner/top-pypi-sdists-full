@@ -40,7 +40,7 @@ _BR_SINCE_DOC = """Only rows with activity on or after this time: an ISO date ("
 
 _BR_UNTIL_DOC = """Only rows with activity before this time; the same forms as `since`. A session that went on past it is left out, however much of it came before: for one day, set `since` only."""
 
-_BR_LATEST_METRICS_DOC = """mode=runs only: metric keys (at most 50); each run row gains `latest_metrics` {key: {last, min, max, last_step}}, the values `metric.<key>` filters and sorts on. `latest_metrics_partial`: a W&B run whose values are not known here; `latest_metrics_locked`: past the plan's retention window."""
+_BR_LATEST_METRICS_DOC = """mode=runs only: metric keys (at most 50), or true for the page's key metrics (`latest_metrics_note` names them); each run row gains `latest_metrics` {key: {last, min, max, last_step}}, the values `metric.<key>` filters and sorts on. `latest_metrics_partial`: a W&B run whose values are not known here; `latest_metrics_locked`: past the plan's retention window."""
 
 _BR_QUERY_DOC = """mode=projects / runs / sessions / files / datasets / checkpoints / sources: matches names loosely (typos ok), best first, one page; `query_note` says when none matched. mode=notes: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note. mode=people: teammates it names by name or email (loosely, as `owner`), best first. mode=decisions: words; a decision matches when ANY of them is in its title or reason (case-insensitive)."""
 
@@ -239,7 +239,9 @@ _SK_CURSOR_DOC = """Continue a prior search from its `next_cursor`."""
 # What the mode DOES, not when to use it: when is the reader's call, made from
 # the instructions and skills. Rides `input_schema` (uncapped); the docstring
 # carries a one-line pointer because Codex drops parameter descriptions.
-_SK_SEMANTIC_DOC = """true (default): the exact channel plus the engine's semantic search (vector, BM25 and graph, with a model choosing the passages). false: keyword only, with no model calls: the exact channel (names and slugs), BM25 over document text and titles, which matches the query's words literally (no synonyms, no paraphrase), and an exact lookup of ids, URLs and ticket codes typed whole. Every scope and `search_in` applies either way; hits found this way say `keyword` in `why_matched`."""
+_SK_RETRIEVAL_DOC = """How the search finds passages. `agentic` (default): the exact channel plus the engine's semantic search (vector, BM25 and graph, with a model choosing the passages). `direct`: the exact channel plus vector and BM25 search and an exact lookup of ids, with no model calls, so faster. `keyword`: no model and no vectors: the exact channel (names and slugs), BM25 over document text and titles, which matches the query's words literally (no synonyms, no paraphrase), and an exact lookup of ids, URLs and ticket codes typed whole; its hits say `keyword` in `why_matched`. Every scope and `search_in` applies to all three."""
+
+_SK_SEMANTIC_DOC = """Older spelling, kept for now: false is retrieval="keyword". Pass `retrieval` instead."""
 
 _SK_OWNER_DOC = """Only results this person made or wrote: a user id from browse(mode="people"), an email, a name (loose: "maya" finds Maya Lee) or "me". `owner_matched` says who it matched: check it. `owner_note` names the corpora a person cannot filter; their results are left out."""
 
@@ -406,7 +408,7 @@ evals, etc), plus Probe's own docs (`search_in=["docs"]`) - no outside facts
 ### HOW TO READ (in order):
 1. Try to answer from local context first (repo, files, conversation, etc)
 2. Use `browse` as a table of contents to get an overview of the team's work (a fast, deterministic list of projects/experiments/runs) 
-3. Use `search` to do an agentic RAG semantic search over ALL of the team's content (slower but more thorough, ~10s, use more sparingly); `semantic=false` is a keyword-only search with no model calls
+3. Use `search` to do an agentic RAG semantic search over ALL of the team's content (slower but more thorough, ~10s, use more sparingly); `retrieval="direct"` (vector + BM25) and `retrieval="keyword"` (literal words) make no model calls
 
 Seperately: Use `query_sql` for read-only SQL scripts - useful to answer questions involving counts, joins, or verifying a number.
 

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from bitfab.constants import _replay_context, replay_item_is_running
+from bitfab.recorded_states import update_recorded_state
 from bitfab.sandbox import SANDBOX_SESSION_KEY
 from bitfab.warn_once import warn_once
 
@@ -137,8 +138,22 @@ def save_recorded_sandbox_state(
     integration: str, sandbox: str, trace_id: str, state: Any
 ) -> None:
     client = recording_client(integration)
-    if client is not None:
-        client.sandbox_stores.seed(sandbox, trace_id, state)
+    if client is None:
+        return
+
+    def replace(holder: dict[str, Any]) -> None:
+        holder["state"] = state
+
+    update_recorded_state(
+        trace_id,
+        sandbox,
+        dict,
+        replace,
+        lambda holder: holder["state"],
+        lambda latest, version: client.http_client.send_sandbox_store_write(
+            trace_id, sandbox, latest, version
+        ),
+    )
 
 
 def run(call: ServiceCall) -> Any:

@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import math
 import hashlib
+import warnings
 from types import MappingProxyType
 from typing import Any, Union, Literal, Mapping, Protocol, Sequence, get_args, runtime_checkable
-from dataclasses import field, dataclass
+from dataclasses import InitVar, field, dataclass
 from collections.abc import Iterable
 
 from fireworks.training.sdk.routing import RoutingReferences
@@ -432,18 +433,22 @@ class TrajectoryDriftPolicy:
 
     max_masked_tokens: int = 1024
     on_other_mismatch: Literal["new_segment", "reject"] = "new_segment"
-    # Linear is the compatibility default during migration. Put new lineage
-    # features and optimizations in tree only. Deprecate and retire linear
-    # rollouts after migration and keep the v1 reader for shared replay.
-    lineage_mode: Literal["tree", "linear"] = "linear"
+    # Older Harbor versions still pass this keyword. Tree is the only runtime policy.
+    lineage_mode: InitVar[Literal["tree", "linear"] | None] = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, lineage_mode: Literal["tree", "linear"] | None) -> None:
         if self.max_masked_tokens < 0:
             raise ValueError("max_masked_tokens must be non-negative")
         if self.on_other_mismatch not in {"new_segment", "reject"}:
             raise ValueError(f"unknown mismatch disposition: {self.on_other_mismatch}")
-        if self.lineage_mode not in {"tree", "linear"}:
-            raise ValueError(f"unknown lineage mode: {self.lineage_mode}")
+        if lineage_mode == "linear":
+            warnings.warn(
+                "TITO linear lineage has been retired. This rollout uses tree lineage.",
+                FutureWarning,
+                stacklevel=3,
+            )
+        elif lineage_mode not in (None, "tree"):
+            raise ValueError(f"unknown lineage mode: {lineage_mode}")
 
 
 @dataclass(frozen=True)
@@ -608,8 +613,23 @@ class TITOTrajectoryEndpoint:
 # Only renderer rejections that identify a tool-call defect with a complete
 # stop are eligible. Generic parse failures and length truncation stay failures.
 _MALFORMED_TOOL_CALL_REASONS = frozenset(
-    {"tool_missing_name", "tool_unknown_name", "tool_arguments_invalid_json", "tool_arguments_not_object"}
+    {
+        "tool_missing_name",
+        "tool_unknown_name",
+        "tool_arguments_invalid_json",
+        "tool_arguments_not_object",
+    }
 )
+
+
+def _is_retained_tool_reason(failure: Mapping[str, Any]) -> bool:
+    reason = failure.get("parser_reason_code")
+    if failure.get("closed_tool_action") is False:
+        return False
+    return isinstance(reason, str) and (
+        reason in _MALFORMED_TOOL_CALL_REASONS
+        or (reason == "tool_invalid_argument" and failure.get("closed_tool_action") is True)
+    )
 
 
 def _has_exact_tool_sample(
@@ -645,7 +665,7 @@ class TITOTrajectoryArtifact:
     metrics: TITOMetricSummary
     started_at: float
     finished_at: float
-    lineage_mode: Literal["tree", "linear"] = "linear"
+    lineage_mode: Literal["tree"] = "tree"
 
     @property
     def malformed_tool_call(self) -> TITOMalformedToolCall | None:
@@ -661,7 +681,7 @@ class TITOTrajectoryArtifact:
             or failure.get("origin") != "sdk_parser"
             or failure.get("debug_storage_error") is not None
             or not isinstance(reason, str)
-            or reason not in _MALFORMED_TOOL_CALL_REASONS
+            or not _is_retained_tool_reason(failure)
         ):
             return None
         call_id = self.metadata.get("tito_malformed_tool_call_id")
@@ -700,11 +720,6 @@ class TITOTrajectoryArtifact:
         Invalid tree parent links raise ValueError.
         """
         turns = tuple(turn for segment in self.segments for turn in segment.turns)
-        if self.lineage_mode == "linear":
-            return frozenset(
-                prior.turn_id for prior, later in zip(turns, turns[1:]) if _request_continues_turn(prior, later)
-            )
-
         by_id = {turn.turn_id: turn for turn in turns}
         if len(by_id) != len(turns):
             raise ValueError("tree trajectory contains duplicate turn IDs")

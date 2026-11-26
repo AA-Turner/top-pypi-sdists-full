@@ -208,6 +208,8 @@ def _spawn(
     template_name: str,
     initial_prompt: str,
     title: str,
+    environment: abc.Mapping[str, str] | None = None,
+    claude_flags: abc.Sequence[str] = (),
 ) -> tuple[str | None, str]:
     """`spawn_session`, plus the tmux target of the window running *resume_argv*."""
     try:
@@ -236,9 +238,10 @@ def _spawn(
     writable = launch.command.codex_writable_roots(config)
     environments: list[dict[str, str]] = [{} for _ in windows]
     if windows[idx].strip():
-        windows[idx], environments[idx] = launch.command.harness_line(
-            windows[idx], Path(cwd), initial_prompt, writable, title
+        windows[idx], prompt_environment = launch.command.harness_line(
+            windows[idx], Path(cwd), initial_prompt, writable, title, claude_flags
         )
+        environments[idx] = {**prompt_environment, **(environment or {})}
 
     if resume_argv:
         idx = min(config.resume_window, len(windows) - 1)
@@ -290,6 +293,8 @@ def spawn_session(
     template_name: str = "default",
     initial_prompt: str = "",
     title: str = "",
+    environment: abc.Mapping[str, str] | None = None,
+    claude_flags: abc.Sequence[str] = (),
 ) -> str | None:
     """Create a tmux session from a configured template, rooted at *cwd*.
 
@@ -298,7 +303,8 @@ def spawn_session(
     session for a directory that no longer has one needs.
 
     For Claude sessions, resolves the project directory from history.jsonl to
-    use as the session root.
+    use as the session root. The template's harness window also starts with
+    *environment*, and a Claude one with *claude_flags*.
 
     Returns an error message string on failure, or None on success.
     """
@@ -313,6 +319,8 @@ def spawn_session(
         template_name,
         initial_prompt,
         title,
+        environment,
+        claude_flags,
     )
     return error
 

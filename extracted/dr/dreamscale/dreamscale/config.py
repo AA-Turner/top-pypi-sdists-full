@@ -115,6 +115,8 @@ class Config:
     integrations: dict[str, dict[str, str]] = field(default_factory=dict)
     # [camera_codec]: this robot's codec device (internal rollout; dreamscale.camera_codec).
     camera_codec: dict[str, object] = field(default_factory=dict)
+    # [telemetry] enabled: per-request latency reports (dreamscale.policy.latency_report).
+    telemetry: bool = True
     # Where ``api_key`` came from: "DREAMSCALE_API_KEY", "login" (config.toml), or None.
     api_key_source: str | None = field(default=None, repr=False, compare=False)
 
@@ -157,6 +159,7 @@ def load_legacy_robot(*, env_key: str | None = None, path: Path | None = None) -
         camera_index=camera.get("side_index", camera.get("index")),
         wrist_camera_index=camera.get("wrist_index"),
         home_position=robot.get("home"),
+        telemetry=data.get("telemetry", {}).get("enabled", True) is not False,
         integrations={
             name: dict(values)
             for name, values in data.get("integrations", {}).items()
@@ -271,6 +274,8 @@ def save_config(config: Config, *, save_api_key: bool = False) -> Path:
         camera["wrist_index"] = config.wrist_camera_index
     if camera:
         data["camera"] = camera
+    if not config.telemetry:
+        data["telemetry"] = {"enabled": False}
     integrations = {name: values for name, values in config.integrations.items() if values}
     if integrations:
         data["integrations"] = integrations

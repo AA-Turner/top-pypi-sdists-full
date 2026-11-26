@@ -75,14 +75,14 @@ class Batch(BaseModel):
     """Set of 16 key-value pairs that can be attached to an object.
 
     This can be useful for storing additional information about the object in a
-    structured format, and querying for objects via API or the dashboard.
+    structured format.
 
     Keys are strings with a maximum length of 64 characters. Values are strings with
     a maximum length of 512 characters.
     """
 
     model: Optional[str] = None
-    """Model ID used to process the batch, like `gpt-6-astra`.
+    """Model ID used to process the batch, like `gpt-6.2-astra`.
 
     OpenAI offers a wide range of models with different capabilities, performance
     characteristics, and price points. Refer to the

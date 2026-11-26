@@ -19,7 +19,13 @@ from langgraph_api.config import (
     RESUME_DRAINED_RUNS,
 )
 from langgraph_api.encryption.context import set_encryption_context
-from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
+from langgraph_api.errors import (
+    AgentDisabledError,
+    UserInterrupt,
+    UserRollback,
+    UserTimeout,
+    unknown_interrupt_error,
+)
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
@@ -39,7 +45,8 @@ from langgraph_api.metrics_otlp import (
 )
 from langgraph_api.schema import Run, StreamMode
 from langgraph_api.serde import json_dumpb
-from langgraph_api.stream import AnyStream, consume
+from langgraph_api.stream import AnyStream, consume, publish_event
+from langgraph_api.utils.uuids import uuid7
 from langgraph_api.worker_runtime import (
     ALL_RETRIABLE_EXCEPTIONS,
     DRAIN_POLICY,
@@ -47,6 +54,7 @@ from langgraph_api.worker_runtime import (
     cleanup_custom_checkpointer_for_run,
     fetch_checkpoint_after_failure,
     fetch_missing_checkpoint,
+    resumes_strictly,
     set_run_logging_context,
     stream_run,
 )
@@ -143,9 +151,11 @@ async def worker(
                 stream, run_id, resumable, stream_modes, thread_id=run["thread_id"]
             )
         except Exception as e:
-            if not isinstance(
-                e, UserRollback | UserInterrupt
-            ) and not DRAIN_POLICY.is_drain(e):
+            if (
+                not isinstance(e, UserRollback | UserInterrupt | AgentDisabledError)
+                and not DRAIN_POLICY.is_drain(e)
+                and not (strict and unknown_interrupt_error(e))
+            ):
                 logger.exception(
                     f"Run encountered an error in graph: {type(e)}({e})",
                     run_id=str(run_id),
@@ -156,6 +166,7 @@ async def worker(
             raise
 
     tracker = RunCheckpointTracker()
+    strict = False
     async with Runs.enter(run_id, run["thread_id"], main_loop, resumable) as done:
         claim = RunClaim.from_counters(attempt, DRAIN_POLICY.counted_drains(drains))
         # attempt the run
@@ -204,6 +215,7 @@ async def worker(
             # read from Postgres, not from the counters: Redis holds only
             # ephemeral data and can lose them between claims.
             resume = await DRAIN_POLICY.resumes_from_checkpoint(run)
+            strict = not resume and await resumes_strictly(run, attempt)
             stream_modes: set[StreamMode] = set(run["kwargs"].get("stream_mode", []))
             await asyncio.wait_for(
                 wrap_user_errors(
@@ -216,6 +228,7 @@ async def worker(
                         # Continue from the run's own latest checkpoint
                         # instead of re-sending its original input or command.
                         resume_from_checkpoint=resume,
+                        strict_resume=strict,
                     ),
                     run_id,
                     resumable,
@@ -297,14 +310,9 @@ async def worker(
                     **log_info,
                 )
                 # Without it, every stream shows a timed-out run as a success.
-                with suppress(Exception):
-                    await Runs.Stream.publish(
-                        run_id,
-                        "error",
-                        json_dumpb(exception),
-                        thread_id=run["thread_id"],
-                        resumable=resumable,
-                    )
+                await _publish_error(
+                    run_id, run["thread_id"], exception, resumable=resumable
+                )
                 if not temporary:
                     await Threads.set_joint_status(
                         conn,
@@ -318,14 +326,9 @@ async def worker(
                         exception=exception,
                     )
             elif isinstance(exception, UserRollback):
-                with suppress(Exception):
-                    await Runs.Stream.publish(
-                        run_id,
-                        "error",
-                        json_dumpb(exception),
-                        thread_id=run["thread_id"],
-                        resumable=resumable,
-                    )
+                await _publish_error(
+                    run_id, run["thread_id"], exception, resumable=resumable
+                )
                 status = "rollback"
                 reporter.inc_counter(
                     COUNTER_RUN_CANCELED_BY_REQUEST,
@@ -371,14 +374,9 @@ async def worker(
                     reason=str(exception),
                     **log_info,
                 )
-                with suppress(Exception):
-                    await Runs.Stream.publish(
-                        run_id,
-                        "error",
-                        json_dumpb(exception),
-                        thread_id=run["thread_id"],
-                        resumable=resumable,
-                    )
+                await _publish_error(
+                    run_id, run["thread_id"], exception, resumable=resumable
+                )
                 if not temporary:
                     await Threads.set_joint_status(
                         conn,
@@ -456,15 +454,11 @@ async def worker(
                 # until the run actually fails. Emit before the status write so raw
                 # SSE clients (no status fallback) see it even if that write fails.
                 # Resumable runs cache it so `Last-Event-ID` replays end with it too.
-                with suppress(Exception):
-                    await Runs.Stream.publish(
-                        run_id,
-                        "error",
-                        json_dumpb(exception),
-                        thread_id=run["thread_id"],
-                        resumable=resumable,
-                    )
+                await _publish_error(
+                    run_id, run["thread_id"], exception, resumable=resumable
+                )
 
+                refusal = unknown_interrupt_error(exception) if strict else None
                 # We're outside the original `except` block, so build exc_info manually.
                 # This preserves traceback logging for non-remote exceptions.
                 exc_info = None
@@ -475,11 +469,25 @@ async def worker(
                         exception.__traceback__,
                     )
 
-                await logger.aerror(
-                    f"Background run failed. Exception: {type(exception)}({exception})",
-                    exc_info=exc_info,
-                    **log_info,
-                )
+                # A disabled agent's run is refused before it starts: an expected
+                # outcome, not a crash. On the run's first claim there is no state
+                # to read back; a later claim still reads what earlier ones wrote.
+                agent_disabled = isinstance(exception, AgentDisabledError)
+                if agent_disabled:
+                    await logger.awarning(
+                        "Background run refused: the agent is disabled", **log_info
+                    )
+                elif refusal is None:
+                    await logger.aerror(
+                        f"Background run failed. Exception: {type(exception)}({exception})",
+                        exc_info=exc_info,
+                        **log_info,
+                    )
+                else:
+                    await logger.ainfo(
+                        "Background run refused a resume of an interrupt that isn't open",
+                        **log_info,
+                    )
                 if not temporary:
                     await Threads.set_joint_status(
                         conn,
@@ -487,14 +495,22 @@ async def worker(
                         run_id,
                         status,
                         graph_id,
-                        await fetch_checkpoint_after_failure(
+                        checkpoint
+                        if agent_disabled and attempt == 1
+                        else await fetch_checkpoint_after_failure(
                             run, claim.failed_attempts, checkpoint, temporary=temporary
                         ),
                         exception,
+                        refused_resume=refusal is not None,
                     )
 
             # delete thread if it's temporary and we don't want to retry
             if temporary and not isinstance(exception, DRAIN_POLICY.requeue_exceptions):
+                # The delete takes the run's row with it, so the API can't read
+                # how the run ended and add its `end`.
+                await _publish_end(
+                    run_id, run["thread_id"], status, resumable=resumable
+                )
                 await Threads.delete(conn, run["thread_id"])
 
             reporter.record_latency(
@@ -572,3 +588,46 @@ class RunClaim:
 
 def ms(after: datetime, before: datetime) -> int:
     return int((after - before).total_seconds() * 1000)
+
+
+async def _publish_error(
+    run_id: str | uuid.UUID,
+    thread_id: str | uuid.UUID,
+    exception: BaseException,
+    *,
+    resumable: bool,
+) -> None:
+    await _publish_outcome(
+        run_id, thread_id, "error", json_dumpb(exception), resumable=resumable
+    )
+
+
+async def _publish_end(
+    run_id: str | uuid.UUID,
+    thread_id: str | uuid.UUID,
+    status: str,
+    *,
+    resumable: bool,
+) -> None:
+    data = json_dumpb({"run_id": run_id, "status": status})
+    await _publish_outcome(run_id, thread_id, "end", data, resumable=resumable)
+
+
+async def _publish_outcome(
+    run_id: str | uuid.UUID,
+    thread_id: str | uuid.UUID,
+    event: str,
+    data: bytes,
+    *,
+    resumable: bool,
+) -> None:
+    with suppress(Exception):
+        await publish_event(
+            run_id,
+            event,
+            data,
+            thread_id=thread_id,
+            resumable=resumable,
+            publisher_id=uuid7().hex,
+            seq=0,
+        )

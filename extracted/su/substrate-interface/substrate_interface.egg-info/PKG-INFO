@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: substrate-interface
-Version: 1.8.1
+Version: 1.9.0
 Summary: Library for interfacing with a Substrate node
-Home-page: https://github.com/polkascan/py-substrate-interface
+Home-page: https://github.com/JAMdotTech/py-polkadot-sdk
 Author: Stichting Polkascan (Polkascan Foundation)
 Author-email: info@polkascan.org
 Keywords: interface polkascan polkadot substrate blockchain rpc kusama
@@ -10,12 +10,12 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.7, <4
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: websocket-client<2,>=0.57.0
@@ -23,13 +23,13 @@ Requires-Dist: base58<3,>=1.0.3
 Requires-Dist: certifi>=2019.3.9
 Requires-Dist: idna<4,>=2.1.0
 Requires-Dist: requests<3,>=2.21.0
-Requires-Dist: xxhash<4,>=1.3.0
+Requires-Dist: xxhash<5,>=1.3.0
 Requires-Dist: ecdsa<1,>=0.17.0
 Requires-Dist: eth-keys<1,>=0.2.1
-Requires-Dist: eth_utils<6,>=1.3.0
-Requires-Dist: pycryptodome<4,>=3.11.0
+Requires-Dist: eth_utils<7,>=1.3.0
+Requires-Dist: pycryptodome<5,>=3.11.0
 Requires-Dist: PyNaCl<2,>=1.0.1
-Requires-Dist: scalecodec<1.3,>=1.2.10
+Requires-Dist: scalecodec<1.4,>=1.3.0
 Requires-Dist: py-sr25519-bindings<1,>=0.2.0
 Requires-Dist: py-ed25519-zebra-bindings<2,>=1.0
 Requires-Dist: py-bip39-bindings<1,>=0.1.9
@@ -52,7 +52,7 @@ Dynamic: summary
 
 # Python Substrate Interface
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/polkascan/py-substrate-interface/unittests.yml?branch=master)](https://github.com/JAMdotTech/py-polkadot-sdk/actions?query=workflow%3A%22Run+unit+tests%22)
+[![Build Status](https://github.com/JAMdotTech/py-polkadot-sdk/actions/workflows/unittests.yml/badge.svg?branch=master)](https://github.com/JAMdotTech/py-polkadot-sdk/actions/workflows/unittests.yml)
 [![Latest Version](https://img.shields.io/pypi/v/substrate-interface.svg)](https://pypi.org/project/substrate-interface/)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/substrate-interface.svg)](https://pypi.org/project/substrate-interface/)
 [![License](https://img.shields.io/pypi/l/substrate-interface.svg)](https://github.com/JAMdotTech/py-polkadot-sdk/blob/master/LICENSE)
@@ -69,8 +69,17 @@ the Substrate runtime.
 * [Metadata documentation for Polkadot and Kusama ecosystem runtimes](https://jamdottech.github.io/py-polkadot-metadata-docs/)
 
 ## Installation
+
+Requires CPython 3.11 or newer. The test matrix covers 3.11 through 3.15.
+
 ```bash
-pip install substrate-interface
+python -m pip install substrate-interface
+```
+
+Python 3.15 may need to build native dependencies from source. Install the Rust toolchain and enable PyO3's stable ABI when no compatible wheels are available.
+
+```bash
+PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 python -m pip install substrate-interface
 ```
 
 ## Initialization
@@ -116,6 +125,10 @@ receipt = substrate.submit_extrinsic(extrinsic, wait_for_inclusion=True)
 
 print(f"Extrinsic '{receipt.extrinsic_hash}' sent and included in block '{receipt.block_hash}'")
 ```
+
+## Running tests
+
+Install the test dependencies with `python -m pip install -e '.[test]'` and run `python -m pytest`. To include tests that need live RPC endpoints, run `RUN_LIVE_TESTS=1 python -m pytest`. The endpoint overrides are listed in `test/settings.py`.
 
 ## Contact and Support 
 

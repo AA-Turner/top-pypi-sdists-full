@@ -11,7 +11,7 @@ authors = [
 description = "A versatile Python package manager utility for simplifying package installation, updates, checks, and environment management."
 readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["pip", "package manager", "installer", "dependency", "venv", "environment"]
+keywords = ["pip", "package manager", "installer", "dependency", "venv", "environment", "offline", "air-gap"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -34,9 +34,13 @@ license-files = ["LICENSE"]
 
 [project.scripts]
 pipmaster = "pipmaster.cli.main:main"
+pipmaster-pair = "pipmaster.airgap.cli:pair_main"
+pipmaster-relay = "pipmaster.airgap.cli:relay_main"
+pipmaster-install = "pipmaster.airgap.cli:install_main"
 
 [project.optional-dependencies]
 audit = ["pip-audit>=2.5.0"]
+airgap = ["cryptography>=3.4"]
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.20",
@@ -51,6 +55,7 @@ dev = [
 ]
 all = [
     "pipmaster[audit]",
+    "pipmaster[airgap]",
     "pipmaster[dev]",
 ]
 
@@ -64,6 +69,9 @@ version = {attr = "pipmaster.__version__"}
 
 [tool.setuptools.packages.find]
 exclude = ["tests*", "examples*", "docs*"]
+
+[tool.setuptools.package-data]
+pipmaster = ["py.typed"]
 
 [tool.ruff]
 line-length = 88

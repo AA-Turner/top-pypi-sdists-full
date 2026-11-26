@@ -61,6 +61,18 @@ use crate::error::Result;
 pub mod fs_errors {
     use super::*;
 
+    pub(crate) fn directory_entry_limit() -> crate::error::Error {
+        IoError::new(ErrorKind::StorageFull, "directory entry limit exceeded").into()
+    }
+
+    pub(crate) fn bounded_listing_unsupported() -> crate::error::Error {
+        IoError::new(
+            ErrorKind::Unsupported,
+            "bounded directory listing is unsupported",
+        )
+        .into()
+    }
+
     /// Error for attempting to write to a directory.
     ///
     /// Use when `write_file` or `append_file` is called on a directory path.
@@ -264,6 +276,23 @@ pub trait FileSystem: FileSystemExt {
     /// - I/O error occurs
     async fn read_file(&self, path: &Path) -> Result<Vec<u8>>;
 
+    /// Read with a pre-allocation charge. Implementations must charge storage
+    /// before materializing it, including when delegating to another backend.
+    async fn read_file_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<u8>> {
+        if charge.is_some() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "backend does not support bounded reads",
+            )
+            .into());
+        }
+        self.read_file(path).await
+    }
+
     /// Write contents to a file, creating it if necessary.
     ///
     /// If the file exists, its contents are replaced. If it doesn't exist,
@@ -345,6 +374,32 @@ pub trait FileSystem: FileSystemExt {
     /// - The path does not exist
     /// - The path is not a directory
     async fn read_dir(&self, path: &Path) -> Result<Vec<DirEntry>>;
+
+    /// List a complete directory with at most `max_entries` entries.
+    ///
+    /// Implementations must stop enumeration if this limit is exceeded.
+    /// The default returns `Unsupported` so bounded callers can safely refuse
+    /// the operation on backends that only provide an unbounded listing.
+    async fn read_dir_limited(&self, _path: &Path, _max_entries: usize) -> Result<Vec<DirEntry>> {
+        Err(fs_errors::bounded_listing_unsupported())
+    }
+
+    /// Read with a pre-allocation charge. Implementations must charge storage
+    /// before materializing it, including when delegating to another backend.
+    async fn read_dir_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<DirEntry>> {
+        if charge.is_some() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "backend does not support bounded reads",
+            )
+            .into());
+        }
+        self.read_dir(path).await
+    }
 
     /// Check if a path exists.
     ///
@@ -592,6 +647,10 @@ pub struct Metadata {
     pub size: u64,
     /// Unix permission mode (e.g., `0o644` for files, `0o755` for directories).
     pub mode: u32,
+    /// Owner user ID. Defaults to the sandbox user (1000).
+    pub uid: u32,
+    /// Owner group ID. Defaults to the sandbox group (1000).
+    pub gid: u32,
     /// Last modification time.
     pub modified: SystemTime,
     /// Creation time.
@@ -604,6 +663,8 @@ impl Default for Metadata {
             file_type: FileType::File,
             size: 0,
             mode: 0o644,
+            uid: 1000,
+            gid: 1000,
             modified: SystemTime::now(),
             created: SystemTime::now(),
         }
@@ -819,6 +880,8 @@ mod tests {
     fn metadata_custom_fields() {
         let now = SystemTime::now();
         let m = Metadata {
+            uid: 1000,
+            gid: 1000,
             file_type: FileType::Directory,
             size: 4096,
             mode: 0o755,
@@ -857,6 +920,8 @@ mod tests {
         let entry = DirEntry {
             name: "subdir".into(),
             metadata: Metadata {
+                uid: 1000,
+                gid: 1000,
                 file_type: FileType::Directory,
                 size: 0,
                 mode: 0o755,

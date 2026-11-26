@@ -237,10 +237,10 @@ class Event(StrEnum):
     #: word), and for which agent.
     AGENT_INSTALL_CHAT_RECORDING = "agent_install.chat_recording"
     #: The install prompt was pasted on a computer already set up, and the person picked from its
-    #: menu (D84): `choice` is `repair`, `switch` (Full and Runs only), `backfill`, `example`,
-    #: `settings` (Change settings), `account` (Account), `uninstall`, `update` or `nothing`, and
-    #: `profile` the computer's. Sent by `status --repaste-choice`, which the agent runs once they
-    #: answer.
+    #: menu (D84): `choice` is `repair`, `switch` (Full and Runs only), `backfill`, `gpus` (Register
+    #: your GPUs), `example`, `settings` (Change settings), `account` (Account), `uninstall`,
+    #: `update` or `nothing`, and `profile` the computer's. Sent by `status --repaste-choice`, which
+    #: the agent runs once they answer.
     AGENT_INSTALL_REPASTE_CHOICE = "agent_install.repaste_choice"
     #: An agent's command was refused. The npm launcher sends its own, before the CLI ran or around
     #: it: `reason` (hosted_agent, downloading, sign_in_expired, uninstall_running, incomplete,

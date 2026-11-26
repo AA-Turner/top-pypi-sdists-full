@@ -31,7 +31,21 @@ class ChatEscalatedMetadata(BaseModel):
     reason: str
 
 
+class AsistenteRespuestaListaMetadata(BaseModel):
+    """El asistente (Lucía, el chat lateral) terminó de responder. Sin campos extra: la
+    conversación es el `chat_id` del evento."""
+
+    intent: Literal[NotificationIntentType.ASISTENTE_RESPUESTA_LISTA] = (
+        NotificationIntentType.ASISTENTE_RESPUESTA_LISTA
+    )
+
+
 NotificationIntentMetadata = Annotated[
-    Union[ChatAssignedMetadata, IncomingMessageMetadata, ChatEscalatedMetadata],
+    Union[
+        ChatAssignedMetadata,
+        IncomingMessageMetadata,
+        ChatEscalatedMetadata,
+        AsistenteRespuestaListaMetadata,
+    ],
     Field(discriminator="intent"),
 ]

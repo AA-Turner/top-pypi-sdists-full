@@ -147,6 +147,8 @@ def egress_blocked_reasons() -> None:
     _r6: SolveErrorReason = "recaptcha_not_loaded"
     _r7: SolveErrorReason = "refused_wording_unescaped"
     _r8: SolveErrorReason = "session_capped"
+    _r9: SolveErrorReason = "rqdata_rejected"
+    _r10: SolveErrorReason = "sitekey_not_served"
     # A reason the API never defined must not type-check.
     _bad: SolveErrorReason = "proxy_egress_blockd"  # type: ignore[assignment]
 

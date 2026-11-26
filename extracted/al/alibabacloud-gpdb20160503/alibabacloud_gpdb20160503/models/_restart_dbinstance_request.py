@@ -10,11 +10,11 @@ class RestartDBInstanceRequest(DaraModel):
         client_token: str = None,
         dbinstance_id: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. For more information, see [How to ensure idempotence](https://help.aliyun.com/document_detail/327176.html).
+        # The client token that is used to ensure idempotence. For more information, see [How to ensure idempotence](https://help.aliyun.com/document_detail/327176.html).
         self.client_token = client_token
         # The ID of the instance.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in the specified region, including instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

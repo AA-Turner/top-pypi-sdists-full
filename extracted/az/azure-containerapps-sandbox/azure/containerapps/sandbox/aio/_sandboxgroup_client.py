@@ -25,14 +25,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from azure.core.rest import HttpRequest, HttpResponse
 
 from azure.containerapps.sandbox._api_version import ApiVersion
+from azure.containerapps.sandbox._generated.aio._client import SandboxGroupClient as _GeneratedClient
 from azure.containerapps.sandbox._helpers import (
     DATA_PLANE_BASE,
     DATA_PLANE_SCOPE,
     _build_async_pipeline,
-    _raise_if_error,
     _validate_endpoint,
     _validate_segment,
 )
@@ -46,6 +45,7 @@ from azure.containerapps.sandbox.aio._operations import (
 
 if TYPE_CHECKING:
     from azure.core.credentials_async import AsyncTokenCredential
+    from azure.core.pipeline import AsyncPipeline
     from azure.core.pipeline.transport import AsyncHttpTransport
 
 logger = logging.getLogger("azure.containerapps.sandbox")
@@ -104,8 +104,9 @@ class SandboxGroupClient(
         resource_group: str,
         sandbox_group: str,
         audience: str | None = None,
-        api_version: str | ApiVersion = ApiVersion.V2026_02_01_PREVIEW,
+        api_version: str | ApiVersion = ApiVersion.V2026_09_01_PREVIEW,
         transport: "AsyncHttpTransport | None" = None,
+        _pipeline: "AsyncPipeline | None" = None,
         **kwargs: Any,
     ):
         if not credential:
@@ -130,8 +131,16 @@ class SandboxGroupClient(
         self._endpoint = _validate_endpoint(endpoint or DATA_PLANE_BASE)
         self._scope = audience or DATA_PLANE_SCOPE
         self._api_version = api_version.value if isinstance(api_version, ApiVersion) else api_version
-        self._pipeline = _build_async_pipeline(
+        self._transport = transport
+        self._pipeline_options = dict(kwargs)
+        self._owns_pipeline = _pipeline is None
+        self._pipeline = _pipeline if _pipeline is not None else _build_async_pipeline(
             credential, self._scope, transport=transport, **kwargs
+        )
+        self._generated = _GeneratedClient(
+            self._endpoint, credential, subscription_id, resource_group, sandbox_group,
+            api_version=self._api_version, credential_scopes=[self._scope],
+            pipeline=self._pipeline,
         )
 
     # -------------------------------------------------------------------------
@@ -159,52 +168,6 @@ class SandboxGroupClient(
         return (f"/subscriptions/{self._subscription_id}"
                 f"/resourceGroups/{self._resource_group}"
                 f"/sandboxGroups/{self._sandbox_group}")
-
-    # -------------------------------------------------------------------------
-    # Internal HTTP
-    # -------------------------------------------------------------------------
-
-    async def _send_request(self, request: HttpRequest, *, stream: bool = False) -> HttpResponse:
-        """Send request through the async pipeline and raise on error."""
-        pipeline_response = await self._pipeline.run(request, stream=stream)
-        response = pipeline_response.http_response
-        _raise_if_error(response)
-        return response
-
-    async def _dp_get(self, path: str, *, params: dict | None = None) -> dict | list:
-        all_params = {"api-version": self._api_version, **(params or {})}
-        request = HttpRequest("GET", f"{self._endpoint}{path}", params=all_params)
-        response = await self._send_request(request)
-        return response.json() if response.status_code != 204 else {}
-
-    async def _dp_put(self, path: str, body: dict | bytes | None = None, *, headers: dict | None = None, params: dict | None = None) -> dict:
-        all_params = {"api-version": self._api_version, **(params or {})}
-        kwargs: dict[str, Any] = {"params": all_params}
-        if headers:
-            kwargs["headers"] = headers
-        if isinstance(body, bytes):
-            kwargs["content"] = body
-        elif body is not None:
-            kwargs["json"] = body
-        request = HttpRequest("PUT", f"{self._endpoint}{path}", **kwargs)
-        response = await self._send_request(request)
-        return response.json()
-
-    async def _dp_post(self, path: str, body: dict | None = None) -> dict:
-        params = {"api-version": self._api_version}
-        if body is not None:
-            request = HttpRequest("POST", f"{self._endpoint}{path}", json=body, params=params)
-        else:
-            request = HttpRequest("POST", f"{self._endpoint}{path}", params=params)
-        response = await self._send_request(request)
-        return response.json() if response.status_code != 204 else {}
-
-    async def _dp_delete(self, path: str) -> None:
-        request = HttpRequest("DELETE", f"{self._endpoint}{path}", params={"api-version": self._api_version})
-        pipeline_response = await self._pipeline.run(request)
-        response = pipeline_response.http_response
-        if response.status_code not in (200, 202, 204):
-            _raise_if_error(response)
 
     # -------------------------------------------------------------------------
     # Factory — sandbox-scoped client
@@ -241,11 +204,14 @@ class SandboxGroupClient(
     # -------------------------------------------------------------------------
 
     async def close(self) -> None:
-        await self._pipeline.__aexit__(None, None, None)
+        if self._owns_pipeline:
+            await self._pipeline.__aexit__(None, None, None)
 
     async def __aenter__(self):
-        await self._pipeline.__aenter__()
+        if self._owns_pipeline:
+            await self._pipeline.__aenter__()
         return self
 
     async def __aexit__(self, *args):
-        await self._pipeline.__aexit__(*args)
+        if self._owns_pipeline:
+            await self._pipeline.__aexit__(*args)

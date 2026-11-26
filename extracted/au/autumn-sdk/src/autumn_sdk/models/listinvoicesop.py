@@ -56,6 +56,7 @@ ListInvoicesStatus = Literal[
 ListInvoicesProcessorTypeRequestBody = Literal[
     "stripe",
     "revenuecat",
+    "quartz",
 ]
 
 
@@ -135,6 +136,7 @@ ListInvoicesListProcessorType = Union[
     Literal[
         "stripe",
         "revenuecat",
+        "quartz",
     ],
     UnrecognizedStr,
 ]

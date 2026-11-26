@@ -4,8 +4,9 @@ One ``PassDecl`` per pass: the methods and named steps of ``parser/base.py`` tha
 (``parser/_passes/_tables.py``) run, joined to their ``PassSpec`` by name. ``reads`` and ``writes`` use the facts of
 ``scripts/fact_tables.py``. The test suite runs every pass inside the scope of its declaration
 (``tests/checks/finality.py``), where ``DATAMODEL_CODE_GENERATOR_CHECK_FACT_FINALITY`` checks the writes against it and
-a pass trace records the pass. The writes of ``fact`` rows are checked at run time; reads and the writes of presentation
-rows are declared from the code; ``after`` edges order the passes whose facts conflict
+a pass trace records the pass. The writes of ``fact`` rows are checked at run time, and heki's ``pass:<name>``
+boundaries (``scripts/build_heki_contracts.py``) check the writes of the calls heki resolves; reads and the writes of
+presentation rows are declared from the code; ``after`` edges order the passes whose facts conflict
 (``scripts/check_pass_pipeline.py:check_order``). A ``trigger`` declares when the fact a pass rewrites is present: its
 ``PassSpec`` skips the pass where it is absent, and the trigger reads only facts the pass reads. ``PASS_DECLS`` lists
 every declaration in execution order and is the source of the generated pass table in ``docs/architecture.md``;
@@ -1057,7 +1058,9 @@ TAG_FIELDS_OF_TAGGED_BASES = PassDecl(
         Fact.BASES,
         Fact.DISCRIMINATOR_TAGS,
         Fact.FIELD_SET,
+        Fact.FIELD_NAMES,
         Fact.FIELD_TYPES,
+        Fact.FIELD_ALIASES,
         RenderFact.MODULE_IMPORTS,
         RenderFact.IMPORT_ALIASES,
     ),
@@ -1091,9 +1094,11 @@ FLATTEN_CONFLICTING_FINAL_LAYOUTS = PassDecl(
     writes=_facts(
         Fact.BASES,
         Fact.FIELD_SET,
+        Fact.FIELD_NAMES,
         Fact.FIELD_TYPES,
         Fact.REQUIRED,
         Fact.DEFAULTS,
+        Fact.FIELD_ALIASES,
         RenderFact.FIELD_ORDER,
         RenderFact.BACKEND_CONFIG,
         RenderFact.MODULE_IMPORTS,

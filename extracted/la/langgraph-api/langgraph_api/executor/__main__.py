@@ -15,9 +15,15 @@ os.environ.setdefault("DISABLE_TRUSTSTORE", "true")
 import grpc.aio as grpc_aio
 from langgraph_grpc_common.proto import orchestrator_pb2, orchestrator_pb2_grpc
 
+from langgraph_api import config, web_identity
 from langgraph_api.asyncio import ValueEvent
 from langgraph_api.encryption.context import set_encryption_context
-from langgraph_api.errors import UserInterrupt, UserRollback
+from langgraph_api.errors import (
+    AgentDisabledError,
+    UserInterrupt,
+    UserRollback,
+    unknown_interrupt_error,
+)
 from langgraph_api.graph import collect_graphs_from_env
 from langgraph_api.grpc.ops import encryption_context_from_proto
 from langgraph_api.grpc.ops.runs import proto_to_run
@@ -29,6 +35,7 @@ from langgraph_api.worker_runtime import (
     cleanup_custom_checkpointer_for_run,
     fetch_checkpoint_after_failure,
     fetch_missing_checkpoint,
+    resumes_strictly,
     stream_run,
 )
 
@@ -76,6 +83,7 @@ def _done_msg(
     message: str = "",
     checkpoint: dict[str, Any] | None = None,
     exception: dict[str, Any] | None = None,
+    refused_resume: bool = False,
 ) -> orchestrator_pb2.ExecutorMessage:
     return orchestrator_pb2.ExecutorMessage(
         done=orchestrator_pb2.Done(
@@ -83,6 +91,7 @@ def _done_msg(
             message=message,
             checkpoint_json=json_dumpb(checkpoint) if checkpoint is not None else b"",
             exception_json=json_dumpb(exception) if exception is not None else b"",
+            refused_resume=refused_resume,
         )
     )
 
@@ -122,8 +131,12 @@ async def _run_graph(
     set_encryption_context(encryption_context or {})
     tracker = RunCheckpointTracker()
     temporary = run["kwargs"].get("temporary", False)
+    strict = False
     try:
-        async for mode, payload in stream_run(run, attempt, cancel, tracker=tracker):
+        strict = await resumes_strictly(run, attempt)
+        async for mode, payload in stream_run(
+            run, attempt, cancel, tracker=tracker, strict_resume=strict
+        ):
             packet = await asyncio.to_thread(json_dumpb, payload)
             yield orchestrator_pb2.ExecutorMessage(
                 chunk=orchestrator_pb2.Chunk(mode=mode, packet=packet)
@@ -159,13 +172,19 @@ async def _run_graph(
                 exception=_exception_dict(exc),
             )
             return
+        refusal = unknown_interrupt_error(exc) if strict else None
         yield _done_msg(
             status=STATUS_ERROR,
             message=str(exc),
-            exception=_exception_dict(exc),
-            checkpoint=await _failure_checkpoint(
-                run, failed_attempts, tracker, temporary
-            ),
+            # The core publishes this as the run's error event, so a refusal
+            # carries its reason and ids.
+            exception=_exception_dict(exc) if refusal is None else refusal,
+            refused_resume=refusal is not None,
+            # A disabled agent's run is refused before it starts, so on its first
+            # claim there is no state to read; a later claim reads what earlier ones wrote.
+            checkpoint=None
+            if isinstance(exc, AgentDisabledError) and attempt == 1
+            else await _failure_checkpoint(run, failed_attempts, tracker, temporary),
         )
 
 
@@ -281,6 +300,9 @@ async def _bootstrap() -> None:
     # get_client() with no URL imports langgraph_api.server itself.
     set_event_loop(asyncio.get_running_loop())
 
+    # Executors skip API lifespan, so they need their own token files before graphs use a cloud SDK.
+    await web_identity.start()
+
     from langgraph_runtime import database  # noqa: PLC0415
 
     await database.start_pool()
@@ -319,7 +341,6 @@ def _configure_logging() -> None:
 
 async def amain() -> None:
     _configure_logging()
-    from langgraph_api import config  # noqa: PLC0415
 
     # Role flag before bootstrap so graph registration / other shared code
     # can skip API-only work (mirrors queue_entrypoint + IS_QUEUE_ENTRYPOINT).

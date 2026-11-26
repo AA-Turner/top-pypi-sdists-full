@@ -102,7 +102,6 @@ def run_ur(
     hud=False,
     hud_job=None,
     recorder=None,
-    episode_capture=None,
     steady_send=None,
     connect=None,
     input_fn=input,
@@ -162,7 +161,6 @@ def run_ur(
             trace_images=trace_images,
             hud=hud_session,
             recorder=recorder,
-            episode_capture=episode_capture,
         )
 
     try:

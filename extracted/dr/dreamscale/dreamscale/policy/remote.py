@@ -34,6 +34,7 @@ from dreamscale_transport.websocket_client import (
 from dreamscale import errors, region_hint, wire
 from dreamscale.config import warn_engine_ignored
 from dreamscale.model_names import internal_model, public_model
+from dreamscale.policy import latency_report
 from dreamscale.policy.calibration_cache import (
     load_session_calibration,
     save_session_calibration,
@@ -161,6 +162,10 @@ def next_send_at(
 
 _T = TypeVar("_T")
 
+
+# The data-plane probe (round trip and clock offset) runs after a chunk arrives, at most
+# this often.
+RTT_PROBE_INTERVAL_S = 0.5
 
 class SendFloorTimeout(TimeoutError):
     """The caller's budget ends before the next send is allowed. Never a lost link."""
@@ -334,6 +339,8 @@ class AsyncRemotePolicy:
         self._prepared_run_active = False
         self._pending_chunk: asyncio.Task[Any] | None = None
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._rtt_probe: asyncio.Task[float | None] | None = None
+        self._rtt_probe_at = float("-inf")
         self.runtime_stats = RuntimeStats()
         self._calibration_profile: NetworkCalibrationProfile | None = None
         self._action_controller = AsyncActionController(policy=self)
@@ -355,6 +362,24 @@ class AsyncRemotePolicy:
         self._summary_announced = False
         self._has_completed_run = False
         self.last_run_result: RunResult | None = None
+        # Per-request latency records, sent in the background (latency_report.py).
+        report = getattr(getattr(connection, "client", None), "report_latency", None)
+        self._latency = latency_report.LatencyReporter(
+            self._send_latency if callable(report) else None,
+            enabled=latency_report.reports_enabled(),
+            spawn=self._spawn_background,
+        )
+
+    def _spawn_background(self, work: Awaitable[Any]) -> None:
+        task = asyncio.ensure_future(work)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+    async def _send_latency(self, records: list[dict[str, Any]], dropped: int) -> None:
+        if not await self._connection.client.report_latency(
+            self.session_id, records, dropped=dropped
+        ):
+            self._latency.disable()
 
     @property
     def runtime_contract(self) -> RuntimeContract:
@@ -821,6 +846,8 @@ class AsyncRemotePolicy:
                 # The floor first: a held request is encoded when it may go, and one whose
                 # budget the floor outlasts fails at once (SendFloorTimeout), unencoded.
                 timeout_s = await self._wait_for_send_floor(timeout_s)
+            # The client's own pre-processing starts here (after any floor hold).
+            pre_start_ns = time.monotonic_ns()
             # A camera-codec transport (hidden robot-test mode) codes the raw frames itself.
             codec_frames = getattr(self._connection.transport, "wants_raw_frames", False) is True
             def encode(snapshot: Any) -> Observation:
@@ -919,7 +946,6 @@ class AsyncRemotePolicy:
                     update={"runtime_context": frame.runtime_context.model_copy(
                         update={"episode": episode_context})}))
             transport = self._connection.transport
-            rtt_probe = self._start_data_plane_rtt_probe(transport)
             start_ns = time.monotonic_ns()
             send_start_ns = time.monotonic_ns()
             await self._connection.transport.send_observation(wire_observation)
@@ -952,7 +978,6 @@ class AsyncRemotePolicy:
                     )
                 else:
                     transport = self._connection.transport
-                    rtt_probe = self._start_data_plane_rtt_probe(transport)
                     send_start_ns = time.monotonic_ns()
                     await self._connection.transport.send_observation(wire_observation)
                     send_end_ns = time.monotonic_ns()
@@ -968,7 +993,11 @@ class AsyncRemotePolicy:
                 self._last_response_at = time.monotonic()
                 self._send_hint = send_hint(getattr(chunk, "runtime_metadata", None))
             transport = self._connection.transport
-            data_plane_rtt_ms = _data_plane_rtt_sample(transport, rtt_probe)
+            # The latest probe's round trip; the next probe goes out now, in the gap before
+            # the next observation, so it never queues behind an upload (a clean probe is
+            # what the clock offset, and so the uplink/downlink split, comes from).
+            data_plane_rtt_ms = _data_plane_rtt_sample(transport, self._rtt_probe)
+            self._probe_in_idle_gap(transport)
             result = result_from_chunk(
                 observation_id=observation_id,
                 chunk=chunk,
@@ -981,6 +1010,15 @@ class AsyncRemotePolicy:
                 capture_time_ns=wire_observation.frame.capture_time_ns,
                 frame=wire_observation.frame,
             )
+            if self._latency.enabled:
+                with suppress(Exception):  # a latency record never breaks a request
+                    self._latency.add(latency_report.record(
+                        result,
+                        started_unix_ns=self._latency.wall_ns(pre_start_ns),
+                        client_pre_ms=(start_ns - pre_start_ns) / 1e6,
+                        client_post_ms=(time.monotonic_ns() - end_ns) / 1e6,
+                        calibration=is_calibration,
+                    ))
             return result
 
     async def _encode(self, observation: Any, encode: Callable[[Any], _T]) -> _T:
@@ -1060,6 +1098,17 @@ class AsyncRemotePolicy:
         if not self._send_floor_s or self._last_send_at is None:
             return 0.0
         return max(0.0, self._next_send_at() - time.monotonic())
+
+    def _probe_in_idle_gap(self, transport: Any) -> None:
+        """At most one probe in flight, and at most one per ``RTT_PROBE_INTERVAL_S``."""
+        now = time.monotonic()
+        probe = self._rtt_probe
+        if (probe is not None and not probe.done()) or (
+            now - self._rtt_probe_at < RTT_PROBE_INTERVAL_S
+        ):
+            return
+        self._rtt_probe_at = now
+        self._rtt_probe = self._start_data_plane_rtt_probe(transport)
 
     def _start_data_plane_rtt_probe(
         self,
@@ -1226,6 +1275,8 @@ class AsyncRemotePolicy:
                     first_error = exc
 
         await attempt(self._action_controller.close())
+        with suppress(Exception):  # the last records, before the session's connection closes
+            await self._latency.close()
         if self._pending_chunk is not None:
             self._pending_chunk.cancel()
             await asyncio.gather(self._pending_chunk, return_exceptions=True)

@@ -36,7 +36,7 @@ class TestScanNowTriggerError(unittest.TestCase):
         if include_optional:
             return ScanNowTriggerError(
                 scan_request_id = '',
-                reason = ''
+                reason = 'InternalError'
             )
         else:
             return ScanNowTriggerError(

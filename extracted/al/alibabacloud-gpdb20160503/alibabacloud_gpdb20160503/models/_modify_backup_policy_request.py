@@ -14,19 +14,18 @@ class ModifyBackupPolicyRequest(DaraModel):
         preferred_backup_time: str = None,
         recovery_point_period: str = None,
     ):
-        # The number of days for which data backups are retained. Default value: 7. Maximum value: 7. Valid values: 1 to 7.
+        # The data backup retention period. Default value: 7. Maximum value: 7. Valid values: 1 to 7.
         self.backup_retention_period = backup_retention_period
-        # The ID of the instance.
+        # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specified region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # Specifies whether to enable automatic recovery point creation. Valid values:
         # 
-        # - true: Enabled.
-        # - false: Disabled.
-        # Default value: true.
+        # - true (default): enabled.
+        # - false: disabled.
         self.enable_recovery_point = enable_recovery_point
         # The data backup cycle. Separate multiple values with commas (,). Valid values:
         # 
@@ -44,13 +43,12 @@ class ModifyBackupPolicyRequest(DaraModel):
         # 
         # This parameter is required.
         self.preferred_backup_time = preferred_backup_time
-        # The frequency of recovery points. Valid values:
+        # The recovery point frequency. Valid values:
         # 
-        # - **1**: Every hour.
-        # - **2**: Every two hours.
-        # - **4**: Every four hours.
-        # - **8**: Every eight hours.
-        # Default value: **1**.
+        # - **1** (default): every hour.
+        # - **2**: every two hours.
+        # - **4**: every four hours.
+        # - **8**: every eight hours.
         self.recovery_point_period = recovery_point_period
 
     def validate(self):

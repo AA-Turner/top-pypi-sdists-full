@@ -23,6 +23,7 @@ RESERVED_CONFIGURABLE_KEYS = (
     "langgraph_auth_permissions",
     "langgraph_request_id",
     "__langsmith_project__",
+    "__langsmith_address__",
     "__langsmith_example_id__",
     "__request_start_time_ms__",
     "__after_seconds__",
@@ -30,8 +31,10 @@ RESERVED_CONFIGURABLE_KEYS = (
     "__otel_tracestate__",
     "__dd_trace_headers__",
     "__pregel_node_finished",
+    "__pregel_strict_resume",
     "__context_provided__",
     "cron_id",
+    "run_agent_identifier",
 )
 RESERVED_METADATA_KEYS = (
     "thread_id",
@@ -39,6 +42,7 @@ RESERVED_METADATA_KEYS = (
     "run_id",
     "cron_id",
     "counters_since_delta_snapshot",
+    "run_agent_identifier",
 )
 RESERVED_OR_NULL_OR_ESCAPED_PATTERN = rf"^(?!.*\\[uU]0000)(?!({'|'.join(f'{re.escape(k)}$' for k in RESERVED_CONFIGURABLE_KEYS)}))[^\u0000]*$"
 WRITE_SCHEMAS_WITH_CONFIG_OR_CONTEXT = (

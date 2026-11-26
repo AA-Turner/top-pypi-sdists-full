@@ -52,6 +52,23 @@ impl Model {
         }
     }
 
+    /// Append `input`'s ids from this thread's word cache, if there; see
+    /// [`bpe::Bpe::cached_into`].
+    #[inline(always)]
+    pub(crate) fn cached_into(&self, input: &str, out: &mut Vec<u32>) -> bool {
+        match self {
+            Self::Bpe(bpe) => bpe.cached_into(input, out),
+        }
+    }
+
+    /// Cache `ids` as `input`'s; see [`bpe::Bpe::insert_cached`].
+    #[inline(always)]
+    pub(crate) fn insert_cached(&self, input: &str, ids: &[u32]) {
+        match self {
+            Self::Bpe(bpe) => bpe.insert_cached(input, ids),
+        }
+    }
+
     /// Fused tokenize: `input` is raw (pre-ByteLevel) text. On cache hit,
     /// ByteLevel encoding is skipped entirely. On cache miss, ByteLevel
     /// encoding is done inline before running the BPE forward DP.
@@ -159,6 +176,14 @@ impl Model {
     pub fn bigram_bridge_table(&self) -> Option<&bpe::BigramBridgeTable> {
         match self {
             Self::Bpe(bpe) => bpe.splittable_bigram_bridge_table(),
+        }
+    }
+
+    /// The char-pair table for vocab-aware splitting between non-ASCII chars, or
+    /// `None` when splitting there would change the output.
+    pub fn char_pairs(&self) -> Option<&bpe::CharPairs> {
+        match self {
+            Self::Bpe(bpe) => bpe.splittable_char_pairs(),
         }
     }
 }

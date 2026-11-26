@@ -9,7 +9,7 @@ from validator_test_case import SUPPORTS_PYTHON_VALIDATORS, ValidatorTestCase, r
 
 import newton_usd_schemas
 from newton_usd_schemas import validators
-from newton_usd_schemas.validators._registration import register_prim_validator
+from newton_usd_schemas.validators._registration import Finding, native_prim_task, register_prim_validator
 
 if SUPPORTS_PYTHON_VALIDATORS:
     from pxr import UsdValidation
@@ -52,6 +52,19 @@ class TestValidatorsImport(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     @unittest.skipUnless(SUPPORTS_PYTHON_VALIDATORS, "Python validators require OpenUSD 26.05 or newer")
+    def test_finding_severity(self):
+        stage = Usd.Stage.CreateInMemory()
+        prim = stage.DefinePrim("/Prim")
+        task = native_prim_task(
+            lambda prim, time_range: [Finding("Bad", prim, "bad"), Finding("Old", prim, "old", UsdValidation.ValidationErrorType.Warn)]
+        )
+        errors = task(prim, UsdValidation.ValidationTimeRange())
+        self.assertEqual(
+            [(error.GetName(), error.GetType()) for error in errors],
+            [("Bad", UsdValidation.ValidationErrorType.Error), ("Old", UsdValidation.ValidationErrorType.Warn)],
+        )
+
+    @unittest.skipUnless(SUPPORTS_PYTHON_VALIDATORS, "Python validators require OpenUSD 26.05 or newer")
     def test_register_existing_validator(self):
         register_prim_validator("SdfMaxResolutionValidator", lambda prim, time_range: [])
         stage = Usd.Stage.CreateInMemory()
@@ -90,6 +103,15 @@ class TestValidatorMetadata(ValidatorTestCase):
         self.assertEqual(list(metadata.GetSchemaTypes()), ["NewtonPhysicsSDFCollisionAPI"])
         self.assertFalse(metadata.isTimeDependent)
 
+    def test_collision_pipeline(self):
+        """Register metadata for the collision pipeline requirements."""
+        metadata = self.metadata(validators.COLLISION_PIPELINE_VALIDATOR)
+        self.assertEqual(metadata.name, "newton_usd_schemas.validators:CollisionPipelineValidator")
+        self.assertTrue(metadata.doc)
+        self.assertEqual(sorted(metadata.GetKeywords()), ["NewtonCollision", "NewtonCollisionPipelineAPI", "NewtonValidators"])
+        self.assertEqual(list(metadata.GetSchemaTypes()), ["NewtonPhysicsCollisionPipelineAPI"])
+        self.assertFalse(metadata.isTimeDependent)
+
     def test_mimic_joint(self):
         metadata = self.metadata(validators.MIMIC_JOINT_VALIDATOR)
         self.assertEqual(metadata.name, "newton_usd_schemas.validators:MimicJointValidator")
@@ -98,13 +120,54 @@ class TestValidatorMetadata(ValidatorTestCase):
         self.assertEqual(list(metadata.GetSchemaTypes()), ["NewtonPhysicsMimicAPI"])
         self.assertFalse(metadata.isTimeDependent)
 
+    def test_kamino_scc_solver(self):
+        """Register metadata for the SCC solver selection requirement."""
+        metadata = self.metadata(validators.KAMINO_SCC_SOLVER_VALIDATOR)
+        self.assertEqual(metadata.name, "newton_usd_schemas.validators:KaminoSccSolverValidator")
+        self.assertTrue(metadata.doc)
+        self.assertEqual(sorted(metadata.GetKeywords()), ["NewtonKamino", "NewtonKaminoSccSceneAPI", "NewtonValidators"])
+        self.assertEqual(list(metadata.GetSchemaTypes()), ["NewtonPhysicsKaminoSccSceneAPI"])
+        self.assertFalse(metadata.isTimeDependent)
+
+    def test_api_schema_applicability(self):
+        metadata = self.metadata(validators.API_SCHEMA_APPLICABILITY_VALIDATOR)
+        self.assertEqual(metadata.name, "newton_usd_schemas.validators:APISchemaApplicabilityValidator")
+        self.assertTrue(metadata.doc)
+        self.assertEqual(sorted(metadata.GetKeywords()), ["APISchemaApplicability", "NewtonValidators", "SchemaMetadata"])
+        self.assertEqual(list(metadata.GetSchemaTypes()), [])
+        self.assertFalse(metadata.isTimeDependent)
+
+    def test_attribute_allowed_tokens(self):
+        metadata = self.metadata(validators.ATTRIBUTE_ALLOWED_TOKENS_VALIDATOR)
+        self.assertEqual(metadata.name, "newton_usd_schemas.validators:AttributeAllowedTokensValidator")
+        self.assertTrue(metadata.doc)
+        self.assertEqual(sorted(metadata.GetKeywords()), ["AttributeAllowedTokens", "NewtonValidators", "SchemaMetadata"])
+        self.assertEqual(list(metadata.GetSchemaTypes()), [])
+        self.assertTrue(metadata.isTimeDependent)
+
     def test_attribute_hard_limits(self):
         metadata = self.metadata(validators.ATTRIBUTE_HARD_LIMITS_VALIDATOR)
         self.assertEqual(metadata.name, "newton_usd_schemas.validators:AttributeHardLimitsValidator")
         self.assertTrue(metadata.doc)
-        self.assertEqual(sorted(metadata.GetKeywords()), ["AttributeLimits", "NewtonValidators"])
+        self.assertEqual(sorted(metadata.GetKeywords()), ["AttributeLimits", "NewtonValidators", "SchemaMetadata"])
         self.assertEqual(list(metadata.GetSchemaTypes()), [])
         self.assertTrue(metadata.isTimeDependent)
+
+    def test_renamed_attributes(self):
+        metadata = self.metadata(validators.RENAMED_ATTRIBUTES_VALIDATOR)
+        self.assertEqual(metadata.name, "newton_usd_schemas.validators:RenamedAttributesValidator")
+        self.assertTrue(metadata.doc)
+        # The schema keywords and types follow the renames, whose discovery test_validator_renamed_attributes.py checks
+        self.assertLessEqual({"NewtonMigration", "NewtonValidators"}, set(metadata.GetKeywords()))
+        self.assertFalse(metadata.isTimeDependent)
+
+    def test_renamed_api_schemas(self):
+        metadata = self.metadata(validators.RENAMED_API_SCHEMAS_VALIDATOR)
+        self.assertEqual(metadata.name, "newton_usd_schemas.validators:RenamedAPISchemasValidator")
+        self.assertTrue(metadata.doc)
+        self.assertEqual(sorted(metadata.GetKeywords()), ["NewtonMigration", "NewtonValidators"])
+        self.assertEqual(list(metadata.GetSchemaTypes()), [])
+        self.assertFalse(metadata.isTimeDependent)
 
 
 class TestValidatorKeywords(ValidatorTestCase):
@@ -112,23 +175,67 @@ class TestValidatorKeywords(ValidatorTestCase):
         return sorted(metadata.name for metadata in UsdValidation.ValidationRegistry().GetValidatorMetadataForKeyword(keyword))
 
     def test_newton_validators(self):
-        expected = sorted([validators.ATTRIBUTE_HARD_LIMITS_VALIDATOR, validators.MIMIC_JOINT_VALIDATOR, validators.SDF_MAX_RESOLUTION_VALIDATOR])
+        expected = sorted(
+            [
+                validators.API_SCHEMA_APPLICABILITY_VALIDATOR,
+                validators.ATTRIBUTE_ALLOWED_TOKENS_VALIDATOR,
+                validators.ATTRIBUTE_HARD_LIMITS_VALIDATOR,
+                validators.COLLISION_PIPELINE_VALIDATOR,
+                validators.KAMINO_SCC_SOLVER_VALIDATOR,
+                validators.MIMIC_JOINT_VALIDATOR,
+                validators.RENAMED_API_SCHEMAS_VALIDATOR,
+                validators.RENAMED_ATTRIBUTES_VALIDATOR,
+                validators.SDF_MAX_RESOLUTION_VALIDATOR,
+            ]
+        )
         self.assertEqual(self.names("NewtonValidators"), expected)
 
     def test_newton_collision(self):
-        self.assertEqual(self.names("NewtonCollision"), [validators.SDF_MAX_RESOLUTION_VALIDATOR])
+        self.assertEqual(self.names("NewtonCollision"), sorted([validators.COLLISION_PIPELINE_VALIDATOR, validators.SDF_MAX_RESOLUTION_VALIDATOR]))
+
+    def test_newton_collision_pipeline_api(self):
+        """Select the collision pipeline validator through its schema keyword."""
+        self.assertEqual(self.names("NewtonCollisionPipelineAPI"), [validators.COLLISION_PIPELINE_VALIDATOR])
 
     def test_newton_joints(self):
         self.assertEqual(self.names("NewtonJoints"), [validators.MIMIC_JOINT_VALIDATOR])
 
+    def test_api_schema_applicability(self):
+        self.assertEqual(self.names("APISchemaApplicability"), [validators.API_SCHEMA_APPLICABILITY_VALIDATOR])
+
+    def test_attribute_allowed_tokens(self):
+        self.assertEqual(self.names("AttributeAllowedTokens"), [validators.ATTRIBUTE_ALLOWED_TOKENS_VALIDATOR])
+
     def test_attribute_limits(self):
         self.assertEqual(self.names("AttributeLimits"), [validators.ATTRIBUTE_HARD_LIMITS_VALIDATOR])
+
+    def test_schema_metadata(self):
+        """Select the generic validators of schema metadata together."""
+        expected = sorted(
+            [
+                validators.API_SCHEMA_APPLICABILITY_VALIDATOR,
+                validators.ATTRIBUTE_ALLOWED_TOKENS_VALIDATOR,
+                validators.ATTRIBUTE_HARD_LIMITS_VALIDATOR,
+            ]
+        )
+        self.assertEqual(self.names("SchemaMetadata"), expected)
 
     def test_newton_sdf_collision_api(self):
         self.assertEqual(self.names("NewtonSDFCollisionAPI"), [validators.SDF_MAX_RESOLUTION_VALIDATOR])
 
     def test_newton_mimic_api(self):
         self.assertEqual(self.names("NewtonMimicAPI"), [validators.MIMIC_JOINT_VALIDATOR])
+
+    def test_newton_kamino(self):
+        """Select the SCC validator through the Kamino topic keyword."""
+        self.assertEqual(self.names("NewtonKamino"), [validators.KAMINO_SCC_SOLVER_VALIDATOR])
+
+    def test_newton_kamino_scc_scene_api(self):
+        """Select the SCC validator through its schema keyword."""
+        self.assertEqual(self.names("NewtonKaminoSccSceneAPI"), [validators.KAMINO_SCC_SOLVER_VALIDATOR])
+
+    def test_newton_migration(self):
+        self.assertEqual(self.names("NewtonMigration"), sorted([validators.RENAMED_API_SCHEMAS_VALIDATOR, validators.RENAMED_ATTRIBUTES_VALIDATOR]))
 
 
 if __name__ == "__main__":

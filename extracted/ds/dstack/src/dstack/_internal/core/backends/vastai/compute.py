@@ -20,6 +20,7 @@ from dstack._internal.core.backends.vastai.api_client import (
 )
 from dstack._internal.core.backends.vastai.models import VastAIConfig
 from dstack._internal.core.backends.vastai.profile_options import (
+    VASTAI_DEFAULT_MIN_INET_DOWN,
     VASTAI_DEFAULT_MIN_RELIABILITY,
     VASTAI_DEFAULT_OFFER_ORDER,
     VastAIOfferOrder,
@@ -63,7 +64,9 @@ class VastAICompute(
                 if options.min_reliability is not None
                 else VASTAI_DEFAULT_MIN_RELIABILITY
             },
-            "inet_down": {"gt": 128},
+            "inet_down": {"gte": options.min_inet_down}
+            if options.min_inet_down is not None
+            else {"gt": VASTAI_DEFAULT_MIN_INET_DOWN},
             "verified": {"eq": True},
             "cuda_max_good": {"gte": 12.8},
             "compute_cap": {"gte": 600},
@@ -118,6 +121,7 @@ class VastAICompute(
         run: Run,
         job: Job,
         instance_offer: InstanceOfferWithAvailability,
+        project_name: str,
         project_ssh_public_key: str,
         project_ssh_private_key: str,
         volumes: List[Volume],
@@ -126,7 +130,7 @@ class VastAICompute(
         extra_authorized_keys: list[str],
     ) -> JobProvisioningData:
         instance_name = generate_unique_instance_name_for_job(
-            run, job, max_length=MAX_INSTANCE_NAME_LEN
+            run, job, project_name, max_length=MAX_INSTANCE_NAME_LEN
         )
         commands = get_docker_commands(
             build_authorized_keys(project_ssh_public_key, extra_authorized_keys)

@@ -56,6 +56,7 @@ from . import capabilities as capabilities_module
 from . import capture_attempts as capture_attempts_module
 from . import capture_carrier as capture_carrier_module
 from . import capture_inventory as capture_inventory_module
+from . import client_config as client_config_module
 from . import cloud_cell as cloud_cell_module
 from . import compile_proposal as compile_proposal_module
 from . import context_pack as context_pack_module
@@ -99,6 +100,7 @@ from . import find as find_module
 from . import freshness as freshness_module
 from . import get_page as get_page_module
 from . import held_operation as held_operation_module
+from . import import_filing as import_filing_module
 from . import import_windows as import_windows_module
 from . import install_info as install_info_module
 from . import knowledge_packs as knowledge_packs_module
@@ -494,6 +496,13 @@ _COMMAND_SURFACE_EXPORTS = (
     mcp_tool_annotations,
 )
 
+
+
+def _page_citations():
+    """The citation read seam, imported on first use: it loads the collection store, which a plain CLI call never needs."""
+    from . import page_citations
+
+    return page_citations
 
 def _preserve_module():
     from . import preserve as preserve_module
@@ -911,6 +920,11 @@ def op_bootstrap(
         from . import activity as activity_module
 
         return activity_module.payload(vault_root)
+    if section == bootstrap_core_module.WHATS_NEW_SECTION:
+        # The release notes of the running image for Home: no vault content, no reference payload.
+        from . import release_notes as release_notes_module
+
+        return release_notes_module.payload()
 
     session_requested = profile == "session"
     session_unavailable: str | None = None
@@ -1703,7 +1717,7 @@ def op_bootstrap(
         "contract_version": "2026-10-08.1",
         "profile": profile,
         "server": {
-            "name": "exomem",
+            "name": client_config_module.SERVER_NAME,
             "version": package_version,
             "kb_dir": managed_root_rel(),
             "pure_substrate": True,
@@ -7093,6 +7107,9 @@ def op_ask_memory(
         # Inside the measured call, so the whole-call timing covers the shaping too.
         if isinstance(result, (list, dict)):
             result = _agent_search_reply(result, internals=bool(include_timings or explain))
+            # The citations are decided under the purpose the search declared, as its hits were.
+            with principal_module.declared_purpose_scope(purpose):
+                _cite_search_hits(vault_root, result["hits"])
             read_next_action.attach(result, search=True)
     return recall_timing_module.completed(result, trace)
 
@@ -7148,6 +7165,53 @@ def _search_notice(envelope: Mapping[str, Any]) -> str | None:
     if envelope.get("dimension_check"):
         return _SEARCH_NOTICE_DIMENSION
     return None
+
+
+def _cite_packet_leads(vault_root: Path, packet: dict[str, Any]) -> None:
+    """Give each of the first ten page leads of a served packet its citations, charged to the packet's budget.
+
+    The leads are the turn slice's anchors, or the rollback packet's `anchors`; each is cited by the memory
+    ref it already carries, so no path lookup runs here. A lead keeps the citations that fit under
+    `limit_chars`, counted at their serialized length; one that does not fit keeps its count, and one whose
+    count does not fit is left as it was. Never raises: a citation never breaks an activation.
+    """
+    try:
+        if packet.get("abstained"):
+            return
+        slice_items = (packet.get("turn_slice") or {}).get("items") or []
+        leads = [lead for lead in (slice_items or packet.get("anchors") or [])[: _page_citations().RECALL_HITS]
+                 if isinstance(lead, dict)]
+        found = _page_citations().for_hits([lead.get("ref") for lead in leads], vault_root)
+        budget = packet.setdefault("budget", {})
+        for lead in leads:
+            added = found.get(lead.get("ref"))
+            if not added:
+                continue
+            # The full citations first, then the count alone, then nothing.
+            for candidate in (added, {key: value for key, value in added.items() if key != "cited_by"}):
+                size = len(json.dumps(candidate))
+                if int(budget.get("used_chars") or 0) + size <= int(budget.get("limit_chars") or 0):
+                    lead.update(candidate)
+                    budget["used_chars"] = int(budget.get("used_chars") or 0) + size
+                    break
+    except Exception:  # noqa: BLE001 - a citation never breaks an activation
+        log.debug("page citations: lead citations unavailable", exc_info=True)
+
+
+def _cite_search_hits(vault_root: Path, hits: list) -> None:
+    """Give each of the first ten page hits its `cited_by_count` and up to three `cited_by`, from one read.
+
+    Only a page hit carries them: a row or a plan item that cites a page is never a hit of its own.
+    """
+    top = [hit for hit in hits[: _page_citations().RECALL_HITS] if isinstance(hit, dict)]
+    try:
+        found = _page_citations().for_hits([hit.get("ref") for hit in top], vault_root)
+    except Exception:  # noqa: BLE001 - a citation never breaks a search; each page hit says its count is unknown
+        log.debug("page citations: search hit citations unavailable", exc_info=True)
+        found = {hit["ref"]: {"cited_by_state": "unavailable"} for hit in top
+                 if memory_refs_module.parse_memory_ref(hit.get("ref")) is not None}
+    for hit in top:
+        hit.update(found.get(hit.get("ref"), {}))
 
 
 def _agent_search_reply(result: list | dict, *, internals: bool) -> dict:
@@ -7422,6 +7486,9 @@ def op_activate_context(
                             upkeep_module.for_packet(vault_root, packet, session=session)
                         # Also outside the cache: each resolved anchor page's sensed status.
                         sensed_model.for_packet(vault_root, packet)
+                        # The citations are decided under the purpose the request declared, as its leads were.
+                        with principal_module.declared_purpose_scope(purpose):
+                            _cite_packet_leads(vault_root, packet)
                         from . import due_state as due_state_module
 
                         # Guarded material supplies relevance; the agent decides whether to raise it.
@@ -8582,7 +8649,7 @@ def read_memory_stored(
         purpose: Declared purpose; governs visibility.
         history_limit: Retained revisions per page, from 1 to 50.
         history_continuation: Position from the previous revision_history envelope.
-        continuation: Next-page token of a view.
+        continuation: Next-page token of a view, or of a page's `cited_by` (the reply then holds only the next citations).
         follow_corrections: False reads the historical Source; unit reads stay exact.
         offset: Start, in characters, of a window of a long Source's extracted text; follow `window.next_offset`.
         units: List the page's observation units with the id each edit takes; `unavailable` when the principal sees a released view.
@@ -8631,7 +8698,11 @@ def read_memory_stored(
                 offset=offset,
             )
     if continuation is not None:
-        raise context_views_module.invalid_continuation()
+        return _cited_by_continuation(
+            vault_root, path, continuation,
+            conflicting=unit_ref is not None or frontmatter_only or include_history or links or include_raw
+            or offset is not None or units,
+        )
     path = page_names_module.resolve_page(vault_root, path, serve_stale=True)
     if unit_ref is not None:
         if frontmatter_only or links or include_raw or offset is not None:
@@ -8748,6 +8819,10 @@ def read_memory_stored(
 @wraps(read_memory_stored)
 def op_read_memory(vault_root: Path, *args: Any, **kwargs: Any) -> dict:
     result = read_memory_stored(vault_root, *args, **kwargs)
+    options = inspect.signature(read_memory_stored).bind(vault_root, *args, **kwargs).arguments
+    # The citations are decided under the purpose the read declared, as the page itself was.
+    with principal_module.declared_purpose_scope(options.get("purpose")):
+        result = _with_cited_by(vault_root, result, frontmatter_only=bool(options.get("frontmatter_only")))
     frontmatter = result.get("frontmatter")
     if (
         isinstance(frontmatter, Mapping)
@@ -8763,6 +8838,55 @@ def op_read_memory(vault_root: Path, *args: Any, **kwargs: Any) -> dict:
 
 
 op_read_memory.__name__ = op_read_memory.__qualname__ = "op_read_memory"
+
+#: Citations a page read lists before it offers `more`; a page cited by many rows stays a small read.
+_CITED_BY_LIMIT = 10
+
+
+def _with_cited_by(vault_root: Path, result: dict, *, frontmatter_only: bool) -> dict:
+    """`result` with `cited_by` when it is a page read released in full: the rows and plan items citing it.
+
+    The reply is `page_citations.inbound_citations`: `items`, the visible `count`, `count_complete`, `more` and `state`.
+    A reply of another kind (a view, a brief, a unit), a frontmatter-only scan and a page below full release
+    carry none, as they carry no links. A vault with no collection store has no link field to cite from.
+    """
+    if (
+        frontmatter_only
+        or "body" not in result
+        or "content_hash" not in result
+        or result.get("release_level", egress_module.LEVEL_FULL) != egress_module.LEVEL_FULL
+        or memory_refs_module.parse_memory_ref(result.get("ref")) is None
+        or not _page_citations().applies(vault_root)
+    ):
+        return result
+    try:
+        cited_by = _page_citations().inbound_citations(result["ref"], vault_root, limit=_CITED_BY_LIMIT)
+    except Exception:  # noqa: BLE001 - a citation never breaks a page read; the read says its citations are unknown
+        log.debug("page citations: page read citations unavailable", exc_info=True)
+        cited_by = {"state": "unavailable"}
+    return {**result, "cited_by": cited_by}
+
+
+def _cited_by_continuation(vault_root: Path, page: str, token: str, *, conflicting: bool) -> dict:
+    """The next citations of a page, from the `more` of its `cited_by`, without reading the page body.
+
+    Only the citations come back: the reply names no path or hash. A page with no memory ref, a page the caller
+    cannot read and a page that does not exist all get the same empty answer, so a continuation never tells
+    them apart. A token that is no citation cursor, or a vault with no collection store to have issued one,
+    is the refusal every continuation shares.
+    """
+    if conflicting or not _page_citations().applies(vault_root):
+        raise context_views_module.invalid_continuation()
+    ref = page if memory_refs_module.parse_memory_ref(page) is not None else next(iter(
+        ref for ref in memory_refs_module.ReferenceIndex(vault_root).refs_for_paths(list(
+            get_page_module.spellings(page_names_module.resolve_page(vault_root, page, serve_stale=True)))).values()
+        if ref), None)
+    try:
+        answer = (_page_citations().without_page(vault_root, token) if ref is None
+                  else _page_citations().inbound_citations(ref, vault_root, limit=_CITED_BY_LIMIT, more=token))
+    except ValueError as error:
+        raise context_views_module.invalid_continuation() from error
+    return {"cited_by": answer}
 
 
 def _show_links_by_title(vault_root: Path, result: dict) -> dict:
@@ -9168,6 +9292,41 @@ def op_observe_memory(
         raise ValueError(
             "INVALID_PATH: observe_memory requires a governed KB-relative path or reference"
         )
+
+    def page_without_walk() -> str | None:
+        # The page this call names when finding it reads no more than the page: a vault path, a
+        # vault or source ref, or a memory ref that the current identity projection answers. A
+        # title would need the title index. A caller whose pages are filtered gets no page-specific
+        # wording, so the reply cannot tell it whether a page it cannot see exists.
+        if egress_module.caller_restricted(vault_root):
+            return None
+        if not raw_path.lower().startswith("exomem://"):
+            return raw_path
+        if raw_path.lower().startswith(memory_refs_module.REF_PREFIX):
+            return memory_refs_module.owner_without_walk(vault_root, raw_path)
+        decoded = memory_refs_module.resolve_identifier_read_only(vault_root, raw_path)
+        return decoded if is_in_managed_root(decoded) else None
+
+    early = observe_memory_module.refusal_before_page(
+        vault_root,
+        page=page_without_walk,
+        operation=operation,
+        category=category,
+        content=content,
+        kind=kind,
+        unit=unit,
+        unit_ref=unit_ref,
+        verdict=verdict,
+        check_by=check_by,
+        as_of=as_of,
+        until=until,
+        tags=tags,
+        context=context,
+        relations=relations,
+        validate_only=validate_only,
+    )
+    if early is not None:
+        raise early.leaf_error()
     if not raw_path.lower().startswith("exomem://"):
         path = page_names_module.resolve_page(
             vault_root, path, prefer=page_names_module.prefer_editable, field="path"
@@ -9243,10 +9402,7 @@ def op_observe_memory(
             )
             if refusal is not None:
                 raise refusal from error
-        message = f"{error.code}: {error.reason}"
-        if error.remediation:
-            message += f" Remediation: {error.remediation}"
-        raise ValueError(message) from error
+        raise error.leaf_error() from error
 
 
 def op_replace_memory(
@@ -9370,6 +9526,14 @@ def op_settle_source_capture(
 ) -> dict:
     """Close local capture admission or observe its retained receipt under the canonical boundary."""
     return capture_attempts_module.settle(vault_root, reservation, retire_owned=retire_owned)
+
+
+#: The step a committed save_source reply asks for when the saved file could be the current state
+#: of something a note already states. The projection merges it with the capture-sweep ask.
+_SAVE_SOURCE_PRESENTED_NEXT = (
+    "If the person presents this file as the current state, such as an applied or final export, "
+    "update the note's current statement now and cite this Source; keep the earlier value as dated history."
+)
 
 
 def op_capture_source(
@@ -9607,6 +9771,10 @@ def op_capture_source(
                 )
             except ValueError as exc:
                 out["compile_guidance"] = {"available": False, "error": str(exc)}
+    # A settled replay (`mutated: false`) wrote nothing, so only a committed save asks for the
+    # presentation step. A custody_only Source is safekeeping, not material a note cites.
+    if out.get("mutated") is not False and custody_only is not True:
+        out["next_action"] = _SAVE_SOURCE_PRESENTED_NEXT
     return out
 
 
@@ -12350,6 +12518,7 @@ def op_adoption_studio(
     limit: Annotated[int, Field(ge=1, le=adoption_run_module.STATUS_PAGE_ITEMS)] = adoption_run_module.STATUS_PAGE_ITEMS,
     revision: str | None = None,
     upload: str | None = None,
+    wait: bool = True,
 ) -> dict:
     """Review and import a collection in a resumable run.
 
@@ -12357,7 +12526,9 @@ def op_adoption_studio(
     Status/work-item read; others write. Apply commits the previewed plan or refuses.
 
     file imports a staged folder in one repeatable call: repeat it with the
-    `continuation` it returns until `filing` is not `working`. An archive sent
+    `continuation` it returns until `filing` is not `working`. A serving cell also
+    finishes a stage it was asked to file: read it with inspect_memory `imports.status` and `view="filing"`;
+    manage_memory `imports.file` with `wait` false registers a stage and files nothing in the call. An archive sent
     with upload_files (lane import) is filed with `upload`. Other actions are
     the step path. start scans; select chooses; plan previews; apply copies into
     Sources and drafts notes under own-note rules; cancel closes pre-apply; finish
@@ -12403,11 +12574,15 @@ def op_adoption_studio(
             with none is refused.
         view: For run `status`, summary by default; inventory, selection, plan,
             outcomes or stale pages. Full is the explicit browser compatibility view.
+            `filing` takes the staged `path` and no run_id: state, progress, left_out (when done), stop,
+            needs, person and rate of the cell's own filing; `unknown` is not zero.
         offset: For status pages, a zero-based row offset.
         limit: For status pages, from 1 to 100 rows, also bounded by response bytes.
         revision: For status pages, the preceding summary's revision; restart paging if it changed.
         upload: For `file`, the `token` that upload_files returned for lane import, in place of `path`.
             The first call unpacks the archive into a staged folder; repeats carry on. Its reply names `path`.
+        wait: For `file`, false only registers `path` for the cell to file under your login (it replaces an
+            ended one) and answers the `view="filing"` reply; it files nothing in the call.
     """
     action = (action or "").strip()
     if action not in _ADOPTION_STUDIO_ACTIONS:
@@ -12427,7 +12602,7 @@ def op_adoption_studio(
                     "IMPORT_REQUEST_INVALID", "status of one run takes no after, series_id or next_window_bytes")
             listing = adoption_run_module.status(
                 vault_root, run_id=run_id, path=path, view=view, offset=offset, limit=limit, revision=revision)
-            if run_id:
+            if run_id or view == "filing":
                 return listing
             return {**listing, **import_windows_module.report(
                 vault_root, after=after, series_id=series_id, next_window_bytes=next_window_bytes)}
@@ -12463,6 +12638,12 @@ def op_adoption_studio(
         if action == "file":
             from . import due_state as due_state_module
 
+            if wait is False:
+                if upload is not None or continuation:
+                    raise adoption_run_module.AdoptionRunError(
+                        "IMPORT_REQUEST_INVALID", "file with wait false takes the staged path alone")
+                import_filing_module.wake(vault_root, path or "", collection)
+                return adoption_run_module.status(vault_root, path=path, view="filing")
             if upload is not None:
                 from . import import_upload
 
@@ -12473,6 +12654,8 @@ def op_adoption_studio(
                 if staged.stopped is not None:
                     return {"path": staged.path, **staged.stopped}
                 path = staged.path
+            # The cell finishes the stage after this call: a serving runtime registers it with its import filer.
+            import_filing_module.note_file_call(vault_root, path, collection)
             # Like `apply`, one call commits a bounded share of the import, so it is one batch at its terminal.
             with due_state_module.batch_scope(vault_root), state_paths_module.resolution_scope():
                 filed = adoption_run_module.file(
@@ -12548,7 +12731,9 @@ def op_observe_transfer(
     2. status: the latest import (or import_id) and the export; poll until an adopt import
        is `done`.
     3. File it: manage_memory `imports.file` on the `next` path (`_Imports/<id>`), repeated with its
-       `continuation` until `filing` is not `working`. An older server refuses it: `imports.start` on
+       `continuation` until `filing` is not `working`. A cell asked to file finishes it: poll
+       inspect_memory `imports.status` (`view="filing"`) until `state` is `done`; `imports.file` with
+       `wait` false only registers it. An older server refuses it: `imports.start` on
        the path, and again with `next_after`; select, plan and apply (at `apply_stop`, stop
        until space is free); finish.
     4. Review the residual with the person; discard with transfer_memory.
@@ -12606,6 +12791,7 @@ def op_maintain_memory(
         "structured-files",
         "curation",
         "tag-variants",
+        "path-variants",
         "maintenance-job",
         "maintenance-job-cancel",
         "collections-store",
@@ -12962,6 +13148,33 @@ def op_maintain_memory(
                 vault_root, plan_id=plan_id, why=why, exclude=exclude_groups
             )
         return _carrying_batch_advisories(vault_root, reconciled)
+    if mode == "path-variants":
+        from . import path_variants as path_variants_module
+
+        if (
+            categories is not None
+            or apply is not None
+            or rebuild_embeddings
+            or rebuild_graph
+            or detail != "actionable"
+            or legacy_sample_limit != audit_module.DEFAULT_LEGACY_SAMPLE_LIMIT
+            or collection is not None
+            or source_snapshot is not None
+        ):
+            raise ValueError("INVALID_ARGUMENTS: path-variants accepts only dry_run, plan_id and why")
+        # Merging moves files across the whole vault, protected captures included: it is the owner's.
+        refusal = egress_module.owner_only_aggregate(vault_root)
+        if refusal is not None:
+            return refusal
+        if dry_run is not False:
+            if plan_id is not None or why is not None:
+                raise ValueError("INVALID_ARGUMENTS: a path-variants preview takes no plan_id or why")
+            return path_variants_module.preview(vault_root)
+        if plan_id is None or why is None:
+            raise ValueError(
+                "INVALID_ARGUMENTS: a path-variants merge needs dry_run=false with the preview's plan_id and a why"
+            )
+        return path_variants_module.apply(vault_root, plan_id=plan_id, why=why)
     if mode == "maintenance-job" or mode == "maintenance-job-cancel":
         from . import maintenance_jobs as maintenance_jobs_module
 
@@ -13139,7 +13352,7 @@ def op_maintain_memory(
         return original_conversion.convert(vault_root, dry_run=True if dry_run is None else dry_run, plan_id=plan_id)
     raise ValueError(
         "INVALID_MODE: maintain_memory mode must be audit, fix, reconcile, "
-        "backfill-ids, capture-metadata, convert-originals, structured-files, curation, tag-variants, maintenance-job, "
+        "backfill-ids, capture-metadata, convert-originals, structured-files, curation, tag-variants, path-variants, maintenance-job, "
         "maintenance-job-cancel, collections-store, collections-store-adopt-local, "
         "collections-store-export, collections-cutover, or held-resolve"
     )
@@ -14845,6 +15058,7 @@ def op_record_memory(
     automatic: bool | None = None,
     new_collection: dict[str, Any] | None = None,
     new_fields: list[str] | None = None,
+    natural_key: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Read or update observed state; Planning uses plan_memory; originals use Sources/Evidence.
 
@@ -14871,7 +15085,8 @@ def op_record_memory(
         source: bulk_upsert preserved Source/Evidence path; required once for the batch or on each row.
         on_reject: bulk_upsert: abort writes nothing; skip commits the rest.
         query: v1 query object; grammar via describe.
-        item_id: Update or retract: the row `id` a query returned; stands for item_key and both guards, read under the writer lease.
+        item_id: Update or retract: the row `id` a query returned; stands for item_key and both guards, read under the writer lease. History: names the row at any version.
+        natural_key: History only: the natural-key field values, e.g. {"asset_tag": "L-17"}; finds a retracted row too. History takes exactly one of item_key, item_id, natural_key.
         automatic: Create only: true for a minimal collection you start under silent proactive_capture; refused with the failed bound named.
         new_collection: Append only, {"natural_key": [item fields]}: a title that names no collection is created from the row under the automatic bounds, then the row is appended.
         new_fields: Append or update: names in item/changes the collection does not declare; under silent proactive_capture they are added, typed from the values, then the row is written.
@@ -14920,6 +15135,7 @@ def op_record_memory(
         automatic=automatic,
         new_collection=new_collection,
         new_fields=new_fields,
+        natural_key=natural_key,
     )
     # An item write answers `outcome: committed`; a bulk upsert answers `committed: true`. An import starts a job whose
     # batches commit later, outside this call, so the write log does not attribute them (method-use-evidence spec).
@@ -15264,6 +15480,9 @@ def invocation_writes_outside_writer(command: Command, kwargs: dict[str, Any]) -
 
     The lease treats it as a read; read-only cells and the call ledger still treat it as a write.
     """
+    if command.name == "adoption_studio" and kwargs.get("action") == "file" and kwargs.get("wait") is False:
+        # Registers a stage in the cell's private filing record and files nothing, so it never waits for a filing call.
+        return True
     return command.name == "transfer_artifact" and kwargs.get("operation") == "cancel"
 
 
@@ -15581,6 +15800,18 @@ def busy_intake_applies(command: Command, arguments: Mapping[str, Any]) -> bool:
     if operations.selector is not None:
         action = _resolved_invocation_selector(command, dict(arguments), operations.selector)
     return operations.queues_when_busy(action, arguments)
+
+
+def refusal_before_queueing(command: Command, arguments: Mapping[str, Any]) -> ValueError | None:
+    """The refusal that a save's arguments alone are certain to get, or None.
+
+    A queued receipt promises a save, and a replay that the arguments already condemn would
+    fail only later. The check reads no page; `observe_memory` is the one command that has it.
+    """
+    if command.name != "observe_memory":
+        return None
+    error = observe_memory_module.argument_refusal(arguments)
+    return None if error is None else error.leaf_error()
 
 
 _MCRC = frozenset({"mcp", "rest", "cli"})

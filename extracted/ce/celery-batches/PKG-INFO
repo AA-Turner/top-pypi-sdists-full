@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: celery-batches
-Version: 0.12
+Version: 0.12.1
 Summary: Experimental task class that buffers messages and processes them as a list.
 Author-email: Patrick Cloke <clokep@patrick.cloke.us>
 License-Expression: BSD-3-Clause

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dbtlabs-vortex"
-version = "0.2.1"
+version = "0.3.0"
 authors = [
     {name = "Connor McArthur", email = "connor@dbtlabs.com"},
     {name = "Zach Brown", email = "zach.brown@dbtlabs.com"},
@@ -29,7 +29,6 @@ dependencies = [
     "dbt-protos>=1.0.438",
     "pydantic>=1",
     "requests>=2.32.3",
-    "uuid>=1.30"
 ]
 
 [project.optional-dependencies]

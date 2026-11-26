@@ -21,7 +21,9 @@ from rock.actions import (
     CommitErrorCode,
     CommitStatusResponse,
     CreateBashSessionResponse,
+    FileEntry,
     IsAliveResponse,
+    ListDirectoryRequest,
     ReadFileResponse,
     UploadResponse,
     WriteFileResponse,
@@ -49,8 +51,14 @@ from rock.sandbox.service.commit_worker import CommitWorkerExecutor
 from rock.sandbox.utils.proxy import BLOCKED_WS_HEADER_NAMES, build_upstream_ws_headers
 from rock.sandbox.utils.rocklet_probe import check_alive_status, get_remote_status
 from rock.sandbox.utils.timeout import SandboxTimeoutHelper
-from rock.sdk.common.exceptions import BadRequestRockError, InternalServerRockError, WorkerCommitError
+from rock.sdk.common.exceptions import (
+    BadRequestRockError,
+    InternalServerRockError,
+    SandboxNotFoundRockError,
+    WorkerCommitError,
+)
 from rock.rocklet import __version__ as swe_version
+from rock.rocklet.exceptions import CommandTimeoutError
 from rock.sandbox import __version__ as gateway_version
 from rock.utils import EAGLE_EYE_TRACE_ID, trace_id_ctx_var
 
@@ -170,13 +178,20 @@ class SandboxProxyService:
                 ", ".join(missing),
             )
 
+    @staticmethod
+    def _merge_sandbox_env(sandbox_info: SandboxInfo, request_env: dict[str, str] | None) -> dict[str, str] | None:
+        merged_env = {**sandbox_info.get("env", {}), **(request_env or {})}
+        return merged_env or None
+
     @monitor_sandbox_operation()
     async def create_session(self, request: CreateSessionRequest) -> CreateBashSessionResponse:
         sandbox_id = request.sandbox_id
         await self._update_expire_time(sandbox_id)
         sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        payload = request.model_dump()
+        payload["env"] = self._merge_sandbox_env(sandbox_status_dicts[0], request.env)
         response = await self._send_request(
-            sandbox_id, sandbox_status_dicts[0], "create_session", None, request.model_dump(), None, "POST"
+            sandbox_id, sandbox_status_dicts[0], "create_session", None, payload, None, "POST"
         )
         return CreateBashSessionResponse(**response)
 
@@ -242,13 +257,177 @@ class SandboxProxyService:
         response = await self._send_request(sandbox_id, sandbox_status_dicts[0], "upload", data, None, files, "POST")
         return UploadResponse(**response)
 
+    async def _e2b_fs_json_request(
+        self,
+        sandbox_id: str,
+        sandbox_status: dict,
+        path: str,
+        *,
+        json_data: dict | None = None,
+        data: dict | None = None,
+        files: dict | None = None,
+        client: httpx.AsyncClient | None = None,
+    ) -> dict | list:
+        host_ip = sandbox_status.get("host_ip")
+        service_status = ServiceStatus.from_dict(sandbox_status)
+        url = f"{self._api_url(host_ip, service_status)}/{path}"
+        try:
+            response = await (client or self._rpc_client).request(
+                method="POST",
+                url=url,
+                headers=self._headers(sandbox_id),
+                json=json_data,
+                data=data,
+                files=files,
+            )
+        except httpx.RequestError as error:
+            raise ConnectionError("sandbox filesystem service is unavailable") from error
+
+        if response.status_code < 400:
+            return response.json()
+
+        try:
+            payload = response.json()
+            message = payload.get("detail") or payload.get("message") or str(payload)
+        except (ValueError, AttributeError):
+            message = response.text
+        if response.status_code == 404:
+            raise FileNotFoundError(message)
+        if response.status_code in (400, 422):
+            raise ValueError(message)
+        if response.status_code in (401, 403):
+            raise PermissionError(message)
+        raise RuntimeError(message)
+
+    async def e2b_fs_make_dir(self, sandbox_id: str, path: str) -> bool:
+        await self._update_expire_time(sandbox_id)
+        sandbox_status = (await self.get_service_status(sandbox_id))[0]
+        response = await self._e2b_fs_json_request(
+            sandbox_id,
+            sandbox_status,
+            "fs/make-dir",
+            json_data={"path": path},
+        )
+        return bool(response["created"])
+
+    async def e2b_fs_list(self, sandbox_id: str, path: str, depth: int) -> list[FileEntry]:
+        await self._update_expire_time(sandbox_id)
+        sandbox_status = (await self.get_service_status(sandbox_id))[0]
+        response = await self._e2b_fs_json_request(
+            sandbox_id,
+            sandbox_status,
+            "fs/list",
+            json_data=ListDirectoryRequest(path=path, depth=depth).model_dump(),
+        )
+        return [FileEntry.model_validate(entry) for entry in response]
+
+    async def e2b_fs_stat(self, sandbox_id: str, path: str) -> FileEntry:
+        await self._update_expire_time(sandbox_id)
+        sandbox_status = (await self.get_service_status(sandbox_id))[0]
+        response = await self._e2b_fs_json_request(
+            sandbox_id,
+            sandbox_status,
+            "fs/stat",
+            json_data={"path": path},
+        )
+        return FileEntry.model_validate(response)
+
+    async def e2b_fs_write_files(
+        self,
+        sandbox_id: str,
+        entries: list[tuple[str, UploadFile]],
+    ) -> list[str]:
+        await self._update_expire_time(sandbox_id)
+        sandbox_status = (await self.get_service_status(sandbox_id))[0]
+        written_paths: list[str] = []
+        for target_path, file in entries:
+            await file.seek(0)
+            await self._e2b_fs_json_request(
+                sandbox_id,
+                sandbox_status,
+                "upload",
+                data={"target_path": target_path, "unzip": "false"},
+                files={"file": (file.filename, file.file, file.content_type)},
+                client=self._proxy_client,
+            )
+            written_paths.append(target_path)
+        return written_paths
+
+    async def e2b_fs_read(self, sandbox_id: str, path: str) -> Response:
+        await self._update_expire_time(sandbox_id)
+        sandbox_status = (await self.get_service_status(sandbox_id))[0]
+        host_ip = sandbox_status.get("host_ip")
+        service_status = ServiceStatus.from_dict(sandbox_status)
+        url = f"{self._api_url(host_ip, service_status)}/fs/read"
+        try:
+            response = await self._proxy_client.send(
+                self._proxy_client.build_request(
+                    method="GET",
+                    url=url,
+                    params={"path": path},
+                    headers=self._headers(sandbox_id),
+                ),
+                stream=True,
+            )
+        except httpx.RequestError as error:
+            raise ConnectionError("sandbox filesystem service is unavailable") from error
+
+        if response.status_code >= 400:
+            try:
+                content = await response.aread()
+                message = response.json().get("detail") or content.decode(errors="replace")
+            finally:
+                await response.aclose()
+            if response.status_code == 404:
+                raise FileNotFoundError(message)
+            if response.status_code in (400, 422):
+                raise ValueError(message)
+            if response.status_code in (401, 403):
+                raise PermissionError(message)
+            raise RuntimeError(message)
+
+        response_headers = {
+            key: value
+            for key, value in response.headers.items()
+            if key.lower() not in {"connection", "transfer-encoding", "content-length", "content-encoding"}
+        }
+
+        async def stream():
+            try:
+                async for chunk in response.aiter_bytes():
+                    if chunk:
+                        yield chunk
+            finally:
+                await response.aclose()
+
+        return StreamingResponse(
+            stream(),
+            status_code=response.status_code,
+            media_type=response.headers.get("content-type", "application/octet-stream"),
+            headers=response_headers,
+        )
+
     @monitor_sandbox_operation()
-    async def execute(self, command: Command) -> CommandResponse:
+    async def execute(
+        self,
+        command: Command,
+        *,
+        propagate_rocklet_errors: bool = False,
+    ) -> CommandResponse:
         sandbox_id = command.sandbox_id
         await self._update_expire_time(sandbox_id)
         sandbox_status_dicts = await self.get_service_status(sandbox_id)
+        payload = command.model_dump()
+        payload["env"] = self._merge_sandbox_env(sandbox_status_dicts[0], command.env)
         response = await self._send_request(
-            sandbox_id, sandbox_status_dicts[0], "execute", None, command.model_dump(), None, "POST"
+            sandbox_id,
+            sandbox_status_dicts[0],
+            "execute",
+            None,
+            payload,
+            None,
+            "POST",
+            propagate_rocklet_errors=propagate_rocklet_errors,
         )
         return CommandResponse(**response)
 
@@ -720,6 +899,8 @@ class SandboxProxyService:
         json_data: dict | None,
         files: dict | None,
         method: str,
+        *,
+        propagate_rocklet_errors: bool = False,
     ):
         host_ip = sandbox_status_dict.get("host_ip")
         service_status = ServiceStatus.from_dict(sandbox_status_dict)
@@ -729,7 +910,8 @@ class SandboxProxyService:
         full_request_url = f"{api_url}/{path}"
         logger.info(f"full_request_url: {full_request_url}")
         logger.info(f"data: {data}")
-        logger.info(f"json_data: {json_data}")
+        logged_json_data = {**json_data, "env": "<redacted>"} if json_data and "env" in json_data else json_data
+        logger.info("json_data: %s", logged_json_data)
 
         # Make request
         try:
@@ -742,14 +924,34 @@ class SandboxProxyService:
                 files=files if files else None,
             )
             if response.status_code == 511:
-                return {"exit_code": -1, "failure_reason": response.json()["rockletexception"]["message"]}
+                rocklet_exception = response.json()["rockletexception"]
+                if propagate_rocklet_errors:
+                    timeout_class_path = f"{CommandTimeoutError.__module__}.{CommandTimeoutError.__qualname__}"
+                    if rocklet_exception.get("class_path") == timeout_class_path:
+                        raise CommandTimeoutError(rocklet_exception["message"])
+                    invalid_command_exceptions = {
+                        "builtins.FileNotFoundError",
+                        "builtins.NotADirectoryError",
+                        "builtins.PermissionError",
+                        "builtins.ValueError",
+                    }
+                    if rocklet_exception.get("class_path") in invalid_command_exceptions:
+                        raise ValueError(rocklet_exception["message"])
+                    raise RuntimeError(rocklet_exception["message"])
+                return {"exit_code": -1, "failure_reason": rocklet_exception["message"]}
             if response.status_code == HTTP_504_GATEWAY_TIMEOUT:
-                return {"exit_code": -1, "failure_reason": response.json()["detail"]}
+                message = response.json()["detail"]
+                if propagate_rocklet_errors:
+                    raise CommandTimeoutError(message)
+                return {"exit_code": -1, "failure_reason": message}
             return response.json()
         except httpx.RequestError as e:
             # Handle network-level errors, such as DNS resolution failure, connection timeout, etc.
             logger.error(f"Error forwarding request to full_request_url: {str(e)}", exc_info=True)
-            raise Exception("Service unavailable: Upstream server is not reachable.")
+            message = "Service unavailable: Upstream server is not reachable."
+            if propagate_rocklet_errors:
+                raise ConnectionError(message) from e
+            raise Exception(message) from e
 
     def _headers(self, sandbox_id: str) -> dict[str, str]:
         headers = {"sandbox_id": sandbox_id, EAGLE_EYE_TRACE_ID: trace_id_ctx_var.get()}
@@ -1124,7 +1326,7 @@ class SandboxProxyService:
         """
         sandbox_info = await self._meta_store.get(sandbox_id, check_db=True)
         if sandbox_info is None:
-            raise BadRequestRockError(f"Sandbox {sandbox_id} not found")
+            raise SandboxNotFoundRockError(f"Sandbox {sandbox_id} not found")
 
         state = sandbox_info.get("state")
         host_ip = sandbox_info.get("host_ip")
@@ -1156,7 +1358,7 @@ class SandboxProxyService:
                 sandbox_info = sm.sandbox_info
 
         if not include_all_states and state not in (State.PENDING, State.RUNNING):
-            raise BadRequestRockError(f"Sandbox {sandbox_id} not found")
+            raise SandboxNotFoundRockError(f"Sandbox {sandbox_id} not found")
 
         info = operator_sandbox_info if operator_sandbox_info is not None else sandbox_info
         timeout_info = await self._meta_store.get_timeout(sandbox_id)
@@ -1175,6 +1377,7 @@ class SandboxProxyService:
             host_ip=host_ip,
             is_alive=is_alive,
             image=info.get("image"),
+            metadata=info.get("metadata"),
             swe_rex_version=swe_version,
             gateway_version=gateway_version,
             user_id=info.get("user_id"),

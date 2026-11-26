@@ -33,6 +33,7 @@ from .voice_clone_params import VoiceCloneParams as VoiceCloneParams
 from .agent_create_params import AgentCreateParams as AgentCreateParams
 from .agent_list_response import AgentListResponse as AgentListResponse
 from .agent_repair_params import AgentRepairParams as AgentRepairParams
+from .agent_root_response import AgentRootResponse as AgentRootResponse
 from .agent_update_params import AgentUpdateParams as AgentUpdateParams
 from .asset_create_params import AssetCreateParams as AssetCreateParams
 from .batch_call_response import BatchCallResponse as BatchCallResponse
@@ -61,6 +62,7 @@ from .test_case_job_response import TestCaseJobResponse as TestCaseJobResponse
 from .call_update_live_params import CallUpdateLiveParams as CallUpdateLiveParams
 from .crm_get_schema_response import CRMGetSchemaResponse as CRMGetSchemaResponse
 from .knowledge_base_response import KnowledgeBaseResponse as KnowledgeBaseResponse
+from .agent_update_root_params import AgentUpdateRootParams as AgentUpdateRootParams
 from .app_list_usages_response import AppListUsagesResponse as AppListUsagesResponse
 from .chat_agent_create_params import ChatAgentCreateParams as ChatAgentCreateParams
 from .chat_agent_list_response import ChatAgentListResponse as ChatAgentListResponse

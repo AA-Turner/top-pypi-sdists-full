@@ -2,7 +2,7 @@
 name = "html-compare"
 description = "A simple library to compare html files"
 license = "MIT"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 repository = "https://github.com/jdrouet/mrml"
 
@@ -10,6 +10,6 @@ repository = "https://github.com/jdrouet/mrml"
 
 [dependencies]
 colored = "3.0"
-css-compare = { path = "../css-compare", version = "0.1" }
+lightningcss = { version = "1.0.0-alpha.66", default-features = false }
 similar-asserts = { workspace = true }
 htmlparser = { workspace = true }

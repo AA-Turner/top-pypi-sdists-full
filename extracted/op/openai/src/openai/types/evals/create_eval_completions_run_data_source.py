@@ -77,14 +77,14 @@ class SourceStoredCompletions(BaseModel):
     """Set of 16 key-value pairs that can be attached to an object.
 
     This can be useful for storing additional information about the object in a
-    structured format, and querying for objects via API or the dashboard.
+    structured format.
 
     Keys are strings with a maximum length of 64 characters. Values are strings with
     a maximum length of 512 characters.
     """
 
     model: Optional[str] = None
-    """An optional model to filter by (e.g., 'gpt-6-astra')."""
+    """An optional model to filter by (e.g., 'gpt-4.1-mini-2025-04-14')."""
 
 
 Source: TypeAlias = Annotated[
@@ -247,6 +247,6 @@ class CreateEvalCompletionsRunDataSource(BaseModel):
     """
 
     model: Optional[str] = None
-    """The name of the model to use for generating completions (e.g. "o3-mini")."""
+    """The model to use to sample outputs with the Chat Completions API."""
 
     sampling_params: Optional[SamplingParams] = None

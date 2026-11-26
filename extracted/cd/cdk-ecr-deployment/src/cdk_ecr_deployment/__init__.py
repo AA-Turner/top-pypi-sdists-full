@@ -156,6 +156,7 @@ class _LazyImport:
 
 if typing.TYPE_CHECKING:
 
+    import aws_cdk as _aws_cdk_ceddda9d
     import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
     import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
     import constructs as _constructs_77d1e7e8
@@ -163,6 +164,7 @@ else:
 
     _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
     _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
@@ -185,6 +187,7 @@ class ECRDeployment(
         retry_configs: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]] = None,
+        service_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
         vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -200,6 +203,7 @@ class ECRDeployment(
         :param retry_configs: Retry configuration to apply to when copying images such as the number of retry attemtps, the base amount of delay (in seconds) between each retry, and the max amount of delay (in seconds) between each retry. For example, { 'numAttempts': 3, 'baseDelay': 1, 'maxDelay': 5 }
         :param role: Execution role associated with this function. Default: - A role is automatically created
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
+        :param service_timeout: The maximum time CloudFormation waits for the custom resource to respond before failing the operation. The copy Lambda times out after 15 minutes. If it never responds (for example, it times out or can't reach CloudFormation), CloudFormation would otherwise wait its own default of 1 hour before failing. The default, a little above the Lambda timeout, makes such deployments fail fast. Must be between 1 second and 1 hour. Default: Duration.minutes(17)
         :param vpc: The VPC network to place the deployment lambda handler in. Default: - None
         :param vpc_subnets: Where in the VPC to place the deployment lambda handler. Only used if 'vpc' is supplied. Default: - the Vpc default strategy if not specified
         '''
@@ -217,6 +221,7 @@ class ECRDeployment(
             retry_configs=retry_configs,
             role=role,
             security_groups=security_groups,
+            service_timeout=service_timeout,
             vpc=vpc,
             vpc_subnets=vpc_subnets,
         )
@@ -250,6 +255,7 @@ class ECRDeployment(
         "retry_configs": "retryConfigs",
         "role": "role",
         "security_groups": "securityGroups",
+        "service_timeout": "serviceTimeout",
         "vpc": "vpc",
         "vpc_subnets": "vpcSubnets",
     },
@@ -267,6 +273,7 @@ class ECRDeploymentProps:
         retry_configs: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]] = None,
+        service_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
         vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -280,6 +287,7 @@ class ECRDeploymentProps:
         :param retry_configs: Retry configuration to apply to when copying images such as the number of retry attemtps, the base amount of delay (in seconds) between each retry, and the max amount of delay (in seconds) between each retry. For example, { 'numAttempts': 3, 'baseDelay': 1, 'maxDelay': 5 }
         :param role: Execution role associated with this function. Default: - A role is automatically created
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
+        :param service_timeout: The maximum time CloudFormation waits for the custom resource to respond before failing the operation. The copy Lambda times out after 15 minutes. If it never responds (for example, it times out or can't reach CloudFormation), CloudFormation would otherwise wait its own default of 1 hour before failing. The default, a little above the Lambda timeout, makes such deployments fail fast. Must be between 1 second and 1 hour. Default: Duration.minutes(17)
         :param vpc: The VPC network to place the deployment lambda handler in. Default: - None
         :param vpc_subnets: Where in the VPC to place the deployment lambda handler. Only used if 'vpc' is supplied. Default: - the Vpc default strategy if not specified
         '''
@@ -296,6 +304,7 @@ class ECRDeploymentProps:
             check_type(argname="argument retry_configs", value=retry_configs, expected_type=type_hints["retry_configs"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument service_timeout", value=service_timeout, expected_type=type_hints["service_timeout"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -316,6 +325,8 @@ class ECRDeploymentProps:
             self._values["role"] = role
         if security_groups is not None:
             self._values["security_groups"] = security_groups
+        if service_timeout is not None:
+            self._values["service_timeout"] = service_timeout
         if vpc is not None:
             self._values["vpc"] = vpc
         if vpc_subnets is not None:
@@ -425,6 +436,22 @@ class ECRDeploymentProps:
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]], result)
+
+    @builtins.property
+    def service_timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''The maximum time CloudFormation waits for the custom resource to respond before failing the operation.
+
+        The copy Lambda times out after 15 minutes. If it never responds (for
+        example, it times out or can't reach CloudFormation), CloudFormation would
+        otherwise wait its own default of 1 hour before failing. The default, a
+        little above the Lambda timeout, makes such deployments fail fast.
+
+        Must be between 1 second and 1 hour.
+
+        :default: Duration.minutes(17)
+        '''
+        result = self._values.get("service_timeout")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
@@ -651,6 +678,7 @@ def _typecheckingstub__d24bf38ee05e035f6d77ace8eb6a8a39c5a3ef61dbe1a8d4758949a37
     retry_configs: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]] = None,
+    service_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
     vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -674,6 +702,7 @@ def _typecheckingstub__36cce9ade11503a84b3a05f93d6aeb623f18eb537004fb3c37776c491
     retry_configs: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]] = None,
+    service_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
     vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:

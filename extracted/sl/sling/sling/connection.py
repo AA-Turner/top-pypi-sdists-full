@@ -96,9 +96,11 @@ class Connection:
 
         Args:
             sql: the SQL to run.
-            return_type: 'list' | 'dataframe' | 'dataset' | 'arrow'. The 'arrow'
-                path streams via Arrow IPC and keeps memory bounded for large
-                queries; the others materialize the result.
+            return_type: 'list' | 'dataframe' | 'dataset' | 'arrow'. Every
+                return type materializes the full result in memory; the 'arrow'
+                path only skips the JSON round-trip and keeps native types.
+                For a bounded-memory batch iterator, use
+                Sling(...).stream_arrow().
             limit: maximum rows to return. None (default) lets the CLI apply
                 its default cap of 100. Pass 0 for no limit. The CLI wraps the
                 SQL with the dialect's LIMIT template so the database
@@ -116,9 +118,10 @@ class Connection:
         if limit is not None:
             cmd_extras += ["--limit", str(limit)]
 
-        # 'arrow' uses the binary's SLING_OUTPUT=arrow stream IPC path —
-        # rows stream from the source DB straight into Arrow batches on the
-        # other side of the pipe, so memory stays bounded for large queries.
+        # 'arrow' uses the binary's SLING_OUTPUT=arrow stream IPC path, so the
+        # result skips the JSON round-trip and keeps native types. The whole
+        # result is still read into memory here; use Sling(...).stream_arrow()
+        # for a bounded-memory batch iterator.
         if return_type == "arrow":
             stdout_b, stderr_b, code = _run_sling(
                 [SLING_BIN, "conns", "exec", self.name, sql] + cmd_extras, output="arrow"
@@ -129,7 +132,10 @@ class Connection:
                     f"{stderr_b.decode('utf-8', errors='replace').strip() or '(no error message)'}"
                 )
             import io
+            import pyarrow as pa
             import pyarrow.ipc as ipc
+            if not stdout_b:  # DDL and DML statements return no rows
+                return pa.table({})
             return ipc.open_stream(io.BytesIO(stdout_b)).read_all()
 
         stdout_b, stderr_b, code = _run_sling(
@@ -144,7 +150,17 @@ class Connection:
             )
         # On success, payload is the last JSON line on stdout (only one is emitted today,
         # but slice defensively in case future versions add log lines to stdout).
-        payload = json.loads(stdout.strip().splitlines()[-1])
+        # DDL and DML statements print nothing.
+        lines = stdout.strip().splitlines()
+        try:
+            payload = json.loads(lines[-1]) if lines else {}
+        except json.JSONDecodeError:
+            payload = None
+        if not isinstance(payload, dict):
+            raise SlingConnectionError(
+                f"unexpected output from `sling conns exec {self.name}` (exit {code}): "
+                f"{lines[-1][:500]!r} stderr={stderr.strip()!r}"
+            )
         result = QueryResult(
             fields=payload.get("fields") or [],
             rows=payload.get("rows") or [],

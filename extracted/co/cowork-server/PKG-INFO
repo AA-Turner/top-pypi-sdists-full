@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cowork-server
-Version: 0.26.11.23.2
+Version: 0.26.11.25.1
 Summary: FastAPI backend for the MindsHub Cowork desktop app
 Project-URL: Homepage, https://github.com/mindsdb/cowork-server
 Project-URL: Repository, https://github.com/mindsdb/cowork-server

@@ -49,7 +49,7 @@ from .parameterized import (
     ParamOverrides, Undefined, get_logger, ParameterizedABC,
 )
 from .parameterized import (output, script_repr,
-                            discard_events, edit_constant)
+                            discard_events, edit_constant, batch)
 from .parameterized import shared_parameters
 from .parameterized import logging_level
 from .parameterized import DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL
@@ -84,6 +84,7 @@ from .parameters import (
     Dict,
     Array,
     DataFrame,
+    DataFrameLike,
     Series,
     Path,
     Filename,
@@ -99,7 +100,8 @@ from .parameters import (
     CalendarDateRange,
     Event,
 )
-from .reactive import bind, rx
+from .reactive import ReactiveError, bind, collect, current_node, rx
+from .typed import Field, Model
 from ._utils import (
     descendents,
     concrete_descendents,
@@ -166,12 +168,15 @@ __all__ = (
     'Composite',
     'DEBUG',
     'DataFrame',
+    'DataFrameLike',
     'Date',
     'DateRange',
     'Dict',
     'Dynamic',
     'ERROR',
+    'ReactiveError',
     'Event',
+    'Field',
     'FileSelector',
     'Filename',
     'Foldername',
@@ -183,6 +188,7 @@ __all__ = (
     'ListProxy',
     'ListSelector',
     'Magnitude',
+    'Model',
     'MultiFileSelector',
     'Number',
     'NumericTuple',
@@ -207,8 +213,11 @@ __all__ = (
     'XYCoordinates',
     '__version__',
     '_is_number',
+    'batch',
     'bind',
+    'collect',
     'concrete_descendents',
+    'current_node',
     'depends',
     'descendents',
     'discard_events',

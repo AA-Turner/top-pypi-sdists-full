@@ -12,13 +12,13 @@ class CreateSnapshotResponseBody(DaraModel):
         request_id: str = None,
         timestamp: str = None,
     ):
-        # The branch ID to which the snapshot belongs.
+        # The ID of the branch to which the snapshot belongs.
         self.branch_id = branch_id
-        # The LSN for the snapshot. You must specify either this parameter or SnapshotTimestamp. If this parameter is specified, the snapshot is created based on the specified LSN.
+        # The log sequence number (LSN) for the snapshot. You must specify either this parameter or SnapshotTimestamp. If specified, the snapshot is created based on this LSN.
         self.lsn = lsn
         # The request ID.
         self.request_id = request_id
-        # The actual point in time corresponding to the created snapshot.
+        # The actual point in time when the snapshot was created.
         self.timestamp = timestamp
 
     def validate(self):

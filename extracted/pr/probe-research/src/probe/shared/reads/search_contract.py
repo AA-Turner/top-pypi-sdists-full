@@ -8,6 +8,7 @@ compare exactly like the literals they replace.
 from __future__ import annotations
 
 from probe.foundation.compat.compat import StrEnum
+from probe.generated.records import RunStatus
 
 # THE SHARED VOCABULARY, generated from research-os `contracts/probe_contracts/agent_surface/agent_surface.py`,
 # not declared here. This MCP and the dashboard assistant answer the same question about the same
@@ -310,9 +311,13 @@ class SearchSort(StrEnum):
 #: `mode`: the projects -> experiments -> runs walk was `tree`.
 BROWSE_MODE_LEGACY: dict[str, tuple[BrowseMode, ...]] = {"tree": (BrowseMode.PROJECTS,)}
 
+#: browse's run `status`: callers say `finished` for what the server calls `completed` (the server stays strict).
+RUN_STATUS_LEGACY: dict[str, tuple[RunStatus, ...]] = {"finished": (RunStatus.COMPLETED,)}
+
 #: Every enum with legacy spellings, and its map (tests walk this).
 LEGACY_VALUES: dict[type, dict] = {
     BrowseMode: BROWSE_MODE_LEGACY,
+    RunStatus: RUN_STATUS_LEGACY,
     ToolCorpus: TOOL_CORPUS_LEGACY,
     CollapseMode: COLLAPSE_MODE_LEGACY,
 }
@@ -430,8 +435,12 @@ class MatchMode(StrEnum):
 
 
 class BackendRetrieval(StrEnum):
-    """`retrieval` on POST /v1/search (and its echo `semantic.retrieval`)."""
+    """How `search` finds passages (POST /v1/search `retrieval`)."""
 
+    # agentic: a model picks the passages (the default, never sent). direct: embedding + BM25 + id lookup,
+    # no model. keyword: BM25 only. A server that ran direct or keyword echoes it; an older one 422s `direct`.
+    AGENTIC = "agentic"
+    DIRECT = "direct"
     KEYWORD = "keyword"
 
 
@@ -551,6 +560,8 @@ class MissingMarker(StrEnum):
     # `search(semantic=false)` asked for keyword and the backend did not echo `semantic.retrieval:
     # "keyword"`: it predates the field and ran the full semantic search; the hits are labelled semantic.
     KEYWORD_SEARCH_UNSUPPORTED = "keyword_search_unsupported"
+    # The same for `retrieval="direct"`: no `semantic.retrieval: "direct"` echo, so the hits may be agentic.
+    DIRECT_SEARCH_UNSUPPORTED = "direct_search_unsupported"
     # A keyword search matched more than it returned (candidate cap hit, or more ranked than kept). Absence
     # is NOT evidence of absence: raise `top_k`, add a rarer word, or narrow with `search_in` / `project_id`.
     KEYWORD_MATCHES_BEYOND_BACKEND_LIMIT = "keyword_matches_beyond_backend_limit"

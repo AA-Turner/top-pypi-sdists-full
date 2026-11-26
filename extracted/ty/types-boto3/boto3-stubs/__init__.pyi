@@ -173,6 +173,7 @@ from types_boto3_eks_auth.client import EKSAuthClient
 from types_boto3_elasticache.client import ElastiCacheClient
 from types_boto3_elasticbeanstalk.client import ElasticBeanstalkClient
 from types_boto3_elb.client import ElasticLoadBalancingClient
+from types_boto3_elb_proxy.client import ELBProxyClient
 from types_boto3_elbv2.client import ElasticLoadBalancingv2Client
 from types_boto3_elementalinference.client import ElementalInferenceClient
 from types_boto3_emr.client import EMRClient
@@ -3259,6 +3260,24 @@ def client(
 ) -> ElasticLoadBalancingClient:
     """
     Create client for ElasticLoadBalancing service.
+    """
+
+@overload
+def client(
+    service_name: Literal["elb-proxy"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> ELBProxyClient:
+    """
+    Create client for ELBProxy service.
     """
 
 @overload

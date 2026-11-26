@@ -105,6 +105,13 @@ class RunCheckpointTracker:
             return
         for task in self.checkpoint["tasks"]:
             if task["id"] == task_result["id"]:
+                if task_result.get("error") is not None:
+                    # A failed attempt reports no interrupts, but langgraph still
+                    # lists the task's interrupt until the task finishes.
+                    task_result = {
+                        **task_result,
+                        "interrupts": task.get("interrupts", []),
+                    }
                 task.update(task_result)
                 break
 
@@ -202,6 +209,25 @@ async def run_resumes_from_checkpoint(run: Run) -> bool:
     return str(latest.metadata.get("run_id")) == str(run["run_id"])
 
 
+async def resumes_strictly(run: Run, attempt: int) -> bool:
+    """Whether this claim refuses a resume that names an interrupt that isn't open.
+
+    Only for a run whose request set `strict_resume`, and only on its first
+    attempt: a retry sends the answer again after an earlier claim may have used
+    it. An earlier claim counted by an older server leaves this one at attempt
+    1, so a run that already wrote the thread's latest checkpoint is a retry too.
+    A run that cancels runs in flight (`interrupt` or `rollback`) arrives without
+    the flag: `Create` in the Go core and `Runs.put` in the in-memory runtime
+    clear it.
+    """
+    kwargs = run["kwargs"]
+    if not kwargs.get("strict_resume") or attempt != 1:
+        return False
+    if (kwargs.get("command") or {}).get("resume") is None:
+        return False
+    return not await run_resumes_from_checkpoint(run)
+
+
 class DrainPolicy:
     """How the worker treats drained runs: as on main, a drain is an error."""
 
@@ -296,6 +322,7 @@ async def stream_run(
     *,
     control: Any | None = None,
     resume_from_checkpoint: bool = False,
+    strict_resume: bool = False,
 ) -> AsyncIterator[tuple[str, Any]]:
     """Yield stream events with worker-parity ambient setup."""
     temporary = run["kwargs"].get("temporary", False)
@@ -321,6 +348,7 @@ async def stream_run(
                     on_task_result=tracker.on_task_result,
                     control=control,
                     resume_from_checkpoint=resume_from_checkpoint,
+                    strict_resume=strict_resume,
                 )
             async for mode, payload in stream:
                 yield mode, payload

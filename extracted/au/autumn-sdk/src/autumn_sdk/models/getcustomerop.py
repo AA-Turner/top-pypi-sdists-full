@@ -1832,6 +1832,7 @@ GetCustomerProcessorType = Union[
     Literal[
         "stripe",
         "revenuecat",
+        "quartz",
     ],
     UnrecognizedStr,
 ]

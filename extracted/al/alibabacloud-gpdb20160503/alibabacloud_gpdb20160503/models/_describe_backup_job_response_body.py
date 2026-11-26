@@ -17,27 +17,25 @@ class DescribeBackupJobResponseBody(DaraModel):
     ):
         # The backup set ID.
         # 
-        # >  You can call the [DescribeDataBackups](https://help.aliyun.com/document_detail/210093.html) operation to query the IDs of all backup sets in the instance.
+        # > You can call the [DescribeDataBackups](https://help.aliyun.com/document_detail/210093.html) operation to query the IDs of all backup sets for the target instance.
         self.backup_id = backup_id
-        # The backup job ID.
+        # The backup task ID.
         self.backup_job_id = backup_job_id
         # The backup mode. Valid values:
-        # 
-        # *   **Automated**
-        # *   **Manual**
+        # * **Automated**: automatic backup
+        # * **Manual**: manual backup
         self.backup_mode = backup_mode
         # The backup status. Valid values:
-        # 
-        # *   **schedule**
-        # *   **check**
-        # *   **backup**
-        # *   **finish**
+        # * **schedule**: initializing
+        # * **check**: checking
+        # * **backup**: backing up
+        # * **finish**: completed
         self.backup_status = backup_status
-        # The progress of the backup job.
+        # The progress percentage of the backup task.
         self.process = process
         # The request ID.
         self.request_id = request_id
-        # The time when the backup job started. The time follows the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format. The time is displayed in UTC.
+        # The start time of the backup task in UTC. The format is YYYY-MM-DDThh:mm:ssZ.
         self.start_time = start_time
 
     def validate(self):

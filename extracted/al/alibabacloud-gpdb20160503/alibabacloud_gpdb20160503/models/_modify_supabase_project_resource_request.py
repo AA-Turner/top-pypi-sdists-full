@@ -13,7 +13,7 @@ class ModifySupabaseProjectResourceRequest(DaraModel):
         region_id: str = None,
         storage_size: int = None,
     ):
-        # The specification change type.
+        # The modification type.
         # 
         # This parameter is required.
         self.modify_type = modify_type
@@ -25,7 +25,7 @@ class ModifySupabaseProjectResourceRequest(DaraModel):
         self.project_spec = project_spec
         # The region ID. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs.
         self.region_id = region_id
-        # The storage size, in GB.
+        # The storage capacity. Unit: GB.
         self.storage_size = storage_size
 
     def validate(self):

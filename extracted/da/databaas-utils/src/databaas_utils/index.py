@@ -14,8 +14,6 @@ not have to satisfy.
 from __future__ import annotations
 
 import logging
-import random
-import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -23,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from databaas_utils.catalog import CatalogClient, rest_catalog
 from databaas_utils.settings import LakehouseSettings
+from databaas_utils.writes import retry_commit
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -206,27 +205,15 @@ class FileIndex(Index):
         """
         if not records:
             return
-        from pyiceberg.exceptions import CommitFailedException
-
         batch = self._batch(records)
-        for attempt in range(1, COMMIT_ATTEMPTS + 1):
-            table = self._load_or_create()
-            try:
-                table.append(batch)
-                log.info("indexed %d file(s) in %s", len(records), self.identifier)
-                return
-            except CommitFailedException:
-                if attempt == COMMIT_ATTEMPTS:
-                    raise
-                delay = min(2**attempt, 10) * (0.5 + random.random() / 2)
-                log.warning(
-                    "commit conflict on %s (attempt %d/%d), retrying in %.1fs",
-                    self.identifier,
-                    attempt,
-                    COMMIT_ATTEMPTS,
-                    delay,
-                )
-                time.sleep(delay)
+        retry_commit(
+            self._load_or_create,
+            lambda table: table.append(batch),
+            name=self.identifier,
+            attempts=COMMIT_ATTEMPTS,
+            base_delay=2.0,
+        )
+        log.info("indexed %d file(s) in %s", len(records), self.identifier)
 
     def latest(self) -> str | None:
         """The newest ``run_date || cycle``, or None if there is no index yet.

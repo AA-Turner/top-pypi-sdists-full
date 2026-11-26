@@ -59,7 +59,7 @@ mod export;
 mod expr;
 mod factor;
 mod fc;
-#[cfg(all(feature = "fetchkit", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "fetchkit", not(target_family = "wasm")))]
 mod fetchkit;
 mod fileops;
 mod find;
@@ -88,7 +88,7 @@ mod ls;
 mod make;
 mod man;
 mod mapfile;
-#[cfg(all(feature = "markkit", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "markkit", not(target_family = "wasm")))]
 mod markkit;
 mod mkfifo;
 #[cfg(feature = "terminal")]
@@ -133,6 +133,8 @@ mod truncate;
 mod tsort;
 mod vars;
 mod verify;
+#[cfg(any(feature = "python", feature = "typescript"))]
+mod vfs_read;
 #[cfg(feature = "terminal")]
 mod vi;
 mod wait;
@@ -202,7 +204,7 @@ pub use export::Export;
 pub use expr::Expr;
 pub use factor::Factor;
 pub use fc::Fc;
-#[cfg(all(feature = "fetchkit", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "fetchkit", not(target_family = "wasm")))]
 pub use fetchkit::Fetchkit;
 pub use fileops::{Chmod, Chown, Cp, Ln, Mkdir, Mktemp, Mv, Rm, Touch};
 pub use find::Find;
@@ -224,6 +226,8 @@ pub(crate) use jobctl::signal_name;
 pub use join::Join;
 #[cfg(feature = "jq")]
 pub use jq::Jq;
+#[cfg(feature = "jq")]
+pub(crate) use jq::JqFilterCache;
 pub use json::Json;
 pub use log::Log;
 pub use ls::{Ls, Rmdir};
@@ -231,7 +235,7 @@ pub(crate) use ls::{fnmatch, glob_match};
 pub use make::Make;
 pub use man::Man;
 pub use mapfile::Mapfile;
-#[cfg(all(feature = "markkit", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "markkit", not(target_family = "wasm")))]
 pub use markkit::Markkit;
 pub use mkfifo::Mkfifo;
 pub use navigation::{Cd, Pwd};
@@ -272,6 +276,7 @@ pub use system::{DEFAULT_HOSTNAME, DEFAULT_USERNAME, Hostname, Id, Nproc, Uname,
 pub(crate) use system::{VIRTUAL_KERNEL_RELEASE, VIRTUAL_KERNEL_VERSION, VIRTUAL_NPROC};
 pub use template::Template;
 pub use test::{Bracket, Test};
+pub(crate) use test::{test_file_binary, test_file_unary};
 pub use textrev::{Rev, Tac};
 pub use timeout::Timeout;
 pub use tomlq::Tomlq;
@@ -918,6 +923,14 @@ pub fn resolve_path(cwd: &Path, path_str: &str) -> PathBuf {
     };
     // Normalize the path to handle . and .. components
     normalize_path(&joined)
+}
+
+/// Resolve an explicit filename without treating the empty operand as the cwd.
+pub(crate) fn resolve_file_operand(cwd: &Path, operand: &str) -> Option<PathBuf> {
+    if operand.is_empty() {
+        return None;
+    }
+    Some(resolve_path(cwd, operand))
 }
 
 // Re-export shared normalize_path for use by builtins
@@ -1842,6 +1855,61 @@ pub(crate) use crate::testing as debug_leak_check;
 mod tests {
     use super::*;
     use crate::fs::{FileSystem, InMemoryFs};
+
+    struct PanicWhileCreatingFuture {
+        plan: bool,
+    }
+
+    type TestBuiltinFuture<'future, T> =
+        std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send + 'future>>;
+
+    impl Builtin for PanicWhileCreatingFuture {
+        fn execute<'receiver, 'context, 'future>(
+            &'receiver self,
+            _ctx: Context<'context>,
+        ) -> TestBuiltinFuture<'future, ExecResult>
+        where
+            'receiver: 'future,
+            'context: 'future,
+            Self: 'future,
+        {
+            panic!("custom future construction failed")
+        }
+
+        fn execution_plan<'receiver, 'context, 'inner, 'future>(
+            &'receiver self,
+            _ctx: &'context Context<'inner>,
+        ) -> TestBuiltinFuture<'future, Option<ExecutionPlan>>
+        where
+            'receiver: 'future,
+            'context: 'future,
+            'inner: 'future,
+            Self: 'future,
+        {
+            if self.plan {
+                panic!("custom plan construction failed");
+            }
+            Box::pin(async { Ok(None) })
+        }
+    }
+
+    #[tokio::test]
+    async fn builtin_future_construction_panics_are_contained() {
+        for plan in [false, true] {
+            let mut bash = crate::Bash::builder()
+                .builtin("broken", Box::new(PanicWhileCreatingFuture { plan }))
+                .build();
+            let output = bash.exec("broken 2>/err; echo $?; cat /err").await.unwrap();
+            assert_eq!(output.exit_code, 0);
+            assert!(output.stdout.starts_with("1\n"));
+            assert!(
+                output
+                    .stdout
+                    .contains("broken: builtin failed unexpectedly\n")
+            );
+            assert!(output.stderr.is_empty());
+        }
+    }
 
     #[test]
     fn test_resolve_path_absolute() {

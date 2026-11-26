@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents
-Version: 0.7.41
+Version: 0.7.42
 Summary: Production-ready, extensible agent harness with a built-in filesystem and context management, sub-agent delegation, skills, and long-term memory.
 License: MIT
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
@@ -25,17 +25,17 @@ Requires-Python: <4.0,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: langchain<2.0.0,>=1.5.2
-Requires-Dist: langchain-core<2.0.0,>=1.8.3
-Requires-Dist: langchain-anthropic<2.0.0,>=1.7.11
+Requires-Dist: langchain-core<2.0.0,>=1.8.5
+Requires-Dist: langchain-anthropic<2.0.0,>=1.7.13
 Requires-Dist: langchain-google-genai<5.0.0,>=4.4.3
 Requires-Dist: langgraph<2.0.0,>=1.2.24
-Requires-Dist: langsmith>=0.15.0
+Requires-Dist: langsmith>=0.16.2
 Requires-Dist: packaging>=23.2
 Requires-Dist: wcmatch>=11.0
 Provides-Extra: aws
-Requires-Dist: langchain-aws<2.0.0,>=1.9.3; extra == "aws"
+Requires-Dist: langchain-aws<2.0.0,>=1.10.0; extra == "aws"
 Provides-Extra: quickjs
-Requires-Dist: langchain-quickjs>=0.3.12; extra == "quickjs"
+Requires-Dist: langchain-quickjs>=0.4.0; extra == "quickjs"
 Provides-Extra: video
 Requires-Dist: av>=18.0.0; extra == "video"
 Requires-Dist: pillow>=12.3.0; extra == "video"

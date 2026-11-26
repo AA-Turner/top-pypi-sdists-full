@@ -17,11 +17,11 @@ class ChatWithKnowledgeBaseStreamShrinkRequest(DaraModel):
     ):
         # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) API operation to view the instance IDs of all AnalyticDB for PostgreSQL instances in the specified region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances in the specified region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # Specifies whether to return the recall results. Default value: false.
+        # Specifies whether to return the retrieval results. Default value: false.
         self.include_knowledge_base_results = include_knowledge_base_results
         # The knowledge retrieval parameters. If this parameter is not specified, only the chat feature is used.
         self.knowledge_params_shrink = knowledge_params_shrink
@@ -32,7 +32,7 @@ class ChatWithKnowledgeBaseStreamShrinkRequest(DaraModel):
         self.owner_id = owner_id
         # The system prompt template. It must include {{ text_chunks }}, {{ user_system_prompt }}, {{ graph_entities }}, and {{ graph_relations }}. If this parameter is not specified, this part does not take effect.
         self.prompt_params = prompt_params
-        # The region ID of the instance.
+        # The ID of the region where the instance resides.
         # 
         # This parameter is required.
         self.region_id = region_id

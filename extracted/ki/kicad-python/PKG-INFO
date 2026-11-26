@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kicad-python
-Version: 0.9.0
+Version: 0.9.1
 Summary: KiCad API Python Bindings
 License-Expression: MIT
 License-File: LICENSE
@@ -103,6 +103,10 @@ environment, and some are KiCad action plugins that can be loaded into the PCB e
 plugins, copy or symlink them into the appropriate plugins path in order for KiCad to find them.
 
 ## Release History
+
+### 0.9.1 (November 26, 2026)
+
+- Fix bug introduced in 0.9.0 causing failure to iterate over `GraphicShape` types
 
 ### 0.9.0 (November 24, 2026)
 

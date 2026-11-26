@@ -15,13 +15,13 @@ class DescribeDiagnosisRecordsResponseBody(DaraModel):
         request_id: str = None,
         total_count: int = None,
     ):
-        # The threshold that determines whether the SQL statement must be truncated. The value is the number of characters.
+        # The list of SQL queries.
         self.items = items
-        # The page number.
+        # The current page number.
         self.page_number = page_number
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The total number of entries returned.
+        # The total number of entries.
         self.total_count = total_count
 
     def validate(self):
@@ -86,29 +86,29 @@ class DescribeDiagnosisRecordsResponseBodyItems(DaraModel):
     ):
         # The name of the database.
         self.database = database
-        # The execution duration of the query. Unit: seconds.
+        # The total execution duration of the query. Unit: seconds.
         self.duration = duration
-        # The ID of the query. It is a unique identifier of the query.
+        # The ID of the query, which is the unique identifier of the query.
         self.query_id = query_id
         # The SQL statement.
         self.sqlstmt = sqlstmt
-        # Indicates whether the SQL statement needs to be truncated. Valid values:
+        # Specifies whether the SQL statement is truncated. Valid values:
         # 
-        # *   **true**: The SQL statement needs to be truncated.
-        # *   **false**: The SQL statement does not need to be truncated.
+        # - **true**: The SQL statement is truncated.
+        # - **false**: The SQL statement is not truncated.
         self.sqltruncated = sqltruncated
-        # The threshold used to determine whether an SQL statement must be truncated. The value is the number of characters.
+        # The truncation threshold of the SQL statement. The value is the number of characters in the string.
         self.sqltruncated_threshold = sqltruncated_threshold
-        # The ID of the session that contains the query.
+        # The ID of the session to which the query belongs.
         self.session_id = session_id
-        # The start time of the query. This value is a UNIX timestamp representing the number of milliseconds that have elapsed since the epoch time January 1, 1970, 00:00:00 UTC.
+        # The start time of the query. The value is a UNIX timestamp in milliseconds.
         self.start_time = start_time
-        # The execution state of the query. Valid values:
+        # The execution status of the query. Valid values:
         # 
-        # *   **running**: The query is being executed.
-        # *   **finished**: The query is complete.
+        # - **running**: The query is running.
+        # - **finished**: The query is completed.
         self.status = status
-        # The name of the database account.
+        # The username.
         self.user = user
 
     def validate(self):

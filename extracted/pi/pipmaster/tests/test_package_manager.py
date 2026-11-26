@@ -5,9 +5,17 @@ import sys
 import importlib.metadata
 from pathlib import Path
 
+import pytest
+
 from pipmaster.core import PackageManager, logger as pm_logger
 
 MOCK_EXECUTABLE = sys.executable
+
+
+@pytest.fixture(autouse=True)
+def _disable_quarantine_in_tests(monkeypatch):
+    """Keep unit tests hermetic: quarantine is disabled unless a test opts in."""
+    monkeypatch.setenv("PIPMASTER_MIN_AGE_HOURS", "0")
 
 class TestPackageManager(unittest.TestCase):
 
@@ -20,6 +28,77 @@ class TestPackageManager(unittest.TestCase):
         mock_result.stdout = stdout
         mock_result.stderr = stderr
         return mock_result
+
+    @patch('pipmaster.core.shutil.which', return_value='/tools/uv')
+    def test_auto_uv_for_uv_managed_environment(self, mock_which):
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as venv_path:
+            with open(os.path.join(venv_path, 'pyvenv.cfg'), 'w') as config:
+                config.write('home = /usr/bin\nuv = 0.9.0\n')
+            executable = os.path.join(
+                venv_path, 'Scripts' if os.name == 'nt' else 'bin',
+                'python.exe' if os.name == 'nt' else 'python'
+            )
+            manager = PackageManager(python_executable=executable)
+
+        self.assertTrue(manager.use_uv)
+        self.assertEqual(manager.pip_command_base, ['/tools/uv', 'pip'])
+        self.assertEqual(
+            manager._build_command(['install', 'requests']),
+            ['/tools/uv', 'pip', 'install', 'requests', '--python', executable]
+        )
+
+    @patch('pipmaster.core.shutil.which', return_value='/tools/uv')
+    def test_auto_uv_falls_back_for_standard_environment(self, mock_which):
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as venv_path:
+            with open(os.path.join(venv_path, 'pyvenv.cfg'), 'w') as config:
+                config.write('home = /usr/bin\ninclude-system-site-packages = false\n')
+            executable = os.path.join(
+                venv_path, 'Scripts' if os.name == 'nt' else 'bin',
+                'python.exe' if os.name == 'nt' else 'python'
+            )
+            manager = PackageManager(python_executable=executable)
+
+        self.assertFalse(manager.use_uv)
+        self.assertEqual(
+            manager.pip_command_base, [executable, '-m', 'pip']
+        )
+
+    @patch('pipmaster.core.shutil.which', return_value=None)
+    def test_auto_uv_falls_back_when_uv_is_missing(self, mock_which):
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as venv_path:
+            with open(os.path.join(venv_path, 'pyvenv.cfg'), 'w') as config:
+                config.write('uv = 0.9.0\n')
+            executable = os.path.join(
+                venv_path, 'Scripts' if os.name == 'nt' else 'bin',
+                'python.exe' if os.name == 'nt' else 'python'
+            )
+            manager = PackageManager(python_executable=executable)
+
+        self.assertFalse(manager.use_uv)
+        self.assertEqual(manager.pip_command_base, [executable, '-m', 'pip'])
+
+    @patch('pipmaster.convenience.PackageManager')
+    def test_install_uv_always_uses_pip(self, mock_manager_class):
+        mock_manager = mock_manager_class.return_value
+        mock_manager.install.return_value = True
+
+        from pipmaster import install_uv
+        self.assertTrue(install_uv(extra_args=['--no-cache-dir'], verbose=True))
+
+        mock_manager_class.assert_called_once_with(use_uv=False)
+        mock_manager.install.assert_called_once_with(
+            'uv', index_url=None, force_reinstall=False, upgrade=True,
+            extra_args=['--no-cache-dir'], dry_run=False, verbose=True
+        )
 
     @patch('subprocess.run')
     def test_run_pip_command_success(self, mock_run):

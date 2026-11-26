@@ -31,7 +31,7 @@ class DescribeNamespaceRequest(DaraModel):
         self.manager_account_password = manager_account_password
         # The namespace. Default value: public.
         # 
-        # > You can call the [ListNamespaces](https://help.aliyun.com/document_detail/2401502.html) operation to view the list.
+        # > You can call the [ListNamespaces](https://help.aliyun.com/document_detail/2401502.html) operation to query the namespace list.
         # 
         # This parameter is required.
         self.namespace = namespace
@@ -40,7 +40,7 @@ class DescribeNamespaceRequest(DaraModel):
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The ID of the workspace that consists of multiple database instances. This parameter and the DBInstanceId parameter cannot be both empty. If both parameters are specified, this parameter takes precedence.
+        # The ID of the workspace that consists of multiple database instances. This parameter and the DBInstanceId parameter cannot be left empty at the same time. If both parameters are specified, this parameter takes precedence.
         self.workspace_id = workspace_id
 
     def validate(self):

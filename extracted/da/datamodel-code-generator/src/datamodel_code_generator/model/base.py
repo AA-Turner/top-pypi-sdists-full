@@ -61,6 +61,7 @@ from datamodel_code_generator._parse_memo import (
     memoized,
     note_reads,
 )
+from datamodel_code_generator._paths import absolute_form
 from datamodel_code_generator._python_syntax import (
     _normalize_string,
     _single_line_docstring,
@@ -136,7 +137,7 @@ from datamodel_code_generator.python_literal import (
     stable_pformat,
     stable_repr,
 )
-from datamodel_code_generator.reference import Reference, _BaseModel
+from datamodel_code_generator.reference import FIELD_ORIGIN_KEY, FieldOrigin, Reference, _BaseModel
 from datamodel_code_generator.types import (
     ANY,
     NONE,
@@ -169,6 +170,7 @@ if TYPE_CHECKING:
         RenderReady,
     )
     from datamodel_code_generator.python_literal import PythonRuntimeExpression
+    from datamodel_code_generator.reference import FieldOriginKind, SchemaLocation
     from datamodel_code_generator.types import ModelForm
 
 TEMPLATE_DIR: Path = Path(__file__).parents[0] / "template"
@@ -1392,6 +1394,17 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
         self.invalidate_semantic_caches()
 
 
+def _with_field_origin(
+    field: DataModelFieldBase, kind: FieldOriginKind, location: SchemaLocation | None
+) -> DataModelFieldBase:
+    """Record that ``field`` is built as ``kind`` from the schema object at ``location``, replacing a record.
+
+    The parser's builders record it when they build the field (FIELD_ORIGIN, ``reference.py:field_origin_of``).
+    """
+    field.__dict__[FIELD_ORIGIN_KEY] = FieldOrigin(kind, location)
+    return field
+
+
 def _apply_literal_default(field: DataModelFieldBase, decision: LiteralDefault) -> None:
     """Write what ``decide_literal_default`` decides for a field fixed to one value; the field keeps the rest."""
     if decision.writes_default:
@@ -2576,6 +2589,10 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         """Return whether the model declares the fields of its bases itself (`_KEEPS_INHERITED_FIELD_TYPES`)."""
         return False
 
+    def keeps_inherited_field_types(self) -> bool:
+        """Return whether a subclass declares an inherited field as its bases do (`_KEEPS_INHERITED_FIELD_TYPES`)."""
+        return self._KEEPS_INHERITED_FIELD_TYPES
+
     @staticmethod
     def _base_layout_key(field: DataModelFieldBase) -> object:
         """Return the name that ``flatten_base_layouts`` merges the declarations of a field by: its Python name."""
@@ -3269,7 +3286,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         template_adapter = self.CUSTOM_TEMPLATE_ADAPTER if self._custom_template_dir is not None else None
         if self._uses_custom_root_template:
             return _get_template_with_absolute_path(
-                resolved_path.absolute(),
+                absolute_form(resolved_path),
                 Path(self.TEMPLATE_FILE_PATH).parent,
                 template_adapter,
                 self._custom_template_dir,
@@ -4188,14 +4205,19 @@ def get_effective_fields(model: DataModel) -> tuple[DataModelFieldBase, ...]:
 
 def get_inherited_fields(models: list[DataModel]) -> dict[str, DataModelFieldBase]:
     """Build one effective field lookup with exact original names taking priority."""
-    original_names: dict[str, DataModelFieldBase] = {}
-    generated_names: dict[str, DataModelFieldBase] = {}
+    return {name: field for name, (_, field) in _inherited_field_owners(models).items()}
+
+
+def _inherited_field_owners(models: list[DataModel]) -> dict[str, tuple[DataModel, DataModelFieldBase]]:
+    """Return the lookup of `get_inherited_fields` with the model that declares each field."""
+    original_names: dict[str, tuple[DataModel, DataModelFieldBase]] = {}
+    generated_names: dict[str, tuple[DataModel, DataModelFieldBase]] = {}
     for model in linearize_data_models(models):
         for field in model.fields:
             if field.original_name is not None:
-                original_names.setdefault(field.original_name, field)
+                original_names.setdefault(field.original_name, (model, field))
             if field.name is not None:
-                generated_names.setdefault(field.name, field)
+                generated_names.setdefault(field.name, (model, field))
     generated_names.update(original_names)
     return generated_names
 

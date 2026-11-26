@@ -32,14 +32,13 @@ from azure.core.utils import case_insensitive_dict
 from azure.mgmt.core.exceptions import ARMErrorFormat
 from azure.mgmt.core.polling.arm_polling import ARMPolling
 
-from .. import models as _models
+from .. import models as _models, types as _types
 from .._configuration import ContainerRegistryManagementClientConfiguration
 from .._utils.model_base import SdkJSONEncoder, _deserialize, _failsafe_deserialize
 from .._utils.serialization import Deserializer, Serializer
 
 T = TypeVar("T")
 ClsType = Optional[Callable[[PipelineResponse[HttpRequest, HttpResponse], T, dict[str, Any]], Any]]
-JSON = MutableMapping[str, Any]
 List = list
 
 _SERIALIZER = Serializer()
@@ -50,7 +49,7 @@ def build_operations_list_request(**kwargs: Any) -> HttpRequest:
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -71,7 +70,7 @@ def build_registries_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -100,7 +99,7 @@ def build_registries_create_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -131,7 +130,7 @@ def build_registries_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -160,7 +159,7 @@ def build_registries_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}"
     path_format_arguments = {
@@ -183,7 +182,7 @@ def build_registries_list_by_resource_group_request(  # pylint: disable=name-too
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -208,7 +207,7 @@ def build_registries_list_request(subscription_id: str, **kwargs: Any) -> HttpRe
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -235,7 +234,7 @@ def build_registries_import_image_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/importImage"
     path_format_arguments = {
@@ -262,7 +261,7 @@ def build_registries_list_usages_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -290,7 +289,7 @@ def build_registries_list_credentials_request(  # pylint: disable=name-too-long
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -319,7 +318,7 @@ def build_registries_regenerate_credential_request(  # pylint: disable=name-too-
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -350,7 +349,7 @@ def build_registries_generate_credentials_request(  # pylint: disable=name-too-l
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -381,7 +380,7 @@ def build_registries_check_name_availability_request(  # pylint: disable=name-to
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -409,7 +408,7 @@ def build_registries_get_private_link_resource_request(  # pylint: disable=name-
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -438,7 +437,7 @@ def build_registries_list_private_link_resources_request(  # pylint: disable=nam
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -466,7 +465,7 @@ def build_cache_rules_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -496,7 +495,7 @@ def build_cache_rules_create_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -528,7 +527,7 @@ def build_cache_rules_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -558,7 +557,7 @@ def build_cache_rules_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/cacheRules/{cacheRuleName}"
     path_format_arguments = {
@@ -582,7 +581,7 @@ def build_cache_rules_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -610,7 +609,7 @@ def build_credential_sets_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -640,7 +639,7 @@ def build_credential_sets_create_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -672,7 +671,7 @@ def build_credential_sets_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -702,7 +701,7 @@ def build_credential_sets_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/credentialSets/{credentialSetName}"
     path_format_arguments = {
@@ -726,7 +725,7 @@ def build_credential_sets_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -754,7 +753,7 @@ def build_connected_registries_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -784,7 +783,7 @@ def build_connected_registries_create_request(  # pylint: disable=name-too-long
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -816,7 +815,7 @@ def build_connected_registries_update_request(  # pylint: disable=name-too-long
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -846,7 +845,7 @@ def build_connected_registries_delete_request(  # pylint: disable=name-too-long
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/connectedRegistries/{connectedRegistryName}"
     path_format_arguments = {
@@ -870,7 +869,7 @@ def build_connected_registries_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -899,7 +898,7 @@ def build_connected_registries_deactivate_request(  # pylint: disable=name-too-l
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/connectedRegistries/{connectedRegistryName}/deactivate"
     path_format_arguments = {
@@ -927,7 +926,7 @@ def build_private_endpoint_connections_get_request(  # pylint: disable=name-too-
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -963,7 +962,7 @@ def build_private_endpoint_connections_create_or_update_request(  # pylint: disa
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -999,7 +998,7 @@ def build_private_endpoint_connections_delete_request(  # pylint: disable=name-t
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/privateEndpointConnections/{privateEndpointConnectionName}"
     path_format_arguments = {
@@ -1025,7 +1024,7 @@ def build_private_endpoint_connections_list_request(  # pylint: disable=name-too
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1053,7 +1052,7 @@ def build_replications_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1083,7 +1082,7 @@ def build_replications_create_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1115,7 +1114,7 @@ def build_replications_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1145,7 +1144,7 @@ def build_replications_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/replications/{replicationName}"
     path_format_arguments = {
@@ -1169,7 +1168,7 @@ def build_replications_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1197,7 +1196,7 @@ def build_scope_maps_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1227,7 +1226,7 @@ def build_scope_maps_create_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1259,7 +1258,7 @@ def build_scope_maps_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1289,7 +1288,7 @@ def build_scope_maps_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/scopeMaps/{scopeMapName}"
     path_format_arguments = {
@@ -1313,7 +1312,7 @@ def build_scope_maps_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1341,7 +1340,7 @@ def build_tokens_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1371,7 +1370,7 @@ def build_tokens_create_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1403,7 +1402,7 @@ def build_tokens_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1433,7 +1432,7 @@ def build_tokens_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/tokens/{tokenName}"
     path_format_arguments = {
@@ -1457,7 +1456,7 @@ def build_tokens_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1485,7 +1484,7 @@ def build_webhooks_get_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1515,7 +1514,7 @@ def build_webhooks_create_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1547,7 +1546,7 @@ def build_webhooks_update_request(
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
     content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1577,7 +1576,7 @@ def build_webhooks_delete_request(
 ) -> HttpRequest:
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     # Construct URL
     _url = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ContainerRegistry/registries/{registryName}/webhooks/{webhookName}"
     path_format_arguments = {
@@ -1601,7 +1600,7 @@ def build_webhooks_list_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1629,7 +1628,7 @@ def build_webhooks_ping_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1658,7 +1657,7 @@ def build_webhooks_list_events_request(
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1687,7 +1686,7 @@ def build_webhooks_get_callback_config_request(  # pylint: disable=name-too-long
     _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
     _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
 
-    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2025-11-01"))
+    api_version: str = kwargs.pop("api_version", _params.pop("api-version", "2026-11-01"))
     accept = _headers.pop("Accept", "application/json")
 
     # Construct URL
@@ -1710,7 +1709,7 @@ def build_webhooks_get_callback_config_request(  # pylint: disable=name-too-long
     return HttpRequest(method="POST", url=_url, params=_params, headers=_headers, **kwargs)
 
 
-class Operations:
+class Operations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -1776,7 +1775,10 @@ class Operations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -1789,7 +1791,10 @@ class Operations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.OperationDefinition], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.OperationDefinition],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -1816,7 +1821,7 @@ class Operations:
         return ItemPaged(get_next, extract_data)
 
 
-class RegistriesOperations:
+class RegistriesOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -1874,6 +1879,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -1895,7 +1901,7 @@ class RegistriesOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Registry, response.json())
 
@@ -1908,7 +1914,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        registry: Union[_models.Registry, JSON, IO[bytes]],
+        registry: Union[_models.Registry, _types.Registry, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -1947,6 +1953,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -1973,7 +1980,7 @@ class RegistriesOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -2013,7 +2020,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        registry: JSON,
+        registry: _types.Registry,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -2026,7 +2033,7 @@ class RegistriesOperations:
         :param registry_name: The name of the container registry. Required.
         :type registry_name: str
         :param registry: The parameters for creating a container registry. Required.
-        :type registry: JSON
+        :type registry: ~azure.mgmt.containerregistry.types.Registry
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2069,7 +2076,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        registry: Union[_models.Registry, JSON, IO[bytes]],
+        registry: Union[_models.Registry, _types.Registry, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.Registry]:
         """Creates a container registry with the specified parameters.
@@ -2079,9 +2086,10 @@ class RegistriesOperations:
         :type resource_group_name: str
         :param registry_name: The name of the container registry. Required.
         :type registry_name: str
-        :param registry: The parameters for creating a container registry. Is one of the following
-         types: Registry, JSON, IO[bytes] Required.
-        :type registry: ~azure.mgmt.containerregistry.models.Registry or JSON or IO[bytes]
+        :param registry: The parameters for creating a container registry. Is either a Registry type or
+         a IO[bytes] type. Required.
+        :type registry: ~azure.mgmt.containerregistry.models.Registry or
+         ~azure.mgmt.containerregistry.types.Registry or IO[bytes]
         :return: An instance of LROPoller that returns Registry. The Registry is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.Registry]
@@ -2143,7 +2151,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        registry_update_parameters: Union[_models.RegistryUpdateParameters, JSON, IO[bytes]],
+        registry_update_parameters: Union[_models.RegistryUpdateParameters, _types.RegistryUpdateParameters, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -2182,6 +2190,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -2208,7 +2217,7 @@ class RegistriesOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -2248,7 +2257,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        registry_update_parameters: JSON,
+        registry_update_parameters: _types.RegistryUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -2261,7 +2270,7 @@ class RegistriesOperations:
         :param registry_name: The name of the container registry. Required.
         :type registry_name: str
         :param registry_update_parameters: The parameters for updating a container registry. Required.
-        :type registry_update_parameters: JSON
+        :type registry_update_parameters: ~azure.mgmt.containerregistry.types.RegistryUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2304,7 +2313,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        registry_update_parameters: Union[_models.RegistryUpdateParameters, JSON, IO[bytes]],
+        registry_update_parameters: Union[_models.RegistryUpdateParameters, _types.RegistryUpdateParameters, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.Registry]:
         """Updates a container registry with the specified parameters.
@@ -2314,10 +2323,10 @@ class RegistriesOperations:
         :type resource_group_name: str
         :param registry_name: The name of the container registry. Required.
         :type registry_name: str
-        :param registry_update_parameters: The parameters for updating a container registry. Is one of
-         the following types: RegistryUpdateParameters, JSON, IO[bytes] Required.
+        :param registry_update_parameters: The parameters for updating a container registry. Is either
+         a RegistryUpdateParameters type or a IO[bytes] type. Required.
         :type registry_update_parameters: ~azure.mgmt.containerregistry.models.RegistryUpdateParameters
-         or JSON or IO[bytes]
+         or ~azure.mgmt.containerregistry.types.RegistryUpdateParameters or IO[bytes]
         :return: An instance of LROPoller that returns Registry. The Registry is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.Registry]
@@ -2402,6 +2411,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -2426,7 +2436,7 @@ class RegistriesOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -2542,7 +2552,10 @@ class RegistriesOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -2555,7 +2568,10 @@ class RegistriesOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.Registry], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.Registry],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -2629,7 +2645,10 @@ class RegistriesOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -2642,7 +2661,10 @@ class RegistriesOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.Registry], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.Registry],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -2672,7 +2694,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        parameters: Union[_models.ImportImageParameters, JSON, IO[bytes]],
+        parameters: Union[_models.ImportImageParameters, _types.ImportImageParameters, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -2711,6 +2733,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -2735,7 +2758,7 @@ class RegistriesOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -2775,7 +2798,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        parameters: JSON,
+        parameters: _types.ImportImageParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -2789,7 +2812,7 @@ class RegistriesOperations:
         :type registry_name: str
         :param parameters: The parameters specifying the image to copy and the source container
          registry. Required.
-        :type parameters: JSON
+        :type parameters: ~azure.mgmt.containerregistry.types.ImportImageParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -2831,7 +2854,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        parameters: Union[_models.ImportImageParameters, JSON, IO[bytes]],
+        parameters: Union[_models.ImportImageParameters, _types.ImportImageParameters, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[None]:
         """Copies an image to this container registry from the specified container registry.
@@ -2842,9 +2865,9 @@ class RegistriesOperations:
         :param registry_name: The name of the container registry. Required.
         :type registry_name: str
         :param parameters: The parameters specifying the image to copy and the source container
-         registry. Is one of the following types: ImportImageParameters, JSON, IO[bytes] Required.
-        :type parameters: ~azure.mgmt.containerregistry.models.ImportImageParameters or JSON or
-         IO[bytes]
+         registry. Is either a ImportImageParameters type or a IO[bytes] type. Required.
+        :type parameters: ~azure.mgmt.containerregistry.models.ImportImageParameters or
+         ~azure.mgmt.containerregistry.types.ImportImageParameters or IO[bytes]
         :return: An instance of LROPoller that returns None
         :rtype: ~azure.core.polling.LROPoller[None]
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -2937,6 +2960,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -2958,7 +2982,7 @@ class RegistriesOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.RegistryUsageListResult, response.json())
 
@@ -3009,6 +3033,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -3030,7 +3055,7 @@ class RegistriesOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.RegistryListCredentialsResult, response.json())
 
@@ -3074,7 +3099,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        regenerate_credential_parameters: JSON,
+        regenerate_credential_parameters: _types.RegenerateCredentialParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -3088,7 +3113,8 @@ class RegistriesOperations:
         :type registry_name: str
         :param regenerate_credential_parameters: Specifies name of the password which should be
          regenerated -- password or password2. Required.
-        :type regenerate_credential_parameters: JSON
+        :type regenerate_credential_parameters:
+         ~azure.mgmt.containerregistry.types.RegenerateCredentialParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -3132,7 +3158,9 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        regenerate_credential_parameters: Union[_models.RegenerateCredentialParameters, JSON, IO[bytes]],
+        regenerate_credential_parameters: Union[
+            _models.RegenerateCredentialParameters, _types.RegenerateCredentialParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> _models.RegistryListCredentialsResult:
         """Regenerates one of the login credentials for the specified container registry.
@@ -3143,10 +3171,11 @@ class RegistriesOperations:
         :param registry_name: The name of the container registry. Required.
         :type registry_name: str
         :param regenerate_credential_parameters: Specifies name of the password which should be
-         regenerated -- password or password2. Is one of the following types:
-         RegenerateCredentialParameters, JSON, IO[bytes] Required.
+         regenerated -- password or password2. Is either a RegenerateCredentialParameters type or a
+         IO[bytes] type. Required.
         :type regenerate_credential_parameters:
-         ~azure.mgmt.containerregistry.models.RegenerateCredentialParameters or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.RegenerateCredentialParameters or
+         ~azure.mgmt.containerregistry.types.RegenerateCredentialParameters or IO[bytes]
         :return: RegistryListCredentialsResult. The RegistryListCredentialsResult is compatible with
          MutableMapping
         :rtype: ~azure.mgmt.containerregistry.models.RegistryListCredentialsResult
@@ -3188,6 +3217,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -3209,7 +3239,7 @@ class RegistriesOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.RegistryListCredentialsResult, response.json())
 
@@ -3222,7 +3252,9 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        generate_credentials_parameters: Union[_models.GenerateCredentialsParameters, JSON, IO[bytes]],
+        generate_credentials_parameters: Union[
+            _models.GenerateCredentialsParameters, _types.GenerateCredentialsParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -3261,6 +3293,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -3285,7 +3318,7 @@ class RegistriesOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -3327,7 +3360,7 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        generate_credentials_parameters: JSON,
+        generate_credentials_parameters: _types.GenerateCredentialsParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -3340,7 +3373,8 @@ class RegistriesOperations:
         :param registry_name: The name of the container registry. Required.
         :type registry_name: str
         :param generate_credentials_parameters: The parameters for generating credentials. Required.
-        :type generate_credentials_parameters: JSON
+        :type generate_credentials_parameters:
+         ~azure.mgmt.containerregistry.types.GenerateCredentialsParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -3385,7 +3419,9 @@ class RegistriesOperations:
         self,
         resource_group_name: str,
         registry_name: str,
-        generate_credentials_parameters: Union[_models.GenerateCredentialsParameters, JSON, IO[bytes]],
+        generate_credentials_parameters: Union[
+            _models.GenerateCredentialsParameters, _types.GenerateCredentialsParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[_models.GenerateCredentialsResult]:
         """Generate keys for a token of a specified container registry.
@@ -3395,10 +3431,11 @@ class RegistriesOperations:
         :type resource_group_name: str
         :param registry_name: The name of the container registry. Required.
         :type registry_name: str
-        :param generate_credentials_parameters: The parameters for generating credentials. Is one of
-         the following types: GenerateCredentialsParameters, JSON, IO[bytes] Required.
+        :param generate_credentials_parameters: The parameters for generating credentials. Is either a
+         GenerateCredentialsParameters type or a IO[bytes] type. Required.
         :type generate_credentials_parameters:
-         ~azure.mgmt.containerregistry.models.GenerateCredentialsParameters or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.GenerateCredentialsParameters or
+         ~azure.mgmt.containerregistry.types.GenerateCredentialsParameters or IO[bytes]
         :return: An instance of LROPoller that returns GenerateCredentialsResult. The
          GenerateCredentialsResult is compatible with MutableMapping
         :rtype:
@@ -3428,14 +3465,10 @@ class RegistriesOperations:
         kwargs.pop("error_map", None)
 
         def get_long_running_output(pipeline_response):
-            response_headers = {}
             response = pipeline_response.http_response
-            response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
-            response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
-
             deserialized = _deserialize(_models.GenerateCredentialsResult, response.json())
             if cls:
-                return cls(pipeline_response, deserialized, response_headers)  # type: ignore
+                return cls(pipeline_response, deserialized, {})  # type: ignore
             return deserialized
 
         path_format_arguments = {
@@ -3485,13 +3518,17 @@ class RegistriesOperations:
 
     @overload
     def check_name_availability(
-        self, registry_name_check_request: JSON, *, content_type: str = "application/json", **kwargs: Any
+        self,
+        registry_name_check_request: _types.RegistryNameCheckRequest,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
     ) -> _models.RegistryNameStatus:
         """Checks whether the container registry name is available for use. The name must contain only
         alphanumeric characters, be globally unique, and between 5 and 50 characters in length.
 
         :param registry_name_check_request: The request body. Required.
-        :type registry_name_check_request: JSON
+        :type registry_name_check_request: ~azure.mgmt.containerregistry.types.RegistryNameCheckRequest
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -3519,15 +3556,20 @@ class RegistriesOperations:
 
     @distributed_trace
     def check_name_availability(
-        self, registry_name_check_request: Union[_models.RegistryNameCheckRequest, JSON, IO[bytes]], **kwargs: Any
+        self,
+        registry_name_check_request: Union[
+            _models.RegistryNameCheckRequest, _types.RegistryNameCheckRequest, IO[bytes]
+        ],
+        **kwargs: Any
     ) -> _models.RegistryNameStatus:
         """Checks whether the container registry name is available for use. The name must contain only
         alphanumeric characters, be globally unique, and between 5 and 50 characters in length.
 
-        :param registry_name_check_request: The request body. Is one of the following types:
-         RegistryNameCheckRequest, JSON, IO[bytes] Required.
+        :param registry_name_check_request: The request body. Is either a RegistryNameCheckRequest type
+         or a IO[bytes] type. Required.
         :type registry_name_check_request:
-         ~azure.mgmt.containerregistry.models.RegistryNameCheckRequest or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.RegistryNameCheckRequest or
+         ~azure.mgmt.containerregistry.types.RegistryNameCheckRequest or IO[bytes]
         :return: RegistryNameStatus. The RegistryNameStatus is compatible with MutableMapping
         :rtype: ~azure.mgmt.containerregistry.models.RegistryNameStatus
         :raises ~azure.core.exceptions.HttpResponseError:
@@ -3566,6 +3608,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -3587,7 +3630,7 @@ class RegistriesOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.RegistryNameStatus, response.json())
 
@@ -3640,6 +3683,7 @@ class RegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -3661,7 +3705,7 @@ class RegistriesOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.PrivateLinkResource, response.json())
 
@@ -3727,7 +3771,10 @@ class RegistriesOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -3740,7 +3787,10 @@ class RegistriesOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.PrivateLinkResource], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.PrivateLinkResource],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -3767,7 +3817,7 @@ class RegistriesOperations:
         return ItemPaged(get_next, extract_data)
 
 
-class CacheRulesOperations:
+class CacheRulesOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -3830,6 +3880,7 @@ class CacheRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -3851,7 +3902,7 @@ class CacheRulesOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.CacheRule, response.json())
 
@@ -3865,7 +3916,7 @@ class CacheRulesOperations:
         resource_group_name: str,
         registry_name: str,
         cache_rule_name: str,
-        cache_rule_create_parameters: Union[_models.CacheRule, JSON, IO[bytes]],
+        cache_rule_create_parameters: Union[_models.CacheRule, _types.CacheRule, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -3905,6 +3956,7 @@ class CacheRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -3931,7 +3983,7 @@ class CacheRulesOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -3975,7 +4027,7 @@ class CacheRulesOperations:
         resource_group_name: str,
         registry_name: str,
         cache_rule_name: str,
-        cache_rule_create_parameters: JSON,
+        cache_rule_create_parameters: _types.CacheRule,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -3990,7 +4042,7 @@ class CacheRulesOperations:
         :param cache_rule_name: The name of the cache rule. Required.
         :type cache_rule_name: str
         :param cache_rule_create_parameters: The parameters for creating a cache rule. Required.
-        :type cache_rule_create_parameters: JSON
+        :type cache_rule_create_parameters: ~azure.mgmt.containerregistry.types.CacheRule
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -4037,7 +4089,7 @@ class CacheRulesOperations:
         resource_group_name: str,
         registry_name: str,
         cache_rule_name: str,
-        cache_rule_create_parameters: Union[_models.CacheRule, JSON, IO[bytes]],
+        cache_rule_create_parameters: Union[_models.CacheRule, _types.CacheRule, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.CacheRule]:
         """Creates a cache rule for a container registry with the specified parameters.
@@ -4049,10 +4101,10 @@ class CacheRulesOperations:
         :type registry_name: str
         :param cache_rule_name: The name of the cache rule. Required.
         :type cache_rule_name: str
-        :param cache_rule_create_parameters: The parameters for creating a cache rule. Is one of the
-         following types: CacheRule, JSON, IO[bytes] Required.
-        :type cache_rule_create_parameters: ~azure.mgmt.containerregistry.models.CacheRule or JSON or
-         IO[bytes]
+        :param cache_rule_create_parameters: The parameters for creating a cache rule. Is either a
+         CacheRule type or a IO[bytes] type. Required.
+        :type cache_rule_create_parameters: ~azure.mgmt.containerregistry.models.CacheRule or
+         ~azure.mgmt.containerregistry.types.CacheRule or IO[bytes]
         :return: An instance of LROPoller that returns CacheRule. The CacheRule is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.CacheRule]
@@ -4116,7 +4168,9 @@ class CacheRulesOperations:
         resource_group_name: str,
         registry_name: str,
         cache_rule_name: str,
-        cache_rule_update_parameters: Union[_models.CacheRuleUpdateParameters, JSON, IO[bytes]],
+        cache_rule_update_parameters: Union[
+            _models.CacheRuleUpdateParameters, _types.CacheRuleUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -4156,6 +4210,7 @@ class CacheRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -4182,7 +4237,7 @@ class CacheRulesOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -4227,7 +4282,7 @@ class CacheRulesOperations:
         resource_group_name: str,
         registry_name: str,
         cache_rule_name: str,
-        cache_rule_update_parameters: JSON,
+        cache_rule_update_parameters: _types.CacheRuleUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -4242,7 +4297,8 @@ class CacheRulesOperations:
         :param cache_rule_name: The name of the cache rule. Required.
         :type cache_rule_name: str
         :param cache_rule_update_parameters: The parameters for updating a cache rule. Required.
-        :type cache_rule_update_parameters: JSON
+        :type cache_rule_update_parameters:
+         ~azure.mgmt.containerregistry.types.CacheRuleUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -4289,7 +4345,9 @@ class CacheRulesOperations:
         resource_group_name: str,
         registry_name: str,
         cache_rule_name: str,
-        cache_rule_update_parameters: Union[_models.CacheRuleUpdateParameters, JSON, IO[bytes]],
+        cache_rule_update_parameters: Union[
+            _models.CacheRuleUpdateParameters, _types.CacheRuleUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[_models.CacheRule]:
         """Updates a cache rule for a container registry with the specified parameters.
@@ -4301,10 +4359,11 @@ class CacheRulesOperations:
         :type registry_name: str
         :param cache_rule_name: The name of the cache rule. Required.
         :type cache_rule_name: str
-        :param cache_rule_update_parameters: The parameters for updating a cache rule. Is one of the
-         following types: CacheRuleUpdateParameters, JSON, IO[bytes] Required.
+        :param cache_rule_update_parameters: The parameters for updating a cache rule. Is either a
+         CacheRuleUpdateParameters type or a IO[bytes] type. Required.
         :type cache_rule_update_parameters:
-         ~azure.mgmt.containerregistry.models.CacheRuleUpdateParameters or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.CacheRuleUpdateParameters or
+         ~azure.mgmt.containerregistry.types.CacheRuleUpdateParameters or IO[bytes]
         :return: An instance of LROPoller that returns CacheRule. The CacheRule is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.CacheRule]
@@ -4393,6 +4452,7 @@ class CacheRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -4417,7 +4477,7 @@ class CacheRulesOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -4541,7 +4601,10 @@ class CacheRulesOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -4554,7 +4617,10 @@ class CacheRulesOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.CacheRule], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.CacheRule],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -4581,7 +4647,7 @@ class CacheRulesOperations:
         return ItemPaged(get_next, extract_data)
 
 
-class CredentialSetsOperations:
+class CredentialSetsOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -4644,6 +4710,7 @@ class CredentialSetsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -4665,7 +4732,7 @@ class CredentialSetsOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.CredentialSet, response.json())
 
@@ -4679,7 +4746,7 @@ class CredentialSetsOperations:
         resource_group_name: str,
         registry_name: str,
         credential_set_name: str,
-        credential_set_create_parameters: Union[_models.CredentialSet, JSON, IO[bytes]],
+        credential_set_create_parameters: Union[_models.CredentialSet, _types.CredentialSet, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -4719,6 +4786,7 @@ class CredentialSetsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -4745,7 +4813,7 @@ class CredentialSetsOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -4790,7 +4858,7 @@ class CredentialSetsOperations:
         resource_group_name: str,
         registry_name: str,
         credential_set_name: str,
-        credential_set_create_parameters: JSON,
+        credential_set_create_parameters: _types.CredentialSet,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -4806,7 +4874,7 @@ class CredentialSetsOperations:
         :type credential_set_name: str
         :param credential_set_create_parameters: The parameters for creating a credential set.
          Required.
-        :type credential_set_create_parameters: JSON
+        :type credential_set_create_parameters: ~azure.mgmt.containerregistry.types.CredentialSet
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -4854,7 +4922,7 @@ class CredentialSetsOperations:
         resource_group_name: str,
         registry_name: str,
         credential_set_name: str,
-        credential_set_create_parameters: Union[_models.CredentialSet, JSON, IO[bytes]],
+        credential_set_create_parameters: Union[_models.CredentialSet, _types.CredentialSet, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.CredentialSet]:
         """Creates a credential set for a container registry with the specified parameters.
@@ -4866,10 +4934,10 @@ class CredentialSetsOperations:
         :type registry_name: str
         :param credential_set_name: The name of the credential set. Required.
         :type credential_set_name: str
-        :param credential_set_create_parameters: The parameters for creating a credential set. Is one
-         of the following types: CredentialSet, JSON, IO[bytes] Required.
+        :param credential_set_create_parameters: The parameters for creating a credential set. Is
+         either a CredentialSet type or a IO[bytes] type. Required.
         :type credential_set_create_parameters: ~azure.mgmt.containerregistry.models.CredentialSet or
-         JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.types.CredentialSet or IO[bytes]
         :return: An instance of LROPoller that returns CredentialSet. The CredentialSet is compatible
          with MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.CredentialSet]
@@ -4933,7 +5001,9 @@ class CredentialSetsOperations:
         resource_group_name: str,
         registry_name: str,
         credential_set_name: str,
-        credential_set_update_parameters: Union[_models.CredentialSetUpdateParameters, JSON, IO[bytes]],
+        credential_set_update_parameters: Union[
+            _models.CredentialSetUpdateParameters, _types.CredentialSetUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -4973,6 +5043,7 @@ class CredentialSetsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -4999,7 +5070,7 @@ class CredentialSetsOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -5045,7 +5116,7 @@ class CredentialSetsOperations:
         resource_group_name: str,
         registry_name: str,
         credential_set_name: str,
-        credential_set_update_parameters: JSON,
+        credential_set_update_parameters: _types.CredentialSetUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -5061,7 +5132,8 @@ class CredentialSetsOperations:
         :type credential_set_name: str
         :param credential_set_update_parameters: The parameters for updating a credential set.
          Required.
-        :type credential_set_update_parameters: JSON
+        :type credential_set_update_parameters:
+         ~azure.mgmt.containerregistry.types.CredentialSetUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -5109,7 +5181,9 @@ class CredentialSetsOperations:
         resource_group_name: str,
         registry_name: str,
         credential_set_name: str,
-        credential_set_update_parameters: Union[_models.CredentialSetUpdateParameters, JSON, IO[bytes]],
+        credential_set_update_parameters: Union[
+            _models.CredentialSetUpdateParameters, _types.CredentialSetUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[_models.CredentialSet]:
         """Updates a credential set for a container registry with the specified parameters.
@@ -5121,10 +5195,11 @@ class CredentialSetsOperations:
         :type registry_name: str
         :param credential_set_name: The name of the credential set. Required.
         :type credential_set_name: str
-        :param credential_set_update_parameters: The parameters for updating a credential set. Is one
-         of the following types: CredentialSetUpdateParameters, JSON, IO[bytes] Required.
+        :param credential_set_update_parameters: The parameters for updating a credential set. Is
+         either a CredentialSetUpdateParameters type or a IO[bytes] type. Required.
         :type credential_set_update_parameters:
-         ~azure.mgmt.containerregistry.models.CredentialSetUpdateParameters or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.CredentialSetUpdateParameters or
+         ~azure.mgmt.containerregistry.types.CredentialSetUpdateParameters or IO[bytes]
         :return: An instance of LROPoller that returns CredentialSet. The CredentialSet is compatible
          with MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.CredentialSet]
@@ -5213,6 +5288,7 @@ class CredentialSetsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -5237,7 +5313,7 @@ class CredentialSetsOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -5361,7 +5437,10 @@ class CredentialSetsOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -5374,7 +5453,10 @@ class CredentialSetsOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.CredentialSet], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.CredentialSet],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -5401,7 +5483,7 @@ class CredentialSetsOperations:
         return ItemPaged(get_next, extract_data)
 
 
-class ConnectedRegistriesOperations:
+class ConnectedRegistriesOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -5464,6 +5546,7 @@ class ConnectedRegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -5485,7 +5568,7 @@ class ConnectedRegistriesOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.ConnectedRegistry, response.json())
 
@@ -5499,7 +5582,7 @@ class ConnectedRegistriesOperations:
         resource_group_name: str,
         registry_name: str,
         connected_registry_name: str,
-        connected_registry_create_parameters: Union[_models.ConnectedRegistry, JSON, IO[bytes]],
+        connected_registry_create_parameters: Union[_models.ConnectedRegistry, _types.ConnectedRegistry, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -5539,6 +5622,7 @@ class ConnectedRegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -5565,7 +5649,7 @@ class ConnectedRegistriesOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -5611,7 +5695,7 @@ class ConnectedRegistriesOperations:
         resource_group_name: str,
         registry_name: str,
         connected_registry_name: str,
-        connected_registry_create_parameters: JSON,
+        connected_registry_create_parameters: _types.ConnectedRegistry,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -5627,7 +5711,8 @@ class ConnectedRegistriesOperations:
         :type connected_registry_name: str
         :param connected_registry_create_parameters: The parameters for creating a connectedRegistry.
          Required.
-        :type connected_registry_create_parameters: JSON
+        :type connected_registry_create_parameters:
+         ~azure.mgmt.containerregistry.types.ConnectedRegistry
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -5675,7 +5760,7 @@ class ConnectedRegistriesOperations:
         resource_group_name: str,
         registry_name: str,
         connected_registry_name: str,
-        connected_registry_create_parameters: Union[_models.ConnectedRegistry, JSON, IO[bytes]],
+        connected_registry_create_parameters: Union[_models.ConnectedRegistry, _types.ConnectedRegistry, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.ConnectedRegistry]:
         """Creates a connected registry for a container registry with the specified parameters.
@@ -5688,9 +5773,10 @@ class ConnectedRegistriesOperations:
         :param connected_registry_name: The name of the connected registry. Required.
         :type connected_registry_name: str
         :param connected_registry_create_parameters: The parameters for creating a connectedRegistry.
-         Is one of the following types: ConnectedRegistry, JSON, IO[bytes] Required.
+         Is either a ConnectedRegistry type or a IO[bytes] type. Required.
         :type connected_registry_create_parameters:
-         ~azure.mgmt.containerregistry.models.ConnectedRegistry or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.ConnectedRegistry or
+         ~azure.mgmt.containerregistry.types.ConnectedRegistry or IO[bytes]
         :return: An instance of LROPoller that returns ConnectedRegistry. The ConnectedRegistry is
          compatible with MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.ConnectedRegistry]
@@ -5754,7 +5840,9 @@ class ConnectedRegistriesOperations:
         resource_group_name: str,
         registry_name: str,
         connected_registry_name: str,
-        connected_registry_update_parameters: Union[_models.ConnectedRegistryUpdateParameters, JSON, IO[bytes]],
+        connected_registry_update_parameters: Union[
+            _models.ConnectedRegistryUpdateParameters, _types.ConnectedRegistryUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -5794,6 +5882,7 @@ class ConnectedRegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -5820,7 +5909,7 @@ class ConnectedRegistriesOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -5866,7 +5955,7 @@ class ConnectedRegistriesOperations:
         resource_group_name: str,
         registry_name: str,
         connected_registry_name: str,
-        connected_registry_update_parameters: JSON,
+        connected_registry_update_parameters: _types.ConnectedRegistryUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -5882,7 +5971,8 @@ class ConnectedRegistriesOperations:
         :type connected_registry_name: str
         :param connected_registry_update_parameters: The parameters for updating a connectedRegistry.
          Required.
-        :type connected_registry_update_parameters: JSON
+        :type connected_registry_update_parameters:
+         ~azure.mgmt.containerregistry.types.ConnectedRegistryUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -5930,7 +6020,9 @@ class ConnectedRegistriesOperations:
         resource_group_name: str,
         registry_name: str,
         connected_registry_name: str,
-        connected_registry_update_parameters: Union[_models.ConnectedRegistryUpdateParameters, JSON, IO[bytes]],
+        connected_registry_update_parameters: Union[
+            _models.ConnectedRegistryUpdateParameters, _types.ConnectedRegistryUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[_models.ConnectedRegistry]:
         """Updates a connected registry with the specified parameters.
@@ -5943,9 +6035,10 @@ class ConnectedRegistriesOperations:
         :param connected_registry_name: The name of the connected registry. Required.
         :type connected_registry_name: str
         :param connected_registry_update_parameters: The parameters for updating a connectedRegistry.
-         Is one of the following types: ConnectedRegistryUpdateParameters, JSON, IO[bytes] Required.
+         Is either a ConnectedRegistryUpdateParameters type or a IO[bytes] type. Required.
         :type connected_registry_update_parameters:
-         ~azure.mgmt.containerregistry.models.ConnectedRegistryUpdateParameters or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.ConnectedRegistryUpdateParameters or
+         ~azure.mgmt.containerregistry.types.ConnectedRegistryUpdateParameters or IO[bytes]
         :return: An instance of LROPoller that returns ConnectedRegistry. The ConnectedRegistry is
          compatible with MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.ConnectedRegistry]
@@ -6034,6 +6127,7 @@ class ConnectedRegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -6058,7 +6152,7 @@ class ConnectedRegistriesOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -6190,7 +6284,10 @@ class ConnectedRegistriesOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -6203,7 +6300,10 @@ class ConnectedRegistriesOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.ConnectedRegistry], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.ConnectedRegistry],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -6259,6 +6359,7 @@ class ConnectedRegistriesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -6283,7 +6384,7 @@ class ConnectedRegistriesOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -6353,7 +6454,7 @@ class ConnectedRegistriesOperations:
         return LROPoller[None](self._client, raw_result, get_long_running_output, polling_method)  # type: ignore
 
 
-class PrivateEndpointConnectionsOperations:
+class PrivateEndpointConnectionsOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -6417,6 +6518,7 @@ class PrivateEndpointConnectionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -6438,7 +6540,7 @@ class PrivateEndpointConnectionsOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.PrivateEndpointConnection, response.json())
 
@@ -6452,7 +6554,9 @@ class PrivateEndpointConnectionsOperations:
         resource_group_name: str,
         registry_name: str,
         private_endpoint_connection_name: str,
-        private_endpoint_connection: Union[_models.PrivateEndpointConnection, JSON, IO[bytes]],
+        private_endpoint_connection: Union[
+            _models.PrivateEndpointConnection, _types.PrivateEndpointConnection, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -6492,6 +6596,7 @@ class PrivateEndpointConnectionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -6518,7 +6623,7 @@ class PrivateEndpointConnectionsOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -6566,7 +6671,7 @@ class PrivateEndpointConnectionsOperations:
         resource_group_name: str,
         registry_name: str,
         private_endpoint_connection_name: str,
-        private_endpoint_connection: JSON,
+        private_endpoint_connection: _types.PrivateEndpointConnection,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -6583,7 +6688,8 @@ class PrivateEndpointConnectionsOperations:
         :type private_endpoint_connection_name: str
         :param private_endpoint_connection: The parameters for creating a private endpoint connection.
          Required.
-        :type private_endpoint_connection: JSON
+        :type private_endpoint_connection:
+         ~azure.mgmt.containerregistry.types.PrivateEndpointConnection
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -6634,7 +6740,9 @@ class PrivateEndpointConnectionsOperations:
         resource_group_name: str,
         registry_name: str,
         private_endpoint_connection_name: str,
-        private_endpoint_connection: Union[_models.PrivateEndpointConnection, JSON, IO[bytes]],
+        private_endpoint_connection: Union[
+            _models.PrivateEndpointConnection, _types.PrivateEndpointConnection, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[_models.PrivateEndpointConnection]:
         """Update the state of specified private endpoint connection associated with the container
@@ -6648,9 +6756,10 @@ class PrivateEndpointConnectionsOperations:
         :param private_endpoint_connection_name: The name of the private endpoint connection. Required.
         :type private_endpoint_connection_name: str
         :param private_endpoint_connection: The parameters for creating a private endpoint connection.
-         Is one of the following types: PrivateEndpointConnection, JSON, IO[bytes] Required.
+         Is either a PrivateEndpointConnection type or a IO[bytes] type. Required.
         :type private_endpoint_connection:
-         ~azure.mgmt.containerregistry.models.PrivateEndpointConnection or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.PrivateEndpointConnection or
+         ~azure.mgmt.containerregistry.types.PrivateEndpointConnection or IO[bytes]
         :return: An instance of LROPoller that returns PrivateEndpointConnection. The
          PrivateEndpointConnection is compatible with MutableMapping
         :rtype:
@@ -6740,6 +6849,7 @@ class PrivateEndpointConnectionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -6764,7 +6874,7 @@ class PrivateEndpointConnectionsOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -6891,7 +7001,10 @@ class PrivateEndpointConnectionsOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -6904,7 +7017,10 @@ class PrivateEndpointConnectionsOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.PrivateEndpointConnection], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.PrivateEndpointConnection],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -6931,7 +7047,7 @@ class PrivateEndpointConnectionsOperations:
         return ItemPaged(get_next, extract_data)
 
 
-class ReplicationsOperations:
+class ReplicationsOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -6994,6 +7110,7 @@ class ReplicationsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -7015,7 +7132,7 @@ class ReplicationsOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Replication, response.json())
 
@@ -7029,7 +7146,7 @@ class ReplicationsOperations:
         resource_group_name: str,
         registry_name: str,
         replication_name: str,
-        replication: Union[_models.Replication, JSON, IO[bytes]],
+        replication: Union[_models.Replication, _types.Replication, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -7069,6 +7186,7 @@ class ReplicationsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -7095,7 +7213,7 @@ class ReplicationsOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -7139,7 +7257,7 @@ class ReplicationsOperations:
         resource_group_name: str,
         registry_name: str,
         replication_name: str,
-        replication: JSON,
+        replication: _types.Replication,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -7154,7 +7272,7 @@ class ReplicationsOperations:
         :param replication_name: The name of the replication. Required.
         :type replication_name: str
         :param replication: The parameters for creating a replication. Required.
-        :type replication: JSON
+        :type replication: ~azure.mgmt.containerregistry.types.Replication
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -7201,7 +7319,7 @@ class ReplicationsOperations:
         resource_group_name: str,
         registry_name: str,
         replication_name: str,
-        replication: Union[_models.Replication, JSON, IO[bytes]],
+        replication: Union[_models.Replication, _types.Replication, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.Replication]:
         """Creates a replication for a container registry with the specified parameters.
@@ -7213,9 +7331,10 @@ class ReplicationsOperations:
         :type registry_name: str
         :param replication_name: The name of the replication. Required.
         :type replication_name: str
-        :param replication: The parameters for creating a replication. Is one of the following types:
-         Replication, JSON, IO[bytes] Required.
-        :type replication: ~azure.mgmt.containerregistry.models.Replication or JSON or IO[bytes]
+        :param replication: The parameters for creating a replication. Is either a Replication type or
+         a IO[bytes] type. Required.
+        :type replication: ~azure.mgmt.containerregistry.models.Replication or
+         ~azure.mgmt.containerregistry.types.Replication or IO[bytes]
         :return: An instance of LROPoller that returns Replication. The Replication is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.Replication]
@@ -7279,7 +7398,9 @@ class ReplicationsOperations:
         resource_group_name: str,
         registry_name: str,
         replication_name: str,
-        replication_update_parameters: Union[_models.ReplicationUpdateParameters, JSON, IO[bytes]],
+        replication_update_parameters: Union[
+            _models.ReplicationUpdateParameters, _types.ReplicationUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -7319,6 +7440,7 @@ class ReplicationsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -7345,7 +7467,7 @@ class ReplicationsOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -7390,7 +7512,7 @@ class ReplicationsOperations:
         resource_group_name: str,
         registry_name: str,
         replication_name: str,
-        replication_update_parameters: JSON,
+        replication_update_parameters: _types.ReplicationUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -7405,7 +7527,8 @@ class ReplicationsOperations:
         :param replication_name: The name of the replication. Required.
         :type replication_name: str
         :param replication_update_parameters: The parameters for updating a replication. Required.
-        :type replication_update_parameters: JSON
+        :type replication_update_parameters:
+         ~azure.mgmt.containerregistry.types.ReplicationUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -7452,7 +7575,9 @@ class ReplicationsOperations:
         resource_group_name: str,
         registry_name: str,
         replication_name: str,
-        replication_update_parameters: Union[_models.ReplicationUpdateParameters, JSON, IO[bytes]],
+        replication_update_parameters: Union[
+            _models.ReplicationUpdateParameters, _types.ReplicationUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[_models.Replication]:
         """Updates a replication for a container registry with the specified parameters.
@@ -7464,10 +7589,11 @@ class ReplicationsOperations:
         :type registry_name: str
         :param replication_name: The name of the replication. Required.
         :type replication_name: str
-        :param replication_update_parameters: The parameters for updating a replication. Is one of the
-         following types: ReplicationUpdateParameters, JSON, IO[bytes] Required.
+        :param replication_update_parameters: The parameters for updating a replication. Is either a
+         ReplicationUpdateParameters type or a IO[bytes] type. Required.
         :type replication_update_parameters:
-         ~azure.mgmt.containerregistry.models.ReplicationUpdateParameters or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.ReplicationUpdateParameters or
+         ~azure.mgmt.containerregistry.types.ReplicationUpdateParameters or IO[bytes]
         :return: An instance of LROPoller that returns Replication. The Replication is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.Replication]
@@ -7556,6 +7682,7 @@ class ReplicationsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -7580,7 +7707,7 @@ class ReplicationsOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -7704,7 +7831,10 @@ class ReplicationsOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -7717,7 +7847,10 @@ class ReplicationsOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.Replication], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.Replication],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -7744,7 +7877,7 @@ class ReplicationsOperations:
         return ItemPaged(get_next, extract_data)
 
 
-class ScopeMapsOperations:
+class ScopeMapsOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -7805,6 +7938,7 @@ class ScopeMapsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -7826,7 +7960,7 @@ class ScopeMapsOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.ScopeMap, response.json())
 
@@ -7840,7 +7974,7 @@ class ScopeMapsOperations:
         resource_group_name: str,
         registry_name: str,
         scope_map_name: str,
-        scope_map_create_parameters: Union[_models.ScopeMap, JSON, IO[bytes]],
+        scope_map_create_parameters: Union[_models.ScopeMap, _types.ScopeMap, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -7880,6 +8014,7 @@ class ScopeMapsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -7906,7 +8041,7 @@ class ScopeMapsOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -7950,7 +8085,7 @@ class ScopeMapsOperations:
         resource_group_name: str,
         registry_name: str,
         scope_map_name: str,
-        scope_map_create_parameters: JSON,
+        scope_map_create_parameters: _types.ScopeMap,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -7965,7 +8100,7 @@ class ScopeMapsOperations:
         :param scope_map_name: The name of the scope map. Required.
         :type scope_map_name: str
         :param scope_map_create_parameters: The parameters for creating a scope map. Required.
-        :type scope_map_create_parameters: JSON
+        :type scope_map_create_parameters: ~azure.mgmt.containerregistry.types.ScopeMap
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -8012,7 +8147,7 @@ class ScopeMapsOperations:
         resource_group_name: str,
         registry_name: str,
         scope_map_name: str,
-        scope_map_create_parameters: Union[_models.ScopeMap, JSON, IO[bytes]],
+        scope_map_create_parameters: Union[_models.ScopeMap, _types.ScopeMap, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.ScopeMap]:
         """Creates a scope map for a container registry with the specified parameters.
@@ -8024,10 +8159,10 @@ class ScopeMapsOperations:
         :type registry_name: str
         :param scope_map_name: The name of the scope map. Required.
         :type scope_map_name: str
-        :param scope_map_create_parameters: The parameters for creating a scope map. Is one of the
-         following types: ScopeMap, JSON, IO[bytes] Required.
-        :type scope_map_create_parameters: ~azure.mgmt.containerregistry.models.ScopeMap or JSON or
-         IO[bytes]
+        :param scope_map_create_parameters: The parameters for creating a scope map. Is either a
+         ScopeMap type or a IO[bytes] type. Required.
+        :type scope_map_create_parameters: ~azure.mgmt.containerregistry.models.ScopeMap or
+         ~azure.mgmt.containerregistry.types.ScopeMap or IO[bytes]
         :return: An instance of LROPoller that returns ScopeMap. The ScopeMap is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.ScopeMap]
@@ -8091,7 +8226,9 @@ class ScopeMapsOperations:
         resource_group_name: str,
         registry_name: str,
         scope_map_name: str,
-        scope_map_update_parameters: Union[_models.ScopeMapUpdateParameters, JSON, IO[bytes]],
+        scope_map_update_parameters: Union[
+            _models.ScopeMapUpdateParameters, _types.ScopeMapUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -8131,6 +8268,7 @@ class ScopeMapsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -8157,7 +8295,7 @@ class ScopeMapsOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -8202,7 +8340,7 @@ class ScopeMapsOperations:
         resource_group_name: str,
         registry_name: str,
         scope_map_name: str,
-        scope_map_update_parameters: JSON,
+        scope_map_update_parameters: _types.ScopeMapUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -8217,7 +8355,7 @@ class ScopeMapsOperations:
         :param scope_map_name: The name of the scope map. Required.
         :type scope_map_name: str
         :param scope_map_update_parameters: The parameters for updating a scope map. Required.
-        :type scope_map_update_parameters: JSON
+        :type scope_map_update_parameters: ~azure.mgmt.containerregistry.types.ScopeMapUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -8264,7 +8402,9 @@ class ScopeMapsOperations:
         resource_group_name: str,
         registry_name: str,
         scope_map_name: str,
-        scope_map_update_parameters: Union[_models.ScopeMapUpdateParameters, JSON, IO[bytes]],
+        scope_map_update_parameters: Union[
+            _models.ScopeMapUpdateParameters, _types.ScopeMapUpdateParameters, IO[bytes]
+        ],
         **kwargs: Any
     ) -> LROPoller[_models.ScopeMap]:
         """Updates a scope map with the specified parameters.
@@ -8276,10 +8416,11 @@ class ScopeMapsOperations:
         :type registry_name: str
         :param scope_map_name: The name of the scope map. Required.
         :type scope_map_name: str
-        :param scope_map_update_parameters: The parameters for updating a scope map. Is one of the
-         following types: ScopeMapUpdateParameters, JSON, IO[bytes] Required.
+        :param scope_map_update_parameters: The parameters for updating a scope map. Is either a
+         ScopeMapUpdateParameters type or a IO[bytes] type. Required.
         :type scope_map_update_parameters:
-         ~azure.mgmt.containerregistry.models.ScopeMapUpdateParameters or JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.models.ScopeMapUpdateParameters or
+         ~azure.mgmt.containerregistry.types.ScopeMapUpdateParameters or IO[bytes]
         :return: An instance of LROPoller that returns ScopeMap. The ScopeMap is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.ScopeMap]
@@ -8368,6 +8509,7 @@ class ScopeMapsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -8392,7 +8534,7 @@ class ScopeMapsOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -8516,7 +8658,10 @@ class ScopeMapsOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -8529,7 +8674,10 @@ class ScopeMapsOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.ScopeMap], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.ScopeMap],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -8556,7 +8704,7 @@ class ScopeMapsOperations:
         return ItemPaged(get_next, extract_data)
 
 
-class TokensOperations:
+class TokensOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -8617,6 +8765,7 @@ class TokensOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -8638,7 +8787,7 @@ class TokensOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Token, response.json())
 
@@ -8652,7 +8801,7 @@ class TokensOperations:
         resource_group_name: str,
         registry_name: str,
         token_name: str,
-        token_create_parameters: Union[_models.Token, JSON, IO[bytes]],
+        token_create_parameters: Union[_models.Token, _types.Token, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -8692,6 +8841,7 @@ class TokensOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -8718,7 +8868,7 @@ class TokensOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -8762,7 +8912,7 @@ class TokensOperations:
         resource_group_name: str,
         registry_name: str,
         token_name: str,
-        token_create_parameters: JSON,
+        token_create_parameters: _types.Token,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -8777,7 +8927,7 @@ class TokensOperations:
         :param token_name: The name of the token. Required.
         :type token_name: str
         :param token_create_parameters: The parameters for creating a token. Required.
-        :type token_create_parameters: JSON
+        :type token_create_parameters: ~azure.mgmt.containerregistry.types.Token
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -8824,7 +8974,7 @@ class TokensOperations:
         resource_group_name: str,
         registry_name: str,
         token_name: str,
-        token_create_parameters: Union[_models.Token, JSON, IO[bytes]],
+        token_create_parameters: Union[_models.Token, _types.Token, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.Token]:
         """Creates a token for a container registry with the specified parameters.
@@ -8836,9 +8986,10 @@ class TokensOperations:
         :type registry_name: str
         :param token_name: The name of the token. Required.
         :type token_name: str
-        :param token_create_parameters: The parameters for creating a token. Is one of the following
-         types: Token, JSON, IO[bytes] Required.
-        :type token_create_parameters: ~azure.mgmt.containerregistry.models.Token or JSON or IO[bytes]
+        :param token_create_parameters: The parameters for creating a token. Is either a Token type or
+         a IO[bytes] type. Required.
+        :type token_create_parameters: ~azure.mgmt.containerregistry.models.Token or
+         ~azure.mgmt.containerregistry.types.Token or IO[bytes]
         :return: An instance of LROPoller that returns Token. The Token is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.Token]
@@ -8902,7 +9053,7 @@ class TokensOperations:
         resource_group_name: str,
         registry_name: str,
         token_name: str,
-        token_update_parameters: Union[_models.TokenUpdateParameters, JSON, IO[bytes]],
+        token_update_parameters: Union[_models.TokenUpdateParameters, _types.TokenUpdateParameters, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -8942,6 +9093,7 @@ class TokensOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -8968,7 +9120,7 @@ class TokensOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -9012,7 +9164,7 @@ class TokensOperations:
         resource_group_name: str,
         registry_name: str,
         token_name: str,
-        token_update_parameters: JSON,
+        token_update_parameters: _types.TokenUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -9027,7 +9179,7 @@ class TokensOperations:
         :param token_name: The name of the token. Required.
         :type token_name: str
         :param token_update_parameters: The parameters for updating a token. Required.
-        :type token_update_parameters: JSON
+        :type token_update_parameters: ~azure.mgmt.containerregistry.types.TokenUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -9074,7 +9226,7 @@ class TokensOperations:
         resource_group_name: str,
         registry_name: str,
         token_name: str,
-        token_update_parameters: Union[_models.TokenUpdateParameters, JSON, IO[bytes]],
+        token_update_parameters: Union[_models.TokenUpdateParameters, _types.TokenUpdateParameters, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.Token]:
         """Updates a token with the specified parameters.
@@ -9086,10 +9238,10 @@ class TokensOperations:
         :type registry_name: str
         :param token_name: The name of the token. Required.
         :type token_name: str
-        :param token_update_parameters: The parameters for updating a token. Is one of the following
-         types: TokenUpdateParameters, JSON, IO[bytes] Required.
+        :param token_update_parameters: The parameters for updating a token. Is either a
+         TokenUpdateParameters type or a IO[bytes] type. Required.
         :type token_update_parameters: ~azure.mgmt.containerregistry.models.TokenUpdateParameters or
-         JSON or IO[bytes]
+         ~azure.mgmt.containerregistry.types.TokenUpdateParameters or IO[bytes]
         :return: An instance of LROPoller that returns Token. The Token is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.Token]
@@ -9178,6 +9330,7 @@ class TokensOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -9202,7 +9355,7 @@ class TokensOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -9326,7 +9479,10 @@ class TokensOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -9339,7 +9495,10 @@ class TokensOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.Token], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.Token],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -9366,7 +9525,7 @@ class TokensOperations:
         return ItemPaged(get_next, extract_data)
 
 
-class WebhooksOperations:
+class WebhooksOperations:  # pylint: disable=docstring-missing-param
     """
     .. warning::
         **DO NOT** instantiate this class directly.
@@ -9427,6 +9586,7 @@ class WebhooksOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -9448,7 +9608,7 @@ class WebhooksOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Webhook, response.json())
 
@@ -9462,7 +9622,7 @@ class WebhooksOperations:
         resource_group_name: str,
         registry_name: str,
         webhook_name: str,
-        webhook_create_parameters: Union[_models.WebhookCreateParameters, JSON, IO[bytes]],
+        webhook_create_parameters: Union[_models.WebhookCreateParameters, _types.WebhookCreateParameters, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -9502,6 +9662,7 @@ class WebhooksOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -9528,7 +9689,7 @@ class WebhooksOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -9572,7 +9733,7 @@ class WebhooksOperations:
         resource_group_name: str,
         registry_name: str,
         webhook_name: str,
-        webhook_create_parameters: JSON,
+        webhook_create_parameters: _types.WebhookCreateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -9587,7 +9748,7 @@ class WebhooksOperations:
         :param webhook_name: The name of the webhook. Required.
         :type webhook_name: str
         :param webhook_create_parameters: The parameters for creating a webhook. Required.
-        :type webhook_create_parameters: JSON
+        :type webhook_create_parameters: ~azure.mgmt.containerregistry.types.WebhookCreateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -9634,7 +9795,7 @@ class WebhooksOperations:
         resource_group_name: str,
         registry_name: str,
         webhook_name: str,
-        webhook_create_parameters: Union[_models.WebhookCreateParameters, JSON, IO[bytes]],
+        webhook_create_parameters: Union[_models.WebhookCreateParameters, _types.WebhookCreateParameters, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.Webhook]:
         """Creates a webhook for a container registry with the specified parameters.
@@ -9646,10 +9807,10 @@ class WebhooksOperations:
         :type registry_name: str
         :param webhook_name: The name of the webhook. Required.
         :type webhook_name: str
-        :param webhook_create_parameters: The parameters for creating a webhook. Is one of the
-         following types: WebhookCreateParameters, JSON, IO[bytes] Required.
+        :param webhook_create_parameters: The parameters for creating a webhook. Is either a
+         WebhookCreateParameters type or a IO[bytes] type. Required.
         :type webhook_create_parameters: ~azure.mgmt.containerregistry.models.WebhookCreateParameters
-         or JSON or IO[bytes]
+         or ~azure.mgmt.containerregistry.types.WebhookCreateParameters or IO[bytes]
         :return: An instance of LROPoller that returns Webhook. The Webhook is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.Webhook]
@@ -9713,7 +9874,7 @@ class WebhooksOperations:
         resource_group_name: str,
         registry_name: str,
         webhook_name: str,
-        webhook_update_parameters: Union[_models.WebhookUpdateParameters, JSON, IO[bytes]],
+        webhook_update_parameters: Union[_models.WebhookUpdateParameters, _types.WebhookUpdateParameters, IO[bytes]],
         **kwargs: Any
     ) -> Iterator[bytes]:
         error_map: MutableMapping = {
@@ -9753,6 +9914,7 @@ class WebhooksOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -9779,7 +9941,7 @@ class WebhooksOperations:
             )
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -9823,7 +9985,7 @@ class WebhooksOperations:
         resource_group_name: str,
         registry_name: str,
         webhook_name: str,
-        webhook_update_parameters: JSON,
+        webhook_update_parameters: _types.WebhookUpdateParameters,
         *,
         content_type: str = "application/json",
         **kwargs: Any
@@ -9838,7 +10000,7 @@ class WebhooksOperations:
         :param webhook_name: The name of the webhook. Required.
         :type webhook_name: str
         :param webhook_update_parameters: The parameters for updating a webhook. Required.
-        :type webhook_update_parameters: JSON
+        :type webhook_update_parameters: ~azure.mgmt.containerregistry.types.WebhookUpdateParameters
         :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
          Default value is "application/json".
         :paramtype content_type: str
@@ -9885,7 +10047,7 @@ class WebhooksOperations:
         resource_group_name: str,
         registry_name: str,
         webhook_name: str,
-        webhook_update_parameters: Union[_models.WebhookUpdateParameters, JSON, IO[bytes]],
+        webhook_update_parameters: Union[_models.WebhookUpdateParameters, _types.WebhookUpdateParameters, IO[bytes]],
         **kwargs: Any
     ) -> LROPoller[_models.Webhook]:
         """Updates a webhook with the specified parameters.
@@ -9897,10 +10059,10 @@ class WebhooksOperations:
         :type registry_name: str
         :param webhook_name: The name of the webhook. Required.
         :type webhook_name: str
-        :param webhook_update_parameters: The parameters for updating a webhook. Is one of the
-         following types: WebhookUpdateParameters, JSON, IO[bytes] Required.
+        :param webhook_update_parameters: The parameters for updating a webhook. Is either a
+         WebhookUpdateParameters type or a IO[bytes] type. Required.
         :type webhook_update_parameters: ~azure.mgmt.containerregistry.models.WebhookUpdateParameters
-         or JSON or IO[bytes]
+         or ~azure.mgmt.containerregistry.types.WebhookUpdateParameters or IO[bytes]
         :return: An instance of LROPoller that returns Webhook. The Webhook is compatible with
          MutableMapping
         :rtype: ~azure.core.polling.LROPoller[~azure.mgmt.containerregistry.models.Webhook]
@@ -9989,6 +10151,7 @@ class WebhooksOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = True
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -10013,7 +10176,7 @@ class WebhooksOperations:
             response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
             response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
 
-        deserialized = response.iter_bytes()
+        deserialized = response.iter_bytes() if _decompress else response.iter_raw()
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -10137,7 +10300,10 @@ class WebhooksOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -10150,7 +10316,10 @@ class WebhooksOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.Webhook], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.Webhook],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -10218,6 +10387,7 @@ class WebhooksOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -10239,7 +10409,7 @@ class WebhooksOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.EventInfo, response.json())
 
@@ -10308,7 +10478,10 @@ class WebhooksOperations:
                 )
                 _next_request_params["api-version"] = self._config.api_version
                 _request = HttpRequest(
-                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                    "GET",
+                    urllib.parse.urljoin(next_link, _parsed_next_link.path),
+                    headers=_headers,
+                    params=_next_request_params,
                 )
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
@@ -10321,7 +10494,10 @@ class WebhooksOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.Event], deserialized.get("value", []))
+            list_of_elem = _deserialize(
+                List[_models.Event],
+                deserialized.get("value", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return deserialized.get("nextLink") or None, iter(list_of_elem)
@@ -10391,6 +10567,7 @@ class WebhooksOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client._pipeline.run(  # pylint: disable=protected-access
             _request, stream=_stream, **kwargs
@@ -10412,7 +10589,7 @@ class WebhooksOperations:
             raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.CallbackConfig, response.json())
 

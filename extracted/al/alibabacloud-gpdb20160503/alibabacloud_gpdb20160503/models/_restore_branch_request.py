@@ -16,27 +16,27 @@ class RestoreBranchRequest(DaraModel):
         source_branch_lsn: str = None,
         source_branch_timestamp: str = None,
     ):
-        # The branch ID that uniquely identifies a Supabase branch.
+        # The branch ID, which uniquely identifies a Supabase branch.
         # 
         # This parameter is required.
         self.branch_id = branch_id
-        # The client idempotency token that ensures the idempotence of retry requests.
+        # The client token that is used to ensure the idempotence of retry requests.
         self.client_token = client_token
-        # The backup branch name. If specified, automatic creation of a backup branch is performed before recovery.
+        # The name of the backup branch. If you specify this parameter, automatic creation of a backup branch is performed before you recover the branch.
         self.preserve_under_name = preserve_under_name
-        # The Supabase project ID associated with the primary branch.
+        # The ID of the Supabase project to which the primary branch belongs.
         # 
         # This parameter is required.
         self.project_id = project_id
-        # The region ID. This parameter is required when you create a primary branch. When you create a sub-branch, the region is inherited from the primary branch by default.
+        # The region ID. This parameter is required when you create a primary branch. When you create a child branch, the region ID of the primary branch is inherited by default.
         self.region_id = region_id
-        # The ID of the source branch from which to recover.
+        # The ID of the source branch for the restoration.
         # 
         # This parameter is required.
         self.source_branch_id = source_branch_id
-        # The LSN of the source branch to recover to.
+        # The LSN of the source branch for the restoration.
         self.source_branch_lsn = source_branch_lsn
-        # The point in time of the source branch to recover to. The value must be within the recoverable time window.
+        # The point in time of the source branch for the restoration. The specified point in time must be within the restorable window.
         self.source_branch_timestamp = source_branch_timestamp
 
     def validate(self):

@@ -47,6 +47,7 @@ class InsertInvoicesGlobals(BaseModel):
 InsertInvoicesProcessorTypeRequestBody = Literal[
     "stripe",
     "revenuecat",
+    "quartz",
 ]
 r"""The billing processor that owns this invoice."""
 
@@ -169,6 +170,7 @@ InsertInvoicesProcessorTypeResponse = Union[
     Literal[
         "stripe",
         "revenuecat",
+        "quartz",
     ],
     UnrecognizedStr,
 ]

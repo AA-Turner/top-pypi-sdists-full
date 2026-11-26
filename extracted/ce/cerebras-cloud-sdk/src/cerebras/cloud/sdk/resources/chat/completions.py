@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Union, Iterable, Optional, cast
 from typing_extensions import Literal
 
-import httpx
+import httpx2
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import is_given, maybe_transform, strip_not_given, async_maybe_transform
@@ -65,7 +65,7 @@ class CompletionsResource(SyncAPIResource):
         prediction: Optional[completion_create_params.Prediction] | Omit = omit,
         presence_penalty: Optional[float] | Omit = omit,
         prompt_cache_key: Optional[str] | Omit = omit,
-        reasoning_effort: Optional[Literal["none", "low", "medium", "high"]] | Omit = omit,
+        reasoning_effort: Optional[Literal["none", "low", "medium", "high", "max"]] | Omit = omit,
         reasoning_format: Literal["none", "parsed", "text_parsed", "raw", "hidden"] | Omit = omit,
         response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
         seed: Optional[int] | Omit = omit,
@@ -87,7 +87,7 @@ class CompletionsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx2.Timeout | None | NotGiven = not_given,
     ) -> ChatCompletion | Stream[ChatCompletion]:
         """
         Chat
@@ -151,11 +151,11 @@ class CompletionsResource(SyncAPIResource):
               highly likely share the same prompt prefixes. Examples would be IDs of chat
               conversations, IDs of users, the hashes of system prompts, etc.
 
-          reasoning_effort: Constrains effort on reasoning for reasoning models. Currently supported values
-              are none, low, medium, and high. Reducing reasoning effort can result in faster
-              responses and fewer tokens used on reasoning in a response. If set to None, the
-              model will use the default reasoning effort for the model. If set to 'none', the
-              model will not reason
+          reasoning_effort: Constrains effort on reasoning for reasoning models. Available values are none,
+              low, medium, high, and max. Model support varies. Reducing reasoning effort can
+              result in faster responses and fewer tokens used on reasoning in a response. If
+              set to None, the model will use its default reasoning effort. Models that
+              support 'none' use it to disable reasoning.
 
           reasoning_format: Determines how reasoning is returned in the response. If set to `parsed`, the
               reasoning will be returned in the `reasoning` field of the response message as a
@@ -305,7 +305,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
         prediction: Optional[completion_create_params.Prediction] | Omit = omit,
         presence_penalty: Optional[float] | Omit = omit,
         prompt_cache_key: Optional[str] | Omit = omit,
-        reasoning_effort: Optional[Literal["none", "low", "medium", "high"]] | Omit = omit,
+        reasoning_effort: Optional[Literal["none", "low", "medium", "high", "max"]] | Omit = omit,
         reasoning_format: Literal["none", "parsed", "text_parsed", "raw", "hidden"] | Omit = omit,
         response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
         seed: Optional[int] | Omit = omit,
@@ -327,7 +327,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx2.Timeout | None | NotGiven = not_given,
     ) -> ChatCompletion | AsyncStream[ChatCompletion]:
         """
         Chat
@@ -391,11 +391,11 @@ class AsyncCompletionsResource(AsyncAPIResource):
               highly likely share the same prompt prefixes. Examples would be IDs of chat
               conversations, IDs of users, the hashes of system prompts, etc.
 
-          reasoning_effort: Constrains effort on reasoning for reasoning models. Currently supported values
-              are none, low, medium, and high. Reducing reasoning effort can result in faster
-              responses and fewer tokens used on reasoning in a response. If set to None, the
-              model will use the default reasoning effort for the model. If set to 'none', the
-              model will not reason
+          reasoning_effort: Constrains effort on reasoning for reasoning models. Available values are none,
+              low, medium, high, and max. Model support varies. Reducing reasoning effort can
+              result in faster responses and fewer tokens used on reasoning in a response. If
+              set to None, the model will use its default reasoning effort. Models that
+              support 'none' use it to disable reasoning.
 
           reasoning_format: Determines how reasoning is returned in the response. If set to `parsed`, the
               reasoning will be returned in the `reasoning` field of the response message as a

@@ -48,7 +48,7 @@ fn eloop() -> Error {
 fn may_be_link_error(e: &Error) -> bool {
     matches!(e, Error::Io(io) if !matches!(
         io.kind(),
-        ErrorKind::PermissionDenied | ErrorKind::Unsupported | ErrorKind::OutOfMemory
+        ErrorKind::PermissionDenied | ErrorKind::Unsupported | ErrorKind::OutOfMemory | ErrorKind::FileTooLarge
     ))
 }
 
@@ -80,6 +80,7 @@ impl FollowFs {
     /// component is kept as-is (lstat semantics). Resolution stops at the
     /// first missing component; the rest of the path is appended unchanged.
     async fn resolve(&self, path: &Path, follow_last: bool) -> Result<PathBuf> {
+        super::reject_empty_path(path)?;
         let mut pending: Vec<String> = split(path);
         pending.reverse();
         let mut done: Vec<String> = Vec::new();
@@ -223,7 +224,18 @@ impl FileSystemExt for FollowFs {
 #[async_trait]
 impl FileSystem for FollowFs {
     async fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
-        retry_resolved!(self, followed, path, |p| self.inner.read_file(p).await)
+        self.read_file_bounded(path, None).await
+    }
+
+    async fn read_file_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<u8>> {
+        retry_resolved!(self, followed, path, |p| self
+            .inner
+            .read_file_bounded(p, charge)
+            .await)
     }
 
     async fn write_file(&self, path: &Path, content: &[u8]) -> Result<()> {
@@ -275,7 +287,18 @@ impl FileSystem for FollowFs {
     }
 
     async fn read_dir(&self, path: &Path) -> Result<Vec<DirEntry>> {
-        retry_resolved!(self, followed, path, |p| self.inner.read_dir(p).await)
+        self.read_dir_bounded(path, None).await
+    }
+
+    async fn read_dir_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<DirEntry>> {
+        retry_resolved!(self, followed, path, |p| self
+            .inner
+            .read_dir_bounded(p, charge)
+            .await)
     }
 
     async fn walk(&self, root: &Path, opts: super::WalkOptions) -> Result<Vec<super::DirListing>> {

@@ -43,7 +43,11 @@ invoked (verified with codex-cli 0.163.0: after `codex plugin add` replaced
 1.0.0 with 1.0.1, the next turn listed and injected 1.0.1's SKILL.md).
 
 A gated skill (`gated-skills/`, A24) is copied only while the answer the CLI keeps on disk allows it, and
-pruned otherwise; this hook never asks Probe (`_root_skills_core.py`).
+pruned otherwise; this hook never asks Probe (`_root_skills_core.py`). No manifest names that folder, so
+under Codex this hook copies the allowed gated skills, and only those, into Codex's own `skills/`
+(`CAPABILITY_GATED_SKILLS`); everything else Codex reads from the plugin. Codex's hooks all run from the
+Probe service's copy of the CLI release's plugin folders (the probe-hooks shim), which carries
+`gated-skills/` and no `agent-skills/`, so that copy is the source there.
 
 Silent and fail-open by contract, like every other SessionStart step: a skill
 that could not be copied must never stop a session from starting, and a Skill
@@ -82,6 +86,28 @@ REFUSED_DIR = "skill-refreshed"
 REFUSED_KEEP_S = 14 * 24 * 3600
 
 
+def _harness():
+    """The harness running this hook: its environment marker, else what the hook wrappers and the Probe
+    service name (`_hook_harness.current`: a Codex event the service runs may carry no Codex marker)."""
+    harness = _harness_registry.get_registry().detect()
+    if harness is not None:
+        return harness
+    import _hook_harness
+
+    return _hook_harness.current()
+
+
+def _gated_root() -> Path | None:
+    """Where a harness that reads the plugin's other skills by manifest keeps its own skills (Codex's
+    `$CODEX_HOME/skills`), for the gated copies alone; None where root skills cover them, or it has none."""
+    harness = _harness()
+    if harness.can(_harness_registry.CAPABILITY_ROOT_SKILLS) or not harness.can(
+            _harness_registry.CAPABILITY_GATED_SKILLS):
+        return None
+    home = harness.home_dir()
+    return None if home is None else home / "skills"
+
+
 def _skills_root() -> Path | None:
     """The running harness's own skills folder, or None where it has none.
 
@@ -93,7 +119,7 @@ def _skills_root() -> Path | None:
     same rule `agent_rules.memory_path` follows: a machine that moved its
     config must not get files written to the real home.
     """
-    harness = _harness_registry.get_registry().detect()
+    harness = _harness()
     if harness is None or not harness.can(_harness_registry.CAPABILITY_ROOT_SKILLS):
         return None
     home = harness.home_dir()
@@ -316,11 +342,12 @@ def main(argv: "list[str] | None" = None) -> int:
             sys.stdout.flush()
         return 0
     root = _skills_root()
-    if root is None:
+    gated_root = None if root is not None else _gated_root()
+    if root is None and gated_root is None:
         return 0
     plugin_root = _plugin_root()
     wanted = core.slugs(plugin_root)
-    if not wanted:
+    if root is not None and not wanted:
         return 0
     dispatcher = _dispatcher()
     first = _listed(plugin_root, dispatcher)
@@ -329,10 +356,14 @@ def main(argv: "list[str] | None" = None) -> int:
     # Asked again inside the copy lock: an update can land between here and
     # there, and a copy that was installed must still be (not just "unlisted").
     was_listed = bool(first)
-    core.apply(
-        root, plugin_root, wanted,
-        still_installed=lambda: not superseded(plugin_root, dispatcher, was_listed=was_listed),
-    )
+
+    def still_installed() -> bool:
+        return not superseded(plugin_root, dispatcher, was_listed=was_listed)
+
+    if root is not None:
+        core.apply(root, plugin_root, wanted, still_installed=still_installed)
+    else:
+        core.apply_gated(gated_root, plugin_root, still_installed=still_installed)
     return 0
 
 

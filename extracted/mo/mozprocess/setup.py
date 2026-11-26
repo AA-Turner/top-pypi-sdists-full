@@ -4,7 +4,7 @@
 
 from setuptools import setup
 
-PACKAGE_VERSION = "1.4.0"
+PACKAGE_VERSION = "1.4.1"
 
 setup(
     name="mozprocess",
@@ -17,7 +17,8 @@ setup(
         "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
         "Natural Language :: English",
         "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3 :: Only",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     keywords="mozilla",
@@ -28,8 +29,9 @@ setup(
     packages=["mozprocess"],
     include_package_data=True,
     zip_safe=False,
-    install_requires=["mozinfo"],
+    install_requires=["mozinfo >= 0.7"],
     entry_points="""
       # -*- Entry points: -*-
       """,
+    python_requires=">=3.9",
 )

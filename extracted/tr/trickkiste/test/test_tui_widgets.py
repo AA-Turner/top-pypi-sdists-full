@@ -7,20 +7,26 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from textual.app import App
+from textual.app import App, ComposeResult
+from textual.widgets import Label
 
 from trickkiste import tui_widgets
 from trickkiste.base_tui_app import TuiBaseApp
 from trickkiste.tui_widgets import (
+    FEEDBACK_CSS,
     SCANNER_DARK,
     SCANNER_TAIL,
     ConfirmScreen,
+    FeedbackScreen,
+    FeedbackWay,
+    FramedApp,
     LogAlert,
     alert_style,
     clean_line,
     clipped,
     desktop_clipboard,
     scanner,
+    tool_frame,
     with_alerts,
 )
 
@@ -133,6 +139,46 @@ def test_confirm_screen(keys: list[str], answer: bool) -> None:
 
     asyncio.run(scenario())
     assert answers == [answer]
+
+
+class FrameApp(FramedApp):
+    """A tool's frame, nothing else"""
+
+    CSS = FEEDBACK_CSS
+    TOOL = "tool"
+    FEEDBACK_WAYS = (FeedbackWay("Mail", " us", "mailto:a@b", "a@b"),)
+
+    def compose(self) -> ComposeResult:
+        yield from tool_frame(self.TOOL, "v1", hint="h for help")
+
+
+def test_framed_app() -> None:
+    """The feedback button sits at the header's right end, the hint left of
+    it, and opens the ways; the status bar names tool and version
+    """
+
+    async def scenario() -> tuple[int, str, str]:
+        app = FrameApp()
+        async with app.run_test(size=(60, 10)) as pilot:
+            await pilot.pause()
+            bar = app.query_one("#feedback-bar")
+            right = bar.region.right
+            hint = app.query_one("#feedback-hint", Label).region
+            assert hint.right < app.query_one("#feedback").region.x
+            tool = str(app.query_one("#status-tool", Label).content)
+            await pilot.click("#feedback")
+            await pilot.pause()
+            assert isinstance(app.screen, FeedbackScreen)
+            text = " ".join(
+                str(label.content) for label in app.screen.query(Label)
+            )
+        return right, tool, text
+
+    right, tool, text = asyncio.run(scenario())
+    assert right == 60
+    assert tool.strip() == "│ tool v1"
+    assert "1. Mail" in text
+    assert "a@b" in text
 
 
 @pytest.fixture

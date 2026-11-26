@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, cast
+from typing import Any
 import warnings
 
 from openstack.cloud import _utils
@@ -51,8 +51,6 @@ class CoeCloudMixin(openstackcloud._OpenStackCloudMixin):
 
         :param name_or_id: cluster name or ID.
         :param filters: a dict containing additional filters to use.
-        :param detail: a boolean to control if we need summarized or
-            detailed output.
 
         :returns: A list of container infrastructure management ``Cluster``
             objects.
@@ -83,10 +81,14 @@ class CoeCloudMixin(openstackcloud._OpenStackCloudMixin):
         :returns: A container infrastructure management ``Cluster`` object if
             found, else None.
         """
-        return cast(
-            '_cluster.Cluster | None',
-            _utils._get_entity(self, 'coe_cluster', name_or_id, filters),
-        )
+        entities = self.search_coe_clusters(name_or_id, filters)
+        if not entities:
+            return None
+        if len(entities) > 1:
+            raise exceptions.SDKException(
+                f"Multiple matches found for {name_or_id}"
+            )
+        return entities[0]
 
     def create_coe_cluster(
         self,
@@ -96,9 +98,9 @@ class CoeCloudMixin(openstackcloud._OpenStackCloudMixin):
     ) -> _cluster.Cluster:
         """Create a COE cluster based on given cluster template.
 
-        :param string name: Name of the cluster.
-        :param string cluster_template_id: ID of the cluster template to use.
-        :param dict kwargs: Any other arguments to pass in.
+        :param name: Name of the cluster.
+        :param cluster_template_id: ID of the cluster template to use.
+        :param kwargs: Any other arguments to pass in.
 
         :returns: The created container infrastructure management ``Cluster``
             object.
@@ -195,17 +197,21 @@ class CoeCloudMixin(openstackcloud._OpenStackCloudMixin):
         )
 
     def list_cluster_templates(
-        self, detail: bool = False
+        self, detail: bool | None = None
     ) -> list[_cluster_template.ClusterTemplate]:
         """List cluster templates.
 
-        :param bool detail. Ignored. Included for backwards compat.
-            ClusterTemplates are always returned with full details.
+        :param detail: **DEPRECATED**
 
         :returns: a list of dicts containing the cluster template details.
         :raises: :class:`~openstack.exceptions.SDKException` if something goes
             wrong during the OpenStack API call.
         """
+        if detail is not None:
+            warnings.warn(
+                "The detail argument is deprecated and has no effect",
+                os_warnings.RemovedInSDK50Warning,
+            )
         return list(
             self.container_infrastructure_management.cluster_templates()
         )
@@ -214,27 +220,31 @@ class CoeCloudMixin(openstackcloud._OpenStackCloudMixin):
         self,
         name_or_id: str | None = None,
         filters: dict[str, Any] | None = None,
-        detail: bool = False,
+        detail: bool | None = None,
     ) -> list[_cluster_template.ClusterTemplate]:
         """Search cluster templates.
 
         :param name_or_id: cluster template name or ID.
         :param filters: a dict containing additional filters to use.
-        :param detail: a boolean to control if we need summarized or
-            detailed output.
+        :param detail: **DEPRECATED**
 
         :returns: a list of dict containing the cluster templates
         :raises: :class:`~openstack.exceptions.SDKException`: if something goes
             wrong during the OpenStack API call.
         """
-        cluster_templates = self.list_cluster_templates(detail=detail)
+        if detail is not None:
+            warnings.warn(
+                "The detail argument is deprecated and has no effect",
+                os_warnings.RemovedInSDK50Warning,
+            )
+        cluster_templates = self.list_cluster_templates()
         return _utils._filter_list(cluster_templates, name_or_id, filters)
 
     def get_cluster_template(
         self,
         name_or_id: str,
         filters: dict[str, Any] | None = None,
-        detail: bool = False,
+        detail: bool | None = None,
     ) -> _cluster_template.ClusterTemplate | None:
         """Get a cluster template by name or ID.
 
@@ -248,10 +258,17 @@ class CoeCloudMixin(openstackcloud._OpenStackCloudMixin):
             OR
             A string containing a jmespath expression for further filtering.
             Example:: "[?last_name==`Smith`] | [?other.gender]==`Female`]"
+        :param detail: **DEPRECATED**
 
         :returns: A cluster template dict or None if no matching
             cluster template is found.
         """
+        if detail is not None:
+            warnings.warn(
+                "The detail argument is deprecated and has no effect",
+                os_warnings.RemovedInSDK50Warning,
+            )
+
         if filters is not None:
             warnings.warn(
                 "The 'filters' argument is deprecated; use "
@@ -283,10 +300,10 @@ class CoeCloudMixin(openstackcloud._OpenStackCloudMixin):
     ) -> _cluster_template.ClusterTemplate:
         """Create a cluster template.
 
-        :param string name: Name of the cluster template.
-        :param string image_id: Name or ID of the image to use.
-        :param string keypair_id: Name or ID of the keypair to use.
-        :param string coe: Name of the coe for the cluster template.
+        :param name: Name of the cluster template.
+        :param image_id: Name or ID of the image to use.
+        :param keypair_id: Name or ID of the keypair to use.
+        :param coe: Name of the coe for the cluster template.
             Other arguments will be passed in kwargs.
 
         :returns: a dict containing the cluster template description

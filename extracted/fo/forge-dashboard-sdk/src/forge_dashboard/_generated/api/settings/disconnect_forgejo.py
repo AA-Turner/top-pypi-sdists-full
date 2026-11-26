@@ -66,9 +66,12 @@ def sync_detailed(
 ) -> Response[Any | Error]:
     """ Unlink the Forgejo account
 
-     Deletes the stored token pair. When a pasted Forgejo token is saved,
-    the instance URL and account name stay and the dashboard goes back to
-    that token; otherwise both are cleared. Passkey sign-in is unaffected.
+     Deletes the stored token pair. Forgejo has no token revocation
+    endpoint, so the grant stays at the instance until it is removed under
+    Settings, Applications, Authorized OAuth2 Applications. When a pasted
+    Forgejo token is saved, the instance URL and account name stay and the
+    dashboard goes back to that token; otherwise both are cleared. Passkey
+    sign-in is unaffected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -96,9 +99,12 @@ def sync(
 ) -> Any | Error | None:
     """ Unlink the Forgejo account
 
-     Deletes the stored token pair. When a pasted Forgejo token is saved,
-    the instance URL and account name stay and the dashboard goes back to
-    that token; otherwise both are cleared. Passkey sign-in is unaffected.
+     Deletes the stored token pair. Forgejo has no token revocation
+    endpoint, so the grant stays at the instance until it is removed under
+    Settings, Applications, Authorized OAuth2 Applications. When a pasted
+    Forgejo token is saved, the instance URL and account name stay and the
+    dashboard goes back to that token; otherwise both are cleared. Passkey
+    sign-in is unaffected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -121,9 +127,12 @@ async def asyncio_detailed(
 ) -> Response[Any | Error]:
     """ Unlink the Forgejo account
 
-     Deletes the stored token pair. When a pasted Forgejo token is saved,
-    the instance URL and account name stay and the dashboard goes back to
-    that token; otherwise both are cleared. Passkey sign-in is unaffected.
+     Deletes the stored token pair. Forgejo has no token revocation
+    endpoint, so the grant stays at the instance until it is removed under
+    Settings, Applications, Authorized OAuth2 Applications. When a pasted
+    Forgejo token is saved, the instance URL and account name stay and the
+    dashboard goes back to that token; otherwise both are cleared. Passkey
+    sign-in is unaffected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -151,9 +160,12 @@ async def asyncio(
 ) -> Any | Error | None:
     """ Unlink the Forgejo account
 
-     Deletes the stored token pair. When a pasted Forgejo token is saved,
-    the instance URL and account name stay and the dashboard goes back to
-    that token; otherwise both are cleared. Passkey sign-in is unaffected.
+     Deletes the stored token pair. Forgejo has no token revocation
+    endpoint, so the grant stays at the instance until it is removed under
+    Settings, Applications, Authorized OAuth2 Applications. When a pasted
+    Forgejo token is saved, the instance URL and account name stay and the
+    dashboard goes back to that token; otherwise both are cleared. Passkey
+    sign-in is unaffected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

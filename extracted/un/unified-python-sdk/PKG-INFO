@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.61.26
+Version: 0.61.27
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -149,21 +149,21 @@ with UnifiedTo(
             "created_at": parse_datetime("2022-07-03T17:57:07.391Z"),
             "currency": "CAD",
             "customer_defined_code": "6170",
-            "description": "Voluptatibus valde spoliatio.",
-            "id": "dfdde34e-7f2d-4418-9369-013a01fe96e4",
+            "description": "Comedo vilitas harum cupiditate animus quo iste.",
+            "id": "163a68aa-dffa-47cd-8735-bba178c623d5",
             "is_payable": False,
             "metadata": [],
-            "name": "Auto Loan Account",
+            "name": "Savings Account",
             "status": shared.Status.ARCHIVED,
             "taxonomy": [
                 {
-                    "original_type": "vilitas",
+                    "original_type": "peccatus",
                     "type": shared.AccountingAccountTaxonomyType.SUBGROUP,
-                    "value": "comedo",
+                    "value": "vesper",
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-14T12:40:17.883Z"),
+            "updated_at": parse_datetime("2023-08-16T00:59:24.548Z"),
         },
         "connection_id": "<id>",
     })
@@ -199,21 +199,21 @@ async def main():
                 "created_at": parse_datetime("2022-07-03T17:57:07.391Z"),
                 "currency": "CAD",
                 "customer_defined_code": "6170",
-                "description": "Voluptatibus valde spoliatio.",
-                "id": "dfdde34e-7f2d-4418-9369-013a01fe96e4",
+                "description": "Comedo vilitas harum cupiditate animus quo iste.",
+                "id": "163a68aa-dffa-47cd-8735-bba178c623d5",
                 "is_payable": False,
                 "metadata": [],
-                "name": "Auto Loan Account",
+                "name": "Savings Account",
                 "status": shared.Status.ARCHIVED,
                 "taxonomy": [
                     {
-                        "original_type": "vilitas",
+                        "original_type": "peccatus",
                         "type": shared.AccountingAccountTaxonomyType.SUBGROUP,
-                        "value": "comedo",
+                        "value": "vesper",
                     },
                 ],
                 "type": shared.Type.ACCOUNTS_RECEIVABLE,
-                "updated_at": parse_datetime("2023-08-14T12:40:17.883Z"),
+                "updated_at": parse_datetime("2023-08-16T00:59:24.548Z"),
             },
             "connection_id": "<id>",
         })
@@ -499,6 +499,11 @@ asyncio.run(main())
 * [get_healthcare_allergy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/allergy/README.md#get_healthcare_allergy) - Retrieve an allergy
 * [list_healthcare_allergies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/allergy/README.md#list_healthcare_allergies) - List all allergies
 
+### [Allergyintolerance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/allergyintolerance/README.md)
+
+* [get_fhir_allergyintolerance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/allergyintolerance/README.md#get_fhir_allergyintolerance) - Read a AllergyIntolerance
+* [list_fhir_allergyintolerances](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/allergyintolerance/README.md#list_fhir_allergyintolerances) - Search AllergyIntolerance resources
+
 ### [Analytics](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/analytics/README.md)
 
 * [create_analytics_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/analytics/README.md#create_analytics_event) - Create an event
@@ -541,11 +546,17 @@ asyncio.run(main())
 
 ### [Appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md)
 
+* [create_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#create_dms_appointment) - Create an appointment
 * [create_healthcare_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#create_healthcare_appointment) - Create an appointment
+* [get_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#get_dms_appointment) - Retrieve an appointment
 * [get_healthcare_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#get_healthcare_appointment) - Retrieve an appointment
+* [list_dms_appointments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#list_dms_appointments) - List all appointments
 * [list_healthcare_appointments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#list_healthcare_appointments) - List all appointments
+* [patch_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#patch_dms_appointment) - Update an appointment
 * [patch_healthcare_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#patch_healthcare_appointment) - Update an appointment
+* [remove_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#remove_dms_appointment) - Remove an appointment
 * [remove_healthcare_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#remove_healthcare_appointment) - Remove an appointment
+* [update_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#update_dms_appointment) - Update an appointment
 * [update_healthcare_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/appointment/README.md#update_healthcare_appointment) - Update an appointment
 
 ### [Assessment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/assessment/README.md)
@@ -1106,7 +1117,9 @@ asyncio.run(main())
 
 ### [Condition](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/condition/README.md)
 
+* [get_fhir_condition](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/condition/README.md#get_fhir_condition) - Read a Condition
 * [get_healthcare_condition](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/condition/README.md#get_healthcare_condition) - Retrieve a condition
+* [list_fhir_conditions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/condition/README.md#list_fhir_conditions) - Search Condition resources
 * [list_healthcare_conditions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/condition/README.md#list_healthcare_conditions) - List all conditions
 
 ### [Connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/connection/README.md)
@@ -1317,6 +1330,50 @@ asyncio.run(main())
 * [remove_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/device/README.md#remove_hris_device) - Remove a device
 * [update_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/device/README.md#update_hris_device) - Update a device
 
+### [Diagnosticreport](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/diagnosticreport/README.md)
+
+* [get_fhir_diagnosticreport](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/diagnosticreport/README.md#get_fhir_diagnosticreport) - Read a DiagnosticReport
+* [list_fhir_diagnosticreports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/diagnosticreport/README.md#list_fhir_diagnosticreports) - Search DiagnosticReport resources
+
+### [Dms](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md)
+
+* [create_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#create_dms_appointment) - Create an appointment
+* [create_dms_opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#create_dms_opcode) - Create an opcode
+* [create_dms_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#create_dms_part) - Create a part
+* [create_dms_partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#create_dms_partsale) - Create a partsale
+* [create_dms_repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#create_dms_repairorder) - Create a repairorder
+* [create_dms_vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#create_dms_vehicle) - Create a vehicle
+* [create_dms_vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#create_dms_vehiclesale) - Create a vehiclesale
+* [get_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#get_dms_appointment) - Retrieve an appointment
+* [get_dms_opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#get_dms_opcode) - Retrieve an opcode
+* [get_dms_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#get_dms_part) - Retrieve a part
+* [get_dms_partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#get_dms_partsale) - Retrieve a partsale
+* [get_dms_repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#get_dms_repairorder) - Retrieve a repairorder
+* [get_dms_vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#get_dms_vehicle) - Retrieve a vehicle
+* [get_dms_vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#get_dms_vehiclesale) - Retrieve a vehiclesale
+* [list_dms_appointments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#list_dms_appointments) - List all appointments
+* [list_dms_opcodes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#list_dms_opcodes) - List all opcodes
+* [list_dms_parts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#list_dms_parts) - List all parts
+* [list_dms_partsales](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#list_dms_partsales) - List all partsales
+* [list_dms_repairorders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#list_dms_repairorders) - List all repairorders
+* [list_dms_vehicles](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#list_dms_vehicles) - List all vehicles
+* [list_dms_vehiclesales](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#list_dms_vehiclesales) - List all vehiclesales
+* [patch_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#patch_dms_appointment) - Update an appointment
+* [patch_dms_opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#patch_dms_opcode) - Update an opcode
+* [patch_dms_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#patch_dms_part) - Update a part
+* [patch_dms_partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#patch_dms_partsale) - Update a partsale
+* [patch_dms_repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#patch_dms_repairorder) - Update a repairorder
+* [patch_dms_vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#patch_dms_vehicle) - Update a vehicle
+* [patch_dms_vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#patch_dms_vehiclesale) - Update a vehiclesale
+* [remove_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#remove_dms_appointment) - Remove an appointment
+* [update_dms_appointment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#update_dms_appointment) - Update an appointment
+* [update_dms_opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#update_dms_opcode) - Update an opcode
+* [update_dms_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#update_dms_part) - Update a part
+* [update_dms_partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#update_dms_partsale) - Update a partsale
+* [update_dms_repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#update_dms_repairorder) - Update a repairorder
+* [update_dms_vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#update_dms_vehicle) - Update a vehicle
+* [update_dms_vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/dms/README.md#update_dms_vehiclesale) - Update a vehiclesale
+
 ### [Document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md)
 
 * [create_ats_document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md#create_ats_document) - Create a document
@@ -1379,7 +1436,9 @@ asyncio.run(main())
 
 ### [Encounter](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/encounter/README.md)
 
+* [get_fhir_encounter](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/encounter/README.md#get_fhir_encounter) - Read a Encounter
 * [get_healthcare_encounter](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/encounter/README.md#get_healthcare_encounter) - Retrieve an encounter
+* [list_fhir_encounters](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/encounter/README.md#list_fhir_encounters) - Search Encounter resources
 * [list_healthcare_encounters](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/encounter/README.md#list_healthcare_encounters) - List all encounters
 
 ### [Enrich](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/enrich/README.md)
@@ -1467,10 +1526,35 @@ asyncio.run(main())
 * [get_performance_feedback](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/feedback/README.md#get_performance_feedback) - Retrieve a feedback
 * [list_performance_feedbacks](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/feedback/README.md#list_performance_feedbacks) - List all feedbacks
 
+### [Fhir](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md)
+
+* [get_fhir_allergyintolerance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_allergyintolerance) - Read a AllergyIntolerance
+* [get_fhir_condition](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_condition) - Read a Condition
+* [get_fhir_diagnosticreport](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_diagnosticreport) - Read a DiagnosticReport
+* [get_fhir_encounter](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_encounter) - Read a Encounter
+* [get_fhir_immunization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_immunization) - Read a Immunization
+* [get_fhir_medicationrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_medicationrequest) - Read a MedicationRequest
+* [get_fhir_observation](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_observation) - Read a Observation
+* [get_fhir_patient](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_patient) - Read a Patient
+* [get_fhir_practitioner](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#get_fhir_practitioner) - Read a Practitioner
+* [list_fhir_allergyintolerances](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_allergyintolerances) - Search AllergyIntolerance resources
+* [list_fhir_conditions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_conditions) - Search Condition resources
+* [list_fhir_diagnosticreports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_diagnosticreports) - Search DiagnosticReport resources
+* [list_fhir_encounters](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_encounters) - Search Encounter resources
+* [list_fhir_immunizations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_immunizations) - Search Immunization resources
+* [list_fhir_medicationrequests](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_medicationrequests) - Search MedicationRequest resources
+* [list_fhir_metadatas](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_metadatas) - Get the CapabilityStatement
+* [list_fhir_observations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_observations) - Search Observation resources
+* [list_fhir_patients](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_patients) - Search Patient resources
+* [list_fhir_practitioners](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/fhir/README.md#list_fhir_practitioners) - Search Practitioner resources
+
 ### [File](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md)
 
+* [create_printing_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#create_printing_file) - Create a file
 * [create_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#create_storage_file) - Create a file
+* [get_printing_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#get_printing_file) - Retrieve a file
 * [get_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#get_storage_file) - Retrieve a file
+* [list_printing_files](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#list_printing_files) - List all files
 * [list_storage_files](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#list_storage_files) - List all files
 * [patch_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#patch_storage_file) - Update a file
 * [remove_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#remove_storage_file) - Remove a file
@@ -1731,7 +1815,9 @@ asyncio.run(main())
 
 ### [Immunization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/immunization/README.md)
 
+* [get_fhir_immunization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/immunization/README.md#get_fhir_immunization) - Read a Immunization
 * [get_healthcare_immunization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/immunization/README.md#get_healthcare_immunization) - Retrieve an immunization
+* [list_fhir_immunizations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/immunization/README.md#list_fhir_immunizations) - Search Immunization resources
 * [list_healthcare_immunizations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/immunization/README.md#list_healthcare_immunizations) - List all immunizations
 
 ### [Insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/insertionorder/README.md)
@@ -2075,6 +2161,11 @@ asyncio.run(main())
 * [get_healthcare_medication](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/medication/README.md#get_healthcare_medication) - Retrieve a medication
 * [list_healthcare_medications](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/medication/README.md#list_healthcare_medications) - List all medications
 
+### [Medicationrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/medicationrequest/README.md)
+
+* [get_fhir_medicationrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/medicationrequest/README.md#get_fhir_medicationrequest) - Read a MedicationRequest
+* [list_fhir_medicationrequests](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/medicationrequest/README.md#list_fhir_medicationrequests) - Search MedicationRequest resources
+
 ### [Member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/member/README.md)
 
 * [create_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/member/README.md#create_martech_member) - Create a member
@@ -2125,6 +2216,7 @@ asyncio.run(main())
 
 * [create_metadata_metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#create_metadata_metadata) - Create a metadata
 * [get_metadata_metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#get_metadata_metadata) - Retrieve a metadata
+* [list_fhir_metadatas](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#list_fhir_metadatas) - Get the CapabilityStatement
 * [list_metadata_metadatas](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#list_metadata_metadatas) - List all metadatas
 * [patch_metadata_metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#patch_metadata_metadata) - Update a metadata
 * [remove_metadata_metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#remove_metadata_metadata) - Remove a metadata
@@ -2151,21 +2243,37 @@ asyncio.run(main())
 ### [Observation](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/observation/README.md)
 
 * [create_healthcare_observation](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/observation/README.md#create_healthcare_observation) - Create an observation
+* [get_fhir_observation](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/observation/README.md#get_fhir_observation) - Read a Observation
 * [get_healthcare_observation](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/observation/README.md#get_healthcare_observation) - Retrieve an observation
+* [list_fhir_observations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/observation/README.md#list_fhir_observations) - Search Observation resources
 * [list_healthcare_observations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/observation/README.md#list_healthcare_observations) - List all observations
+
+### [Opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/opcode/README.md)
+
+* [create_dms_opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/opcode/README.md#create_dms_opcode) - Create an opcode
+* [get_dms_opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/opcode/README.md#get_dms_opcode) - Retrieve an opcode
+* [list_dms_opcodes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/opcode/README.md#list_dms_opcodes) - List all opcodes
+* [patch_dms_opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/opcode/README.md#patch_dms_opcode) - Update an opcode
+* [update_dms_opcode](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/opcode/README.md#update_dms_opcode) - Update an opcode
 
 ### [Order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md)
 
 * [~~create_accounting_order~~](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#create_accounting_order) - Create an order :warning: **Deprecated**
 * [create_assessment_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#create_assessment_order) - Create an order
+* [create_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#create_printing_order) - Create an order
 * [~~get_accounting_order~~](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#get_accounting_order) - Retrieve an order :warning: **Deprecated**
 * [get_assessment_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#get_assessment_order) - Retrieve an order
+* [get_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#get_printing_order) - Retrieve an order
 * [~~list_accounting_orders~~](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#list_accounting_orders) - List all orders :warning: **Deprecated**
+* [list_printing_orders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#list_printing_orders) - List all orders
 * [~~patch_accounting_order~~](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#patch_accounting_order) - Update an order :warning: **Deprecated**
 * [patch_assessment_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#patch_assessment_order) - Update an order
+* [patch_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#patch_printing_order) - Update an order
 * [~~remove_accounting_order~~](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#remove_accounting_order) - Remove an order :warning: **Deprecated**
+* [remove_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#remove_printing_order) - Remove an order
 * [~~update_accounting_order~~](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#update_accounting_order) - Update an order :warning: **Deprecated**
 * [update_assessment_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#update_assessment_order) - Update an order
+* [update_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#update_printing_order) - Update an order
 
 ### [Organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md)
 
@@ -2212,12 +2320,25 @@ asyncio.run(main())
 
 ### [Part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md)
 
+* [create_dms_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#create_dms_part) - Create a part
 * [create_plm_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#create_plm_part) - Create a part
+* [get_dms_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#get_dms_part) - Retrieve a part
 * [get_plm_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#get_plm_part) - Retrieve a part
+* [list_dms_parts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#list_dms_parts) - List all parts
 * [list_plm_parts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#list_plm_parts) - List all parts
+* [patch_dms_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#patch_dms_part) - Update a part
 * [patch_plm_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#patch_plm_part) - Update a part
 * [remove_plm_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#remove_plm_part) - Remove a part
+* [update_dms_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#update_dms_part) - Update a part
 * [update_plm_part](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/part/README.md#update_plm_part) - Update a part
+
+### [Partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/partsale/README.md)
+
+* [create_dms_partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/partsale/README.md#create_dms_partsale) - Create a partsale
+* [get_dms_partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/partsale/README.md#get_dms_partsale) - Retrieve a partsale
+* [list_dms_partsales](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/partsale/README.md#list_dms_partsales) - List all partsales
+* [patch_dms_partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/partsale/README.md#patch_dms_partsale) - Update a partsale
+* [update_dms_partsale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/partsale/README.md#update_dms_partsale) - Update a partsale
 
 ### [Passthrough](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/passthrough/README.md)
 
@@ -2233,7 +2354,9 @@ asyncio.run(main())
 ### [Patient](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/patient/README.md)
 
 * [create_healthcare_patient](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/patient/README.md#create_healthcare_patient) - Create a patient
+* [get_fhir_patient](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/patient/README.md#get_fhir_patient) - Read a Patient
 * [get_healthcare_patient](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/patient/README.md#get_healthcare_patient) - Retrieve a patient
+* [list_fhir_patients](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/patient/README.md#list_fhir_patients) - Search Patient resources
 * [list_healthcare_patients](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/patient/README.md#list_healthcare_patients) - List all patients
 * [patch_healthcare_patient](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/patient/README.md#patch_healthcare_patient) - Update a patient
 * [update_healthcare_patient](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/patient/README.md#update_healthcare_patient) - Update a patient
@@ -2368,13 +2491,37 @@ asyncio.run(main())
 
 ### [Practitioner](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/practitioner/README.md)
 
+* [get_fhir_practitioner](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/practitioner/README.md#get_fhir_practitioner) - Read a Practitioner
 * [get_healthcare_practitioner](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/practitioner/README.md#get_healthcare_practitioner) - Retrieve a practitioner
+* [list_fhir_practitioners](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/practitioner/README.md#list_fhir_practitioners) - Search Practitioner resources
 * [list_healthcare_practitioners](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/practitioner/README.md#list_healthcare_practitioners) - List all practitioners
+
+### [Printing](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md)
+
+* [create_printing_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#create_printing_file) - Create a file
+* [create_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#create_printing_order) - Create an order
+* [create_printing_quote](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#create_printing_quote) - Create a quote
+* [get_printing_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#get_printing_file) - Retrieve a file
+* [get_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#get_printing_order) - Retrieve an order
+* [get_printing_product](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#get_printing_product) - Retrieve a product
+* [get_printing_template](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#get_printing_template) - Retrieve a template
+* [list_printing_files](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#list_printing_files) - List all files
+* [list_printing_orders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#list_printing_orders) - List all orders
+* [list_printing_products](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#list_printing_products) - List all products
+* [list_printing_templates](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#list_printing_templates) - List all templates
+* [patch_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#patch_printing_order) - Update an order
+* [remove_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#remove_printing_order) - Remove an order
+* [update_printing_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/printing/README.md#update_printing_order) - Update an order
 
 ### [Procedure](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/procedure/README.md)
 
 * [get_healthcare_procedure](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/procedure/README.md#get_healthcare_procedure) - Retrieve a procedure
 * [list_healthcare_procedures](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/procedure/README.md#list_healthcare_procedures) - List all procedures
+
+### [Product](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/product/README.md)
+
+* [get_printing_product](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/product/README.md#get_printing_product) - Retrieve a product
+* [list_printing_products](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/product/README.md#list_printing_products) - List all products
 
 ### [Profile](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/profile/README.md)
 
@@ -2507,6 +2654,7 @@ asyncio.run(main())
 ### [Quote](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/quote/README.md)
 
 * [create_accounting_quote](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/quote/README.md#create_accounting_quote) - Create a quote
+* [create_printing_quote](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/quote/README.md#create_printing_quote) - Create a quote
 * [create_property_quote](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/quote/README.md#create_property_quote) - Create a quote
 * [get_accounting_quote](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/quote/README.md#get_accounting_quote) - Retrieve a quote
 * [list_accounting_quotes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/quote/README.md#list_accounting_quotes) - List all quotes
@@ -2547,6 +2695,14 @@ asyncio.run(main())
 
 * [get_compute_region](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/region/README.md#get_compute_region) - Retrieve a region
 * [list_compute_regions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/region/README.md#list_compute_regions) - List all regions
+
+### [Repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repairorder/README.md)
+
+* [create_dms_repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repairorder/README.md#create_dms_repairorder) - Create a repairorder
+* [get_dms_repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repairorder/README.md#get_dms_repairorder) - Retrieve a repairorder
+* [list_dms_repairorders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repairorder/README.md#list_dms_repairorders) - List all repairorders
+* [patch_dms_repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repairorder/README.md#patch_dms_repairorder) - Update a repairorder
+* [update_dms_repairorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repairorder/README.md#update_dms_repairorder) - Update a repairorder
 
 ### [Repo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repo/README.md)
 
@@ -2968,8 +3124,10 @@ asyncio.run(main())
 
 * [create_compute_template](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#create_compute_template) - Create a template
 * [get_compute_template](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#get_compute_template) - Retrieve a template
+* [get_printing_template](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#get_printing_template) - Retrieve a template
 * [get_signing_template](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#get_signing_template) - Retrieve a template
 * [list_compute_templates](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#list_compute_templates) - List all templates
+* [list_printing_templates](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#list_printing_templates) - List all templates
 * [list_signing_templates](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#list_signing_templates) - List all templates
 * [patch_compute_template](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#patch_compute_template) - Update a template
 * [remove_compute_template](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/template/README.md#remove_compute_template) - Remove a template
@@ -3154,6 +3312,22 @@ asyncio.run(main())
 * [remove_scim_users](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/user/README.md#remove_scim_users) - Delete user
 * [update_scim_users](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/user/README.md#update_scim_users) - Update user
 
+### [Vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehicle/README.md)
+
+* [create_dms_vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehicle/README.md#create_dms_vehicle) - Create a vehicle
+* [get_dms_vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehicle/README.md#get_dms_vehicle) - Retrieve a vehicle
+* [list_dms_vehicles](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehicle/README.md#list_dms_vehicles) - List all vehicles
+* [patch_dms_vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehicle/README.md#patch_dms_vehicle) - Update a vehicle
+* [update_dms_vehicle](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehicle/README.md#update_dms_vehicle) - Update a vehicle
+
+### [Vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehiclesale/README.md)
+
+* [create_dms_vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehiclesale/README.md#create_dms_vehiclesale) - Create a vehiclesale
+* [get_dms_vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehiclesale/README.md#get_dms_vehiclesale) - Retrieve a vehiclesale
+* [list_dms_vehiclesales](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehiclesale/README.md#list_dms_vehiclesales) - List all vehiclesales
+* [patch_dms_vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehiclesale/README.md#patch_dms_vehiclesale) - Update a vehiclesale
+* [update_dms_vehiclesale](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vehiclesale/README.md#update_dms_vehiclesale) - Update a vehiclesale
+
 ### [Vendorcredit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vendorcredit/README.md)
 
 * [create_accounting_vendorcredit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/vendorcredit/README.md#create_accounting_vendorcredit) - Create a vendorcredit
@@ -3290,21 +3464,21 @@ with UnifiedTo(
             "created_at": parse_datetime("2022-07-03T17:57:07.391Z"),
             "currency": "CAD",
             "customer_defined_code": "6170",
-            "description": "Voluptatibus valde spoliatio.",
-            "id": "dfdde34e-7f2d-4418-9369-013a01fe96e4",
+            "description": "Comedo vilitas harum cupiditate animus quo iste.",
+            "id": "163a68aa-dffa-47cd-8735-bba178c623d5",
             "is_payable": False,
             "metadata": [],
-            "name": "Auto Loan Account",
+            "name": "Savings Account",
             "status": shared.Status.ARCHIVED,
             "taxonomy": [
                 {
-                    "original_type": "vilitas",
+                    "original_type": "peccatus",
                     "type": shared.AccountingAccountTaxonomyType.SUBGROUP,
-                    "value": "comedo",
+                    "value": "vesper",
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-14T12:40:17.883Z"),
+            "updated_at": parse_datetime("2023-08-16T00:59:24.548Z"),
         },
         "connection_id": "<id>",
     },
@@ -3337,21 +3511,21 @@ with UnifiedTo(
             "created_at": parse_datetime("2022-07-03T17:57:07.391Z"),
             "currency": "CAD",
             "customer_defined_code": "6170",
-            "description": "Voluptatibus valde spoliatio.",
-            "id": "dfdde34e-7f2d-4418-9369-013a01fe96e4",
+            "description": "Comedo vilitas harum cupiditate animus quo iste.",
+            "id": "163a68aa-dffa-47cd-8735-bba178c623d5",
             "is_payable": False,
             "metadata": [],
-            "name": "Auto Loan Account",
+            "name": "Savings Account",
             "status": shared.Status.ARCHIVED,
             "taxonomy": [
                 {
-                    "original_type": "vilitas",
+                    "original_type": "peccatus",
                     "type": shared.AccountingAccountTaxonomyType.SUBGROUP,
-                    "value": "comedo",
+                    "value": "vesper",
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-14T12:40:17.883Z"),
+            "updated_at": parse_datetime("2023-08-16T00:59:24.548Z"),
         },
         "connection_id": "<id>",
     })
@@ -3398,21 +3572,21 @@ with UnifiedTo(
                 "created_at": parse_datetime("2022-07-03T17:57:07.391Z"),
                 "currency": "CAD",
                 "customer_defined_code": "6170",
-                "description": "Voluptatibus valde spoliatio.",
-                "id": "dfdde34e-7f2d-4418-9369-013a01fe96e4",
+                "description": "Comedo vilitas harum cupiditate animus quo iste.",
+                "id": "163a68aa-dffa-47cd-8735-bba178c623d5",
                 "is_payable": False,
                 "metadata": [],
-                "name": "Auto Loan Account",
+                "name": "Savings Account",
                 "status": shared.Status.ARCHIVED,
                 "taxonomy": [
                     {
-                        "original_type": "vilitas",
+                        "original_type": "peccatus",
                         "type": shared.AccountingAccountTaxonomyType.SUBGROUP,
-                        "value": "comedo",
+                        "value": "vesper",
                     },
                 ],
                 "type": shared.Type.ACCOUNTS_RECEIVABLE,
-                "updated_at": parse_datetime("2023-08-14T12:40:17.883Z"),
+                "updated_at": parse_datetime("2023-08-16T00:59:24.548Z"),
             },
             "connection_id": "<id>",
         })
@@ -3489,21 +3663,21 @@ with UnifiedTo(
             "created_at": parse_datetime("2022-07-03T17:57:07.391Z"),
             "currency": "CAD",
             "customer_defined_code": "6170",
-            "description": "Voluptatibus valde spoliatio.",
-            "id": "dfdde34e-7f2d-4418-9369-013a01fe96e4",
+            "description": "Comedo vilitas harum cupiditate animus quo iste.",
+            "id": "163a68aa-dffa-47cd-8735-bba178c623d5",
             "is_payable": False,
             "metadata": [],
-            "name": "Auto Loan Account",
+            "name": "Savings Account",
             "status": shared.Status.ARCHIVED,
             "taxonomy": [
                 {
-                    "original_type": "vilitas",
+                    "original_type": "peccatus",
                     "type": shared.AccountingAccountTaxonomyType.SUBGROUP,
-                    "value": "comedo",
+                    "value": "vesper",
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-14T12:40:17.883Z"),
+            "updated_at": parse_datetime("2023-08-16T00:59:24.548Z"),
         },
         "connection_id": "<id>",
     })
@@ -3537,21 +3711,21 @@ with UnifiedTo(
             "created_at": parse_datetime("2022-07-03T17:57:07.391Z"),
             "currency": "CAD",
             "customer_defined_code": "6170",
-            "description": "Voluptatibus valde spoliatio.",
-            "id": "dfdde34e-7f2d-4418-9369-013a01fe96e4",
+            "description": "Comedo vilitas harum cupiditate animus quo iste.",
+            "id": "163a68aa-dffa-47cd-8735-bba178c623d5",
             "is_payable": False,
             "metadata": [],
-            "name": "Auto Loan Account",
+            "name": "Savings Account",
             "status": shared.Status.ARCHIVED,
             "taxonomy": [
                 {
-                    "original_type": "vilitas",
+                    "original_type": "peccatus",
                     "type": shared.AccountingAccountTaxonomyType.SUBGROUP,
-                    "value": "comedo",
+                    "value": "vesper",
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-14T12:40:17.883Z"),
+            "updated_at": parse_datetime("2023-08-16T00:59:24.548Z"),
         },
         "connection_id": "<id>",
     })
@@ -3693,21 +3867,21 @@ with UnifiedTo(
             "created_at": parse_datetime("2022-07-03T17:57:07.391Z"),
             "currency": "CAD",
             "customer_defined_code": "6170",
-            "description": "Voluptatibus valde spoliatio.",
-            "id": "dfdde34e-7f2d-4418-9369-013a01fe96e4",
+            "description": "Comedo vilitas harum cupiditate animus quo iste.",
+            "id": "163a68aa-dffa-47cd-8735-bba178c623d5",
             "is_payable": False,
             "metadata": [],
-            "name": "Auto Loan Account",
+            "name": "Savings Account",
             "status": shared.Status.ARCHIVED,
             "taxonomy": [
                 {
-                    "original_type": "vilitas",
+                    "original_type": "peccatus",
                     "type": shared.AccountingAccountTaxonomyType.SUBGROUP,
-                    "value": "comedo",
+                    "value": "vesper",
                 },
             ],
             "type": shared.Type.ACCOUNTS_RECEIVABLE,
-            "updated_at": parse_datetime("2023-08-14T12:40:17.883Z"),
+            "updated_at": parse_datetime("2023-08-16T00:59:24.548Z"),
         },
         "connection_id": "<id>",
     })

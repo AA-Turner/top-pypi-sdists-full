@@ -45,6 +45,10 @@ from .user_notification_intent import (
     NotificationIntentMetadata,
     ChatAssignedMetadata,
     IncomingMessageMetadata,
+    ChatEscalatedMetadata,
+    AsistenteRespuestaListaMetadata,
     build_chat_assigned_metadata,
     build_incoming_message_metadata,
+    build_chat_escalated_metadata,
+    build_asistente_respuesta_lista_metadata,
 )

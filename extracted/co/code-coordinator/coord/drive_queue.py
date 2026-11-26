@@ -119,9 +119,12 @@ from coord.merge_queue import (
 )
 from coord.milestone_order import TRACKING_ISSUE_LABEL, WorkOrderNode
 from coord.models import (
+    Board,
     CLOSES_ISSUE_TYPES,
     EPIC_DECOMPOSE_TYPE,
     DEFAULT_ISSUE_RESOLUTION,
+    SEALED_PATH_AUTHOR_TYPES,
+    WORK_LIKE_TYPES,
     is_merge_landed_reason,
     is_needs_decomposition_reason,
     is_policy_refusal_reason,
@@ -367,7 +370,13 @@ PARK_STALE_SECONDS = 45 * 60.0
 # spend while the real remedy is already in flight. See
 # `coord.merge_queue.process`'s `issue_resolution_closing_keyword_in_commit`
 # handling for where the marker's text originates.
-_PERMANENT_BLOCK_MARKERS: tuple[str, ...] = ("(#1844)", "(#2019)", "(#2972)", "(#3522)")
+#: #4133's own entry: `may_dispatch_rework`'s non-convergence latch —
+#: embedded verbatim in the reason it returns (see
+#: `NON_CONVERGENCE_LATCH_MARKER`) so this sweep never auto-resumes it,
+#: exactly like its three siblings above.
+_PERMANENT_BLOCK_MARKERS: tuple[str, ...] = (
+    "(#1844)", "(#2019)", "(#2972)", "(#3522)", "(#4133)",
+)
 
 
 def is_fix_round_ceiling_reason(reason: str | None) -> bool:
@@ -502,6 +511,344 @@ def fix_round_ceiling_blocked_for_issue(repo_name: str, issue_number: int) -> bo
         return False
     entry = QueueEntry.from_row(row)
     return is_fix_round_ceiling_blocked(entry.state, entry.last_reason)
+
+
+#: #4133: the wall-clock-free ceiling on work legs dispatched since a
+#: drive-queue row's own baseline (:attr:`QueueEntry.legs_at_enqueue`) that
+#: :func:`may_dispatch_rework`'s own latch trips on. Fixed fleet-wide,
+#: deliberately NOT ``pipeline.convergence_rounds`` — several repos tune
+#: that much lower as a "flag this for a human" NOTIFICATION threshold
+#: (:func:`coord.notify.attention_signal`); this one's consequence is a
+#: dispatch REFUSAL, so it needs its own, higher, un-configurable bar.
+NON_CONVERGENCE_LATCH_THRESHOLD = 6
+
+#: #4133: embedded verbatim in the latch's refusal reason so
+#: :func:`is_permanent_block_reason` — already consulted by this module's
+#: own ``blocked``-reconciliation sweep — recognises it as a human-only
+#: clear, the same convention every other :data:`_PERMANENT_BLOCK_MARKERS`
+#: entry already uses.
+NON_CONVERGENCE_LATCH_MARKER = "(#4133)"
+
+
+def _issue_reopened_live(repo_github: str, issue_number: int) -> bool:
+    """Best-effort live read of GitHub's own "a human explicitly reopened
+    this issue" witness (``stateReason == "reopened"`` — the same field
+    :func:`coord.github_ops.get_open_issues` requests for
+    :attr:`IssueFacts.reopened`, #3384). A single-issue ``gh issue view``
+    rather than a second open-issues-list round trip, since only one issue
+    number is ever in question here.
+
+    Fails closed to ``False`` (not reopened) on any lookup trouble — the
+    caller already has a positive refusal reason in hand at the point this
+    is consulted, and a transient GitHub error must not silently waive it.
+    """
+    from coord import github_ops  # noqa: PLC0415
+
+    try:
+        info = github_ops._gh_json(  # noqa: SLF001 — same cross-module private read `coord.claim` already does via `github_ops._gh`
+            "issue", "view", str(issue_number), "--repo", repo_github,
+            "--json", "stateReason", default={},
+            caller="drive_queue.may_dispatch_rework",
+        )
+    except Exception:  # noqa: BLE001 — fail closed: never waive a refusal on a transient GH error
+        return False
+    return isinstance(info, dict) and info.get("stateReason") == "reopened"
+
+
+def may_dispatch_rework(
+    repo_name: str, issue_number: int, kind: str, *, board: Board | None = None,
+) -> tuple[bool, str]:
+    """#4133: the guard every REWORK dispatcher — a fix leg, a
+    conflict-fix, a CI-fix, or a fresh review — must consult before firing
+    against a live ``(repo, issue)``, so a dispatch can never again land on
+    state that is already settled. Does NOT also fold in
+    :func:`fix_round_ceiling_blocked_for_issue` — a caller still needs both
+    (#2096/#2085: "one question, one answer" means this function owns
+    exactly the questions documented below, not every reason a rework
+    dispatch could be refused).
+
+    *board* lets a caller that already holds one (most of the seven
+    dispatch sites this guards do) pass it in rather than pay a second
+    :func:`coord.state.build_board` round trip — which also runs
+    :func:`coord.state._thin_client_local_board_guard` and can RAISE under
+    ``COORD_STRICT_LOCAL_BOARD=1``, so a caller already past that gate once
+    should not risk tripping it again here. ``None`` (the default) builds
+    one locally, unchanged from every call site that has no board of its
+    own on hand yet.
+
+    quadraui#2825 (2026-11-24..25) is the incident this closes: a PR merged
+    at 19:23Z (6a68f370); the board-doctor sweep re-classified the row
+    ``integration-red`` every hour regardless and dispatched a fix leg
+    about 22 times over the following day (fix-4..fix-24), every one of
+    them reporting refused_premise/already-merged, while
+    ``needs_attention`` climbed from 4 to 24 with nothing ever stopping it.
+    No single check in the fleet answered "should ANYTHING dispatch here
+    at all" — every dispatcher asked its own narrower question (is CI red,
+    is the fix-round ceiling blocked, ...) and answered correctly for ITS
+    question while the PR sat merged underneath every one of them.
+
+    *kind* is the caller's own name for what it is about to dispatch
+    (``"fix"``, ``"conflict_fix"``, ``"ci_fix"``, ``"review"``, ...) —
+    carried into the refusal reason purely for an operator reading
+    ``last_reason``/logs, never branched on: every refusal below means
+    "there is nothing left to rework", not "this particular kind of
+    dispatch is wrong", so it applies identically whatever *kind* names.
+
+    Refuses — returns ``(False, reason)`` — on these LIVE facts, checked in
+    this order (cheapest/most authoritative first):
+
+    1. The drive-queue row for this ``(repo, issue)`` already reads
+       :data:`STATE_DONE` — the #2825 case hit exactly this: a
+       ``done (merged)`` row that nothing had checked before dispatching
+       anyway.
+    2. The issue is closed, or the PR for a candidate branch is merged or
+       closed (:func:`coord.github_ops.work_is_terminal`). The candidate
+       branch comes from the most recently dispatched work-like
+       assignment ON THE LIVE BOARD when one exists, but — #4133 review —
+       ``build_board()`` reads the ``assignments`` table alone, never
+       ``assignments_archive`` (which ``coord housekeeping`` MOVES terminal
+       legs into), so a board row surviving for this issue is not
+       guaranteed even for work genuinely still in flight. When no board
+       row names a branch, candidates come instead from
+       :func:`coord.claim.list_matching_remote_branches` — the same
+       ``issue-{N}-*`` live lookup ``coord.claim`` itself uses to detect a
+       claim with no board row to show for it — so this check is reachable
+       even for an issue whose every leg has aged out of the live board,
+       or that was never dispatched through a board row this host has
+       ever synced.
+    3. That branch's head is an ancestor of its base (``ahead_by == 0`` on
+       the live compare API) — the direct-push-merge / squash-merge-missed
+       shape ``work_is_terminal`` alone cannot see. Only checked for a
+       candidate branch resolved off a LIVE board row, and only once that
+       branch already has REAL prior history (at least one *terminal*
+       work-like assignment recorded on it): bare ancestry alone is
+       indistinguishable from a freshly-cut, never-advanced branch
+       (the ``coord.claim`` false-positive-forever shape this module's own
+       #3376/quadraui#2539 precedent warns about), so this can never fire
+       against a branch that simply hasn't started yet. A branch resolved
+       only from the live ``issue-{N}-*`` lookup (no board row) never has
+       that per-branch terminal-history evidence available, so this check
+       does not run for it — #2's merged/closed read above still covers
+       that branch.
+    4. The most recent work-like assignment already reported
+       refused_premise/already-done
+       (:func:`coord.worker_events.classify_zero_commit_outcome`) and is
+       STILL the latest state for this issue — i.e. nothing has dispatched
+       since, so the branch's content is provably identical to what that
+       refusal already judged. A later dispatch — even one that itself
+       refuses again — moves "latest" forward and clears this on its own;
+       no stored SHA pair is needed to tell the two apart. Waived — #4133
+       review — when GitHub's own ``stateReason`` says a human has since
+       reopened the issue (:func:`_issue_reopened_live`): reopening a
+       "the underlying work was already done" verdict IS the human
+       statement that the verdict no longer holds, and it is the only
+       lever left once every rework dispatch for the issue refuses.
+
+    Also latches — refuses with :data:`NON_CONVERGENCE_LATCH_MARKER`
+    embedded in the reason — once this issue's drive-queue row has seen
+    :data:`NON_CONVERGENCE_LATCH_THRESHOLD` or more work-like legs dispatch
+    since that row was last (re-)declared (:attr:`QueueEntry.
+    legs_at_enqueue` against :func:`coord.state.leg_counts`'s all-time,
+    archive-spanning count — the identical baseline
+    :func:`remaining_fix_rounds` already measures a row's OWN fix-round
+    spend against, reused here rather than re-derived). Unlike
+    :func:`coord.notify.attention_signal`'s own ``"non_convergence"``
+    reading — a one-shot NOTIFICATION, re-armed per ``assignment_id`` — this
+    is a standing REFUSAL: the marker makes :func:`is_permanent_block_reason`
+    recognise it, so this module's own ``blocked``-reconciliation sweep
+    never auto-clears it.
+
+    #4133 review: this is keyed to the drive-queue ROW's own baseline, not
+    to a per-branch ``review_iteration`` scan off board history, for two
+    reasons the review found the old shape failed on. First, "only an
+    operator's ``remove && add`` lifts this" has to actually be true:
+    ``drive_queue_remove`` deletes the row outright and ``add`` inserts a
+    fresh one with ``legs_at_enqueue`` restamped at that moment (same as
+    every OTHER ``_PERMANENT_BLOCK_MARKERS`` entry's documented clear
+    path), whereas a per-branch ``review_iteration`` figure lives entirely
+    on ``assignments`` rows the remove/add cycle never touches — the
+    remedy the old reason named could not actually lift the old latch.
+    Second, "on-merge reset" has to survive a REUSED branch name: work
+    branches are deterministic (``coord.agent``'s
+    ``existing_branch or f"issue-{N}-{slug}"``), so a post-merge rework
+    dispatch for the same issue+title lands on the exact same branch and
+    would inherit an exhausted per-branch ladder forever. A row's own
+    ``legs_at_enqueue`` baseline is restamped by ANY ``enqueue_drive_queue``
+    call — insert or update-in-place — so simply re-adding the row (the
+    documented remedy, and also what a reopened-issue rework dispatch does
+    before this predicate would ever see it) gives a fresh budget
+    regardless of which branch the new work lands on. Only checked when a
+    drive-queue row exists: with no row, there is also no row for
+    :func:`is_permanent_block_reason`'s sweep to immunize and nothing a
+    ``remove && add`` could clear, so there is nothing for this latch to
+    attach to — see ``fix_round_ceiling_blocked_for_issue``'s identical
+    "no row — nothing to block on" precedent.
+
+    Returns ``(True, reason)`` — never raises — for "nothing to refuse"
+    (including "never dispatched", "no drive-queue row", and any
+    config/GitHub/state lookup failure: every live check below is
+    best-effort and fails OPEN, the same polarity as
+    :func:`coord.github_ops.work_is_terminal`, because the cost of a false
+    REFUSAL here is an issue stuck forever, not a wasted dispatch).
+    """
+    from coord.claim import list_matching_remote_branches  # noqa: PLC0415
+    from coord.dao import TERMINAL_STATUSES  # noqa: PLC0415
+    from coord.state import (  # noqa: PLC0415
+        build_board as _build_board,
+        get_drive_queue_entry,
+        leg_counts as _leg_counts,
+    )
+
+    key = entry_key(repo_name, issue_number)
+
+    row = get_drive_queue_entry(repo_name, issue_number)
+    entry: QueueEntry | None = None
+    if row is not None:
+        entry = QueueEntry.from_row(row)
+        if entry.state == STATE_DONE:
+            return False, (
+                f"{repo_name}#{issue_number}: drive-queue row is already "
+                f"'{STATE_DONE}' — refusing {kind} dispatch"
+            )
+
+    if board is None:
+        board = _build_board()
+    work_rows = [
+        a
+        for a in (*board.active, *board.completed)
+        if a.repo_name == repo_name
+        and a.issue_number == issue_number
+        and a.type in WORK_LIKE_TYPES
+    ]
+    latest = max(work_rows, key=lambda a: a.dispatched_at or 0.0) if work_rows else None
+    branch = (latest.branch or "").strip() if latest is not None else ""
+    branch_has_board_history = bool(branch)
+
+    from coord import github_ops  # noqa: PLC0415
+    from coord.config import load as _load_config  # noqa: PLC0415
+
+    try:
+        config = _load_config()
+    except Exception:  # noqa: BLE001 — fail open, never block on a config error
+        config = None
+    repo_cfg = config.repo(repo_name) if config is not None else None
+    repo_github = repo_cfg.github if repo_cfg is not None else None
+
+    if repo_github:
+        # #2639: a sealed-path-author row's `issue_number` is the
+        # milestone's TRACKING issue, never its own deliverable — trusting
+        # `issue_is_closed` for one of those would read every such row
+        # terminal the moment the epic closes, regardless of whether THIS
+        # row's own branch ever landed.
+        trust_issue_closed = not (
+            latest is not None and latest.type in SEALED_PATH_AUTHOR_TYPES
+        )
+
+        candidate_branches = (
+            [branch]
+            if branch
+            else list_matching_remote_branches(repo_github, issue_number)
+        )
+
+        if not candidate_branches:
+            # No branch on the board AND nothing live matching
+            # `issue-{N}-*` — still worth asking whether the ISSUE itself
+            # is closed, the one half of `work_is_terminal` that needs no
+            # branch at all.
+            if github_ops.work_is_terminal(
+                repo_github, issue_number, None,
+                trust_issue_closed=trust_issue_closed,
+            ):
+                return False, (
+                    f"{repo_name}#{issue_number}: issue is already closed "
+                    f"— refusing {kind} dispatch"
+                )
+        for candidate in candidate_branches:
+            if github_ops.work_is_terminal(
+                repo_github, issue_number, candidate,
+                trust_issue_closed=trust_issue_closed,
+            ):
+                return False, (
+                    f"{repo_name}#{issue_number}: PR for branch "
+                    f"{candidate!r} is already merged or closed — refusing "
+                    f"{kind} dispatch"
+                )
+
+        # #3376/quadraui#2539: bare ancestry alone cannot tell "this
+        # branch's own commits already landed" apart from "this branch was
+        # cut from the base's tip and never advanced" — require at least
+        # one TERMINAL work-like row already recorded on this exact branch
+        # before trusting `ahead_by == 0` as evidence of the former. That
+        # evidence only exists for a branch the board itself named.
+        if branch_has_board_history:
+            same_branch_terminal = any(
+                a.branch == branch and a.status in TERMINAL_STATUSES
+                for a in work_rows
+            )
+            if same_branch_terminal:
+                from coord.branch_model import (  # noqa: PLC0415
+                    resolve_base_branch_for_issue_number,
+                )
+
+                base = resolve_base_branch_for_issue_number(
+                    repo_cfg, repo_github, issue_number,
+                )
+                if base:
+                    ahead = github_ops.branch_commits_ahead(
+                        repo_github, base, branch,
+                    )
+                    if ahead == 0:
+                        return False, (
+                            f"{repo_name}#{issue_number}: branch {branch!r}'s "
+                            f"head is an ancestor of {base!r} — nothing left "
+                            f"to {kind}"
+                        )
+
+    if (
+        latest is not None
+        and latest.status == "refused_premise"
+        and latest.type in CLOSES_ISSUE_TYPES
+        and latest.completion_summary
+        and classify_zero_commit_outcome(latest.completion_summary)
+        == "already_done"
+    ):
+        reopened = bool(repo_github) and _issue_reopened_live(
+            repo_github, issue_number
+        )
+        if not reopened:
+            return False, (
+                f"{repo_name}#{issue_number}: the latest attempt already "
+                "reported already-done for this exact state — refusing "
+                f"{kind} dispatch until something changes"
+            )
+
+    if entry is not None:
+        try:
+            counts_for_key = _leg_counts().get(key, {})
+        except Exception:  # noqa: BLE001 — fail open, never block on a state-service error
+            counts_for_key = {}
+        work_leg_count = sum(
+            count for leg_type, count in counts_for_key.items()
+            if leg_type in WORK_LIKE_TYPES
+        )
+        legs_since_enqueue = max(work_leg_count - entry.legs_at_enqueue, 0)
+        if legs_since_enqueue >= NON_CONVERGENCE_LATCH_THRESHOLD:
+            return False, (
+                f"{repo_name}#{issue_number}: {legs_since_enqueue} work "
+                "leg(s) dispatched since this drive-queue row was last "
+                f"declared without converging (>= "
+                f"{NON_CONVERGENCE_LATCH_THRESHOLD}) "
+                f"{NON_CONVERGENCE_LATCH_MARKER} — latched; only an operator "
+                "clearing the drive-queue row (remove && add) lifts this"
+            )
+
+    if not work_rows:
+        return True, (
+            f"{repo_name}#{issue_number}: no work-like assignment on record "
+            f"— nothing for {kind} to rework"
+        )
+
+    return True, f"{repo_name}#{issue_number}: no refusal condition matched"
 
 
 #: #4036: the three verdicts :func:`conflict_fix_push_ci_verdict` can reach

@@ -354,7 +354,8 @@ async def ask_the_person(
     )
 
     recorder = recorder_of(session)
-    token, why = token_for(recorder.deployment_uid if recorder is not None else "")
+    deployment = (recorder.deployment_uid if recorder is not None else "").strip()
+    token, why = token_for(deployment)
     if not token:
         return {"asked": False, "why": f"Not put among your approvals: {why}"}
     now = _dt.datetime.now(_dt.timezone.utc).isoformat()
@@ -375,7 +376,11 @@ async def ask_the_person(
         created_at=now,
         updated_at=now,
     )
-    remote = await forward_approval_to_ai_agents(record, token)
+    # A deployment's token is its principal's (`token_for`): asked as its principal,
+    # so to the address that token is put in for (`principal_address`).
+    remote = await forward_approval_to_ai_agents(
+        record, token, deployment_uid=deployment
+    )
     if not remote:
         return {
             "asked": False,
@@ -398,7 +403,7 @@ async def tell_high_severity(recommendation: Mapping[str, Any], session: str) ->
             "notified": False,
             "why": "No application records this session: nobody to tell.",
         }
-    app = recorder.app.name.strip() or "Datalayer Steward for AWS"
+    app = recorder.app.name.strip() or "Cloud Steward"
     saving = _money((recommendation.get("estimate") or {}).get("monthly_saving_usd"))
     outcomes = await AppNotifier(
         app=recorder.app,
@@ -730,6 +735,10 @@ async def _deployment_recommendations(
         raise LookupError(
             "The week's recommendations are not read: no ai-agents to read them from."
         )
+    from agent_runtimes.apps.principal import principal_address
+
+    # Read as the deployment's principal: where its token is put in, on a runtime that does not hold it.
+    url = principal_address(deployment_uid, url)
     async with httpx.AsyncClient(timeout=30.0) as client:
         answered = await client.get(
             f"{url.rstrip('/')}/api/ai-agents/v1/apps/deployments/{deployment_uid}/recommendations",
@@ -1113,7 +1122,7 @@ async def recommendations_report(days: int = 7, send: bool = True) -> Any:
     if send:
         answer.update(await _write_report(recorder, listed, period))
         link = (answer.get("document") or {}).get("link")
-        app = recorder.app.name.strip() or "Datalayer Steward for AWS"
+        app = recorder.app.name.strip() or "Cloud Steward"
         answer["sent"] = await AppNotifier(
             app=recorder.app,
             recorder=recorder,

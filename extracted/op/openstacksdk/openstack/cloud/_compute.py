@@ -116,8 +116,8 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         as much as the specified amount. If `include` is given, further
         filter based on matching flavor name.
 
-        :param int ram: Minimum amount of RAM.
-        :param string include: If given, will return a flavor whose name
+        :param ram: Minimum amount of RAM.
+        :param include: If given, will return a flavor whose name
             contains this string as a substring.
         :param get_extra: Whether to fetch extra specs.
 
@@ -257,7 +257,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     ) -> list[str]:
         """List names of availability zones.
 
-        :param bool unavailable: Whether or not to include unavailable zones
+        :param unavailable: Whether or not to include unavailable zones
             in the output. Defaults to False.
         :returns: A list of availability zone names, or an empty list if the
             list could not be fetched.
@@ -581,7 +581,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
 
         :param server: The server to fetch the console log for. Can be either
             a server dict or the Name or ID of the server.
-        :param int length: The number of lines you would like to retrieve from
+        :param length: The number of lines you would like to retrieve from
             the end of the log. (optional, defaults to all)
 
         :returns: A string containing the text of the console log or an
@@ -806,7 +806,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         name: str,
         server: str | _server.Server | dict[str, Any],
         wait: bool = False,
-        timeout: int | float = 3600,
+        timeout: float = 3600,
         **metadata: Any,
     ) -> _image.Image:
         """Create an image by snapshotting an existing server.
@@ -923,7 +923,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         root_volume: str | dict[str, Any] | None = None,
         terminate_volume: bool = False,
         wait: bool = False,
-        timeout: int | float = 180,
+        timeout: float = 180,
         reuse_ips: bool = True,
         network: (
             str | dict[str, Any] | list[str | dict[str, Any]] | None
@@ -1363,7 +1363,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         ips: list[str] | None = None,
         ip_pool: str | None = None,
         reuse: bool = True,
-        timeout: int | float = 180,
+        timeout: float = 180,
         nat_destination: str | None = None,
     ) -> _server.Server:
         """
@@ -1422,7 +1422,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         ip_pool: str | None = None,
         reuse: bool = True,
         wait: bool = False,
-        timeout: int | float = 180,
+        timeout: float = 180,
         nat_destination: str | None = None,
     ) -> _server.Server | None:
         if server['status'] == 'ERROR':
@@ -1487,7 +1487,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         detailed: bool = False,
         bare: bool = False,
         wait: bool = False,
-        timeout: int | float = 180,
+        timeout: float = 180,
     ) -> _server.Server | None:
         """Rebuild a server.
 
@@ -1522,8 +1522,8 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     ) -> None:
         """Set metadata in a server instance.
 
-        :param str name_or_id: The name or ID of the server instance to update.
-        :param dict metadata: A dictionary with the key=value pairs
+        :param name_or_id: The name or ID of the server instance to update.
+        :param metadata: A dictionary with the key=value pairs
             to set in the server instance. It only updates the key=value pairs
             provided. Existing ones will remain untouched.
 
@@ -1542,7 +1542,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     ) -> None:
         """Delete metadata from a server instance.
 
-        :param str name_or_id: The name or ID of the server instance
+        :param name_or_id: The name or ID of the server instance
             to update.
         :param metadata_keys: A list with the keys to be deleted
             from the server instance.
@@ -1563,18 +1563,18 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         self,
         name_or_id: str,
         wait: bool = False,
-        timeout: int | float = 180,
+        timeout: float = 180,
         delete_ips: bool = False,
         delete_ip_retry: int = 1,
     ) -> bool:
         """Delete a server instance.
 
         :param name_or_id: name or ID of the server to delete
-        :param bool wait: If true, waits for server to be deleted.
-        :param int timeout: Seconds to wait for server deletion.
-        :param bool delete_ips: If true, deletes any floating IPs
+        :param wait: If true, waits for server to be deleted.
+        :param timeout: Seconds to wait for server deletion.
+        :param delete_ips: If true, deletes any floating IPs
             associated with the instance.
-        :param int delete_ip_retry: Number of times to retry deleting
+        :param delete_ip_retry: Number of times to retry deleting
             any floating ips, should the first try be unsuccessful.
 
         :returns: True if delete succeeded, False otherwise if the
@@ -1635,7 +1635,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         self,
         server: _server.Server | dict[str, Any] | None,
         wait: bool = False,
-        timeout: int | float = 180,
+        timeout: float = 180,
         delete_ips: bool = False,
         delete_ip_retry: int = 1,
     ) -> bool:
@@ -1808,8 +1808,8 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     ) -> None:
         """Add extra specs to a flavor
 
-        :param string flavor_id: ID of the flavor to update.
-        :param dict extra_specs: Dictionary of key-value pairs.
+        :param flavor_id: ID of the flavor to update.
+        :param extra_specs: Dictionary of key-value pairs.
 
         :returns: None
         :raises: :class:`~openstack.exceptions.SDKException` on operation
@@ -1822,7 +1822,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     def unset_flavor_specs(self, flavor_id: str, keys: list[str]) -> None:
         """Delete extra specs from a flavor
 
-        :param string flavor_id: ID of the flavor to update.
+        :param flavor_id: ID of the flavor to update.
         :param keys: List of spec keys to delete.
 
         :returns: None
@@ -1837,8 +1837,8 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     def add_flavor_access(self, flavor_id: str, project_id: str) -> None:
         """Grant access to a private flavor for a project/tenant.
 
-        :param string flavor_id: ID of the private flavor.
-        :param string project_id: ID of the project/tenant.
+        :param flavor_id: ID of the private flavor.
+        :param project_id: ID of the project/tenant.
 
         :returns: None
         :raises: :class:`~openstack.exceptions.SDKException` on operation
@@ -1849,8 +1849,8 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     def remove_flavor_access(self, flavor_id: str, project_id: str) -> None:
         """Revoke access from a private flavor for a project/tenant.
 
-        :param string flavor_id: ID of the private flavor.
-        :param string project_id: ID of the project/tenant.
+        :param flavor_id: ID of the private flavor.
+        :param project_id: ID of the project/tenant.
 
         :returns: None
         :raises: :class:`~openstack.exceptions.SDKException` on operation
@@ -1861,7 +1861,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
     def list_flavor_access(self, flavor_id: str) -> list[dict[str, Any]]:
         """List access from a private flavor for a project/tenant.
 
-        :param string flavor_id: ID of the private flavor.
+        :param flavor_id: ID of the private flavor.
 
         :returns: List of dicts with flavor_id and tenant_id attributes.
         :raises: :class:`~openstack.exceptions.SDKException` on operation
@@ -1891,7 +1891,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         """Seach host aggregates.
 
         :param name: Aggregate name or id.
-        :param dict filters: A dictionary of meta data to use for further
+        :param filters: A dictionary of meta data to use for further
             filtering. Elements of this dictionary may, themselves, be
             dictionaries. Example::
 
@@ -1928,7 +1928,7 @@ class ComputeCloudMixin(_network_common.NetworkCommonCloudMixin):
         """Get an aggregate by name or ID.
 
         :param name_or_id: Name or ID of the aggregate.
-        :param dict filters: **DEPRECATED** A dictionary of meta data to use
+        :param filters: **DEPRECATED** A dictionary of meta data to use
             for further filtering. Elements of this dictionary may, themselves,
             be dictionaries. Example::
 

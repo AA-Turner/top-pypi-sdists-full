@@ -32,7 +32,7 @@ dependencies = [
     "python-multipart>=0.0.31",
     "filelock",
     "psutil",
-    "gpuhunt==0.1.35",
+    "gpuhunt==0.1.36",
     "argcomplete>=3.5.0",
     "ignore-python>=0.2.0",
     "apscheduler<4",
@@ -220,9 +220,17 @@ gateway = [
     "aiorwlock",
     "aiocache",
     "httpx>=0.28.0",
-    # Gateway authorization needs the pool cancellation and recovery fixes in httpx2 (#4338).
+    # Gateway authorization and requests to services need the pool cancellation and recovery
+    # fixes in httpx2 (#4338).
     "httpx2>=2.13.1",
     "jinja2",
+    # Always installed so that OpenTelemetry can be enabled without reinstalling the gateway.
+    "opentelemetry-sdk>=1.39.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.39.0",
+    "opentelemetry-instrumentation-fastapi>=0.51b0",
+    "opentelemetry-instrumentation-httpx>=0.65b0",
+    "opentelemetry-instrumentation-system-metrics>=0.51b0",
+    "opentelemetry-instrumentation-logging>=0.61b0",
 ]
 server = [
     "fastapi",
@@ -231,6 +239,8 @@ server = [
     "aiorwlock",
     "aiocache",
     "httpx>=0.28.0",
+    # Requests to services need the pool cancellation and recovery fixes in httpx2 (#4338).
+    "httpx2>=2.13.1",
     "jinja2",
     "watchfiles",
     "sqlalchemy[asyncio]>=2.0.0",
@@ -239,7 +249,8 @@ server = [
     "aiosqlite",
     "docker>=6.0.0",
     "python-dxf>=12.1.1",
-    "sentry-sdk[fastapi]>=2.27.0",
+    # sentry-sdk 3 removed APIs that the server uses (#4513).
+    "sentry-sdk[fastapi]>=2.27.0,<3",
     "alembic-postgresql-enum",
     "asyncpg",
     "python-json-logger>=3.1.0",
@@ -308,8 +319,8 @@ fluentbit = [
     "dstack[server]",
 ]
 otel = [
-    "opentelemetry-sdk>=1.30.0",
-    "opentelemetry-exporter-otlp-proto-http>=1.30.0",
+    "opentelemetry-sdk>=1.39.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.39.0",
     "opentelemetry-exporter-prometheus>=0.51b0",
     "opentelemetry-instrumentation-fastapi>=0.51b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.51b0",

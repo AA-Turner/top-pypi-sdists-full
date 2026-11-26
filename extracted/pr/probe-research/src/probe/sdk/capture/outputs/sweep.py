@@ -166,6 +166,35 @@ def _skip_reason(name: str) -> str | None:
     return reason
 
 
+#: An archive read only in part (corrupt, or past the byte or time limit): what was
+#: read is checked, like a file's head past 64 MiB, and the file still goes up.
+_PARTIAL = "partial"
+
+
+def _find_output_keys(data: bytes, deadline: float) -> str | bool:
+    """Whether output bytes hold a vendor-shaped key (T51 R2-A): the raw bytes,
+    then a compressed archive's members (the snapshot's archive reader, same
+    byte and time limits). `_PARTIAL` when an archive could not be read to its
+    end and what was read held none: only a found key holds a file back."""
+    if _snapshot.find_vendor_shapes(data):
+        return True
+    kind = _snapshot._get_archive_kind(data[:512])
+    if kind is None:
+        return False
+    import io
+
+    allowed = min(
+        _snapshot._budget_seconds(_snapshot.FILE_SCAN_BUDGET_ENV, _snapshot.FILE_SCAN_BUDGET_SEC),
+        max(0.0, deadline - time.monotonic()),
+    )
+    rules, _, cut_short = _snapshot._archive_rules(io.BytesIO(data), kind, allowed, 0.0, is_vendor_only=True)
+    # A credential-named member (`.env` inside a tarball) holds the archive back, as in the snapshot and as
+    # the same file would be skipped by name on its own; a cut-short or unreadable archive does not.
+    if rules - {_snapshot._UNREADABLE_ARCHIVE}:
+        return True
+    return _PARTIAL if cut_short or _snapshot._UNREADABLE_ARCHIVE in rules else False
+
+
 class OutputSweepMixin:
     """Part of OutputCapture: its methods run with `self` the OutputCapture; compose() folds them into OutputCapture."""
 
@@ -351,6 +380,12 @@ class OutputSweepMixin:
                 if os.path.exists(full):
                     _not_uploaded(rel, full, size, mtime_ns, storage, UNINSPECTABLE)
                 continue
+            found = _find_output_keys(data, deadline)
+            if found is True:
+                # The vendor-shaped rules only (T51 R2-A): a key the job wrote into
+                # its folder is held back and named in the warning below.
+                secret_skips.append(rel)
+                continue
             if _unredacted(result):
                 # Found, and NOT replaced: a container, a checkpoint, bytes
                 # that are not UTF-8. Uploading would ship it byte-for-byte.
@@ -366,6 +401,10 @@ class OutputSweepMixin:
                 summary["unchanged_logged"] += 1
                 continue
             meta = self._meta(full, storage)
+            if found == _PARTIAL:
+                # On this upload row only, no warning: `version_marks` drops unknown keys, so
+                # the artifact version does not carry it (no server change, T51 review).
+                meta["inspection"] = _PARTIAL
             if source_sha256 != digest:
                 # Redacted: the stored hash names bytes no reader opened.
                 meta["source_sha256"] = source_sha256

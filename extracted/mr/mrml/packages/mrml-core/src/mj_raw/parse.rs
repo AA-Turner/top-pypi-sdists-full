@@ -27,7 +27,10 @@ fn parse_raw_node<'a>(
         });
     }
 
-    let children = parse_raw_children(cursor)?;
+    cursor.enter_nested()?;
+    let children = parse_raw_children(cursor);
+    cursor.leave_nested();
+    let children = children?;
     cursor.assert_element_close()?;
 
     Ok(Node {
@@ -55,6 +58,13 @@ fn parse_raw_children(cursor: &mut MrmlCursor<'_>) -> Result<Vec<MjRawChild>, Er
             }
             MrmlToken::Text(inner) => {
                 children.push(MjRawChild::Text(Text::from(inner.text.as_str())));
+            }
+            // Stray void end tag: read `</br>` as `<br>` and drop others, like
+            // browsers.
+            MrmlToken::ElementClose(close) if is_void_element(close.local.as_str()) => {
+                if close.local.as_str() == "br" {
+                    children.push(MjRawChild::Node(Node::from("br")));
+                }
             }
             MrmlToken::ElementClose(close) => {
                 cursor.rewind(MrmlToken::ElementClose(close));

@@ -18,9 +18,9 @@ class DescribeDiagnosisRecordsRequest(DaraModel):
         start_time: str = None,
         user: str = None,
     ):
-        # The instance ID.
+        # The ID of the instance.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to view the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -28,39 +28,34 @@ class DescribeDiagnosisRecordsRequest(DaraModel):
         # 
         # This parameter is required.
         self.database = database
-        # The end of the time range to query. Specify the time in the *yyyy-MM-dd*T*HH:mm*Z format. The time must be in UTC. The end time must be later than the start time.
+        # The end time of the query. The end time must be later than the start time. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         self.end_time = end_time
-        # The keyword of the SQL statement.
+        # The SQL keyword.
         self.keyword = keyword
-        # The order of fields in the console. You do not need to specify this parameter.
+        # This parameter is used to sort fields in the console. You do not need to specify this parameter.
         self.order = order
-        # The page number. Pages start from page 1. Default value: **1**.
+        # The page number. The value must be greater than 0 and cannot exceed the maximum value of the Integer type. Default value: **1**.
         self.page_number = page_number
         # The number of entries per page. Valid values:
-        # 
-        # *   **30**
-        # *   **50**
-        # *   **100**
+        # - **30**
+        # - **50**
+        # - **100**
         # 
         # Default value: **30**.
         self.page_size = page_size
-        # The filter condition on queries. Specify the value in the JSON format. Valid values:
+        # The filter conditions for the query. The value must be in JSON format. Valid values:
         # 
-        # *   `{"Type":"maxCost", "Value":"100"}`: filters the top 100 queries that are the most time-consuming.
-        # 
-        # *   `{"Type":"status","Value":"finished"}`: filters completed queries.
-        # 
-        # *   `{"Type":"status","Value":"running"}`: filters running queries.
-        # 
-        # *   `{"Type":"cost","Min":"30","Max":"50"}`: filters the queries that consume a period of 30 milliseconds to less than 50 milliseconds. You can customize a filter condition by setting **Min** and **Max**.
-        # 
-        #     *   If only **Min** is specified, the queries that consume a period of time that is greater than the Min value are filtered.
-        #     *   If only **Max** is specified, the queries that consume a period of time that is less than the Max value are filtered.
-        #     *   If both **Min** and **Max** are specified, the queries that consume a period of time that is greater than or equal to the **Min** value and less than or equal to the **Max** value are filtered.
+        # - `{"Type":"maxCost", "Value":"100"}`: the 100 queries with the longest execution duration
+        # - `{"Type":"status","Value":"finished"}`: completed queries
+        # - `{"Type":"status","Value":"running"}`: running queries
+        # - `{"Type":"cost","Min":"30","Max":"50"}`: queries with a custom execution duration. You can specify the minimum and maximum execution durations. **Min** specifies the minimum execution duration, and **Max** specifies the maximum execution duration. Unit: milliseconds.
+        #     - If you specify only **Min**, the system returns queries whose execution duration is greater than the specified value.
+        #     - If you specify only **Max**, the system returns queries whose execution duration is less than the specified value.
+        #     - If you specify both **Min** and **Max**, the system returns queries whose execution duration is greater than or equal to the value of **Min** and less than or equal to the value of **Max**.
         self.query_condition = query_condition
-        # The beginning of the time range to query. Specify the time in the ISO 8601 standard in the *yyyy-MM-dd*T*HH:mm*Z format. The time must be in UTC.
+        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         self.start_time = start_time
-        # The name of the database account.
+        # The username.
         self.user = user
 
     def validate(self):

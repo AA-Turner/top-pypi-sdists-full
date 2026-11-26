@@ -12,7 +12,7 @@ import sys
 import tempfile
 import time
 from collections import deque
-from collections.abc import AsyncIterator, Callable, Iterator, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from inspect import signature
 from typing import Any, Literal, Self, cast
 
@@ -49,6 +49,7 @@ from starlette.routing import Route
 
 from langgraph_api import config as lg_config
 from langgraph_api import store as api_store
+from langgraph_api._factory_utils import AccessContext
 from langgraph_api.asyncio import NoSignalServer
 from langgraph_api.auth.custom import DotDict, ProxyUser, connection_method
 from langgraph_api.config import LANGGRAPH_AUTH, LANGGRAPH_AUTH_TYPE
@@ -236,7 +237,15 @@ async def _client_stream(method: str, data: dict[str, Any]):
             sse = decoder.decode(line)
             if sse is not None:
                 if sse.event == "error":
-                    raise RemoteException(sse.data["error"], sse.data["message"])
+                    raise RemoteException(
+                        sse.data["error"],
+                        sse.data["message"],
+                        details={
+                            k: v
+                            for k, v in sse.data.items()
+                            if k not in ("error", "message")
+                        },
+                    )
                 yield sse.data
 
 
@@ -282,11 +291,15 @@ class RemotePregel(BaseRemotePregel):
         graph_id: str,
         *,
         config: Config | None = None,
+        access_context: AccessContext | None = None,
+        factory_context: Any | None = None,
         **kwargs: Any,
     ):
         super().__init__()
         self.graph_id = graph_id
         self.config = config
+        self.access_context = access_context
+        self.factory_context = factory_context
 
     async def astream_events(
         self,
@@ -302,9 +315,11 @@ class RemotePregel(BaseRemotePregel):
         data = {
             "graph_id": self.graph_id,
             "graph_config": self.config,
+            "access_context": self.access_context,
+            "factory_context": self.factory_context,
             "graph_name": self.name,
             "command" if isinstance(input, Command) else "input": input,
-            "config": config,
+            "config": self._with_execution_signal(config),
             **kwargs,
         }
 
@@ -337,9 +352,11 @@ class RemotePregel(BaseRemotePregel):
         data = {
             "graph_id": self.graph_id,
             "graph_config": self.config,
+            "access_context": self.access_context,
+            "factory_context": self.factory_context,
             "graph_name": self.name,
             "command" if isinstance(input, Command) else "input": input,
-            "config": config,
+            "config": self._with_execution_signal(config),
             "stream_protocol": "v3",
             **kwargs,
         }
@@ -351,11 +368,21 @@ class RemotePregel(BaseRemotePregel):
                 yield event
 
     async def fetch_state_schema(self):
+        # A run can fetch its schema through its own graph, so mark this as a read.
+        config = self.config or {}
+        graph_config = {
+            **config,
+            "configurable": {
+                **(config.get("configurable") or {}),
+                "__is_for_execution__": False,
+            },
+        }
         return await _client_invoke(
             "getSchema",
             {
                 "graph_id": self.graph_id,
-                "graph_config": self._inject_auth_to_config(self.config),
+                "graph_config": self._inject_auth_to_config(graph_config),
+                "access_context": "assistants.read",
             },
         )
 
@@ -391,6 +418,7 @@ class RemotePregel(BaseRemotePregel):
             {
                 "graph_id": self.graph_id,
                 "graph_config": self._inject_auth_to_config(self.config),
+                "access_context": self.access_context,
                 "graph_name": self.name,
                 "config": self._inject_auth_to_config(config),
                 "xray": xray,
@@ -432,6 +460,7 @@ class RemotePregel(BaseRemotePregel):
             {
                 "graph_id": self.graph_id,
                 "graph_config": self._inject_auth_to_config(self.config),
+                "access_context": self.access_context,
                 "graph_name": self.name,
                 "namespace": namespace,
                 "recurse": recurse,
@@ -487,6 +516,7 @@ class RemotePregel(BaseRemotePregel):
                 {
                     "graph_id": self.graph_id,
                     "graph_config": self._inject_auth_to_config(self.config),
+                    "access_context": self.access_context,
                     "graph_name": self.name,
                     "config": self._inject_auth_to_config(config),
                     "subgraphs": subgraphs,
@@ -505,6 +535,7 @@ class RemotePregel(BaseRemotePregel):
             {
                 "graph_id": self.graph_id,
                 "graph_config": self._inject_auth_to_config(self.config),
+                "access_context": self.access_context,
                 "graph_name": self.name,
                 "config": self._inject_auth_to_config(config),
                 "values": values,
@@ -526,6 +557,7 @@ class RemotePregel(BaseRemotePregel):
             {
                 "graph_id": self.graph_id,
                 "graph_config": self._inject_auth_to_config(self.config),
+                "access_context": self.access_context,
                 "graph_name": self.name,
                 "config": self._inject_auth_to_config(config),
                 "limit": limit,
@@ -563,6 +595,24 @@ class RemotePregel(BaseRemotePregel):
     def copy(self, update: dict[str, Any] | None = None) -> Self:
         attrs = {**self.__dict__, **(update or {})}
         return self.__class__(**attrs)
+
+    def _with_execution_signal(
+        self, config: RunnableConfig | None
+    ) -> RunnableConfig | None:
+        # The sidecar builds a run's graph from the run config, not graph_config.
+        signal = ((self.config or {}).get("configurable") or {}).get(
+            "__is_for_execution__"
+        )
+        if signal is None:
+            return config
+        config = config or {}
+        return {
+            **config,
+            "configurable": {
+                **(config.get("configurable") or {}),
+                "__is_for_execution__": signal,
+            },
+        }
 
     async def fetch_nodes_executed(self):
         result = await _client_invoke("getNodesExecuted", {"graph_id": self.graph_id})
@@ -810,6 +860,59 @@ async def _put_writes(checkpointer: Any, payload: dict) -> None:
         )
 
 
+async def _wait_for_disconnect(request: Request) -> None:
+    while (await request.receive())["type"] != "http.disconnect":
+        pass
+
+
+async def _await_until_disconnect(
+    request: Request, awaitable: Awaitable[Any]
+) -> tuple[bool, Any]:
+    """Await `awaitable`, cancelling it if the client goes away first.
+
+    Starlette does not cancel a plain request handler when the client
+    disconnects, so a JS fetch that times out would otherwise leave its
+    checkpointer/store call (and the gRPC call under it) running.
+    """
+    task = asyncio.ensure_future(awaitable)
+    watcher = asyncio.create_task(_wait_for_disconnect(request))
+    try:
+        done, _ = await asyncio.wait(
+            {task, watcher}, return_when=asyncio.FIRST_COMPLETED
+        )
+    finally:
+        watcher.cancel()
+        if not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+    if task not in done:
+        return False, None
+    return True, task.result()
+
+
+def wrap_handler(cb: Callable[[dict], Awaitable[Any]]):
+    async def wrapped(request: Request):
+        try:
+            payload = orjson.loads(await request.body())
+            completed, result = await _await_until_disconnect(request, cb(payload))
+            if not completed:
+                await logger.awarning(
+                    "Client disconnected, cancelled remote handler",
+                    path=request.url.path,
+                )
+                return ApiResponse({"error": "client disconnected"}, status_code=499)
+            return ApiResponse(result)
+        except ValueError as exc:
+            await logger.aexception("ValueError calling remote handler", exc_info=exc)
+            return ApiResponse({"error": str(exc)}, status_code=400)
+        except Exception as exc:
+            await logger.aexception("Error calling remote handler", exc_info=exc)
+            return ApiResponse({"error": str(exc)}, status_code=500)
+
+    return wrapped
+
+
 # Setup a HTTP server on top of CHECKPOINTER_SOCKET unix socket
 # used by `client.mts` to communicate with the Python checkpointer
 async def run_remote_checkpointer():
@@ -994,22 +1097,6 @@ async def run_remote_checkpointer():
         )
 
         return [list(ns) for ns in result]
-
-    def wrap_handler(cb):
-        async def wrapped(request: Request):
-            try:
-                payload = orjson.loads(await request.body())
-                return ApiResponse(await cb(payload))
-            except ValueError as exc:
-                await logger.aexception(
-                    "ValueError calling remote handler", exc_info=exc
-                )
-                return ApiResponse({"error": str(exc)}, status_code=400)
-            except Exception as exc:
-                await logger.aexception("Error calling remote handler", exc_info=exc)
-                return ApiResponse({"error": str(exc)}, status_code=500)
-
-        return wrapped
 
     remote = Starlette(
         routes=[

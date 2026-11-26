@@ -17,12 +17,15 @@ avoid the constant import overhead, or for tests that need exact key control).
 
 Public helpers (small payloads)
 --------------------------------
+* ``upload_bytes(key, data)`` — the byte-put primitive: write bytes with the
+  same integrity checks and ``.sha256`` sidecar as ``upload_file``
 * ``put_json(key, obj)`` — serialise to JSON and write (configs, metadata)
 * ``_get_bytes(key)``    — read bytes (sidecars, metadata, JSON configs)
 
 Internal helpers
 ----------------
-* ``_put(key, data)``    — write raw bytes (use ``put_json`` for JSON)
+* ``_put(key, data)``    — the raw PUT under ``put_json`` and the sidecar
+  writes: no readback, no sidecar
 
 Streaming API (large files)
 ----------------------------
@@ -42,10 +45,9 @@ import hashlib
 import logging
 import math
 import os
-import re
 import tempfile
 import time
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Iterator
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, TypedDict, TypeVar
 
@@ -57,11 +59,9 @@ import orjson
 # error path.  Falls back to substring matching for older obstore versions
 # that lack typed exceptions.
 try:  # pragma: no cover — defensive import
-    from obstore.exceptions import BaseError as _ObstoreBaseError
     from obstore.exceptions import NotFoundError as _ObstoreNotFoundError
     from obstore.exceptions import PreconditionError as _ObstorePreconditionError
 except ImportError:  # conformance: ignore[E008,E009] optional dep obstore.exceptions; sentinel fallback for older versions  # pragma: no cover
-    _ObstoreBaseError = None
     _ObstoreNotFoundError = None
     _ObstorePreconditionError = None
 
@@ -73,11 +73,19 @@ if TYPE_CHECKING:
 
     JsonValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 
+from application_sdk import _storage_classify
 from application_sdk._runtime.offload import run_in_thread
 from application_sdk._runtime.progress import current_progress_tracker
 from application_sdk.common._listing import PARTIAL_DIRNAME
 from application_sdk.common.atomic import disk_full_guard, ensure_free_space
-from application_sdk.common.backoff import Backoff, Jitter, retry_async
+
+# Unused here since the gateway retry moved to ``_storage_classify``, but
+# importable from this module in past releases (docs/standards/symbols.md).
+from application_sdk.common.backoff import (  # noqa: F401
+    Backoff,
+    Jitter,
+    retry_async,
+)
 from application_sdk.observability.logger_adaptor import get_logger
 
 # Transfer integrity validation (FND-306). ``integrity`` holds no top-level
@@ -295,19 +303,11 @@ def _is_azure_container_not_found(exc: BaseException) -> bool:
     when a write targets a container that has never been created.  This is
     distinct from a missing *blob* (``BlobNotFound``) and needs a separate,
     actionable error message so operators know to pre-create the container.
-
-    Class-based detection runs first (obstore >=0.9 ``GenericError``); the
-    substring fallback catches older obstore versions and future wording drift
-    is caught by the recorded-error regression tests.
+    The rule is the shared table's
+    (:func:`application_sdk._storage_classify.is_azure_container_missing`), so
+    the API host reads the same failure the same way.
     """
-    if _ObstoreBaseError is not None and isinstance(exc, _ObstoreBaseError):
-        msg = str(exc).lower()
-        return (
-            "containernotfound" in msg
-            or "the specified container does not exist" in msg
-        )
-    msg = str(exc).lower()
-    return "containernotfound" in msg or "the specified container does not exist" in msg
+    return _storage_classify.is_azure_container_missing(exc)
 
 
 def _azure_container_not_found_message(key: str) -> str:
@@ -322,19 +322,12 @@ def _azure_container_not_found_message(key: str) -> str:
 def _is_not_found(exc: BaseException) -> bool:
     """Return True if the exception indicates a missing key.
 
-    Recognises:
-
-    * Built-in :class:`FileNotFoundError` — what current obstore (>=0.9) raises
-      for missing keys after the deprecation of
-      ``obstore.exceptions.NotFoundError``.
-    * :class:`obstore.exceptions.NotFoundError` — still emitted by older
-      obstore versions and present in the type stubs for forward-compat.
-    * Substring fallback (``"not found"``, ``"404"``, …) for generic obstore
-      errors that surface only as ``GenericError`` with the underlying HTTP
-      status in the message.
-
-    Class-based detection runs first so we don't misclassify a generic
-    ``GenericError("HTTP 503: 404 not in title")`` style flake.
+    The shared table's rule
+    (:func:`application_sdk._storage_classify.is_not_found`), which the API
+    host uses too: the built-in :class:`FileNotFoundError` (current obstore),
+    ``obstore.exceptions.NotFoundError`` (older obstore), and a substring
+    fallback for a generic error that carries only the status in its text.
+    Class-based detection runs first.
 
     The gateway's transient ``404 "no Route matched"`` is excluded before the
     substring fallback: the key is not missing, the gateway instance has not
@@ -342,20 +335,7 @@ def _is_not_found(exc: BaseException) -> bool:
     raise the retryable ``StorageGatewayNoRouteError`` instead of reporting
     the key absent.
     """
-    if _is_gateway_no_route(exc):
-        return False
-    if isinstance(exc, FileNotFoundError):
-        return True
-    if _ObstoreNotFoundError is not None and isinstance(exc, _ObstoreNotFoundError):
-        return True
-    msg = str(exc).lower()
-    return (
-        "not found" in msg
-        or "no such file" in msg
-        or "does not exist" in msg
-        or "404" in msg
-        or "key not found" in msg
-    )
+    return _storage_classify.is_not_found(exc)
 
 
 def _is_local_dir_collision(exc: BaseException, store: ObjectStore, key: str) -> bool:
@@ -441,25 +421,11 @@ def _is_precondition(exc: BaseException) -> bool:
 # attribute. Matches ``safe_traceback``'s ceiling.
 _LOG_CAUSE_MAX_LEN = 8000
 
-# Two shapes reach here: the backend-response form above ("non-2xx status
-# code: 403 ...") and the retry layer's "Client error with status 403
-# Forbidden: ...", which is how GCS client errors arrive. Matching only the
-# first left ``http_status`` empty on every GCS 4xx.
-_OBSTORE_HTTP_STATUS_RE = re.compile(r"status(?: code:)?\s*(\d{3})\b")
-_PROVIDER_CODE_RE = re.compile(r"<Code>([^<>]{1,64})</Code>")
-# Not every store behind an S3 API answers in S3's XML dialect. Atlan's
-# ``/api/blobstorage`` proxy is a Kong plugin that rejects before the request
-# ever reaches a bucket, and it answers in its own JSON shape
-# ``{"code": 1005, "error": "...", "message": "..."}``. Parsed into the same
-# ``provider_code`` field as ``<Code>`` so a consumer branches on one field
-# regardless of which dialect the failing hop speaks. (FND-2076)
-_JSON_PROVIDER_CODE_RE = re.compile(r'"code"\s*:\s*"?(\d{1,10})"?')
-
 #: The blobstorage proxy's "I could not look your signing key up in Keycloak"
 #: verdict. See :class:`~application_sdk.storage.errors.
 #: StorageGatewayAuthUnavailableError` for why this is a gateway-availability
-#: signal rather than a credential one.
-GATEWAY_INVALID_CLIENT_CODE = "1005"
+#: signal rather than a credential one. Defined in the shared table.
+GATEWAY_INVALID_CLIENT_CODE = _storage_classify.GATEWAY_INVALID_CLIENT_CODE
 
 
 class _StorageEvidence(TypedDict):
@@ -483,18 +449,11 @@ class _StorageEvidence(TypedDict):
 def _obstore_http_evidence(exc: BaseException) -> tuple[int | None, str | None]:
     """Return ``(http_status, provider_code)`` parsed from *exc*, best-effort.
 
-    Both are ``None`` when *exc* is not a backend HTTP failure -- a local store,
-    a request timeout, a credential decode error. Never raises: a parse miss
-    degrades the evidence attached to the failure, it must never replace the
-    failure itself.
+    The shared table's parser
+    (:func:`application_sdk._storage_classify.http_evidence`). Both are
+    ``None`` when *exc* is not a backend HTTP failure. Never raises.
     """
-    text = str(exc)
-    status = _OBSTORE_HTTP_STATUS_RE.search(text)
-    provider = _PROVIDER_CODE_RE.search(text) or _JSON_PROVIDER_CODE_RE.search(text)
-    return (
-        int(status.group(1)) if status else None,
-        provider.group(1) if provider else None,
-    )
+    return _storage_classify.http_evidence(exc)
 
 
 # Scheme per obstore store class, for the ``target`` evidence field.
@@ -578,7 +537,12 @@ def _storage_error_for(
         StorageGatewayNoRouteError,
     )
 
-    http_status, provider_code = _obstore_http_evidence(exc)
+    # The shared table names the failure; the API host routes the same verdict
+    # onto an HTTP answer (handler/object_routes.py), so the two stacks cannot
+    # drift on what a gateway or container failure is.
+    failure = _storage_classify.classify_storage_failure(exc)
+    kind = failure.kind
+    http_status, provider_code = failure.http_status, failure.provider_code
     evidence: _StorageEvidence = {
         "key": key,
         "cause": exc,
@@ -593,7 +557,7 @@ def _storage_error_for(
     # same evidence as every other branch: the container name is in ``target``
     # and the 404/ContainerNotFound pair is what tells an operator the
     # container, not the object, is what is absent.
-    if _is_azure_container_not_found(exc):
+    if kind is _storage_classify.StorageFailureKind.AZURE_CONTAINER_MISSING:
         return StorageConfigError(_azure_container_not_found_message(key), **evidence)
 
     # Checked before the relocation branch and the generic fallthrough for the
@@ -610,7 +574,7 @@ def _storage_error_for(
     # preflight already proved good against this same store at startup. The
     # actual condition is the proxy's Keycloak lookup failing, and no
     # credential change fixes it. (FND-2076)
-    if http_status == 401 and provider_code == GATEWAY_INVALID_CLIENT_CODE:
+    if kind is _storage_classify.StorageFailureKind.GATEWAY_AUTH_UNAVAILABLE:
         return StorageGatewayAuthUnavailableError(
             f"{message}: the object-store gateway could not verify the request "
             "signature because its own identity-provider lookup failed — this "
@@ -633,7 +597,7 @@ def _storage_error_for(
     # missing bucket or container out of this leaf. Retryable either way; what
     # changes is the code and the hint, so an operator is not sent looking for a
     # missing key or bucket when the gateway merely has not loaded its routes.
-    if _is_gateway_no_route(exc):
+    if kind is _storage_classify.StorageFailureKind.GATEWAY_NO_ROUTE:
         return StorageGatewayNoRouteError(
             f"{message}: the object-store gateway answered 404 because the "
             "serving instance has not loaded its routes yet — the object and "
@@ -693,18 +657,10 @@ def _storage_error_for(
 
 # A Kong gateway instance that joins the load balancer before its route table
 # has synced answers every request with ``404 {"message":"no Route matched with
-# those values"}`` for a few seconds. object_store's Rust client retries only
-# 5xx/429/408, so without this the first such answer fails the request even
-# though the next gateway instance would have accepted it. Matched on the 404
-# *and* the gateway's own text so a real missing bucket, container or key
-# still fails (or reads as absent) on the first attempt. This is a status the
-# Rust layer never retries, so the retry adds one where there was none rather
-# than multiplying an existing one.
-_GATEWAY_NO_ROUTE_TEXT = "no route matched"
-# Worst case total sleep is 1.5 x (5 + 10 + 20) = 52.5s: each delay is scaled by
-# a jitter factor in [0.5, 1.5] (Jitter.SPREAD) so a burst of requests that all
-# hit a scaling-up gateway does not retry in lockstep.
-_GATEWAY_NO_ROUTE_RETRY_DELAYS: tuple[float, ...] = (5.0, 10.0, 20.0)
+# those values"}`` for a few seconds. The rule and the backoff are the shared
+# table's (:mod:`application_sdk._storage_classify`), so the API host rides the
+# same answer out the same way.
+_GATEWAY_NO_ROUTE_RETRY_DELAYS = _storage_classify.GATEWAY_NO_ROUTE_RETRY_DELAYS
 # Indirection so tests can record the backoff without sleeping through it.
 _retry_sleep = asyncio.sleep
 
@@ -722,30 +678,14 @@ async def _past_gateway_no_route(
     must start over cleanly. Every other failure propagates on the first
     attempt, unchanged.
     """
-
-    def _log_retry(_attempt: int, _exc: Exception, delay: float) -> None:
-        logger.warning(
-            "Gateway answered 'no Route matched' on %s of key '%s'; retrying in %.1fs",
-            op,
-            key,
-            delay,
-        )
-
-    return await retry_async(
-        call,
-        backoff=Backoff(steps=_GATEWAY_NO_ROUTE_RETRY_DELAYS, jitter=Jitter.SPREAD),
-        retry_if=_is_gateway_no_route,
-        on_retry=_log_retry,
-        sleep=_retry_sleep,
+    return await _storage_classify.past_gateway_no_route(
+        op, key, call, sleep=_retry_sleep
     )
 
 
 def _is_gateway_no_route(exc: BaseException) -> bool:
     """True for the gateway's transient "no Route matched" 404, and only that."""
-    if not isinstance(exc, Exception):
-        return False
-    http_status, _ = _obstore_http_evidence(exc)
-    return http_status == 404 and _GATEWAY_NO_ROUTE_TEXT in str(exc).lower()
+    return _storage_classify.is_gateway_no_route(exc)
 
 
 def _log_storage_event(
@@ -1010,7 +950,7 @@ def _compute_part_size(file_size: int, chunk_size: int) -> int:
 
 async def _finalize_upload_integrity(
     key: str,
-    path: Path,
+    path: Path | None,
     store: BoundStore | ObjectStore | None,
     resolved: ObjectStore,
     *,
@@ -1035,7 +975,8 @@ async def _finalize_upload_integrity(
 
     Args:
         key: Normalised destination key, as written.
-        path: Local source file.
+        path: Local source file, or ``None`` for an in-memory payload
+            (:func:`upload_bytes`), which has no file to shrink under it.
         store: Caller's store argument — passed to the sidecar write so a
             ``BoundStore``'s put attributes still apply.
         resolved: Underlying store, for the readback HEAD.
@@ -1051,9 +992,10 @@ async def _finalize_upload_integrity(
             that was sent.
     """
     if integrity.verification_enabled(verify):
-        integrity.check_local_file_stable(
-            key, path, declared_size=declared_size, bytes_read=bytes_sent
-        )
+        if path is not None:
+            integrity.check_local_file_stable(
+                key, path, declared_size=declared_size, bytes_read=bytes_sent
+            )
         # Confirmed: a gateway instance without routes answers this HEAD with
         # a bodiless 404, which would fail an upload that landed.
         remote_meta = await _get_file_meta_confirmed(key, resolved, normalize=False)
@@ -1064,10 +1006,11 @@ async def _finalize_upload_integrity(
             # 0 found — so absence is checked separately from length.
             from application_sdk.storage.errors import StorageError  # noqa: PLC0415
 
+            source = path if path is not None else "memory"
             raise StorageError(
                 f"Upload of '{key}' reported success but the object is absent "
                 f"from the store afterwards ({bytes_sent} bytes sent from "
-                f"{path}). Some S3-style backends silently drop empty objects; "
+                f"{source}). Some S3-style backends silently drop empty objects; "
                 f"others need read-your-writes consistency that this store "
                 f"does not offer.",
                 key=key,
@@ -1084,10 +1027,27 @@ async def _finalize_upload_integrity(
         await integrity.write_digest_sidecar(store, key, digest)
 
 
+@contextlib.contextmanager
+def _open_chunks(
+    source: Path | bytes, size: int
+) -> Iterator[Iterator[bytes | memoryview]]:
+    """Yield an iterator over *source* in *size*-byte chunks.
+
+    A file is read a chunk at a time; an in-memory payload is sliced through a
+    ``memoryview``, so no chunk is copied.
+    """
+    if isinstance(source, Path):
+        with source.open("rb") as fh:
+            yield iter(lambda: fh.read(size), b"")
+    else:
+        view = memoryview(source)
+        yield (view[i : i + size] for i in range(0, len(view), size))
+
+
 async def _upload_once(
     resolved: ObjectStore,
     key: str,
-    path: Path,
+    source: Path | bytes,
     *,
     effective_chunk: int,
     put_attributes: dict[str, str] | None,
@@ -1097,8 +1057,8 @@ async def _upload_once(
 ) -> tuple[hashlib._Hash | None, int]:
     """Run one upload attempt; return ``(hasher, bytes_sent)``.
 
-    The file is read from the start every call, so the hash and byte count
-    belong to this attempt alone.
+    *source* (a file, or bytes held in memory) is read from the start every
+    call, so the hash and byte count belong to this attempt alone.
     """
     h = hashlib.sha256() if compute_hash else None
     from application_sdk.constants import (  # noqa: PLC0415
@@ -1125,11 +1085,8 @@ async def _upload_once(
             max_concurrency=STORAGE_UPLOAD_MAX_CONCURRENCY,
             attributes=put_attributes,
         ) as writer:
-            with path.open("rb") as fh:
-                while True:
-                    chunk = fh.read(effective_chunk)
-                    if not chunk:
-                        break
+            with _open_chunks(source, effective_chunk) as chunks:
+                for chunk in chunks:
                     if h is not None:
                         h.update(chunk)
                     await writer.write(chunk)
@@ -1155,6 +1112,121 @@ async def _upload_once(
                             )
                             last_progress = now
     return h, bytes_sent
+
+
+async def _stream_upload(
+    key: str,
+    source: Path | bytes,
+    resolved: ObjectStore,
+    put_attributes: dict[str, str] | None,
+    *,
+    file_size: int,
+    chunk_size: int | None,
+    compute_hash: bool,
+) -> tuple[str | None, int]:
+    """Stream *source* to *key*; return ``(digest, bytes_sent)``.
+
+    The transport shared by :func:`upload_file` (a file) and
+    :func:`upload_bytes` (bytes in memory): part sizing and the deployment
+    override, the transfer-budget reservation, per-part progress marks, the
+    gateway no-route retry, storage telemetry and error translation. The
+    integrity checks after it are the caller's.
+    """
+    from application_sdk.constants import (  # noqa: PLC0415
+        STORAGE_UPLOAD_PART_SIZE_BYTES,
+        STORAGE_UPLOAD_PART_SIZE_OVERRIDDEN,
+    )
+
+    # A deployment that sets the part size overrides the caller. The size that
+    # keeps a completion inside the destination's idle timeout depends on where
+    # the deployment writes; an app cannot know which tenant it lands on, so it
+    # must not be able to pin a value the operator then cannot correct.
+    if (
+        STORAGE_UPLOAD_PART_SIZE_OVERRIDDEN
+        and chunk_size is not None
+        and chunk_size != STORAGE_UPLOAD_PART_SIZE_BYTES
+    ):
+        logger.debug(
+            "Using deployment part size %d instead of the requested %d for key '%s'",
+            STORAGE_UPLOAD_PART_SIZE_BYTES,
+            chunk_size,
+            key,
+        )
+    requested_chunk = (
+        STORAGE_UPLOAD_PART_SIZE_BYTES
+        if (STORAGE_UPLOAD_PART_SIZE_OVERRIDDEN or chunk_size is None)
+        else chunk_size
+    )
+
+    effective_chunk = _compute_part_size(file_size, requested_chunk)
+
+    if file_size == 0:
+        logger.warning(
+            "Uploading zero-byte object to key '%s' — "
+            "some S3-style backends silently drop empty objects; "
+            "verify the object exists after upload if your store requires it.",
+            key,
+        )
+
+    # Each attempt re-reads the file from the start, so the hash, byte count and
+    # clock restart with it; only the gateway's transient no-route 404 retries.
+    started = time.monotonic()
+
+    async def _attempt() -> tuple[hashlib._Hash | None, int]:
+        nonlocal started
+        started = time.monotonic()
+        return await _upload_once(
+            resolved,
+            key,
+            source,
+            effective_chunk=effective_chunk,
+            put_attributes=put_attributes,
+            compute_hash=compute_hash,
+            started=started,
+            file_size=file_size,
+        )
+
+    try:
+        h, bytes_sent = await _past_gateway_no_route("upload", key, _attempt)
+    # conformance: ignore[E004] upload error handler; _log_storage_event records error_class and exception is re-raised via StorageError chain
+    except BaseException as exc:
+        # BaseException is the umbrella for Exception and its siblings
+        # (CancelledError, KeyboardInterrupt, SystemExit). Catching it here
+        # ensures cancellation mid-writer-close is logged rather than silently
+        # discarding the buffer and leaving no object in the store. A retried
+        # gateway 404 never reaches here: the upload has not failed yet.
+        elapsed_ms = (time.monotonic() - started) * 1000.0
+        from application_sdk.errors.base import (  # noqa: PLC0415 — lazy: avoid import-time cycle errors<->storage
+            redact_secrets,
+        )
+
+        _log_storage_event(
+            logging.WARNING,
+            "upload",
+            key,
+            outcome="failure",
+            elapsed_ms=elapsed_ms,
+            size_bytes=file_size,
+            error_class=_exc_class_name(exc),
+            error_message=redact_secrets(str(exc)),
+        )
+        if isinstance(exc, Exception):
+            raise _storage_error_for(
+                exc, key, f"Failed to upload file to key '{key}'", resolved
+            ) from exc
+        raise  # re-raise CancelledError / KeyboardInterrupt bare after logging
+
+    elapsed_ms = (time.monotonic() - started) * 1000.0
+    _log_storage_event(
+        logging.DEBUG,
+        "upload",
+        key,
+        outcome="success",
+        elapsed_ms=elapsed_ms,
+        size_bytes=bytes_sent,
+    )
+    digest = h.hexdigest() if h is not None else None
+    return digest, bytes_sent
 
 
 async def upload_file(
@@ -1253,102 +1325,17 @@ async def upload_file(
     if normalize:
         key = normalize_key(key)
 
-    from application_sdk.constants import (  # noqa: PLC0415
-        STORAGE_UPLOAD_PART_SIZE_BYTES,
-        STORAGE_UPLOAD_PART_SIZE_OVERRIDDEN,
-    )
-
-    # A deployment that sets the part size overrides the caller. The size that
-    # keeps a completion inside the destination's idle timeout depends on where
-    # the deployment writes; an app cannot know which tenant it lands on, so it
-    # must not be able to pin a value the operator then cannot correct.
-    if (
-        STORAGE_UPLOAD_PART_SIZE_OVERRIDDEN
-        and chunk_size is not None
-        and chunk_size != STORAGE_UPLOAD_PART_SIZE_BYTES
-    ):
-        logger.debug(
-            "Using deployment part size %d instead of the requested %d for key '%s'",
-            STORAGE_UPLOAD_PART_SIZE_BYTES,
-            chunk_size,
-            key,
-        )
-    requested_chunk = (
-        STORAGE_UPLOAD_PART_SIZE_BYTES
-        if (STORAGE_UPLOAD_PART_SIZE_OVERRIDDEN or chunk_size is None)
-        else chunk_size
-    )
-
     path = Path(local_path)
     file_size = path.stat().st_size
-    effective_chunk = _compute_part_size(file_size, requested_chunk)
-
-    if file_size == 0:
-        logger.warning(
-            "Uploading zero-byte file to key '%s' — "
-            "some S3-style backends silently drop empty objects; "
-            "verify the object exists after upload if your store requires it.",
-            key,
-        )
-
-    # Each attempt re-reads the file from the start, so the hash, byte count and
-    # clock restart with it; only the gateway's transient no-route 404 retries.
-    started = time.monotonic()
-
-    async def _attempt() -> tuple[hashlib._Hash | None, int]:
-        nonlocal started
-        started = time.monotonic()
-        return await _upload_once(
-            resolved,
-            key,
-            path,
-            effective_chunk=effective_chunk,
-            put_attributes=put_attributes,
-            compute_hash=compute_hash,
-            started=started,
-            file_size=file_size,
-        )
-
-    try:
-        h, bytes_sent = await _past_gateway_no_route("upload", key, _attempt)
-    # conformance: ignore[E004] upload error handler; _log_storage_event records error_class and exception is re-raised via StorageError chain
-    except BaseException as exc:
-        # BaseException is the umbrella for Exception and its siblings
-        # (CancelledError, KeyboardInterrupt, SystemExit). Catching it here
-        # ensures cancellation mid-writer-close is logged rather than silently
-        # discarding the buffer and leaving no object in the store. A retried
-        # gateway 404 never reaches here: the upload has not failed yet.
-        elapsed_ms = (time.monotonic() - started) * 1000.0
-        from application_sdk.errors.base import (  # noqa: PLC0415 — lazy: avoid import-time cycle errors<->storage
-            redact_secrets,
-        )
-
-        _log_storage_event(
-            logging.WARNING,
-            "upload",
-            key,
-            outcome="failure",
-            elapsed_ms=elapsed_ms,
-            size_bytes=file_size,
-            error_class=_exc_class_name(exc),
-            error_message=redact_secrets(str(exc)),
-        )
-        if isinstance(exc, Exception):
-            raise _storage_error_for(
-                exc, key, f"Failed to upload file to key '{key}'", resolved
-            ) from exc
-        raise  # re-raise CancelledError / KeyboardInterrupt bare after logging
-
-    elapsed_ms = (time.monotonic() - started) * 1000.0
-    _log_storage_event(
-        logging.DEBUG,
-        "upload",
+    digest, bytes_sent = await _stream_upload(
         key,
-        outcome="success",
-        elapsed_ms=elapsed_ms,
-        size_bytes=bytes_sent,
+        path,
+        resolved,
+        put_attributes,
+        file_size=file_size,
+        chunk_size=chunk_size,
+        compute_hash=compute_hash,
     )
-    digest = h.hexdigest() if h is not None else None
 
     await _finalize_upload_integrity(
         key,
@@ -1811,6 +1798,81 @@ async def _put(
         raise _storage_error_for(
             exc, key, f"Failed to put key '{key}'", resolved
         ) from exc
+
+
+async def upload_bytes(
+    key: str,
+    data: bytes,
+    store: BoundStore | ObjectStore | None = None,
+    *,
+    normalize: bool = True,
+    compute_hash: bool = True,
+    verify: bool | None = None,
+    write_sidecar: bool | None = None,
+) -> str | None:
+    """Write *data* to *key* — the SDK's one byte-put primitive.
+
+    The in-memory counterpart of :func:`upload_file`, on the same transport
+    (:func:`_stream_upload`): the deployment part size, the transfer-budget
+    reservation, per-part progress marks, the gateway retry and the storage
+    telemetry all apply, and a small payload is still one PUT. It has the same
+    write-side integrity (FND-306): a HEAD confirms the store holds exactly
+    ``len(data)`` bytes, and the SHA-256 of *data* is recorded in a
+    ``{key}.sha256`` sidecar. Nothing is staged on local disk.
+
+    ``batch.upload_file_from_bytes`` (deprecated) and ``CloudStore.upload_bytes``
+    both delegate here. *data* is held in memory for the whole call, so use
+    :func:`upload_file` for anything already on disk or too large to buffer.
+
+    Args:
+        key: Destination object key.  Normalised by default.
+        data: Bytes to write.
+        store: Target store, or ``None`` to use the infrastructure store.  A
+            ``BoundStore``'s put attributes apply to the write.
+        normalize: When ``True`` (default), normalise *key* before use.
+        compute_hash: When ``True`` (default), hash *data* and return the
+            digest.  Pass ``False`` for external stores (e.g. ``CloudStore``)
+            that do not take part in the sidecar protocol.  Implies
+            ``write_sidecar=False``.
+        verify: Run the post-write size check.  ``None`` (default) follows
+            ``ATLAN_STORAGE_VERIFY_TRANSFERS``.
+        write_sidecar: Write the ``{key}.sha256`` sidecar.  ``None`` (default)
+            follows ``ATLAN_STORAGE_WRITE_SIDECARS``.
+
+    Returns:
+        Hex-encoded SHA-256 digest of *data* if *compute_hash* is ``True``,
+        else ``None``.
+
+    Raises:
+        StorageError: If the write fails, or the object the store reports
+            afterwards is absent or not ``len(data)`` bytes.
+        ObjectStoreNotProvidedError: If *store* is ``None`` and no infrastructure store is set.
+    """
+    resolved = _resolve_store(store)
+    put_attributes = _resolve_put_attributes(store)
+    if normalize:
+        key = normalize_key(key)
+    digest, _ = await _stream_upload(
+        key,
+        data,
+        resolved,
+        put_attributes,
+        file_size=len(data),
+        chunk_size=None,
+        compute_hash=compute_hash,
+    )
+    await _finalize_upload_integrity(
+        key,
+        None,
+        store,
+        resolved,
+        declared_size=len(data),
+        bytes_sent=len(data),
+        digest=digest,
+        verify=verify,
+        write_sidecar=write_sidecar,
+    )
+    return digest
 
 
 async def put_json(

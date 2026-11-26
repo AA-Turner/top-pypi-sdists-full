@@ -1,7 +1,8 @@
 """LLM-judged classifier: assigns one or more labels to a test case."""
 
 import asyncio
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, replace
 from typing import Dict, List, Optional, Sequence, Type, Union, cast
 
 from deepeval.classifiers.base_classifier import (
@@ -25,6 +26,7 @@ from deepeval.classifiers.classifier.schema import (
     SuggestedEvidencedClassificationResult,
 )
 from deepeval.classifiers.classifier.steps.classification import (
+    ClassificationStep,
     a_generate_classification_results,
     generate_classification_results,
 )
@@ -35,14 +37,20 @@ from deepeval.classifiers.classifier.steps.evidence import (
     verify_evidence,
 )
 from deepeval.classifiers.classifier.steps.label_discovery import (
+    LabelDiscoveryStep,
     LabelPool,
     MergedLabels,
     a_merge_new_labels,
     merge_new_labels,
 )
 from deepeval.classifiers.classifier.steps.review import (
+    ReviewStep,
     a_review_classifications,
     review_classifications,
+)
+from deepeval.classifiers.classifier.steps.decision_model import (
+    a_classify_with_decision_model,
+    classify_with_decision_model,
 )
 from deepeval.classifiers.classifier.steps.trace import (
     construct_trace_content,
@@ -59,24 +67,20 @@ from deepeval.classifiers.classifier.steps.truncate import (
 from deepeval.classifiers.utils import (
     LabelOrigin,
     ResolvedLabel,
-    SystemOneClassifySpec,
     a_generate_classification,
+    accepts_system_one_model,
     clean_reason,
     construct_multi_turn_content,
-    construct_multi_turn_state,
     construct_single_turn_content,
-    construct_single_turn_state,
     construct_turns,
     format_labels,
     generate_classification,
     normalize_labels,
+    resolve_decision_model_eval_mode,
     resolve_label,
     resolve_suggested_label,
 )
-from deepeval.config.eval_mode import (
-    ClassifierEvalModeName,
-    resolve_classifier_eval_mode,
-)
+from deepeval.config.eval_mode import ClassifierEvalModeName
 from deepeval.config.settings import get_settings
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.metrics.utils import (
@@ -90,12 +94,6 @@ from deepeval.test_run.api import Classification
 from deepeval.utils import get_or_create_event_loop
 
 ClassifierTemplate = make_template_class("Classifier", feature="classifiers")
-
-# Built-in classifiers (``RefusalClassifier`` ...) share ``Classifier``'s bundle
-# entry. Public templates reach it through ``classification_template``; the
-# ``_experimental_*`` ones are not exposed on the template class, so they name
-# the bundle key explicitly.
-_EXPERIMENTAL_TEMPLATE_CLASS = "Classifier"
 
 
 @dataclass(frozen=True)
@@ -112,21 +110,29 @@ class ClassificationPrompt:
     shown: Optional[ShownContent] = None
 
 
+@dataclass
+class ClassifierSteps:
+    classification: Optional[ClassificationStep] = None
+    suggestion: Optional[ClassificationStep] = None
+    label_discovery: Optional[LabelDiscoveryStep] = None
+    review: Optional[ReviewStep] = None
+
+
 class Classifier(BaseClassifier):
     """Labels a test case, conversation or trace with an LLM judge, choosing
     from your labels and, when configured, citing evidence, reviewing each
     label and discovering new ones."""
 
     review_schema: Type[LabelReview] = LabelReview
+    finds_issues: bool = False
 
+    @accepts_system_one_model
     def __init__(
         self,
         name: str,
         labels: Sequence[Union[str, Label]],
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
-        system_one_model: Optional[
-            Union[str, DeepEvalBaseSystemOneModel]
-        ] = None,
+        decision_model: Optional[Union[str, DeepEvalBaseSystemOneModel]] = None,
         eval_mode: Optional[ClassifierEvalModeName] = None,
         include_reason: bool = True,
         allow_none: bool = False,
@@ -143,6 +149,10 @@ class Classifier(BaseClassifier):
     ):
         if not name or not name.strip():
             raise ValueError("Classifier 'name' cannot be empty.")
+        if max_content_chars <= len(TRUNCATION_MARKER):
+            raise ValueError(
+                f"max_content_chars must be greater than {len(TRUNCATION_MARKER)}."
+            )
 
         self.name = name
         self.labels = (
@@ -150,15 +160,18 @@ class Classifier(BaseClassifier):
             if labels or label_discovery_config is None
             else []
         )
-        self.eval_mode = resolve_classifier_eval_mode(eval_mode)
-        if self.eval_mode.uses_system_one and (
-            multi_label
-            or evidence_config is not None
-            or review_config is not None
-            or label_discovery_config is not None
+        self.eval_mode = resolve_decision_model_eval_mode(eval_mode)
+        if self.eval_mode.uses_system_one and evidence_config is not None:
+            raise ValueError(
+                "evidence_config needs an LLM judge; it is not supported in the decision_model eval mode."
+            )
+        if (
+            self.eval_mode.uses_system_one
+            and label_discovery_config is not None
+            and label_discovery_config.model is None
         ):
             raise ValueError(
-                "multi_label, evidence_config, review_config and label_discovery_config need an LLM judge; they are not supported in the system_one eval mode."
+                "label_discovery_config in the decision_model eval mode needs a model to propose new labels."
             )
         self.label_pool = LabelPool(
             normalize_labels(label_discovery_config.candidate_labels)
@@ -169,11 +182,11 @@ class Classifier(BaseClassifier):
         self.model, self.using_native_model = initialize_model(
             model, self.eval_mode
         )
-        self.system_one_model = initialize_system_one_model(
-            system_one_model, self.eval_mode
+        self.decision_model = initialize_system_one_model(
+            decision_model, self.eval_mode
         )
         self.evaluation_model = (
-            self.model or self.system_one_model
+            self.model or self.decision_model
         ).get_model_name()
         self.include_reason = include_reason
         self.allow_none = allow_none
@@ -181,10 +194,6 @@ class Classifier(BaseClassifier):
         self.classification_template = classification_template
         self.description = description
         self.multi_label = multi_label
-        if max_content_chars <= len(TRUNCATION_MARKER):
-            raise ValueError(
-                f"max_content_chars must be greater than {len(TRUNCATION_MARKER)}."
-            )
         self.max_content_chars = max_content_chars
         self.evidence_config = evidence_config
         self.review_config = review_config
@@ -228,30 +237,37 @@ class Classifier(BaseClassifier):
                         ),
                     )
                 )
+            elif self.eval_mode.uses_system_one:
+                classify_with_decision_model([self], test_case)
+            elif self._discovers_separately():
+                self._label_then_discover(test_case)
             else:
                 prompt = self._build_prompt(test_case)
                 schema = self._choose_output_schema()
+                started = time.perf_counter()
                 if schema is not None:
                     classification_results = generate_classification_results(
                         self, prompt.text, schema
                     )
+                    classification_seconds = time.perf_counter() - started
+                    started = time.perf_counter()
                     merged_labels = merge_new_labels(
-                        self, classification_results
+                        self, classification_results, prompt.subject
                     )
+                    label_discovery_seconds = time.perf_counter() - started
                     self._postprocess_classifications(
                         classification_results, test_case, prompt, merged_labels
                     )
+                    self._record_steps(
+                        merged_labels,
+                        classification_seconds,
+                        label_discovery_seconds,
+                    )
                 else:
                     raw_label, reason = generate_classification(
-                        self,
-                        prompt.text,
-                        schema_cls=ClassificationResult,
-                        system_one=(
-                            self._experimental_system_one_spec(test_case)
-                            if self.eval_mode.uses_system_one
-                            else None
-                        ),
+                        self, prompt.text, schema_cls=ClassificationResult
                     )
+                    classification_seconds = time.perf_counter() - started
                     self._postprocess_classifications(
                         [
                             ClassificationResult.model_construct(
@@ -262,8 +278,15 @@ class Classifier(BaseClassifier):
                         prompt,
                         MergedLabels(),
                     )
+                    self._record_steps(
+                        MergedLabels(), classification_seconds, 0.0
+                    )
                 if self.review_config:
-                    review_classifications(self, prompt)
+                    started = time.perf_counter()
+                    reviews = review_classifications(self, prompt)
+                    self.steps.review = ReviewStep(
+                        reviews=reviews, seconds=time.perf_counter() - started
+                    )
 
             return self.label
 
@@ -282,31 +305,40 @@ class Classifier(BaseClassifier):
             _show_indicator=_show_indicator,
             _in_component=_in_component,
         ):
+            if self.eval_mode.uses_system_one:
+                await a_classify_with_decision_model([self], test_case)
+                return self.label
+            if self._discovers_separately():
+                await self._a_label_then_discover(test_case)
+                return self.label
             prompt = self._build_prompt(test_case)
             schema = self._choose_output_schema()
+            started = time.perf_counter()
             if schema is not None:
                 classification_results = (
                     await a_generate_classification_results(
                         self, prompt.text, schema
                     )
                 )
+                classification_seconds = time.perf_counter() - started
+                started = time.perf_counter()
                 merged_labels = await a_merge_new_labels(
-                    self, classification_results
+                    self, classification_results, prompt.subject
                 )
+                label_discovery_seconds = time.perf_counter() - started
                 self._postprocess_classifications(
                     classification_results, test_case, prompt, merged_labels
                 )
+                self._record_steps(
+                    merged_labels,
+                    classification_seconds,
+                    label_discovery_seconds,
+                )
             else:
                 raw_label, reason = await a_generate_classification(
-                    self,
-                    prompt.text,
-                    schema_cls=ClassificationResult,
-                    system_one=(
-                        self._experimental_system_one_spec(test_case)
-                        if self.eval_mode.uses_system_one
-                        else None
-                    ),
+                    self, prompt.text, schema_cls=ClassificationResult
                 )
+                classification_seconds = time.perf_counter() - started
                 self._postprocess_classifications(
                     [
                         ClassificationResult.model_construct(
@@ -317,14 +349,127 @@ class Classifier(BaseClassifier):
                     prompt,
                     MergedLabels(),
                 )
+                self._record_steps(MergedLabels(), classification_seconds, 0.0)
             if self.review_config:
-                await a_review_classifications(self, prompt)
+                started = time.perf_counter()
+                reviews = await a_review_classifications(self, prompt)
+                self.steps.review = ReviewStep(
+                    reviews=reviews, seconds=time.perf_counter() - started
+                )
             return self.label
 
     def copy(self) -> "Classifier":
         clone = cast("Classifier", super().copy())
         clone.label_pool = self.label_pool
         return clone
+
+    ###############################################
+    # Separate discovery model
+    ###############################################
+
+    def _discovers_separately(self) -> bool:
+        return bool(
+            self.label_discovery_config and self.label_discovery_config.model
+        )
+
+    def _label_then_discover(
+        self, test_case: Union[LLMTestCase, ConversationalTestCase]
+    ) -> None:
+        if self.labels:
+            labeler = self._labeler()
+            labeler.classify(test_case, _show_indicator=False)
+            self._take_run(labeler)
+            if self.classifications or self.error:
+                self._review_taken_run(test_case)
+                return
+        discoverer = self._discoverer()
+        discoverer.classify(test_case, _show_indicator=False)
+        self._take_run(discoverer)
+        self._review_taken_run(test_case)
+
+    async def _a_label_then_discover(
+        self, test_case: Union[LLMTestCase, ConversationalTestCase]
+    ) -> None:
+        if self.labels:
+            labeler = self._labeler()
+            await labeler.a_classify(test_case, _show_indicator=False)
+            self._take_run(labeler)
+            if self.classifications or self.error:
+                await self._a_review_taken_run(test_case)
+                return
+        discoverer = self._discoverer()
+        await discoverer.a_classify(test_case, _show_indicator=False)
+        self._take_run(discoverer)
+        await self._a_review_taken_run(test_case)
+
+    def _labeler(self) -> "Classifier":
+        labeler = self.copy()
+        labeler.label_discovery_config = None
+        labeler.review_config = None
+        labeler.allow_none = True
+        return labeler
+
+    def _discoverer(self) -> "Classifier":
+        discoverer = self.copy()
+        discoverer.labels = []
+        discoverer.review_config = None
+        discoverer.label_discovery_config = replace(
+            self.label_discovery_config, model=None
+        )
+        discoverer.model, discoverer.using_native_model = initialize_model(
+            self.label_discovery_config.model, self.eval_mode
+        )
+        discoverer.evaluation_model = discoverer.model.get_model_name()
+        return discoverer
+
+    def _take_run(self, run: "Classifier") -> None:
+        self._accrue_cost(run.evaluation_cost)
+        self._accrue_tokens(run.input_tokens, run.output_tokens)
+        declared = {label.name.lower() for label in self.labels}
+        discovered = not run.labels
+        self.classifications = [
+            classification
+            for classification in run.classifications
+            if not discovered or classification.label.lower() not in declared
+        ]
+        self.label = (
+            self.classifications[0].label if self.classifications else None
+        )
+        self.reason = (
+            self.classifications[0].reason
+            if self.classifications
+            else run.reason or self.reason
+        )
+        self.error = run.error
+        if discovered:
+            self.steps.suggestion = run.steps.classification
+            self.steps.label_discovery = run.steps.label_discovery
+        else:
+            self.steps.classification = run.steps.classification
+
+    def _review_taken_run(
+        self, test_case: Union[LLMTestCase, ConversationalTestCase]
+    ) -> None:
+        if not (self.review_config and self.classifications):
+            return
+        started = time.perf_counter()
+        reviews = review_classifications(self, self._build_prompt(test_case))
+        self.steps.review = ReviewStep(
+            reviews=reviews, seconds=time.perf_counter() - started
+        )
+
+    async def _a_review_taken_run(
+        self, test_case: Union[LLMTestCase, ConversationalTestCase]
+    ) -> None:
+        if not (self.review_config and self.classifications):
+            return
+        started = time.perf_counter()
+        reviews = await a_review_classifications(
+            self, self._build_prompt(test_case)
+        )
+        self.steps.review = ReviewStep(
+            reviews=reviews, seconds=time.perf_counter() - started
+        )
 
     ###############################################
     # Post-process classifications
@@ -343,7 +488,7 @@ class Classifier(BaseClassifier):
         for classification_result in classification_results:
             reason = clean_reason(classification_result.reason)
             resolved_label = self._resolve_label_from_classification_result(
-                classification_result, reason
+                classification_result, reason, prompt.subject
             )
 
             # No resolved label
@@ -434,8 +579,33 @@ class Classifier(BaseClassifier):
                 unresolved_labels[0] if unresolved_labels else None
             )
 
+    def _record_steps(
+        self,
+        merged_labels: MergedLabels,
+        classification_seconds: float,
+        label_discovery_seconds: float,
+    ) -> None:
+        self.steps.classification = ClassificationStep(
+            classifications=[
+                classification.model_copy(deep=True)
+                for classification in self.classifications
+            ],
+            seconds=classification_seconds,
+        )
+        if self.label_discovery_config:
+            self.steps.label_discovery = LabelDiscoveryStep(
+                merged_labels={
+                    name: label.name
+                    for name, label in merged_labels.by_name.items()
+                },
+                seconds=label_discovery_seconds,
+            )
+
     def _resolve_label_from_classification_result(
-        self, classification_result: ClassificationResult, reason: str
+        self,
+        classification_result: ClassificationResult,
+        reason: str,
+        subject: str,
     ) -> ResolvedLabel:
         # Label discovery: a declared, candidate or new label
         if self.label_discovery_config:
@@ -453,6 +623,7 @@ class Classifier(BaseClassifier):
                 candidate_labels=self.candidate_labels,
                 allow_none=self.allow_none,
                 classifier_name=self.name,
+                subject=subject,
             )
 
         # Declared labels only
@@ -592,55 +763,6 @@ class Classifier(BaseClassifier):
             ),
         }
 
-    def _experimental_system_one_spec(
-        self, test_case: Union[LLMTestCase, ConversationalTestCase]
-    ) -> SystemOneClassifySpec:
-        """Used when the eval mode is `system_one`; see EXPERIMENTAL.md.
-
-        The label is one Choice over the declared labels (plus ``NONE`` when
-        ``allow_none``), and the reason is built from the answer. A test case
-        with a trace is shown as the same trace the LLM judge sees.
-        """
-        multi_turn = isinstance(test_case, ConversationalTestCase)
-        traced = not multi_turn and test_case._trace_dict is not None
-        if multi_turn:
-            state = construct_multi_turn_state(test_case)
-            state["turns"] = fit_turns(state["turns"], self.max_content_chars)
-        elif traced:
-            state = {
-                "trace": fit_trace(
-                    construct_trace_dict(test_case), self.max_content_chars
-                )
-            }
-        else:
-            state = construct_single_turn_state(test_case)
-            state["test_case"] = {
-                field: (
-                    fit_text(value, self.max_content_chars)
-                    if isinstance(value, str)
-                    else value
-                )
-                for field, value in state["test_case"].items()
-            }
-        options: Dict[str, Optional[str]] = {
-            label.name: label.description for label in self.labels
-        }
-        if self.allow_none:
-            options[NONE_LABEL] = "None of the other labels apply."
-
-        return SystemOneClassifySpec(
-            instructions=self._get_prompt(
-                "_experimental_system_one_classify",
-                template_class=_EXPERIMENTAL_TEMPLATE_CLASS,
-                allow_none=self.allow_none,
-                multi_turn=multi_turn,
-                traced=traced,
-            ),
-            options=options,
-            state=state,
-            include_reason=self.include_reason,
-        )
-
     def _choose_output_schema(
         self,
     ) -> Optional[Type[Union[ClassificationResult, ClassificationResults]]]:
@@ -671,4 +793,5 @@ class Classifier(BaseClassifier):
         self.label = None
         self.reason = None
         self.classifications: List[Classification] = []
+        self.steps = ClassifierSteps()
         self.error = None

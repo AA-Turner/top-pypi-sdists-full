@@ -25,7 +25,7 @@ class CreateHadoopDataSourceRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The service description.
+        # The description of the data source.
         self.data_source_description = data_source_description
         # The service name.
         self.data_source_name = data_source_name
@@ -39,19 +39,17 @@ class CreateHadoopDataSourceRequest(DaraModel):
         self.hdfsconf = hdfsconf
         # The content string of the Hadoop core-site.xml file.
         self.hadoop_core_conf = hadoop_core_conf
-        # The external service type. Valid values:
+        # The type of the external service. Valid values:
         # - emr
         # - hadoop: self-managed Hadoop.
         self.hadoop_create_type = hadoop_create_type
-        # The addresses and hostnames of the source nodes in the Hadoop cluster in the /etc/hosts file.
+        # The IP addresses and hostnames of the source nodes in the Hadoop cluster in the /etc/hosts file.
         self.hadoop_hosts_address = hadoop_hosts_address
         # The content string of the Hadoop hive-site.xml file. This parameter is required when you enable Hive external tables.
         self.hive_conf = hive_conf
         # The content string of the Hadoop mapred-site.xml file. This parameter is required when you enable HDFS external tables.
         self.map_reduce_conf = map_reduce_conf
-        # The region ID.
-        # 
-        # > You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs.
+        # The region ID. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs.
         self.region_id = region_id
         # The content string of the Hadoop yarn-site.xml file. This parameter is required when you enable HDFS external tables.
         self.yarn_conf = yarn_conf

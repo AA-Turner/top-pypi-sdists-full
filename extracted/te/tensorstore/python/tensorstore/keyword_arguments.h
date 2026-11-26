@@ -54,13 +54,18 @@
 // inclusion constraints are satisfied.
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 
+#include "absl/base/attributes.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"  // IWYU pragma: keep
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
@@ -99,14 +104,28 @@ template <typename ParamDef>
 using KeywordArgument = KeywordArgumentPlaceholder<typename ParamDef::type>;
 
 /// Appends the documentation for a single keyword argument.
-template <typename ParamDef>
-void AppendKeywordArgumentDoc(std::string& doc) {
-  absl::StrAppend(&doc, "  ", ParamDef::name, ": ");
+ABSL_ATTRIBUTE_NOINLINE inline void AppendKeywordArgumentDoc(
+    std::string& doc, std::string_view name, std::string_view param_doc) {
+  absl::StrAppend(&doc, "  ", name, ": ");
   std::string_view delim = "";
   for (std::string_view line :
-       absl::StrSplit(absl::StripAsciiWhitespace(ParamDef::doc), '\n')) {
+       absl::StrSplit(absl::StripAsciiWhitespace(param_doc), '\n')) {
     absl::StrAppend(&doc, delim, line, "\n");
     delim = "    ";
+  }
+}
+
+/// Name and docstring pair passed as a table to `AppendKeywordArgumentDocsImpl`
+/// to avoid unrolling `AppendKeywordArgumentDoc` calls per parameter pack.
+struct KeywordArgumentDocEntry {
+  const char* name;
+  const char* doc;
+};
+
+ABSL_ATTRIBUTE_NOINLINE inline void AppendKeywordArgumentDocsImpl(
+    std::string& doc, span<const KeywordArgumentDocEntry> entries) {
+  for (const auto& entry : entries) {
+    AppendKeywordArgumentDoc(doc, entry.name, entry.doc);
   }
 }
 
@@ -131,15 +150,63 @@ void AppendKeywordArgumentDoc(std::string& doc) {
 ///       b: Specifies b.
 template <typename... ParamDef>
 void AppendKeywordArgumentDocs(std::string& doc, ParamDef... params) {
-  (AppendKeywordArgumentDoc<ParamDef>(doc), ...);
+  if constexpr (sizeof...(ParamDef) > 0) {
+    static constexpr KeywordArgumentDocEntry kEntries[] = {
+        {ParamDef::name, ParamDef::doc}...};
+    AppendKeywordArgumentDocsImpl(doc, kEntries);
+  }
 }
 
 /// Returns the `pybind11::arg` object that specifies the name and default value
 /// (`None`) for a keyword argument.
-template <typename ParamDef>
-auto MakeKeywordArgumentPyArg(ParamDef param_def) {
-  return (pybind11::arg(decltype(param_def)::name) = pybind11::none());
+ABSL_ATTRIBUTE_NOINLINE inline pybind11::arg_v MakeKeywordArgumentPyArg(
+    const char* name) {
+  return (pybind11::arg(name) = pybind11::none());
 }
+
+template <typename ParamDef>
+inline pybind11::arg_v MakeKeywordArgumentPyArg(ParamDef param_def) {
+  return MakeKeywordArgumentPyArg(decltype(param_def)::name);
+}
+
+/// Throws `pybind11::type_error` for an invalid keyword argument out of line.
+ABSL_ATTRIBUTE_NORETURN ABSL_ATTRIBUTE_NOINLINE inline void
+ThrowInvalidKeywordArgumentTypeError(const char* name) {
+  throw pybind11::type_error(absl::StrFormat("Invalid %s", name));
+}
+
+/// Annotates `status` with `name` and throws a status exception out of line.
+ABSL_ATTRIBUTE_NOINLINE inline void ThrowInvalidKeywordArgumentStatusError(
+    absl::Status status, const char* name) {
+  ThrowStatusExceptionImpl(
+      StatusBuilder(std::move(status)).Format("Invalid %s", name));
+}
+
+namespace keyword_arguments_internal {
+
+template <typename T>
+struct FirstArgOfApply;
+
+template <typename R, typename Arg0, typename Arg1>
+struct FirstArgOfApply<R (*)(Arg0&, Arg1)> {
+  using type = Arg0;
+};
+
+// Deduces the base option type accepted by a non-template `ParamDef::Apply`
+// (falling back to `DefaultTarget` when `Apply` is overloaded or templated) so
+// derived option types share one `SetKeywordArgumentOrThrow` instantiation.
+template <typename ParamDef, typename DefaultTarget, typename = void>
+struct ParamDefTarget {
+  using type = DefaultTarget;
+};
+
+template <typename ParamDef, typename DefaultTarget>
+struct ParamDefTarget<ParamDef, DefaultTarget,
+                      std::void_t<decltype(&ParamDef::Apply)>> {
+  using type = typename FirstArgOfApply<decltype(&ParamDef::Apply)>::type;
+};
+
+}  // namespace keyword_arguments_internal
 
 /// Used by `ApplyKeywordArguments` to convert and apply keyword arguments.
 ///
@@ -157,18 +224,18 @@ auto MakeKeywordArgumentPyArg(ParamDef param_def) {
 /// \param arg The raw keyword argument (holds a `pybind11::object` that has not
 ///     been validated).
 template <typename ParamDef, typename Target>
-void SetKeywordArgumentOrThrow(Target& target, KeywordArgument<ParamDef>& arg) {
+ABSL_ATTRIBUTE_NOINLINE void SetKeywordArgumentOrThrow(
+    Target& target, KeywordArgument<ParamDef>& arg) {
   if (arg.value.is_none()) return;
   pybind11::detail::make_caster<typename ParamDef::type> caster;
   if (!caster.load(arg.value, /*convert=*/true)) {
-    throw pybind11::type_error(absl::StrFormat("Invalid %s", ParamDef::name));
+    ThrowInvalidKeywordArgumentTypeError(ParamDef::name);
   }
   auto status = ParamDef::Apply(
       target,
       pybind11::detail::cast_op<typename ParamDef::type&&>(std::move(caster)));
   if (!status.ok()) {
-    ThrowStatusException(
-        StatusBuilder(std::move(status)).Format("Invalid %s", ParamDef::name));
+    ThrowInvalidKeywordArgumentStatusError(std::move(status), ParamDef::name);
   }
 }
 
@@ -185,8 +252,12 @@ void SetKeywordArgumentOrThrow(Target& target, KeywordArgument<ParamDef>& arg) {
 /// \param target The target object.
 /// \param arg The keyword argument values.
 template <typename... ParamDef, typename Target>
-void ApplyKeywordArguments(Target& target, KeywordArgument<ParamDef>&... arg) {
-  (SetKeywordArgumentOrThrow<ParamDef>(target, arg), ...);
+ABSL_ATTRIBUTE_NOINLINE void ApplyKeywordArguments(
+    Target& target, KeywordArgument<ParamDef>&... arg) {
+  (SetKeywordArgumentOrThrow<
+       ParamDef, typename keyword_arguments_internal::ParamDefTarget<
+                     ParamDef, Target>::type>(target, arg),
+   ...);
 }
 
 }  // namespace internal_python

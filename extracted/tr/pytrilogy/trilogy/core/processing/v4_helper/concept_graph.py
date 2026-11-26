@@ -1714,25 +1714,46 @@ def _reaches_only_sets(
     attrs: dict[str, ConceptAttrs],
     src: str,
     shown: Collection[str],
-    has_sets: bool,
+    beside_sets: Collection[str],
     conditioned: Mapping[str, str] | None = None,
 ) -> bool:
     """A WHERE value no barrier of the statement's rows consumed: each reader
     is a set's, or (`conditioned`) a shown filter's condition's."""
     return all(
         attrs[succ].existence_only
-        or (not has_sets or not _reads_a_total(src, attrs))
+        or not _total_beside_a_set(src, attrs, beside_sets)
         and _feeds_only_sets(graph, edges, attrs, succ, shown, set(), conditioned)
         for succ in graph.successors(src)
     )
 
 
-def _barrier_at_gate_grain(
-    graph: nx.DiGraph, attrs: dict[str, ConceptAttrs], src: str
+def _total_beside_a_set(
+    node: str, attrs: dict[str, ConceptAttrs], beside_sets: Collection[str]
 ) -> bool:
-    """An aggregate reading a WHERE value at the value's own grain meets the
-    rows it pairs with on every key of the gate, so it filters them."""
+    """A `by *` total an atom reads beside a membership (`total > x or tag in
+    <set>`): backfilled onto the statement's rows, its scan finds no plan. In
+    an atom of its own it gates them (`Filters.total_gate_reaches_the_rows`)."""
+    return (
+        ALL_ROWS_ADDRESS in attrs[node].grain_components
+        and attrs[node].address in beside_sets
+    )
+
+
+def _barrier_at_gate_grain(
+    graph: nx.DiGraph,
+    attrs: dict[str, ConceptAttrs],
+    src: str,
+    gate_grains: Mapping[str, frozenset[str]],
+) -> bool:
+    """An aggregate reading a WHERE value at the gate's grain meets the rows it
+    pairs with on every key of the gate, so it filters them. The gate's grain
+    is every aggregate its atom reads: `sum(x) by city - max(x) by city,
+    species > 3` is decided per species, which a `by city` reader never meets
+    (`Filters.gate_grain_is_its_atoms`). A total, or an atom beside a set,
+    keeps its own grain: widening those broke 4617, 48509 and six more."""
     grain = attrs[src].grain_components - {ALL_ROWS_ADDRESS}
+    if grain:
+        grain |= gate_grains.get(attrs[src].address, frozenset())
     return any(
         attrs[succ].derivation == Derivation.AGGREGATE
         and grain <= attrs[succ].grain_components
@@ -1760,12 +1781,6 @@ def _shown_filter_contents(
         )
         and isinstance(lineage.content, BuildConcept)
     }
-
-
-def _reads_a_total(node: str, attrs: dict[str, ConceptAttrs]) -> bool:
-    """A `by *` total: backfilled beside a WHERE membership onto the
-    statement's rows, its scan finds no plan."""
-    return ALL_ROWS_ADDRESS in attrs[node].grain_components
 
 
 def _grain_off_its_readers(
@@ -2646,7 +2661,12 @@ def _constrain_aggregates_by_merged_expansions(
     """A WHERE on a key an `unnest` is merged into reads the element on the
     rows the unnest expands: the merge is the only relation between that key
     and those rows. An aggregate over them reads the expansion as a row
-    parent, so the WHERE filters its input rows rather than its output."""
+    parent, so the WHERE filters its input rows rather than its output.
+
+    An aggregate that already reads the key per row (grouped by it) has its
+    rows related to the key through that same unnest: a second expansion
+    beside it would be joined back onto those rows only to read the key
+    again."""
     for src, node in list(attrs.items()):
         if src not in graph or node.derivation != Derivation.UNNEST or node.label != "":
             continue
@@ -2665,6 +2685,7 @@ def _constrain_aggregates_by_merged_expansions(
                 and consumer.derivation == Derivation.AGGREGATE
                 and consumer.depth_label == DepthLabel.D0
                 and not graph.has_edge(src, dst)
+                and not any(graph.has_edge(key, dst) for key in merged)
             ):
                 add_edge(graph, edges, src, dst, EdgeKind.LINEAGE)
 
@@ -2887,10 +2908,23 @@ def build_concept_graph(
     row_arg_addresses: set[str] = set()
     existence_arg_addresses: set[str] = set()
     existence_arg_pairs: list[tuple[str, str]] = []  # (existence_addr, row_addr)
+    beside_sets: set[str] = set()
+    gate_grains: dict[str, frozenset[str]] = defaultdict(frozenset)
     for clause in conditions:
         for atom in decompose_condition(clause.conditional):
             atom_row_addrs = [c.address for c in atom.row_arguments]
             row_arg_addresses.update(atom_row_addrs)
+            if not atom.existence_arguments:
+                atom_grain = frozenset(
+                    k
+                    for c in atom.row_arguments
+                    if c.is_aggregate and c.grain is not None
+                    for k in c.grain.components
+                )
+                for address in atom_row_addrs:
+                    gate_grains[address] |= atom_grain
+            if atom.existence_arguments:
+                beside_sets.update(atom_row_addrs)
             for arg_group in atom.existence_arguments or ():
                 existence_arg_addresses.update(ec.address for ec in arg_group)
             existence_arg_pairs += _existence_row_pairs(atom, atom_row_addrs)
@@ -3030,7 +3064,7 @@ def build_concept_graph(
         src
         for src in eligible
         if _reaches_only_sets(
-            graph, edges, attrs, src, mandatory_blank_ids, bool(existence_arg_pairs)
+            graph, edges, attrs, src, mandatory_blank_ids, beside_sets
         )
     ]
     # reaching a shown filter only through its condition's aggregate, the
@@ -3039,14 +3073,14 @@ def build_concept_graph(
         src
         for src in eligible
         if src not in backfill
-        and not _barrier_at_gate_grain(graph, attrs, src)
+        and not _barrier_at_gate_grain(graph, attrs, src, gate_grains)
         and _reaches_only_sets(
             graph,
             edges,
             attrs,
             src,
             mandatory_blank_ids,
-            bool(existence_arg_pairs),
+            beside_sets,
             conditioned,
         )
     }

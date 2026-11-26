@@ -44,7 +44,10 @@ impl ParseElement<Node<MjBodyChild>> for MrmlParser<'_> {
                 children: Vec::new(),
             });
         }
-        let children = self.parse_children(cursor)?;
+        cursor.enter_nested()?;
+        let children = self.parse_children(cursor);
+        cursor.leave_nested();
+        let children = children?;
 
         cursor.assert_element_close()?;
 
@@ -75,7 +78,10 @@ impl AsyncParseElement<Node<MjBodyChild>> for AsyncMrmlParser {
                 children: Vec::new(),
             });
         }
-        let children = self.async_parse_children(cursor).await?;
+        cursor.enter_nested()?;
+        let children = self.async_parse_children(cursor).await;
+        cursor.leave_nested();
+        let children = children?;
 
         cursor.assert_element_close()?;
 
@@ -166,6 +172,14 @@ impl ParseChildren<Vec<MjBodyChild>> for MrmlParser<'_> {
                 MrmlToken::ElementStart(inner) => {
                     result.push(self.parse(cursor, inner.local)?);
                 }
+                // A void element is never open, so its end tag is stray: like
+                // browsers (and mjml, which passes it through), read `</br>` as
+                // `<br>`, drop others.
+                MrmlToken::ElementClose(close) if is_void_element(close.local.as_str()) => {
+                    if close.local.as_str() == "br" {
+                        result.push(MjBodyChild::Node(Node::from("br")));
+                    }
+                }
                 MrmlToken::ElementClose(close) => {
                     cursor.rewind(MrmlToken::ElementClose(close));
                     return Ok(result);
@@ -201,6 +215,14 @@ impl AsyncParseChildren<Vec<MjBodyChild>> for AsyncMrmlParser {
                 }
                 MrmlToken::ElementStart(inner) => {
                     result.push(self.async_parse(cursor, inner.local).await?);
+                }
+                // A void element is never open, so its end tag is stray: like
+                // browsers (and mjml, which passes it through), read `</br>` as
+                // `<br>`, drop others.
+                MrmlToken::ElementClose(close) if is_void_element(close.local.as_str()) => {
+                    if close.local.as_str() == "br" {
+                        result.push(MjBodyChild::Node(Node::from("br")));
+                    }
                 }
                 MrmlToken::ElementClose(close) => {
                     cursor.rewind(MrmlToken::ElementClose(close));

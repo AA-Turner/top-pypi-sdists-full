@@ -73,6 +73,7 @@ from .config_write_helpers import (
     note_reload_outcome,
 )
 from .helpers import (
+    bp_warnings_suggestion,
     exception_to_structured_error,
     log_tool_usage,
     raise_tool_error,
@@ -80,6 +81,7 @@ from .helpers import (
     reject_malformed_list_fields,
     validate_identifier_not_empty,
 )
+from .reference_validator import ValidationMeta
 from .reference_validator import validate_config_references as ref_check
 from .tool_hints import read_only_hints, write_hints
 from .util_helpers import list_visible_registry_ids
@@ -718,11 +720,11 @@ class AutomationConfigTools:
                 wait,
                 bp_warnings,
                 MandatoryBPS,
+                references,
                 detached_blueprint,
                 enabled,
                 run_actions=run_actions,
             )
-            merge_validation_meta(response, references)
             return response
 
         except ToolError as te:
@@ -734,10 +736,7 @@ class AutomationConfigTools:
                 "Use ha_get_skill_guide for automation examples",
             ]
             if bp_warnings:
-                suggestions.append(
-                    "Config had best-practice issues that may be related: "
-                    + "; ".join(bp_warnings)
-                )
+                suggestions.append(bp_warnings_suggestion(bp_warnings))
             error = exception_to_structured_error(
                 e,
                 context={"automation_id": entity_id},
@@ -1206,13 +1205,13 @@ class AutomationConfigTools:
         }
         if bp_warnings:
             response["best_practice_warnings"] = list(bp_warnings)
+        merge_validation_meta(response, references)
         attach_skill_content(
             response,
             MandatoryBPS=MandatoryBPS,
             canonical_files=_AUTOMATION_SKILL_FILES,
             referenced_files=bp_warnings.referenced_files,
         )
-        merge_validation_meta(response, references)
         return response, bp_warnings
 
     async def _read_back_hash(
@@ -1238,6 +1237,7 @@ class AutomationConfigTools:
         wait: bool,
         bp_warnings: BestPracticeCheckResult,
         MandatoryBPS: bool,
+        references: ValidationMeta,
         detached_blueprint: str | None = None,
         enabled: bool | None = None,
         *,
@@ -1247,11 +1247,9 @@ class AutomationConfigTools:
 
         ``target`` is the resolved automation for an ``entity_id`` write (None
         creates under a generated id) and ``operation`` is what reading it
-        found. ``detached_blueprint`` is set by take-control mode and names the
-        blueprint the automation's config no longer references. It is
-        reported on the response as ``took_control_of_blueprint`` and nothing
-        more: Home Assistant goes on counting the automation as a user of that
-        blueprint until it is removed, so there is no release to wait for.
+        found. ``detached_blueprint`` (take-control mode) is only reported as
+        ``took_control_of_blueprint``: Home Assistant counts the automation as
+        that blueprint's user until it is removed, so nothing is released.
         """
         result, run_actions = await self._write_and_reload(
             config_dict, entity_id, target, operation, bp_warnings, enabled, run_actions
@@ -1330,8 +1328,8 @@ class AutomationConfigTools:
         }
         if detached_blueprint:
             response["took_control_of_blueprint"] = detached_blueprint
-        # Attached last so skill_content_hint leads the final response: BAT
-        # showed small models miss it behind success/automation_id.
+        merge_validation_meta(response, references)
+        # Last, so skill_content_hint leads the response (BAT: small models miss it).
         attach_skill_content(
             response,
             MandatoryBPS=MandatoryBPS,

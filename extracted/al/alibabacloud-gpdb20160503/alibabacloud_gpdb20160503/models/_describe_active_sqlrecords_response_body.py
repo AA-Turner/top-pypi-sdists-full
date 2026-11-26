@@ -16,7 +16,7 @@ class DescribeActiveSQLRecordsResponseBody(DaraModel):
     ):
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The queried SQL records.
+        # The query details.
         self.queries = queries
         # The request ID.
         self.request_id = request_id
@@ -76,33 +76,31 @@ class DescribeActiveSQLRecordsResponseBodyQueries(DaraModel):
         state: str = None,
         user: str = None,
     ):
-        # The IP address of the client.
+        # The client address.
         self.client_addr = client_addr
-        # The name of the database.
+        # The database name.
         self.database = database
-        # The progress ID.
+        # The process ID.
         self.pid = pid
-        # The SQL statement of the query.
+        # The SQL text of the query.
         self.query = query
-        # The execution duration of the query. Unit: seconds.
+        # The execution duration of the query, in seconds.
         self.query_duration = query_duration
         # The start time of the query.
         self.query_start = query_start
-        # The session ID.
+        # The ID of the session to which the query belongs.
         self.session_id = session_id
-        # Indicates whether the SQL statement is truncated. Valid values:
-        # 
-        # *   true
-        # *   false
+        # Specifies whether the SQL statement is truncated. Valid values:
+        # - true: Yes.
+        # - false: No.
         self.sql_truncated = sql_truncated
-        # The threshold that is used to truncate the SQL statement.
+        # The truncation threshold for the SQL statement.
         self.sql_truncated_threshold = sql_truncated_threshold
-        # The status of the asynchronous request. Valid values:
-        # 
-        # *   **running**
-        # *   **block**
+        # The execution status of the asynchronous request. Valid values:
+        # - **running**: Running.
+        # - **block**: Blocked.
         self.state = state
-        # The name of the database account.
+        # The username.
         self.user = user
 
     def validate(self):

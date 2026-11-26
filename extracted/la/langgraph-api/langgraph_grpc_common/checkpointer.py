@@ -91,8 +91,8 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         self._retry_context_prefix = retry_context_prefix or type(self).__name__
         self._serializer = serializer
         self._encryption_context_provider = encryption_context_provider
-        # Channels whose stored values `alist` and delta-channel history load;
-        # None loads every channel. See `with_load_channels`.
+        # Channels whose stored values `aget_tuple`, `alist` and delta-channel
+        # history load; None loads every channel. See `with_load_channels`.
         self._load_channels: frozenset[str] | None = None
         self.latest_iter = None
         try:
@@ -103,9 +103,9 @@ class GrpcCheckpointer(BaseCheckpointSaver):
     def with_load_channels(self, channels: Collection[str]) -> GrpcCheckpointer:
         """Return a shallow clone that loads stored values only for ``channels``.
 
-        The clone's ``alist`` and delta-channel history skip the values of
-        other channels, which keep their versions. An empty collection loads
-        every channel.
+        The clone's ``aget_tuple``, ``alist`` and delta-channel history skip
+        the values of other channels, which keep their versions. An empty
+        collection loads every channel.
         """
         clone = copy.copy(self)
         clone._load_channels = frozenset(channels)
@@ -165,6 +165,8 @@ class GrpcCheckpointer(BaseCheckpointSaver):
                 config=ckpt_conv.checkpoint_config_to_proto(config),
                 encryption_context_json=self._encryption_context_json(),
             )
+        if self._load_channels:
+            request.channels.extend(sorted(self._load_channels))
 
         async def _request() -> CheckpointTuple | None:
             response = await (await self._stub()).GetTuple(request)
@@ -426,7 +428,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         except grpc.aio.AioRpcError as e:
             if e.code() == grpc.StatusCode.UNIMPLEMENTED:
                 # The backend has no native fast path for delta-channel
-                # reconstruction (e.g. the Go mongo/sqlite checkpointers).
+                # reconstruction (e.g. the Go mongo checkpointer).
                 # Fall back to BaseCheckpointSaver's parent-chain walk, which
                 # drives aget_tuple (-> gRPC GetTuple) per ancestor. langgraph
                 # calls this method unguarded, so we must degrade gracefully

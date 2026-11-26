@@ -1,5 +1,7 @@
 """K8s Operator implementation for managing sandboxes via Kubernetes."""
 
+from typing import Any
+
 from rock.actions.sandbox.sandbox_info import SandboxInfo
 from rock.common.constants import StopReason
 from rock.config import K8sConfig
@@ -7,7 +9,7 @@ from rock.deployments.config import DockerDeploymentConfig
 from rock.logger import init_logger
 from rock.sandbox.operator.abstract import AbstractOperator
 from rock.sandbox.operator.k8s.constants import K8sConstants
-from rock.sandbox.operator.k8s.provider import BatchSandboxProvider
+from rock.sandbox.operator.k8s.provider import BatchSandboxProvider, TemplateSpec
 
 logger = init_logger(__name__)
 
@@ -58,7 +60,11 @@ def _merge_sandbox_info(redis_info: dict, sandbox_info: SandboxInfo) -> SandboxI
 class K8sOperator(AbstractOperator):
     """Operator for managing sandboxes via Kubernetes BatchSandbox CRD."""
 
-    def __init__(self, k8s_config: K8sConfig, redis_provider=None):
+    def __init__(
+        self,
+        k8s_config: K8sConfig,
+        redis_provider=None,
+    ):
         """Initialize K8s operator.
 
         Args:
@@ -141,4 +147,50 @@ class K8sOperator(AbstractOperator):
         return await self._provider.stop(sandbox_id)
 
     async def delete(self, config: DockerDeploymentConfig, host_ip: str | None = None) -> bool:
-        raise NotImplementedError("delete is not yet implemented for K8sOperator")
+        """Treat delete as successful because stop already removes the K8s resource."""
+        return True
+
+    # ========================================================================
+    # Template API (Warm path)
+    # ========================================================================
+
+    async def create_template(self, spec: TemplateSpec) -> dict:
+        """Create or reuse a template (Pool CRD).
+
+        Returns a dict with template_id and status.
+        """
+        return await self._provider.create_template(spec)
+
+    async def get_template_status(self, template_id: str) -> dict | None:
+        """Get template (Pool) status.
+
+        Args:
+            template_id: Template identifier (= Pool name)
+
+        Returns:
+            Status dict or None if not found
+        """
+        return await self._provider.get_template_status(template_id)
+
+    async def delete_template(self, template_id: str) -> bool:
+        """Delete template (Pool CRD).
+
+        Args:
+            template_id: Template identifier (= Pool name)
+
+        Returns:
+            True if deleted or not found, False if in use
+        """
+        return await self._provider.delete_template(template_id)
+
+    async def scale_template(self, template_id: str, capacity: dict[str, Any]) -> dict:
+        """Scale a template's Pool capacity.
+
+        Args:
+            template_id: Template identifier (= Pool name).
+            capacity: Snake-case capacity fields to update.
+
+        Returns:
+            Updated template status dict.
+        """
+        return await self._provider.scale_template(template_id, capacity)

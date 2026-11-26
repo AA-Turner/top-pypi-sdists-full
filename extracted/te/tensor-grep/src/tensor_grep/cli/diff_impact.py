@@ -25,6 +25,14 @@ from tensor_grep.cli.diff_impact_cap import (
     collect_test_reference_evidence,
     risk_cap_evidence_status,
 )
+from tensor_grep.cli.diff_impact_constants import (
+    check_directory_ref,
+    constant_uncertainty_fields,
+    format_git_diff_error,
+    merge_constant_symbols,
+    record_constant_uncertainty,
+    resolve_constant_blast_radius,
+)
 from tensor_grep.cli.diff_impact_payload import _empty_payload
 from tensor_grep.cli.diff_impact_refs import _test_reference_evidence
 from tensor_grep.cli.repo_map import (
@@ -600,28 +608,17 @@ def parse_git_diff_hunks(diff_text: str) -> DiffHunks:
     return result
 
 
-def _git_toplevel(root: Path, deadline_monotonic: float | None = None) -> Path:
-    """Return the git top level containing `root`; raise DiffError (fail closed) when unknown.
-
-    `git diff --no-relative` reports top-level-relative paths, so every join, symbol extraction
-    and repo-map scan must be rooted at the top level, not at the caller's working directory.
-    """
+def _run_git_rev_parse(
+    root: Path, args: list[str], deadline_monotonic: float | None = None
+) -> subprocess.CompletedProcess[bytes]:
     timeout = deadline_capped_timeout_seconds(
         configured_git_timeout_seconds(), deadline_monotonic=deadline_monotonic
     )
     if timeout is None:
         raise DiffError("deadline_exceeded")
-    cmd = [
-        "git",
-        "-c",
-        "core.quotepath=false",
-        "-c",
-        "core.fsmonitor=false",
-        "rev-parse",
-        "--show-toplevel",
-    ]
+    cmd = ["git", "-c", "core.quotepath=false", "-c", "core.fsmonitor=false", "rev-parse", *args]
     try:
-        proc = run_subprocess(
+        return run_subprocess(
             cmd,
             cwd=str(root),
             stdout=-1,
@@ -634,12 +631,24 @@ def _git_toplevel(root: Path, deadline_monotonic: float | None = None) -> Path:
         raise DiffError("git_diff_timeout") from exc
     except (OSError, ValueError, TimeoutError) as exc:
         raise DiffError("git_diff_failed", str(exc)) from exc
+
+
+def _git_rev_parse_returncode(
+    root: Path, args: list[str], *, deadline_monotonic: float | None = None
+) -> int | None:
+    try:
+        return _run_git_rev_parse(root, args, deadline_monotonic).returncode
+    except DiffError:
+        return None
+
+
+def _git_toplevel(root: Path, deadline_monotonic: float | None = None) -> Path:
+    """Return the git top level containing `root`; raise DiffError (fail closed) when unknown."""
+    proc = _run_git_rev_parse(root, ["--show-toplevel"], deadline_monotonic)
     top = os.fsdecode(proc.stdout or b"").removesuffix("\n")
     if proc.returncode != 0 or not top:
-        raise DiffError(
-            "git_diff_failed",
-            decode_diagnostic_output(proc.stderr).strip()[:500] or "no git top level",
-        )
+        msg = decode_diagnostic_output(proc.stderr).strip()[:500] or "no git top level"
+        raise DiffError("git_diff_failed", msg)
     return Path(top).resolve()
 
 
@@ -714,7 +723,7 @@ def extract_diff_hunks_from_git(
         raise DiffError("git_diff_failed", str(exc)) from exc
 
     if proc.returncode != 0:
-        raise DiffError("git_diff_failed", decode_diagnostic_output(proc.stderr).strip()[:500])
+        raise DiffError("git_diff_failed", format_git_diff_error(proc.stderr, ref=ref, root=root))
 
     raw = proc.stdout or b""
     output = raw if isinstance(raw, str) else raw.decode("utf-8", errors="surrogateescape")
@@ -826,7 +835,7 @@ def _symbols_from_bytes(data: bytes, suffix: str) -> list[dict[str, Any]]:
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
-        return _extract_symbols(tmp_path)
+        return merge_constant_symbols(_extract_symbols(tmp_path), data, suffix)
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -1138,6 +1147,10 @@ def build_diff_blast_radius(
             if ref is not None:
                 _validate_ref(ref)  # before ANY git invocation, including rev-parse
             root = _git_toplevel(root, deadline_monotonic)
+            if ref is not None:
+                dir_error = check_directory_ref(ref, root, deadline_monotonic=deadline_monotonic)
+                if dir_error is not None:
+                    raise DiffError("invalid_ref", dir_error)
             changed_files_with_lines = extract_diff_hunks_from_git(
                 ref=ref,
                 staged=staged,
@@ -1215,6 +1228,8 @@ def build_diff_blast_radius(
         bool(changed_symbols) and cap_paths_analyzed and not _scan_did_not_finish(repo_m)
     )
     symbol_analysis_complete = True
+    constant_resolution_incomplete = False
+    resolution_gaps_count = 0
 
     for sym in changed_symbols:
         symbol_name = str(sym.get("name", ""))
@@ -1234,31 +1249,46 @@ def build_diff_blast_radius(
                 partial_reasons.append("deadline_exceeded")
             break
 
-        sym_radius = build_symbol_blast_radius_from_map(
-            repo_m,
-            symbol_name,
-            max_depth=max_depth,
-            deadline_monotonic=deadline_monotonic,
-        )
+        if sym.get("kind") == "constant":
+            sym_radius = resolve_constant_blast_radius(
+                repo_m, sym, root=root, max_depth=max_depth, deadline_monotonic=deadline_monotonic
+            )
+            if sym_radius.get("callers"):
+                all_changed_symbols_uncalled = False
+            is_inc, gaps = record_constant_uncertainty(
+                sym_radius, downgrade_reasons, partial_reasons
+            )
+            if is_inc:
+                constant_resolution_incomplete = True
+                symbol_evidence_complete = reference_lookup_complete = False
+                all_changed_symbols_uncalled = False
+            resolution_gaps_count += gaps
+        else:
+            sym_radius = build_symbol_blast_radius_from_map(
+                repo_m,
+                symbol_name,
+                max_depth=max_depth,
+                deadline_monotonic=deadline_monotonic,
+            )
 
-        symbol_callers = sym_radius.get("callers")
-        if (
-            sym_radius.get("no_match")
-            or sym_radius.get("partial")
-            or sym_radius.get("result_incomplete")
-            or not isinstance(symbol_callers, list)
-        ):
-            symbol_evidence_complete = False
-            all_changed_symbols_uncalled = False
-        elif symbol_callers:
-            all_changed_symbols_uncalled = False
-        test_file_references = [
-            caller
-            for caller in symbol_callers or []
-            if isinstance(caller, dict) and _is_test_file(Path(str(caller.get("file", ""))))
-        ]
-        if test_file_references:
-            all_changed_symbols_uncalled = False
+            symbol_callers = sym_radius.get("callers")
+            if (
+                sym_radius.get("no_match")
+                or sym_radius.get("partial")
+                or sym_radius.get("result_incomplete")
+                or not isinstance(symbol_callers, list)
+            ):
+                symbol_evidence_complete = False
+                all_changed_symbols_uncalled = False
+            elif symbol_callers:
+                all_changed_symbols_uncalled = False
+            test_file_references = [
+                caller
+                for caller in symbol_callers or []
+                if isinstance(caller, dict) and _is_test_file(Path(str(caller.get("file", ""))))
+            ]
+            if test_file_references:
+                all_changed_symbols_uncalled = False
 
         if sym_radius.get("partial"):
             partial = True
@@ -1344,6 +1374,9 @@ def build_diff_blast_radius(
         "submodule_changed_files": submodule_changed_files,
         "result_incomplete": partial,
         "incomplete_reason": (partial_reasons[0] if partial and partial_reasons else None),
+        **constant_uncertainty_fields(
+            changed_symbols, constant_resolution_incomplete, resolution_gaps_count
+        ),
         **(
             {"incomplete_reason_class": "coverage_gap"}
             if partial and partial_reasons[:1] == ["coverage_gap"]
@@ -1380,7 +1413,9 @@ def build_diff_blast_radius(
     payload["risk_cap_evidence"] = risk_cap_evidence_status(
         changed_symbols, reference_lookup_complete
     )
-    return payload
+    from tensor_grep.cli.tdad_kg_ast import enrich_diff_impact_payload
+
+    return enrich_diff_impact_payload(payload, root=root, repo_map_payload=repo_m)
 
 
 def diff_impact_command(
@@ -1405,17 +1440,6 @@ def diff_impact_command(
         staged=staged,
         deadline_seconds=deadline,
     )
-    if ref is not None and payload.get("error"):
-        try:
-            is_dir_ref = Path(ref).exists() and Path(ref).is_dir()
-        except OSError:
-            is_dir_ref = False
-        if is_dir_ref:
-            payload["error"] = (
-                f"{payload['error']} "
-                f"(hint: {ref!r} is a directory path, not a git revision; "
-                "pass a git ref such as HEAD~1 or a branch name)"
-            )
 
     breached = False
     if (
@@ -1448,6 +1472,8 @@ def diff_impact_command(
         cli_main._emit_scan_incompleteness_banner(payload)
         if payload.get("result_incomplete"):
             typer.echo(f"Diff impact INCOMPLETE: {payload.get('incomplete_reason')}", err=True)
+        if payload.get("error"):
+            typer.echo(f"Error: {payload['error']}", err=True)
         typer.echo(
             f"Diff impact: changed_files={payload['file_count']} changed_symbols={payload['symbol_count']} "
             f"callers={payload['caller_count']} affected_files={len(payload['affected_files'])} "

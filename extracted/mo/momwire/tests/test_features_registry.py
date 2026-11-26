@@ -248,6 +248,7 @@ def test_a_basis_only_executable_feature_is_carried_and_names_a_basis():
     assert dict(rows) == {
         "razor_pair_reuse": "razor2p",
         "crossing_anchors": "razor2p",
+        "offset_reuse": "bs2",
     }
     cmake = (ROOT / "standalone" / "CMakeLists.txt").read_text(encoding="utf-8")
     bases = set(re.findall(r'MW_EXE_BASIS_NAME="([a-z0-9-]+)"', cmake))
@@ -255,6 +256,58 @@ def test_a_basis_only_executable_feature_is_carried_and_names_a_basis():
     for name, basis in rows:
         assert name in _exe_features() and name in F.FEATURES, name
         assert basis in bases, (basis, bases)
+
+
+def _exe_parts():
+    """`EXE_PARTS` in the executables' main: {(whole, basis): part or ""}."""
+    src = EXE_SOURCE.read_text(encoding="utf-8")
+    table = re.search(
+        r"const char \*const EXE_PARTS\[\]\[3\] = \{(.*?)\n\};", src, re.S
+    )
+    assert table is not None
+    rows = re.findall(r'\{"([a-z0-9_]+)", "([a-z0-9-]+)", "([a-z0-9_]*)"\}', table[1])
+    assert len(rows) == table[1].count("{"), table[1]
+    return {(whole, basis): part for whole, basis, part in rows}
+
+
+def test_a_whole_runs_on_each_executable_what_its_route_carries():
+    # `EXE_PARTS`: on each executable's basis, the whole `pair_reuse` turns on
+    # the registry's part for that family when the executables carry it, the
+    # whole itself on a family it honours with no part, and nothing ("",
+    # withheld) when the family's parts are Python's alone.
+    parts = _exe_parts()
+    carried = _exe_features()
+    wholes = {f.part_of for f in F.FEATURES.values() if f.part_of is not None}
+    assert {w for w, _b in parts} == wholes == {"pair_reuse"}
+    bases = {"razor2p", "bs2", "sinusoidal"}
+    for whole in wholes:
+        # every executable accepts the whole: it reaches the deepest level
+        assert F.FEATURES[whole].reach == F.DEEPEST
+        assert carried[whole] == F.DEEPEST
+        assert {b for w, b in parts if w == whole} == bases
+        for basis in bases:
+            family = F.basis_solver(basis)
+            assert F.honours(whole, family), (whole, basis)
+            fam_parts = [
+                p.name
+                for p in F.FEATURES.values()
+                if p.part_of == whole and family in p.solvers
+            ]
+            on_exe = [p for p in fam_parts if p in carried]
+            if not fam_parts:
+                expected = whole
+            elif on_exe:
+                (expected,) = on_exe
+            else:
+                expected = ""
+            assert parts[(whole, basis)] == expected, (whole, basis)
+    # Today: razor2p's part, the sinusoidal plan, and bs2's part, which its
+    # C++ fill runs beside the whole's census (momwire#2063).
+    assert parts == {
+        ("pair_reuse", "razor2p"): "razor_pair_reuse",
+        ("pair_reuse", "sinusoidal"): "pair_reuse",
+        ("pair_reuse", "bs2"): "offset_reuse",
+    }
 
 
 def test_the_kwarg_overrides_the_env(no_features):
@@ -602,13 +655,14 @@ DECK = ROOT / "tests" / "fixtures" / "eznec" / "decks" / "0036_dipole-in-free-sp
     ("var", "name"),
     [
         ("MOMWIRE_X_OFFSET_REUSE", "offset_reuse"),
-        ("MOMWIRE_X_PAIR_REUSE", "pair_reuse"),
         ("MOMWIRE_X_NEC2_END_CAP", "nec2_end_cap"),
         ("MOMWIRE_X_NOT_YET_REGISTERED", "not_yet_registered"),
         ("MOMWIRE_RAZOR_CXX", "razor_cxx"),
         # momwire#1454: the C++ route carries it, but its reach is level 1.
         ("MOMWIRE_X_EXACT_KERNEL_SERIES", "exact_kernel_series"),
         ("MOMWIRE_EXACT_KERNEL_SERIES", "exact_kernel_series"),
+        # momwire#1338: a drop-in feature; there is no C++ sector route.
+        ("MOMWIRE_X_ROTATIONAL_SYMMETRY", "rotational_symmetry"),
     ],
 )
 def test_the_exe_refuses_a_feature(tmp_path, var, name):
@@ -704,6 +758,28 @@ def test_the_warm_server_keys_carry_the_features_on(no_features):
     }
 
 
+def test_the_warm_server_keys_carry_a_part_turned_off_under_its_whole(no_features):
+    # The whole's variable alone turns its parts on, so a part's "0" beside
+    # it asks for a different engine and must key a server of its own
+    # (momwire#2153: a warm server started with the whole alone answered a
+    # call that turned razor's part off, with reuse on).
+    import momwire_eznec_client as ez
+    import momwire_serve_client as mech
+
+    assert mech.FEATURE_PARTS == {n for n, f in F.FEATURES.items() if f.part_of}
+    no_features.setenv("MOMWIRE_X_PAIR_REUSE", "1")
+    whole = ez.config_key(None, 900.0)
+    for part in sorted(mech.FEATURE_PARTS):
+        var = f"MOMWIRE_X_{part.upper()}"
+        no_features.setenv(var, "0")
+        assert ez.config_key(None, 900.0) != whole, part
+        assert f"feature={part}=off" in mech.feature_identity()
+        no_features.setenv(var, "1")
+        assert f"feature={part}" in mech.feature_identity()
+        no_features.delenv(var)
+        assert ez.config_key(None, 900.0) == whole
+
+
 def test_the_warm_server_keys_carry_a_default_on_feature_turned_off(no_features):
     # A default-on feature is on in a server started with nothing set, so
     # its "0" (not its "1") is what must key a server of its own.
@@ -722,6 +798,30 @@ def test_the_warm_server_keys_carry_a_default_on_feature_turned_off(no_features)
     assert off[0] != base[0] and off[1] != base[1]
     assert mech.feature_identity() == ["feature=factored_columns=off"]
     assert mech.FEATURE_ENV_PREFIX == F.ENV_PREFIX
+
+
+def test_the_warm_server_keys_carry_a_pragma_feature_turned_off(no_features):
+    # A deck's pragma card reads as the feature's variable set on, so a
+    # server started with the variable unset honours it: the variable's "0",
+    # the user's kill switch, must key a server of its own, and its "1" one
+    # of its own too, as any feature's.
+    import momwire_eznec_client as ez
+    import momwire_nec2c_client as n2
+    import momwire_serve_client as mech
+
+    assert mech.FEATURE_PRAGMA == {n for n, f in F.FEATURES.items() if f.pragma}
+    base = (ez.config_key(None, 900.0), n2.config_key([], 900.0))
+    for name in sorted(mech.FEATURE_PRAGMA):
+        var = F.FEATURES[name].env
+        no_features.setenv(var, "")
+        assert (ez.config_key(None, 900.0), n2.config_key([], 900.0)) == base
+        no_features.setenv(var, "0")
+        off = (ez.config_key(None, 900.0), n2.config_key([], 900.0))
+        assert off[0] != base[0] and off[1] != base[1], name
+        assert mech.feature_identity() == [f"feature={name}=off"]
+        no_features.setenv(var, "1")
+        assert mech.feature_identity() == [f"feature={name}"]
+        no_features.delenv(var)
 
 
 def test_the_warm_server_keys_carry_the_thread_environment(monkeypatch):

@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import operator
 
 import testtools
 
@@ -65,6 +66,612 @@ class TestVersion(testtools.TestCase):
 
     def test_version_init_failure(self):
         self.assertRaises(TypeError, microversion_parse.Version, 1, 2, 3)
+
+
+class TestVersionRange(testtools.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.version = microversion_parse.Version(2, 10)
+
+    def test_inclusive_bounds(self):
+        bounds = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 9),
+            self.version,
+        )
+
+        self.assertNotIn(microversion_parse.Version(2, 8), bounds)
+        self.assertIn(microversion_parse.Version(2, 9), bounds)
+        self.assertIn(self.version, bounds)
+        self.assertNotIn(microversion_parse.Version(2, 11), bounds)
+
+    def test_single_version(self):
+        bounds = microversion_parse.VersionRange(self.version, self.version)
+
+        self.assertIn(self.version, bounds)
+        self.assertNotIn(microversion_parse.Version(2, 9), bounds)
+        self.assertNotIn(microversion_parse.Version(2, 11), bounds)
+
+    def test_no_minimum(self):
+        bounds = microversion_parse.VersionRange(maximum=self.version)
+
+        self.assertIn(microversion_parse.Version(2, 9), bounds)
+        self.assertIn(self.version, bounds)
+        self.assertNotIn(microversion_parse.Version(2, 11), bounds)
+        self.assertNotIn(microversion_parse.Version(1, 99), bounds)
+        self.assertNotIn(microversion_parse.Version(3, 0), bounds)
+
+    def test_no_maximum(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertNotIn(microversion_parse.Version(2, 9), bounds)
+        self.assertIn(self.version, bounds)
+        self.assertIn(microversion_parse.Version(2, 11), bounds)
+        self.assertNotIn(microversion_parse.Version(1, 99), bounds)
+        self.assertNotIn(microversion_parse.Version(3, 0), bounds)
+
+    def test_no_bounds(self):
+        self.assertRaises(ValueError, microversion_parse.VersionRange)
+
+    def test_version_zero_can_match(self):
+        version = microversion_parse.Version(0, 0)
+        bounds = microversion_parse.VersionRange(version, version)
+
+        self.assertIn(version, bounds)
+
+    def test_maximum_less_than_minimum(self):
+        self.assertRaises(
+            ValueError,
+            microversion_parse.VersionRange,
+            self.version,
+            microversion_parse.Version(2, 9),
+        )
+
+    def test_maximum_major_less_than_minimum(self):
+        self.assertRaises(
+            ValueError,
+            microversion_parse.VersionRange,
+            microversion_parse.Version(2, 0),
+            microversion_parse.Version(1, 100),
+        )
+
+    def test_different_major_version_bounds(self):
+        self.assertRaises(
+            ValueError,
+            microversion_parse.VersionRange,
+            microversion_parse.Version(1, 99),
+            microversion_parse.Version(2, 1),
+        )
+
+    def test_negative_major(self):
+        version = microversion_parse.Version(-1, 0)
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, minimum=version
+        )
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, maximum=version
+        )
+        self.assertRaises(ValueError, operator.contains, bounds, version)
+
+    def test_negative_minor(self):
+        version = microversion_parse.Version(2, -1)
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, minimum=version
+        )
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, maximum=version
+        )
+        self.assertRaises(ValueError, operator.contains, bounds, version)
+
+    def test_boolean_component(self):
+        version = microversion_parse.Version(True, 1)
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, minimum=version
+        )
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, maximum=version
+        )
+        self.assertRaises(ValueError, operator.contains, bounds, version)
+
+    def test_non_integer_component(self):
+        version = microversion_parse.Version(2, 1.5)  # type: ignore[arg-type]
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, minimum=version
+        )
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, maximum=version
+        )
+        self.assertRaises(ValueError, operator.contains, bounds, version)
+
+    def test_string_component(self):
+        version = microversion_parse.Version('2', 1)  # type: ignore[arg-type]
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, minimum=version
+        )
+        self.assertRaises(
+            ValueError, microversion_parse.VersionRange, maximum=version
+        )
+        self.assertRaises(ValueError, operator.contains, bounds, version)
+
+    def test_string_not_version(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            TypeError, microversion_parse.VersionRange, minimum='2.1'
+        )
+        self.assertRaises(
+            TypeError, microversion_parse.VersionRange, maximum='2.1'
+        )
+        self.assertRaises(TypeError, operator.contains, bounds, '2.1')
+
+    def test_latest_not_version(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            TypeError, microversion_parse.VersionRange, minimum='latest'
+        )
+        self.assertRaises(
+            TypeError, microversion_parse.VersionRange, maximum='latest'
+        )
+        self.assertRaises(TypeError, operator.contains, bounds, 'latest')
+
+    def test_integer_not_version(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            TypeError, microversion_parse.VersionRange, minimum=1
+        )
+        self.assertRaises(
+            TypeError, microversion_parse.VersionRange, maximum=1
+        )
+        self.assertRaises(TypeError, operator.contains, bounds, 1)
+
+    def test_tuple_not_version(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(
+            TypeError, microversion_parse.VersionRange, minimum=(2, 1)
+        )
+        self.assertRaises(
+            TypeError, microversion_parse.VersionRange, maximum=(2, 1)
+        )
+        self.assertRaises(TypeError, operator.contains, bounds, (2, 1))
+
+    def test_contains_none(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertRaises(TypeError, operator.contains, bounds, None)
+
+    def test_service_bounds_are_ignored(self):
+        self.version.min_version = (2, 11)
+        self.version.max_version = (2, 20)
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+
+        self.assertFalse(self.version.matches())
+        self.assertIn(self.version, bounds)
+        self.assertIn(microversion_parse.Version(2, 11), bounds)
+        self.assertNotIn(microversion_parse.Version(2, 9), bounds)
+
+    def test_overlapping_overlap(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 10),
+        )
+        right = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 5),
+            microversion_parse.Version(2, 20),
+        )
+
+        self.assertTrue(left.overlaps(right))
+        self.assertTrue(right.overlaps(left))
+
+    def test_overlapping_intersection(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 10),
+        )
+        right = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 5),
+            microversion_parse.Version(2, 20),
+        )
+        expected = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 5),
+            microversion_parse.Version(2, 10),
+        )
+
+        self.assertEqual(expected, left & right)
+        self.assertEqual(expected, right & left)
+
+    def test_shared_endpoint_overlap(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 10),
+        )
+        right = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 10),
+            microversion_parse.Version(2, 20),
+        )
+
+        self.assertTrue(left.overlaps(right))
+        self.assertTrue(right.overlaps(left))
+
+    def test_shared_endpoint_intersection(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 10),
+        )
+        right = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 10),
+            microversion_parse.Version(2, 20),
+        )
+        expected = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 10),
+            microversion_parse.Version(2, 10),
+        )
+
+        self.assertEqual(expected, left & right)
+        self.assertEqual(expected, right & left)
+
+    def test_adjacent_overlap(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 10),
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 11)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_adjacent_intersection(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 10),
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 11)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_gap_overlap(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 10),
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 12)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_gap_intersection(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 10),
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 12)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_enclosed_overlap(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 20),
+        )
+        right = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 5),
+            microversion_parse.Version(2, 10),
+        )
+
+        self.assertTrue(left.overlaps(right))
+        self.assertTrue(right.overlaps(left))
+
+    def test_enclosed_intersection(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 20),
+        )
+        right = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 5),
+            microversion_parse.Version(2, 10),
+        )
+        expected = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 5),
+            microversion_parse.Version(2, 10),
+        )
+
+        self.assertEqual(expected, left & right)
+        self.assertEqual(expected, right & left)
+
+    def test_opposite_unbounded_ends_overlap(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 5)
+        )
+
+        self.assertTrue(left.overlaps(right))
+        self.assertTrue(right.overlaps(left))
+
+    def test_opposite_unbounded_ends_intersection(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 5)
+        )
+        expected = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 5),
+            microversion_parse.Version(2, 10),
+        )
+
+        self.assertEqual(expected, left & right)
+        self.assertEqual(expected, right & left)
+
+    def test_adjacent_unbounded_ends_overlap(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 11)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_adjacent_unbounded_ends_intersection(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 11)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_no_minimum_overlap(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 5)
+        )
+
+        self.assertTrue(left.overlaps(right))
+        self.assertTrue(right.overlaps(left))
+
+    def test_no_minimum_intersection(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 5)
+        )
+        expected = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 5)
+        )
+
+        self.assertEqual(expected, left & right)
+        self.assertEqual(expected, right & left)
+
+    def test_no_maximum_overlap(self):
+        left = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 1)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 5)
+        )
+
+        self.assertTrue(left.overlaps(right))
+        self.assertTrue(right.overlaps(left))
+
+    def test_no_maximum_intersection(self):
+        left = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 1)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 5)
+        )
+        expected = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 5)
+        )
+
+        self.assertEqual(expected, left & right)
+        self.assertEqual(expected, right & left)
+
+    def test_unbounded_gap_overlap(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 9)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 11)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_unbounded_gap_intersection(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 9)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 11)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_different_major_versions_overlap(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 99),
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(3, 0)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_different_major_versions_intersection(self):
+        left = microversion_parse.VersionRange(
+            microversion_parse.Version(2, 1),
+            microversion_parse.Version(2, 99),
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(3, 0)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_different_major_versions_no_maximum_overlap(self):
+        left = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(3, 10)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_different_major_versions_no_maximum_intersection(self):
+        left = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(3, 10)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_different_major_versions_no_minimum_overlap(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(3, 10)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_different_major_versions_no_minimum_intersection(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(3, 10)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_different_majors_no_minimum_later_overlap(self):
+        left = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(3, 10)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_different_majors_no_minimum_later_intersection(
+        self,
+    ):
+        left = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(3, 10)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_different_majors_no_maximum_later_overlap(self):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(3, 10)
+        )
+
+        self.assertFalse(left.overlaps(right))
+        self.assertFalse(right.overlaps(left))
+
+    def test_different_majors_no_maximum_later_intersection(
+        self,
+    ):
+        left = microversion_parse.VersionRange(
+            maximum=microversion_parse.Version(2, 10)
+        )
+        right = microversion_parse.VersionRange(
+            minimum=microversion_parse.Version(3, 10)
+        )
+
+        self.assertIsNone(left & right)
+        self.assertIsNone(right & left)
+
+    def test_overlap_with_self(self):
+        bounds = microversion_parse.VersionRange(self.version, self.version)
+
+        self.assertTrue(bounds.overlaps(bounds))
+
+    def test_intersection_with_self(self):
+        bounds = microversion_parse.VersionRange(self.version, self.version)
+
+        self.assertEqual(bounds, bounds & bounds)
+
+    def test_intersection_rejects_none(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+        other = None
+
+        self.assertRaises(TypeError, operator.and_, bounds, other)
+        self.assertRaises(TypeError, operator.and_, other, bounds)
+
+    def test_intersection_rejects_string(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+        other = '2.1'
+
+        self.assertRaises(TypeError, operator.and_, bounds, other)
+        self.assertRaises(TypeError, operator.and_, other, bounds)
+
+    def test_intersection_rejects_tuple(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+        other = (2, 1)
+
+        self.assertRaises(TypeError, operator.and_, bounds, other)
+        self.assertRaises(TypeError, operator.and_, other, bounds)
+
+    def test_intersection_rejects_version(self):
+        bounds = microversion_parse.VersionRange(minimum=self.version)
+        other = microversion_parse.Version(2, 1)
+
+        self.assertRaises(TypeError, operator.and_, bounds, other)
+        self.assertRaises(TypeError, operator.and_, other, bounds)
 
 
 class TestParseVersionString(testtools.TestCase):

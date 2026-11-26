@@ -1,37 +1,60 @@
-"""Typed models for the Azure Container Apps Sandbox SDK.
+"""Model exports for the Azure Container Apps Sandbox SDK.
 
 This module re-exports all model classes from their domain-specific
 submodules. Import from here or from ``azure.containerapps.sandbox`` directly.
+Migrated families are direct aliases of ``azure.containerapps.sandbox.models``.
+Other families retain their existing implementations until migration.
 """
 
-from azure.containerapps.sandbox._model_types._sandbox import (
-    DiskImageRef,
+from azure.containerapps.sandbox.models import (
     Sandbox,
     SandboxResources,
-    SandboxSourcesRef,
+    SandboxSource as SandboxSourcesRef,
+    SandboxSourceDiskImage as DiskImageRef,
+    SandboxSourceSnapshot as SnapshotRef,
     SandboxStateDetails,
-    SnapshotRef,
     StoppedReason,
 )
-from azure.containerapps.sandbox._model_types._egress import (
+from azure.containerapps.sandbox.models import (
+    AzureBlobByoManagedIdentityAuth,
+    SandboxGroupIdentitySelector,
+    SystemAssignedSandboxGroupIdentitySelector,
+    UserAssignedSandboxGroupIdentitySelector,
     EgressDecisionEntry,
     EgressDecisions,
+    EgressForwardProxy,
     EgressHeader,
     EgressHeaderValueRef,
     EgressHostRule,
+    EgressHookRef,
+    EgressHttpPolicy,
     EgressManagedIdentityRef,
     EgressPolicy,
     EgressRule,
     EgressRuleAction,
     EgressRuleMatch,
     EgressSecretRef,
+    TdsCredential,
+    TdsEgressAction,
+    TdsEgressMatch,
+    TdsEgressRule,
+    TdsEgressSection,
+    PostgresCredential,
+    PostgresEgressAction,
+    PostgresEgressMatch,
+    PostgresEgressRule,
+    PostgresEgressSection,
+    EgressTransportPolicy,
+    EgressTransportRule,
+    EgressValidationWarning,
+    NetworkEgressDecisions,
 )
-from azure.containerapps.sandbox._model_types._lifecycle import (
+from azure.containerapps.sandbox.models import (
     AutoDeletePolicy,
     AutoSuspendPolicy,
     LifecyclePolicy,
 )
-from azure.containerapps.sandbox._model_types._ports import (
+from azure.containerapps.sandbox.models import (
     AddPortRequest,
     PortAuthConfig,
     PortAuthEntraId,
@@ -39,40 +62,33 @@ from azure.containerapps.sandbox._model_types._ports import (
     PortIpAccessControlRule,
     SandboxPort,
 )
-from azure.containerapps.sandbox._model_types._exec import ExecResult
-from azure.containerapps.sandbox._model_types._images import (
+from azure.containerapps.sandbox.models import (
+    CpuUsage,
+    DirListing,
     DiskImage,
     DiskImageSpec,
     DiskImageStatus,
+    ExecResult,
+    FileInfo,
+    NetworkUsage,
     PublicDiskImage,
     RegistryCredentials,
-)
-from azure.containerapps.sandbox._model_types._snapshots import (
-    Snapshot,
-    SnapshotGpu,
-    SnapshotResources,
-)
-from azure.containerapps.sandbox._model_types._volumes import (
-    AddVolumeMountRequest,
-    AzureBlobByoManagedIdentityAuth,
-    SandboxGroupIdentitySelector,
-    SandboxVolume,
-    Volume,
-    VolumeUsage,
-)
-from azure.containerapps.sandbox._model_types._files import DirListing, FileInfo
-from azure.containerapps.sandbox._model_types._stats import (
-    CpuUsage,
-    NetworkEgressDecisions,
-    NetworkUsage,
     ResourceUsage,
     SandboxStats,
+    SandboxVolume as AddVolumeMountRequest,
+    Snapshot,
+    SnapshotResources,
+)
+from azure.containerapps.sandbox.models import (
+    BlobVolumeUsage,
+    DataDiskVolumeUsage,
+    SandboxVolume,
+    Secret as SecretMetadata,
+    Volume,
 )
 from azure.containerapps.sandbox._model_types._secrets import (
-    SecretMetadata,
     SecretValuePeek,
 )
-from azure.containerapps.sandbox._model_types._groups import SandboxGroup
 
 __all__ = [
     # Sandbox core
@@ -86,15 +102,31 @@ __all__ = [
     # Egress
     "EgressDecisionEntry",
     "EgressDecisions",
+    "EgressForwardProxy",
     "EgressHeader",
     "EgressHeaderValueRef",
     "EgressHostRule",
+    "EgressHookRef",
+    "EgressHttpPolicy",
     "EgressManagedIdentityRef",
     "EgressPolicy",
     "EgressRule",
     "EgressRuleAction",
     "EgressRuleMatch",
     "EgressSecretRef",
+    "TdsCredential",
+    "TdsEgressAction",
+    "TdsEgressMatch",
+    "TdsEgressRule",
+    "TdsEgressSection",
+    "PostgresCredential",
+    "PostgresEgressAction",
+    "PostgresEgressMatch",
+    "PostgresEgressRule",
+    "PostgresEgressSection",
+    "EgressTransportPolicy",
+    "EgressTransportRule",
+    "EgressValidationWarning",
     # Lifecycle
     "AutoDeletePolicy",
     "AutoSuspendPolicy",
@@ -116,15 +148,17 @@ __all__ = [
     "RegistryCredentials",
     # Snapshots
     "Snapshot",
-    "SnapshotGpu",
     "SnapshotResources",
     # Volumes
     "AddVolumeMountRequest",
     "AzureBlobByoManagedIdentityAuth",
     "SandboxGroupIdentitySelector",
+    "SystemAssignedSandboxGroupIdentitySelector",
+    "UserAssignedSandboxGroupIdentitySelector",
     "SandboxVolume",
     "Volume",
-    "VolumeUsage",
+    "BlobVolumeUsage",
+    "DataDiskVolumeUsage",
     # Files
     "DirListing",
     "FileInfo",
@@ -138,5 +172,4 @@ __all__ = [
     "SecretMetadata",
     "SecretValuePeek",
     # Groups
-    "SandboxGroup",
 ]

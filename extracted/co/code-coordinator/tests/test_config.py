@@ -735,6 +735,175 @@ def test_ancillary_files_non_string_element(tmp_path: Path) -> None:
         load(p)
 
 
+# ── integration_surfaces (#4151) ─────────────────────────────────────────────
+
+
+def test_integration_surfaces_parsed(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces:\n"
+        "      - paths: [tests/ratchet.rs]\n"
+        "        regen: RATCHET_WRITE=1 cargo test --test ratchet\n"
+        "        check: cargo test --test ratchet\n"
+        "      - paths: [scripts/baseline.json, scripts/other.json]\n"
+        "        regen: python3 scripts/baseline.py --write\n"
+        "        check: python3 scripts/baseline.py\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    surfaces = cfg.repo("api").integration_surfaces
+    assert len(surfaces) == 2
+    assert surfaces[0].paths == ["tests/ratchet.rs"]
+    assert surfaces[0].regen == "RATCHET_WRITE=1 cargo test --test ratchet"
+    assert surfaces[0].check == "cargo test --test ratchet"
+    assert surfaces[1].paths == ["scripts/baseline.json", "scripts/other.json"]
+
+
+def test_integration_surfaces_default_empty(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    assert cfg.repo("api").integration_surfaces == []
+
+
+def test_integration_surfaces_not_a_list(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces: nope\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="integration_surfaces must be a list"):
+        load(p)
+
+
+def test_integration_surfaces_entry_not_a_mapping(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces:\n"
+        "      - nope\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="integration_surfaces\\[0\\] must be a mapping"):
+        load(p)
+
+
+def test_integration_surfaces_unknown_key(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces:\n"
+        "      - paths: [a.txt]\n"
+        "        regen: foo\n"
+        "        check: bar\n"
+        "        extra: baz\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="unknown key"):
+        load(p)
+
+
+def test_integration_surfaces_missing_paths(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces:\n"
+        "      - regen: foo\n"
+        "        check: bar\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="paths must be a non-empty list"):
+        load(p)
+
+
+def test_integration_surfaces_empty_paths(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces:\n"
+        "      - paths: []\n"
+        "        regen: foo\n"
+        "        check: bar\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="paths must be a non-empty list"):
+        load(p)
+
+
+def test_integration_surfaces_non_string_path(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces:\n"
+        "      - paths: [42]\n"
+        "        regen: foo\n"
+        "        check: bar\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="paths\\[0\\] must be a non-empty string"):
+        load(p)
+
+
+def test_integration_surfaces_missing_regen(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces:\n"
+        "      - paths: [a.txt]\n"
+        "        check: bar\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="regen must be a non-empty string"):
+        load(p)
+
+
+def test_integration_surfaces_missing_check(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    integration_surfaces:\n"
+        "      - paths: [a.txt]\n"
+        "        regen: foo\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="check must be a non-empty string"):
+        load(p)
+
+
 # ── requires (#3351) ─────────────────────────────────────────────────────────
 
 
@@ -1630,6 +1799,155 @@ def test_pipeline_attention_thresholds_rejects_bad_duration(tmp_path: Path) -> N
     )
     with pytest.raises(ConfigError, match="attention_thresholds"):
         load(p)
+
+
+# ── #4142: learned per-repo p90 attention threshold ──────────────────────────
+
+
+def test_attention_threshold_no_repo_name_unaffected(monkeypatch) -> None:
+    """Omitting repo_name (every pre-#4142 caller) must reproduce today's
+    behaviour exactly — the learned path is only ever consulted when a
+    caller opts in by passing repo_name.
+    """
+    import coord.usage as usage_mod
+
+    def boom(*_a, **_kw):
+        raise AssertionError("usage must not be consulted without repo_name")
+
+    monkeypatch.setattr(usage_mod, "p90_attention_threshold", boom)
+    cfg = PipelineConfig()
+    assert cfg.attention_threshold_for("work") == 45 * 60.0
+
+
+def test_attention_threshold_learned_replaces_builtin_default(monkeypatch) -> None:
+    """#4142: with repo_name given and enough history, the learned p90
+    replaces the un-overridden built-in "work" default — the exact quadraui
+    false-alert scenario the issue describes (first-work legs normally run
+    45-69m, past the fixed 45m guess).
+    """
+    import coord.usage as usage_mod
+
+    cfg = PipelineConfig()
+    monkeypatch.setattr(
+        usage_mod, "p90_attention_threshold", lambda repo, atype: 69 * 60.0,
+    )
+    assert cfg.attention_threshold_for("work", repo_name="quadraui") == 69 * 60.0
+
+
+def test_attention_threshold_learned_falls_back_when_cold(monkeypatch) -> None:
+    """Too little history (usage.p90_attention_threshold returns None) keeps
+    the fixed default — never a population-of-a-few guess.
+    """
+    import coord.usage as usage_mod
+
+    cfg = PipelineConfig()
+    monkeypatch.setattr(usage_mod, "p90_attention_threshold", lambda repo, atype: None)
+    assert cfg.attention_threshold_for("work", repo_name="quadraui") == 45 * 60.0
+
+
+def test_attention_threshold_explicit_override_wins_over_learned(monkeypatch) -> None:
+    """A user who actually configured a non-default ``work`` threshold in
+    coordinator.yml still wins outright — the learned substitution only
+    ever replaces an UN-overridden built-in default, never a deliberate
+    operator choice.
+    """
+    import coord.usage as usage_mod
+
+    def boom(*_a, **_kw):
+        raise AssertionError("usage must not be consulted for an explicit override")
+
+    monkeypatch.setattr(usage_mod, "p90_attention_threshold", boom)
+    cfg = PipelineConfig(attention_thresholds={"work": 5.0})
+    assert cfg.attention_threshold_for("work", repo_name="quadraui") == 5.0
+
+
+def test_attention_threshold_learn_flag_off_disables_lookup(monkeypatch) -> None:
+    """``learn_attention_thresholds=False`` pins every type to its fixed
+    default regardless of repo_name — the opt-out escape hatch.
+    """
+    import coord.usage as usage_mod
+
+    def boom(*_a, **_kw):
+        raise AssertionError("usage must not be consulted when the flag is off")
+
+    monkeypatch.setattr(usage_mod, "p90_attention_threshold", boom)
+    cfg = PipelineConfig(learn_attention_thresholds=False)
+    assert cfg.attention_threshold_for("work", repo_name="quadraui") == 45 * 60.0
+
+
+def test_pipeline_learn_attention_thresholds_parsed_from_yaml(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """``pipeline.learn_attention_thresholds: false`` in coordinator.yml must
+    actually reach ``PipelineConfig`` — the documented opt-out is read
+    through ``load()``, not just constructible directly in Python.
+    """
+    import coord.usage as usage_mod
+
+    def boom(*_a, **_kw):
+        raise AssertionError("usage must not be consulted when the flag is off")
+
+    monkeypatch.setattr(usage_mod, "p90_attention_threshold", boom)
+
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+        "pipeline:\n"
+        "  learn_attention_thresholds: false\n"
+    )
+    cfg = load(p)
+    assert cfg.pipeline.learn_attention_thresholds is False
+    assert cfg.pipeline.attention_threshold_for("work", repo_name="quadraui") == 45 * 60.0
+
+
+def test_pipeline_learn_attention_thresholds_defaults_true_from_yaml(tmp_path: Path) -> None:
+    """Omitting the key entirely keeps the documented default-on behaviour
+    when loaded through a real coordinator.yml (not just the dataclass
+    default)."""
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    assert cfg.pipeline.learn_attention_thresholds is True
+
+
+def test_pipeline_learn_attention_thresholds_rejects_non_bool(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+        "pipeline:\n"
+        "  learn_attention_thresholds: not-a-bool\n"
+    )
+    with pytest.raises(ConfigError, match="learn_attention_thresholds"):
+        load(p)
+
+
+def test_attention_threshold_learned_scoped_to_requested_type(monkeypatch) -> None:
+    """The learned lookup is keyed by the ACTUAL assignment_type requested,
+    not hardcoded to "work" — "per repo and leg type" per #4142.
+    """
+    import coord.usage as usage_mod
+
+    seen: list[tuple[str, str]] = []
+
+    def fake_p90(repo: str, atype: str) -> float | None:
+        seen.append((repo, atype))
+        return 12345.0
+
+    monkeypatch.setattr(usage_mod, "p90_attention_threshold", fake_p90)
+    cfg = PipelineConfig()
+    assert cfg.attention_threshold_for("review", repo_name="quadraui") == 12345.0
+    assert seen == [("quadraui", "review")]
 
 
 # ── #2048: liveness_auditor ──────────────────────────────────────────────────

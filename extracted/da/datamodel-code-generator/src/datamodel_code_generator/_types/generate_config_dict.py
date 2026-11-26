@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         ClientAsyncAPIPerspective,
         ClientBodyArguments,
         ClientSignatureStyle,
+        ClientTools,
         ClientType,
         CollapseRootModelsNameStrategy,
         ConstructorFieldOrder,
@@ -97,6 +98,7 @@ class BaseGenerateConfig(TypedDict):
     extra_fields: NotRequired[str | None]
     use_generic_base_class: NotRequired[bool]
     keep_bases_beside_generic_base_class: NotRequired[bool]
+    keep_bases_of_typed_dicts_listed_before_their_parents: NotRequired[bool]
     class_name: NotRequired[str | None]
     allow_leading_underscore_class_name: NotRequired[bool]
     class_name_prefix: NotRequired[str | None]
@@ -349,6 +351,7 @@ class BaseGenerateConfig(TypedDict):
     client_deep_object_brackets: NotRequired[bool | None]
     client_asyncapi_perspective: NotRequired[ClientAsyncAPIPerspective | None]
     client_protocols: NotRequired[Mapping[str, Any] | None]
+    client_tools: NotRequired[ClientTools | None]
 
 
 class GenerateConfigDict(BaseGenerateConfig, closed=True):

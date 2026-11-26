@@ -20,6 +20,7 @@ aliases and win. What is held here:
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import warnings
 
@@ -142,31 +143,75 @@ def test_withheld_is_false_unless_the_whole_asked(no_features):
 
 
 def test_the_stamp_names_the_whole_not_its_parts(no_features):
+    """Line 2 names the whole only. Its certification is what RUNS: the whole
+    reaches every level, but under it bspline runs offset_reuse, a Python
+    part that runs outside its reach too, so a level past that reach (macOS,
+    the drop-ins on Linux) stamps uncertified. razor's native part is
+    withheld outside its reach when only the whole asked, so it never
+    uncertifies the stamp."""
     no_features.setenv("MOMWIRE_X_PAIR_REUSE", "1")
-    plain = "" if F.certified("pair_reuse") else " uncertified on this platform"
-    assert F.stamp() == "+pair_reuse" + plain
-    dropin = (
-        "" if F.certified("pair_reuse", "dropin") else " uncertified on this platform"
-    )
-    assert F.stamp("dropin") == "+pair_reuse" + dropin
+    bspline_part = F.FEATURES["offset_reuse"]
+    assert bspline_part.kind == "python"
+    for context in (None, "dropin"):
+        level = F.current_level(context) if context else F.current_level()
+        tail = "" if level <= bspline_part.reach else " uncertified on this platform"
+        args = (context,) if context else ()
+        assert F.stamp(*args) == "+pair_reuse" + tail, context
 
 
-def test_pair_reuse_reaches_the_dropin_on_linux_and_windows():
-    """Reach 4 (Steve, 2026-11-19): the hosted app, Linux sse2, Windows and
-    the drop-in on Linux and Windows, so MOMWIRE_X_PAIR_REUSE=1 with the NEC-2
-    drop-in on Windows is certified. Python-kind, so the macOS drop-in, past
-    its reach, runs it uncertified; no executable carries it. Its bspline
-    part moves with it; the razor2p part already reaches further."""
+def test_pair_reuse_reaches_every_level():
+    """Reach 11, the deepest: every Python route and drop-in, and every
+    executable, each of which accepts MOMWIRE_X_PAIR_REUSE and runs its own
+    basis's reuse (`EXE_PARTS`, held to the registry in
+    tests/test_features_registry.py). Still Python-kind, off by default and
+    not offered. Its parts keep their own reaches: on a family the whole acts
+    on through a part, what runs is certified only as far as the part."""
     whole = F.FEATURES["pair_reuse"]
-    assert whole.reach == F._level("dropin-linux-windows") == 4
+    assert whole.reach == F.DEEPEST and whole.stable
     assert whole.kind == "python" and not whole.default and not whole.offer
-    for platform in ("linux", "win32"):
+    for platform in ("linux", "win32", "darwin"):
         assert F.certified("pair_reuse", "dropin", platform=platform)
         assert F.certified("pair_reuse", platform=platform, variant="sse2")
-    assert not F.certified("pair_reuse", "dropin", platform="darwin")
-    assert whole.reach < F._level("exe-nec5-bs2-razor2p-windows")
-    for name in PARTS:
-        assert F.FEATURES[name].reach >= whole.reach, name
+    for basis in (
+        "razor2p",
+        "bs2",
+        "nec42-bs2",
+        "nec42-sinusoidal",
+        "nec2c-sinusoidal",
+    ):
+        assert F.certified("pair_reuse", "exe", basis=basis, platform="linux")
+    # bspline's part reaches the bs2 executables (nec42-bs2 the deepest),
+    # whose C++ fill runs it beside the whole's census (momwire#2063)
+    assert F.FEATURES["offset_reuse"].reach == F._level("exe-nec42-bs2")
+    assert F.FEATURES["razor_pair_reuse"].reach == F._level(
+        "exe-nec5-bs2-razor2p-linux-macos"
+    )
+
+
+def test_a_part_past_its_reach_stamps_the_whole_uncertified(no_features):
+    """The whole certified, the part that runs not: line 2 says uncertified
+    on that family alone. No shipped level puts bspline past offset_reuse's
+    reach (9, every level bspline runs on), so the part is held to an
+    earlier reach, 4, which the macOS drop-in (level 5) lies past, inside
+    razor_pair_reuse's 8; sinusoidal has no part."""
+    no_features.setenv("MOMWIRE_X_PAIR_REUSE", "1")
+    no_features.setattr(F, "_os", lambda platform=None: "macos")
+    assert F.current_level("dropin") == F._level("macos")
+    assert F.stamp("dropin", solver="bspline") == "+pair_reuse"
+    no_features.setitem(
+        F.FEATURES,
+        "offset_reuse",
+        dataclasses.replace(F.FEATURES["offset_reuse"], reach=4),
+    )
+    tail = " uncertified on this platform"
+    assert F.stamp("dropin", solver="bspline") == "+pair_reuse" + tail
+    assert F.stamp("dropin", solver="razor") == "+pair_reuse"
+    assert F.stamp("dropin", solver="sinusoidal") == "+pair_reuse"
+    # unknown family: every part that runs counts
+    assert F.stamp("dropin") == "+pair_reuse" + tail
+    # the bspline part set off: nothing of the whole runs there
+    no_features.setenv("MOMWIRE_X_OFFSET_REUSE", "0")
+    assert F.stamp("dropin", solver="bspline") == ""
 
 
 # --- bspline -------------------------------------------------------------------
@@ -179,17 +224,18 @@ def _bspline(**kw):
 
 def test_bspline_pair_reuse_turns_on_offset_reuse(no_features):
     s = _bspline()
-    assert s._offset_reuse is False and s._pair_reuse_given is None
+    assert s._offset_reuse is False and s._reuse_on is False
     assert s.pair_reuse_declined is None
-    s = _bspline(pair_reuse=True)  # on, with no hint to copy
-    assert s._offset_reuse is True and s._pair_reuse_given is None
+    s = _bspline(pair_reuse=True)  # on: the census finds the classes
+    assert s._offset_reuse is True and s._reuse_on is True
     s = _bspline(pair_reuse="verify")  # the other solvers' check: on here
-    assert s._offset_reuse is True and s._pair_reuse_given is None
+    assert s._offset_reuse is True and s._reuse_on is True
     s = _bspline(pair_reuse=False)
-    assert s._offset_reuse is False and s._pair_reuse_given is None
+    assert s._offset_reuse is False and s._reuse_on is False
     hint = [[(0, 0), (0, 0)]]
-    s = _bspline(pair_reuse=hint)
-    assert s._offset_reuse is True and s._pair_reuse_given is hint
+    s = _bspline(pair_reuse=hint)  # a front end's hint reads as on, unkept
+    assert s._offset_reuse is True and s._reuse_on is True
+    assert not any(v is hint for v in vars(s).values())
     # The alias wins.
     assert _bspline(pair_reuse=hint, offset_reuse=False)._offset_reuse is False
     assert _bspline(pair_reuse=False, offset_reuse=True)._offset_reuse is True
@@ -199,8 +245,12 @@ def test_bspline_pair_reuse_turns_on_offset_reuse(no_features):
 
 
 def test_bspline_with_pair_reuse_true_is_offset_reuse_to_the_bit(no_features):
+    # One 21-segment wire, under the census's small-deck threshold: the plan
+    # declines by name and the whole is its part.
     z_alias = _bspline(offset_reuse=True).compute_impedance()[0]
-    z_whole = _bspline(pair_reuse=True).compute_impedance()[0]
+    whole = _bspline(pair_reuse=True)
+    z_whole = whole.compute_impedance()[0]
+    assert whole.pair_reuse_declined.startswith("too few segments to repay the plan")
     z_off = _bspline().compute_impedance()[0]
     a, b = (np.atleast_1d(np.asarray(z, dtype=complex)) for z in (z_alias, z_whole))
     assert np.array_equal(a.view(np.uint64), b.view(np.uint64))

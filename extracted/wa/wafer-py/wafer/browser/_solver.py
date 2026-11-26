@@ -527,6 +527,43 @@ def _main_document_response(records: list[tuple], landed):
     return None
 
 
+def _landed_on_cloudflare_challenge(records: list[tuple], navigation_response) -> bool:
+    """Whether a solve's newest main-frame document is a Cloudflare challenge.
+
+    A generic solve (``browser_prime``, or a body the transport could only
+    call ``generic_js``) can land on one. The generic wait then reports
+    success once the network goes quiet, which a fast machine reaches after
+    the challenge has cleared and a slow one in the middle of it: in
+    fetchaller's emulated Linux image www.digikey.com's prime returned True
+    with one cookie and no ``cf_clearance`` (2026-11-25), while macOS cleared
+    it in that time. Only Cloudflare's own ``cf-mitigated: challenge`` marker
+    counts, never a bare 403, so other WAFs' refusals keep the generic wait.
+
+    With no document recorded, the navigation's own response is the document,
+    and it is added to *records* (the solve's live list) when it is the
+    challenge: Cloudflare's handler reads that list, and with it empty it
+    takes a challenge that sets no clearance for "no challenge here" after 3s.
+    """
+    from wafer.browser._cloudflare import _marked_challenge
+
+    if records:
+        return _marked_challenge(records[-1])
+    if navigation_response is None:
+        return False
+    try:
+        entry = (
+            str(navigation_response.url),
+            int(navigation_response.status),
+            navigation_response,
+        )
+    except Exception:
+        return False
+    if not _marked_challenge(entry):
+        return False
+    records.append(entry)
+    return True
+
+
 # Each response's header read, failed or not, so it happens once.
 _HEADER_READS: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
 
@@ -5231,14 +5268,24 @@ class BrowserSolver:
         max_size: int | None = None,
         *,
         cookies: list[dict] | None = None,
+        report: dict | None = None,
     ) -> SolveResult | None:
         """Solve on the dedicated worker within one end-to-end deadline.
 
         ``cookies``: Playwright ``add_cookies`` entries the fresh context
         starts with (a session passes the caller's own cookies for the site).
         A cookie Chrome refuses is skipped.
+
+        ``report``: a dict the solve fills in for a ``None`` result, so the
+        session can tell a refusal from a solve that never reached a verdict:
+        ``"navigated"`` (whether the browser started loading the page) and
+        ``"outcome"`` (``"refused"``: the site's answer was no; ``"cleared"``:
+        the challenge cleared but nothing came back to carry over HTTP;
+        ``"failed"``: no verdict, e.g. busy, no time, launch failure, crash).
         """
 
+        if report is not None:
+            report["navigated"] = False
         if threading.get_ident() == self._worker_ident:
             return self._solve_on_worker(
                 url,
@@ -5248,6 +5295,7 @@ class BrowserSolver:
                 replay,
                 max_size,
                 cookies=cookies,
+                report=report,
             )
         if self._worker_lost("solve"):
             return None
@@ -5270,10 +5318,15 @@ class BrowserSolver:
             max_size,
             _deadline=deadline,
             cookies=cookies,
+            report=report,
         )
         try:
             return future.result(timeout=solve_timeout)
         except FutureTimeoutError:
+            if report is not None:
+                # The worker may still write its own outcome while it is being
+                # recovered; the overrun is what decides this one.
+                report["timed_out"] = True
             cancelled = future.cancel()
             if not cancelled and not future.done():
                 self._recover_timed_out_worker(future)
@@ -5295,6 +5348,7 @@ class BrowserSolver:
         *,
         _deadline: float | None = None,
         cookies: list[dict] | None = None,
+        report: dict | None = None,
     ) -> SolveResult | None:
         """Solve a WAF challenge by navigating in a real browser.
 
@@ -5417,6 +5471,8 @@ class BrowserSolver:
                         1,
                         int((overall_deadline - time.monotonic()) * 1000),
                     )
+                    if report is not None:
+                        report["navigated"] = True
                     solved = solve_imperva_embedder(self, page, embedder, dispatch_ms)
                     if size_guard["exceeded"]:
                         raise ResponseTooLarge(
@@ -5588,6 +5644,8 @@ class BrowserSolver:
                     )
                 nav_target = embedder or url
                 navigation_response = None
+                if report is not None:
+                    report["navigated"] = True
                 try:
                     # Bounded, not the whole budget: a WAF interstitial that
                     # never fires domcontentloaded would otherwise consume the
@@ -5634,13 +5692,27 @@ class BrowserSolver:
                     1,
                     int((overall_deadline - time.monotonic()) * 1000),
                 )
+                dispatch_type = challenge_type
+                if challenge_type == "generic_js" and _landed_on_cloudflare_challenge(
+                    main_documents, navigation_response
+                ):
+                    logger.info(
+                        "Browser landed on a Cloudflare challenge; "
+                        "solving it as cloudflare"
+                    )
+                    dispatch_type = "cloudflare"
                 dispatch_result = self._dispatch_challenge(
                     page,
-                    challenge_type,
+                    dispatch_type,
                     dispatch_ms,
                     challenge_url=url,
                     documents=main_documents,
                 )
+                if dispatch_type != challenge_type and dispatch_result is None:
+                    # Cloudflare's "no challenge here after all": the page
+                    # moved on by itself, which the generic wait reports as
+                    # success.
+                    dispatch_result = True
                 challenge_absent = (
                     challenge_type == "cloudflare"
                     and dispatch_result is None
@@ -5667,6 +5739,8 @@ class BrowserSolver:
                         ))
                     elif challenge_type == "akamai_denied":
                         logger.info("No browser document confirmed after Akamai denial")
+                        if report is not None:
+                            report["outcome"] = "refused"
                         return None
 
                 cookies = context.cookies()
@@ -5807,6 +5881,10 @@ class BrowserSolver:
                         "Browser solve yielded no cookies (challenge_type=%s)",
                         challenge_type or "unknown",
                     )
+                    if report is not None:
+                        report["outcome"] = (
+                            "cleared" if solved or challenge_absent else "refused"
+                        )
                     return None
 
                 self._last_used = time.monotonic()
@@ -5950,6 +6028,8 @@ class BrowserSolver:
                             )
                         ):
                             logger.info("Browser main document still denied (HTTP 403)")
+                            if report is not None:
+                                report["outcome"] = "refused"
                             return None
                     logger.info(
                         "Browser solved challenge_type=%s (cookie_count=%d)",
@@ -5962,6 +6042,8 @@ class BrowserSolver:
                         "(challenge_type=%s)",
                         challenge_type or "unknown",
                     )
+                    if report is not None:
+                        report["outcome"] = "refused"
                     return None
 
                 extras = getattr(page, "_kasada_result", None)
@@ -5988,6 +6070,8 @@ class BrowserSolver:
                     challenge_type or "unknown",
                     type(exc).__name__,
                 )
+                if report is not None:
+                    report["outcome"] = "failed"
                 return None
             finally:
                 if challenge_type == "brave" and page is not None:
@@ -7208,6 +7292,7 @@ class BrowserSolver:
         max_size: int | None = None,
         *,
         cookies: list[dict] | None = None,
+        report: dict | None = None,
     ) -> "SolveResult | None":
         """Async wrapper around :meth:`solve` - identical args and result.
 
@@ -7217,6 +7302,8 @@ class BrowserSolver:
         manually (``await solver.asolve(url)``) without blocking the loop.
         Pure dispatch - all solve logic lives in :meth:`solve`.
         """
+        if report is not None:
+            report["navigated"] = False
         if self._worker_lost("solve"):
             return None
         solve_timeout = self._solve_timeout if timeout is None else timeout
@@ -7242,9 +7329,10 @@ class BrowserSolver:
                     max_size,
                     _deadline=deadline,
                     cookies=cookies,
+                    report=report,
                 )
             args = (url, challenge_type, solve_timeout, embedder, replay)
-            from wafer._base import _callable_accepts_keyword
+            from wafer._base import _callable_accepts_keyword, _callable_names_keyword
 
             extra = {}
             if max_size is not None and _callable_accepts_keyword(
@@ -7254,6 +7342,10 @@ class BrowserSolver:
                 extra["max_size"] = max_size
             if cookies and _callable_accepts_keyword(solve_callable, "cookies"):
                 extra["cookies"] = cookies
+            if report is not None and _callable_names_keyword(
+                solve_callable, "report"
+            ):
+                extra["report"] = report
             return solve_callable(*args, **extra)
 
         future = self._submit_on_worker(invoke_solve)
@@ -7276,6 +7368,8 @@ class BrowserSolver:
         except TimeoutError:
             if time.monotonic() < deadline:
                 raise
+            if report is not None:
+                report["timed_out"] = True
             cancelled = future.cancel()
             if not cancelled and not future.done():
                 self._recover_timed_out_worker(future)

@@ -48,7 +48,7 @@ class DataSourceConfigLogs(BaseModel):
     """Set of 16 key-value pairs that can be attached to an object.
 
     This can be useful for storing additional information about the object in a
-    structured format, and querying for objects via API or the dashboard.
+    structured format.
 
     Keys are strings with a maximum length of 64 characters. Values are strings with
     a maximum length of 512 characters.
@@ -98,7 +98,7 @@ class EvalUpdateResponse(BaseModel):
     Like:
      - Improve the quality of my chatbot
      - See how well my chatbot handles customer support
-     - Check if o4-mini is better at my usecase than gpt-6-astra
+     - Compare how different models perform on the same task
     """
 
     id: str
@@ -114,7 +114,7 @@ class EvalUpdateResponse(BaseModel):
     """Set of 16 key-value pairs that can be attached to an object.
 
     This can be useful for storing additional information about the object in a
-    structured format, and querying for objects via API or the dashboard.
+    structured format.
 
     Keys are strings with a maximum length of 64 characters. Values are strings with
     a maximum length of 512 characters.

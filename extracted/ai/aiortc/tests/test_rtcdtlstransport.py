@@ -15,6 +15,7 @@ from aiortc.rtcdtlstransport import (
 from aiortc.rtcrtpparameters import (
     RTCRtpCodecParameters,
     RTCRtpDecodingParameters,
+    RTCRtpHeaderExtensionParameters,
     RTCRtpReceiveParameters,
 )
 from aiortc.rtp import (
@@ -267,6 +268,51 @@ class RTCDtlsTransportTest(TestCase):
 
         # receive truncated RTCP
         await session1._handle_rtcp_data(RTCP[0:8])
+
+    @asynctest
+    async def test_rtp_malformed_values(self) -> None:
+        transport1, transport2 = dummy_ice_transport_pair()
+
+        certificate1 = RTCCertificate.generateCertificate()
+        session1 = RTCDtlsTransport(transport1, [certificate1])
+        receiver1 = DummyRtpReceiver()
+        session1._register_rtp_receiver(
+            receiver1,
+            RTCRtpReceiveParameters(
+                codecs=[
+                    RTCRtpCodecParameters(
+                        mimeType="audio/PCMU", clockRate=8000, payloadType=0
+                    )
+                ],
+                encodings=[RTCRtpDecodingParameters(ssrc=1234, payloadType=0)],
+                headerExtensions=[
+                    RTCRtpHeaderExtensionParameters(
+                        id=1,
+                        uri="http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
+                    )
+                ],
+            ),
+        )
+
+        # receive RTP with a 2-byte abs-send-time
+        await session1._handle_rtp_data(
+            b"\x90\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04\xd2"
+            + b"\xbe\xde\x00\x01\x11\x12\x34\x00",
+            0,
+        )
+        self.assertEqual(len(receiver1.rtp_packets), 1)
+
+        # receive a REMB announcing more SSRCs than it carries
+        await session1._handle_rtcp_data(
+            bytes(
+                RtcpPsfbPacket(
+                    fmt=RTCP_PSFB_APP,
+                    ssrc=4321,
+                    media_ssrc=0,
+                    fci=b"REMB\x02\x00\x00\x00\x00\x00\x04\xd2",
+                )
+            )
+        )
 
     @asynctest
     async def test_srtp_unprotect_error(self) -> None:
@@ -590,7 +636,7 @@ class RtpRouterTest(TestCase):
         self.assertEqual(
             router.route_rtp(RtpPacket(ssrc=5678, payload_type=96)), receiver1
         )
-        self.assertEqual(router.ssrc_table[5678], receiver1)
+        self.assertEqual(router.learned_ssrc_table[5678], receiver1)
 
         # unknown SSRC and payload type
         self.assertEqual(router.route_rtp(RtpPacket(ssrc=6789, payload_type=100)), None)
@@ -620,3 +666,34 @@ class RtpRouterTest(TestCase):
         # unknown SSRC, ambiguous payload type
         self.assertEqual(router.route_rtp(RtpPacket(ssrc=5678, payload_type=96)), None)
         self.assertEqual(router.route_rtp(RtpPacket(ssrc=5678, payload_type=97)), None)
+
+    def test_route_rtp_reconfigured(self) -> None:
+        receiver1 = DummyRtpReceiver()
+        receiver2 = DummyRtpReceiver()
+
+        router = RtpRouter()
+        router.register_receiver(receiver1, ssrcs=[1234], payload_types=[96])
+
+        # Learn an SSRC from its payload type.
+        self.assertEqual(
+            router.route_rtp(RtpPacket(ssrc=5678, payload_type=96)), receiver1
+        )
+
+        # Share the payload type, then signal a new SSRC for the first receiver.
+        router.register_receiver(receiver2, ssrcs=[3456], payload_types=[96])
+        router.register_receiver(receiver1, ssrcs=[2345], payload_types=[96])
+
+        # The old SSRC is no longer routed, but the learned one still is.
+        self.assertEqual(router.route_rtp(RtpPacket(ssrc=1234, payload_type=96)), None)
+        self.assertEqual(
+            router.route_rtp(RtpPacket(ssrc=2345, payload_type=96)), receiver1
+        )
+        self.assertEqual(
+            router.route_rtp(RtpPacket(ssrc=5678, payload_type=96)), receiver1
+        )
+
+        # An SSRC signalled in the SDP takes precedence over a learned one.
+        router.register_receiver(receiver2, ssrcs=[5678], payload_types=[96])
+        self.assertEqual(
+            router.route_rtp(RtpPacket(ssrc=5678, payload_type=96)), receiver2
+        )

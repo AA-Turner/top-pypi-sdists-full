@@ -92,6 +92,17 @@ def _synth_event_id(run_id: str, *parts: str) -> str:
     return f"synth:{run_id}:{suffix}"
 
 
+def _source_time_ms() -> int:
+    """When the source event being normalized was published, in ms.
+
+    Its stream entry id starts with that time, so a session replaying the
+    run stamps each event as the live session did. Outside an ingest scope,
+    or for an id of another shape, it's the current time.
+    """
+    ms = (_CURRENT_STREAM_ID.get() or "").partition("-")[0]
+    return int(ms) if ms.isdigit() else int(time.time() * 1000)
+
+
 class ResumeGap(Exception):
     """Raised when a ``since`` cursor falls behind the session's buffer head.
 
@@ -502,6 +513,7 @@ class EventStreamingSession:
             return
         if event_name == "error":
             self._terminal_lifecycle_emitted = True
+            details: dict[str, Any] | None = None
             try:
                 error_data = orjson.loads(message_bytes)
                 if _is_record(error_data) and error_data.get("error") == "UserRollback":
@@ -519,10 +531,23 @@ class EventStreamingSession:
                     if _is_record(error_data)
                     else str(error_data)
                 )
+                if (
+                    _is_record(error_data)
+                    and error_data.get("error") == "UnknownInterruptError"
+                ):
+                    details = {
+                        key: error_data[key]
+                        for key in ("reason", "interrupt_ids", "pending_ids")
+                        if key in error_data
+                    }
             except Exception:
                 error_msg = message_bytes.decode("utf-8", errors="replace")
             await self._emit_namespace_lifecycle(
-                [], "failed", graph_name=self._root_graph_name, error=error_msg
+                [],
+                "failed",
+                graph_name=self._root_graph_name,
+                error=error_msg,
+                details=details,
             )
             return
 
@@ -566,6 +591,10 @@ class EventStreamingSession:
         ``_CURRENT_STREAM_ID`` / ``_CURRENT_SOURCE_COUNTER`` ContextVar
         scope cleanly wraps every push triggered by this source event.
         """
+
+        if method == "interrupts":
+            await self._emit_input_answered(data)
+            return
 
         # Core ``langgraph.stream`` already emits canonical ProtocolEvent
         # objects. Re-envelope them with this session's seq/event_id so
@@ -896,7 +925,8 @@ class EventStreamingSession:
         Path 2 move together.
 
         ``timestamp`` lets Path 2 preserve the upstream transformer's
-        timestamp; Path 1 omits it and gets a fresh server-side value.
+        timestamp. Path 1 omits it and gets the time its source event was
+        published (:func:`_source_time_ms`), which a replay keeps.
 
         ``event_id`` lets synthetic-event callers (lifecycle, input,
         checkpoint, message-finalize) pass a deterministic id derived
@@ -936,7 +966,7 @@ class EventStreamingSession:
         params: dict[str, Any] = {
             "namespace": namespace,
             "timestamp": (
-                timestamp if isinstance(timestamp, int) else int(time.time() * 1000)
+                timestamp if isinstance(timestamp, int) else _source_time_ms()
             ),
             "data": normalized_data,
         }
@@ -1118,7 +1148,7 @@ class EventStreamingSession:
         self, subscription: Subscription, event: dict[str, Any]
     ) -> bool:
         raw_method = event.get("method", "")
-        channel = "input" if raw_method == "input.requested" else raw_method
+        channel = "input" if raw_method.startswith("input.") else raw_method
         if not _is_supported_channel(channel):
             return False
         if channel == "custom":
@@ -1479,6 +1509,7 @@ class EventStreamingSession:
         graph_name: str | None = None,
         error: str | None = None,
         cause: dict[str, Any] | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         key = to_namespace_key(namespace)
         if namespace and key not in self._namespaces:
@@ -1517,6 +1548,8 @@ class EventStreamingSession:
             lifecycle_data["error"] = error
         if cause is not None:
             lifecycle_data["cause"] = cause
+        if details:
+            lifecycle_data.update(details)
         await self._push_event(
             self._create_event(
                 "lifecycle",
@@ -1575,6 +1608,16 @@ class EventStreamingSession:
         namespace mismatches with ``no_such_interrupt``.
         """
         return self._pending_interrupts.get(interrupt_id)
+
+    async def _emit_input_answered(self, data: Any) -> None:
+        answered = data.get("answered") if _is_record(data) else None
+        if not isinstance(answered, list) or not answered:
+            return
+        for interrupt_id in answered:
+            self.clear_pending_interrupt(interrupt_id)
+        await self._push_event(
+            self._create_event("input.answered", [], {"interrupt_ids": answered})
+        )
 
     def clear_pending_interrupt(self, interrupt_id: str) -> None:
         """Remove *interrupt_id* from the pending set after a successful resume."""

@@ -16,15 +16,15 @@ class DescribeModelOperatorUsageResponseBody(DaraModel):
         request_id: str = None,
         start_time: str = None,
     ):
-        # The end time of the query. The time is in the <i>YYYY-MM-DDThh:mmZ</i> format (UTC).
+        # The end time of the query. The format is <i>YYYY-MM-DDThh:mmZ</i> (UTC time).
         self.end_time = end_time
         # The list of metric values.
         self.keys = keys
-        # The actual bucket size used, in seconds.
+        # The final bucket size used in seconds.
         self.period = period
         # The request ID.
         self.request_id = request_id
-        # The start time of the query. The time is in the <i>YYYY-MM-DDThh:mmZ</i> format (UTC).
+        # The start time of the query. The format is <i>YYYY-MM-DDThh:mmZ</i> (UTC time).
         self.start_time = start_time
 
     def validate(self):
@@ -88,7 +88,7 @@ class DescribeModelOperatorUsageResponseBodyKeys(DaraModel):
     ):
         # The metric name.
         self.name = name
-        # The collection of metric values.
+        # The metric value set.
         self.series = series
         # The unit. Valid values:
         # 
@@ -145,9 +145,9 @@ class DescribeModelOperatorUsageResponseBodyKeysSeries(DaraModel):
         role: str = None,
         values: List[main_models.DescribeModelOperatorUsageResponseBodyKeysSeriesValues] = None,
     ):
-        # The API key ID. This value is returned only when GroupBy contains api_key.
+        # This value is returned only when GroupBy includes api_key.
         self.api_key_id = api_key_id
-        # The model name when GroupBy contains model. The api_key_id string when GroupBy contains only api_key.
+        # The model name if GroupBy includes model, or the api_key_id string if GroupBy includes only api_key.
         self.name = name
         # The normalized GroupBy value: model, api_key, or model,api_key.
         self.role = role
@@ -205,7 +205,7 @@ class DescribeModelOperatorUsageResponseBodyKeysSeriesValues(DaraModel):
         self,
         point: List[str] = None,
     ):
-        # The specific metric information, consisting of a timestamp and a metric value.
+        # The specific metric information, which consists of the time and the metric value.
         self.point = point
 
     def validate(self):

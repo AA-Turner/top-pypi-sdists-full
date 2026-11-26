@@ -266,7 +266,7 @@ def principal_record(principal: Any) -> dict[str, Any] | None:
     }
 
 
-def _restore_principal(record: Mapping[str, Any]) -> Any:
+def restore_principal(record: Mapping[str, Any]) -> Any:
     from .governance import principal as principal_module
 
     binding = record.get("client_binding")
@@ -295,7 +295,7 @@ def _restore_principal(record: Mapping[str, Any]) -> Any:
     )
 
 
-def _login_state(principal: Any) -> Any:
+def login_state(principal: Any) -> Any:
     """The background recheck of the login behind a save, as the collection importer runs it."""
     from . import auth_sessions, cloud_cell
     from .governance import principal as principal_module
@@ -312,7 +312,7 @@ def _login_state(principal: Any) -> Any:
     return login
 
 
-def _surface_record() -> dict[str, Any] | None:
+def surface_record() -> dict[str, Any] | None:
     from . import capabilities
 
     descriptor = capabilities.current_active_surface()
@@ -326,7 +326,7 @@ def _surface_record() -> dict[str, Any] | None:
     }
 
 
-def _restore_surface(record: Mapping[str, Any] | None, command_name: str) -> Any:
+def restore_surface(record: Mapping[str, Any] | None, command_name: str) -> Any:
     from . import capabilities
 
     if record is None:
@@ -888,7 +888,7 @@ def _claim_head(vault_root: Path) -> _Claim | float | None:
     return claimed
 
 
-def _command_named(name: str) -> Any:
+def command_named(name: str) -> Any:
     from .commands import PRODUCT_COMMANDS
 
     for command in PRODUCT_COMMANDS:
@@ -918,19 +918,18 @@ def _replay(vault_root: Path, claim: _Claim, *, stop: threading.Event | None = N
     Every step from the command lookup to the dispatcher sits in one try, so any error ends
     in a recorded outcome and the row never stays applying behind the queue.
     """
-    from . import auth_sessions, capabilities, cli_ops, writer_lease
-    from .governance import principal as principal_module
+    from . import auth_sessions, cli_ops, writer_lease
 
     replay = _Replay(vault_root, claim, stop=stop)
     token = _REPLAY.set(replay)
     stack = ExitStack()
     try:
-        command = _command_named(claim.command)
+        command = command_named(claim.command)
         if command is None:
             raise OpError("INTAKE_COMMAND_UNKNOWN", f"no command named {claim.command}",
                           "Send the save again through a current tool.")
-        principal = _restore_principal(claim.principal)
-        login = _login_state(principal)
+        principal = restore_principal(claim.principal)
+        login = login_state(principal)
         if login is auth_sessions.OriginLogin.UNREADABLE:
             return (QUEUED, LOGIN_UNREADABLE)
         if login is auth_sessions.OriginLogin.NOT_VALID:
@@ -939,7 +938,7 @@ def _replay(vault_root: Path, claim: _Claim, *, stop: threading.Event | None = N
                 "message": "the login that sent this save has ended, so the service did not apply it",
                 "remediation": "Sign in again and send the save again with its arguments below.",
             })
-        descriptor = _restore_surface(claim.surface, command.name)
+        descriptor = restore_surface(claim.surface, command.name)
         if command.needs_schema:
             from . import schema as schema_module
 
@@ -951,12 +950,7 @@ def _replay(vault_root: Path, claim: _Claim, *, stop: threading.Event | None = N
         except Exception:  # noqa: BLE001 - without its marker connection the replay waits for the next pass
             log.warning("write intake could not open its store for the replay of %s", claim.id, exc_info=True)
             return (QUEUED, "MUTATION_BUSY")
-        with (
-            principal_module.request_scope(principal),
-            capabilities.active_surface(descriptor) if descriptor is not None else _nothing(),
-            principal_module.invocation_scope(),
-            writer_lease.caller_holds_no_request_worker(),
-        ):
+        with background_call(principal, descriptor):
             result = writer_lease.invoke_command(
                 command,
                 *injected,
@@ -996,6 +990,33 @@ def _replay(vault_root: Path, claim: _Claim, *, stop: threading.Event | None = N
 @contextmanager
 def _nothing() -> Iterator[None]:
     yield
+
+
+@contextmanager
+def background_call(principal: Any, descriptor: Any) -> Iterator[None]:
+    """Bind what a command needs when a background thread calls it for a stored principal.
+
+    The write intake's replay and the import filer both run a command as the owner who asked for it,
+    long after that request ended; they share this binding so that neither drifts from the other.
+    """
+    from . import capabilities, writer_lease
+    from .governance import principal as principal_module
+
+    with (
+        principal_module.request_scope(principal),
+        capabilities.active_surface(descriptor) if descriptor is not None else _nothing(),
+        principal_module.invocation_scope(),
+        writer_lease.caller_holds_no_request_worker(),
+    ):
+        yield
+
+
+def invoke_in_background(principal: Any, descriptor: Any, command: Any, *args: Any, **kwargs: Any) -> Any:
+    """Run one command for a stored principal from a background thread, bound as `background_call` binds it."""
+    from . import writer_lease
+
+    with background_call(principal, descriptor):
+        return writer_lease.invoke_command(command, *args, **kwargs)
 
 
 def _requeue(vault_root: Path, claim: _Claim, code: str) -> None:
@@ -1078,6 +1099,9 @@ class Admission:
     #: The dispatcher's own idempotency identity and its retry window; a save without one is not admitted.
     origin: str
     origin_ttl: float
+    #: The refusal that the arguments alone are certain to get. A save that would queue raises it
+    #: instead, because a queued receipt for it would only fail later, at the replay.
+    refusal: Exception | None = None
 
     def run(self, call: Callable[[], Any]) -> Any:
         """Run the save, or queue it when the boundary stays busy.
@@ -1123,6 +1147,8 @@ class Admission:
             log.warning("write intake could not wait behind its queue", exc_info=True)
             behind = False
         if behind:
+            if self.refusal is not None:
+                raise self.refusal
             try:
                 # Behind earlier queued saves: run after them, never before.
                 return self._accept(reason="queue_not_empty", started=started)
@@ -1135,6 +1161,8 @@ class Admission:
         except OpError as error:
             if error.code not in ACCEPTED_REFUSALS or error.details.get("committed") is not False:
                 raise
+            if self.refusal is not None:
+                raise self.refusal from error
             try:
                 return self._accept(reason=error.code, started=started)
             except Exception:  # noqa: BLE001 - an intake that cannot write leaves today's refusal
@@ -1308,7 +1336,7 @@ def admission(command: Any, injected: tuple[Any, ...], kwargs: Mapping[str, Any]
     if drainer is None:
         return None
     from . import writer_lease
-    from .commands import busy_intake_applies, invocation_is_read_only
+    from .commands import busy_intake_applies, invocation_is_read_only, refusal_before_queueing
     from .governance import principal as principal_module
     from .governance.egress import SelectorCoverageError
 
@@ -1348,9 +1376,10 @@ def admission(command: Any, injected: tuple[Any, ...], kwargs: Mapping[str, Any]
         encoded=encoded,
         control=control,
         principal=principal,
-        surface=_surface_record(),
+        surface=surface_record(),
         origin=origin[0],
         origin_ttl=origin[1],
+        refusal=refusal_before_queueing(command, jsonable),
     )
 
 

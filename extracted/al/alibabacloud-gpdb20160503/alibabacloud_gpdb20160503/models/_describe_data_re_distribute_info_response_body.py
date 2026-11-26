@@ -11,7 +11,7 @@ class DescribeDataReDistributeInfoResponseBody(DaraModel):
         data_re_distribute_info: main_models.DescribeDataReDistributeInfoResponseBodyDataReDistributeInfo = None,
         request_id: str = None,
     ):
-        # The data redistribution information.
+        # The data redistribution task information.
         self.data_re_distribute_info = data_re_distribute_info
         # The request ID.
         self.request_id = request_id
@@ -54,9 +54,9 @@ class DescribeDataReDistributeInfoResponseBodyDataReDistributeInfo(DaraModel):
         status: str = None,
         type: str = None,
     ):
-        # The execution information. If an error occurs, the error message is returned.
+        # The runtime information. If an error occurs, detailed error information is displayed.
         self.message = message
-        # The progress of data redistribution. Unit: %.
+        # The data redistribution progress, in percentage.
         self.progress = progress
         # The estimated remaining time for data redistribution.
         self.remain_time = remain_time
@@ -64,7 +64,7 @@ class DescribeDataReDistributeInfoResponseBodyDataReDistributeInfo(DaraModel):
         self.start_time = start_time
         # The status of data redistribution.
         self.status = status
-        # The execution type. The value **immediate** is returned, indicating immediate execution.
+        # The execution type. The value is fixed as **immediate**, which indicates immediate execution.
         self.type = type
 
     def validate(self):

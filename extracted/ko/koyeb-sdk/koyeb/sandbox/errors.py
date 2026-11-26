@@ -107,6 +107,11 @@ class EgressPolicyError(SandboxError):
     """Raised when egress policy arguments are invalid or conflicting"""
 
 
+class SidecarError(SandboxError, ValueError):
+    """Raised when sidecar arguments are invalid, or a sidecar fails to
+    start"""
+
+
 class PoolClaimError(SandboxError):
     """Raised when claiming a sandbox from a service pool fails"""
 

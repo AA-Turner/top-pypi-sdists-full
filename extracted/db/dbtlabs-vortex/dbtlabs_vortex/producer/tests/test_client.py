@@ -1,10 +1,12 @@
 import os
 import threading
 import time
+import uuid
 from io import StringIO
 from unittest.mock import ANY, patch
 
 import pytest
+from dbtlabs.proto.public.v1.events.vortex_pb2 import VortexMessageBatch
 from dbtlabs.proto.public.v1.events.vscode_pb2 import ExtensionActivated
 
 from dbtlabs_vortex.common.exceptions import ProducerError
@@ -62,6 +64,31 @@ class TestVortexProducerClient:
                 VortexProducerClient.shutdown()
                 assert VortexProducerClient.queue_closed
                 mock_post.assert_called_once()
+        finally:
+            VortexProducerClient._reset()
+
+    def test_log_proto_sets_envelope_event_id_and_url(self):
+        # Verifies the client populates the envelope fields automatically and
+        # that they survive the _worker repack that sets vortex_client_sent_at.
+        try:
+            with patch("dbtlabs_vortex.producer.client.requests.post") as mock_post:
+                VortexProducerClient.log_proto(ExtensionActivated())
+                VortexProducerClient.shutdown()
+                mock_post.assert_called_once()
+
+                sent_bytes = mock_post.call_args.kwargs["data"]
+                batch = VortexMessageBatch.FromString(sent_bytes)
+                assert len(batch.payload) == 1
+                envelope = batch.payload[0]
+
+                # vortex_event_url = "dbt-labs/proto/" + full name with '.' -> '/'
+                expected_url = "dbt-labs/proto/" + ExtensionActivated.DESCRIPTOR.full_name.replace(
+                    ".", "/"
+                )
+                assert envelope.vortex_event_url == expected_url
+
+                # vortex_event_id is a freshly generated v4 UUID
+                assert uuid.UUID(envelope.vortex_event_id).version == 4
         finally:
             VortexProducerClient._reset()
 

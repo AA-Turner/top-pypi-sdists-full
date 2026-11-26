@@ -68,7 +68,6 @@ __all__ = [
     "NodeConversationNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1",
     "NodeConversationNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2",
     "NodeConversationNodeKBConfig",
-    "NodeConversationNodeModelChoice",
     "NodeConversationNodeModelConfig",
     "NodeConversationNodeModelConfigNodeModelConfig",
     "NodeConversationNodeModelConfigNodeModelConfigPrimary",
@@ -133,7 +132,6 @@ __all__ = [
     "NodeSubagentNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1",
     "NodeSubagentNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2",
     "NodeSubagentNodeKBConfig",
-    "NodeSubagentNodeModelChoice",
     "NodeSubagentNodeModelConfig",
     "NodeSubagentNodeModelConfigNodeModelConfig",
     "NodeSubagentNodeModelConfigNodeModelConfigPrimary",
@@ -147,6 +145,10 @@ __all__ = [
     "NodeSubagentNodeToolEscalateChatTool",
     "NodeSubagentNodeToolEscalateChatToolDestination",
     "NodeSubagentNodeToolEscalateChatToolDestinationDestination",
+    "NodeSubagentNodeToolEscalateChatToolDestinationDestinationParameters",
+    "NodeSubagentNodeToolEscalateChatToolHandoffMessage",
+    "NodeSubagentNodeToolEscalateChatToolHandoffMessageNodeInstructionPrompt",
+    "NodeSubagentNodeToolEscalateChatToolHandoffMessageNodeInstructionStaticText",
     "NodeSubagentNodeToolEndCallTool",
     "NodeSubagentNodeToolTransferCallTool",
     "NodeSubagentNodeToolTransferCallToolTransferDestination",
@@ -226,7 +228,6 @@ __all__ = [
     "NodeEndNodeInstruction",
     "NodeEndNodeInstructionNodeInstructionPrompt",
     "NodeEndNodeInstructionNodeInstructionStaticText",
-    "NodeEndNodeModelChoice",
     "NodeEndNodeModelConfig",
     "NodeEndNodeModelConfigNodeModelConfig",
     "NodeEndNodeModelConfigNodeModelConfigPrimary",
@@ -274,7 +275,6 @@ __all__ = [
     "NodeFunctionNodeInstruction",
     "NodeFunctionNodeInstructionNodeInstructionPrompt",
     "NodeFunctionNodeInstructionNodeInstructionStaticText",
-    "NodeFunctionNodeModelChoice",
     "NodeFunctionNodeModelConfig",
     "NodeFunctionNodeModelConfigNodeModelConfig",
     "NodeFunctionNodeModelConfigNodeModelConfigPrimary",
@@ -322,19 +322,22 @@ __all__ = [
     "NodeCodeNodeInstruction",
     "NodeCodeNodeInstructionNodeInstructionPrompt",
     "NodeCodeNodeInstructionNodeInstructionStaticText",
-    "NodeCodeNodeModelChoice",
     "NodeCodeNodeModelConfig",
     "NodeCodeNodeModelConfigNodeModelConfig",
     "NodeCodeNodeModelConfigNodeModelConfigPrimary",
     "NodeEscalateChatNode",
     "NodeEscalateChatNodeDestination",
     "NodeEscalateChatNodeDestinationDestination",
+    "NodeEscalateChatNodeDestinationDestinationParameters",
     "NodeEscalateChatNodeEdge",
     "NodeEscalateChatNodeEdgeTransitionCondition",
     "NodeEscalateChatNodeEdgeTransitionConditionPromptCondition",
     "NodeEscalateChatNodeEdgeTransitionConditionEquationCondition",
     "NodeEscalateChatNodeEdgeTransitionConditionEquationConditionEquation",
     "NodeEscalateChatNodeEdgeTransitionConditionUnionMember2",
+    "NodeEscalateChatNodeHandoffMessage",
+    "NodeEscalateChatNodeHandoffMessageNodeInstructionPrompt",
+    "NodeEscalateChatNodeHandoffMessageNodeInstructionStaticText",
     "NodeEscalateChatNodeDisplayPosition",
     "NodeEscalateChatNodeGlobalNodeSetting",
     "NodeEscalateChatNodeGlobalNodeSettingCondition",
@@ -359,7 +362,6 @@ __all__ = [
     "NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember0",
     "NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1",
     "NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2",
-    "NodeEscalateChatNodeModelChoice",
     "NodeEscalateChatNodeModelConfig",
     "NodeEscalateChatNodeModelConfigNodeModelConfig",
     "NodeEscalateChatNodeModelConfigNodeModelConfigPrimary",
@@ -416,7 +418,6 @@ __all__ = [
     "NodeTransferCallNodeInstruction",
     "NodeTransferCallNodeInstructionNodeInstructionPrompt",
     "NodeTransferCallNodeInstructionNodeInstructionStaticText",
-    "NodeTransferCallNodeModelChoice",
     "NodeTransferCallNodeModelConfig",
     "NodeTransferCallNodeModelConfigNodeModelConfig",
     "NodeTransferCallNodeModelConfigNodeModelConfigPrimary",
@@ -462,7 +463,6 @@ __all__ = [
     "NodePressDigitNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember0",
     "NodePressDigitNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1",
     "NodePressDigitNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2",
-    "NodePressDigitNodeModelChoice",
     "NodePressDigitNodeModelConfig",
     "NodePressDigitNodeModelConfigNodeModelConfig",
     "NodePressDigitNodeModelConfigNodeModelConfigPrimary",
@@ -507,7 +507,6 @@ __all__ = [
     "NodeBranchNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember0",
     "NodeBranchNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1",
     "NodeBranchNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2",
-    "NodeBranchNodeModelChoice",
     "NodeBranchNodeModelConfig",
     "NodeBranchNodeModelConfigNodeModelConfig",
     "NodeBranchNodeModelConfigNodeModelConfigPrimary",
@@ -552,7 +551,6 @@ __all__ = [
     "NodeSMSNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember0",
     "NodeSMSNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1",
     "NodeSMSNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2",
-    "NodeSMSNodeModelChoice",
     "NodeSMSNodeModelConfig",
     "NodeSMSNodeModelConfigNodeModelConfig",
     "NodeSMSNodeModelConfigNodeModelConfigPrimary",
@@ -608,7 +606,6 @@ __all__ = [
     "NodeExtractDynamicVariablesNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember0",
     "NodeExtractDynamicVariablesNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1",
     "NodeExtractDynamicVariablesNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2",
-    "NodeExtractDynamicVariablesNodeModelChoice",
     "NodeExtractDynamicVariablesNodeModelConfig",
     "NodeExtractDynamicVariablesNodeModelConfigNodeModelConfig",
     "NodeExtractDynamicVariablesNodeModelConfigNodeModelConfigPrimary",
@@ -646,7 +643,6 @@ __all__ = [
     "NodeAgentSwapNodeInstruction",
     "NodeAgentSwapNodeInstructionNodeInstructionPrompt",
     "NodeAgentSwapNodeInstructionNodeInstructionStaticText",
-    "NodeAgentSwapNodeModelChoice",
     "NodeAgentSwapNodeModelConfig",
     "NodeAgentSwapNodeModelConfigNodeModelConfig",
     "NodeAgentSwapNodeModelConfigNodeModelConfigPrimary",
@@ -694,7 +690,6 @@ __all__ = [
     "NodeMcpNodeInstruction",
     "NodeMcpNodeInstructionNodeInstructionPrompt",
     "NodeMcpNodeInstructionNodeInstructionStaticText",
-    "NodeMcpNodeModelChoice",
     "NodeMcpNodeModelConfig",
     "NodeMcpNodeModelConfigNodeModelConfig",
     "NodeMcpNodeModelConfigNodeModelConfigPrimary",
@@ -767,7 +762,6 @@ __all__ = [
     "NodeBridgeTransferNodeInstruction",
     "NodeBridgeTransferNodeInstructionNodeInstructionPrompt",
     "NodeBridgeTransferNodeInstructionNodeInstructionStaticText",
-    "NodeBridgeTransferNodeModelChoice",
     "NodeBridgeTransferNodeModelConfig",
     "NodeBridgeTransferNodeModelConfigNodeModelConfig",
     "NodeBridgeTransferNodeModelConfigNodeModelConfigPrimary",
@@ -799,7 +793,6 @@ __all__ = [
     "NodeCancelTransferNodeInstruction",
     "NodeCancelTransferNodeInstructionNodeInstructionPrompt",
     "NodeCancelTransferNodeInstructionNodeInstructionStaticText",
-    "NodeCancelTransferNodeModelChoice",
     "NodeCancelTransferNodeModelConfig",
     "NodeCancelTransferNodeModelConfigNodeModelConfig",
     "NodeCancelTransferNodeModelConfigNodeModelConfigPrimary",
@@ -1384,71 +1377,6 @@ class NodeConversationNodeKBConfig(TypedDict, total=False):
     """Max number of knowledge base chunks to retrieve"""
 
 
-class NodeConversationNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeConversationNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -1631,13 +1559,6 @@ class NodeConversationNode(TypedDict, total=False):
 
     knowledge_base_ids: Optional[SequenceNotStr[str]]
     """Knowledge base IDs for RAG (Retrieval-Augmented Generation)."""
-
-    model_choice: NodeConversationNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeConversationNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -2208,71 +2129,6 @@ class NodeSubagentNodeKBConfig(TypedDict, total=False):
     """Max number of knowledge base chunks to retrieve"""
 
 
-class NodeSubagentNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeSubagentNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -2398,23 +2254,51 @@ class NodeSubagentNodeSkipResponseEdge(TypedDict, total=False):
     """ID of the destination node"""
 
 
+class NodeSubagentNodeToolEscalateChatToolDestinationDestinationParameters(TypedDict, total=False):
+    """
+    Customer-defined fields nested in args on chat_transfer_requested events, in the same format as custom function parameters. A property with const is sent as that fixed value, with dynamic variables such as {{customer_id}} resolved. Any other property is inferred by the LLM from its description.
+    """
+
+    properties: Required[object]
+    """
+    The value of properties is an object, where each key is the name of a property
+    and each value is a schema used to validate that property.
+    """
+
+    type: Required[Literal["object"]]
+    """Type must be "object" for a JSON Schema object."""
+
+    additional_properties: Annotated[bool, PropertyInfo(alias="additionalProperties")]
+    """
+    On an integration function's response schema, false means the output fields are
+    fixed to properties and no others can be added.
+    """
+
+    required: SequenceNotStr[str]
+    """List of names of required property when generating this parameter.
+
+    LLM will do its best to generate the required properties in its function
+    arguments. Property must exist in properties.
+    """
+
+
 class NodeSubagentNodeToolEscalateChatToolDestinationDestination(TypedDict, total=False):
     method: Required[Literal["POST", "PUT"]]
 
     url: Required[str]
     """Customer webhook URL for transfer requests and forwarded SMS messages."""
 
-    body: Dict[str, object]
-    """Customer-defined fields nested in args on chat_transfer_requested events.
-
-    String values support dynamic variables such as {{customer_id}}, including
-    inside nested objects and arrays. Field names and non-string values are
-    preserved.
-    """
-
     headers: Dict[str, str]
 
     max_retry: int
+
+    parameters: NodeSubagentNodeToolEscalateChatToolDestinationDestinationParameters
+    """
+    Customer-defined fields nested in args on chat_transfer_requested events, in the
+    same format as custom function parameters. A property with const is sent as that
+    fixed value, with dynamic variables such as {{customer_id}} resolved. Any other
+    property is inferred by the LLM from its description.
+    """
 
     query_params: Dict[str, str]
 
@@ -2427,8 +2311,36 @@ class NodeSubagentNodeToolEscalateChatToolDestination(TypedDict, total=False):
     type: Required[Literal["webhook"]]
 
 
+class NodeSubagentNodeToolEscalateChatToolHandoffMessageNodeInstructionPrompt(TypedDict, total=False):
+    text: Required[str]
+    """The prompt text for the instruction"""
+
+    type: Required[Literal["prompt"]]
+    """Type of instruction"""
+
+
+class NodeSubagentNodeToolEscalateChatToolHandoffMessageNodeInstructionStaticText(TypedDict, total=False):
+    text: Required[str]
+    """The static text for the instruction"""
+
+    type: Required[Literal["static_text"]]
+    """Type of instruction"""
+
+
+NodeSubagentNodeToolEscalateChatToolHandoffMessage: TypeAlias = Union[
+    NodeSubagentNodeToolEscalateChatToolHandoffMessageNodeInstructionPrompt,
+    NodeSubagentNodeToolEscalateChatToolHandoffMessageNodeInstructionStaticText,
+]
+
+
 class NodeSubagentNodeToolEscalateChatTool(TypedDict, total=False):
     destination: Required[NodeSubagentNodeToolEscalateChatToolDestination]
+
+    handoff_message: Required[NodeSubagentNodeToolEscalateChatToolHandoffMessage]
+    """
+    What the agent says once the destination webhook returns a 2xx response, right
+    before the human takes over.
+    """
 
     name: Required[str]
 
@@ -3814,13 +3726,6 @@ class NodeSubagentNode(TypedDict, total=False):
     knowledge_base_ids: Optional[SequenceNotStr[str]]
     """Knowledge base IDs for RAG (Retrieval-Augmented Generation)."""
 
-    model_choice: NodeSubagentNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
-
     model_config: NodeSubagentNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
 
@@ -4136,71 +4041,6 @@ NodeEndNodeInstruction: TypeAlias = Union[
 ]
 
 
-class NodeEndNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeEndNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -4286,13 +4126,6 @@ class NodeEndNode(TypedDict, total=False):
 
     instruction: NodeEndNodeInstruction
     """What to say when ending the call, only used when speak during execution"""
-
-    model_choice: NodeEndNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeEndNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -4716,71 +4549,6 @@ NodeFunctionNodeInstruction: TypeAlias = Union[
 ]
 
 
-class NodeFunctionNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeFunctionNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -4882,13 +4650,6 @@ class NodeFunctionNode(TypedDict, total=False):
     global_node_setting: NodeFunctionNodeGlobalNodeSetting
 
     instruction: NodeFunctionNodeInstruction
-
-    model_choice: NodeFunctionNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeFunctionNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -5310,71 +5071,6 @@ NodeCodeNodeInstruction: TypeAlias = Union[
 ]
 
 
-class NodeCodeNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeCodeNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -5480,13 +5176,6 @@ class NodeCodeNode(TypedDict, total=False):
 
     instruction: NodeCodeNodeInstruction
 
-    model_choice: NodeCodeNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
-
     model_config: NodeCodeNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
 
@@ -5510,23 +5199,51 @@ class NodeCodeNode(TypedDict, total=False):
     """
 
 
+class NodeEscalateChatNodeDestinationDestinationParameters(TypedDict, total=False):
+    """
+    Customer-defined fields nested in args on chat_transfer_requested events, in the same format as custom function parameters. A property with const is sent as that fixed value, with dynamic variables such as {{customer_id}} resolved. Any other property is inferred by the LLM from its description.
+    """
+
+    properties: Required[object]
+    """
+    The value of properties is an object, where each key is the name of a property
+    and each value is a schema used to validate that property.
+    """
+
+    type: Required[Literal["object"]]
+    """Type must be "object" for a JSON Schema object."""
+
+    additional_properties: Annotated[bool, PropertyInfo(alias="additionalProperties")]
+    """
+    On an integration function's response schema, false means the output fields are
+    fixed to properties and no others can be added.
+    """
+
+    required: SequenceNotStr[str]
+    """List of names of required property when generating this parameter.
+
+    LLM will do its best to generate the required properties in its function
+    arguments. Property must exist in properties.
+    """
+
+
 class NodeEscalateChatNodeDestinationDestination(TypedDict, total=False):
     method: Required[Literal["POST", "PUT"]]
 
     url: Required[str]
     """Customer webhook URL for transfer requests and forwarded SMS messages."""
 
-    body: Dict[str, object]
-    """Customer-defined fields nested in args on chat_transfer_requested events.
-
-    String values support dynamic variables such as {{customer_id}}, including
-    inside nested objects and arrays. Field names and non-string values are
-    preserved.
-    """
-
     headers: Dict[str, str]
 
     max_retry: int
+
+    parameters: NodeEscalateChatNodeDestinationDestinationParameters
+    """
+    Customer-defined fields nested in args on chat_transfer_requested events, in the
+    same format as custom function parameters. A property with const is sent as that
+    fixed value, with dynamic variables such as {{customer_id}} resolved. Any other
+    property is inferred by the LLM from its description.
+    """
 
     query_params: Dict[str, str]
 
@@ -5591,6 +5308,27 @@ class NodeEscalateChatNodeEdge(TypedDict, total=False):
 
     destination_node_id: str
     """ID of the destination node"""
+
+
+class NodeEscalateChatNodeHandoffMessageNodeInstructionPrompt(TypedDict, total=False):
+    text: Required[str]
+    """The prompt text for the instruction"""
+
+    type: Required[Literal["prompt"]]
+    """Type of instruction"""
+
+
+class NodeEscalateChatNodeHandoffMessageNodeInstructionStaticText(TypedDict, total=False):
+    text: Required[str]
+    """The static text for the instruction"""
+
+    type: Required[Literal["static_text"]]
+    """Type of instruction"""
+
+
+NodeEscalateChatNodeHandoffMessage: TypeAlias = Union[
+    NodeEscalateChatNodeHandoffMessageNodeInstructionPrompt, NodeEscalateChatNodeHandoffMessageNodeInstructionStaticText
+]
 
 
 class NodeEscalateChatNodeDisplayPosition(TypedDict, total=False):
@@ -5833,71 +5571,6 @@ class NodeEscalateChatNodeGlobalNodeSetting(TypedDict, total=False):
     """Transition to this node"""
 
 
-class NodeEscalateChatNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeEscalateChatNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -5971,19 +5644,18 @@ class NodeEscalateChatNode(TypedDict, total=False):
 
     edge: Required[NodeEscalateChatNodeEdge]
 
+    handoff_message: Required[NodeEscalateChatNodeHandoffMessage]
+    """
+    The last message the AI agent sends to the end user after a successful
+    escalation.
+    """
+
     type: Required[Literal["escalate_chat"]]
 
     display_position: NodeEscalateChatNodeDisplayPosition
     """Position for frontend display"""
 
     global_node_setting: NodeEscalateChatNodeGlobalNodeSetting
-
-    model_choice: NodeEscalateChatNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeEscalateChatNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -6632,71 +6304,6 @@ NodeTransferCallNodeInstruction: TypeAlias = Union[
 ]
 
 
-class NodeTransferCallNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeTransferCallNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -6797,13 +6404,6 @@ class NodeTransferCallNode(TypedDict, total=False):
 
     instruction: NodeTransferCallNodeInstruction
     """What to say when transferring the call, only used when speak during execution"""
-
-    model_choice: NodeTransferCallNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeTransferCallNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -7214,71 +6814,6 @@ class NodePressDigitNodeGlobalNodeSetting(TypedDict, total=False):
     """Transition to this node"""
 
 
-class NodePressDigitNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodePressDigitNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -7371,13 +6906,6 @@ class NodePressDigitNode(TypedDict, total=False):
     finetune_transition_examples: Iterable[NodePressDigitNodeFinetuneTransitionExample]
 
     global_node_setting: NodePressDigitNodeGlobalNodeSetting
-
-    model_choice: NodePressDigitNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodePressDigitNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -7777,71 +7305,6 @@ class NodeBranchNodeGlobalNodeSetting(TypedDict, total=False):
     """Transition to this node"""
 
 
-class NodeBranchNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeBranchNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -7929,13 +7392,6 @@ class NodeBranchNode(TypedDict, total=False):
     finetune_transition_examples: Iterable[NodeBranchNodeFinetuneTransitionExample]
 
     global_node_setting: NodeBranchNodeGlobalNodeSetting
-
-    model_choice: NodeBranchNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeBranchNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -8335,71 +7791,6 @@ class NodeSMSNodeGlobalNodeSetting(TypedDict, total=False):
     """Transition to this node"""
 
 
-class NodeSMSNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeSMSNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -8524,13 +7915,6 @@ class NodeSMSNode(TypedDict, total=False):
     """Position for frontend display"""
 
     global_node_setting: NodeSMSNodeGlobalNodeSetting
-
-    model_choice: NodeSMSNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeSMSNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -9079,71 +8463,6 @@ class NodeExtractDynamicVariablesNodeGlobalNodeSetting(TypedDict, total=False):
     """Transition to this node"""
 
 
-class NodeExtractDynamicVariablesNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeExtractDynamicVariablesNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -9238,13 +8557,6 @@ class NodeExtractDynamicVariablesNode(TypedDict, total=False):
     finetune_transition_examples: Iterable[NodeExtractDynamicVariablesNodeFinetuneTransitionExample]
 
     global_node_setting: NodeExtractDynamicVariablesNodeGlobalNodeSetting
-
-    model_choice: NodeExtractDynamicVariablesNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeExtractDynamicVariablesNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -9572,71 +8884,6 @@ NodeAgentSwapNodeInstruction: TypeAlias = Union[
 ]
 
 
-class NodeAgentSwapNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeAgentSwapNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -9740,13 +8987,6 @@ class NodeAgentSwapNode(TypedDict, total=False):
 
     Otherwise, use the destination agent's voice and ambient sound settings.
     Defaults to false.
-    """
-
-    model_choice: NodeAgentSwapNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
     """
 
     model_config: NodeAgentSwapNodeModelConfig
@@ -10180,71 +9420,6 @@ NodeMcpNodeInstruction: TypeAlias = Union[
 ]
 
 
-class NodeMcpNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeMcpNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -10353,13 +9528,6 @@ class NodeMcpNode(TypedDict, total=False):
 
     instruction: NodeMcpNodeInstruction
     """What to say when calling the function, only used when speak during execution"""
-
-    model_choice: NodeMcpNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
-    """
 
     model_config: NodeMcpNodeModelConfig
     """Model override for this node. Only cascading flows use it."""
@@ -11063,71 +10231,6 @@ NodeBridgeTransferNodeInstruction: TypeAlias = Union[
 ]
 
 
-class NodeBridgeTransferNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeBridgeTransferNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -11209,13 +10312,6 @@ class NodeBridgeTransferNode(TypedDict, total=False):
     """Describes what to say to user when bridging the transfer.
 
     Only applicable when speak_during_execution is true.
-    """
-
-    model_choice: NodeBridgeTransferNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
     """
 
     model_config: NodeBridgeTransferNodeModelConfig
@@ -11491,71 +10587,6 @@ NodeCancelTransferNodeInstruction: TypeAlias = Union[
 ]
 
 
-class NodeCancelTransferNodeModelChoice(TypedDict, total=False):
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
-    """
-
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
-
-    ultrafast: bool
-    """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
-    """
-
-
 class NodeCancelTransferNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
     model: Required[
         Literal[
@@ -11637,13 +10668,6 @@ class NodeCancelTransferNode(TypedDict, total=False):
     """Describes what to say to user when cancelling the transfer.
 
     Only applicable when speak_during_execution is true.
-    """
-
-    model_choice: NodeCancelTransferNodeModelChoice
-    """Deprecated, use model_config.
-
-    When a request sends both and they differ, the one that differs from the stored
-    node is used, and model_config wins if both changed.
     """
 
     model_config: NodeCancelTransferNodeModelConfig

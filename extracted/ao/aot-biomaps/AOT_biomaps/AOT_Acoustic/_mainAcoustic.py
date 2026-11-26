@@ -1,105 +1,155 @@
+"""Acoustic-field generation and I/O for AOT-biomaps.
+
+The :class:`AcousticField` base class provides common functionality for
+k-Wave, SIMPLE_SIM, and hydrophone-derived acoustic fields. GPU k-Wave envelope
+generation uses a streaming I/Q pipeline: pressure is consumed one time step at
+a time and the envelope is written directly to a VRAM output buffer.
+
+When the complete output does not fit in VRAM, a dynamically sized GPU ring
+buffer is combined with two pinned host staging buffers. CUDA events protect
+ring-buffer reuse while a dedicated CUDA stream transfers completed chunks to
+host memory asynchronously.
+"""
+
 from __future__ import annotations
 
-import AOT_biomaps
-from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope, calculate_envelope_squared, loadmat, sensor_data_to_grid, compute_target_sizes, resample_field, to_pipeline_layout
-from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, Dim, FormatSave, WaveType
-from AOT_biomaps.AOT_Medium import Medium
-
 import copy
-import os
-import numpy as np
-import shutil
-from scipy.io import loadmat as scipy_loadmat
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import h5py
-from tempfile import gettempdir
-from abc import ABC, abstractmethod
 import logging
-import warnings
-import sys
+import math
+import os
 import platform
+import shutil
+import subprocess
+import tempfile
 import uuid
+from abc import ABC, abstractmethod
 
+import h5py
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.signal import hilbert as scipy_hilbert
 
-# Check for CuPy availability
+from AOT_biomaps.Config import config
+from AOT_biomaps.AOT_Acoustic.AcousticEnums import Dim, FormatSave, TypeSim, WaveType
+from AOT_biomaps.AOT_Acoustic.AcousticTools import (
+    get_gpu_memory_info,
+    _resample_axis,
+    allocate_pinned_staging_buffers,
+    calculate_envelope,
+    calculate_envelope_squared,
+    compute_target_sizes,
+    get_gpu_output_budget_bytes,
+    get_iq_envelope_kernel,
+    get_transfer_chunk_frames,
+    loadmat,
+    resample_field,
+    sensor_data_to_grid,
+    to_pipeline_layout,
+)
+from AOT_biomaps.AOT_Medium import Medium
+from AOT_biomaps.Settings import Params
+
 try:
     import cupy as cp
     CUPY_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - depends on the runtime
     cp = None
     CUPY_AVAILABLE = False
 
-# Optional kwave imports - will be None if kwave is not installed
+
+def _to_numpy_array(array):
+    """Return a NumPy view/copy of an array, handling CuPy arrays explicitly."""
+    if CUPY_AVAILABLE and isinstance(array, cp.ndarray):
+        return cp.asnumpy(array)
+    return np.asarray(array)
+
+
+# k-Wave Python API imports are optional so that the package remains importable
+# for users who only load or post-process previously generated fields.
 KWAVE_AVAILABLE = False
+KWAVE_STREAMING_AVAILABLE = False
 KWAVE_BINARIES_AVAILABLE = False
 
 try:
+    import kwave
     from kwave.utils.signals import tone_burst
     from kwave.ksource import kSource
     from kwave.ksensor import kSensor
-    from kwave.kspaceFirstOrder import kspaceFirstOrder
     KWAVE_AVAILABLE = True
-    
-    # correct kwave issue with subprocess.Popen on Windows and Linux (encoding)
-    import subprocess
-    import sys
+except ImportError:  # pragma: no cover - depends on the optional k-Wave package
+    kwave = None
+    tone_burst = None
+    kSource = None
+    kSensor = None
 
-    _original_popen = subprocess.Popen
+try:
+    from kwave.solvers.kspace_solver import Simulation
+    from kwave.solvers.validation import validate_simulation
+    from kwave.kspaceFirstOrder import _expand_for_pml_outside
+    KWAVE_STREAMING_AVAILABLE = True
+except ImportError:  # pragma: no cover - depends on the installed k-Wave version
+    Simulation = None
+    validate_simulation = None
+    _expand_for_pml_outside = None
 
-    class PatchedPopen(_original_popen):
-        def __init__(self, *args, **kwargs):
-            if kwargs.get('text', False) or kwargs.get('universal_newlines', False):
-                kwargs.setdefault('encoding', 'utf-8')
-                kwargs.setdefault('errors', 'replace') # Remplace les caractères impossibles à lire
-            super().__init__(*args, **kwargs)
+try:
+    from kwave.kspaceFirstOrder import kspaceFirstOrder
+except ImportError:  # pragma: no cover - some k-Wave versions expose only Simulation
+    kspaceFirstOrder = None
 
-    subprocess.Popen = PatchedPopen
 
-    # Check if kwave binaries are available and executable
+def _detect_kwave_cuda_binary():
+    """Return whether the installed k-Wave CUDA executable can be launched."""
+    if kwave is None:
+        return False
+    binary_root = os.path.join(os.path.dirname(kwave.__file__), "bin")
+    system = platform.system().lower()
+    if system == "linux":
+        binary_path = os.path.join(binary_root, "linux", "kspaceFirstOrder-CUDA")
+    elif system == "darwin":
+        binary_path = os.path.join(binary_root, "mac", "kspaceFirstOrder-CUDA")
+    elif system == "windows":
+        binary_path = os.path.join(binary_root, "windows", "kspaceFirstOrder-CUDA.exe")
+    else:
+        return False
+
+    if not os.path.isfile(binary_path):
+        return False
     try:
-        # Try to check if the CUDA binary exists and is executable
-        import kwave
-        bin_path = os.path.join(os.path.dirname(kwave.__file__), 'bin')
-        if sys.platform.startswith('linux'):
-            cuda_bin = os.path.join(bin_path, 'linux', 'kspaceFirstOrder-CUDA')
-        elif sys.platform == 'darwin':
-            cuda_bin = os.path.join(bin_path, 'mac', 'kspaceFirstOrder-CUDA')
-        elif sys.platform == 'win32':
-            cuda_bin = os.path.join(bin_path, 'windows', 'kspaceFirstOrder-CUDA.exe')
-        else:
-            cuda_bin = None
-        
-        if cuda_bin and os.path.exists(cuda_bin):
-            # Try to check if we can execute it (this will fail if dependencies are missing)
-            result = subprocess.run([cuda_bin, '-h'], 
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                  timeout=5)
-            KWAVE_BINARIES_AVAILABLE = (result.returncode == 0)
-        else:
-            KWAVE_BINARIES_AVAILABLE = False
-    except Exception:
-        KWAVE_BINARIES_AVAILABLE = False
-    
-    if not KWAVE_BINARIES_AVAILABLE:
-        system = platform.system().lower()
-        message = "[AOT-biomaps] Warning: kWave binaries are not available or cannot be executed. Some acoustic simulation features will be disabled."
+        result = subprocess.run(
+            [binary_path, "-h"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+            check=False,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
 
-        if system == "linux":
-            message += " On Linux, you may need to install: libaec0 libaec-dev libfftw3-dev"
-        elif system == "windows":
-            message += " On Windows, ensure Visual C++ Redistributable is installed."
-        else:
-            message += " Check system dependencies for kWave."
 
-        print(message, file=sys.stderr)  # Clean output without file path
-        KWAVE_AVAILABLE = False
-            
-except ImportError:
-    KWAVE_AVAILABLE = False
+KWAVE_BINARIES_AVAILABLE = _detect_kwave_cuda_binary()
 
-from AOT_biomaps.Settings import Params
+
+# k-Wave's C++ wrapper may decode subprocess output using the platform locale.
+# Install the encoding fix once, rather than toggling Popen around each call;
+# this also avoids races when independent GPU simulations run in Python threads.
+_original_popen = subprocess.Popen
+
+
+class _UTF8Popen(_original_popen):
+    """Subprocess.Popen subclass that defaults text-mode pipes to UTF-8."""
+
+    def __init__(self, *args, **kwargs):
+        if kwargs.get("text", False) or kwargs.get("universal_newlines", False):
+            kwargs.setdefault("encoding", "utf-8")
+            kwargs.setdefault("errors", "replace")
+        super().__init__(*args, **kwargs)
+
+
+subprocess.Popen = _UTF8Popen
+
 
 ####### ABSTRACT CLASS #######
 
@@ -116,92 +166,125 @@ class AcousticField(ABC):
     """
 
     def __init__(self, params, medium):
-        """
-        Initialize global properties of the AcousticField object.
+        """Initialize an acoustic-field object.
 
-        Parameters:
-        - typeSim (TypeSim): Type of simulation to be performed. Options include KWAVE, FIELD2, and HYDRO. Default is TypeSim.KWAVE.
-        - dim (Dim): Dimension of the acoustic field. Can be 2D or 3D. Default is Dim.D2.
-        - c0 (float): Speed of sound in the medium, specified in meters per second (m/s). Default is 1540 m/s.
-        - f_US (float): Frequency of the ultrasound signal, specified in Hertz (Hz). Default is 6 MHz.
-        - f_AQ (float): Frequency of data acquisition, specified in Hertz (Hz). Default is 180 MHz.
-        - num_cycles (int): Number of cycles in the burst signal. Default is 4 cycles.
-        - num_elements (int): Number of elements in the transducer array. Default is 192 elements.
-        - element_width (float): Width of each transducer element, specified in meters (m). Default is 0.2 mm.
-        - element_height (float): Height of each transducer element, specified in meters (m). Default is 6 mm.
-        - Xrange (list of float): Range of X coordinates for the acoustic field, specified in meters (m). Default is from -20 mm to 20 mm.
-        - Yrange (list of float, optional): Range of Y coordinates for the acoustic field, specified in meters (m). Default is None, indicating no specific Y range.
-        - Zrange (list of float): Range of Z coordinates for the acoustic field, specified in meters (m). Default is from 0 m to 37 mm.
+        Parameters
+        ----------
+        params : Params
+            AOT-biomaps parameter object.
+        medium : Medium
+            Medium and simulation-grid description.
         """
-        if type(params) != Params:
-            raise TypeError(f"[AOT-biomaps] params must be an instance of the Params class")
+        if not isinstance(params, Params):
+            raise TypeError("params must be an instance of Params.")
         if not isinstance(medium, Medium):
-            raise TypeError(f"[AOT-biomaps] medium must be an instance of the Medium class")
+            raise TypeError("medium must be an instance of Medium.")
 
-        self.medium = medium
         self.params = params
-        if self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
-            self.generate_burst_signal()
-        if self.params.acoustic["dim"] == Dim.D3 and self.params.general["Yrange"] is None:
-            raise ValueError(f"[AOT-biomaps] Yrange must be provided for 3D fields.")
-            
+        self.medium = medium
         self.waveType = None
-        self.field = None  
+        self.field = None
+        self.burst = None
+        self.delayedSignal = None
+        self.last_decimation = None
+
+        if self.params.acoustic["typeSim"] == TypeSim.KWAVE.value:
+            self.generate_burst_signal()
+
+        dim_value = self.params.acoustic["dim"]
+        if dim_value == Dim.D3.value and self.params.general.get("Yrange") is None:
+            raise ValueError("Yrange must be provided for 3D acoustic fields.")
 
     def __del__(self):
+        """Release references owned by the acoustic-field object."""
+        for attribute in ("field", "burst", "delayedSignal"):
+            try:
+                setattr(self, attribute, None)
+            except Exception:
+                # Destructors must not raise during interpreter shutdown.
+                pass
+
+    def generate_field(
+        self,
+        burst=None,
+        isGPU=None,
+        GPUdevice=None,
+        tempFieldName=None,
+        generation_type="envelope_squared",
+        show_log=False,
+        backend=None,
+        keep_on_gpu=False,
+        free_vram=True,
+        envelope_lpf_hz=None,
+        vram_fraction=0.95,
+        accumulate_max_bytes=None,
+        host_staging_fraction=1.0 / 16.0,
+        host_output_path=None,
+        validate_iq=False,
+    ):
+        """Generate the acoustic field for the selected simulation type.
+
+        k-Wave GPU envelope generation uses the streaming I/Q implementation when the required Python solver interfaces are available. 
+        If the complete result cannot fit in VRAM, output frames are accumulated in a GPU ring and copied asynchronously to host memory in large chunks.
+
+        Parameters
+        ----------
+        generation_type : {"envelope_squared", "envelope", "field"}
+            Requested output representation.
+        keep_on_gpu : bool
+            Keep the final resampled result on the GPU when it fits in currently available VRAM. If the raw streamed output is too large, the result is assembled and resampled on the host before an optional final upload.
+        vram_fraction : float
+            Fraction of currently allocatable VRAM offered to the output ring.
+        accumulate_max_bytes : int or None
+            Optional caller-specified upper bound for the output buffer.
+        host_staging_fraction : float
+            Fraction of currently available host RAM offered to the two pinned transfer buffers. Their actual size is computed dynamically.
+        host_output_path : str or None
+            Optional .npy path for streamed output. When omitted, host RAM is used for the assembled result.
+        validate_iq : bool
+            Store one central-voxel pressure trace and compare the I/Q envelope against a Hilbert reference after the simulation. Disabled by default to avoid diagnostic allocations.
         """
-        Destructor for the AcousticField class. Cleans up the field and envelope attributes.
-        """
-        try:
-            self.field = None
-            self.burst = None
-            self.delayedSignal = None
-        except Exception as e:
-            print(f"[AOT-biomaps] Error in __del__ method: {e}")
-            raise
+        if isGPU is None:
+            isGPU = config.get_process() == "gpu"
 
-    def generate_field(self, burst=None, isGPU=None, GPUdevice=None, tempFieldName=None, generation_type="envelope_squared", show_log=False, backend=None):
-        """
-        Generate the acoustic field.
+        if self.medium.medium_properties is None:
+            raise ValueError("Medium properties are not defined. Generate or load a valid Medium first.")
 
-        k-Wave path: simulation + envelope + band-limited resampling to the
-        SAVE grid (general.dx/dz, 1/ft), fused in a single GPU pass.
-        SIMPLE_SIM path: analytic field produced directly on the save grid.
-        In both cases self.field has layout (Nt', Nz', Nx') and the effective
-        sampling is stored in self.last_decimation.
+        logging.getLogger("root").setLevel(logging.ERROR)
+        simulation_type = self.params.acoustic["typeSim"]
+        dimension = self.params.acoustic["dim"]
 
-        backend: None/"python" (default) or "cpp" (compiled binaries, temp
-        h5 files named after tempFieldName -> required for multi-GPU
-        threading; tempFileName must be UNIQUE per concurrent field).
-        """
-        try:
-            if isGPU is None:
-                isGPU = True if config.get_process() == 'gpu' else False
+        if simulation_type == TypeSim.FIELD2.value:
+            raise NotImplementedError("FIELD2 simulation is not implemented.")
+        elif simulation_type == TypeSim.SIMPLE_SIM.value:
+            self.field = self._generate_acoustic_field_SIMPLE_SIM(burst=burst, show_log=show_log)
+        elif simulation_type == TypeSim.KWAVE.value:
+            if dimension == Dim.D3.value:
+                raise NotImplementedError("3D k-Wave generation is not implemented.")
+            if dimension != Dim.D2.value:
+                raise ValueError(f"Unsupported k-Wave dimension: {dimension!r}.")
 
-            if self.medium.medium_properties is None:
-                raise ValueError("[AOT-biomaps] Medium properties are not defined. Please generate or load a valid Medium object.")
-
-            logging.getLogger('root').setLevel(logging.ERROR)
-
-            if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
-                raise NotImplementedError("[AOT-biomaps] FIELD2 simulation is not implemented yet.")
-            elif self.params.acoustic['typeSim'] == TypeSim.SIMPLE_SIM.value:
-                self.field = self._generate_acoustic_field_SIMPLE_SIM(burst=burst, show_log=show_log)
-            elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
-                if self.params.acoustic["dim"] == Dim.D2.value:
-                    self.field = self._generate_acoustic_field_KWAVE_2D(
-                        burst=burst, isGPU=isGPU, GPUdevice=GPUdevice,
-                        generation_type=generation_type, show_log=show_log,
-                        backend=backend, tempFileName=tempFieldName)
-                elif self.params.acoustic["dim"] == Dim.D3.value:
-                    raise NotImplementedError("[AOT-biomaps] 3D k-Wave generation is not implemented yet.")
-            elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
-                raise ValueError("[AOT-biomaps] Cannot generate field for Hydrophone simulation, load existing acquisitions.")
-            else:
-                raise ValueError("[AOT-biomaps] Invalid simulation type. Supported types are: FIELD2, KWAVE, SIMPLE_SIM, HYDRO.")
-        except Exception as e:
-            print(f"[AOT-biomaps] Error in generate_field method: {e}")
-            raise
+            self.field = self._generate_acoustic_field_KWAVE_2D(
+                burst=burst,
+                isGPU=isGPU,
+                GPUdevice=GPUdevice,
+                generation_type=generation_type,
+                show_log=show_log,
+                keep_on_gpu=keep_on_gpu,
+                free_vram=free_vram,
+                backend=backend,
+                tempFileName=tempFieldName,
+                envelope_lpf_hz=envelope_lpf_hz,
+                accumulate_max_bytes=accumulate_max_bytes,
+                vram_fraction=vram_fraction,
+                host_staging_fraction=host_staging_fraction,
+                host_output_path=host_output_path,
+                validate_iq=validate_iq,
+            )
+        elif simulation_type == TypeSim.HYDRO.value:
+            raise ValueError("Hydrophone fields are loaded from acquisitions; they cannot be simulated.")
+        else:
+            raise ValueError(f"Unsupported simulation type: {simulation_type!r}.")
 
     def save_field(self, filePath, formatSave=FormatSave.HDR_IMG):
         """
@@ -211,71 +294,63 @@ class AcousticField(ABC):
         - filePath (str): The path where the file will be saved.
         """
         try:
-            if formatSave.value == FormatSave.HDR_IMG.value:
+            if not isinstance(formatSave, FormatSave):
+                raise TypeError("formatSave must be a FormatSave enum value.")
+            if formatSave == FormatSave.HDR_IMG:
                 self._save2D_HDR_IMG(filePath)
-            elif formatSave.value == FormatSave.H5.value:
+            elif formatSave == FormatSave.H5:
                 self._save2D_H5(filePath)
-            elif formatSave.value == FormatSave.NPY.value:
+            elif formatSave == FormatSave.NPY:
                 self._save2D_NPY(filePath)
             else:
-                raise ValueError(f"[AOT-biomaps] Unsupported format. Supported formats are: HDR_IMG, H5, NPY.")
+                raise ValueError(f"Unsupported format: {formatSave!r}.")
         except Exception as e:
             print(f"[AOT-biomaps] Error in save_field method: {e}")
             raise
 
     def load_field(self, folderPath, formatSave=FormatSave.HDR_IMG, nameBlock=None):
-        """
-        Load the acoustic field from a file in the specified format.
+        """Load an acoustic field from Interfile, HDF5, or NumPy storage."""
+        if not isinstance(formatSave, FormatSave):
+            raise TypeError("formatSave must be a FormatSave enum value.")
 
-        Parameters:
-        - filePath (str): The folder path from which to load the file.
-        """
-        try:
-            if str(type(formatSave)) != str(AOT_biomaps.AOT_Acoustic.FormatSave):
-                    raise ValueError(f"[AOT-biomaps] Unsupported file format: {formatSave}. Supported formats are: HDR_IMG, H5, NPY.")
+        simulation_type = self.params.acoustic["typeSim"]
+        dimension = self.params.acoustic["dim"]
+        field_name = self.get_name_field()
 
-            if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
-                raise NotImplementedError("[AOT-biomaps] FIELD2 simulation is not implemented yet.")
-            elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value or self.params.acoustic['typeSim'] == TypeSim.SIMPLE_SIM.value:
-                if formatSave.value == FormatSave.HDR_IMG.value: 
-                    if self.params.acoustic["dim"] == Dim.D2.value:
-                        self._load_fieldKWAVE_XZ(os.path.join(folderPath,self.get_name_field()+formatSave.value))
-                    elif self.params.acoustic["dim"] == Dim.D3.value:
-                        raise NotImplementedError("[AOT-biomaps] 3D KWAVE field loading is not implemented yet.")
-                elif formatSave.value == FormatSave.H5.value:
-                    if self.params.acoustic["dim"] == Dim.D2.value:
-                         self._load_field_h5(folderPath,nameBlock)
-                    elif self.params.acoustic["dim"] == Dim.D3.value:
-                        raise NotImplementedError("[AOT-biomaps] H5 KWAVE field loading is not implemented yet.")
-                elif formatSave.value == FormatSave.NPY.value:
-                    if self.params.acoustic["dim"] == Dim.D2.value:
-                        self.field = np.load(os.path.join(folderPath,self.get_name_field()+formatSave.value))
-                    elif self.params.acoustic["dim"] == Dim.D3.value:
-                        raise NotImplementedError("[AOT-biomaps] 3D NPY KWAVE field loading is not implemented yet.")
-            elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
-                print("[AOT-biomaps] Loading Hydrophone field...")
-                if formatSave.value == FormatSave.HDR_IMG.value:
-                    raise ValueError("[AOT-biomaps] HDR_IMG format is not supported for Hydrophone acquisition.")
-                if formatSave.value == FormatSave.H5.value:
-                    if self.params.acoustic["dim"] == Dim.D2.value:
-                        self.field, self.params.general['Xrange'], self.params.general['Zrange'] = self._load_fieldHYDRO_XZ(os.path.join(folderPath, self.get_name_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.get_name_field() + '.mat'))
-                    elif self.params.acoustic["dim"] == Dim.D3.value: 
-                        self._load_fieldHYDRO_XYZ(os.path.join(folderPath, self.get_name_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.get_name_field() + '.mat'))
-                elif formatSave.value == FormatSave.NPY.value:
-                    if self.params.acoustic["dim"] == Dim.D2.value:
-                        self.field = np.load(folderPath)
-                    elif self.params.acoustic["dim"] == Dim.D3.value:
-                        raise NotImplementedError("[AOT-biomaps] 3D NPY Hydrophone field loading is not implemented yet.")
+        if simulation_type in (TypeSim.KWAVE.value, TypeSim.SIMPLE_SIM.value):
+            if dimension == Dim.D3.value:
+                raise NotImplementedError("3D field loading is not implemented for this format.")
+            if formatSave == FormatSave.HDR_IMG:
+                self._load_fieldKWAVE_XZ(os.path.join(folderPath, field_name + formatSave.value))
+            elif formatSave == FormatSave.H5:
+                self._load_field_h5(folderPath, nameBlock)
+            elif formatSave == FormatSave.NPY:
+                self.field = np.load(os.path.join(folderPath, field_name + formatSave.value), mmap_mode="r")
             else:
-                raise ValueError("[AOT-biomaps] Invalid simulation type. Supported types are: FIELD2, KWAVE, HYDRO.")
+                raise ValueError(f"Unsupported field format: {formatSave!r}.")
 
-        except Exception as e:
-            print(f"[AOT-biomaps] Error in load_field method: {e}")
-            raise
+        if simulation_type == TypeSim.HYDRO.value:
+            if formatSave == FormatSave.HDR_IMG:
+                raise ValueError("HDR_IMG is not supported for hydrophone acquisitions.")
+            h5_path = os.path.join(folderPath, field_name + ".h5")
+            mat_path = os.path.join(folderPath, "PARAMS_" + field_name + ".mat")
+            if formatSave == FormatSave.H5:
+                if dimension == Dim.D2.value:
+                    self.field, self.params.general["Xrange"], self.params.general["Zrange"] = (self._load_fieldHYDRO_XZ(h5_path, mat_path))
+                elif dimension == Dim.D3.value:
+                    self._load_fieldHYDRO_XYZ(h5_path, mat_path)
+                else:
+                    raise ValueError(f"Unsupported hydrophone dimension: {dimension!r}.")
+            elif formatSave == FormatSave.NPY:
+                npy_path = folderPath if os.path.isfile(folderPath) else os.path.join(folderPath, field_name + formatSave.value)
+                self.field = np.load(npy_path, mmap_mode="r")
+
+        raise ValueError(f"Unsupported simulation type for loading: {simulation_type!r}.")
 
     @abstractmethod
     def get_name_field(self):
-        pass
+        """Return the stable field name used by save/load operations."""
+        raise NotImplementedError
 
     ## DISPLAY METHODS ##
 
@@ -284,7 +359,7 @@ class AcousticField(ABC):
         Plot the burst signal used for generating the acoustic field.
         """
         try:
-            time2plot = np.arange(0, len(self.burst)) / self.params.acoustic['f_AQ'] * 1000000  # Convert to microseconds
+            time2plot = np.arange(len(self.burst)) * float(self.medium.kgrid.dt) * 1e6
             plt.figure(figsize=figsize)
             plt.plot(time2plot, self.burst)
             plt.title('Excitation burst signal')
@@ -309,8 +384,16 @@ class AcousticField(ABC):
         """
         try:
 
-            maxF = np.max(self.field[:,20:,:])
-            minF = np.min(self.field[:,20:,:])
+            if self.field is None:
+                raise ValueError("No acoustic field is available to animate.")
+            is_gpu_field = CUPY_AVAILABLE and isinstance(self.field, cp.ndarray)
+            field_for_limits = self.field[:, 20:, :] if self.field.shape[1] > 20 else self.field
+            if is_gpu_field:
+                maxF = float(cp.max(field_for_limits).get())
+                minF = float(cp.min(field_for_limits).get())
+            else:
+                maxF = float(np.max(field_for_limits))
+                minF = float(np.min(field_for_limits))
             # Set the maximum embedded animation size to 100 MB
             plt.rcParams['animation.embed_limit'] = 100
 
@@ -321,26 +404,19 @@ class AcousticField(ABC):
             fig, ax = plt.subplots(figsize=figsize)
 
             # Set main title
-            if self.waveType.value == WaveType.FocusedWave.value:
+            wave_type = getattr(self.waveType, "value", self.waveType)
+            if wave_type == WaveType.FocusedWave.value:
                 fig.suptitle("[System Matrix Animation] Focused Wave", y=0.98)
-            elif self.waveType.value == WaveType.PlaneWave.value:
+            elif wave_type == WaveType.PlaneWave.value:
                 fig.suptitle(f"[System Matrix Animation] Plane Wave | Angles {self.angle}°", y=0.98)
-            elif self.waveType.value == WaveType.StructuredWave.value:
+            elif wave_type == WaveType.StructuredWave.value:
                 fig.suptitle(f"[System Matrix Animation] Structured Wave | Pattern structure: {self.pattern.activeList} | Angles {self.angle}°", y=0.98)
             else:
 
                 raise ValueError("Invalid wave type. Supported types are: FocusedWave, PlaneWave, StructuredWave.")
 
             # Initial plot
-            im = ax.imshow(
-                self.field[0, :, :],
-                extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][-1] * 1000, self.params.general['Zrange'][-1] * 1000, self.params.general['Zrange'][0] * 1000),
-                vmin = 1.2*minF,
-                vmax=0.8*maxF,
-                aspect='equal',
-                cmap='jet',
-                animated=True
-            )
+            im = ax.imshow(cp.asnumpy(self.field[0, :, :]) if is_gpu_field else self.field[0, :, :], extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][-1] * 1000, self.params.general['Zrange'][-1] * 1000, self.params.general['Zrange'][0] * 1000), vmin = 1.2*minF, vmax=0.8*maxF, aspect='equal', cmap='jet', animated=True)
             ax.set_title(f"t = 0 ms")
             ax.set_xlabel("x (mm)")
             ax.set_ylabel("z (mm)")
@@ -352,18 +428,17 @@ class AcousticField(ABC):
 
             # Unified update function for all subplots
             def update(frame):
-                im.set_data(self.field[frame, :, :])
+                frame_data = self.field[frame, :, :]
+                if is_gpu_field:
+                    frame_data = cp.asnumpy(frame_data)
+                im.set_data(frame_data)
                 ax.set_title(f"t = {frame * dt_frame * 1000:.2f} ms")
                 return [im]
 
             interval = desired_duration_ms / self.field.shape[0]
 
             # Create animation
-            ani = animation.FuncAnimation(
-                fig, update,
-                frames=range(0, self.field.shape[0]),
-                interval=interval, blit=True
-            )
+            ani = animation.FuncAnimation(fig, update, frames=range(0, self.field.shape[0]), interval=interval, blit=True)
 
             # Save animation if needed
             if save_dir is not None:
@@ -389,56 +464,47 @@ class AcousticField(ABC):
             print(f"[AOT-biomaps] Error creating animation: {e}")
             return None
 
-    def show(self, use_dB=False, reference=1e6,Vmax=None, figsize=(4,3)):
+    def show(self, use_dB=False, reference=1e6, Vmax=None, figsize=(4, 3)):
+        """Display the maximum-intensity projection of the squared envelope.
+
+        The temporal maximum is computed on the device when ``self.field`` is a
+        CuPy array. Only the final 2-D projection is transferred to the host.
         """
-        Display the maximum intensity projection of the acoustic field envelope.
+        if self.field is None:
+            raise ValueError("Field data is not available. Generate or load a field first.")
+        if reference <= 0:
+            raise ValueError("reference must be positive.")
 
-        Parameters:
-        - use_dB (bool): If True, display in dB relative to the reference pressure.
-        - reference (float): Reference pressure in Pa for dB calculation (default: 1 MPa).
-        """
-        try:
-            if self.field is None:
-                raise ValueError("Field data is not available. Please generate or load the field first.")
-            if self.field.min() < 0:
-                raise ValueError("Calculation of the envelope has not been performed. Please generate the envelope first.")
+        is_gpu_field = CUPY_AVAILABLE and isinstance(self.field, cp.ndarray)
+        xp = cp if is_gpu_field else np
+        minimum = float(xp.min(self.field).get()) if is_gpu_field else float(np.min(self.field))
+        if minimum < 0:
+            raise ValueError("The field contains negative values; an envelope is expected.")
 
-            # Convertir l'enveloppe au carré en amplitude (Pa) en prenant la racine carrée
-            envelope_amplitude = np.sqrt(self.field)
+        # Taking the maximum before sqrt/log is valid because both transforms
+        # are monotonic for non-negative envelope-squared values.
+        projection_squared = xp.max(self.field, axis=0)
+        if use_dB:
+            data_to_show = 10.0 * xp.log10(xp.maximum(projection_squared, 1e-30) / (reference ** 2))
+            unit_label = f"dB re {reference / 1e6:g} MPa"
+            vmax = 0.0 if Vmax is None else Vmax
+        else:
+            data_to_show = xp.sqrt(projection_squared) / 1e6
+            unit_label = "MPa"
+            vmax = 0.85 * float(xp.max(data_to_show).get()) if Vmax is None and is_gpu_field else (0.85 * float(np.max(data_to_show)) if Vmax is None else Vmax)
 
-            if use_dB:
-                # Convertir en dB re reference (Pa)
-                envelope_dB = 20 * np.log10(envelope_amplitude / reference)
-                data_to_show = envelope_dB
-                unit_label = f'dB re {reference / 1e6} MPa'
-                if Vmax is not None:
-                    vmax = Vmax
-                else:
-                    vmax = 0
+        if is_gpu_field:
+            data_to_show = cp.asnumpy(data_to_show)
+        else:
+            data_to_show = np.asarray(data_to_show)
 
-            else:
-                # Convertir en MPa
-                envelope_amplitude_mpa = envelope_amplitude / 1e6
-                data_to_show = envelope_amplitude_mpa
-                unit_label = 'MPa'
-                if Vmax is not None:
-                    vmax = Vmax
-                else:
-                    vmax = 0.85*np.max(envelope_amplitude_mpa)
-
-            plt.figure(figsize=figsize)
-            plt.imshow(data_to_show.max(axis=0),
-                    extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][1] * 1000,
-                            self.params.general['Zrange'][1] * 1000, self.params.general['Zrange'][0] * 1000),
-                    aspect='equal', cmap='jet', vmin=0, vmax=vmax)
-            plt.colorbar(label=f'Envelope Amplitude ({unit_label})')
-            plt.title('Maximum Intensity Projection of Acoustic Field Envelope')
-            plt.xlabel('X (mm)')
-            plt.ylabel('Z (mm)')
-            plt.show()
-        except Exception as e:
-            print(f"[AOT-biomaps] Error in show method: {e}")
-            raise
+        plt.figure(figsize=figsize)
+        plt.imshow( data_to_show, extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][1] * 1000, self.params.general['Zrange'][1] * 1000, self.params.general['Zrange'][0] * 1000), aspect="equal", cmap="jet", vmin=0, vmax=vmax,)
+        plt.colorbar(label=f"Envelope amplitude ({unit_label})")
+        plt.title("Maximum-intensity projection of the acoustic field envelope")
+        plt.xlabel("X (mm)")
+        plt.ylabel("Z (mm)")
+        plt.show()
 
     ## PRIVATE METHODS ##
 
@@ -450,6 +516,8 @@ class AcousticField(ABC):
         if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
             raise NotImplementedError("[AOT-biomaps] FIELD2 simulation is not implemented yet.")
         elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
+            if not KWAVE_AVAILABLE or tone_burst is None:
+                raise ImportError("The k-Wave Python package is required to generate an excitation burst.")
             self._generate_burst_signalKWAVE()
         elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
             raise ValueError("[AOT-biomaps] Cannot generate burst signal for Hydrophone simulation.")
@@ -464,22 +532,43 @@ class AcousticField(ABC):
             print(f"[AOT-biomaps] Error in _generate_burst_signal method: {e}")
             raise
 
-    def _generate_acoustic_field_KWAVE_2D(self, burst=None, isGPU=None, GPUdevice=None, generation_type="envelope_squared", show_log=True, keep_on_gpu=False, free_vram=True, target_dt=None, target_dx=None, target_dz=None, backend=None, tempFileName=None):
-        """
-        k-Wave simulation + post-processing, all on GPU, in one pass:
-            1. simulation on the SIMULATION grid (medium.kgrid),
-            2. envelope / envelope squared (Hilbert, time axis, FULL rate),
-            3. band-limited resampling to the TARGET resolutions
-               (defaults: medium.dx_save/dz_save/dt_save, i.e. the schema).
+    def _generate_acoustic_field_KWAVE_2D(
+        self,
+        burst=None,
+        isGPU=None,
+        GPUdevice=None,
+        generation_type="envelope_squared",
+        show_log=True,
+        keep_on_gpu=False,
+        free_vram=True,
+        target_dt=None,
+        target_dx=None,
+        target_dz=None,
+        backend=None,
+        tempFileName=None,
+        envelope_lpf_hz=None,
+        accumulate_max_bytes=None,
+        vram_fraction=0.95,
+        host_staging_fraction=1.0 / 16.0,
+        host_output_path=None,
+        validate_iq=False,
+    ):
+        """Dispatch 2D k-Wave generation to streaming or batch processing.
 
-        Backends:
-            - "python": Native kwave-python solver, in-memory, single-GPU/GIL-bound.
-            - "cpp": Compiled binary via subprocess (releases GIL, enables multi-GPU scaling).
-                     HDF5 scratch files are placed in /dev/shm and cleaned up immediately.
-
-        Returns:
-            Acoustic field in pipeline layout (Nt', Nz', Nx').
+        The streaming GPU path is used for envelope outputs with the Python
+        k-Wave solver. The batch path remains available for CPU execution,
+        raw pressure-field output, and the optional compiled C++ backend.
         """
+        if not KWAVE_AVAILABLE:
+            raise ImportError("The k-Wave Python package is not available.")
+        if generation_type not in ("envelope", "envelope_squared", "field"):
+            raise ValueError("generation_type must be 'envelope', 'envelope_squared', or 'field'.")
+
+        if isGPU is None:
+            isGPU = config.get_process() == "gpu"
+        if GPUdevice is None:
+            GPUdevice = config.select_best_gpu()
+
         if target_dt is None:
             target_dt = getattr(self.medium, "dt_save", None)
         if target_dx is None:
@@ -491,155 +580,1805 @@ class AcousticField(ABC):
 
         if backend is None:
             backend = "python"
+        if backend not in ("python", "cpp"):
+            raise ValueError("backend must be None, 'python', or 'cpp'.")
         if backend == "cpp" and not KWAVE_BINARIES_AVAILABLE:
-            print("[AOT-biomaps] Warning: k-Wave binaries unavailable. Falling back to python backend.")
+            if show_log:
+                print("[AOT-biomaps] k-Wave CUDA binary unavailable; using the Python backend.")
             backend = "python"
 
-        data_path = None
-        if backend == "cpp":
-            # Fix kwave-python 0.6.2 issue where unspecified source mode maps to 2 (invalid for C++)
-            try:
-                import kwave.solvers.cpp_simulation as cs
+        use_streaming = (bool(isGPU) and CUPY_AVAILABLE and KWAVE_STREAMING_AVAILABLE and backend == "python" and generation_type in ("envelope", "envelope_squared"))
+        if use_streaming:
+            return self._stream_acoustic_field_KWAVE_2D(
+                burst=burst,
+                GPUdevice=GPUdevice,
+                generation_type=generation_type,
+                show_log=show_log,
+                keep_on_gpu=keep_on_gpu,
+                free_vram=free_vram,
+                target_dt=target_dt,
+                target_dx=target_dx,
+                target_dz=target_dz,
+                envelope_lpf_hz=envelope_lpf_hz,
+                accumulate_max_bytes=accumulate_max_bytes,
+                vram_fraction=vram_fraction,
+                host_staging_fraction=host_staging_fraction,
+                host_output_path=host_output_path,
+                validate_iq=validate_iq,
+            )
 
-                for key in (None, "", "default"):
-                    if key not in cs._SOURCE_MODE_MAP:
-                        cs._SOURCE_MODE_MAP[key] = 0
-            except Exception:
-                pass
+        return self._batch_acoustic_field_KWAVE_2D(
+            burst=burst,
+            isGPU=isGPU,
+            GPUdevice=GPUdevice,
+            generation_type=generation_type,
+            show_log=show_log,
+            keep_on_gpu=keep_on_gpu,
+            free_vram=free_vram,
+            target_dt=target_dt,
+            target_dx=target_dx,
+            target_dz=target_dz,
+            backend=backend,
+            tempFileName=tempFileName,
+        )
 
-            # Unique scratch directory per worker in RAM (/dev/shm)
-            base_tmp = "/dev/shm" if os.path.isdir("/dev/shm") else gettempdir()
-            unique = tempFileName if tempFileName else uuid.uuid4().hex
-            data_path = os.path.join(base_tmp, f"AOT_kwave_{unique}")
-            
-            if os.path.exists(data_path):
-                shutil.rmtree(data_path, ignore_errors=True)
-                
-            os.makedirs(data_path, exist_ok=True)
+    def _stream_acoustic_field_KWAVE_2D(
+        self,
+        burst,
+        GPUdevice,
+        generation_type,
+        show_log,
+        keep_on_gpu,
+        free_vram,
+        target_dt,
+        target_dx,
+        target_dz,
+        envelope_lpf_hz,
+        accumulate_max_bytes=None,
+        vram_fraction=0.95,
+        host_staging_fraction=1.0 / 16.0,
+        host_output_path=None,
+        validate_iq=False,
+    ):
+        """Run k-Wave and fused I/Q demodulation with GPU-side spatial resampling.
 
-        try:
-            if isGPU is None:
-                isGPU = True if config.get_process() == "gpu" else False
-            if GPUdevice is None:
-                GPUdevice = config.select_best_gpu()
+        The I/Q kernel always writes native-resolution frames into one GPU
+        allocation.
 
-            if isGPU and not CUPY_AVAILABLE:
-                print("[AOT-biomaps] Warning: CuPy not available -> CPU fallback.")
-                isGPU = False
-            if isGPU and CUPY_AVAILABLE:
-                cp.cuda.Device(GPUdevice).use()
-            xp = cp if (isGPU and CUPY_AVAILABLE) else np
+        If the complete native output does not fit in VRAM, the allocation is
+        used as a circular ring. Completed segments are spatially resampled on
+        a dedicated CUDA stream before being copied to pinned host memory.
 
-            # --- 1. Source and sensor setup (simulation grid) ------------
-            source = kSource()
-            source.p_mask = np.zeros((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
-            source = self._set_up_source(source, burst=burst)
-            sensor = kSensor()
-            sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
-            pml_val = self.params.acoustic["medium"].get("pml_size", 0)
-            pml_size = ([pml_val, pml_val] if isinstance(pml_val, int) else list(pml_val))
-            medium_copy = copy.deepcopy(self.medium)
+        The ring can be reused as soon as its spatial resampling has finished.
+        The D2H transfer then reads the independent resampled GPU allocation.
 
-            # =============================================================
-            # FIX 1: Exact C++ source normalization by 2*c0^2
-            # =============================================================
-            if backend == "cpp" and getattr(source, "p", None) is not None:
-                c0_val = getattr(medium_copy.kmedium, "sound_speed", None)
-                if c0_val is None:
-                    c0_val = getattr(medium_copy.kmedium, "c0", 1480.0)
-                c_ref = float(np.max(np.asarray(c0_val)))
+        If the complete native output fits in VRAM, spatial resampling is done
+        in chunks directly on the GPU. For spatial reduction, the result is
+        compacted into the beginning of the original GPU allocation, avoiding
+        a second full-size GPU allocation.
 
-                G = 2.0 * (c_ref**2)
-                source.p = (source.p / G).astype(np.float32)
+        Temporal resampling is performed after the spatial processing.
+        """
+
+        # ------------------------------------------------------------------
+        # 1. Validation and acquisition parameters
+        # ------------------------------------------------------------------
+
+        if not CUPY_AVAILABLE or not KWAVE_STREAMING_AVAILABLE:
+            raise RuntimeError("The streaming k-Wave path requires CuPy and k-Wave Simulation.")
+
+        if self.medium.medium_properties is None:
+            raise ValueError("Medium properties are not defined.")
+
+        if not (0.0 < float(vram_fraction) <= 1.0):
+            raise ValueError("vram_fraction must be in (0, 1].")
+
+        if not (0.0 < float(host_staging_fraction) <= 1.0):
+            raise ValueError("host_staging_fraction must be in (0, 1].")
+
+        Nx = int(self.medium.Nx_reshaped)
+        Nz = int(self.medium.Nz_reshaped)
+        n_voxels = Nx * Nz
+        frame_bytes = n_voxels * np.dtype(np.float32).itemsize
+        medium_copy = copy.deepcopy(self.medium)
+        dt = float(medium_copy.kgrid.dt)
+        dx = float(self.medium.dx_reshaped)
+        dz = float(getattr(self.medium, "dz_reshaped", dx))
+        f_us = float(self.params.acoustic["f_US"])
+
+        target_dt = dt if target_dt is None else float(target_dt)
+        target_dx = dx if target_dx is None else float(target_dx)
+        target_dz = dz if target_dz is None else float(target_dz)
+
+        if min(target_dt, target_dx, target_dz) <= 0.0:
+            raise ValueError("Target sample spacings must be positive.")
+
+        decimation = max(1, int(round(target_dt / dt)))
+
+        output_dt = decimation * dt
+        output_fs = 1.0 / output_dt
+        requested_fs = 1.0 / target_dt
+
+        if abs(output_fs - requested_fs) / requested_fs > 1e-3 and show_log:
+            print("[AOT-biomaps] Requested temporal sampling is not an integer decimation; using {output_fs:.6g} Hz.")
+
+        if envelope_lpf_hz is None:
+            envelope_lpf_hz = 0.25 * f_us
+
+        envelope_lpf_hz = float(envelope_lpf_hz)
+
+        if not (0.0 < envelope_lpf_hz < output_fs / 2.0):
+            raise ValueError("envelope_lpf_hz must lie between zero and the output Nyquist frequency.")
+
+        # Two cascaded first-order low-pass stages approximate a second-order baseband filter.
+        pole_corner = envelope_lpf_hz / math.sqrt(math.sqrt(2.0) - 1.0)
+        alpha = 1.0 - math.exp(-2.0 * math.pi * pole_corner * dt)
+        group_delay = 2.0 * (1.0 - alpha) / alpha * dt
+        pml_value = self.params.acoustic["medium"].get("pml_size", 0)
+
+        if isinstance(pml_value, (int, np.integer)):
+            pml_size = (int(pml_value), int(pml_value))
+        else:
+            if len(pml_value) != 2:
+                raise ValueError("pml_size must be an integer or a two-element sequence.")
+            pml_size = (int(pml_value[0]), int(pml_value[1]))
+
+        pml_alpha = float(self.params.acoustic["medium"].get("pml_alpha", 2.0))
+
+        # ------------------------------------------------------------------
+        # 2. k-Wave source, sensor and simulation setup
+        # ------------------------------------------------------------------
+
+        source = kSource()
+        source.p_mask = np.zeros((Nx, Nz), dtype=bool)
+        source = self._set_up_source(source, burst=burst)
+
+        sensor = kSensor()
+        sensor.mask = np.ones((Nx, Nz), dtype=bool)
+        sensor.record = ["p"]
+
+        validate_simulation(medium_copy.kgrid, medium_copy.kmedium, source, sensor, pml_size=list(pml_size),)
+        kgrid_sim, medium_sim, source_sim, sensor_sim = _expand_for_pml_outside(medium_copy.kgrid, medium_copy.kmedium, source, sensor, list(pml_size))
+        kernel = get_iq_envelope_kernel()
+
+        debug_enabled = bool(validate_iq)
+        gpu_output = None
+        gpu_resampled_output = None
+        cpu_output = None
+        pinned_owners = []
+        host_staging = []
+        copy_stream = None
+        resample_stream = None
+        sim = None
+        iq_states = None
+        output_on_gpu = False
+        spatial_resampling_done = False
+
+        # ------------------------------------------------------------------
+        # 3. GPU execution
+        # ------------------------------------------------------------------
+
+        with cp.cuda.Device(int(GPUdevice)):
+            compute_stream = cp.cuda.get_current_stream()
+            sim = Simulation(
+                kgrid_sim,
+                medium_sim,
+                source_sim,
+                sensor_sim,
+                device="gpu",
+                use_sg=False,
+                use_kspace=True,
+                smooth_p0=False,
+                pml_size=pml_size,
+                pml_alpha=(pml_alpha, pml_alpha),
+                quiet=not show_log,
+                dtype=np.float32,
+            )
+
+            sim.setup()
+
+            # The streaming path consumes sim.p directly. Prevent k-Wave from retaining the complete sensor time series.
+            sensor_data = getattr(sim, "sensor_data", None)
+
+            if hasattr(sensor_data, "clear"):
+                sensor_data.clear()
+            elif isinstance(sensor_data, dict):
+                for key in list(sensor_data):
+                    del sensor_data[key]
+
+            if hasattr(sim, "record"):
+                try:
+                    sim.record.discard("p")
+                except (AttributeError, TypeError):
+                    pass
+
+            Nt = int(sim.Nt)
+            _, Nz_padded = sim.grid_shape
+
+            start_n = decimation * int(math.ceil(group_delay / output_dt))
+            n_output_max = max(0,(Nt - start_n + decimation - 1) // decimation,)
+
+            if n_output_max <= 0:
+                raise RuntimeError( "The simulation is too short to produce an envelope frame.")
+
+            # ------------------------------------------------------------------
+            # 4. Target dimensions
+            # ------------------------------------------------------------------
+
+            predicted_sizes, _ = compute_target_sizes(Nx, Nz, n_output_max, dx, dz, output_dt, target_dt, target_dx, target_dz)
+            target_Nt_pred, target_Nz, target_Nx = map(int, predicted_sizes)
+            target_n_voxels = target_Nz * target_Nx
+            target_frame_bytes = (target_n_voxels * np.dtype(np.float32).itemsize)
+            spatial_resampling = (target_Nz != Nz or target_Nx != Nx)
+
+            # ------------------------------------------------------------------
+            # 5. I/Q state allocation
+            # ------------------------------------------------------------------
+
+            iq_states = cp.zeros((4, n_voxels),  dtype=cp.float64)
+            i_state1, i_state2, q_state1, q_state2 = iq_states
+
+            if debug_enabled:
+                debug_pressure_gpu = cp.empty(Nt, dtype=cp.float32)
+                debug_env2_gpu = cp.empty(n_output_max, dtype=cp.float32)
+            else:
+                debug_pressure_gpu = cp.empty(1, dtype=cp.float32)
+                debug_env2_gpu = cp.empty(1, dtype=cp.float32)
+
+            # ------------------------------------------------------------------
+            # 6. Dynamic VRAM budget
+            # ------------------------------------------------------------------
+
+            memory_info = get_gpu_memory_info(cp)
+            budget_bytes = get_gpu_output_budget_bytes(cp, fraction=vram_fraction, cap_bytes=accumulate_max_bytes)
+
+            output_bytes = n_output_max * frame_bytes
+
+            streamed = output_bytes > budget_bytes
+
+            # Try a complete native-resolution output allocation first.
+            if not streamed:
+                try:
+                    gpu_output = cp.empty(
+                        n_output_max * n_voxels,
+                        dtype=cp.float32,
+                    )
+                except (cp.cuda.memory.OutOfMemoryError, MemoryError):
+                    streamed = True
+
+            # ------------------------------------------------------------------
+            # 7. Streaming ring allocation
+            # ------------------------------------------------------------------
+
+            ring_frames = 0
+            chunk_frames = 0
+            n_segments = 0
+
+            if streamed:
+
+                # Use as much memory as possible for the native-resolution ring.
+                # Reduce its size only after an actual allocation failure.
+                ring_frames = min(
+                    n_output_max,
+                    int(budget_bytes // frame_bytes),
+                )
+
+                allocation_error = None
+
+                while ring_frames >= 1:
+                    try:
+                        gpu_output = cp.empty(
+                            ring_frames * n_voxels,
+                            dtype=cp.float32,
+                        )
+                        break
+
+                    except (cp.cuda.memory.OutOfMemoryError, MemoryError) as exc:
+                        allocation_error = exc
+
+                        cp.get_default_memory_pool().free_all_blocks()
+
+                        ring_frames //= 2
+
+                else:
+                    raise MemoryError(
+                        "Insufficient VRAM for a one-frame I/Q output buffer. "
+                        "Reduce the spatial grid or free GPU memory before simulation."
+                    ) from allocation_error
+
+                # The transfer chunk is defined using the RESAMPLED frame size.
+                # The ring itself remains in native resolution.
+                requested_chunk_frames = get_transfer_chunk_frames(
+                    ring_frames,
+                    target_frame_bytes,
+                    host_staging_fraction=host_staging_fraction,
+                )
+
+                requested_chunk_frames = max(
+                    1,
+                    min(ring_frames, int(requested_chunk_frames)),
+                )
+
+                # Allocate two pinned buffers at the final spatial resolution.
+                pinned_owners, host_staging, chunk_frames = (
+                    allocate_pinned_staging_buffers(
+                        frame_shape=(target_Nz, target_Nx),
+                        requested_frames=requested_chunk_frames,
+                        n_buffers=2,
+                        dtype=np.float32,
+                    )
+                )
+
+                chunk_frames = max(
+                    1,
+                    min(ring_frames, int(chunk_frames)),
+                )
+
+                # Round the ring down to a whole number of segments.
+                n_segments = max(
+                    1,
+                    ring_frames // chunk_frames,
+                )
+
+                ring_frames = n_segments * chunk_frames
+
+                if ring_frames * n_voxels != gpu_output.size:
+                    gpu_output = gpu_output[:ring_frames * n_voxels]
+
+                # Host output contains already spatially resampled frames.
+                if host_output_path is None:
+                    cpu_output = np.empty(
+                        (n_output_max, target_Nz, target_Nx),
+                        dtype=np.float32,
+                    )
+                else:
+                    host_directory = os.path.dirname(
+                        os.path.abspath(host_output_path)
+                    )
+
+                    os.makedirs(
+                        host_directory,
+                        exist_ok=True,
+                    )
+
+                    cpu_output = np.lib.format.open_memmap(
+                        host_output_path,
+                        mode="w+",
+                        dtype=np.float32,
+                        shape=(n_output_max, target_Nz, target_Nx),
+                    )
+
+                # Dedicated streams:
+                # - compute_stream: k-Wave and I/Q kernel
+                # - resample_stream: spatial interpolation
+                # - copy_stream: asynchronous D2H
+                copy_stream = cp.cuda.Stream(non_blocking=True)
+
+                if spatial_resampling:
+                    resample_stream = cp.cuda.Stream(non_blocking=True)
+
+                ready_events = [
+                    cp.cuda.Event(disable_timing=True)
+                    for _ in range(n_segments)
+                ]
+
+                segment_done_events = [
+                    cp.cuda.Event(disable_timing=True)
+                    for _ in range(n_segments)
+                ]
+
+                host_done_events = [
+                    cp.cuda.Event(disable_timing=True)
+                    for _ in range(2)
+                ]
+
+                pending_host_copies = [None, None]
+
+                # Keep resampled GPU chunks alive until their D2H transfers finish.
+                resampled_gpu_chunks = [None, None]
+
+                next_host_slot = 0
+                last_scheduled_end = 0
+
+                if keep_on_gpu and show_log:
+                    print(
+                        "[AOT-biomaps] The native output exceeds the VRAM ring; "
+                        "the spatially resampled output will initially be assembled "
+                        "in host memory."
+                    )
+
+                if ring_frames < 2 and show_log:
+                    print(
+                        "[AOT-biomaps] Only one frame fits in the output ring; "
+                        "asynchronous transfer overlap will be limited."
+                    )
 
                 if show_log:
-                    print(f"[AOT-biomaps] C++ scaling applied: source divided by 2*c0^2 (G={G:.4e})")
+                    print(
+                        "[AOT-biomaps] Asynchronous output: "
+                        f"{ring_frames} native VRAM frames "
+                        f"({ring_frames * frame_bytes / 2**30:.2f} GiB), "
+                        f"{n_segments} segment(s) x {chunk_frames} frames; "
+                        f"spatial output frame="
+                        f"{target_Nz} x {target_Nx}; "
+                        f"CUDA free={memory_info['free_bytes'] / 2**30:.2f} GiB, "
+                        f"CuPy reusable="
+                        f"{memory_info['pool_free_bytes'] / 2**30:.2f} GiB."
+                    )
 
-            # =============================================================
-            # WORKAROUND: Neutralize alpha_mode='no_absorption' for the C++ backend. The C++ binary refuses it even though it handles zero-absorption media natively.
-            # =============================================================
-            if backend == "cpp" and hasattr(medium_copy, "kmedium") and medium_copy.kmedium is not None:
-                if getattr(medium_copy.kmedium, "alpha_mode", None) is not None:
-                    medium_copy.kmedium.alpha_mode = None
+                # --------------------------------------------------------------
+                # 7a. Host staging management
+                # --------------------------------------------------------------
 
-            # --- 2. Simulation execution ---------------------------------
-            sim_kwargs = dict(pml_size=pml_size, use_sg=False, use_kspace=True, smooth_p0=True, backend=backend, device="gpu" if isGPU else "cpu", quiet=not show_log,
-                              )
-            if isGPU:
-                sim_kwargs["device_num"] = GPUdevice
-            if backend == "python":
-                sim_kwargs["dtype"] = np.float32
+                def drain_host_slot(host_slot):
+                    """Wait for a pinned transfer and commit it to the host output."""
+
+                    pending = pending_host_copies[host_slot]
+
+                    if pending is None:
+                        return
+
+                    global_start, frame_count = pending
+
+                    host_done_events[host_slot].synchronize()
+
+                    np.copyto(
+                        cpu_output[
+                            global_start:global_start + frame_count
+                        ],
+                        host_staging[host_slot][:frame_count],
+                    )
+
+                    pending_host_copies[host_slot] = None
+                    resampled_gpu_chunks[host_slot] = None
+
+                # --------------------------------------------------------------
+                # 7b. Schedule one completed ring segment
+                # --------------------------------------------------------------
+
+                def schedule_segment(
+                    segment_id,
+                    global_start,
+                    frame_count,
+                ):
+                    """Resample spatially on GPU, then schedule the D2H transfer."""
+
+                    nonlocal next_host_slot
+                    nonlocal last_scheduled_end
+
+                    host_slot = next_host_slot
+
+                    # The pinned buffer cannot be reused until its previous
+                    # D2H transfer and host-side commit have both completed.
+                    drain_host_slot(host_slot)
+
+                    # Mark the native ring segment as ready after all previous
+                    # compute-stream operations have been submitted.
+                    ready_events[segment_id].record(compute_stream)
+
+                    device_start = (
+                        segment_id * chunk_frames * n_voxels
+                    )
+
+                    device_stop = (
+                        device_start + frame_count * n_voxels
+                    )
+
+                    device_chunk = gpu_output[
+                        device_start:device_stop
+                    ].reshape(
+                        frame_count,
+                        Nz,
+                        Nx,
+                    )
+
+                    if spatial_resampling:
+
+                        # Wait for the native segment before processing it.
+                        resample_stream.wait_event(
+                            ready_events[segment_id]
+                        )
+
+                        with resample_stream:
+
+                            processed_chunk = _resample_axis(
+                                device_chunk,
+                                target_Nz,
+                                axis=1,
+                                xp=cp,
+                            )
+
+                            processed_chunk = _resample_axis(
+                                processed_chunk,
+                                target_Nx,
+                                axis=2,
+                                xp=cp,
+                            )
+
+                            # Ensure an independent contiguous buffer.
+                            # This is important because integer decimation
+                            # can otherwise return a view into the native ring.
+                            processed_chunk = cp.ascontiguousarray(
+                                processed_chunk
+                            )
+
+                        # Keep the processed data alive until D2H completes.
+                        resampled_gpu_chunks[host_slot] = processed_chunk
+
+                        # The native ring can be reused as soon as spatial
+                        # resampling has finished reading the segment.
+                        segment_done_events[segment_id].record(
+                            resample_stream
+                        )
+
+                        # D2H waits for the spatially processed data.
+                        copy_stream.wait_event(
+                            segment_done_events[segment_id]
+                        )
+
+                        processed_chunk.get(
+                            out=host_staging[host_slot][:frame_count],
+                            stream=copy_stream,
+                            blocking=False,
+                        )
+
+                    else:
+
+                        # No spatial processing is required.
+                        # Copy the native segment directly to pinned memory.
+                        copy_stream.wait_event(
+                            ready_events[segment_id]
+                        )
+
+                        device_chunk.get(
+                            out=host_staging[host_slot][:frame_count],
+                            stream=copy_stream,
+                            blocking=False,
+                        )
+
+                        # In this case, the native ring must not be overwritten
+                        # until the D2H transfer has finished.
+                        segment_done_events[segment_id].record(
+                            copy_stream
+                        )
+
+                    host_done_events[host_slot].record(copy_stream)
+
+                    pending_host_copies[host_slot] = (
+                        global_start,
+                        frame_count,
+                    )
+
+                    last_scheduled_end = global_start + frame_count
+
+                    next_host_slot = (next_host_slot + 1) % 2
+
             else:
-                sim_kwargs["data_path"] = data_path
+                # Complete native output remains resident in VRAM.
+                gpu_output = gpu_output.reshape(
+                    n_output_max,
+                    Nz,
+                    Nx,
+                )
 
-            sensor_data = kspaceFirstOrder(medium_copy.kgrid, medium_copy.kmedium, source, sensor, **sim_kwargs,)
+            # ------------------------------------------------------------------
+            # 8. I/Q simulation loop
+            # ------------------------------------------------------------------
 
-            # =============================================================
-            # FIX 2: Early NaN detection guard
-            # =============================================================
-            p_raw = sensor_data["p"]
-            n_nan = int(cp.count_nonzero(cp.isnan(p_raw))) if CUPY_AVAILABLE and isinstance(p_raw, cp.ndarray) else int(np.count_nonzero(np.isnan(p_raw)))
+            debug_index = (
+                (Nz // 2) * Nx + (Nx // 2)
+            )
 
-            if n_nan > 0:
-                raise ValueError(f"[AOT-biomaps] k-Wave ({backend}) returned {n_nan} NaNs. Simulation diverged -- field {tempFileName} was not saved.")
+            threads = 256
+            blocks = (n_voxels + threads - 1) // threads
 
-            # --- 3. Layout reconstruction and memory cleanup -------------
-            Nx, Nz = self.medium.Nx_reshaped, self.medium.Nz_reshaped
+            output_sqrt = int(generation_type == "envelope")
 
-            # =============================================================
-            # FIX 3: Backend-specific layout handling (C-order vs Fortran)
-            # =============================================================
-            g = sensor_data_to_grid(sensor_data["p"], Nx, Nz, backend=backend, xp=xp)
-            Nt = g.shape[-1]
-            del sensor_data
-            if CUPY_AVAILABLE and isGPU:
-                cp.get_default_memory_pool().free_all_blocks()
+            n_rows = 0
 
-            if data_path is not None:
-                shutil.rmtree(data_path, ignore_errors=True)
-                data_path = None
+            iterator = range(Nt)
 
-            # --- 4. Post-processing (Envelope and Resampling) -------------
-            dx = float(self.medium.dx_reshaped)
-            dz = float(getattr(self.medium, "dz_reshaped", dx))
-            dt = float(medium_copy.kgrid.dt)
+            try:
+                from tqdm.auto import tqdm
 
-            sizes, steps = compute_target_sizes(Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz)
-            self.last_decimation = dict(zip(("Nt", "Nz", "Nx"), sizes)) | dict(zip(("dt", "dz", "dx"), steps))
+                if show_log:
+                    iterator = tqdm(
+                        iterator,
+                        desc=f"Streaming k-Wave [{self.get_name_field()}]",
+                        unit="step",
+                    )
+
+            except ImportError:
+                pass
+
+            # sim.step() and the I/Q kernel remain on the compute stream.
+            # Resampling and D2H transfers are scheduled independently.
+            with compute_stream:
+
+                for _ in iterator:
+
+                    time_index = int(sim.t)
+
+                    sim.step()
+
+                    phase = math.remainder(
+                        2.0 * math.pi * f_us * (time_index * dt),
+                        2.0 * math.pi,
+                    )
+
+                    emit = (
+                        time_index >= start_n
+                        and time_index % decimation == 0
+                        and n_rows < n_output_max
+                    )
+
+                    if streamed:
+
+                        chunk_id = (
+                            n_rows // chunk_frames if emit else 0
+                        )
+
+                        frame_in_chunk = (
+                            n_rows % chunk_frames if emit else 0
+                        )
+
+                        segment_id = (
+                            chunk_id % n_segments if emit else 0
+                        )
+
+                        if (
+                            emit
+                            and chunk_id >= n_segments
+                            and frame_in_chunk == 0
+                        ):
+                            # Reuse the native ring segment only after the
+                            # resampling stage (or D2H if no spatial resampling)
+                            # has finished reading it.
+                            compute_stream.wait_event(
+                                segment_done_events[segment_id]
+                            )
+
+                        output_slot = (
+                            segment_id * chunk_frames + frame_in_chunk
+                            if emit
+                            else 0
+                        )
+
+                    else:
+                        output_slot = n_rows if emit else 0
+
+                    kernel(
+                        (blocks,),
+                        (threads,),
+                        (
+                            sim.p,
+                            np.int32(Nx),
+                            np.int32(Nz_padded),
+                            np.int32(pml_size[0]),
+                            np.int32(pml_size[1]),
+                            i_state1,
+                            i_state2,
+                            q_state1,
+                            q_state2,
+                            gpu_output,
+                            debug_pressure_gpu,
+                            debug_env2_gpu,
+                            np.int32(debug_index),
+                            np.int32(time_index),
+                            np.int64(output_slot),
+                            np.int32(n_rows),
+                            np.int32(n_voxels),
+                            np.float64(math.cos(phase)),
+                            np.float64(math.sin(phase)),
+                            np.float64(alpha),
+                            np.int32(1 if emit else 0),
+                            np.int32(1 if debug_enabled else 0),
+                            np.int32(output_sqrt),
+                        ),
+                        stream=compute_stream,
+                    )
+
+                    if not emit:
+                        continue
+
+                    n_rows += 1
+
+                    if streamed:
+
+                        chunk_finished = (
+                            (n_rows % chunk_frames == 0)
+                            or (n_rows == n_output_max)
+                        )
+
+                        if chunk_finished:
+
+                            completed_chunk_id = (
+                                (n_rows - 1) // chunk_frames
+                            )
+
+                            completed_segment_id = (
+                                completed_chunk_id % n_segments
+                            )
+
+                            global_start = (
+                                completed_chunk_id * chunk_frames
+                            )
+
+                            completed_frames = min(
+                                chunk_frames,
+                                n_rows - global_start,
+                            )
+
+                            schedule_segment(
+                                completed_segment_id,
+                                global_start,
+                                completed_frames,
+                            )
+
+            if n_rows <= 0:
+                raise RuntimeError(
+                    "The streaming simulation produced no output frames."
+                )
+
+            # ------------------------------------------------------------------
+            # 9. Flush the last partial ring segment
+            # ------------------------------------------------------------------
+
+            if streamed and last_scheduled_end < n_rows:
+
+                completed_chunk_id = (
+                    (n_rows - 1) // chunk_frames
+                )
+
+                completed_segment_id = (
+                    completed_chunk_id % n_segments
+                )
+
+                global_start = (
+                    completed_chunk_id * chunk_frames
+                )
+
+                completed_frames = n_rows - global_start
+
+                schedule_segment(
+                    completed_segment_id,
+                    global_start,
+                    completed_frames,
+                )
+
+            compute_stream.synchronize()
+
+            # ------------------------------------------------------------------
+            # 10. Collect streamed or complete GPU output
+            # ------------------------------------------------------------------
+
+            if streamed:
+
+                if resample_stream is not None:
+                    resample_stream.synchronize()
+
+                drain_host_slot(0)
+                drain_host_slot(1)
+
+                copy_stream.synchronize()
+
+                if hasattr(cpu_output, "flush"):
+                    cpu_output.flush()
+
+                raw_output = cpu_output[:n_rows]
+
+                output_on_gpu = False
+
+                spatial_resampling_done = spatial_resampling
+
+            else:
+
+                # --------------------------------------------------------------
+                # 10a. Spatial resampling on GPU for a complete output
+                # --------------------------------------------------------------
+
+                if spatial_resampling:
+
+                    spatial_chunk_frames = get_transfer_chunk_frames(
+                        n_rows,
+                        frame_bytes,
+                        host_staging_fraction=host_staging_fraction,
+                    )
+
+                    spatial_chunk_frames = max(
+                        1,
+                        min(n_rows, int(spatial_chunk_frames)),
+                    )
+
+                    # If the number of spatial output voxels does not increase,
+                    # compact the processed output into the beginning of the
+                    # existing native GPU allocation.
+                    #
+                    # This avoids allocating a second full output array.
+                    if target_n_voxels <= n_voxels:
+
+                        gpu_output_flat = gpu_output.reshape(-1)
+
+                        with compute_stream:
+
+                            for global_start in range(
+                                0,
+                                n_rows,
+                                spatial_chunk_frames,
+                            ):
+
+                                global_stop = min(
+                                    global_start + spatial_chunk_frames,
+                                    n_rows,
+                                )
+
+                                frame_count = (
+                                    global_stop - global_start
+                                )
+
+                                device_chunk = gpu_output[
+                                    global_start:global_stop
+                                ]
+
+                                processed_chunk = _resample_axis(
+                                    device_chunk,
+                                    target_Nz,
+                                    axis=1,
+                                    xp=cp,
+                                )
+
+                                processed_chunk = _resample_axis(
+                                    processed_chunk,
+                                    target_Nx,
+                                    axis=2,
+                                    xp=cp,
+                                )
+
+                                # Detach the result from the native source
+                                # before writing into the compacted destination.
+                                processed_chunk = cp.ascontiguousarray(
+                                    processed_chunk
+                                )
+
+                                destination_start = (
+                                    global_start * target_n_voxels
+                                )
+
+                                destination_stop = (
+                                    destination_start
+                                    + frame_count * target_n_voxels
+                                )
+
+                                cp.copyto(
+                                    gpu_output_flat[
+                                        destination_start:destination_stop
+                                    ],
+                                    processed_chunk.reshape(-1),
+                                )
+
+                        compute_stream.synchronize()
+
+                        raw_output_gpu = gpu_output_flat[
+                            :n_rows * target_n_voxels
+                        ].reshape(
+                            n_rows,
+                            target_Nz,
+                            target_Nx,
+                        )
+
+                        if keep_on_gpu:
+                            raw_output = raw_output_gpu
+                            output_on_gpu = True
+                        else:
+                            raw_output = cp.asnumpy(raw_output_gpu)
+                            output_on_gpu = False
+
+                        spatial_resampling_done = True
+
+                    else:
+
+                        # Spatial upsampling increases the output size.
+                        # Avoid holding a second large GPU allocation unless it
+                        # can actually be allocated.
+                        spatial_gpu_output = None
+
+                        if keep_on_gpu:
+                            try:
+                                spatial_gpu_output = cp.empty(
+                                    (
+                                        n_rows,
+                                        target_Nz,
+                                        target_Nx,
+                                    ),
+                                    dtype=cp.float32,
+                                )
+                            except (
+                                cp.cuda.memory.OutOfMemoryError,
+                                MemoryError,
+                            ):
+                                spatial_gpu_output = None
+
+                        if spatial_gpu_output is not None:
+
+                            with compute_stream:
+
+                                for global_start in range(
+                                    0,
+                                    n_rows,
+                                    spatial_chunk_frames,
+                                ):
+
+                                    global_stop = min(
+                                        global_start + spatial_chunk_frames,
+                                        n_rows,
+                                    )
+
+                                    device_chunk = gpu_output[
+                                        global_start:global_stop
+                                    ]
+
+                                    processed_chunk = _resample_axis(
+                                        device_chunk,
+                                        target_Nz,
+                                        axis=1,
+                                        xp=cp,
+                                    )
+
+                                    processed_chunk = _resample_axis(
+                                        processed_chunk,
+                                        target_Nx,
+                                        axis=2,
+                                        xp=cp,
+                                    )
+
+                                    processed_chunk = cp.ascontiguousarray(
+                                        processed_chunk
+                                    )
+
+                                    cp.copyto(
+                                        spatial_gpu_output[
+                                            global_start:global_stop
+                                        ],
+                                        processed_chunk,
+                                    )
+
+                            compute_stream.synchronize()
+
+                            raw_output = spatial_gpu_output
+                            output_on_gpu = True
+
+                        else:
+
+                            # CPU output is used only for spatial upsampling
+                            # when a complete GPU output cannot be allocated.
+                            cpu_spatial_output = np.empty(
+                                (
+                                    n_rows,
+                                    target_Nz,
+                                    target_Nx,
+                                ),
+                                dtype=np.float32,
+                            )
+
+                            with compute_stream:
+
+                                for global_start in range(
+                                    0,
+                                    n_rows,
+                                    spatial_chunk_frames,
+                                ):
+
+                                    global_stop = min(
+                                        global_start + spatial_chunk_frames,
+                                        n_rows,
+                                    )
+
+                                    device_chunk = gpu_output[
+                                        global_start:global_stop
+                                    ]
+
+                                    processed_chunk = _resample_axis(
+                                        device_chunk,
+                                        target_Nz,
+                                        axis=1,
+                                        xp=cp,
+                                    )
+
+                                    processed_chunk = _resample_axis(
+                                        processed_chunk,
+                                        target_Nx,
+                                        axis=2,
+                                        xp=cp,
+                                    )
+
+                                    processed_chunk = cp.ascontiguousarray(
+                                        processed_chunk
+                                    )
+
+                                    cpu_spatial_output[
+                                        global_start:global_stop
+                                    ] = cp.asnumpy(processed_chunk)
+
+                            compute_stream.synchronize()
+
+                            raw_output = cpu_spatial_output
+                            output_on_gpu = False
+
+                        spatial_resampling_done = True
+
+                else:
+
+                    raw_output_gpu = gpu_output[:n_rows]
+
+                    if keep_on_gpu:
+                        raw_output = raw_output_gpu
+                        output_on_gpu = True
+                    else:
+                        raw_output = cp.asnumpy(raw_output_gpu)
+                        output_on_gpu = False
+
+            # ------------------------------------------------------------------
+            # 11. Optional I/Q validation data
+            # ------------------------------------------------------------------
+
+            if debug_enabled:
+                debug_pressure = cp.asnumpy(debug_pressure_gpu)
+                debug_env2 = cp.asnumpy(
+                    debug_env2_gpu[:n_rows]
+                )
+            else:
+                debug_pressure = None
+                debug_env2 = None
+
+            # ------------------------------------------------------------------
+            # 12. Actual output dimensions and metadata
+            # ------------------------------------------------------------------
+
+            sizes, steps = compute_target_sizes(
+                Nx,
+                Nz,
+                n_rows,
+                dx,
+                dz,
+                output_dt,
+                target_dt,
+                target_dx,
+                target_dz,
+            )
+
+            # The spatial target dimensions must remain independent of the
+            # actual number of emitted temporal frames.
+            if (
+                int(sizes[1]) != target_Nz
+                or int(sizes[2]) != target_Nx
+            ):
+                raise RuntimeError(
+                    "Spatial target dimensions changed between the predicted "
+                    "and actual output sizes."
+                )
+
+            self.last_decimation = (
+                dict(zip(("Nt", "Nz", "Nx"), sizes))
+                | dict(zip(("dt", "dz", "dx"), steps))
+            )
+
+            self.last_decimation["t0"] = (
+                start_n * dt - group_delay
+            )
 
             if show_log:
-                print(f"Resampling: ({Nx},{Nz},{Nt}) -> {tuple(reversed(sizes))} | dt {dt*1e9:.1f}->{steps[0]*1e9:.1f} ns, dz {dz*1e6:.0f}->{steps[1]*1e6:.1f} um")
+                print(
+                    f"[AOT-biomaps] Streaming output: "
+                    f"{(n_rows, Nz, Nx)} -> {sizes}; "
+                    f"dt={output_dt * 1e9:.2f} ns, "
+                    f"saved dt={steps[0] * 1e9:.2f} ns, "
+                    f"dz={steps[1] * 1e6:.1f} um, "
+                    f"dx={steps[2] * 1e6:.1f} um."
+                )
 
-            if generation_type == "envelope_squared":
-                out = calculate_envelope_squared(g, xp=xp, show_log=show_log)
-            elif generation_type == "envelope":
-                out = calculate_envelope(g, xp=xp, show_log=show_log)
-            elif generation_type == "field":
-                out = g
-            else:
-                raise ValueError(f"[AOT-biomaps] Invalid generation_type: {generation_type}. Supported: 'envelope_squared', 'envelope', 'field'.")
+            # ------------------------------------------------------------------
+            # 13. Optional I/Q versus Hilbert validation
+            # ------------------------------------------------------------------
 
-            if generation_type != "field":
-                del g
+            if debug_enabled and show_log:
 
-            out = resample_field(out, sizes, xp=xp)
-            out = to_pipeline_layout(out, xp=xp)
+                try:
+                    hilbert_env2 = (
+                        np.abs(
+                            scipy_hilbert(
+                                debug_pressure.astype(np.float64)
+                            )
+                        ) ** 2
+                    )
 
-            if keep_on_gpu:
-                return out
+                    full_times = (
+                        np.arange(debug_pressure.size, dtype=np.float64) * dt
+                    )
 
-            out_np = cp.asnumpy(out) if CUPY_AVAILABLE and isinstance(out, cp.ndarray) else np.asarray(out)
+                    output_times = (
+                        start_n * dt
+                        + np.arange(n_rows, dtype=np.float64) * output_dt
+                        - group_delay
+                    )
 
-            if free_vram and CUPY_AVAILABLE and isGPU:
-                cp.get_default_memory_pool().free_all_blocks()
+                    reference = np.interp(
+                        output_times,
+                        full_times,
+                        hilbert_env2,
+                        left=np.nan,
+                        right=np.nan,
+                    )
 
-            return out_np
+                    valid = (
+                        np.isfinite(reference)
+                        & np.isfinite(debug_env2)
+                    )
 
-        except Exception as e:
-            if data_path is not None:
-                shutil.rmtree(data_path, ignore_errors=True)
-            print(f"[AOT-biomaps] Error in _generate_acoustic_field_KWAVE_2D: {e}")
-            raise
+                    if np.count_nonzero(valid) >= 3:
+
+                        denominator = max(
+                            float(np.nanmax(reference)),
+                            1e-30,
+                        )
+
+                        relative_mae = float(
+                            np.mean(
+                                np.abs(
+                                    debug_env2[valid] - reference[valid]
+                                )
+                            ) / denominator
+                        )
+
+                        correlation = float(
+                            np.corrcoef(
+                                reference[valid],
+                                debug_env2[valid],
+                            )[0, 1]
+                        )
+
+                        print(
+                            f"[AOT-biomaps] I/Q vs Hilbert: "
+                            f"relative MAE={relative_mae:.4g}, "
+                            f"correlation={correlation:.6f}."
+                        )
+
+                except Exception as exc:
+                    print(
+                        f"[AOT-biomaps] I/Q diagnostic skipped: {exc}"
+                    )
+
+            # ------------------------------------------------------------------
+            # 14. Release simulation and temporary references
+            # ------------------------------------------------------------------
+
+            del sim
+            del iq_states
+            del i_state1, i_state2, q_state1, q_state2
+            del debug_pressure_gpu, debug_env2_gpu
+
+            if streamed:
+
+                # All transfers and resampling operations must have completed
+                # before releasing the ring and pinned staging allocations.
+                if copy_stream is not None:
+                    copy_stream.synchronize()
+
+                if resample_stream is not None:
+                    resample_stream.synchronize()
+
+                del gpu_output
+                del host_staging
+                del pinned_owners
+
+            elif not output_on_gpu:
+                del gpu_output
+
+        # ----------------------------------------------------------------------
+        # 15. Final temporal resampling
+        # ----------------------------------------------------------------------
+
+        with cp.cuda.Device(int(GPUdevice)):
+
+            output = raw_output
+
+            xp = cp if output_on_gpu else np
+
+            # Spatial resampling has already been performed on GPU for the
+            # streaming path and the complete-output path.
+            if not spatial_resampling_done:
+
+                output = _resample_axis(
+                    output,
+                    sizes[1],
+                    axis=1,
+                    xp=xp,
+                )
+
+                output = _resample_axis(
+                    output,
+                    sizes[2],
+                    axis=2,
+                    xp=xp,
+                )
+
+            # Temporal resampling remains a single operation after assembly.
+            output = _resample_axis(
+                output,
+                sizes[0],
+                axis=0,
+                xp=xp,
+            )
+
+            target_shape = tuple(int(size) for size in sizes)
+
+            if tuple(output.shape) != target_shape:
+                raise RuntimeError(
+                    "Final output shape mismatch: "
+                    f"got {tuple(output.shape)}, expected {target_shape}."
+                )
+
+            # ------------------------------------------------------------------
+            # 16. Honor keep_on_gpu after final resampling
+            # ------------------------------------------------------------------
+
+            if keep_on_gpu and not output_on_gpu:
+
+                final_bytes = int(output.nbytes)
+
+                final_budget = get_gpu_output_budget_bytes(
+                    cp,
+                    fraction=vram_fraction,
+                    cap_bytes=None,
+                )
+
+                if final_bytes <= final_budget:
+
+                    try:
+                        output = cp.asarray(output)
+                        output_on_gpu = True
+
+                        if show_log:
+                            print(
+                                "[AOT-biomaps] Final resampled output "
+                                "transferred to GPU."
+                            )
+
+                    except (
+                        cp.cuda.memory.OutOfMemoryError,
+                        MemoryError,
+                    ):
+
+                        if show_log:
+                            print(
+                                "[AOT-biomaps] The final resampled output "
+                                "could not be reallocated on the GPU; "
+                                "returning the host array."
+                            )
+
+                elif show_log:
+
+                    print(
+                        "[AOT-biomaps] The final resampled output exceeds "
+                        "currently available VRAM; returning the host array."
+                    )
+
+            elif output_on_gpu and not keep_on_gpu:
+
+                output = cp.asnumpy(output)
+                output_on_gpu = False
+
+            # ------------------------------------------------------------------
+            # 17. Optional GPU memory release
+            # ------------------------------------------------------------------
+
+            if free_vram:
+                with cp.cuda.Device(GPUdevice):
+                    from AOT_biomaps.AOT_Acoustic.AcousticTools import clear_gpu_memory
+                    clear_gpu_memory(cp, clear_fft_plans=True)   # plans + pool
+                    cp.get_default_pinned_memory_pool().free_all_blocks()
+
+            return output
+    
+    def _batch_acoustic_field_KWAVE_2D(
+        self,
+        burst=None,
+        isGPU=None,
+        GPUdevice=None,
+        generation_type="envelope_squared",
+        show_log=True,
+        keep_on_gpu=False,
+        free_vram=True,
+        target_dt=None,
+        target_dx=None,
+        target_dz=None,
+        backend="python",
+        tempFileName=None,
+        validate_output=True,
+        profile=False,
+        precimate_time=False,     # True => stocke direct à target_dt
+                                  # (change l'enveloppe si f_max > 1/(2·target_dt))
+    ):
+        """Run k-Wave batch simulation using Simulation.setup() and Simulation.step().
+
+        The complete pressure history is stored on the selected device. Sensor
+        time-series recording is disabled to avoid allocating a second copy of
+        the pressure history.
+
+        The pressure field is stored in (Nx, Nz, Nt) layout, with time on the
+        last axis, before envelope computation and final pipeline conversion.
+        """
+
+        import time
+        from contextlib import nullcontext
+
+        # ------------------------------------------------------------------
+        # 1. Configuration
+        # ------------------------------------------------------------------
+
+        if Simulation is None or validate_simulation is None:
+            raise RuntimeError(
+                "The installed k-Wave package does not expose the Simulation API."
+            )
+
+        if _expand_for_pml_outside is None:
+            raise RuntimeError(
+                "The installed k-Wave package does not expose _expand_for_pml_outside."
+            )
+
+        if generation_type not in ("envelope_squared", "envelope", "field"):
+            raise ValueError(
+                f"Unsupported generation_type: {generation_type!r}."
+            )
+
+        if backend not in (None, "python"):
+            raise ValueError(
+                "The Simulation.setup()/step() batch implementation uses "
+                "the Python Simulation backend. backend must be 'python'."
+            )
+
+        if isGPU is None:
+            isGPU = config.get_process() == "gpu"
+
+        if GPUdevice is None:
+            GPUdevice = config.select_best_gpu()
+
+        if isGPU and not CUPY_AVAILABLE:
+            isGPU = False
+
+        if isGPU:
+            GPUdevice = int(GPUdevice)
+
+        xp = cp if isGPU else np
+
+        device_context = (
+            cp.cuda.Device(GPUdevice) if isGPU else nullcontext()
+        )
+
+        profile_times = {}
+        total_start = time.perf_counter() if profile else None
+
+        def synchronize():
+            if isGPU:
+                cp.cuda.get_current_stream().synchronize()
+
+        def profile_start():
+            if not profile:
+                return None
+
+            synchronize()
+            return time.perf_counter()
+
+        def profile_end(name, start):
+            if start is None:
+                return
+
+            synchronize()
+            profile_times[name] = time.perf_counter() - start
+
+        # ------------------------------------------------------------------
+        # 2. Original grid and sampling parameters
+        # ------------------------------------------------------------------
+
+        Nx = int(self.medium.Nx_reshaped)
+        Nz = int(self.medium.Nz_reshaped)
+
+        dx = float(self.medium.dx_reshaped)
+        dz = float(getattr(self.medium, "dz_reshaped", dx))
+
+        medium_copy = copy.deepcopy(self.medium)
+
+        dt = float(medium_copy.kgrid.dt)
+
+        target_dt = dt if target_dt is None else float(target_dt)
+        target_dx = dx if target_dx is None else float(target_dx)
+        target_dz = dz if target_dz is None else float(target_dz)
+
+        if min(dt, dx, dz, target_dt, target_dx, target_dz) <= 0:
+            raise ValueError("All spatial and temporal sampling intervals must be positive.")
+
+        # ------------------------------------------------------------------
+        # 3. PML configuration
+        # ------------------------------------------------------------------
+
+        pml_value = self.params.acoustic["medium"].get("pml_size", 0)
+
+        if isinstance(pml_value, (int, np.integer)):
+            pml_size = (int(pml_value), int(pml_value))
+        else:
+            pml_size = tuple(int(v) for v in pml_value)
+
+        if len(pml_size) != 2:
+            raise ValueError("pml_size must contain two dimensions.")
+
+        pml_alpha_value = self.params.acoustic["medium"].get("pml_alpha", 2.0)
+
+        if pml_alpha_value is None:
+            pml_alpha_value = 2.0
+
+        if np.isscalar(pml_alpha_value):
+            pml_alpha = (
+                float(pml_alpha_value),
+                float(pml_alpha_value),
+            )
+        else:
+            pml_alpha = tuple(float(v) for v in pml_alpha_value)
+
+        if len(pml_alpha) != 2:
+            raise ValueError("pml_alpha must contain two values.")
+
+        # ------------------------------------------------------------------
+        # 4. Source and sensor
+        # ------------------------------------------------------------------
+
+        source = kSource()
+        source.p_mask = np.zeros((Nx, Nz), dtype=bool)
+
+        source = self._set_up_source(
+            source,
+            burst=burst,
+        )
+
+        sensor = kSensor()
+        sensor.mask = np.ones((Nx, Nz), dtype=bool)
+
+        # Do not request the pressure time series from Simulation.
+        # p_final is a valid non-empty record request, preventing the default
+        # ("p", "p_final") behavior when record is empty.
+        sensor.record = ["p_final"]
+
+        # ------------------------------------------------------------------
+        # 5. Validate and expand the simulation grid with external PML
+        # ------------------------------------------------------------------
+
+        validate_simulation(
+            medium_copy.kgrid,
+            medium_copy.kmedium,
+            source,
+            sensor,
+            pml_size=list(pml_size),
+        )
+
+        kgrid_sim, medium_sim, source_sim, sensor_sim = _expand_for_pml_outside(
+            medium_copy.kgrid,
+            medium_copy.kmedium,
+            source,
+            sensor,
+            list(pml_size),
+        )
+
+        # The sensor is not used for recording. Setting its mask to None avoids
+        # constructing a large GPU sensor-index array during Simulation.setup().
+        sensor_sim.mask = None
+
+        # ------------------------------------------------------------------
+        # 6. Simulation setup and batch pressure acquisition
+        # ------------------------------------------------------------------
+
+        grid_field = None
+        sim = None
+
+        with device_context:
+
+            compute_stream = (
+                cp.cuda.get_current_stream()
+                if isGPU
+                else None
+            )
+
+            stream_context = (
+                compute_stream
+                if isGPU
+                else nullcontext()
+            )
+
+            with stream_context:
+
+                # ----------------------------------------------------------
+                # 6.1 Initialize the low-level k-Wave solver
+                # ----------------------------------------------------------
+
+                t = profile_start()
+
+                sim = Simulation(
+                    kgrid_sim,
+                    medium_sim,
+                    source_sim,
+                    sensor_sim,
+                    device="gpu" if isGPU else "cpu",
+                    use_sg=False,
+                    use_kspace=True,
+                    smooth_p0=True,
+                    pml_size=pml_size,
+                    pml_alpha=pml_alpha,
+                    quiet=not show_log,
+                    dtype=np.float32,
+                )
+
+                sim.setup()
+
+                if "p" in sim.sensor_data:
+                    raise RuntimeError("The pressure sensor history was unexpectedly allocated. Check sensor.record before Simulation.setup().")
+
+                Nt = int(sim.Nt)
+
+                # ----------------------------------------------------------
+                # 6.2 Extract the physical domain from the padded grid
+                # ----------------------------------------------------------
+
+                expected_shape = (
+                    Nx + 2 * pml_size[0],
+                    Nz + 2 * pml_size[1],
+                )
+
+                if tuple(sim.grid_shape) != expected_shape:
+                    raise RuntimeError(
+                        f"Unexpected padded grid shape {sim.grid_shape}; "
+                        f"expected {expected_shape}."
+                    )
+
+                x_slice = slice(
+                    pml_size[0],
+                    pml_size[0] + Nx,
+                )
+
+                z_slice = slice(
+                    pml_size[1],
+                    pml_size[1] + Nz,
+                )
+
+                                # ----------------------------------------------------------
+                # 6.3 Pressure history TIME-MAJOR (+ décimation opt-in)
+                #      (Ns, Nx, Nz) : écriture contiguë par step.
+                #      time_stride=1 par défaut : sorties IDENTIQUES au
+                #      code d'origine (Hilbert sur la pleine cadence).
+                # ----------------------------------------------------------
+
+                time_stride = int(round(target_dt / dt)) if precimate_time else 1
+                if time_stride < 1 or abs(time_stride * dt - target_dt) > 0.25 * dt:
+                    time_stride = 1
+
+                stored = {
+                    int(i): int(j)
+                    for j, i in enumerate(range(0, Nt, time_stride))
+                }
+                Ns = len(stored)
+                dt_eff = time_stride * dt
+
+                grid_field = xp.empty((Ns, Nx, Nz), dtype=xp.float32)
+
+                # ----------------------------------------------------------
+                # 6.4 run : copie coalescée, Convention d'origine conservée
+                # ----------------------------------------------------------
+
+                iterator = range(Nt)
+                if show_log:
+                    try:
+                        from tqdm.auto import tqdm
+                        iterator = tqdm(iterator, desc=f"k-Wave batch [{self.get_name_field()}]", unit="step")
+                    except ImportError:
+                        pass
+
+                t = profile_start()
+
+                for _ in iterator:
+                    time_index = int(sim.t)      # AVANT le step (frame_i = p(t_{i+1}))
+                    sim.step()
+
+                    j = stored.get(time_index)
+                    if j is not None:
+                        grid_field[j] = sim.p[x_slice, z_slice]
+
+                synchronize()
+                profile_end("k-Wave step + pressure storage", t)
+
+                del sim
+                sim = None
+
+                # ----------------------------------------------------------
+                # 6.4b retour au layout pipeline (Nx, Nz, Ns), UNE passe.
+                #      ⚠ double VRAM transitoire : (Ns,Nx,Nz) + (Nx,Nz,Ns)
+                #      coexistent. Si c'est trop pour la carte, transposer
+                #      par blocs de x (voir note) ou garder le layout
+                #      time-major jusqu'à l'enveloppe.
+                # ----------------------------------------------------------
+
+                t = profile_start()
+                grid_field = xp.ascontiguousarray(
+                    grid_field.transpose(1, 2, 0)      # (Ns, Nx, Nz) -> (Nx, Nz, Ns)
+                )
+                profile_end("History transpose", t)
+
+                # ------------------------------------------------------------------
+        # 7. Target dimensions and decimation   (CORRIGÉ : dt_eff + Ns)
+        # ------------------------------------------------------------------
+
+        Ns = int(grid_field.shape[-1])
+
+        sizes, steps = compute_target_sizes(
+            Nx,
+            Nz,
+            Ns,
+            dx,
+            dz,
+            dt_eff,
+            target_dt,
+            target_dx,
+            target_dz,
+        )
+
+        self.last_decimation = (
+            dict(zip(("Nt", "Nz", "Nx"), sizes))
+            | dict(zip(("dt", "dz", "dx"), steps))
+        )
+
+        # ------------------------------------------------------------------
+        # 8. Envelope computation
+        # ------------------------------------------------------------------
+
+        t = profile_start()
+
+        if generation_type == "envelope_squared":
+
+            output = calculate_envelope_squared(
+                grid_field,
+                xp=xp,
+                show_log=show_log,
+            )
+
+            del grid_field
+
+        elif generation_type == "envelope":
+
+            output = calculate_envelope(
+                grid_field,
+                xp=xp,
+                show_log=show_log,
+            )
+
+            del grid_field
+
+        else:
+            # Raw pressure field.
+            output = grid_field
+
+        profile_end("Envelope computation", t)
+
+        # ------------------------------------------------------------------
+        # 9. Resampling
+        # ------------------------------------------------------------------
+
+        t = profile_start()
+
+        output = resample_field(
+            output,
+            sizes,
+            xp=xp,
+        )
+
+        profile_end("Resampling", t)
+
+        # ------------------------------------------------------------------
+        # 10. Pipeline layout: (Nx, Nz, Nt) -> (Nt, Nz, Nx)
+        # ------------------------------------------------------------------
+
+        t = profile_start()
+
+        output = to_pipeline_layout(
+            output,
+            xp=xp,
+        )
+
+        # The pipeline layout is contiguous and no longer depends on grid_field.
+        if generation_type == "field":
+            del grid_field
+
+        profile_end("Pipeline layout", t)
+
+        # ------------------------------------------------------------------
+        # 11. Return output
+        # ------------------------------------------------------------------
+
+        if isGPU and not keep_on_gpu:
+
+            t = profile_start()
+
+            output_host = cp.asnumpy(output)
+
+            del output
+
+            if free_vram:
+                with cp.cuda.Device(GPUdevice):
+                    from AOT_biomaps.AOT_Acoustic.AcousticTools import clear_gpu_memory
+                    clear_gpu_memory(cp, clear_fft_plans=True)   # plans + pool
+                    cp.get_default_pinned_memory_pool().free_all_blocks()
+
+            profile_end("GPU to CPU", t)
+
+            output = output_host
+
+        # ------------------------------------------------------------------
+        # 12. Profiling report
+        # ------------------------------------------------------------------
+
+        if profile:
+
+            if isGPU:
+                synchronize()
+
+            total_elapsed = time.perf_counter() - total_start
+
+            print("\n[AOT][BATCH] Execution profile")
+            print("----------------------------------------")
+
+            for name, elapsed in profile_times.items():
+                print(f"{name:<35s}: {elapsed:8.3f} s")
+
+            print("----------------------------------------")
+            print(f"{'Total':<35s}: {total_elapsed:8.3f} s")
+            print(f"Output shape                      : {output.shape}")
+            print(f"Output dtype                      : {output.dtype}")
+            print(
+                f"Output location                   : "
+                f"{'GPU' if isGPU and keep_on_gpu else 'CPU'}"
+            )
+            print("----------------------------------------\n")
+
+        return output
+
+    def _generate_acoustic_field_KWAVE_2D_old(
+        self,
+        burst=None,
+        isGPU=None,
+        GPUdevice=None,
+        generation_type="envelope_squared",
+        show_log=True,
+        keep_on_gpu=False,
+        free_vram=True,
+        target_dt=None,
+        target_dx=None,
+        target_dz=None,
+        backend=None,
+        tempFileName=None,
+    ):
+        """Backward-compatible entry point for the former batch generator.
+
+        New code should call :meth:`_generate_acoustic_field_KWAVE_2D`. This
+        method remains available for older subclasses and notebooks.
+        """
+        return self._batch_acoustic_field_KWAVE_2D(
+            burst=burst,
+            isGPU=isGPU,
+            GPUdevice=GPUdevice,
+            generation_type=generation_type,
+            show_log=show_log,
+            keep_on_gpu=keep_on_gpu,
+            free_vram=free_vram,
+            target_dt=target_dt,
+            target_dx=target_dx,
+            target_dz=target_dz,
+            backend=backend or "python",
+            tempFileName=tempFileName,
+        )
 
     @abstractmethod
     def _set_up_source(self, source, burst=None):
@@ -658,62 +2397,52 @@ class AcousticField(ABC):
         """
         pass
 
-    @abstractmethod
-    def get_name_field(self):
-        """
-        Abstract method to get the name of the field for saving and loading.
-        Must be implemented in subclasses.
-        """
-        pass
+    def _field_output_path(self, path, extension):
+        """Resolve a file or directory argument for a field output."""
+        path = os.fspath(path)
+        extension = extension if extension.startswith(".") else f".{extension}"
+        if path.lower().endswith(extension.lower()):
+            return path
+        if os.path.isdir(path) or path.endswith(os.sep):
+            os.makedirs(path, exist_ok=True)
+            return os.path.join(path, self.get_name_field() + extension)
+        return path + self.get_name_field() + extension
 
-    def _load_field_h5(self, filePath,nameBlock):
-        """
-        Load the 2D acoustic field from an H5 file.
-
-        Parameters:
-        - filePath (str): The path to the H5 file.
-
-        Returns:
-        - field (numpy.ndarray): The loaded acoustic field.
-        """
-        try:
-            if nameBlock is None:
-                nameBlock = 'data'
-            with h5py.File(os.path.join(filePath, self.get_name_field()+".h5"), 'r') as f:
-                self.field = f[nameBlock][:]
-        except Exception as e:
-            print(f"[AOT-biomaps] Error in _load_field_h5 method: {e}")
-            raise
+    def _load_field_h5(self, filePath, nameBlock=None):
+        """Load one field dataset from an HDF5 file."""
+        if nameBlock is None:
+            nameBlock = "data"
+        h5_path = (
+            os.fspath(filePath)
+            if os.fspath(filePath).lower().endswith((".h5", ".hdf5"))
+            else os.path.join(filePath, self.get_name_field() + ".h5")
+        )
+        with h5py.File(h5_path, "r") as handle:
+            if nameBlock not in handle:
+                raise KeyError(f"Dataset {nameBlock!r} is not present in {h5_path!r}.")
+            self.field = handle[nameBlock][...]
 
     def _save2D_H5(self, filePath):
-        """
-        Save the 2D acoustic field as an H5 file.
-
-        Parameters:
-        - filePath (str): The path where the file will be saved.
-        """
-        try:
-            with h5py.File(filePath+self.get_name_field()+"h5", 'w') as f:
-                for key, value in self.__dict__.items():
-                    if key != 'field':
-                        f.create_dataset(key, data=value)
-                f.create_dataset('data', data=self.field, compression='gzip')
-        except Exception as e:
-            print(f"[AOT-biomaps] Error in _save2D_H5 method: {e}")
-            raise
+        """Save field data and lightweight metadata to HDF5."""
+        if self.field is None:
+            raise ValueError("No acoustic field is available to save.")
+        h5_path = self._field_output_path(filePath, ".h5")
+        field_data = _to_numpy_array(self.field)
+        with h5py.File(h5_path, "w") as handle:
+            handle.create_dataset("data", data=field_data, compression="gzip")
+            if self.last_decimation is not None:
+                metadata = handle.create_group("last_decimation")
+                for key, value in self.last_decimation.items():
+                    metadata.attrs[key] = value
+        return h5_path
 
     def _save2D_NPY(self, filePath):
-        """
-        Save the 2D acoustic field as a NPY file.
-
-        Parameters:
-        - filePath (str): The path where the file will be saved.
-        """
-        try:
-            np.save(filePath+self.get_name_field()+"npy", self.field)
-        except Exception as e:
-            print(f"[AOT-biomaps] Error in _save2D_NPY method: {e}")
-            raise
+        """Save the field array as a NumPy ``.npy`` file."""
+        if self.field is None:
+            raise ValueError("No acoustic field is available to save.")
+        npy_path = self._field_output_path(filePath, ".npy")
+        np.save(npy_path, _to_numpy_array(self.field))
+        return npy_path
 
     def _load_fieldKWAVE_XZ(self, hdr_path):
         """
@@ -809,12 +2538,8 @@ class AcousticField(ABC):
             param = loadmat(param_path_mat)
 
             # Load the ranges for x and z
-            x_test = param['x'].flatten()
-            z_test = param['z'].flatten()
-
             x_range = np.arange(-23, 21.2, 0.2)
             z_range = np.arange(0, 37.2, 0.2)
-            X, Z = np.meshgrid(x_range, z_range)
 
             # Load the data from the .h5 file
             with h5py.File(file_path_h5, 'r') as file:
@@ -838,13 +2563,14 @@ class AcousticField(ABC):
                         index += 1
 
             # Calculate the analytic envelope
-            envelope = np.abs(CPU_hilbert(acoustic_field, axis=2))
+            envelope = np.abs(scipy_hilbert(acoustic_field, axis=2))
             # Reorganize the array to have the shape (Times, Z, X)
-            envelope_transposed = np.transpose(envelope, (2, 0, 1)).T
+            envelope_transposed = np.transpose(envelope, (2, 0, 1))
 
             self.field = envelope_transposed
-            self.params.general['Xrange'] = x_range
-            self.params.general['Zrange'] = z_range
+            self.params.general["Xrange"] = x_range
+            self.params.general["Zrange"] = z_range
+            return envelope_transposed, x_range, z_range
 
         except Exception as e:
             print(f"[AOT-biomaps] Error in _load_fieldHYDRO_XZ method: {e}")
@@ -904,7 +2630,7 @@ class AcousticField(ABC):
                 reorganized_data[y_idx, z_idx, :] = data[index, :]
 
             # Calculate the analytic envelope
-            envelope = np.abs(CPU_hilbert(reorganized_data, axis=2))
+            envelope = np.abs(scipy_hilbert(reorganized_data, axis=2))
             # Reorganize the array to have the shape (Times, Z, Y)
             envelope_transposed = np.transpose(envelope, (2, 0, 1))
             return envelope_transposed, y_range, z_range
@@ -921,7 +2647,7 @@ class AcousticField(ABC):
         - param_path_mat (str): The path to the MAT file.
 
         Returns:
-        - EnveloppeField (numpy.ndarray): The envelope of the acoustic field.
+        - envelope_field (numpy.ndarray): The envelope of the acoustic field.
         - x_range (numpy.ndarray): The range of x values.
         - y_range (numpy.ndarray): The range of y values.
         - z_range (numpy.ndarray): The range of z values.
@@ -935,9 +2661,6 @@ class AcousticField(ABC):
             y_range = param['y'].flatten()
             z_range = param['z'].flatten()
 
-            # Create a meshgrid for x, y, and z
-            X, Y, Z = np.meshgrid(x_range, y_range, z_range, indexing='ij')
-
             # Load the data from the .h5 file
             with h5py.File(file_path_h5, 'r') as file:
                 data = file['data'][:]
@@ -946,8 +2669,6 @@ class AcousticField(ABC):
             Nx = len(x_range)
             Ny = len(y_range)
             Nz = len(z_range)
-            Nscans = Nx * Ny * Nz
-
             # Create the scan positions
             if Ny % 2 == 0:
                 X = np.tile(np.concatenate([x_range[:, np.newaxis], x_range[::-1, np.newaxis]]), (Ny // 2, 1))
@@ -977,12 +2698,12 @@ class AcousticField(ABC):
                 z_idx = np.where(z_range == k)[0][0]
                 reorganized_data[x_idx, y_idx, z_idx, :] = data[index, :]
 
-            EnveloppeField = np.zeros_like(reorganized_data)
+            envelope_field = np.zeros_like(reorganized_data)
 
             for y in range(reorganized_data.shape[1]):
                 for z in range(reorganized_data.shape[2]):
-                    EnveloppeField[:, y, z, :] = np.abs(CPU_hilbert(reorganized_data[:, y, z, :], axis=1))
-            self.field = np.transpose(EnveloppeField,  (3, 2, 1, 0))
+                    envelope_field[:, y, z, :] = np.abs(scipy_hilbert(reorganized_data[:, y, z, :], axis=1))
+            self.field = np.transpose(envelope_field,  (3, 2, 1, 0))
             self.params.general['Xrange'] = [x_range[0], x_range[-1]]
             self.params.general['Yrange'] = [y_range[0], y_range[-1]]
             self.params.general['Zrange'] = [z_range[0], z_range[-1]]

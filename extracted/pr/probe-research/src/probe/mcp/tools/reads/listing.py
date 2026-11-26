@@ -5,7 +5,7 @@ import json
 import uuid
 from typing import Any
 from ....sdk import errors
-from ....sdk.client import BROWSE_NAME_QUERY_FEATURE
+from ....sdk.client import BROWSE_NAME_QUERY_FEATURE, KEY_METRICS
 from ...delivery import accounting
 from ..views import branch_projection as _branches
 from ....shared.reads.search_contract import (
@@ -474,7 +474,7 @@ class BrowseListMixin:
             data["scope"] = scope
         position = backend_cursor
         for _ in range(self._HIDDEN_FILL_PAGES):
-            rows, backend_next = self.source.run_list(
+            page = self.source.run_list(
                 project_id=project_id,
                 experiment_id=experiment_id,
                 status=status,
@@ -486,6 +486,7 @@ class BrowseListMixin:
                 query=query,
                 people=people,
             )
+            rows, backend_next = page.items, page.next_cursor
             visible = [
                 row
                 for row in rows
@@ -508,7 +509,7 @@ class BrowseListMixin:
             # the ones the session created. Unknown, and left unsaid, when
             # that read fails -- never a failed browse.
             try:
-                probe, probe_next = self.source.run_list(
+                count_page = self.source.run_list(
                     project_id=project_id,
                     experiment_id=experiment_id,
                     status=status,
@@ -519,6 +520,7 @@ class BrowseListMixin:
                     query=query,
                     people=people,
                 )
+                probe, probe_next = count_page.items, count_page.next_cursor
             except Exception:  # noqa: BLE001 -- the count is optional
                 probe, probe_next = [], None
             hidden_count = sum(
@@ -542,6 +544,12 @@ class BrowseListMixin:
                     )
                 after = self._list_cursor(mode, keyset)
             sent.append((self._run_row(row), after))
+        if page.latest_metrics_keys is not None:
+            # `latest_metrics=true` asked for the page's key metrics: say which keys those were, or that none.
+            data["latest_metrics_note"] = _describe_key_metrics(page.latest_metrics_keys)
+        elif KEY_METRICS in (query.latest_metrics or ()):
+            # A server before `*` reads it as a literal key: empty values and no header, said rather than left blank.
+            data["latest_metrics_note"] = "this Probe server cannot pick key metrics yet; name keys"
         if backend_cursor is None:
             # The whole listing's size, on its first page: a page is one page (Anthrogen 2026-11-05,
             # "ten runs failed" from a 10-row page of 26). Same filter, so the totals and the pages
@@ -772,6 +780,23 @@ def _get_capped_totals(totals: dict) -> dict:
 
 # The people and sessions modes' pages and rows (people and time filters, A1), folded in here rather than
 # composed in tools.py: they are `listings/` variants, reached through this listing.
+#: The longest key list `latest_metrics_note` spells out: up to 20 long keys must never crowd out one run row.
+_KEY_METRICS_NOTE_CHARS = 300
+
+
+def _describe_key_metrics(keys: list[str]) -> str:
+    """The keys `latest_metrics=true` resolved to, in one bounded line: past the bound, `+N more`."""
+    if not keys:
+        return "no key metrics on this page; name keys"
+    shown: list[str] = []
+    for key in keys:
+        if shown and len(", ".join([*shown, key])) > _KEY_METRICS_NOTE_CHARS:
+            break
+        shown.append(key if len(key) <= _KEY_METRICS_NOTE_CHARS else key[: _KEY_METRICS_NOTE_CHARS - 3] + "...")
+    more = len(keys) - len(shown)
+    return f"key metrics on this page: {', '.join(shown)}" + (f" +{more} more" if more else "")
+
+
 from probe.mcp.tools.reads.listings.people import PeopleRowsMixin  # noqa: E402 -- the class exists first
 from probe.mcp.tools.reads.listings.sessions import SessionRowsMixin  # noqa: E402
 from probe.mcp.tools.reads.listings.decisions import DecisionRowsMixin  # noqa: E402

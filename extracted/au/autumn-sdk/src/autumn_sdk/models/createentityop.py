@@ -1673,6 +1673,7 @@ CreateEntityProcessorType = Union[
     Literal[
         "stripe",
         "revenuecat",
+        "quartz",
     ],
     UnrecognizedStr,
 ]

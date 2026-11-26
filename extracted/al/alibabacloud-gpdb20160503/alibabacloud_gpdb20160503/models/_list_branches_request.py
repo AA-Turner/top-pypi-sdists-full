@@ -17,13 +17,13 @@ class ListBranchesRequest(DaraModel):
         sort_by: str = None,
         sort_order: str = None,
     ):
-        # The maximum number of records to return in this query.
+        # The maximum number of entries to return for the current query.
         self.max_results = max_results
-        # The cursor for paging query. You do not need to specify this parameter for the first query. For subsequent queries, use the NextToken value returned in the previous response.
+        # The cursor for the paging query. You do not need to specify this parameter for the first query. For subsequent queries, use the NextToken value returned from the previous query.
         self.next_token = next_token
         # The page number. The value must be greater than 0. Default value: 1.
         self.page_number = page_number
-        # The number of records per page.
+        # The number of entries per page.
         # 
         # Valid values:
         # - 10
@@ -33,26 +33,26 @@ class ListBranchesRequest(DaraModel):
         # 
         # Default value: 20.
         self.page_size = page_size
-        # The parent branch ID. Specifies the parent branch for a new branch or as a query filter condition.
+        # The ID of the parent branch. This parameter is used to specify the parent branch for a new branch or a query condition.
         self.parent_branch_id = parent_branch_id
-        # The region ID. This parameter is required when you create a primary branch. When you create a sub-branch, the region is inherited from the primary branch by default.
+        # The region ID. This parameter is required when you create a primary branch. When you create a child branch, the region of the primary branch is inherited by default.
         self.region_id = region_id
-        # The search keyword. Supports fuzzy search by branch ID or branch name.
+        # The search keyword. Fuzzy search by branch ID or branch name is supported.
         self.search = search
-        # The sort field.
+        # The sorting field.
         # 
         # Valid values:
-        # - BranchName: sorts by branch name.
-        # - CreateTime: sorts by creation time.
-        # - LastRunTime: sorts by last run time.
+        # - BranchName: Sort by branch name.
+        # - CreateTime: Sort by creation time.
+        # - LastRunTime: Sort by last run time.
         # 
         # Default value: CreateTime.
         self.sort_by = sort_by
-        # The sort direction.
+        # The sorting order.
         # 
         # Valid values:
-        # - Asc: ascending order.
-        # - Desc: descending order.
+        # - Asc: Ascending order.
+        # - Desc: Descending order.
         # 
         # Default value: Desc.
         self.sort_order = sort_order

@@ -9,12 +9,11 @@ import os
 import re
 import stat
 import sys
-import time
 import warnings
 from contextlib import contextmanager
 from textwrap import dedent
-
-from six.moves import urllib
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 __all__ = [
     "extract_tarball",
@@ -22,6 +21,7 @@ __all__ = [
     "extract",
     "is_url",
     "load",
+    "load_source",
     "copy_contents",
     "match",
     "move",
@@ -41,13 +41,20 @@ def extract_tarball(src, dest, ignore=None):
 
     import tarfile
 
+    def _is_within_directory(directory, target):
+        real_directory = os.path.realpath(directory)
+        real_target = os.path.realpath(target)
+        prefix = os.path.commonprefix([real_directory, real_target])
+        return prefix == real_directory
+
     with tarfile.open(src) as bundle:
         namelist = []
 
         for m in bundle:
             # Mitigation for CVE-2007-4559, Python's tarfile library will allow
             # writing files outside of the intended destination.
-            if ".." in m.name:
+            member_path = os.path.join(dest, m.name)
+            if not _is_within_directory(dest, member_path):
                 raise RuntimeError(
                     dedent(
                         f"""
@@ -58,6 +65,32 @@ def extract_tarball(src, dest, ignore=None):
                     """
                     )
                 )
+            if m.issym():
+                link_path = os.path.join(os.path.dirname(member_path), m.linkname)
+                if not _is_within_directory(dest, link_path):
+                    raise RuntimeError(
+                        dedent(
+                            f"""
+                    Tar bundle '{src}' may be maliciously crafted to escape the destination!
+                    The following path was detected:
+
+                      {m.name}
+                        """
+                        )
+                    )
+
+            if m.mode & (stat.S_ISUID | stat.S_ISGID):
+                raise RuntimeError(
+                    dedent(
+                        f"""
+                    Tar bundle '{src}' may be maliciously crafted to setuid/setgid!
+                    The following path was detected:
+
+                      {m.name}
+                    """
+                    )
+                )
+
             if ignore and any(match(m.name, i) for i in ignore):
                 continue
             bundle.extract(m, path=dest)
@@ -165,32 +198,28 @@ def _call_windows_retry(func, args=(), retry_max=5, retry_delay=0.5):
     It's possible to see spurious errors on Windows due to various things
     keeping a handle to the directory open (explorer, virus scanners, etc)
     So we try a few times if it fails with a known error.
-    retry_delay is multiplied by the number of failed attempts to increase
-    the likelihood of success in subsequent attempts.
+    retry_delay is doubled after each failed attempt to increase the
+    likelihood of success in subsequent attempts.
     """
-    retry_count = 0
-    while True:
+    import redo
+
+    error = None
+    for _ in redo.retrier(
+        attempts=retry_max + 1, sleeptime=retry_delay, sleepscale=2, jitter=0
+    ):
         try:
-            func(*args)
+            return func(*args)
         except OSError as e:
             # Error codes are defined in:
             # http://docs.python.org/2/library/errno.html#module-errno
             if e.errno not in (errno.EACCES, errno.ENOTEMPTY):
                 raise
-
-            if retry_count == retry_max:
-                raise
-
-            retry_count += 1
-
+            error = e
             print(
                 '%s() failed for "%s". Reason: %s (%s). Retrying...'
                 % (func.__name__, args, e.strerror, e.errno)
             )
-            time.sleep(retry_count * retry_delay)
-        else:
-            # If no exception has been thrown it should be done
-            break
+    raise error
 
 
 def remove(path):
@@ -272,7 +301,7 @@ def remove(path):
         _call_with_windows_retry(shutil.rmtree, (path,))
 
 
-def copy_contents(srcdir, dstdir):
+def copy_contents(srcdir, dstdir, ignore_dangling_symlinks=False):
     """
     Copy the contents of the srcdir into the dstdir, preserving
     subdirectories.
@@ -281,11 +310,9 @@ def copy_contents(srcdir, dstdir):
     """
     import shutil
 
-    # dirs_exist_ok was introduced in Python 3.8
-    # On earlier versions, or Windows, use the verbose mechanism.
-    # We use it on Windows because _call_with_windows_retry doesn't allow
-    # named arguments to be passed.
-    if (sys.version_info.major < 3 or sys.version_info.minor < 8) or (os.name == "nt"):
+    # On Windows, use the verbose mechanism because _call_with_windows_retry
+    # doesn't allow named arguments (dirs_exist_ok) to be passed.
+    if os.name == "nt":
         names = os.listdir(srcdir)
         if not os.path.isdir(dstdir):
             os.makedirs(dstdir)
@@ -298,7 +325,11 @@ def copy_contents(srcdir, dstdir):
                     linkto = os.readlink(srcname)
                     os.symlink(linkto, dstname)
                 elif os.path.isdir(srcname):
-                    copy_contents(srcname, dstname)
+                    copy_contents(
+                        srcname,
+                        dstname,
+                        ignore_dangling_symlinks=ignore_dangling_symlinks,
+                    )
                 else:
                     _call_windows_retry(shutil.copy2, (srcname, dstname))
             except OSError as why:
@@ -313,7 +344,21 @@ def copy_contents(srcdir, dstdir):
         if errors:
             raise Exception(errors)
     else:
-        shutil.copytree(srcdir, dstdir, dirs_exist_ok=True)
+
+        def ignore_dangling(dirname, names):
+            return [
+                name
+                for name in names
+                if os.path.islink(path := os.path.join(dirname, name))
+                and not os.path.exists(path)
+            ]
+
+        shutil.copytree(
+            srcdir,
+            dstdir,
+            ignore=ignore_dangling if ignore_dangling_symlinks else None,
+            dirs_exist_ok=True,
+        )
 
 
 def move(src, dst):
@@ -354,7 +399,6 @@ def tree(directory, sort_key=lambda x: x.lower()):
     top = depth(directory)
 
     for dirpath, dirnames, filenames in os.walk(directory, topdown=True):
-
         abspath = os.path.abspath(dirpath)
         basename = os.path.basename(abspath)
         parent = os.path.dirname(abspath)
@@ -392,19 +436,17 @@ def tree(directory, sort_key=lambda x: x.lower()):
         # add the files
         if filenames:
             last_file = filenames[-1]
-            retval.extend(
-                [
-                    (
-                        "%s%s%s"
-                        % (
-                            "".join(indent),
-                            files_end if filename == last_file else item_marker,
-                            filename,
-                        )
+            retval.extend([
+                (
+                    "%s%s%s"
+                    % (
+                        "".join(indent),
+                        files_end if filename == last_file else item_marker,
+                        filename,
                     )
-                    for index, filename in enumerate(filenames)
-                ]
-            )
+                )
+                for index, filename in enumerate(filenames)
+            ])
 
     return "\n".join(retval)
 
@@ -448,11 +490,6 @@ def which(cmd, mode=os.F_OK | os.X_OK, path=None, exts=None, extra_search_dirs=(
     if not exts:
         exts = oldexts.split(os.pathsep)
 
-    # This ensures that `cmd` without any extensions will be found.
-    # See: https://bugs.python.org/issue31405
-    if "." not in exts:
-        exts.append(".")
-
     os.environ["PATHEXT"] = os.pathsep.join(exts)
     try:
         path = shutil_which(cmd, mode=mode, path=path)
@@ -485,7 +522,7 @@ def which(cmd, mode=os.F_OK | os.X_OK, path=None, exts=None, extra_search_dirs=(
 # utilities for temporary resources
 
 
-class NamedTemporaryFile(object):
+class NamedTemporaryFile:
     """
     Like tempfile.NamedTemporaryFile except it works on Windows
     in the case where you open the created file a second time.
@@ -507,7 +544,6 @@ class NamedTemporaryFile(object):
     def __init__(
         self, mode="w+b", bufsize=-1, suffix="", prefix="tmp", dir=None, delete=True
     ):
-
         import tempfile
 
         fd, path = tempfile.mkstemp(suffix, prefix, dir, "t" in mode)
@@ -571,7 +607,7 @@ def is_url(thing):
     Return True if thing looks like a URL.
     """
 
-    parsed = urllib.parse.urlparse(thing)
+    parsed = urlparse(thing)
     if "scheme" in parsed:
         return len(parsed.scheme) >= 2
     else:
@@ -593,7 +629,20 @@ def load(resource):
         # if no scheme is given, it is a file path
         return open(resource)
 
-    return urllib.request.urlopen(resource)
+    return urlopen(resource)
+
+
+# see https://docs.python.org/3/whatsnew/3.12.html#imp
+def load_source(modname, filename):
+    import importlib.machinery
+    import importlib.util
+
+    loader = importlib.machinery.SourceFileLoader(modname, filename)
+    spec = importlib.util.spec_from_file_location(modname, filename, loader=loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module.__name__] = module
+    loader.exec_module(module)
+    return module
 
 
 # We can't depend on mozpack.path here, so copy the 'match' function over.

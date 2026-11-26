@@ -7,8 +7,8 @@ from typing import Any
 import orjson
 import structlog
 from starlette.exceptions import HTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from langgraph_api.config import LANGGRAPH_ENCRYPTION
 from langgraph_api.encryption.custom import get_custom_encryption_instance
@@ -68,10 +68,17 @@ def extract_encryption_context(request: Request) -> dict[str, Any]:
         ) from e
 
 
-class EncryptionContextMiddleware(BaseHTTPMiddleware):
+class EncryptionContextMiddleware:
     """Set request encryption context from headers and the configured handler."""
 
-    async def dispatch(self, request: Request, call_next):
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
         context_dict = extract_encryption_context(request)
 
         encryption_instance = get_custom_encryption_instance()
@@ -92,4 +99,4 @@ class EncryptionContextMiddleware(BaseHTTPMiddleware):
 
         set_encryption_context(context_dict)
         request.state.encryption_context = context_dict
-        return await call_next(request)
+        await self.app(scope, receive, send)

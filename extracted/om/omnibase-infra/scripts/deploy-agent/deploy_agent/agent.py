@@ -919,7 +919,7 @@ class DeployAgent:
             host_slot=self._host_slot,
             host_slot_owner=self._host_slot_owner,
             # OMN-19507: defer, without refusing, while the host is loaded.
-            load_gate=self._load_gate,
+            load_gate=load_dev_boot_guard(DEV_ROLL_EVENTS).lane_build_gate(self),
             # Lane flags: refuse, as frozen, all but a promotion.
             lane_flags=self._lane_flags,
         )
@@ -1981,10 +1981,10 @@ class DeployAgent:
                 # deploy-source clone is shared with that script, and this agent
                 # took nothing until now.
                 self._current_git_sha = self.executor.git_pull(
-                    cmd.git_ref,
-                    lane=cmd.runtime_lane,
-                    on_phase_update=on_phase_update,
+                    cmd.git_ref, lane=cmd.runtime_lane, on_phase_update=on_phase_update
                 )
+                # OMN-26678: a replayed completion event reads the sha from the record.
+                self.job_store.record_git_sha(cid, self._current_git_sha)
 
                 # Regenerate compose from catalog (non-fatal — logs warning on failure)
                 self.executor.compose_gen(
@@ -3005,7 +3005,7 @@ class DeployAgent:
                     )
                 continue
 
-            payload = build_completion_payload(job, "")
+            payload = build_completion_payload(job, job.git_sha)
             if publish_result(payload, self._kafka_config):
                 self.job_store.mark_published(job.correlation_id)
                 self._publish_cb.record_success(cid_str)

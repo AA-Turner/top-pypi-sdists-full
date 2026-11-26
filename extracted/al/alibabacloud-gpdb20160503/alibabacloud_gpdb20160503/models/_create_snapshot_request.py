@@ -13,17 +13,17 @@ class CreateSnapshotRequest(DaraModel):
         region_id: str = None,
         snapshot_timestamp: str = None,
     ):
-        # The idempotence token. Ensures that repeated requests do not result in duplicate operations.
+        # The idempotency token. It ensures that duplicate requests do not execute the same operation.
         self.client_token = client_token
-        # The LSN for the snapshot. You must specify either this parameter or SnapshotTimestamp. If this parameter is specified, the snapshot is created based on the specified LSN.
+        # The log sequence number (LSN) for the snapshot. You must specify either this parameter or SnapshotTimestamp. If specified, the snapshot is created based on this LSN.
         self.lsn = lsn
-        # The Supabase project ID.
+        # The ID of the Supabase project.
         # 
         # This parameter is required.
         self.project_id = project_id
-        # The region ID. Specifies the region in which to perform the operation.
+        # The region ID.
         self.region_id = region_id
-        # The point in time for the snapshot. You must specify either this parameter or Lsn. If this parameter is specified, the snapshot is created based on the specified point in time.
+        # The point in time for the snapshot. You must specify either this parameter or Lsn. If specified, the snapshot is created based on this point in time.
         self.snapshot_timestamp = snapshot_timestamp
 
     def validate(self):

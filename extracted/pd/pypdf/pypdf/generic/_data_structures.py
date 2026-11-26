@@ -28,12 +28,13 @@
 __author__ = "Mathieu Fenniak"
 __author_email__ = "biziqe@mathieu.fenniak.net"
 
+import contextlib
 import inspect
 import logging
 import os
 import re
 import sys
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import cache
 from io import BytesIO
 from typing import (
@@ -50,6 +51,7 @@ from .._utils import (
     WHITESPACES,
     BinaryStreamType,
     StreamType,
+    deprecate_no_replacement,
     logger_warning,
     read_non_whitespace,
     read_until_regex,
@@ -292,7 +294,14 @@ class ArrayObject(list[Any], PdfObject):
                 stream.seek(-len(rest), 1)
             stream.seek(-1, 1)
             # read and append object
-            arr.append(read_object(stream, pdf, forced_encoding, parsing_budget=parsing_budget))
+            try:
+                obj = read_object(stream, pdf, forced_encoding, parsing_budget=parsing_budget)
+            except LimitReachedError:
+                # Always propagate security issues.
+                raise
+            except (MemoryError, RecursionError) as exc:
+                raise PdfReadError("Error reading PDF file.") from exc
+            arr.append(obj)
         return arr
 
 
@@ -397,8 +406,11 @@ class DictionaryObject(dict[Any, Any], PdfObject):
                     continue
                 ignore_fields[x] -= 1  # type: ignore[operator]
             x += 1
-        #  Check if this is a chain list, we need to loop to prevent recur
-        if any(
+        #  Check if this is a chain list, we need to loop to prevent recur.
+        #  Only indirect objects are chain nodes: a direct dictionary has no
+        #  object number for the cycle detection below, so its links are
+        #  cloned by the generic loop at the end.
+        if getattr(src, "indirect_reference", None) is not None and any(
             field not in ignore_fields
             and field in src
             and isinstance(src.raw_get(field), IndirectObject)
@@ -877,7 +889,7 @@ class TreeObject(DictionaryObject):
     def insert_child(
         self,
         child: Any,
-        before: Any,
+        before: IndirectObject | None,
         pdf: PdfWriterProtocol,
         inc_parent_counter: Callable[..., Any] | None = None,
     ) -> IndirectObject:
@@ -887,7 +899,6 @@ class TreeObject(DictionaryObject):
         assert child.indirect_reference is not None, "mypy"
         child_reference: IndirectObject = child.indirect_reference
 
-        prev: DictionaryObject | None
         if "/First" not in self:  # no child yet
             self[NameObject("/First")] = child_reference
             self[NameObject("/Count")] = NumberObject(0)
@@ -899,40 +910,64 @@ class TreeObject(DictionaryObject):
             if "/Prev" in child_obj:
                 del child_obj["/Prev"]
             return child_reference
-        prev = cast("DictionaryObject", self["/Last"])
-
-        visited: set[int] = set()
-        while prev.indirect_reference != before:
-            prev_id = id(prev)
-            if prev_id in visited:
-                raise LimitReachedError("Detected cycle in tree structure.")
-            visited.add(prev_id)
-            if "/Next" in prev:
-                prev = cast("TreeObject", prev["/Next"])
-                continue
-
-            # append at the end
-            prev[NameObject("/Next")] = cast("TreeObject", child_reference)
-            child_obj[NameObject("/Prev")] = prev.indirect_reference
-            child_obj[NameObject("/Parent")] = self.indirect_reference
-            if "/Next" in child_obj:
-                del child_obj["/Next"]
-            self[NameObject("/Last")] = child_reference
-            inc_parent_counter(self, child_obj.get("/Count", 1))
-            return child_reference
-        try:  # insert as first or in the middle
-            assert isinstance(prev["/Prev"], DictionaryObject)
-            prev["/Prev"][NameObject("/Next")] = child_reference
-            child_obj[NameObject("/Prev")] = prev["/Prev"]
-        except MemoryError:  # pragma: no cover  # TODO: BLE001
-            raise
-        except Exception:  # it means we are inserting in first position
-            child_obj.pop("/Next", None)
-        child_obj[NameObject("/Next")] = prev
-        prev[NameObject("/Prev")] = child_reference
         child_obj[NameObject("/Parent")] = self.indirect_reference
+
+        if before is not None:
+            # The children are linked from /First to /Last by /Next (ISO 32000-2:2020, 12.3.3).
+            previous: DictionaryObject | None = None
+            node = cast("DictionaryObject", self["/First"])
+            visited: set[int] = set()
+            while True:
+                if id(node) in visited:
+                    raise LimitReachedError("Detected cycle in tree structure.")
+                visited.add(id(node))
+                if node.indirect_reference == before:
+                    self._link_child_before(
+                        child_obj=child_obj, child_reference=child_reference, previous=previous, node=node
+                    )
+                    inc_parent_counter(self, child_obj.get("/Count", 1))
+                    return child_reference
+                if "/Next" not in node:
+                    break
+                previous = node
+                node = cast("DictionaryObject", node["/Next"])
+            # `before` is no child of this node: append at the end.
+
+        last = cast("DictionaryObject", self["/Last"])
+        visited = set()
+        while "/Next" in last:
+            if id(last) in visited:
+                raise LimitReachedError("Detected cycle in tree structure.")
+            visited.add(id(last))
+            last = cast("DictionaryObject", last["/Next"])
+        last[NameObject("/Next")] = child_reference
+        child_obj[NameObject("/Prev")] = last.indirect_reference
+        child_obj.pop("/Next", None)
+        self[NameObject("/Last")] = child_reference
         inc_parent_counter(self, child_obj.get("/Count", 1))
         return child_reference
+
+    def _link_child_before(
+        self,
+        *,
+        child_obj: DictionaryObject,
+        child_reference: IndirectObject,
+        previous: DictionaryObject | None,
+        node: DictionaryObject,
+    ) -> None:
+        """
+        Link ``child_obj`` into the list of children directly in front of ``node``.
+
+        ``previous`` is the child in front of ``node``, or None if ``node`` is the first child.
+        """
+        if previous is None:
+            self[NameObject("/First")] = child_reference
+            child_obj.pop("/Prev", None)
+        else:
+            previous[NameObject("/Next")] = child_reference
+            child_obj[NameObject("/Prev")] = previous.indirect_reference
+        child_obj[NameObject("/Next")] = node.indirect_reference
+        node[NameObject("/Prev")] = child_reference
 
     def _remove_node_from_tree(
         self, *, previous: Any, previous_reference: Any, current: Any, last: Any
@@ -1045,20 +1080,64 @@ def _reset_node_tree_relationship(child_obj: Any) -> None:
         del child_obj[NameObject("/Prev")]
 
 
-class _FontFileCharacterMap(NamedTuple):
-    """The character map pypdf._cmap derived from an embedded font program. See #4156."""
+def _iter_name_tree(tree: DictionaryObject) -> Iterator[Any]:
+    """Yield the nodes of a name tree in key order, each object once, without changing it."""
+    pending: list[Any] = [tree]
+    visited: set[int] = set()
+    while pending:
+        node = pending.pop(0).get_object()
+        if id(node) in visited:
+            continue
+        visited.add(id(node))
+        yield node
+        if not isinstance(node, DictionaryObject):
+            continue
+        kids = node.get("/Kids", NullObject()).get_object()
+        if isinstance(kids, ArrayObject):
+            pending[:0] = kids
 
-    digest: bytes
-    """SHA-256 digest of the decoded font data the map was derived from."""
-    map_dict: dict[Any, Any]
-    int_entry: list[int]
+
+def _flatten_name_tree(tree: DictionaryObject, *, maximum_entries: int | None = None) -> ArrayObject:
+    """
+    Turn a name tree into a single node holding all its names, in place.
+
+    A node holds either /Kids or /Names (ISO 32000-2, 7.9.6), so a name added
+    next to /Kids would be ignored by readers.
+
+    Args:
+        tree: The name tree root to flatten.
+        maximum_entries: Optional maximum number of name/value pairs. When set,
+            raise ``LimitReachedError`` before adding a pair that would exceed it.
+    """
+    names = ArrayObject()
+    remaining_entries = maximum_entries if maximum_entries is not None else sys.maxsize
+    for node in _iter_name_tree(tree):
+        if not isinstance(node, DictionaryObject):
+            continue
+        node_names = node.get("/Names", NullObject()).get_object()
+        if not isinstance(node_names, ArrayObject):
+            continue
+        remaining_entries -= (len(node_names) // 2)
+        if remaining_entries < 0:
+            raise LimitReachedError("Maximum name tree entry limit reached.")
+        names.extend(node_names)
+    tree.pop(NameObject("/Kids"), None)
+    tree.pop(NameObject("/Limits"), None)
+    tree[NameObject("/Names")] = names
+    return names
+
+
+class _FontFileEncoding(NamedTuple):
+    """The encoding pypdf._cmap derived from an embedded font program. See #4156."""
+    digest: bytes  # SHA-256 digest of the decoded font data the encoding was derived from
+    embedded_font_encoding: dict[int, str]
 
 
 class StreamObject(DictionaryObject):
-    _font_file_character_map: _FontFileCharacterMap | None = None
+    _font_file_encoding: _FontFileEncoding | None = None
     """
-    The character map pypdf._cmap derived from this stream as an embedded font program. Parsing a CFF font
-    program with fontTools is expensive, and the same program is reached from every font resource and page
+    The encoding pypdf._cmap derived from this stream as an embedded font program. Parsing a font program
+    with fontTools is expensive, and the same program is reached from every font resource and page
     referencing it. See #4156.
     """
 
@@ -1582,6 +1661,21 @@ class ContentStream(DecodedStreamObject):
     def write_to_stream(
         self, stream: StreamType, encryption_key: str | bytes | None = None
     ) -> None:
+        """
+        Write the content stream to the stream.
+
+        Args:
+            stream: The stream to write to.
+            encryption_key: Ignored. The writer encrypts the objects before it
+                writes them.
+
+        .. deprecated:: 7.2.0
+            The ``encryption_key`` parameter is deprecated and will be removed
+            in pypdf 8.0.0. It has no effect.
+
+        """
+        if encryption_key is not None:
+            deprecate_no_replacement("The encryption_key parameter of ContentStream.write_to_stream()", "8.0.0")
         if not self._data and self._operations:
             self.get_data()  # this ensures ._data is rebuilt
         super().write_to_stream(stream)
@@ -1683,19 +1777,11 @@ class Field(TreeObject):
         )
         self.indirect_reference = data.indirect_reference
         for attr in field_attributes:
-            try:
+            with contextlib.suppress(KeyError):
                 self[NameObject(attr)] = data[attr]
-            except KeyError:
-                pass
         if isinstance(self.get("/V"), EncodedStreamObject):
-            d = cast(EncodedStreamObject, self[NameObject("/V")]).get_data()
-            if isinstance(d, bytes):
-                d_str = d.decode()
-            elif d is None:
-                d_str = ""
-            else:
-                raise Exception("Should never happen")
-            self[NameObject("/V")] = TextStringObject(d_str)
+            value = cast(EncodedStreamObject, self[NameObject("/V")]).get_data()
+            self[NameObject("/V")] = TextStringObject(value.decode())
 
     # TABLE 8.69 Entries common to all field dictionaries
     @property

@@ -28,6 +28,27 @@ is_nix() {
     fi
 }
 
+# Kata guest KVM is a misc character device. Its number belongs to the guest
+# kernel and can differ from the outer host's /dev/kvm device number.
+setup_kata_guest_kvm() {
+    local kvm_major=10
+    local kvm_minor=232
+    local registered_minor
+
+    if [ ! -r /proc/misc ]; then
+        echo "Kata guest KVM setup failed: /proc/misc is unavailable." >&2
+        return 1
+    fi
+    registered_minor=$(awk '$2 == "kvm" { print $1; exit }' /proc/misc)
+    if [ "${registered_minor}" != "${kvm_minor}" ]; then
+        echo "Kata guest KVM setup failed: expected misc device ${kvm_major}:${kvm_minor}, found minor ${registered_minor:-none}." >&2
+        return 1
+    fi
+
+    rm -f /dev/kvm
+    mknod -m 600 /dev/kvm c "${kvm_major}" "${kvm_minor}"
+}
+
 # Kata DinD: set up loop device and mount disk image for Docker storage
 setup_kata_dind() {
     local docker_root="/var/lib/docker"
@@ -38,13 +59,27 @@ setup_kata_dind() {
             docker_root="$custom_root"
         fi
     fi
-    mkdir -p "$docker_root"
-    for i in $(seq 0 7); do
-        mknod -m 660 /dev/loop$i b 7 $i 2>/dev/null || true
-    done
-    mount -o loop /docker-disk.img "$docker_root"
-    mount -o remount,rw /sys/fs/cgroup
-    mount -o remount,rw /proc/sys
+    # Directory creation requires write and execute permissions on the nearest existing parent.
+    if [ ! -d "$docker_root" ]; then
+        local nearest_existing_path="$docker_root"
+        while [ ! -e "$nearest_existing_path" ]; do
+            nearest_existing_path=$(dirname "$nearest_existing_path")
+        done
+        if [ ! -d "$nearest_existing_path" ] || [ ! -w "$nearest_existing_path" ] || [ ! -x "$nearest_existing_path" ]; then
+            echo "Warning: no permission to create Docker data root '$docker_root'; skipping Kata DinD setup." >&2
+        else
+            mkdir -p "$docker_root"
+        fi
+    fi
+
+    if [ -d "$docker_root" ]; then
+        for i in $(seq 0 7); do
+            mknod -m 660 /dev/loop$i b 7 $i 2>/dev/null || true
+        done
+        mount -o loop /docker-disk.img "$docker_root"
+        mount -o remount,rw /sys/fs/cgroup
+        mount -o remount,rw /proc/sys
+    fi
 }
 
 # Run rocklet
@@ -65,7 +100,10 @@ if [ "$(is_nix)" = "true" ]; then
 fi
 
 if [ "${ROCK_KATA_RUNTIME}" = "true" ]; then
-    echo "Kata runtime detected, setting up DinD disk..."
+    echo "Kata runtime detected, setting up guest KVM and DinD disk..."
+    if ! setup_kata_guest_kvm; then
+        echo "WARNING: Kata guest KVM setup failed; continuing without /dev/kvm." >&2
+    fi
     setup_kata_dind
 fi
 

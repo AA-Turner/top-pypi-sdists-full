@@ -53,26 +53,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         response_303 = cast(Any, None)
         return response_303
 
-    if response.status_code == 400:
-        response_400 = Error.from_dict(response.json())
-
-
-
-        return response_400
-
     if response.status_code == 401:
         response_401 = Error.from_dict(response.json())
 
 
 
         return response_401
-
-    if response.status_code == 502:
-        response_502 = Error.from_dict(response.json())
-
-
-
-        return response_502
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -101,10 +87,10 @@ def sync_detailed(
 
      Checks `state` (single use, ten minutes), exchanges `code` with the
     PKCE verifier, stores the token pair encrypted, and redirects the
-    browser to `/settings`. A missing, wrong, used or expired `state`
-    answers 400 and stores nothing. So does a refused code, a bad PKCE
-    verifier, or an error the forge sent back in the query. Nothing is
-    stored when the account name can't be read either (502).
+    browser to `/setup`. Anything that goes wrong stores nothing and
+    redirects to `/setup?error=<code>` (`SetupErrorCode`): the person is
+    in a browser tab, and a JSON body would be a dead end. The forge's own
+    error text is never echoed.
 
     Args:
         code (str | Unset):
@@ -145,10 +131,10 @@ def sync(
 
      Checks `state` (single use, ten minutes), exchanges `code` with the
     PKCE verifier, stores the token pair encrypted, and redirects the
-    browser to `/settings`. A missing, wrong, used or expired `state`
-    answers 400 and stores nothing. So does a refused code, a bad PKCE
-    verifier, or an error the forge sent back in the query. Nothing is
-    stored when the account name can't be read either (502).
+    browser to `/setup`. Anything that goes wrong stores nothing and
+    redirects to `/setup?error=<code>` (`SetupErrorCode`): the person is
+    in a browser tab, and a JSON body would be a dead end. The forge's own
+    error text is never echoed.
 
     Args:
         code (str | Unset):
@@ -184,10 +170,10 @@ async def asyncio_detailed(
 
      Checks `state` (single use, ten minutes), exchanges `code` with the
     PKCE verifier, stores the token pair encrypted, and redirects the
-    browser to `/settings`. A missing, wrong, used or expired `state`
-    answers 400 and stores nothing. So does a refused code, a bad PKCE
-    verifier, or an error the forge sent back in the query. Nothing is
-    stored when the account name can't be read either (502).
+    browser to `/setup`. Anything that goes wrong stores nothing and
+    redirects to `/setup?error=<code>` (`SetupErrorCode`): the person is
+    in a browser tab, and a JSON body would be a dead end. The forge's own
+    error text is never echoed.
 
     Args:
         code (str | Unset):
@@ -228,10 +214,10 @@ async def asyncio(
 
      Checks `state` (single use, ten minutes), exchanges `code` with the
     PKCE verifier, stores the token pair encrypted, and redirects the
-    browser to `/settings`. A missing, wrong, used or expired `state`
-    answers 400 and stores nothing. So does a refused code, a bad PKCE
-    verifier, or an error the forge sent back in the query. Nothing is
-    stored when the account name can't be read either (502).
+    browser to `/setup`. Anything that goes wrong stores nothing and
+    redirects to `/setup?error=<code>` (`SetupErrorCode`): the person is
+    in a browser tab, and a JSON body would be a dead end. The forge's own
+    error text is never echoed.
 
     Args:
         code (str | Unset):

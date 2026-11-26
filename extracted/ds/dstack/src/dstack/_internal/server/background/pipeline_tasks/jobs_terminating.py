@@ -13,6 +13,7 @@ from dstack._internal.core.backends.base.backend import Backend
 from dstack._internal.core.backends.base.compute import ComputeWithVolumeSupport
 from dstack._internal.core.consts import DSTACK_RUNNER_HTTP_PORT, DSTACK_SHIM_HTTP_PORT
 from dstack._internal.core.errors import BackendError
+from dstack._internal.core.models.gateways import GatewayReplicaStatus
 from dstack._internal.core.models.instances import InstanceStatus, InstanceTerminationReason
 from dstack._internal.core.models.runs import (
     JobProvisioningData,
@@ -41,16 +42,21 @@ from dstack._internal.server.background.pipeline_tasks.base import (
 )
 from dstack._internal.server.db import get_db, get_session_ctx
 from dstack._internal.server.models import (
+    GatewayReplicaModel,
     InstanceModel,
     JobModel,
     ProjectModel,
     RunModel,
+    ServiceReplicaRegistrationModel,
     VolumeAttachmentModel,
     VolumeModel,
 )
 from dstack._internal.server.services import events
 from dstack._internal.server.services import logs as logs_services
 from dstack._internal.server.services.backends import cache as backends_cache
+from dstack._internal.server.services.gateways import (
+    skip_gateway_replicas_min_processing_interval,
+)
 from dstack._internal.server.services.instances import (
     emit_instance_status_change_event,
     get_instance_ssh_private_keys,
@@ -86,6 +92,11 @@ logger = get_logger(__name__)
 # Covers the runner's own termination staging -- SIGHUP after 5s, SIGKILL after 10s -- and the
 # final log flush that follows it.
 JOB_TERMINATION_DEADLINE = timedelta(seconds=30)
+
+# How long a service replica waits to be unregistered from gateway replicas before it is
+# terminated anyway. Gateway replicas normally unregister it within seconds, but one that cannot
+# be reached keeps it registered for as long as it stays unreachable.
+JOB_UNREGISTER_TIMEOUT = timedelta(minutes=1)
 
 
 @dataclass
@@ -294,6 +305,8 @@ class JobTerminatingWorker(Worker[JobTerminatingPipelineItem]):
             and result.instance_update_map.get("status") == InstanceStatus.TERMINATING
         ):
             self._pipeline_hinter.hint_fetch(InstanceModel.__name__)
+        if result.sync_gateway_replicas:
+            self._pipeline_hinter.hint_fetch(GatewayReplicaModel.__name__)
         # TODO: Hint RunPipeline to quickly move run to TERMINATED.
         # Currently not implemented since it also requires making run eligible for processing.
         # (This pipeline cannot modify runs so it's not simple).
@@ -309,6 +322,7 @@ class _JobUpdateMap(ItemUpdateMap, total=False):
     volumes_detached_at: UpdateMapDateTime
     registered: bool
     remove_at: UpdateMapDateTime
+    unregister_deadline: UpdateMapDateTime
 
 
 class _InstanceUpdateMap(ItemUpdateMap, total=False):
@@ -331,15 +345,17 @@ class _ProcessResult:
     instance_update_map: Optional[_InstanceUpdateMap] = None
     delete_instance: bool = False
     volume_update_rows: list[_VolumeUpdateRow] = field(default_factory=list)
-    detached_volume_ids: set[uuid.UUID] = field(default_factory=set)
+    detached_volumes: list[VolumeModel] = field(default_factory=list)
     unassign_event_message: Optional[str] = None
     graceful_stop_event_message: Optional[str] = None
+    sync_gateway_replicas: bool = False
+    """Whether to sync the run's gateway replicas without waiting for their next scheduled sync"""
 
 
 @dataclass
 class _VolumeDetachResult:
     all_detached: bool
-    detached_volume_ids: set[uuid.UUID] = field(default_factory=set)
+    detached_volumes: list[VolumeModel] = field(default_factory=list)
     set_volumes_detached_at: bool = False
 
 
@@ -514,6 +530,10 @@ async def _apply_process_result(
                 )
             return
 
+        if result.sync_gateway_replicas and job_model.run.gateway_id is not None:
+            # Cross-pipeline write is ok: worst case skip_min_processing_interval is overridden.
+            await skip_gateway_replicas_min_processing_interval(session, job_model.run.gateway_id)
+
         if instance_model is not None and result.delete_instance:
             res = await session.execute(
                 delete(InstanceModel)
@@ -555,13 +575,31 @@ async def _apply_process_result(
             # updates active attached volumes and/or the races are accepted.
             await session.execute(update(VolumeModel), result.volume_update_rows)
 
-        if result.detached_volume_ids and instance_model is not None:
-            await session.execute(
-                delete(VolumeAttachmentModel).where(
+        if result.detached_volumes and instance_model is not None:
+            res = await session.execute(
+                delete(VolumeAttachmentModel)
+                .where(
                     VolumeAttachmentModel.instance_id == instance_model.id,
-                    VolumeAttachmentModel.volume_id.in_(result.detached_volume_ids),
+                    VolumeAttachmentModel.volume_id.in_([v.id for v in result.detached_volumes]),
                 )
+                .returning(VolumeAttachmentModel.volume_id)
             )
+            deleted_attachment_volume_ids = set(res.scalars().all())
+            for volume_model in result.detached_volumes:
+                if volume_model.id not in deleted_attachment_volume_ids:
+                    # Only emit events for attachments deleted now. Volumes detached on earlier
+                    # passes are reported as detached again while other volumes are still detaching.
+                    continue
+                events.emit(
+                    session,
+                    "Volume detached from instance",
+                    actor=events.SystemActor(),
+                    targets=[
+                        events.Target.from_model(volume_model),
+                        events.Target.from_model(instance_model),
+                        events.Target.from_model(job_model),
+                    ],
+                )
 
         emit_job_status_change_event(
             session=session,
@@ -639,10 +677,11 @@ async def _process_terminating_job(
 ) -> _ProcessResult:
     """
     Terminates the job:
-        1. tells the runner to stop the job's command
-        2. tells the shim to stop the container
-        3. detaches the job from the instance
-        4. and detaches volumes from the instance.
+        1. waits until gateway replicas stop routing requests to it
+        2. tells the runner to stop the job's command
+        3. tells the shim to stop the container
+        4. detaches the job from the instance
+        5. and detaches volumes from the instance.
     """
     instance_update_map = None if instance_model is None else _InstanceUpdateMap()
     result = _ProcessResult(instance_update_map=instance_update_map)
@@ -663,8 +702,19 @@ async def _process_terminating_job(
         result.job_update_map["status"] = _get_job_termination_status(job_model)
         return result
 
-    if job_model.remove_at is None:
-        # The first terminating pass. `graceful_termination_attempts` decides whether the runner
+    if _is_aborted(job_model):
+        # An aborted job is not asked to stop, so it keeps running and the runner never runs out
+        # of logs to hand over. Collect what it has buffered so far, but do not wait for more.
+        if _has_logs_to_drain(job_model):
+            await _drain_job_logs(
+                job_model=job_model,
+                instance_model=instance_model,
+                job_update_map=result.job_update_map,
+            )
+    elif job_model.remove_at is None:
+        if await _should_wait_for_unregistration(job_model=job_model, result=result):
+            return result
+        # Termination starts. `graceful_termination_attempts` decides whether the runner
         # is asked to stop the job; `remove_at` decides when the container is killed regardless.
         # The two are independent: a job that has already finished on its own is not asked to
         # stop, but its logs are still drained below.
@@ -712,7 +762,7 @@ async def _process_terminating_job(
         instance_model=instance_model,
         job_provisioning_data=jpd,
     )
-    result.detached_volume_ids = detach_result.detached_volume_ids
+    result.detached_volumes = detach_result.detached_volumes
     if detach_result.set_volumes_detached_at:
         result.job_update_map["volumes_detached_at"] = NOW_PLACEHOLDER
 
@@ -739,6 +789,66 @@ async def _process_terminating_job(
     if detach_result.all_detached:
         result.job_update_map["status"] = _get_job_termination_status(job_model)
     return result
+
+
+def _is_aborted(job_model: JobModel) -> bool:
+    """
+    Whether the job is to be terminated without waiting for it to finish.
+
+    The run's reason is checked too: the run pipeline does not update jobs that are already
+    terminating, so a job of a run aborted after it was stopped keeps its graceful reason.
+    """
+    return (
+        job_model.termination_reason == JobTerminationReason.ABORTED_BY_USER
+        or job_model.run.termination_reason == RunTerminationReason.ABORTED_BY_USER
+    )
+
+
+async def _should_wait_for_unregistration(job_model: JobModel, result: _ProcessResult) -> bool:
+    """
+    Whether to keep the job running until gateway replicas stop routing requests to it.
+
+    Until then, stopping the job would fail the requests that gateway replicas still send to it.
+    The wait is capped by `unregister_deadline`, since a gateway replica that cannot be reached
+    keeps the job registered for as long as it stays unreachable.
+    """
+    if not job_model.registered:
+        return False
+    gateway_replica_names = await _get_registered_gateway_replica_names(job_model)
+    if len(gateway_replica_names) == 0:
+        return False
+    now = get_current_datetime()
+    if job_model.unregister_deadline is None:
+        result.job_update_map["unregister_deadline"] = now + JOB_UNREGISTER_TIMEOUT
+        result.sync_gateway_replicas = True
+        return True
+    if now < job_model.unregister_deadline:
+        return True
+    logger.warning(
+        "%s: still registered on gateway replicas %s, terminating anyway",
+        fmt(job_model),
+        ", ".join(gateway_replica_names),
+    )
+    return False
+
+
+async def _get_registered_gateway_replica_names(job_model: JobModel) -> list[str]:
+    async with get_session_ctx() as session:
+        res = await session.execute(
+            select(GatewayReplicaModel.name)
+            .join(
+                ServiceReplicaRegistrationModel,
+                ServiceReplicaRegistrationModel.gateway_replica_id == GatewayReplicaModel.id,
+            )
+            .where(
+                ServiceReplicaRegistrationModel.job_id == job_model.id,
+                ServiceReplicaRegistrationModel.is_registered == True,
+                # Only running gateway replicas are synced, the others would never unregister it
+                GatewayReplicaModel.status == GatewayReplicaStatus.RUNNING,
+            )
+            .order_by(GatewayReplicaModel.name)
+        )
+        return list(res.scalars().all())
 
 
 def _has_logs_to_drain(job_model: JobModel) -> bool:
@@ -843,7 +953,7 @@ async def _process_job_volumes_detaching(
         instance_model=instance_model,
         job_provisioning_data=jpd,
     )
-    result.detached_volume_ids = detach_result.detached_volume_ids
+    result.detached_volumes = detach_result.detached_volumes
     if detach_result.all_detached:
         result.job_update_map["status"] = _get_job_termination_status(job_model)
     return result
@@ -974,7 +1084,7 @@ async def _detach_volumes_from_job_instance(
             )
             return _VolumeDetachResult(all_detached=False)
 
-        detached_volume_ids = set()
+        detached_volumes = []
         all_detached = True
         for volume_model in volume_models:
             detached = await _detach_volume_from_job_instance(
@@ -987,13 +1097,13 @@ async def _detach_volumes_from_job_instance(
                 run_termination_reason=run_termination_reason,
             )
             if detached:
-                detached_volume_ids.add(volume_model.id)
+                detached_volumes.append(volume_model)
             else:
                 all_detached = False
 
     return _VolumeDetachResult(
         all_detached=all_detached,
-        detached_volume_ids=detached_volume_ids,
+        detached_volumes=detached_volumes,
         set_volumes_detached_at=job_model.volumes_detached_at is None,
     )
 

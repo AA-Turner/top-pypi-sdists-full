@@ -1,9 +1,12 @@
 """Resume Claude conversations in their directory or a surviving parent."""
 
 import os
+import shlex
 import sys
 from pathlib import Path
 
+from .. import docs
+from ..config import load_config
 from ..inbox import db
 from ..inbox.channel import UnidentifiedSession, channel_id
 from ..resume_directory import surviving_directory
@@ -56,24 +59,51 @@ def _resume_context(session_id: str) -> tuple[str, str]:
     return directory, str(transcripts[0])
 
 
+def _docs_flags(session_id: str, project: str, claude_args: list[str]) -> list[str]:
+    """The flags that give the resumed session the docs of its mode, with the environment
+    its hooks read; none when *claude_args* bring their own system prompt file or settings."""
+    if {"--append-system-prompt-file", "--settings"} & set(claude_args):
+        return []
+
+    given = docs.launch.resumed(
+        session_id, Path(project), load_config(), shlex.join(["claude", *claude_args])
+    )
+    if given.warning:
+        print(given.warning, file=sys.stderr)
+    for name in (docs.start.START_ENV, docs.mode.ENV):  # a resume from a lemon's own shell
+        os.environ.pop(name, None)
+    os.environ.update(given.environment)
+    return list(given.claude_flags)
+
+
 def resume_session(session_id: str, prompt: str = "") -> None:
     """cd to the correct project directory and exec claude --resume, starting on *prompt* if given."""
     project, target = _resume_context(session_id)
     os.chdir(project)
-    os.execvp("claude", ["claude", "--resume", target, *([prompt] if prompt else [])])
+    os.execvp(
+        "claude",
+        [
+            "claude",
+            *_docs_flags(session_id, project, []),
+            "--resume",
+            target,
+            *([prompt] if prompt else []),
+        ],
+    )
 
 
 def forward_to_claude(claude_args: list[str]) -> None:
     """Forward args to claude, resolving --resume to the correct project dir.
 
     If --resume is among the args, looks up the project directory and cd's
-    there before exec'ing. Other args are passed through verbatim.
+    there before exec'ing, and adds the flags that give the session the docs of its
+    mode. Other args are passed through verbatim.
     """
     for i, arg in enumerate(claude_args):
         if arg == "--resume" and i + 1 < len(claude_args):
             project, target = _resume_context(claude_args[i + 1])
-            claude_args = [*claude_args]
-            claude_args[i + 1] = target
+            claude_args = [*_docs_flags(claude_args[i + 1], project, claude_args), *claude_args]
+            claude_args[claude_args.index("--resume") + 1] = target
             os.chdir(project)
             break
 

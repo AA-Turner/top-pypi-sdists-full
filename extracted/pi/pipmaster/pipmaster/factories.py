@@ -21,7 +21,13 @@ from .backends import UvPackageManager, CondaPackageManager
 _default_pm = None
 
 
-def get_pip_manager(python_executable: Optional[str] = None, venv_path: Optional[str] = None, create_if_not_exist: bool = False) -> PackageManager:
+def get_pip_manager(
+    python_executable: Optional[str] = None,
+    venv_path: Optional[str] = None,
+    create_if_not_exist: bool = False,
+    use_uv: Optional[bool] = None,
+    uv_executable: Optional[str] = None,
+) -> PackageManager:
     """
     Gets a PackageManager instance, potentially targeting a specific Python environment.
 
@@ -31,14 +37,23 @@ def get_pip_manager(python_executable: Optional[str] = None, venv_path: Optional
         venv_path (str, optional): Path to a virtual environment to use.
         create_if_not_exist (bool, optional): If True and venv_path is provided,
             creates the virtual environment if it doesn't exist. Defaults to False.
+        use_uv (bool, optional): True requires uv, False forces pip, and None
+            automatically uses uv only for uv-managed environments.
+        uv_executable (str, optional): Explicit uv executable name or path.
 
     Returns:
         PackageManager: An instance configured for the target environment.
     """
     global _default_pm
 
-    if python_executable or venv_path:
-        return PackageManager(python_executable=python_executable, venv_path=venv_path, create_if_not_exist=create_if_not_exist)
+    if python_executable or venv_path or use_uv is not None or uv_executable:
+        return PackageManager(
+            python_executable=python_executable,
+            venv_path=venv_path,
+            create_if_not_exist=create_if_not_exist,
+            use_uv=use_uv,
+            uv_executable=uv_executable,
+        )
 
     if _default_pm is None:
         _default_pm = PackageManager()
@@ -46,7 +61,13 @@ def get_pip_manager(python_executable: Optional[str] = None, venv_path: Optional
     return _default_pm
 
 
-def get_pip_manager_for_version(target_python_version: str, venv_path: str, create_if_not_exist: bool = True) -> PackageManager:
+def get_pip_manager_for_version(
+    target_python_version: str,
+    venv_path: str,
+    create_if_not_exist: bool = True,
+    use_uv: Optional[bool] = None,
+    uv_executable: Optional[str] = None,
+) -> PackageManager:
     """
     Creates a PackageManager that targets a specific Python version.
 
@@ -78,7 +99,13 @@ def get_pip_manager_for_version(target_python_version: str, venv_path: str, crea
 
     logger.info(f"Using portable Python {target_python_version} at: {python_exe}")
 
-    return PackageManager(python_executable=python_exe, venv_path=venv_path, create_if_not_exist=create_if_not_exist)
+    return PackageManager(
+        python_executable=python_exe,
+        venv_path=venv_path,
+        create_if_not_exist=create_if_not_exist,
+        use_uv=use_uv,
+        uv_executable=uv_executable,
+    )
 
 
 def get_uv_manager(environment_path: Optional[str] = None) -> UvPackageManager:

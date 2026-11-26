@@ -1,14 +1,17 @@
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, Literal, cast
+from urllib.parse import urlencode
 from uuid import UUID
 
 import orjson
 import structlog
+from starlette.datastructures import QueryParams
 from starlette.exceptions import HTTPException
 from starlette.responses import Response, StreamingResponse
 
 from langgraph_api.asyncio import ValueEvent
+from langgraph_api.errors import UserInterrupt
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.graph import _validate_assistant_id
 from langgraph_api.models.run import create_valid_run
@@ -16,6 +19,7 @@ from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import (
     CRON_FIELDS,
     RUN_FIELDS,
+    Run,
 )
 from langgraph_api.serde import json_dumpb, json_loads
 from langgraph_api.sse import EventSourceResponse
@@ -24,6 +28,7 @@ from langgraph_api.utils import (
     get_pagination_headers,
     uuid7,
     validate_select_columns,
+    validate_stream_id,
     validate_timezone,
     validate_uuid,
 )
@@ -73,6 +78,53 @@ def parse_stream_mode_param(stream_mode_param: str | None) -> list[str]:
             pass
     # Single value
     return [stream_mode_param]
+
+
+# 32 `tools:<uuid>` values keep the query near 1.8 KB, under the 8 KB many
+# proxies allow, and the Go core's per-event check, which tries each value,
+# under 100 ns.
+MAX_STREAM_NAMESPACES = 32
+
+
+def parse_stream_namespaces(params: QueryParams) -> list[str]:
+    """The ``namespace`` params: the conversations a run stream keeps.
+
+    Each is a "|"-joined namespace ("" is the root graph), kept without the
+    subagents it starts.
+    """
+    namespaces = list(dict.fromkeys(params.getlist("namespace")))
+    if len(namespaces) > MAX_STREAM_NAMESPACES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"At most {MAX_STREAM_NAMESPACES} namespace values are allowed",
+        )
+    if any(ns and "" in ns.split("|") for ns in namespaces):
+        raise HTTPException(
+            status_code=422, detail="Invalid namespace: it has an empty segment"
+        )
+    return namespaces
+
+
+def stream_namespace_query(params: QueryParams) -> str:
+    """The ``namespace`` params as the query of a run stream's reconnect ``Location``.
+
+    A run-creating request ignores its other query params, so they must not
+    reach the join a reconnect makes.
+    """
+    query = urlencode([("namespace", ns) for ns in params.getlist("namespace")])
+    return f"?{query}" if query else ""
+
+
+def stream_namespace_kwargs(params: QueryParams) -> dict[str, list[str]]:
+    """``Runs.Stream.join`` kwargs for the request's ``namespace`` params.
+
+    Every runtime rejects a bad value, but only the Go core filters by
+    namespace, so the Python in-memory runtime gets none and streams everything.
+    """
+    namespaces = parse_stream_namespaces(params)
+    if not namespaces or not IS_POSTGRES_OR_GRPC_BACKEND:
+        return {}
+    return {"namespaces": namespaces}
 
 
 # Type alias for stream handlers (GrpcStreamHandler or ContextQueue).
@@ -203,6 +255,102 @@ class _RunResult:
         return self._interrupt_chunks[-1]
 
 
+async def _read_ended_run(run_id: UUID, thread_id: UUID) -> Run | None:
+    async with connect() as conn:
+        try:
+            return await fetchone(
+                await Runs.get(
+                    conn,
+                    run_id,
+                    thread_id=thread_id,
+                    read_mask_paths=["status", "cancel_reason"],
+                )
+            )
+        except HTTPException as e:
+            # A rolled-back or deleted run has no ending left to report.
+            if e.status_code == 404:
+                return None
+            raise
+
+
+async def _ended_run_error(run: Run) -> bytes | None:
+    # Only a cancel leaves a run interrupted: a graph interrupt ends the
+    # run as success and interrupts its thread instead.
+    if run["status"] == "interrupted":
+        reason = run.get("cancel_reason")
+        return json_dumpb(UserInterrupt(reason) if reason else UserInterrupt())
+    if run["status"] not in ("error", "timeout"):
+        return None
+    async with connect() as conn:
+        try:
+            # The run row has no error field, and the thread keeps only its latest
+            # failure: it's this run's only while no later run exists.
+            latest = await fetchone(
+                await Runs.search(conn, run["thread_id"], limit=1, select=["run_id"])
+            )
+            if latest["run_id"] != run["run_id"]:
+                return None
+            thread = await fetchone(
+                await Threads.get(
+                    conn, run["thread_id"], read_mask_paths=["status", "error"]
+                )
+            )
+        except HTTPException as e:
+            # A deleted run has no ending left to report, and a user who may not
+            # list the thread's runs can't be told which failure is this run's.
+            if e.status_code in (403, 404):
+                return None
+            raise
+    if thread["status"] != "error":
+        return None
+    return json_dumpb(json_loads(thread["error"]))
+
+
+async def _join_with_outcome(
+    run_id: UUID, *, thread_id: UUID, end: bool = False, **join_kwargs: Any
+) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
+    """`Runs.Stream.join`, ending with how the run ended when the join didn't say.
+
+    A join gets no events from a run cancelled before it started, or from a run
+    that ended before the join: without Last-Event-ID it replays nothing, and a
+    replay has nothing left once the run's events expire. Such a join ends with
+    the run's error. With `end`, a join also ends with an `end` event carrying
+    the run's final status whenever that status can be read.
+    """
+    joined_any = ended = False
+    async for event in Runs.Stream.join(run_id, thread_id=thread_id, **join_kwargs):
+        if ended:
+            # A resume can replay `end` after the run's row is gone, and the
+            # core then reports the missing run. Keep reading instead of
+            # closing: closing early would cancel an on_disconnect=cancel run
+            # whose row still says running.
+            continue
+        ended = event[0] == b"end"
+        # `metadata` only starts an attempt and a `gap` only says events are missing,
+        # so a join that saw just those still needs the run's ending.
+        joined_any = joined_any or event[0] not in (b"metadata", b"gap")
+        yield event
+    if ended or (joined_any and not end):
+        return
+    try:
+        run = await _read_ended_run(run_id, thread_id)
+        error = None if joined_any or run is None else await _ended_run_error(run)
+    except Exception:
+        if not end:
+            raise
+        # Raising would end the stream with an error event, which reads as a
+        # failed run; without an ending, the client asks the run instead.
+        await logger.awarning(
+            "Could not read how a run ended", run_id=str(run_id), exc_info=True
+        )
+        return
+    if error:
+        yield b"error", error, None
+    if end and run is not None and run["status"] not in ("pending", "running"):
+        end_data = {"run_id": run["run_id"], "status": run["status"]}
+        yield b"end", json_dumpb(end_data), None
+
+
 def _run_result_body(
     *,
     run_id: UUID,
@@ -218,7 +366,7 @@ def _run_result_body(
     async def consume() -> None:
         result = _RunResult(fallback)
         try:
-            async for mode, chunk, _ in Runs.Stream.join(
+            async for mode, chunk, _ in _join_with_outcome(
                 run_id,
                 stream_channel=sub,
                 cancel_on_disconnect=cancel_on_disconnect,
@@ -327,6 +475,7 @@ async def stream_run(
     """Create a run."""
     thread_id = request.path_params["thread_id"]
     payload = await request.json(RunCreateStreamingStateful)
+    namespace_kwargs = stream_namespace_kwargs(request.query_params)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
 
@@ -350,11 +499,13 @@ async def stream_run(
 
     async def body():
         try:
-            async for event, message, stream_id in Runs.Stream.join(
+            async for event, message, stream_id in _join_with_outcome(
                 run["run_id"],
                 thread_id=thread_id,
+                end=True,
                 cancel_on_disconnect=on_disconnect == "cancel",
                 stream_channel=cast("_StreamHandler", sub),
+                **namespace_kwargs,
             ):
                 yield event, message, stream_id
         finally:
@@ -364,7 +515,8 @@ async def stream_run(
     return EventSourceResponse(
         body(),
         headers={
-            "Location": f"/threads/{thread_id}/runs/{run['run_id']}/stream",
+            "Location": f"/threads/{thread_id}/runs/{run['run_id']}/stream"
+            + stream_namespace_query(request.query_params),
             "Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}",
         },
         on_close=lambda: sub.__aexit__(None, None, None),
@@ -376,6 +528,7 @@ async def stream_run_stateless(
 ):
     """Create a stateless run."""
     payload = await request.json(RunCreateStreamingStateless)
+    namespace_kwargs = stream_namespace_kwargs(request.query_params)
     payload["if_not_exists"] = "create"
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
@@ -402,12 +555,14 @@ async def stream_run_stateless(
 
     async def body():
         try:
-            async for event, message, stream_id in Runs.Stream.join(
+            async for event, message, stream_id in _join_with_outcome(
                 run["run_id"],
                 thread_id=run["thread_id"],
+                end=True,
                 ignore_404=True,
                 cancel_on_disconnect=on_disconnect == "cancel",
                 stream_channel=cast("_StreamHandler", sub),
+                **namespace_kwargs,
             ):
                 yield event, message, stream_id
         finally:
@@ -417,7 +572,8 @@ async def stream_run_stateless(
     return EventSourceResponse(
         body(),
         headers={
-            "Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}/stream",
+            "Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}/stream"
+            + stream_namespace_query(request.query_params),
             "Content-Location": f"/threads/{run['thread_id']}/runs/{run['run_id']}",
         },
         on_close=lambda: sub.__aexit__(None, None, None),
@@ -630,18 +786,44 @@ async def join_run_stream(request: ApiRequest):
         for mode in parse_stream_mode_param(value)
     ]
 
-    last_event_id = request.headers.get("last-event-id") or None
+    join_kwargs: dict[str, Any] = dict(stream_namespace_kwargs(request.query_params))
+    last_event_id = validate_stream_id(
+        request.headers.get("last-event-id") or None,
+        "Invalid last-event-id: must be a valid Redis stream ID",
+    )
+    checkpoint_id = request.query_params.get("checkpoint_id")
+    # A real Last-Event-ID, sent on a reconnect, wins over checkpoint_id, which is then
+    # neither validated nor used.
+    if last_event_id not in (None, "-"):
+        checkpoint_id = None
+    elif checkpoint_id is not None:
+        checkpoint_id = validate_uuid(
+            checkpoint_id, "Invalid checkpoint_id: must be a UUID"
+        )
+    # A resume replays what the client missed from the stream's cache, which
+    # outlives a run deleted as it ends (a stateless run), so it skips this
+    # check; the join still applies the auth filters before it replays.
+    if last_event_id is None:
+        await Runs.Stream.check_run_stream_auth(run_id, thread_id)
+    if checkpoint_id:
+        # Where the checkpoint goes unused, on the in-memory runtime or a core that
+        # predates it, "-" replays the whole run instead of streaming only new events.
+        last_event_id = "-"
+        if IS_POSTGRES_OR_GRPC_BACKEND:
+            join_kwargs["checkpoint_id"] = str(checkpoint_id)
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
 
     async def body():
-        sub = await Runs.Stream.subscribe(run_id, thread_id)
         try:
-            async for event, message, stream_id in Runs.Stream.join(
+            async for event, message, stream_id in _join_with_outcome(
                 run_id,
                 thread_id=thread_id,
+                end=True,
                 cancel_on_disconnect=cancel_on_disconnect,
                 stream_channel=cast("_StreamHandler", sub),
                 stream_mode=stream_mode,
                 last_event_id=last_event_id,
+                **join_kwargs,
             ):
                 yield event, message, stream_id
         finally:
@@ -658,7 +840,28 @@ async def join_run_stream(request: ApiRequest):
             "Location": location,
             "Content-Location": f"/threads/{thread_id}/runs/{run_id}",
         },
+        on_close=lambda: sub.__aexit__(None, None, None),
     )
+
+
+def _cancel_reason(
+    request: ApiRequest, action: Literal["interrupt", "rollback"]
+) -> str:
+    path = "/threads/{thread_id}/runs/{run_id}/cancel"
+    reason = request.query_params.get("reason")
+    if reason is None:
+        return f"{action} requested via POST {path}"
+    if reason != "taken":
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid cancellation reason: must be 'taken'",
+        )
+    if action != "interrupt":
+        raise HTTPException(
+            status_code=422,
+            detail="Cancellation reason 'taken' requires action 'interrupt'",
+        )
+    return f"taken: input absorbed for steering via POST {path}"
 
 
 @retry_db
@@ -678,6 +881,7 @@ async def cancel_run(
         action_str if action_str in {"interrupt", "rollback"} else "interrupt",
     )
 
+    reason = _cancel_reason(request, action)
     sub = await Runs.Stream.subscribe(run_id, thread_id) if wait else None
     try:
         async with connect() as conn:
@@ -686,7 +890,7 @@ async def cancel_run(
                 [run_id],
                 action=action,
                 thread_id=thread_id,
-                reason=f"{action} requested via POST /threads/{{thread_id}}/runs/{{run_id}}/cancel",
+                reason=reason,
             )
     except Exception:
         if sub is not None:
@@ -716,6 +920,12 @@ async def cancel_runs(
     request: ApiRequest,
 ):
     """Cancel a run."""
+    if "reason" in request.query_params:
+        # A batch can partly fail without reporting which runs it cancelled.
+        raise HTTPException(
+            status_code=422,
+            detail="Cancellation reason is only supported when cancelling a single run",
+        )
     body = await request.json(RunsCancel)
     status = body.get("status")
     if status:

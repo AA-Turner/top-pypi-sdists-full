@@ -168,7 +168,8 @@ def sync_detailed(
     request to another host, and a private repository's attachment loads
     without the forge token ever reaching the browser.
 
-    Only the forge the item belongs to is reached. Forgejo: the saved
+    Only the forge the item belongs to is reached, apart from the avatar
+    hosts named below for `kind=avatar`. Forgejo: the saved
     instance, with the saved token sent to that host only. GitHub:
     `github.com` and its user-content hosts (`user-images`,
     `private-user-images`, `raw`, `gist`, `avatars` and `repository-images`
@@ -187,6 +188,12 @@ def sync_detailed(
     address answers 403 without a request. A redirect is followed only to
     another allowed host, and at most three times. GitHub's hosts are also
     refused at connect time if they resolve to a non-public address.
+
+    With `kind=avatar` on either forge, four more hosts are allowed:
+    `gravatar.com`, `secure.gravatar.com`, `seccdn.libravatar.org` and
+    `cdn.libravatar.org`. They are fetched over https only, by exact name,
+    with no token and only at a public address, and a redirect off that list
+    is refused. Without `kind=avatar` they answer 403 like any other host.
 
     The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
     host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).
@@ -257,7 +264,8 @@ def sync(
     request to another host, and a private repository's attachment loads
     without the forge token ever reaching the browser.
 
-    Only the forge the item belongs to is reached. Forgejo: the saved
+    Only the forge the item belongs to is reached, apart from the avatar
+    hosts named below for `kind=avatar`. Forgejo: the saved
     instance, with the saved token sent to that host only. GitHub:
     `github.com` and its user-content hosts (`user-images`,
     `private-user-images`, `raw`, `gist`, `avatars` and `repository-images`
@@ -276,6 +284,12 @@ def sync(
     address answers 403 without a request. A redirect is followed only to
     another allowed host, and at most three times. GitHub's hosts are also
     refused at connect time if they resolve to a non-public address.
+
+    With `kind=avatar` on either forge, four more hosts are allowed:
+    `gravatar.com`, `secure.gravatar.com`, `seccdn.libravatar.org` and
+    `cdn.libravatar.org`. They are fetched over https only, by exact name,
+    with no token and only at a public address, and a redirect off that list
+    is refused. Without `kind=avatar` they answer 403 like any other host.
 
     The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
     host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).
@@ -341,7 +355,8 @@ async def asyncio_detailed(
     request to another host, and a private repository's attachment loads
     without the forge token ever reaching the browser.
 
-    Only the forge the item belongs to is reached. Forgejo: the saved
+    Only the forge the item belongs to is reached, apart from the avatar
+    hosts named below for `kind=avatar`. Forgejo: the saved
     instance, with the saved token sent to that host only. GitHub:
     `github.com` and its user-content hosts (`user-images`,
     `private-user-images`, `raw`, `gist`, `avatars` and `repository-images`
@@ -360,6 +375,12 @@ async def asyncio_detailed(
     address answers 403 without a request. A redirect is followed only to
     another allowed host, and at most three times. GitHub's hosts are also
     refused at connect time if they resolve to a non-public address.
+
+    With `kind=avatar` on either forge, four more hosts are allowed:
+    `gravatar.com`, `secure.gravatar.com`, `seccdn.libravatar.org` and
+    `cdn.libravatar.org`. They are fetched over https only, by exact name,
+    with no token and only at a public address, and a redirect off that list
+    is refused. Without `kind=avatar` they answer 403 like any other host.
 
     The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
     host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).
@@ -430,7 +451,8 @@ async def asyncio(
     request to another host, and a private repository's attachment loads
     without the forge token ever reaching the browser.
 
-    Only the forge the item belongs to is reached. Forgejo: the saved
+    Only the forge the item belongs to is reached, apart from the avatar
+    hosts named below for `kind=avatar`. Forgejo: the saved
     instance, with the saved token sent to that host only. GitHub:
     `github.com` and its user-content hosts (`user-images`,
     `private-user-images`, `raw`, `gist`, `avatars` and `repository-images`
@@ -449,6 +471,12 @@ async def asyncio(
     address answers 403 without a request. A redirect is followed only to
     another allowed host, and at most three times. GitHub's hosts are also
     refused at connect time if they resolve to a non-public address.
+
+    With `kind=avatar` on either forge, four more hosts are allowed:
+    `gravatar.com`, `secure.gravatar.com`, `seccdn.libravatar.org` and
+    `cdn.libravatar.org`. They are fetched over https only, by exact name,
+    with no token and only at a public address, and a redirect off that list
+    is refused. Without `kind=avatar` they answer 403 like any other host.
 
     The body must be a PNG, JPEG, GIF or WebP by its own bytes, not by the
     host's `Content-Type`, and at most 8 MiB (512 KiB with `kind=avatar`).

@@ -1,6 +1,7 @@
 import importlib.util
 import os
 import sys
+import types
 
 import structlog
 
@@ -17,7 +18,21 @@ except KeyError:
         " - postgres\n"
         " - community\n"
     ) from None
-if importlib.util.find_spec(RUNTIME_PACKAGE):
+
+from langgraph_api.feature_flags import INMEM_USES_CORE  # noqa: E402
+
+if INMEM_USES_CORE:
+    # Go core persists everything; Python only runs graphs.
+    backend = types.SimpleNamespace(
+        checkpoint=importlib.import_module("langgraph_api.runtime.checkpoint"),
+        database=importlib.import_module("langgraph_api.runtime.database"),
+        encryption=importlib.import_module("langgraph_api.runtime.encryption"),
+        ops=importlib.import_module("langgraph_api.grpc.ops"),
+        routes=importlib.import_module("langgraph_api.runtime.routes"),
+        store=importlib.import_module("langgraph_api.runtime.store"),
+    )
+    logger.info("Using the in-memory runtime on Go core")
+elif importlib.util.find_spec(RUNTIME_PACKAGE):
     backend = importlib.import_module(RUNTIME_PACKAGE)
     logger.info(f"Using {RUNTIME_PACKAGE}")
 else:
@@ -38,5 +53,9 @@ for module_name in (
     "routes",
 ):
     mod = getattr(backend, module_name, None)
+    if mod is None and module_name in ("lifespan", "retry", "metrics"):
+        # The shared modules import the backend modules registered above.
+        mod = importlib.import_module("langgraph_api.runtime." + module_name)
     if mod is not None:
+        globals()[module_name] = mod
         sys.modules["langgraph_runtime." + module_name] = mod

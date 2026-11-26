@@ -1,3 +1,4 @@
+import asyncio
 import re
 import uuid
 from datetime import datetime, timezone
@@ -93,6 +94,28 @@ def sample_model_options(name: str = "test-model") -> dict:
             }
         }
     }
+
+
+def hold_drains(mocks: Mocks) -> asyncio.Event:
+    """Keep the connections of removed replicas draining until the returned event is set."""
+    drained = asyncio.Event()
+
+    async def wait_until_idle(socket_path: Path) -> bool:
+        await drained.wait()
+        return True
+
+    mocks.wait_until_idle.side_effect = wait_until_idle
+    return drained
+
+
+async def wait_for_closed_connections(mocks: Mocks, count: int) -> None:
+    """Wait for drained connections, which are closed in the background."""
+
+    async def closed() -> None:
+        while mocks.close_conn.await_count < count:
+            await asyncio.sleep(0)
+
+    await asyncio.wait_for(closed(), timeout=5)
 
 
 @pytest.mark.asyncio
@@ -311,6 +334,9 @@ class TestRegisterService:
         conf = (tmp_path / "sites-enabled" / "443-test-run.gtw.test.conf").read_text()
         assert "auth_request /_dstack_auth;" in conf
         assert "proxy_pass http://localhost:8000/api/auth/test-proj;" in conf
+        assert 'proxy_set_header traceparent "";' in conf
+        assert 'proxy_set_header tracestate "";' in conf
+        assert 'proxy_set_header baggage "";' in conf
 
     async def test_register_same_name_error(self, tmp_path: Path, system_mocks: Mocks) -> None:
         client = make_client(tmp_path)
@@ -656,6 +682,7 @@ class TestUnregisterService:
         assert system_mocks.reload_nginx.call_count == 0
 
     async def test_unregister_with_replicas(self, tmp_path: Path, system_mocks: Mocks) -> None:
+        drained = hold_drains(system_mocks)
         client = make_client(tmp_path)
         # register service
         resp = await client.post(
@@ -676,7 +703,10 @@ class TestUnregisterService:
         assert resp.status_code == 200
         assert not (tmp_path / "sites-enabled" / "443-test-run.gtw.test.conf").exists()
         assert system_mocks.reload_nginx.call_count == 4
-        assert system_mocks.close_conn.call_count == 2
+        # Requests already sent to the replicas can still finish
+        system_mocks.close_conn.assert_not_awaited()
+        drained.set()
+        await wait_for_closed_connections(system_mocks, 2)
 
     async def test_unregister_with_model(self, tmp_path: Path, system_mocks: Mocks) -> None:
         repo = GatewayProxyRepo()
@@ -698,6 +728,7 @@ class TestUnregisterService:
 @pytest.mark.asyncio
 class TestUnregisterReplica:
     async def test_unregister(self, tmp_path: Path, system_mocks: Mocks) -> None:
+        drained = hold_drains(system_mocks)
         client = make_client(tmp_path)
         # register service
         resp = await client.post(
@@ -725,7 +756,11 @@ class TestUnregisterReplica:
         assert "replica xxx-xxx" in conf
         assert "replica yyy-yyy" not in conf
         assert system_mocks.reload_nginx.call_count == 4
-        assert system_mocks.close_conn.call_count == 1
+        # Requests already sent to the replica can still finish
+        system_mocks.close_conn.assert_not_awaited()
+        drained.set()
+        await wait_for_closed_connections(system_mocks, 1)
+        system_mocks.wait_until_idle.assert_awaited_once()
 
     async def test_unregister_no_replica_error(self, tmp_path: Path, system_mocks: Mocks) -> None:
         client = make_client(tmp_path)
@@ -772,7 +807,10 @@ class TestRegisterEntrypoint:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
         conf = (tmp_path / "sites-enabled" / "443-gateway.gtw.test.conf").read_text()
-        assert "proxy_pass http://localhost:8000/api/models/test-proj/;" in conf
+        assert "proxy_pass http://localhost:8000/api/models/;" in conf
+        assert 'proxy_set_header traceparent "";' in conf
+        assert 'proxy_set_header tracestate "";' in conf
+        assert 'proxy_set_header baggage "";' in conf
         assert "listen 80;" in conf
         assert "listen 443" not in conf
         assert system_mocks.reload_nginx.call_count == 1
@@ -799,8 +837,56 @@ class TestRegisterEntrypoint:
         )
         assert resp.status_code == 200
         conf = (tmp_path / "sites-enabled" / "443-gateway.gtw.test.conf").read_text()
-        assert "proxy_pass http://localhost:8000/api/models/test-proj/;" in conf
+        assert "proxy_pass http://localhost:8000/api/models/;" in conf
         assert "listen 80;" in conf
         assert "listen 443 ssl;" in conf
         assert system_mocks.reload_nginx.call_count == 1
         assert system_mocks.run_certbot.call_count == 1
+
+
+@pytest.mark.asyncio
+class TestImports:
+    async def test_register_list_unregister(self, tmp_path: Path) -> None:
+        client = make_client(tmp_path)
+        export_id = uuid.uuid4().hex
+        assert (await client.get("/api/registry/imports/list")).json() == {"imports": []}
+        for _ in range(2):  # registering an import again changes nothing
+            resp = await client.post(
+                "/api/registry/Importer-Proj/imports/register",
+                json={
+                    "export_id": export_id,
+                    "exporter_project": "Exporter-Proj",
+                    "name": "Test/Model",
+                },
+            )
+            assert resp.status_code == 200
+            assert resp.json() == {"status": "ok"}
+        imports = {
+            "imports": [
+                {
+                    "importer_project": "importer-proj",
+                    "export_id": export_id,
+                    "exporter_project": "exporter-proj",
+                    "name": "Test/Model",
+                }
+            ]
+        }
+        resp = await client.get("/api/registry/imports/list")
+        assert resp.status_code == 200
+        assert resp.json() == imports
+
+        # The project imports the model through this export, not through the given one.
+        resp = await client.post(
+            "/api/registry/Importer-Proj/imports/unregister",
+            json={"export_id": uuid.uuid4().hex, "name": "Test/Model"},
+        )
+        assert resp.status_code == 200
+        assert (await client.get("/api/registry/imports/list")).json() == imports
+
+        resp = await client.post(
+            "/api/registry/Importer-Proj/imports/unregister",
+            json={"export_id": export_id, "name": "Test/Model"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+        assert (await client.get("/api/registry/imports/list")).json() == {"imports": []}

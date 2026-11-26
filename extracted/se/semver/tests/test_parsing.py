@@ -3,6 +3,28 @@ import pytest
 from semver import Version, parse, parse_version_info
 
 
+@pytest.mark.parametrize("as_bytes", [False, True])
+@pytest.mark.parametrize("optional_minor_and_patch", [False, True])
+def test_parse_version_length_limit(as_bytes, optional_minor_and_patch):
+    version = "1.2.3+" + "a" * (Version.MAX_LENGTH - len("1.2.3+"))
+    accepted = version.encode("utf-8") if as_bytes else version
+    rejected = accepted + (b"a" if as_bytes else "a")
+
+    assert str(Version.parse(accepted, optional_minor_and_patch)) == version
+    with pytest.raises(ValueError, match="maximum length"):
+        Version.parse(rejected, optional_minor_and_patch)
+    assert not Version.is_valid(rejected)
+
+
+def test_parse_rejects_long_versions_before_native_backend(monkeypatch):
+    def unexpected_backend(version):
+        pytest.fail("Oversized input must not reach the native backend")
+
+    monkeypatch.setattr("semver.version._native_parse_parts", unexpected_backend)
+    with pytest.raises(ValueError, match="maximum length"):
+        Version.parse("1.2.3+" + "a" * Version.MAX_LENGTH)
+
+
 @pytest.mark.parametrize(
     "version,expected",
     [
@@ -161,6 +183,37 @@ def test_equal_versions_have_equal_hashes():
     s = set()
     s.add(v1)
     assert v2 in s
+
+
+@pytest.mark.parametrize(
+    "prerelease_a,prerelease_b",
+    [
+        # no. 1: zero-padded numeric identifier
+        ("007", "7"),
+        # no. 2: zero-padded identifier among several
+        ("alpha.007.beta", "alpha.7.beta"),
+        # no. 3: non-ASCII digit normalizes to its decimal value
+        ("٧", "7"),
+        # no. 4: empty prerelease equals a missing one
+        ("", None),
+    ],
+)
+def test_equal_prereleases_have_equal_hashes(prerelease_a, prerelease_b):
+    v1 = Version(1, 2, 3, prerelease=prerelease_a)
+    v2 = Version(1, 2, 3, prerelease=prerelease_b)
+    assert v1 == v2
+    assert hash(v1) == hash(v2)
+    assert len({v1, v2}) == 1
+    assert {v1: "found"}[v2] == "found"
+
+
+def test_should_treat_superscript_digit_as_alphanumeric_identifier():
+    # "²" satisfies str.isdigit() but not str.isdecimal(), and int("²")
+    # raises ValueError. It must be treated as an alphanumeric identifier:
+    # numeric identifiers always have lower precedence than non-numeric ones.
+    v = Version(1, 2, 3, prerelease="²")
+    assert Version(1, 2, 3, prerelease="7") < v
+    assert isinstance(hash(v), int)
 
 
 def test_parse_method_for_version_info():

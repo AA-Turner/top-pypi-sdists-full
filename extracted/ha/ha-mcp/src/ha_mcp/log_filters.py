@@ -43,7 +43,7 @@ class StatelessSessionLogFilter(logging.Filter):
             return True
         try:
             message = record.getMessage()
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             # A malformed %-format record on this logger is not our target, and
             # a filter must not raise: filters run in Logger.handle() with no
             # exception handling, so a raise would crash the logging call.
@@ -140,7 +140,7 @@ def _add_filter_once(logger_name: str, filter_cls: type[logging.Filter]) -> None
     named logger's filter list) persists across those reloads. Each reload
     also re-imports this module from scratch (the embedded server purges
     ``ha_mcp.*`` from ``sys.modules`` before reinstalling -- see
-    ``_purge_ha_mcp_modules``), so ``filter_cls`` is a BRAND NEW class object
+    ``purge_ha_mcp_modules``), so ``filter_cls`` is a BRAND NEW class object
     each time, even though its name is unchanged. A same-``isinstance``-check
     against a filter instance from a PREVIOUS generation would therefore
     never match, letting filters accumulate one more stale instance per

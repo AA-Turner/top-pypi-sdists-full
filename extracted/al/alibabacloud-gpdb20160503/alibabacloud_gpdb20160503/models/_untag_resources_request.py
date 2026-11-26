@@ -19,32 +19,32 @@ class UntagResourcesRequest(DaraModel):
         resource_type: str = None,
         tag_key: List[str] = None,
     ):
-        # Whether to untag all tags on the instance. This parameter is only effective when TagKey.N is not set in the request. The value range is:
+        # Specifies whether to detach all tags from the instances. This parameter is valid only when TagKey.N is not specified in the request. Valid values:
         # 
         # - true
         # - false
         # 
-        # Default value: false
+        # Default value: false.
         self.all = all
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # Region ID, you can view available region IDs through the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) interface.
+        # The region ID. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # Instance ID. N\\"s value range: 1~50
+        # The instance ID. Valid values of N: 1 to 50.
         # 
         # This parameter is required.
         self.resource_id = resource_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # Resource type. The value range is:
-        # - `instance`: Reserved mode instance.
-        # - `ALIYUN::GPDB::INSTANCE`: Elastic mode instance.
+        # The resource type. Valid values:
+        # - `instance`: reserved mode instance.
+        # - `ALIYUN::GPDB::INSTANCE`: elastic mode instance.
         # 
         # This parameter is required.
         self.resource_type = resource_type
-        # Resource tag key. N\\"s value range: 1~20
+        # The tag key of the resource. Valid values of N: 1 to 20.
         self.tag_key = tag_key
 
     def validate(self):

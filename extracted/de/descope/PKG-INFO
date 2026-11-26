@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: descope
-Version: 2.18.0
+Version: 2.19.0
 Summary: Descope Python SDK
 Author: Descope
 Author-email: Descope <info@descope.com>
@@ -124,7 +124,7 @@ These sections show how to use the SDK to perform permission and user management
 19. [Manage Management Keys](#manage-management-keys)
 20. [Manage Engines](#manage-engines)
 
-If you wish to run any of our code samples and play with them, check out our [Code Examples](#code-examples) section.
+If you wish to run any of our code samples and play with them, check out our [Code Samples](#code-samples) section.
 
 If you're performing end-to-end testing, check out the [Utils for your end to end (e2e) tests and integration tests](#utils-for-your-end-to-end-e2e-tests-and-integration-tests) section. You will need to use the `DescopeClient` object created under [Setup](#setup-1) guide.
 
@@ -556,6 +556,18 @@ invalidate all user's refresh tokens. After calling this function, you must inva
 
 ```python
 descope_client.logout_all(refresh_token)
+```
+
+If the user signed in through a tenant's SAML SSO configuration with single logout turned on, pass `sso_logout=True`
+(to `logout` or `logout_all`) to log them out at the identity provider (IdP) too. The response then holds `ssoLogoutUrl`:
+send the browser there. The IdP logs the user out and the browser comes back to `redirect_url`, which must be in the
+project's approved domains (omit it to use the SSO configuration's redirect URL). `ssoLogoutUrl` is absent when there is
+nothing to do at the IdP. The Descope session ends either way.
+
+```python
+res = descope_client.logout(refresh_token, sso_logout=True, redirect_url="https://your.domain.com/signed-out")
+sso_logout_url = res.json().get("ssoLogoutUrl")
+# Redirect the browser to sso_logout_url when set, or straight to your signed-out page otherwise
 ```
 
 ### History
@@ -1146,6 +1158,25 @@ settings = SSOSAMLSettings(
     idp_entity_id="my-idp-entity-id",
     idp_cert="my-idp-certificate",
     disable_sign_request=True,
+)
+
+# A SAML assertion's audience must match the configuration's SP entity ID. For an IdP that sends a different audience
+# and cannot be changed, list the extra values it may send in accepted_audiences (both settings classes above take it).
+# Values match exactly (surrounding whitespace ignored), and "" accepts an empty audience. Up to 20 values.
+# Omitted (None) keeps the stored values, a list replaces them, and an empty list clears them.
+# load_settings returns them under "saml" as "acceptedAudiences".
+settings = SSOSAMLSettingsByMetadata(
+    idp_metadata_url="https://dummy.com/metadata",
+    accepted_audiences=["https://idp-sends-this-audience.com"],
+)
+
+# SAML Single Logout (SLO), off by default, lets a logout with sso_logout=True log the user out at the IdP too
+# (see Logging Out). Both settings classes above take it. Omitted (None) keeps the stored value.
+# load_settings returns it under "saml", along with "spSingleLogoutUrl": Descope's single logout URL to set in the IdP.
+settings = SSOSAMLSettingsByMetadata(
+    idp_metadata_url="https://dummy.com/metadata",
+    single_logout_enabled=True,
+    idp_single_logout_url="https://dummy.com/slo",  # Optional, the IdP's SingleLogoutService URL. Empty string: from the IdP metadata
 )
 
 # You can Configure SSO OIDC settings for a tenant manually.
@@ -1810,11 +1841,24 @@ full_app = descope_client.mgmt.outbound_application.create_application(
     callback_domain="myapp.com",
     pkce=True,  # Enable PKCE
     access_type=AccessType.OFFLINE,  # Request refresh tokens
-    prompt=prompts
+    prompt=prompts,
+)
+
+# Create an outbound application that uses Dynamic Client Registration (DCR) instead.
+# DCR registration only happens on create: the provider issues its own client_id/client_secret
+# and overwrites authorization_url, token_url, revocation_url, pkce and default_scopes with its
+# response, so don't set those fields when use_dcr is True.
+dcr_app = descope_client.mgmt.outbound_application.create_application(
+    name="My DCR App",
+    description="An outbound application registered via Dynamic Client Registration",
+    use_dcr=True,
+    dcr_url="https://auth.example.com/register",
 )
 
 # Update an outbound application with all parameters
 # Update will override all fields as is. Use carefully.
+# Update never performs DCR registration - it only runs on create. useDcr/dcrUrl are always sent,
+# so an update that omits them turns DCR off; pass back the app's current use_dcr/dcr_url to keep it on.
 descope_client.mgmt.outbound_application.update_application(
     id="my-app-id",
     name="my updated app",
@@ -1833,7 +1877,7 @@ descope_client.mgmt.outbound_application.update_application(
     callback_domain="myapp.com",
     pkce=True,
     access_type=AccessType.OFFLINE,
-    prompt=[PromptType.LOGIN, PromptType.CONSENT, PromptType.SELECT_ACCOUNT]
+    prompt=[PromptType.LOGIN, PromptType.CONSENT, PromptType.SELECT_ACCOUNT],
 )
 
 # Delete an outbound application by id

@@ -196,7 +196,7 @@ class _RetiringMCP(FastMCP):
         except Exception as exc:
             # Covers validation/unknown names and errors raised before a worker
             # result exists. Never echo an unbounded request or exception.
-            message = _bounded_error_text(exc)
+            message = _bounded_error_text(exc, tool=name)
             try:
                 minimum = Budget(512)
                 while not minimum.fits_text(message) and message:

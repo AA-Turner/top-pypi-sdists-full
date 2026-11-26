@@ -72,6 +72,7 @@ from . import (
     _wire_spec,
 )
 from . import _mesh_walk
+from ._identity_memo import IdentityMemo, frozen_tuple
 from . import bspline as _bspline
 from . import _lapack
 from .bspline import SINGULAR_ENRICHMENT_NEVER
@@ -90,6 +91,13 @@ from ._stable import asinh_diff
 from ._stable import expm1_neg_j as _expm1_neg_j
 from ._stable import expm1_neg_j_from_half as _expm1_neg_j_from_half
 from ._vec3 import norm3
+
+# The geometry tables of the structure last solved, held by the
+# identity of its prepared mesh's frozen polylines (`_identity_memo`) so a
+# solver per FR step of one deck builds them once. Two entries: the deck being
+# served and, in a resident daemon, the one before it. Entries hold strong
+# references to their polylines, so an id in a key is never another array's.
+_GEOMETRY_MEMO = IdentityMemo(size=2)
 
 _HAVE_FIELD_TENSOR = _acc is not None and hasattr(_acc, "sinusoidal_field_tensor")
 # The opt-in `nec2_far_approx` (NEC-2's interaction approximation): the
@@ -1167,8 +1175,11 @@ class SinusoidalSolver(
 
     `rotational_symmetry`
         The sector (block-circulant) route, opt-in (momwire#1912):
-        `BSplineSolver`'s (momwire#1029, #1897) on this basis. False (the
-        default) changes nothing. True asks for a deck that is N copies of
+        `BSplineSolver`'s (momwire#1029, #1897) on this basis. False changes
+        nothing. None (the default) defers to MOMWIRE_X_ROTATIONAL_SYMMETRY
+        (momwire#1338), unset is False; on, a deck the route serves takes it
+        and any other is solved densely, the reason in
+        `rotational_symmetry_declined`. True asks for a deck that is N copies of
         one sector about a vertical axis, whose port set the rotation maps
         onto itself: the fill is then ONE sector's match points (and the
         axial wires') against every source, and the solve the (m + p)
@@ -1316,11 +1327,12 @@ class SinusoidalSolver(
         transmitted_anchors=None,
         point_cplx_staged=None,
         pair_reuse=None,
-        rotational_symmetry=False,
+        rotational_symmetry=None,
         nec2_end_cap=None,
         nec2_far_approx=None,
         nec2_far_approx_range=None,
         wire_labels=None,
+        mixed_lu=None,
     ):
         # momwire#1644: which condition on charge a junction's basis functions
         # take. "nec2" (the default) is NEC-2's log rule at every segment end,
@@ -1431,7 +1443,16 @@ class SinusoidalSolver(
             pair_reuse=None if pair_reuse is None else bool(pair_reuse),
             nec2_end_cap=nec2_end_cap,
             nec2_far_approx=nec2_far_approx,
+            mixed_lu=mixed_lu,
+            rotational_symmetry=(
+                None if rotational_symmetry is None else bool(rotational_symmetry)
+            ),
         )
+        self._rotational_bound = bound["rotational_symmetry"]
+        # momwire#2125: the dense port solve by complex64 LU and complex128
+        # refinement, falling back to the ordinary factor (`_lapack`'s
+        # `mixed_lu_scope`). Off is the flag-off solve, bit for bit.
+        self._mixed_lu = bound["mixed_lu"]
         # momwire#2033: NEC-2's free-end condition, a compatibility option
         # that changes the answer on purpose. None defers to
         # MOMWIRE_X_NEC2_END_CAP; off is the zero-current end, bit for bit.
@@ -1768,9 +1789,14 @@ class SinusoidalSolver(
         # the dense fill or solve reads changes, and no route code runs.
         self._rotational_map = None
         self._rotational_copy_spread = None
-        self.rotational_symmetry = bool(rotational_symmetry)
-        if self.rotational_symmetry:
-            self._rotational_map = self._rotational_check()
+        # momwire#1338: the keyword insists (a deck the route does not serve
+        # is refused); None defers to MOMWIRE_X_ROTATIONAL_SYMMETRY, which
+        # takes the route where it serves and otherwise declines, naming why
+        # (`rotational_symmetry_declined`). The Galerkin subclass does not
+        # honour the variable (`_features`), so there only the keyword asks.
+        self.rotational_symmetry, self._rotational_map = _rotational_symmetry.resolve(
+            self, rotational_symmetry, self._rotational_bound, self._rotational_check
+        )
 
     def _rotational_ground_kind(self):
         """The ground's name for the rotational-symmetry rule — the same
@@ -2352,7 +2378,77 @@ class SinusoidalSolver(
         is refused here, momwire#212), so a feed sits at its segment's centre."""
         return False
 
+    def _geometry_memo_key(self):
+        """``(frozen polylines, extra)`` for :data:`_GEOMETRY_MEMO`, or None
+        when this solver's geometry is not safe to share.
+
+        The tables are a function of the structure, never of k: the wires
+        (the very arrays of a prepared mesh, recognised by identity, so a
+        solver built from any other arrays never hits), their segment counts,
+        the junction groups, where the feeds sit and how they snap, the ground
+        plane's height and the junction rule. The class is in the key because
+        the snap and the crossing rules are the family's. A deck that sets a
+        finite ground, a lower medium or any per-wire loading is left alone:
+        the crossing test and the feed snap's mirror test read those, and a
+        multi-frequency deck is the case that pays, not these.
+        """
+        if self.ground_eps is not None:
+            return None
+        for name in (
+            "wire_conductivity",
+            "insulation_radius",
+            "insulation_eps_r",
+            "insulation_loss_tangent",
+            "distributed_rlc",
+        ):
+            if getattr(self, name, None) is not None:
+                return None
+        arrays = frozen_tuple(self.wires_polylines)
+        if arrays is None:
+            return None
+        try:
+            extra = (
+                type(self),
+                tuple(map(tuple, self.n_per_edge_per_wire)),
+                tuple(map(tuple, self.junctions)),
+                tuple((int(w), arc) for w, arc, _v in self.feeds),
+                self.feed_model,
+                self.ground_z,
+                self.junction_rule,
+                np.asarray(self._radius_per_wire, dtype=np.float64).tobytes(),
+            )
+            hash(extra)
+        except (AttributeError, TypeError, ValueError):
+            return None
+        return arrays, extra
+
     def _build_geometry(self):
+        """The geometry tables (:meth:`_build_geometry_fresh`), shared by every
+        solver of one prepared mesh: a deck solves one structure at every
+        frequency and the tables do not know the frequency, so the second
+        solver takes the first's. Only a solver whose inputs
+        :meth:`_geometry_memo_key` can name shares; any other builds its own,
+        as it always did. A hit is the very dict a fresh build returns, its
+        arrays made read-only so a solver that wrote to them would fail where
+        it wrote rather than change another solver's answer."""
+        if self._cached_geometry is not None:
+            return self._cached_geometry
+        key = self._geometry_memo_key()
+        if key is None:
+            return self._build_geometry_fresh()
+        geom = _GEOMETRY_MEMO.get(key[0], key[1], self._build_geometry_frozen)
+        self._cached_geometry = geom
+        return geom
+
+    def _build_geometry_frozen(self):
+        """:meth:`_build_geometry_fresh`, its arrays read-only (see there)."""
+        geom = self._build_geometry_fresh()
+        for value in geom.values():
+            if isinstance(value, np.ndarray):
+                value.setflags(write=False)
+        return geom
+
+    def _build_geometry_fresh(self):
         """Discretize wires into segments and build the N^-/N^+ neighbor
         tables for every segment, with arc-flip σ signs.
 
@@ -7363,9 +7459,10 @@ class SinusoidalSolver(
         `SMALL_DECK_SEGS_GROUND` (a finite ground) declines, the census
         costing more than its fill saves; `pair_reuse="verify"` ignores it.
         Those two are checked after the rest, so a deck the reuse could not
-        serve anyway says why. A deck whose plans and census would pass
-        `_sin_pair_reuse.PLAN_BUDGET_BYTES` declines too (momwire#2019), under
-        "verify" as well: that bound is the process's memory, not a saving.
+        serve anyway says why. A deck whose census passes the class cap (4/3x
+        compression) or whose plan passes its allowance declines too
+        (`_sin_pair_reuse.plan_allowance`, momwire#2123), under "verify" as
+        well: that bound is the process's memory, not a saving.
         """
         if not self._pair_reuse_on:
             return None
@@ -7538,7 +7635,7 @@ class SinusoidalSolver(
                 np.ascontiguousarray(t, dtype=np.float64),
             )
 
-        def plan_for(block, budget=None):
+        def plan_for(block, keep=1):
             if block in blocks:
                 return blocks[block]
             src_c, src_t = sources(block)
@@ -7558,7 +7655,7 @@ class SinusoidalSolver(
                 gz if block == "reflected" else None,
                 None if obs_rows is None else obs_rows.tobytes(),
                 _pr.CANONICAL,
-                budget,
+                _pr.ALLOWANCE_BYTES,
             )
             held = self._sin_reuse_plans.get(block)
             if held is not None and held[0] == key:
@@ -7585,31 +7682,28 @@ class SinusoidalSolver(
                     args = (ob_c, ob_t, src_c, src_t, seg_h, ob_a, src_type, ob_type)
                     revs = dict(src_rev=src_rev)
                 t0 = time.perf_counter()
-                plan, built = _pr.shared(
-                    block, *args, census_rows, budget=budget, **revs
-                )
+                plan, built = _pr.shared(block, *args, census_rows, keep=keep, **revs)
                 if built:
                     _fill_report.ledger_of(self).census_s += time.perf_counter() - t0
                 self._sin_reuse_plans[block] = (key, plan)
-            if plan is _pr.OVER_BUDGET:
+            if isinstance(plan, _pr.Declined):
                 return plan, src_c, src_t
             self.pair_reuse_census[block] = (plan.n_pairs, plan.n_classes, plan.n_near)
             blocks[block] = (plan, src_c, src_t)
             return blocks[block]
 
-        # momwire#2019: every block's plan before the fill, each within what
-        # the blocks before it left of the budget, so that a deck past it
+        # momwire#2019, #2123: every block's plan before the fill (and before
+        # its Z is allocated, so the census's transient is gone by then), each
+        # held to its own allowance, so that a deck either block declines
         # fills as with reuse off from the first band.
-        budget_left = _pr.PLAN_BUDGET_BYTES
-        for block in ("direct", ground_block):
+        for i, block in enumerate(("direct", ground_block)):
             if block is None:
                 continue
-            plan = plan_for(block, budget_left)[0]
-            if plan is _pr.OVER_BUDGET:
-                self.pair_reuse_declined = _pr.over_budget_reason()
+            plan = plan_for(block, keep=i + 1)[0]
+            if isinstance(plan, _pr.Declined):
+                self.pair_reuse_declined = plan.reason
                 self.pair_reuse_census = {}
                 return None
-            budget_left -= _pr.fill_nbytes(plan)
 
         def free_rows(block):
             """The shipped kernel on observer rows m0:m1 against source
@@ -8745,7 +8839,10 @@ class SinusoidalSolver(
         # digits once against the copy's; the NEC-2 and NEC-4.2 sinusoidal
         # executables factor the same way (`port_solution`), so they stay
         # this route's bytes. G holds the factors afterwards.
-        alphas = _lapack.solve_transposed(G, B)  # (n_segs, n_ports)
+        # Under `mixed_lu` (momwire#2125) the complex64 route may answer and
+        # leave G intact; it is dropped here either way.
+        with _lapack.mixed_lu_scope(self._mixed_lu):
+            alphas = _lapack.solve_transposed(G, B)  # (n_segs, n_ports)
         del G
 
         Y = np.zeros((n_ports, n_ports), dtype=np.complex128)
@@ -8819,7 +8916,8 @@ class SinusoidalSolver(
                         geom, self.k, self._medium_eta(medium)
                     )
                 # Gᵀ in G's storage, as `compute_port_solution` (momwire#2071).
-                alpha = _lapack.solve_transposed(G, v)
+                with _lapack.mixed_lu_scope(self._mixed_lu):
+                    alpha = _lapack.solve_transposed(G, v)
                 del G
                 z_out[i] = self._feed_impedances(alpha, geom, seg_view, voltages)
         return z_out

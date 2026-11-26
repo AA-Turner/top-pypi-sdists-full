@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: pipmaster
-Version: 1.2.2
+Version: 1.3.0
 Summary: A versatile Python package manager utility for simplifying package installation, updates, checks, and environment management.
 Author-email: ParisNeo <parisneoai@gmail.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/ParisNeo/pipmaster
 Project-URL: Repository, https://github.com/ParisNeo/pipmaster
 Project-URL: Issues, https://github.com/ParisNeo/pipmaster/issues
-Keywords: pip,package manager,installer,dependency,venv,environment
+Keywords: pip,package manager,installer,dependency,venv,environment,offline,air-gap
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.8
@@ -26,6 +26,8 @@ Requires-Dist: packaging>=21.0
 Requires-Dist: ascii_colors>=0.11.11
 Provides-Extra: audit
 Requires-Dist: pip-audit>=2.5.0; extra == "audit"
+Provides-Extra: airgap
+Requires-Dist: cryptography>=3.4; extra == "airgap"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.20; extra == "dev"
@@ -39,6 +41,7 @@ Requires-Dist: black; extra == "dev"
 Requires-Dist: cowsay; extra == "dev"
 Provides-Extra: all
 Requires-Dist: pipmaster[audit]; extra == "all"
+Requires-Dist: pipmaster[airgap]; extra == "all"
 Requires-Dist: pipmaster[dev]; extra == "all"
 Dynamic: license-file
 
@@ -75,7 +78,8 @@ Stop telling your users to `pip install -r requirements.txt`. Start building pro
 * **Eliminate “Dependency Hell”**: Manage dependencies for non‑technical users with zero manual steps.
 * **Multi‑Environment Management**: Seamlessly work across multiple virtual environments, CI pipelines, or portable Python builds.
 * **Dry‑Run & Verbose Modes**: Preview changes safely before they happen and get crystal‑clear debugging output.
-* **Future‑Proof**: A pluggable architecture for additional backends (`uv`, `conda` planned).
+* **Ultrafast Installs**: Automatically uses `uv` for uv-created environments, with safe pip fallback and an explicit `use_uv=True` override.
+* **Future‑Proof**: A pluggable architecture for additional backends (`conda` planned).
 
 ## Key Use Cases
 
@@ -172,17 +176,18 @@ asyncio.run(main())
 
 | Feature                                      | `pip` Backend | `uv` Backend (Experimental) | Async Support |
 | -------------------------------------------- | :-----------: | :------------------------: | :-----------: |
-| **Ensure Package State (`ensure_packages`)**| ✅            | ❌                         | ✅            |
-| **Ensure from `requirements.txt`**          | ✅            | ❌                         | ✅            |
-| **Progress Callbacks**                       | ✅            | ❌                         | ✅            |
+| **Ensure Package State (`ensure_packages`)**| ✅            | ✅ (`use_uv=True`)          | ✅            |
+| **Ensure from `requirements.txt`**          | ✅            | ✅ (`use_uv=True`)          | ✅            |
+| **Progress Callbacks**                       | ✅            | ✅ (`use_uv=True`)          | ✅            |
 | Install / Upgrade Packages                   | ✅            | ✅                         | ✅            |
 | Uninstall Packages                           | ✅            | ✅                         | ✅            |
 | Vulnerability Scanning (`pip-audit`)        | ✅            | N/A                        | ✅            |
-| Check Installed Status (`is_installed`)      | ✅            | N/A                        | (Sync)        |
-| Create Virtual Environments                  | N/A            | ✅                         | N/A           |
-| Run Ephemeral Tools (`uvx`)                  | N/A            | ✅                         | N/A           |
-| Dry Run Mode                                 | ✅            | ❌                         | ✅            |
-| Portable Python Management                   | ✅            | ❌                         | ✅            |
+| Check Installed Status (`is_installed`)      | ✅            | ✅ (`use_uv=True`)          | (Sync)        |
+| Create Virtual Environments                  | ✅ (`venv`)    | ✅ (`UvPackageManager`)     | ✅            |
+| Run Ephemeral Tools (`uvx`)                  | N/A            | ✅ (`UvPackageManager`)     | N/A           |
+| Dry Run Mode                                 | ✅            | ✅ (`use_uv=True`)          | ✅            |
+| Portable Python Management                   | ✅            | ✅ (`use_uv=True`)          | ✅            |
+| Air-Gap Updates (`pipmaster-install`)        | ✅            | ❌                         | N/A           |
 
 ## Core Concept: Declarative & Idempotent Management
 
@@ -268,7 +273,36 @@ async def main():
 # asyncio.run(main())
 ```
 
-### `uv` Backend (Experimental)
+### Ultrafast Installs with `uv`
+
+Pipmaster automatically uses `uv` when it is installed **and** the target
+environment was created by uv (detected through `pyvenv.cfg`). Standard venv and
+system environments continue using pip. If uv is unavailable, pipmaster safely
+falls back to pip. All declarative requirements, dry runs, environment targeting,
+and async operations work with either backend.
+
+Install uv with the built-in helper if needed:
+
+```python
+pm.install_uv()
+```
+
+Use `use_uv=True` to require uv even for an environment not created by uv, or
+`use_uv=False` to force pip:
+
+```python
+import pipmaster as pm
+
+packages = pm.get_pip_manager(use_uv=True)
+packages.ensure_packages(["numpy", "pandas>=2"], verbose=True)
+
+# Target a specific environment; pipmaster passes its interpreter to uv.
+venv_packages = pm.get_pip_manager(venv_path="./.venv", use_uv=True)
+venv_packages.ensure_requirements("requirements.txt")
+```
+
+For uv-specific environment creation and ephemeral tools, use the lightweight
+`UvPackageManager` backend:
 
 ```python
 from pipmaster import get_uv_manager
@@ -297,6 +331,112 @@ if found:
 else:
     print("No known vulnerabilities.")
 ```
+
+## Quarantining Fresh Releases (Supply-Chain Defense)
+
+When a project or one of its dependencies is compromised, the malicious release
+usually lives on PyPI for only a few hours before being yanked. `pipmaster`
+helps you wait out that window.
+
+By default, `pipmaster` **never installs a release uploaded in the last 48
+hours** unless you pin it explicitly. The window is controlled by the
+`PIPMASTER_MIN_AGE_HOURS` environment variable:
+
+```bash
+# Wait three days before adopting a new release
+export PIPMASTER_MIN_AGE_HOURS=72
+
+# Disable the quarantine (install the newest release immediately)
+export PIPMASTER_MIN_AGE_HOURS=0
+```
+
+The guard applies to plain `install(...)`, `ensure_packages(...)`, and any
+open-ended specifier (`>=`, `>`). Explicit pins (`==`), upper bounds (`<`),
+extras, and VCS/URL targets are never rewritten — pipmaster only adjusts its own
+"latest" choice, never your explicit one. For every eligible target pipmaster
+queries PyPI metadata, picks the newest **stable** release older than the
+window, and rewrites the install target as a pin (e.g. `requests==2.32.0`). If
+the environment already has an equal or newer version, the request is left
+untouched — pipmaster never downgrades an installed package.
+
+Set `PIPMASTER_MIN_AGE_HOURS=0` for CI or fully offline tooling. For air-gapped
+machines the relay's `--min-age-days` option provides the same defense; the two
+mechanisms are complementary.
+
+## Updating Offline (Air-Gap) Machines
+
+An **air-gapped** machine has no internet access, but its packages still need security updates and new dependencies. `pipmaster` ships a paired update link: an **online relay** fetches the right wheels, and an **offline client** installs them — with no open ports, no package index, and no manual `scp` of wheel files.
+
+The link is **pair-once, verify-always**: a single one-time token binds the two machines, and every session is authenticated with a shared secret and a pinned TLS fingerprint. The relay only opens for the window you choose, serves one client, and closes.
+
+### One-Time Setup
+
+```bash
+# On the ONLINE machine (needs cryptography for the relay's TLS identity)
+pip install pipmaster[airgap]
+pipmaster-pair create --host 192.168.1.10
+
+# -> prints the fingerprint and a pairing token (a secret — carry it over just once)
+```
+
+```bash
+# On the OFFLINE machine
+pipmaster-pair accept <token>
+```
+
+`--host` is the address the offline machine will use to reach the relay; `--port` defaults to `8765`. Re-create the identity with `pipmaster-pair create --force` to rotate it (all existing pairings then stop working).
+
+### Every Update Window
+
+```bash
+# ONLINE: open the link for 15 minutes, only for the offline machine's IP
+pipmaster-relay --for 15m --allow-from 192.168.1.20 --audit
+```
+
+```bash
+# OFFLINE: install or update from a requirements file / project dir
+pipmaster-install ./myproject/requirements.txt
+
+# ...or refresh everything currently installed
+pipmaster-install --upgrade-installed
+
+# Preview the plan without touching the environment
+pipmaster-install ./requirements.txt --dry-run
+```
+
+You can also pass a project directory (it reads `requirements.txt` or `pyproject.toml`) or explicit specs with `-p`:
+
+```bash
+pipmaster-install -p "rich>=13" -p httpx
+```
+
+Before anything is installed, `pipmaster-install` prints a **plan** (`+` new, `^` upgrade, `v` downgrade, `=` unchanged), asks for confirmation (skip with `-y`), saves a **rollback snapshot** of the current environment, then verifies every wheel's SHA-256 hash before installing.
+
+### Safety Features
+
+- **Quarantine window** — releases younger than `--min-age-days` (default 7) are skipped in favor of the newest older version, giving the community time to react to a compromised release. Pass `--min-age-days 0` to disable.
+- **`--audit`** — runs `pip-audit` on the resolved set at the relay; results appear in the plan before you install.
+- **Pinned TLS + HMAC auth** — the client refuses any relay whose certificate fingerprint doesn't match the one it was paired with.
+- **`--allow-from IP_OR_CIDR`** — restricts which peers the relay will accept (repeatable).
+- **`--keep-open`** — keep the relay running after a successful session (default: it closes after one).
+- **`--index-url`** — use a private mirror (requires `--min-age-days 0`, since age data comes from pypi.org).
+
+### How It Works
+
+The relay runs `pip download` targeting the **offline machine's** platform, Python version, ABI, and marker environment (Windows/macOS/Linux wheels are selected correctly even when the relay runs on a different OS). It re-walks dependencies using the client's markers, so Linux-only or Windows-only dependencies are handled correctly — something plain `pip download --platform` gets wrong. Wheels are streamed over the paired TLS channel, hash-checked on arrival, and installed with `pip install --no-index --find-links … --require-hashes --no-deps`.
+
+### Rollback
+
+Each install saves a `pip freeze` snapshot under `~/.pipmaster/airgap/snapshots/`. To roll back, run `pipmaster-install` with that snapshot file as the requirements input.
+
+### Notes & Limitations
+
+- Only **wheels** are served; dependencies with no wheel for the target are reported by pip's own error.
+- **Direct references** (`git+…`, URL requirements) are skipped with a warning — they can't cross the link.
+- Single package vulnerabilities scans aren't part of the link; use `--audit` for a full-set report.
+- On Windows, updating `pipmaster` itself while its console script is running may fail; update it separately.
+
+See the [usage guide](docs/usage.rst) for the full CLI reference.
 
 ## Why Choose `pipmaster`?
 

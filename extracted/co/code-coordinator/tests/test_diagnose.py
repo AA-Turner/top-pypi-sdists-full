@@ -62,6 +62,13 @@ def _stub(monkeypatch, *, session="dead", recover_verdict=None, merge_actions=No
     monkeypatch.setattr(diagnose, "_session_state", lambda a, c: (
         session(a) if callable(session) else session
     ))
+    # #4141: the sweep's own agent cross-check — defaults to agreeing with
+    # `_session_state` so existing `_stub`-based callers (outside the
+    # phantom-sweep suite, which exercises this cross-check directly) see
+    # unchanged behavior.
+    monkeypatch.setattr(diagnose, "_confirm_dead_via_assignment_endpoint", lambda a, m: (
+        session(a) if callable(session) else session
+    ))
     monkeypatch.setattr(diagnose, "_finalize_dead", lambda a, c: (
         calls["finalize"].append(a.assignment_id) or "advisory"
     ))
@@ -169,6 +176,106 @@ def test_session_state_agent_unreachable_is_unknown_not_dead(monkeypatch, config
     )
     a = _assign(aid="w1", typ="review", status="running")
     assert diagnose._session_state(a, config) == "unknown"
+
+
+# ── #4141: the sweep's own agent cross-check + persisted miss counter ──────
+
+
+def test_confirm_dead_via_assignment_endpoint_live_on_200(monkeypatch, config) -> None:
+    class _Resp:
+        status_code = 200
+
+        def json(self):
+            return {"id": "w1", "status": "done"}
+
+    monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
+    a = _assign(aid="w1", typ="work", status="running")
+    machine = config.machines[0]
+    assert diagnose._confirm_dead_via_assignment_endpoint(a, machine) == "live"
+
+
+def test_confirm_dead_via_assignment_endpoint_dead_on_404(monkeypatch, config) -> None:
+    """A 404 whose body is the endpoint's own JSON error shape (what
+    ``agent_app.assignment_detail`` actually returns for an unknown id)
+    is a real "no such assignment" answer."""
+
+    class _Resp:
+        status_code = 404
+
+        def json(self):
+            return {"error": "unknown assignment w1"}
+
+    monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
+    a = _assign(aid="w1", typ="work", status="running")
+    machine = config.machines[0]
+    assert diagnose._confirm_dead_via_assignment_endpoint(a, machine) == "dead"
+
+
+def test_confirm_dead_via_assignment_endpoint_unknown_on_plain_text_404(
+    monkeypatch, config,
+) -> None:
+    """An agent that predates the ``/assignments/<id>`` route (#4141)
+    answers the unmatched path with Starlette's default plain-text 404,
+    not this endpoint's JSON error body — that must never be read as
+    "dead", or every not-yet-upgraded agent would phantom-heal for free."""
+
+    class _Resp:
+        status_code = 404
+
+        def json(self):
+            raise ValueError("plain text body, not JSON")
+
+    monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
+    a = _assign(aid="w1", typ="work", status="running")
+    machine = config.machines[0]
+    assert diagnose._confirm_dead_via_assignment_endpoint(a, machine) == "unknown"
+
+
+def test_confirm_dead_via_assignment_endpoint_unknown_on_network_error(
+    monkeypatch, config,
+) -> None:
+    def _boom(*a, **k):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr("httpx.get", _boom)
+    a = _assign(aid="w1", typ="work", status="running")
+    machine = config.machines[0]
+    assert diagnose._confirm_dead_via_assignment_endpoint(a, machine) == "unknown"
+
+
+def test_confirm_dead_via_assignment_endpoint_unknown_on_5xx(monkeypatch, config) -> None:
+    class _Resp:
+        status_code = 503
+
+        def json(self):
+            raise AssertionError("must not be called on a non-200/404 response")
+
+    monkeypatch.setattr("httpx.get", lambda *a, **k: _Resp())
+    a = _assign(aid="w1", typ="work", status="running")
+    machine = config.machines[0]
+    assert diagnose._confirm_dead_via_assignment_endpoint(a, machine) == "unknown"
+
+
+def test_confirm_dead_via_assignment_endpoint_no_machine_is_dead(config) -> None:
+    a = _assign(aid="w1", typ="work", status="running")
+    assert diagnose._confirm_dead_via_assignment_endpoint(a, None) == "dead"
+
+
+def test_phantom_miss_counts_round_trip(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("coord.state.COORD_DIR", tmp_path / "coord_home")
+    assert diagnose._load_phantom_miss_counts() == {}
+
+    diagnose._save_phantom_miss_counts({"w1": 1, "w2": 2})
+    assert diagnose._load_phantom_miss_counts() == {"w1": 1, "w2": 2}
+
+
+def test_phantom_miss_counts_corrupt_file_reads_as_empty(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("coord.state.COORD_DIR", tmp_path / "coord_home")
+    path = diagnose._phantom_miss_state_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("not json at all {{{")
+
+    assert diagnose._load_phantom_miss_counts() == {}
 
 
 def test_diagnose_leaves_live_headless_review_untouched(monkeypatch, config) -> None:
@@ -3306,9 +3413,15 @@ def test_diagnose_without_json_flag_no_json_line(monkeypatch) -> None:
 
 
 @pytest.fixture
-def sweep_config() -> Config:
+def sweep_config(monkeypatch, tmp_path) -> Config:
     """A config with a tiny 'work' attention threshold so tests don't need
-    to fabricate hour-old timestamps to get past the aged-out guard."""
+    to fabricate hour-old timestamps to get past the aged-out guard.
+
+    #4141: also sandboxes `coord.state.COORD_DIR` so the sweep's persisted
+    miss-counter file (`_load_phantom_miss_counts`/`_save_phantom_miss_counts`)
+    never touches the real `~/.coord/`.
+    """
+    monkeypatch.setattr("coord.state.COORD_DIR", tmp_path / "coord_home")
     cfg = Config(
         repos=[Repo(name="api", github="acme/api", default_branch="main")],
         machines=[Machine(name="precision", host="precision.tailnet", repos=["api"])],
@@ -3319,12 +3432,18 @@ def sweep_config() -> Config:
 
 def test_sweep_heals_confirmed_dead_aged_out_row(monkeypatch, sweep_config) -> None:
     """A running row whose session reads dead, and which is aged well past
-    its own threshold + buffer, gets the same recovery `--reset` runs."""
+    its own threshold + buffer, gets the same recovery `--reset` runs —
+    but only on the SECOND of two consecutive confirmed-dead passes
+    (#4141)."""
     calls = _stub(monkeypatch, session="dead")
     now = time.time()
     # threshold(60s) + buffer(600s) = 660s; well past that.
     a = _assign(aid="w1", status="running", dispatched_at=now - 3600)
     board = Board(active=[a])
+
+    first = diagnose.sweep_dead_running_rows(board, sweep_config, now=now)
+    assert first == []  # first confirmed-dead pass only arms the streak
+    assert calls["finalize"] == []
 
     healed = diagnose.sweep_dead_running_rows(board, sweep_config, now=now)
 
@@ -3334,6 +3453,55 @@ def test_sweep_heals_confirmed_dead_aged_out_row(monkeypatch, sweep_config) -> N
     assert healed[0].issue_number == 42
     assert "finalized phantom session" in healed[0].action
     assert calls["finalize"] == ["w1"]
+
+
+def test_sweep_resets_streak_when_an_intervening_pass_reads_live(
+    monkeypatch, sweep_config,
+) -> None:
+    """#4141: the two-pass gate is "two IN A ROW", never "two ever" — a
+    pass that reads live in between resets the streak to zero."""
+    verdict = ["dead"]
+    finalized: list[str] = []
+    monkeypatch.setattr(diagnose, "_session_state", lambda a, c: verdict[0])
+    monkeypatch.setattr(
+        diagnose, "_confirm_dead_via_assignment_endpoint", lambda a, m: verdict[0],
+    )
+    monkeypatch.setattr(diagnose, "_finalize_dead", lambda a, c: (
+        finalized.append(a.assignment_id) or "advisory"
+    ))
+    now = time.time()
+    a = _assign(aid="w1", status="running", dispatched_at=now - 3600)
+    board = Board(active=[a])
+
+    verdict[0] = "dead"
+    assert diagnose.sweep_dead_running_rows(board, sweep_config, now=now) == []  # dead (1)
+    verdict[0] = "live"
+    assert diagnose.sweep_dead_running_rows(board, sweep_config, now=now) == []  # live — reset
+    verdict[0] = "dead"
+    assert diagnose.sweep_dead_running_rows(board, sweep_config, now=now) == []  # dead (1 again)
+    healed = diagnose.sweep_dead_running_rows(board, sweep_config, now=now)      # dead (2) — heal
+
+    assert len(healed) == 1
+    assert finalized == ["w1"]
+
+
+def test_sweep_never_heals_when_agent_still_has_the_id(monkeypatch, sweep_config) -> None:
+    """#4141: `_session_state` reading "dead" alone is not enough — if the
+    owning agent's own `/assignments/<id>` record still exists (a real
+    completion that hasn't reconciled yet), the row is never healed, no
+    matter how many passes."""
+    monkeypatch.setattr(diagnose, "_session_state", lambda a, c: "dead")
+    monkeypatch.setattr(
+        diagnose, "_confirm_dead_via_assignment_endpoint", lambda a, m: "live",
+    )
+    monkeypatch.setattr(diagnose, "_finalize_dead", lambda a, c: "advisory")
+    now = time.time()
+    a = _assign(aid="w1", status="running", dispatched_at=now - 3600)
+    board = Board(active=[a])
+
+    for _ in range(3):
+        healed = diagnose.sweep_dead_running_rows(board, sweep_config, now=now)
+        assert healed == []
 
 
 def test_sweep_never_acts_on_live_session(monkeypatch, sweep_config) -> None:
@@ -3385,10 +3553,17 @@ def test_sweep_does_not_race_a_row_that_has_not_aged_out(monkeypatch, sweep_conf
 
 
 def test_sweep_dry_run_reports_without_finalizing(monkeypatch, sweep_config) -> None:
+    """A dry run previews against the real (persisted) miss-counter streak
+    — so after one real pass has already armed it, a dry run accurately
+    shows "would heal" for the would-be second pass, without itself
+    finalizing or mutating the counter file (#4141)."""
     calls = _stub(monkeypatch, session="dead")
     now = time.time()
     a = _assign(aid="w1", status="running", dispatched_at=now - 3600)
     board = Board(active=[a])
+
+    first = diagnose.sweep_dead_running_rows(board, sweep_config, now=now)
+    assert first == []  # real pass 1/2 — arms the streak, never heals yet
 
     healed = diagnose.sweep_dead_running_rows(
         board, sweep_config, now=now, dry_run=True,
@@ -3418,6 +3593,9 @@ def test_sweep_finalize_failure_falls_back_to_mark_terminal(monkeypatch, sweep_c
     """A finalize that raises still gets a best-effort terminal mark, and
     the row is still reported healed (with the failure noted)."""
     monkeypatch.setattr(diagnose, "_session_state", lambda a, c: "dead")
+    monkeypatch.setattr(
+        diagnose, "_confirm_dead_via_assignment_endpoint", lambda a, m: "dead",
+    )
 
     def _boom(a, c):
         raise RuntimeError("ssh timed out")
@@ -3432,11 +3610,91 @@ def test_sweep_finalize_failure_falls_back_to_mark_terminal(monkeypatch, sweep_c
     a = _assign(aid="w1", status="running", dispatched_at=now - 3600)
     board = Board(active=[a])
 
+    diagnose.sweep_dead_running_rows(board, sweep_config, now=now)  # arm the streak
     healed = diagnose.sweep_dead_running_rows(board, sweep_config, now=now)
 
     assert len(healed) == 1
     assert "finalize failed" in healed[0].action
     assert marked == ["w1"]
+
+
+def test_sweep_captures_cost_before_finalizing_phantom_row(monkeypatch, sweep_config) -> None:
+    """#4140: before a phantom row is finalized, the sweep must attempt to
+    recover whatever cost/token signal the dead session's log still
+    carries — the row goes terminal immediately after, and nothing ever
+    revisits a terminal row's cost on its own."""
+    monkeypatch.setattr(diagnose, "_session_state", lambda a, c: "dead")
+    monkeypatch.setattr(
+        diagnose, "_confirm_dead_via_assignment_endpoint", lambda a, m: "dead",
+    )
+    monkeypatch.setattr(diagnose, "_finalize_dead", lambda a, c: "advisory")
+
+    captured: list[tuple] = []
+    monkeypatch.setattr(
+        "coord.notify.capture_cost_and_tokens_for_assignment",
+        lambda aid, *, log_path, host, provider_name=None: (
+            captured.append((aid, log_path, host, provider_name)) or True
+        ),
+    )
+
+    now = time.time()
+    a = _assign(aid="w1", status="running", dispatched_at=now - 3600)
+    board = Board(active=[a])
+
+    diagnose.sweep_dead_running_rows(board, sweep_config, now=now)  # arm the streak
+    healed = diagnose.sweep_dead_running_rows(board, sweep_config, now=now)
+
+    from coord.usage import LOGS_DIR  # noqa: PLC0415
+
+    assert len(healed) == 1
+    assert captured == [("w1", str(LOGS_DIR / "w1.log"), "precision.tailnet", None)]
+
+
+def test_sweep_cost_capture_failure_does_not_block_heal(monkeypatch, sweep_config) -> None:
+    """A cost-capture exception must never stop the heal itself — the row
+    still gets finalized."""
+    monkeypatch.setattr(diagnose, "_session_state", lambda a, c: "dead")
+    monkeypatch.setattr(
+        diagnose, "_confirm_dead_via_assignment_endpoint", lambda a, m: "dead",
+    )
+    monkeypatch.setattr(diagnose, "_finalize_dead", lambda a, c: "advisory")
+    monkeypatch.setattr(
+        "coord.notify.capture_cost_and_tokens_for_assignment",
+        lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("log fetch failed")),
+    )
+
+    now = time.time()
+    a = _assign(aid="w1", status="running", dispatched_at=now - 3600)
+    board = Board(active=[a])
+
+    diagnose.sweep_dead_running_rows(board, sweep_config, now=now)  # arm the streak
+    healed = diagnose.sweep_dead_running_rows(board, sweep_config, now=now)
+
+    assert len(healed) == 1
+    assert "finalized phantom session" in healed[0].action
+
+
+def test_sweep_dry_run_never_captures_cost(monkeypatch, sweep_config) -> None:
+    """A dry run must not mutate anything — including cost capture."""
+    monkeypatch.setattr(diagnose, "_session_state", lambda a, c: "dead")
+    monkeypatch.setattr(
+        diagnose, "_confirm_dead_via_assignment_endpoint", lambda a, m: "dead",
+    )
+    captured: list[str] = []
+    monkeypatch.setattr(
+        "coord.notify.capture_cost_and_tokens_for_assignment",
+        lambda aid, **kw: captured.append(aid) or True,
+    )
+
+    now = time.time()
+    a = _assign(aid="w1", status="running", dispatched_at=now - 3600)
+    board = Board(active=[a])
+
+    diagnose.sweep_dead_running_rows(board, sweep_config, now=now)  # arm the streak
+    healed = diagnose.sweep_dead_running_rows(board, sweep_config, now=now, dry_run=True)
+
+    assert len(healed) == 1
+    assert captured == []
 
 
 # ── #3668: latest review is for a superseded work leg ───────────────────────

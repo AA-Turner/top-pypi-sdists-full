@@ -12,15 +12,13 @@ class UploadDocumentAsyncResponseBody(DaraModel):
         request_id: str = None,
         status: str = None,
     ):
-        # The job ID, which is used to check the job status or cancel the job.
+        # The job ID, which is used to check the job status or cancel the job later.
         self.job_id = job_id
         # The returned message.
         self.message = message
         # The request ID.
         self.request_id = request_id
-        # The creation status. Valid values:
-        # - success: The document was uploaded.
-        # - fail: The document failed to be uploaded.
+        # The creation status. Valid values: success: Successful. fail: Failed.
         self.status = status
 
     def validate(self):

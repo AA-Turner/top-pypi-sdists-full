@@ -781,6 +781,11 @@ class Status(StrEnum):
     needs_onboarding = 'needs_onboarding'
 
 
+class AccountMismatch(StrEnum):
+    user = 'user'
+    team = 'team'
+
+
 class CaptureSource(StrEnum):
     claude_code = 'claude_code'
     codex = 'codex'
@@ -978,11 +983,26 @@ class DisabledFilter(StrEnum):
     metrics = 'metrics'
 
 
+class EntitySortColumn(StrEnum):
+    name = 'name'
+    type = 'type'
+    project = 'project'
+    created = 'created'
+
+
+class EntitySortDirection(StrEnum):
+    ascending = 'ascending'
+    descending = 'descending'
+
+
 class EntityType(StrEnum):
     project = 'project'
     experiment = 'experiment'
     run = 'run'
     paper = 'paper'
+    dataset = 'dataset'
+    environment = 'environment'
+    model = 'model'
 
 
 class EpisodeGrouping(StrEnum):
@@ -2665,13 +2685,15 @@ class SearchRetrieval(StrEnum):
     How the semantic leg retrieves, when it runs at all.
 
     AGENTIC is the full search: grounding, vector + BM25 + graph and a model
-    choosing the passages, metered as a recall action. KEYWORD is BM25 over
-    document text and titles, with no model call anywhere on the path -- the
-    agent-facing `search(semantic= false)`. `include_semantic=false` is the
-    third case: no index leg at all.
+    choosing the passages, metered as a recall action. DIRECT is the engine's
+    bounded lookup (embedding + BM25 + id lookup, no gatherer model), the entity
+    typeahead's path plus pasted ids: no model picks the passages, unmetered. KEYWORD is
+    that lookup as BM25 + id alone over text and titles, no model call -- the agent-facing
+    `search(semantic= false)`. `include_semantic=false` skips the index leg.
     """
 
     agentic = 'agentic'
+    direct = 'direct'
     keyword = 'keyword'
 
 

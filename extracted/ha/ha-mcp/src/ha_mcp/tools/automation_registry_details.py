@@ -16,11 +16,16 @@ from typing import Any
 
 from ..client.rest_client import HomeAssistantError
 from .config_write_helpers import fetch_registry_entry
+from .util_helpers import search_related
 
 REFERENCES_NEED_COMPONENT = (
     "references need the ha_mcp_tools component's automation_config bridge, "
     "which is not available; related holds Core's broader Related set instead "
     "(also the devices, areas and integrations of what the automation uses)"
+)
+REFERENCES_OMITTED_WITHOUT_COMPONENT = (
+    "references need the ha_mcp_tools component's automation_config bridge, "
+    "which is not available; references are omitted when the component is absent"
 )
 REFERENCES_NOT_LOADED = (
     "references unavailable: Home Assistant has not loaded this automation "
@@ -33,17 +38,36 @@ async def registry_details(
     lookup: dict[str, Any] | None,
     entity_id: str | None,
     warnings: list[str],
+    *,
+    component_lookup: bool = True,
+    related_fallback: bool = True,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
-    """The automation's registry row, Core's validation verdict and references.
+    """The item's registry row, Core's validation verdict and references.
 
     ``lookup`` is the component's reply, None when the component did not answer.
+    Set ``component_lookup`` false for a domain the component does not serve
+    (script): the registry read is still valid, and no missing-component
+    warning should be reported. Set ``related_fallback`` false when the caller
+    does not also report Core's Related set, so the warning does not promise it.
     """
     if lookup is not None:
         references = lookup.get("references")
-        if references is None and lookup.get("loaded") is False:
+        if (
+            references is None
+            and lookup.get("loaded") is False
+            and lookup.get("found") is not False
+        ):
             warnings.append(REFERENCES_NOT_LOADED)
         return lookup.get("entity"), lookup.get("validation"), references
-    warnings.append(REFERENCES_NEED_COMPONENT)
+    if not component_lookup:
+        if entity_id is None:
+            return None, None, None
+        return await fetch_registry_entry(client, entity_id, warnings), None, None
+    warnings.append(
+        REFERENCES_NEED_COMPONENT
+        if related_fallback
+        else REFERENCES_OMITTED_WITHOUT_COMPONENT
+    )
     if entity_id is None:
         return None, None, None
     entity = await fetch_registry_entry(client, entity_id, warnings)
@@ -59,19 +83,7 @@ async def core_related(
             "related unavailable: no automation entity was found for this config id"
         )
         return None
-    try:
-        result = await client.send_websocket_message(
-            {"type": "search/related", "item_type": "automation", "item_id": entity_id}
-        )
-    except HomeAssistantError as e:
-        warnings.append(f"related unavailable: {e}")
-        return None
-    if not result.get("success"):
-        reason = result.get("error") or "request failed"
-        warnings.append(f"related unavailable: {reason}")
-        return None
-    related = result.get("result")
-    return related if isinstance(related, dict) else None
+    return await search_related(client, "automation", entity_id, warnings)
 
 
 async def repair_validation(

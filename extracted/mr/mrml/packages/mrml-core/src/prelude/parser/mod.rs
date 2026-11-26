@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use htmlparser::{StrSpan, Tokenizer};
+use indexmap::map::Entry;
 
 use self::loader::IncludeLoaderError;
 use super::hash::Map;
@@ -36,6 +37,7 @@ impl std::fmt::Display for Origin {
 }
 
 #[derive(Clone, Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("unexpected element in {origin} at position {position}")]
     UnexpectedElement { origin: Origin, position: Span },
@@ -73,6 +75,20 @@ pub enum Error {
         #[source]
         source: IncludeLoaderError,
     },
+    /// The `mj-include` type is recognized but not yet supported by the parser
+    /// (e.g. `type="html"` or inlined CSS includes).
+    #[error("unsupported mj-include type {kind:?} in {origin} at position {position}")]
+    UnsupportedIncludeKind {
+        kind: &'static str,
+        origin: Origin,
+        position: Span,
+    },
+    /// Element nesting went past [`MAX_ELEMENT_DEPTH`] or `mj-include`
+    /// chaining went past [`MAX_INCLUDE_DEPTH`]. Detected before any token of
+    /// the offending content is read, so there is no meaningful position to
+    /// report.
+    #[error("parser recursion depth limit exceeded in {origin}")]
+    DepthLimitExceeded { origin: Origin },
 }
 
 impl Error {
@@ -121,11 +137,21 @@ impl Error {
                 position: adj(position),
                 source,
             },
+            Self::UnsupportedIncludeKind {
+                kind,
+                origin,
+                position,
+            } => Self::UnsupportedIncludeKind {
+                kind,
+                origin,
+                position: adj(position),
+            },
             // Variants without byte positions are returned unchanged.
             other @ (Self::EndOfStream { .. }
             | Self::SizeLimit { .. }
             | Self::ParserError { .. }
-            | Self::NoRootNode) => other,
+            | Self::NoRootNode
+            | Self::DepthLimitExceeded { .. }) => other,
         }
     }
 }
@@ -190,6 +216,18 @@ pub(crate) trait AsyncParseChildren<C> {
     async fn async_parse_children<'a>(&self, cursor: &mut MrmlCursor<'a>) -> Result<C, Error>;
 }
 
+/// Bound on element/HTML nesting depth. Measured debug cliff for this shape
+/// (nested elements, e.g. unknown tags inside `mj-body`) is 126 (survives) /
+/// 127 (aborts) on a default 2MiB thread; this keeps ~2x headroom in debug
+/// and far more in release, while still far exceeding real template nesting.
+const MAX_ELEMENT_DEPTH: usize = 64;
+
+/// Bound on `mj-include` chain length, independent of element nesting.
+/// Measured debug cliff for a mutual include cycle (async path, the
+/// tightest measured) is 41 (survives) / 42 (aborts); this keeps ~5x
+/// headroom, well beyond any legitimate include chain.
+const MAX_INCLUDE_DEPTH: usize = 8;
+
 pub struct MrmlCursor<'a> {
     tokenizer: Tokenizer<'a>,
     buffer: Vec<MrmlToken<'a>>,
@@ -198,6 +236,13 @@ pub struct MrmlCursor<'a> {
     /// Byte offset to subtract from token positions when reporting warnings.
     /// Used when content is wrapped in a synthetic root element for parsing.
     source_offset: usize,
+    /// Element/HTML nesting depth. Inherited (not reset) by
+    /// [`Self::new_child`] so it keeps bounding real call-stack depth across
+    /// an include chain.
+    element_depth: usize,
+    /// `mj-include` chain length, independent of `element_depth`.
+    /// Incremented and checked in [`Self::new_child`].
+    include_depth: usize,
 }
 
 impl<'a> MrmlCursor<'a> {
@@ -208,6 +253,8 @@ impl<'a> MrmlCursor<'a> {
             origin: Origin::Root,
             warnings: Default::default(),
             source_offset: 0,
+            element_depth: 0,
+            include_depth: 0,
         }
     }
 
@@ -215,16 +262,23 @@ impl<'a> MrmlCursor<'a> {
         &self,
         origin: O,
         source: &'b str,
-    ) -> MrmlCursor<'b> {
-        MrmlCursor {
+    ) -> Result<MrmlCursor<'b>, Error> {
+        let include_depth = self.include_depth + 1;
+        let origin = Origin::Include {
+            path: origin.into(),
+        };
+        if include_depth > MAX_INCLUDE_DEPTH {
+            return Err(Error::DepthLimitExceeded { origin });
+        }
+        Ok(MrmlCursor {
             tokenizer: Tokenizer::from(source),
             buffer: Default::default(),
-            origin: Origin::Include {
-                path: origin.into(),
-            },
+            origin,
             warnings: Default::default(),
             source_offset: 0,
-        }
+            element_depth: self.element_depth,
+            include_depth,
+        })
     }
 
     pub(crate) fn set_source_offset(&mut self, offset: usize) {
@@ -233,6 +287,23 @@ impl<'a> MrmlCursor<'a> {
 
     pub(crate) fn origin(&self) -> Origin {
         self.origin.clone()
+    }
+
+    /// Enter one level of nested parsing, failing with
+    /// [`Error::DepthLimitExceeded`] if [`MAX_ELEMENT_DEPTH`] is exceeded.
+    /// Pair with [`Self::leave_nested`] on every path out, including errors.
+    pub(crate) fn enter_nested(&mut self) -> Result<(), Error> {
+        self.element_depth += 1;
+        if self.element_depth > MAX_ELEMENT_DEPTH {
+            return Err(Error::DepthLimitExceeded {
+                origin: self.origin(),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn leave_nested(&mut self) {
+        self.element_depth -= 1;
     }
 }
 
@@ -392,12 +463,16 @@ impl AsyncParseChildren<String> for AsyncMrmlParser {
 pub(crate) fn parse_attributes_map(
     cursor: &mut MrmlCursor<'_>,
 ) -> Result<Map<String, Option<String>>, Error> {
-    let mut result = Map::new();
+    let mut result = Map::default();
     while let Some(attr) = cursor.next_attribute()? {
-        result.insert(
-            attr.qualified_name(),
-            attr.value.map(|inner| inner.to_string()),
-        );
+        match result.entry(attr.qualified_name()) {
+            Entry::Vacant(slot) => {
+                slot.insert(attr.value.map(|inner| inner.to_string()));
+            }
+            Entry::Occupied(_) => {
+                cursor.add_warning(WarningKind::DuplicateAttribute, attr.span);
+            }
+        }
     }
     Ok(result)
 }
@@ -420,7 +495,10 @@ where
         cursor: &mut MrmlCursor<'a>,
         tag: StrSpan<'a>,
     ) -> Result<super::Component<PhantomData<Tag>, A, C>, Error> {
-        let (attributes, children) = self.parse_attributes_and_children(cursor, &tag)?;
+        cursor.enter_nested()?;
+        let result = self.parse_attributes_and_children(cursor, &tag);
+        cursor.leave_nested();
+        let (attributes, children) = result?;
 
         Ok(super::Component {
             tag: PhantomData::<Tag>,
@@ -469,7 +547,10 @@ where
         cursor: &mut MrmlCursor<'a>,
         tag: StrSpan<'a>,
     ) -> Result<super::Component<PhantomData<Tag>, A, C>, Error> {
-        let (attributes, children) = self.parse_attributes_and_children(cursor, &tag).await?;
+        cursor.enter_nested()?;
+        let result = self.parse_attributes_and_children(cursor, &tag).await;
+        cursor.leave_nested();
+        let (attributes, children) = result?;
 
         Ok(super::Component {
             tag: PhantomData::<Tag>,
@@ -629,4 +710,33 @@ macro_rules! should_not_async_parse {
             }
         });
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MrmlCursor, MrmlParser, ParserOptions, WarningKind};
+    use crate::mj_text::MjText;
+
+    #[test]
+    fn should_warn_and_keep_first_value_on_duplicate_attribute() {
+        let raw = r#"<mj-text font-size="12px" font-size="20px">hi</mj-text>"#;
+        let opts = ParserOptions::default();
+        let parser = MrmlParser::new(&opts);
+        let mut cursor = MrmlCursor::new(raw);
+        let element: MjText = parser.parse_root(&mut cursor).unwrap();
+
+        assert_eq!(
+            element
+                .attributes
+                .get("font-size")
+                .and_then(|v| v.as_deref()),
+            Some("12px")
+        );
+
+        let warnings = cursor.warnings();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].kind, WarningKind::DuplicateAttribute);
+        // The span should point at the second occurrence, not the first.
+        assert_eq!(warnings[0].span.start, raw.rfind("font-size").unwrap());
+    }
 }

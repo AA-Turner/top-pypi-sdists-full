@@ -37,9 +37,19 @@ class AsyncPackageManager:
         pip_command_base: Optional[List[str]] = None,
         venv_path: Optional[str] = None,
         create_if_not_exist: bool = False,
+        use_uv: Optional[bool] = None,
+        uv_executable: Optional[str] = None,
     ):
-        sync_pm = PackageManager(python_executable, pip_command_base, venv_path=venv_path, create_if_not_exist=create_if_not_exist)
+        sync_pm = PackageManager(
+            python_executable,
+            pip_command_base,
+            venv_path=venv_path,
+            create_if_not_exist=create_if_not_exist,
+            use_uv=use_uv,
+            uv_executable=uv_executable,
+        )
         self.pip_command_base = sync_pm.pip_command_base
+        self.use_uv = sync_pm.use_uv
         self.target_python_executable = sync_pm.target_python_executable
         self._sync_pm_instance = sync_pm
         logger.debug(f"{EMOJI['info']} [Async] Initialized for: {self.target_python_executable}")
@@ -52,8 +62,8 @@ class AsyncPackageManager:
             success, output = self._sync_pm_instance._run_command(command, dry_run=True)
             return success, output
 
-        command_str = " ".join(self.pip_command_base + command)
-        logger.info(f"{EMOJI['gear']} [Async] Executing: {command_str}")
+        command_list = self._sync_pm_instance._build_command(command)
+        logger.info(f"{EMOJI['gear']} [Async] Executing: {' '.join(command_list)}")
 
         try:
             # Always capture output unless in verbose mode (where it streams)
@@ -64,8 +74,8 @@ class AsyncPackageManager:
                 stdout_pipe = asyncio.subprocess.PIPE
                 stderr_pipe = asyncio.subprocess.STDOUT
 
-            process = await asyncio.create_subprocess_shell(
-                command_str,
+            process = await asyncio.create_subprocess_exec(
+                *command_list,
                 stdout=stdout_pipe,
                 stderr=stderr_pipe,
             )
@@ -127,6 +137,14 @@ class AsyncPackageManager:
         verbose: bool = False,
     ) -> bool:
         """Async install with visual feedback."""
+        loop = asyncio.get_running_loop()
+        package = await loop.run_in_executor(
+            None,
+            self._sync_pm_instance._apply_quarantine,
+            package,
+            index_url,
+            verbose,
+        )
         command = ["install"]
         if upgrade: command.append("--upgrade")
         if force_reinstall: command.append("--force-reinstall")
@@ -153,6 +171,8 @@ class AsyncPackageManager:
                 else:
                     logger.error(f"{EMOJI['cross']} [Async] Failed to handle: {package}")
 
+        if success:
+            self._sync_pm_instance._clear_version_cache()
         return success
 
     async def install_if_missing(
@@ -332,6 +352,15 @@ class AsyncPackageManager:
         if not packages: 
             return True
 
+        loop = asyncio.get_running_loop()
+        packages = await loop.run_in_executor(
+            None,
+            self._sync_pm_instance._quarantine_targets,
+            packages,
+            index_url,
+            verbose,
+        )
+
         msg = f"{EMOJI['rocket']} [Async] Installing batch of {len(packages)} package(s)..."
 
         command = ["install"]
@@ -356,6 +385,8 @@ class AsyncPackageManager:
                 else:
                     logger.error(f"{EMOJI['cross']} [Async] Batch failed")
 
+        if success:
+            self._sync_pm_instance._clear_version_cache()
         return success
     
     async def uninstall(
@@ -364,7 +395,8 @@ class AsyncPackageManager:
         """Async uninstall with visual feedback."""
         msg = f"{EMOJI['remove']} [Async] Removing: {package}"
         
-        command = ["uninstall", "-y", package]
+        command = ["uninstall"] if self.use_uv else ["uninstall", "-y"]
+        command.append(package)
         if extra_args: command.extend(extra_args)
         
         if verbose or dry_run:
@@ -382,6 +414,8 @@ class AsyncPackageManager:
                 else:
                     logger.error(f"{EMOJI['cross']} [Async] Failed to remove: {package}")
 
+        if success:
+            self._sync_pm_instance._clear_version_cache()
         return success
 
     async def uninstall_multiple(
@@ -392,7 +426,8 @@ class AsyncPackageManager:
 
         msg = f"{EMOJI['remove']} [Async] Removing {len(packages)} package(s)..."
         
-        command = ["uninstall", "-y"] + packages
+        command = ["uninstall"] if self.use_uv else ["uninstall", "-y"]
+        command.extend(packages)
         if extra_args: command.extend(extra_args)
         
         if verbose or dry_run:
@@ -410,6 +445,8 @@ class AsyncPackageManager:
                 else:
                     logger.error(f"{EMOJI['cross']} [Async] Some packages could not be removed")
 
+        if success:
+            self._sync_pm_instance._clear_version_cache()
         return success
 
     async def get_package_info(self, package_name: str) -> Optional[str]:
@@ -440,12 +477,11 @@ class AsyncPackageManager:
             logger.warning(f"{EMOJI['warning']} [Async] Single package check not supported")
 
         if extra_args: command_list.extend(extra_args)
-        command_str = " ".join(command_list)
-        logger.info(f"{EMOJI['shield']} [Async] Running security scan")
+        logger.info(f"{EMOJI['shield']} [Async] Running security scan: {' '.join(command_list)}")
 
         try:
-            process = await asyncio.create_subprocess_shell(
-                command_str,
+            process = await asyncio.create_subprocess_exec(
+                *command_list,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -521,10 +557,22 @@ async def async_check_vulnerabilities(**kwargs: Any) -> Tuple[bool, str]:
     """Checks for vulnerabilities asynchronously."""
     return await _default_async_pm.check_vulnerabilities(**kwargs)
 
-def get_async_pip_manager_for_version(target_python_version: str, venv_path: str, create_if_not_exist: bool = True) -> AsyncPackageManager:
+def get_async_pip_manager_for_version(
+    target_python_version: str,
+    venv_path: str,
+    create_if_not_exist: bool = True,
+    use_uv: Optional[bool] = None,
+    uv_executable: Optional[str] = None,
+) -> AsyncPackageManager:
     """Creates an AsyncPackageManager targeting a specific portable Python version."""
     try:
-        sync_pm = get_pip_manager_for_version(target_python_version, venv_path, create_if_not_exist=create_if_not_exist)
+        sync_pm = get_pip_manager_for_version(
+            target_python_version,
+            venv_path,
+            create_if_not_exist=create_if_not_exist,
+            use_uv=use_uv,
+            uv_executable=uv_executable,
+        )
     except RuntimeError as e:
         logger.error(f"{EMOJI['cross']} Failed to initialize async manager: {e}")
         raise
@@ -532,5 +580,7 @@ def get_async_pip_manager_for_version(target_python_version: str, venv_path: str
     return AsyncPackageManager(
         python_executable=sync_pm.target_python_executable,
         venv_path=venv_path,
-        create_if_not_exist=create_if_not_exist
+        create_if_not_exist=create_if_not_exist,
+        use_uv=use_uv,
+        uv_executable=uv_executable,
     )

@@ -324,6 +324,14 @@ class ImageRegistryMirror:
 
 
 @dataclass
+class ImageResolverConfig:
+    """Optional image resolver plugin, instantiated once at admin startup."""
+
+    resolver_class: str | None = None
+    options: dict = field(default_factory=dict)
+
+
+@dataclass
 class PoolConfig:
     """Pool configuration with resource and port settings."""
 
@@ -389,6 +397,12 @@ class K8sConfig:
     # ROCK_IMAGE_AUTH_KEY environment variable if not set here.
     image_auth_key: str | None = None
 
+    # Pool rendering templates for Template API (Warm path).
+    # Keyed by name (e.g. "default", "windows"); rendered via Jinja2 to produce
+    # Pool CRD spec. Selected by TemplateSpec.os at create time, falling back to
+    # "default".
+    pool_templates: dict[str, dict] = field(default_factory=dict)
+
     # ============================================================================
     # DEPRECATED: The following fields are deprecated and will be removed in a
     # future version. Do NOT use them in new code.
@@ -437,6 +451,42 @@ class OpenSandboxConfig:
 
 
 @dataclass
+class RemoteOperatorConfig:
+    """Configuration for the Remote operator backend.
+
+    Used when ``runtime.operator_type == "remote"``. Rock delegates sandbox
+    lifecycle to a remote platform (SandboxNext) via HTTP REST API. The first
+    and currently only provider is ``SandboxNextProvider``.
+    See docs/proposals/remote-operator.md.
+    """
+
+    provider: str = "sandbox_next"
+    """Provider type. Currently only "sandbox_next" is supported."""
+
+    base_url: str = ""
+    """Remote platform API base URL."""
+
+    api_key: str | None = None
+    """X-Api-Key header authentication."""
+
+    access_token: str | None = None
+    """Bearer token authentication."""
+
+    default_timeout: int = 600
+    """HTTP request timeout in seconds."""
+
+    provider_options: dict = field(default_factory=dict)
+    """Provider-specific pass-through config."""
+
+    templates: dict[str, dict] = field(default_factory=dict)
+    """Raw-mode rendering templates, same structure as K8sConfig.templates."""
+
+    def __post_init__(self):
+        if not self.base_url:
+            raise ValueError("RemoteOperatorConfig.base_url is required")
+
+
+@dataclass
 class RuntimeConfig:
     enable_auto_clear: bool = False
     project_root: str = field(default_factory=lambda: env_vars.ROCK_PROJECT_ROOT)
@@ -462,7 +512,7 @@ class RuntimeConfig:
 
     image_os_profiles: dict = field(default_factory=dict)
     """Profiles keyed by image_os value (e.g. "android"). Nacos image_os_profiles
-    are merged on top at request time via _apply_image_os_profile().
+    are merged on top at request time by the shared start-config normalizer.
     YAML: runtime.image_os_profiles.<image_os>: {runtime_env: {...}, startup_timeout, ...}"""
 
     def __post_init__(self) -> None:
@@ -555,10 +605,12 @@ class RockConfig:
     lifecycle: SandboxLifecycleConfig = field(default_factory=SandboxLifecycleConfig)
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
     opensandbox: OpenSandboxConfig = field(default_factory=OpenSandboxConfig)
+    remote: RemoteOperatorConfig | None = None
     proxy_service: ProxyServiceConfig = field(default_factory=ProxyServiceConfig)
     aes_encrypt_key: str | None = None
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
+    e2b_image_resolver: ImageResolverConfig = field(default_factory=ImageResolverConfig)
     image_registry_mirrors: list[ImageRegistryMirror] = field(default_factory=list)
     image_mirror_lookup_allowlist: list[str] = field(default_factory=list)
     http_pools: dict[str, HttpPoolConfig] = field(
@@ -624,6 +676,8 @@ class RockConfig:
             kwargs["runtime"] = RuntimeConfig(**config["runtime"])
         if "opensandbox" in config:
             kwargs["opensandbox"] = OpenSandboxConfig(**config["opensandbox"])
+        if "remote" in config:
+            kwargs["remote"] = RemoteOperatorConfig(**config["remote"])
         if "proxy_service" in config:
             kwargs["proxy_service"] = ProxyServiceConfig(**config["proxy_service"])
         if "aes_encrypt_key" in config:
@@ -632,6 +686,8 @@ class RockConfig:
             kwargs["scheduler"] = SchedulerConfig(**config["scheduler"])
         if "database" in config:
             kwargs["database"] = DatabaseConfig(**config["database"])
+        if "e2b_image_resolver" in config:
+            kwargs["e2b_image_resolver"] = ImageResolverConfig(**(config["e2b_image_resolver"] or {}))
         if "http_pools" in config:
             raw_pools = config["http_pools"] or {}
             kwargs["http_pools"] = {name: HttpPoolConfig(**params) for name, params in raw_pools.items()}
@@ -735,6 +791,7 @@ class RockConfig:
             "sandbox_config": (SandboxConfig, "sandbox_config"),
             "proxy_service": (ProxyServiceConfig, "proxy_service"),
             "lifecycle": (SandboxLifecycleConfig, "lifecycle"),
+            "e2b_image_resolver": (ImageResolverConfig, "e2b_image_resolver"),
         }
 
         for key, (config_class, attr_name) in config_map.items():

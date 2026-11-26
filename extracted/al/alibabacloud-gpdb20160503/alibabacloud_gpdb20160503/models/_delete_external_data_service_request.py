@@ -11,15 +11,15 @@ class DeleteExternalDataServiceRequest(DaraModel):
         region_id: str = None,
         service_id: str = None,
     ):
-        # Instance ID.
+        # The instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # Region ID.
+        # The region ID.
         # 
-        # > You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) API to view available region IDs.
+        # > You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs.
         self.region_id = region_id
-        # Service ID.
+        # The service ID.
         # 
         # This parameter is required.
         self.service_id = service_id

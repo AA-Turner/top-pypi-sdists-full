@@ -186,7 +186,12 @@ def _metric_args_for_mode(mode: MetricMode, args: dict[str, Any]) -> dict[str, A
 
     missing = sorted(_METRIC_MODE_REQUIRED[mode] - set(supplied))
     if missing:
-        raise ToolError(f"read_metrics: mode={mode.value} requires {', '.join(missing)}")
+        hint = (
+            ' (metric keys, e.g. "loss": entity(view="metrics") on the run lists them)'
+            if {"key", "keys"} & set(missing)
+            else ""
+        )
+        raise ToolError(f"read_metrics: mode={mode.value} requires {', '.join(missing)}{hint}")
 
     for name in sorted(_METRIC_SEQUENCE_ARGS & set(supplied)):
         value = supplied[name]

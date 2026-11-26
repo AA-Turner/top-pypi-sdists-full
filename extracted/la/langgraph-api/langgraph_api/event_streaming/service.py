@@ -21,7 +21,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
-import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, cast, get_args
@@ -30,6 +29,7 @@ from uuid import UUID, uuid4
 import orjson
 import structlog
 
+from langgraph_api.command import INTERRUPT_ID_RE, keyed_by_interrupt_id
 from langgraph_api.event_streaming.capabilities import (
     ProtocolV2Capabilities,
     ProtocolV2UnsupportedError,
@@ -46,6 +46,7 @@ from langgraph_api.event_streaming.session import (
 from langgraph_api.event_streaming.types import Subscription
 from langgraph_api.feature_flags import FF_V2_EVENT_STREAMING, PREFER_GRPC_CHECKPOINTER
 from langgraph_api.schema import MultitaskStrategy
+from langgraph_api.tracing_session import tracer_destination
 from langgraph_api.validation import sanitize_reserved_keys
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -101,20 +102,21 @@ def validate_checkpoint_id_from_runnable_config(params: dict[str, Any]) -> str |
 
 def _langsmith_tracer_from_run_start(
     params: dict[str, Any],
-) -> dict[str, str] | None:
+) -> dict[str, Any] | None:
     tracer = params.get("langsmith_tracer")
     if tracer is None:
         return None
     if not _is_record(tracer):
         raise ValueError("langsmith_tracer must be an object.")
-    unknown = tracer.keys() - {"project_name", "example_id"}
+    unknown = tracer.keys() - {"project_name", "example_id", "address"}
     if unknown:
         raise ValueError(
             f"langsmith_tracer has unsupported fields: {sorted(unknown)!r}."
         )
     for key, value in tracer.items():
-        if not isinstance(value, str):
+        if key != "address" and not isinstance(value, str):
             raise ValueError(f"langsmith_tracer.{key} must be a string.")
+    tracer_destination({"langsmith_tracer": tracer})
     return dict(tracer)
 
 
@@ -128,16 +130,16 @@ DEFAULT_MULTITASK_STRATEGY = "enqueue"
 
 
 def _multitask_strategy_from_run_start(params: dict[str, Any]) -> str:
-    """Resolve the per-run ``multitaskStrategy`` from ``run.start`` params.
+    """Resolve the per-run multitask strategy from ``run.start`` params.
 
-    The SDK forwards the caller's ``multitaskStrategy`` on every
-    ``run.start`` (one of ``reject`` | ``rollback`` | ``interrupt`` |
-    ``enqueue``). Honor it when it is one of the recognized strategies,
-    otherwise fall back to ``DEFAULT_MULTITASK_STRATEGY`` (the legacy
-    stream-endpoint default). This mirrors the JS reference server's
+    ``multitask_strategy`` is the protocol's spelling; older JS SDKs send only
+    ``multitaskStrategy``, so that name still works. Honor one of the
+    recognized strategies (``reject`` | ``rollback`` | ``interrupt`` |
+    ``enqueue``), otherwise fall back to ``DEFAULT_MULTITASK_STRATEGY`` (the
+    legacy stream-endpoint default). This mirrors the JS reference server's
     lenient normalization so both behave identically.
     """
-    strategy = params.get("multitaskStrategy")
+    strategy = params.get("multitask_strategy", params.get("multitaskStrategy"))
     if isinstance(strategy, str) and strategy in VALID_MULTITASK_STRATEGIES:
         return strategy
     return DEFAULT_MULTITASK_STRATEGY
@@ -150,23 +152,10 @@ EventSink = Callable[[dict[str, Any]], Awaitable[None] | None]
 _IN_FLIGHT_THREAD_STATUS = "busy"
 _INTERRUPT_SETTLE_TIMEOUT_SECONDS = 5.0
 _INTERRUPT_SETTLE_POLL_INTERVAL_SECONDS = 0.05
-# langgraph resumes interrupts by id only when every key of the resume map has
-# this shape; any other key turns the whole map into one value for whichever
-# interrupt is pending.
-_INTERRUPT_ID_RE = re.compile(r"[0-9a-f]{32}")
 
 
 class _AmbiguousResumeError(Exception):
     """``run.start`` input would resume several pending interrupts at once."""
-
-
-def _keyed_by_interrupt_id(value: Any) -> bool:
-    """Whether langgraph resumes ``value`` per interrupt rather than as one answer."""
-    return (
-        _is_record(value)
-        and bool(value)
-        and all(_INTERRUPT_ID_RE.fullmatch(key) for key in value)
-    )
 
 
 # Protocol v2 commands this server implements. Anything outside this
@@ -707,7 +696,7 @@ class ThreadRunManager:
             # open for any id shaped like an interrupt id: the resume below is
             # authoritative, so neither must masquerade as a missing interrupt.
             if thread_state_ids is None:
-                rejected = not _INTERRUPT_ID_RE.fullmatch(interrupt_id)
+                rejected = not INTERRUPT_ID_RE.fullmatch(interrupt_id)
             else:
                 rejected = interrupt_id not in thread_state_ids
             if rejected:
@@ -751,6 +740,7 @@ class ThreadRunManager:
                     "goto": params.get("goto"),
                     "config": params.get("config"),
                     "metadata": params.get("metadata"),
+                    "strict_resume": params.get("strict_resume"),
                 },
             )
         except ProtocolV2UnsupportedError as exc:
@@ -829,7 +819,7 @@ class ThreadRunManager:
         has_interrupts = False
         if params.get("input") is not None and infer_resume:
             has_interrupts = await self._has_pending_interrupts()
-        if has_interrupts and not _keyed_by_interrupt_id(params["input"]):
+        if has_interrupts and not keyed_by_interrupt_id(params["input"]):
             # One answer can't say which of several pending interrupts it is
             # for: langgraph fails the run, or picks one when they share a
             # subgraph task. Only a paused thread's row is current, so a run in
@@ -906,6 +896,7 @@ class ThreadRunManager:
             "multitask_strategy": _multitask_strategy_from_run_start(params),
             "langsmith_tracer": _langsmith_tracer_from_run_start(params),
             "durability": None,
+            "strict_resume": params.get("strict_resume") is True,
         }
 
         run_id = make_uuid7()

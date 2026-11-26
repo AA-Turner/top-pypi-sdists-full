@@ -13,7 +13,7 @@ class DescribeDataSharePerformanceRequest(DaraModel):
         resource_group_id: str = None,
         start_time: str = None,
     ):
-        # The end time of the query. The end time must be later than the start time. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format (UTC).
+        # The end time of the query. The end time must be later than the start time. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         self.end_time = end_time
         # The name of the performance metric. Separate multiple metrics with commas (,). Valid values:
         # 
@@ -30,7 +30,7 @@ class DescribeDataSharePerformanceRequest(DaraModel):
         self.region_id = region_id
         # **[Deprecated]** This parameter is deprecated. You do not need to specify this parameter.
         self.resource_group_id = resource_group_id
-        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format (UTC).
+        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         self.start_time = start_time
 
     def validate(self):

@@ -16,40 +16,40 @@ class DownloadDiagnosisRecordsRequest(DaraModel):
         start_time: str = None,
         user: str = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to view the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The name of the database.
+        # The database name.
         # 
         # This parameter is required.
         self.database = database
-        # The end of the time range to query. Specify the time in the *yyyy-MM-dd*T*HH:mm*Z format. The time must be in UTC.
+        # The end time of the query. The end time must be later than the start time. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         self.end_time = end_time
-        # The language of the file that contains the query diagnostic information. Valid values:
+        # The language of the downloaded file. Valid values:
         # 
-        # *   **zh**: simplified Chinese
-        # *   **en**: English
-        # *   **ja**: Japanese
-        # *   **zh-tw**: traditional Chinese
+        # - **zh**: Simplified Chinese.
+        # - **en**: English.
+        # - **ja**: Japanese.
+        # - **zh-tw**: Traditional Chinese.
         self.lang = lang
-        # The filter condition on queries. The value is in the JSON format. Valid values:
+        # The query filter conditions in JSON format. Valid values:
         # 
-        # *   `{"Type":"maxCost", "Value":"100"}`: filters the top 100 queries that are the most time-consuming.
-        # *   `{"Type":"status","Value":"finished"}`: filters completed queries.
-        # *   `{"Type":"status","Value":"running"}`: filters running queries.
-        # *   `{"Type":"cost","Max":"200"}`: filters the queries that consume less than 200 milliseconds.
-        # *   `{"Type":"cost","Min":"200","Max":"60000"}`: filters the queries that consume 200 milliseconds or more and less than 1 minute.
-        # *   `{"Type":"cost","Min":"60000"}`: filters the queries that consume 1 minute or more.
-        # *   `{"Type":"cost","Min":"30","Max":"50"}`: filters the queries that consume 30 milliseconds or more and less than 50 milliseconds. You can customize a filter condition by setting **Min** and **Max**.
+        # - `{"Type":"maxCost", "Value":"100"}`: The 100 queries with the longest execution duration.
+        # - `{"Type":"status","Value":"finished"}`: Completed queries.
+        # - `{"Type":"status","Value":"running"}`: Running queries.
+        # - `{"Type":"cost","Max":"200"}`: Short-duration queries, which are queries with an execution duration of less than 200 milliseconds.
+        # - `{"Type":"cost","Min":"200","Max":"60000"}`: Medium-duration queries, which are queries with an execution duration of 200 milliseconds or more but less than 1 minute.
+        # - `{"Type":"cost","Min":"60000"}`: Long-duration queries, which are queries with an execution duration of 1 minute or more.
+        # - `{"Type":"cost","Min":"30","Max":"50"}`: Custom-duration queries. You can specify the minimum and maximum execution duration of the queries. **Min** specifies the minimum execution duration, and **Max** specifies the maximum execution duration. Unit: milliseconds.
         self.query_condition = query_condition
-        # The ID of the resource group to which the instance belongs. For more information about how to obtain the ID of a resource group, see [View basic information of a resource group](https://help.aliyun.com/document_detail/151181.html).
+        # **[Deprecated]** This parameter is deprecated. You do not need to specify this parameter.
         self.resource_group_id = resource_group_id
-        # The beginning of the time range to query. Specify the time in the *yyyy-MM-dd*T*HH:mm*Z format. The time must be in UTC.
+        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         self.start_time = start_time
-        # The name of the database account.
+        # The username.
         self.user = user
 
     def validate(self):

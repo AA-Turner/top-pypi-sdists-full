@@ -14,7 +14,7 @@ class DescribeAccountsResponseBody(DaraModel):
         request_id: str = None,
     ):
         self.accounts = accounts
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):

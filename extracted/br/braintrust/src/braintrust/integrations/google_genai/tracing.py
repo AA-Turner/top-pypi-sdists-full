@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable, Iterable
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 from braintrust.integrations.utils import (
+    _extract_google_modality_token_count,
     _extract_google_usage_metadata_metrics,
     _extract_google_usage_metadata_provider_metadata,
     _materialize_attachment,
@@ -59,16 +60,22 @@ _TOOL_CALL_TYPES = {
     "code_execution_call",
     "url_context_call",
     "google_search_call",
+    "google_maps_call",
     "mcp_server_tool_call",
     "file_search_call",
+    "retrieval_call",
+    "tool_search_call",
 }
 _TOOL_RESULT_TYPES = {
     "function_result",
     "code_execution_result",
     "url_context_result",
     "google_search_result",
+    "google_maps_result",
     "mcp_server_tool_result",
     "file_search_result",
+    "retrieval_result",
+    "tool_search_result",
 }
 _LoggedResult: TypeAlias = tuple[Any, dict[str, Any]] | tuple[Any, dict[str, Any], dict[str, Any] | None]
 
@@ -514,8 +521,14 @@ def _extract_embed_content_metrics(response: "EmbedContentResponse", start: floa
             token_counts.append(token_count)
 
     if token_counts:
-        metrics["prompt_tokens"] = sum(token_counts)
-        metrics["tokens"] = metrics["prompt_tokens"]
+        prompt_tokens = sum(token_counts)
+    else:
+        usage_metadata = getattr(response, "usage_metadata", None)
+        prompt_tokens = getattr(usage_metadata, "prompt_token_count", None)
+
+    if prompt_tokens is not None:
+        metrics["prompt_tokens"] = prompt_tokens
+        metrics["tokens"] = prompt_tokens
 
     metadata = getattr(response, "metadata", None)
     billable_character_count = getattr(metadata, "billable_character_count", None)
@@ -607,6 +620,11 @@ def _extract_interaction_usage_metrics(usage: Any, metrics: dict[str, Any]) -> N
         metrics["tokens"] = usage.total_tokens
     if hasattr(usage, "total_cached_tokens") and usage.total_cached_tokens is not None:
         metrics["prompt_cached_tokens"] = usage.total_cached_tokens
+    cached_audio_tokens = _extract_google_modality_token_count(
+        getattr(usage, "cached_tokens_by_modality", None), "AUDIO", count_field="tokens"
+    )
+    if cached_audio_tokens is not None:
+        metrics["prompt_cached_audio_tokens"] = cached_audio_tokens
     if total_thought_tokens is not None:
         metrics["completion_reasoning_tokens"] = total_thought_tokens
 

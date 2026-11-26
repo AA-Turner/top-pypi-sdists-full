@@ -15,6 +15,7 @@ propagates where callers clean up (create/delete/update).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from koyeb.api.exceptions import ApiException, NotFoundException
@@ -50,6 +51,8 @@ class ServiceInfo:
     name: str
     active_deployment_id: Optional[str]
     latest_deployment_id: Optional[str]
+    created_at: Optional[datetime] = None
+    delete_after_create: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -99,6 +102,12 @@ def _deployment_info(deployment: Any) -> DeploymentInfo:
     )
 
 
+def _delete_after_create(service: Any) -> Optional[int]:
+    life_cycle = getattr(service, "life_cycle", None)
+    value = getattr(life_cycle, "delete_after_create", None) if life_cycle else None
+    return value if isinstance(value, int) else None
+
+
 def _not_found(service_id: str) -> SandboxError:
     return SandboxError(f"Sandbox not found with id: {service_id}")
 
@@ -142,6 +151,8 @@ class SyncControlPlane:
             name=service.name,
             active_deployment_id=service.active_deployment_id,
             latest_deployment_id=service.latest_deployment_id,
+            created_at=getattr(service, "created_at", None),
+            delete_after_create=_delete_after_create(service),
         )
 
     def update_service(
@@ -163,11 +174,12 @@ class SyncControlPlane:
         limit: int,
         name: Optional[str] = None,
         app_id: Optional[str] = None,
+        types: Optional[List[str]] = None,
     ) -> Tuple[List[ServiceInfo], int]:
         reply = self._clients.services.list_services(
             app_id=app_id,
             name=name,
-            types=["SANDBOX"],
+            types=types or ["SANDBOX"],
             limit=str(limit),
             offset=str(offset),
         )
@@ -237,6 +249,8 @@ class AsyncControlPlane:
             name=service.name,
             active_deployment_id=service.active_deployment_id,
             latest_deployment_id=service.latest_deployment_id,
+            created_at=getattr(service, "created_at", None),
+            delete_after_create=_delete_after_create(service),
         )
 
     async def update_service(
@@ -258,11 +272,12 @@ class AsyncControlPlane:
         limit: int,
         name: Optional[str] = None,
         app_id: Optional[str] = None,
+        types: Optional[List[str]] = None,
     ) -> Tuple[List[ServiceInfo], int]:
         reply = await self._clients.services.list_services(
             app_id=app_id,
             name=name,
-            types=["SANDBOX"],
+            types=types or ["SANDBOX"],
             limit=str(limit),
             offset=str(offset),
         )

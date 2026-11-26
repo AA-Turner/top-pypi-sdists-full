@@ -90,11 +90,12 @@ from .models import (
     VolumeListResponse,
     VolumeMount,
     VolumeSync,
+    VolumeVisibility,
 )
 from .process import AsyncSandboxProcess
 from .sandbox import AsyncSandboxClient, SandboxClient
 
-__version__ = "0.5.16"
+__version__ = "0.5.18"
 
 # Deprecated alias for backward compatibility
 TimeoutError = APITimeoutError
@@ -170,6 +171,7 @@ __all__ = [
     "VolumeListResponse",
     "VolumeMount",
     "VolumeSync",
+    "VolumeVisibility",
     # Exceptions
     "APIError",
     "BatchStatusUnsupportedError",

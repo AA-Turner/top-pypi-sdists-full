@@ -37,9 +37,8 @@ class SanitizeAttributesDefaultValue(RelativeHandlerInterface):
 
         Cases:
             - Reset min_occurs
-            - Reset default value
+            - Reset default value, elements keep it for empty content
             - Validate default value against types
-            - Set empty string as default value for string text nodes.
 
         Args:
             target: The target class instance
@@ -49,17 +48,14 @@ class SanitizeAttributesDefaultValue(RelativeHandlerInterface):
             attr.restrictions.min_occurs = 0
 
         if self.should_reset_default(attr):
+            if attr.is_element:
+                attr.empty_value = attr.default
+
             attr.fixed = False
             attr.default = None
 
         if attr.default is not None:
             self.process_types(target, attr)
-        elif attr.xml_type is None:
-            # Text nodes get an empty default value
-            if str in attr.native_types:
-                attr.default = ""
-            elif bytes in attr.native_types:
-                attr.default = ""  # Will be converted to b"" during codegen
 
     def process_types(self, target: Class, attr: Attr) -> None:
         """Reset attr types if default value doesn't pass validation.

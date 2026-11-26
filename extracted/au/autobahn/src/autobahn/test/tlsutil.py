@@ -257,13 +257,17 @@ class FakeRouterSession:
         self._authid = None
         self._session_id = None
 
+    def _require_transport(self):
+        assert self._transport is not None, "onOpen() was not called"
+        return self._transport
+
     def onOpen(self, transport):
         self._transport = transport
         self.observed.append(("open", transport.transport_details))
 
     def onMessage(self, msg):
         if isinstance(msg, message.Hello):
-            td = self._transport.transport_details
+            td = self._require_transport().transport_details
             self.observed.append(("hello", td))
             if "tls" in msg.authmethods:
                 self._hello_tls(td)
@@ -274,8 +278,8 @@ class FakeRouterSession:
         elif isinstance(msg, message.Authenticate) and self._pending:
             self._authenticate(msg)
         elif isinstance(msg, message.Goodbye):
-            self._transport.send(message.Goodbye())
-            self._transport.close()
+            self._require_transport().send(message.Goodbye())
+            self._require_transport().close()
 
     def onClose(self, wasClean):
         self.observed.append(("close", None))
@@ -301,9 +305,14 @@ class FakeRouterSession:
             self._abort("wamp.error.not_authorized", "unknown public key")
             return
         channel_binding = msg.authextra.get("channel_binding")
+        # record the channel-binding type the client selected and sent in HELLO
+        # (what the router binds the signature to), for test introspection
+        self.observed.append(("channel_binding", channel_binding))
         challenge = os.urandom(32)
-        if channel_binding == "tls-unique":
-            channel_id = td.channel_id.get("tls-unique") if td.channel_id else None
+        if channel_binding:
+            # bind the signature to the TLS channel ID of the type the client selected
+            # (tls-unique on TLS <= 1.2, tls-exporter on TLS 1.3, #2078)
+            channel_id = td.channel_id.get(channel_binding) if td.channel_id else None
             if not channel_id or channel_id == self.ZERO_CHANNEL_ID:
                 self._abort(
                     "wamp.error.not_authorized",
@@ -318,7 +327,7 @@ class FakeRouterSession:
             "challenge": binascii.b2a_hex(challenge).decode(),
             "channel_binding": channel_binding,
         }
-        self._transport.send(message.Challenge("cryptosign", extra))
+        self._require_transport().send(message.Challenge("cryptosign", extra))
 
     def _authenticate(self, msg):
         from nacl.exceptions import BadSignatureError
@@ -349,7 +358,7 @@ class FakeRouterSession:
         }
         self._authid = authid
         self._session_id = util.id()
-        self._transport.send(
+        self._require_transport().send(
             message.Welcome(
                 self._session_id,
                 roles,
@@ -362,4 +371,4 @@ class FakeRouterSession:
 
     def _abort(self, reason, msg):
         self.observed.append(("abort", msg))
-        self._transport.send(message.Abort(reason, msg))
+        self._require_transport().send(message.Abort(reason, msg))

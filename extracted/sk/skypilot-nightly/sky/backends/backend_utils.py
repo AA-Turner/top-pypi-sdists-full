@@ -3039,6 +3039,23 @@ def _get_terminated_cluster_reason(
             cause = f'Reported failure: {reported}'
 
     launched_at = record.get('launched_at')
+    if cause is None and is_k8s and launched_at is not None:
+        # A terminating pod can report its cause before it disappears, even
+        # when Kubernetes retains no event explaining its deletion.
+        try:
+            events = global_user_state.get_cluster_events(
+                cluster_name=None,
+                cluster_hash=record['cluster_hash'],
+                event_type=global_user_state.ClusterEventType.TERMINAL,
+                include_timestamps=True,
+                limit=1)
+            since = launched_at - kubernetes_utils.POD_EVENT_CLOCK_SKEW_SECONDS
+            if events and int(events[0]['transitioned_at']) >= since:
+                cause = str(events[0]['reason']) or None
+        except Exception as e:  # pylint: disable=broad-except
+            logger.debug(f'Failed to read the terminal event for '
+                         f'{handle.cluster_name!r}: {e}')
+
     # Autodown is likely only if it could have fired (the cluster is older
     # than its idle limit) and nothing says it did not. A missing Kubernetes
     # breadcrumb argues against it, but the lookup can miss, so the configured
@@ -4626,6 +4643,8 @@ def get_clusters(
     include_credentials: bool = False,
     summary_response: bool = False,
     include_handle: bool = True,
+    limit: Optional[int] = None,
+    after: Optional[Tuple[int, str]] = None,
     # Internal only:
     # pylint: disable=invalid-name
     _include_is_managed: bool = False,
@@ -4646,6 +4665,10 @@ def get_clusters(
             return clusters from the current user.
         include_credentials: If True, include ssh credentials in the records of
             the clusters the current user owns.
+        limit: If provided, return at most this many clusters, newest launch
+            first.
+        after: If provided, only clusters after this (launched_at, name), the
+            last cluster of the previous page.
         _include_is_managed: Whether to force include clusters created by the
             controller.
 
@@ -4701,13 +4724,16 @@ def get_clusters(
         user_hashes_filter=user_hashes_filter,
         workspaces_filter=accessible_workspaces,
         cluster_names=cluster_names,
-        summary_response=summary_response)
+        summary_response=summary_response,
+        limit=limit,
+        after=after)
 
     yellow = colorama.Fore.YELLOW
     bright = colorama.Style.BRIGHT
     reset = colorama.Style.RESET_ALL
 
-    if cluster_names is not None:
+    # A page holds only some of the named clusters.
+    if cluster_names is not None and limit is None:
         record_names = {record['name'] for record in records}
         not_found_clusters = ux_utils.get_non_matched_query(
             cluster_names, record_names)

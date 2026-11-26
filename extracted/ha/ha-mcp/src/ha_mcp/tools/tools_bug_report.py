@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import quote_plus
 
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from ha_mcp import __version__
 from ha_mcp._vendor.fastmcp import Context
@@ -34,7 +34,6 @@ from ..mcp_client_context import (
     protocol_version,
 )
 from ..renamed_tools import CLIENT_TOOL_LIST_REFRESH_STEPS
-from ..update_check import python_upgrade_hint
 from ..utils.mcp_client_host import detect_client_host
 from ..utils.usage_logger import (
     AVG_LOG_ENTRIES_PER_TOOL,
@@ -42,7 +41,7 @@ from ..utils.usage_logger import (
     get_startup_logs,
 )
 from .bug_report_config import collect_config_toggles
-from .bug_report_redaction import _sanitize_log_text, known_identifiers_scope
+from .bug_report_redaction import known_identifiers_scope, sanitize_log_text
 from .bug_report_sources import (
     _fetch_addon_logs,
     _fetch_core_error_log,
@@ -140,7 +139,7 @@ KNOWN_CLIENT_ISSUES_HINT = (
 )
 
 # A slow or missing Supervisor must not hold up the whole report.
-_SUPERVISOR_PROBE_TIMEOUT = 10.0
+SUPERVISOR_PROBE_TIMEOUT = 10.0
 
 
 def _detect_installation_method() -> str:
@@ -204,7 +203,7 @@ def _instance_identity() -> dict[str, Any]:
     }
 
 
-def _format_websockets_dependency_value(diagnostic_info: dict[str, Any]) -> str:
+def format_websockets_dependency_value(diagnostic_info: dict[str, Any]) -> str:
     """Render the websockets probe for the human-pasteable report.
 
     Mirrors the sibling ``_format_*_value`` helpers: a degraded probe stays
@@ -232,7 +231,7 @@ def _format_websockets_dependency_value(diagnostic_info: dict[str, Any]) -> str:
     return f"{value} | shared env copy: {shared}"
 
 
-def _websockets_dependency_state() -> dict[str, Any]:
+def websockets_dependency_state() -> dict[str, Any]:
     """Report the vendored websockets copy plus the shared copy's state.
 
     ha-mcp runs on its private ``ha_mcp._vendor.websockets``, immune to the
@@ -312,10 +311,10 @@ def _tool_policy_summary() -> str:
         logger.warning("Tool policy probe failed: %s (%s)", e, type(e).__name__)
         # load_policy's message can quote rule contents, so only its kind
         # reaches the report.
-        if "not valid JSON" in str(e):
-            return "unreadable (invalid JSON)"
-        if "schema validation" in str(e):
+        if isinstance(e.__cause__, ValidationError):
             return "unreadable (schema validation failed)"
+        if isinstance(e.__cause__, ValueError):  # the JSON or its encoding
+            return "unreadable (invalid JSON)"
         return f"unreadable ({type(e).__name__})"
     count = len(policy.rules)
     rules = "1 rule" if count == 1 else f"{count} rules"
@@ -328,7 +327,7 @@ def _http_user_agent() -> str:
     return str(value).strip()
 
 
-def _detect_mcp_transport() -> str:
+def detect_mcp_transport() -> str:
     """Best-effort MCP transport detection.
 
     Returns ``stdio`` / ``http`` / ``sse`` / ``unknown``. We can't observe the
@@ -378,7 +377,7 @@ def _detect_mcp_transport() -> str:
     try:
         if not sys.stdin.isatty():
             return "stdio"
-    except (AttributeError, OSError, ValueError):
+    except AttributeError, OSError, ValueError:
         # ``sys.stdin`` can be None or detached (pythonw, daemonized
         # contexts, certain test harnesses). Treat as no signal.
         pass
@@ -450,7 +449,7 @@ def _build_formatted_report(
         f"Supervisor: {_format_supervisor_value(diagnostic_info)}",
         f"Connection Status: {diagnostic_info['connection_status']}",
         f"Entity Count: {diagnostic_info['entity_count']}",
-        f"websockets Dependency: {_format_websockets_dependency_value(diagnostic_info)}",
+        f"websockets Dependency: {format_websockets_dependency_value(diagnostic_info)}",
     ]
     if "location_name" in diagnostic_info:
         report_lines.append(f"Location Name: {diagnostic_info['location_name']}")
@@ -546,7 +545,7 @@ class BugReportTools:
                 "(“HA-MCP Custom Component” on older installs), or install the component first"
             )
         if not bootstrap_registered:
-            return "set up, but the component is pre-0.5.0 (update via HACS or the Marketplace)"
+            return "set up, but the component is pre-0.5.0 (update it)"
         return "set up (ha_mcp_tools services registered)"
 
     async def _detect_server_entry_status(self, info: InfoResult | None) -> str | None:
@@ -595,7 +594,7 @@ class BugReportTools:
         try:
             response = await asyncio.wait_for(
                 _supervisor_api_call(self._client, "/info"),
-                timeout=_SUPERVISOR_PROBE_TIMEOUT,
+                timeout=SUPERVISOR_PROBE_TIMEOUT,
             )
         except Exception as e:  # noqa: BLE001
             logger.info("Supervisor info probe failed: %s (%s)", e, type(e).__name__)
@@ -625,7 +624,7 @@ class BugReportTools:
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to get Home Assistant config: {e}")
             diagnostic_info["connection_status"] = (
-                f"Connection Error: {_sanitize_log_text(str(e))}"
+                f"Connection Error: {sanitize_log_text(str(e))}"
             )
 
         try:
@@ -756,7 +755,7 @@ class BugReportTools:
                     "startup_log_count, formatted_report, issue_title, "
                     "issue_body, issue_url, anonymization_guide, "
                     "duplicate_check_urls, missing_tool_hint, "
-                    "known_client_issues_hint, python_upgrade_hint, instructions."
+                    "known_client_issues_hint, instructions."
                 ),
             ),
         ] = None,
@@ -812,7 +811,7 @@ class BugReportTools:
         platform_info = detect_platform()
         config_toggles = _get_config_toggles()
         tool_policy = await asyncio.to_thread(_tool_policy_summary)
-        mcp_transport = _detect_mcp_transport()
+        mcp_transport = detect_mcp_transport()
         client_info = extract_client_info(ctx)
         (known_identifiers, identifier_warning), ha_install = await asyncio.gather(
             collect_known_identifiers(self._client), fetch_ha_install(self._client)
@@ -843,7 +842,7 @@ class BugReportTools:
             "instance": _instance_identity(),
             "installation_method": install_method,
             "platform": platform_info,
-            "websockets_dependency": _websockets_dependency_state(),
+            "websockets_dependency": websockets_dependency_state(),
             "mcp_transport": mcp_transport,
             "mcp_client_info": client_info,
             "mcp_protocol_version": mcp_protocol_version,
@@ -960,10 +959,10 @@ class BugReportTools:
                 # key-masked at the logging chokepoint and its error_message is
                 # returned as-is to the trusted client by design (see SECURITY.md);
                 # formatted_report and addon_logs already route through
-                # _sanitize_log_text. This copies entries — the underlying log
+                # sanitize_log_text. This copies entries — the underlying log
                 # records stay raw.
                 "startup_logs": [
-                    {**entry, "message": _sanitize_log_text(entry.get("message", ""))}
+                    {**entry, "message": sanitize_log_text(entry.get("message", ""))}
                     for entry in startup_logs
                 ],
                 "addon_logs": addon_logs,
@@ -979,7 +978,6 @@ class BugReportTools:
                 "duplicate_check_urls": duplicate_check_urls,
                 "missing_tool_hint": MISSING_TOOL_HINT,
                 "known_client_issues_hint": KNOWN_CLIENT_ISSUES_HINT,
-                "python_upgrade_hint": python_upgrade_hint(),
                 "instructions": (
                     "WORKFLOW FOR FILING A REPORT:\n\n"
                     "0. **PRE-CHECK — missing tool or unknown parameter?** If the "
@@ -995,8 +993,6 @@ class BugReportTools:
                     "bug with an upstream ticket. See the `known_client_issues_hint` "
                     "field for the workaround to give the user, and only continue "
                     "if the problem persists after it.\n\n"
-                    "0c. **Python upgrade?** If `python_upgrade_hint` is set, pass "
-                    "it on to the user, whatever the report is about.\n\n"
                     "1. **Check for duplicates FIRST**:\n"
                     "   - Use the duplicate_check_urls to search for similar issues\n"
                     '   - If gh CLI is available: use `gh issue list --search "keyword"`\n'
@@ -1105,7 +1101,7 @@ def _format_logs_for_report(logs: list[dict[str, Any]]) -> str:
         line = f"  {timestamp} | {tool_name} | {success} | {exec_time:.0f}ms"
         if error:
             # Sanitize before truncating so secrets straddling the cut survive redaction.
-            error_short = _sanitize_log_text(str(error))[:100]
+            error_short = sanitize_log_text(str(error))[:100]
             line += f" | Error: {error_short}"
         lines.append(line)
 
@@ -1125,7 +1121,7 @@ def _format_startup_logs(logs: list[dict[str, Any]]) -> str:
         message = log.get("message", "")
 
         # Sanitize before truncating so secrets straddling the cut survive redaction.
-        message = _sanitize_log_text(message)
+        message = sanitize_log_text(message)
         if len(message) > 200:
             message = message[:200] + "..."
 

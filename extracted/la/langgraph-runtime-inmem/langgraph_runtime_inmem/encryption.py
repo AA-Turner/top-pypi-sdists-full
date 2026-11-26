@@ -55,6 +55,7 @@ NEVER_ENCRYPT_FIELDS = frozenset(
         "langgraph_plan",
         "langgraph_host",
         "langgraph_api_url",
+        "langgraph_graph_load_ms",
         "langgraph_request_id",
         "langgraph_auth_user_id",
         "langgraph_auth_permissions",

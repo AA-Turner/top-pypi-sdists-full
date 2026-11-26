@@ -46,6 +46,7 @@ from datamodel_code_generator.enums import (
     ClientAsyncAPIPerspective,
     ClientBodyArguments,
     ClientSignatureStyle,
+    ClientTools,
     ClientType,
     CollapseRootModelsNameStrategy,
     CustomFileHeaderMode,
@@ -142,6 +143,7 @@ def _baseline_generate(
     extra_fields: str | None = None,
     use_generic_base_class: bool = False,
     keep_bases_beside_generic_base_class: bool = False,
+    keep_bases_of_typed_dicts_listed_before_their_parents: bool = False,
     apply_default_values_for_required_fields: bool = False,
     force_optional_for_required_fields: bool = False,
     class_name: str | None = None,
@@ -402,6 +404,7 @@ def _baseline_generate(
     client_deep_object_brackets: bool | None = None,
     client_asyncapi_perspective: ClientAsyncAPIPerspective | None = None,
     client_protocols: Mapping[str, Any] | None = None,
+    client_tools: ClientTools | None = None,
 ) -> str | object | None:
     raise NotImplementedError
 
@@ -488,6 +491,7 @@ class _BaselineParser:
         extra_fields: str | None = None,
         use_generic_base_class: bool = False,
         keep_bases_beside_generic_base_class: bool = False,
+        keep_bases_of_typed_dicts_listed_before_their_parents: bool = False,
         force_optional_for_required_fields: bool = False,
         class_name: str | None = None,
         allow_leading_underscore_class_name: bool = False,

@@ -37,7 +37,7 @@ the runtime cannot emit native protocol-shaped message events.
    ``messages/partial`` events, which v2 no longer supports.
 
 Remote (JS) pregels bypass every code path that needs these symbols
-(``stream.py`` drops ``tools`` / ``lifecycle`` and skips the
+(on protocol v2 runs ``stream.py`` drops ``tools`` / ``lifecycle`` and skips the
 content-block dispatch for remote graphs), so a ``BaseRemotePregel``-only
 deployment could in theory run on an older Python ``langgraph``. The
 probe is still applied — the DX of a clear "upgrade your dependencies"

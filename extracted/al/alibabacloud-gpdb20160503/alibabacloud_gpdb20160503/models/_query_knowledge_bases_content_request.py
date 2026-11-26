@@ -46,13 +46,13 @@ class QueryKnowledgeBasesContentRequest(DaraModel):
         # > - Reranking is slow when document chunks are sparse.
         # > - We recommend that the number of reranked items (TopK × Factor, rounded up) does not exceed 50.
         self.rerank_factor = rerank_factor
-        # The parameters of the reranking model used to rerank the merged multi-channel results.
+        # The reranking model parameters used to rerank the merged multi-channel results.
         self.rerank_model = rerank_model
         # The information about multiple collections to be retrieved.
         # 
         # This parameter is required.
         self.source_collection = source_collection
-        # The number of top results to return after multi-channel recall results are merged.
+        # The number of top results to return after the multi-channel recall results are merged.
         self.top_k = top_k
 
     def validate(self):
@@ -153,13 +153,13 @@ class QueryKnowledgeBasesContentRequestSourceCollection(DaraModel):
     ):
         # The name of the document collection.
         # 
-        # > Created by the [CreateDocumentCollection](https://help.aliyun.com/document_detail/2618448.html) operation. You can call the [ListDocumentCollections](https://help.aliyun.com/document_detail/2618452.html) operation to view the created document collections.
+        # > The document collection is created by calling the [CreateDocumentCollection](https://help.aliyun.com/document_detail/2618448.html) operation. You can call the [ListDocumentCollections](https://help.aliyun.com/document_detail/2618452.html) operation to view the created document collections.
         # 
         # This parameter is required.
         self.collection = collection
         # The namespace.
         # 
-        # > You can call the [CreateNamespace](https://help.aliyun.com/document_detail/2401495.html) operation to create a namespace and the [ListNamespaces](https://help.aliyun.com/document_detail/2401502.html) operation to view the namespace list.
+        # > You can call the [CreateNamespace](https://help.aliyun.com/document_detail/2401495.html) operation to create a namespace and call the [ListNamespaces](https://help.aliyun.com/document_detail/2401502.html) operation to view the namespace list.
         self.namespace = namespace
         # The password for the namespace.
         # 
@@ -167,7 +167,7 @@ class QueryKnowledgeBasesContentRequestSourceCollection(DaraModel):
         # 
         # This parameter is required.
         self.namespace_password = namespace_password
-        # The filter condition for the data to be updated, in the SQL WHERE clause format.
+        # The filter condition for the data, in the SQL WHERE clause format.
         self.query_params = query_params
 
     def validate(self):
@@ -227,7 +227,7 @@ class QueryKnowledgeBasesContentRequestSourceCollectionQueryParams(DaraModel):
         top_k: int = None,
         use_full_text_retrieval: bool = None,
     ):
-        # The filter condition for the data to be queried, in the SQL WHERE clause format. It is an expression that returns a Boolean value (true or false). The condition can be a simple comparison operator such as equal to (=), not equal to (<> or !=), greater than (>), less than (<), greater than or equal to (>=), or less than or equal to (<=). It can also be a more complex expression combined with logical operators (AND, OR, NOT), or a condition using keywords such as IN, BETWEEN, and LIKE.
+        # The filter condition for the data to be queried, in the SQL WHERE clause format. This is an expression that returns a Boolean value (true or false). The condition can be a simple comparison operator, such as equal to (=), not equal to (<> or !=), greater than (>), less than (<), greater than or equal to (>=), or less than or equal to (<=). It can also be a more complex expression that combines logical operators (AND, OR, NOT), or a condition that uses keywords such as IN, BETWEEN, and LIKE.
         # 
         # > 
         # > - For detailed syntax, refer to https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-where/.
@@ -236,15 +236,17 @@ class QueryKnowledgeBasesContentRequestSourceCollectionQueryParams(DaraModel):
         self.graph_enhance = graph_enhance
         # The number of top entities and relationship edges to return. Default value: 60.
         self.graph_search_args = graph_search_args
-        # The multi-channel recall algorithm. Default value: empty, which means directly comparing and sorting the scores of dense vectors and full text. Valid values:
+        # The multi-channel recall algorithm. Default value: empty, which means the scores of dense vectors and full-text retrieve are directly compared and reranked.
+        # 
+        # Valid values:
         # 
         # - RRF: Reciprocal Rank Fusion. A parameter k is used to control the fusion effect. For more information, see the HybridSearchArgs configuration.
-        # - Weight: Weighted sorting. Parameters are used to control the score weights of vectors and full text before sorting. For more information, see the HybridSearchArgs configuration.
-        # - Cascaded: Full-text retrieve is performed first, followed by vector retrieve based on the full-text retrieve results.
+        # - Weight: Weighted reranking. Parameters are used to control the score weights of vectors and full-text retrieve before reranking. For more information, see the HybridSearchArgs configuration.
+        # - Cascaded: full-text retrieve is performed first, followed by vector retrieve based on the full-text retrieve results.
         self.hybrid_search = hybrid_search
-        # The algorithm parameters for multi-channel recall. Currently, RRF and Weight are supported. You can use HybridPathsSetting to specify the recall of dense vectors (dense), sparse vectors (sparse), and full-text index (fulltext). If this value is empty, dense vectors (dense) and full-text index (fulltext) are recalled by default.
+        # The algorithm parameters for multi-channel recall. RRF and Weight are supported. You can use HybridPathsSetting to specify the recall of dense vectors, sparse vectors, and full-text retrieve. If this value is empty, dense vectors and full-text retrieve are recalled by default.
         # 
-        # - RRF: Specifies the constant k in the score calculation formula 1/(k+rank_i). The value must be a positive integer greater than 1. Format:
+        # - RRF: Specifies the constant k in the score calculation formula `1/(k+rank_i)`. The value must be a positive integer greater than 1. Format:
         # ```
         # {
         #   "HybridPathsSetting": {
@@ -257,8 +259,8 @@ class QueryKnowledgeBasesContentRequestSourceCollectionQueryParams(DaraModel):
         # ```
         # 
         # - Weight: 
-        #    - Dual-channel recall (HybridPathsSetting is not specified, only alpha is specified):
-        #       - Calculation formula: alpha * dense_score + (1-alpha) * fulltext_score. The alpha parameter represents the score weight of dense vectors and full-text index retrieve score. The value ranges from 0 to 1, where 0 indicates full-text index only and 1 indicates dense vectors only:
+        #    - Dual-channel recall (HybridPathsSetting is not specified, and only alpha is specified):
+        #       - Calculation formula: alpha * dense_score + (1-alpha) * fulltext_score. The alpha parameter represents the retrieve score weight of dense vectors and full-text retrieve. Valid values: 0 to 1. A value of 0 indicates full-text retrieve only, and a value of 1 indicates dense vectors only. Format:
         # ```
         # { 
         #    "Weight": {
@@ -267,7 +269,7 @@ class QueryKnowledgeBasesContentRequestSourceCollectionQueryParams(DaraModel):
         # }
         # ```
         #   - Triple-channel recall pattern:
-        #      - Calculation formula: normalized_dense * dense_score + normalized_sparse * sparse_score + normalized_fulltext * fulltext_score. Here, dense, sparse, and fulltext represent the weights of dense vectors, sparse vectors, and full-text index, respectively. The value must be greater than or equal to 0. The system automatically performs normalization on the weights to 0 to 1 (that is, normalized_x = x / (dense + sparse + fulltext)).
+        #      - Calculation formula: normalized_dense * dense_score + normalized_sparse * sparse_score + normalized_fulltext * fulltext_score. The dense, sparse, and fulltext parameters represent the weights of dense vectors, sparse vectors, and full-text retrieve, respectively. Valid values: greater than or equal to 0. The system automatically performs normalization of the weights to 0 to 1 (that is, normalized_x = x / (dense + sparse + fulltext)). Format:
         # ```
         # {
         #   "HybridPathsSetting": {
@@ -296,7 +298,7 @@ class QueryKnowledgeBasesContentRequestSourceCollectionQueryParams(DaraModel):
         # Multiple fields separated by commas, such as block_id, chunk_id.
         # Descending order, such as block_id DESC, chunk_id DESC.
         self.order_by = order_by
-        # The recall window. If this value is not empty, the context of the retrieval results is additionally returned. The format is an array of two elements: List<A, B>, where -10 <= A <= 0 and 0 <= B <= 10.
+        # The recall window. If this value is not empty, the context of the retrieval results is additionally returned. The value must be an array of two elements in the List<A, B> format, where -10 <= A <= 0 and 0 <= B <= 10.
         # > - We recommend that you use this parameter when document chunks are too small and retrieval may lose context information.
         # > - Reranking takes precedence over windowing. That is, reranking is performed before windowing.
         self.recall_window = recall_window
@@ -304,7 +306,7 @@ class QueryKnowledgeBasesContentRequestSourceCollectionQueryParams(DaraModel):
         # > - Reranking is slow when document chunks are sparse.
         # > - We recommend that the number of reranked items (TopK × Factor, rounded up) does not exceed 50.
         self.rerank_factor = rerank_factor
-        # The parameters of the reranking model.
+        # The reranking model parameters.
         self.rerank_model = rerank_model
         # The number of top results to return.
         self.top_k = top_k
@@ -415,7 +417,7 @@ class QueryKnowledgeBasesContentRequestSourceCollectionQueryParamsRerankModel(Da
         name: str = None,
         rerank_metadata_fields: str = None,
     ):
-        # This parameter can be set when RerankModel.Name is set to qwen3-rerank. Adds a custom description for the sorting task type. You can use this parameter to guide the model to adopt different sorting strategies.
+        # This parameter can be set when RerankModel.Name is set to qwen3-rerank. Adds a custom sorting task type description. This parameter guides the model to adopt different sorting strategies.
         self.instruct = instruct
         # The name of the reranking model. Valid values: qwen3-rerank and gte-rerank-v2.
         self.name = name
@@ -488,7 +490,7 @@ class QueryKnowledgeBasesContentRequestRerankModel(DaraModel):
         instruct: str = None,
         name: str = None,
     ):
-        # This parameter can be set when RerankModel.Name is set to qwen3-rerank. Adds a custom description for the sorting task type. You can use this parameter to guide the model to adopt different sorting strategies.
+        # This parameter can be set when RerankModel.Name is set to qwen3-rerank. Adds a custom sorting task type description. This parameter guides the model to adopt different sorting strategies.
         self.instruct = instruct
         # The name of the reranking model. Valid values: qwen3-rerank and gte-rerank-v2.
         self.name = name
@@ -566,7 +568,7 @@ class QueryKnowledgeBasesContentRequestMergeMethodArgsWeight(DaraModel):
         self,
         weights: List[float] = None,
     ):
-        # The array of weights for each SourceCollection.
+        # The weight array for each SourceCollection.
         self.weights = weights
 
     def validate(self):

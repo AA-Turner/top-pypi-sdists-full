@@ -13,9 +13,9 @@ class DescribeRdsVpcsResponseBody(DaraModel):
         request_id: str = None,
         vpcs: main_models.DescribeRdsVpcsResponseBodyVpcs = None,
     ):
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # The queried VPCs.
+        # The list of VPCs.
         self.vpcs = vpcs
 
     def validate(self):
@@ -51,7 +51,7 @@ class DescribeRdsVpcsResponseBodyVpcs(DaraModel):
         self,
         vpc: List[main_models.DescribeRdsVpcsResponseBodyVpcsVpc] = None,
     ):
-        # The queried VPC.
+        # The VPC information.
         self.vpc = vpc
 
     def validate(self):
@@ -97,26 +97,26 @@ class DescribeRdsVpcsResponseBodyVpcsVpc(DaraModel):
         vpc_id: str = None,
         vpc_name: str = None,
     ):
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated. No value is returned for this parameter.
         self.ali_uid = ali_uid
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated. No value is returned for this parameter.
         self.bid = bid
         # The CIDR block of the VPC.
         self.cidr_block = cidr_block
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated. No value is returned for this parameter.
         self.gmt_create = gmt_create
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated. No value is returned for this parameter.
         self.gmt_modified = gmt_modified
         # Indicates whether the VPC is the default VPC. Valid values:
         # 
-        # *   **true**
-        # *   **false**
+        # - **true**: yes
+        # - **false**: no
         self.is_default = is_default
-        # The region ID of the instance.
+        # The region ID.
         self.region_no = region_no
-        # The state of the VPC. If **Available** is returned, the VPC is available.
+        # The status of the VPC. A value of **Available** indicates that the VPC is available.
         self.status = status
-        # The queried vSwitches.
+        # The list of vSwitches.
         self.v_switchs = v_switchs
         # The VPC ID.
         self.vpc_id = vpc_id
@@ -225,18 +225,18 @@ class DescribeRdsVpcsResponseBodyVpcsVpcVSwitchs(DaraModel):
     ):
         # The CIDR block of the vSwitch.
         self.cidr_block = cidr_block
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated. No value is returned for this parameter.
         self.gmt_create = gmt_create
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated. No value is returned for this parameter.
         self.gmt_modified = gmt_modified
         # Indicates whether the vSwitch is the default vSwitch. Valid values:
         # 
-        # *   **true**
-        # *   **false**
+        # - **true**: yes
+        # - **false**: no
         self.is_default = is_default
-        # The ID of the zone to which the vSwitch belongs.
+        # The zone to which the vSwitch belongs.
         self.iz_no = iz_no
-        # The state of the vSwitch. If **Available** is returned, the vSwitch is available.
+        # The status of the vSwitch. A value of **Available** indicates that the vSwitch is available.
         self.status = status
         # The vSwitch ID.
         self.v_switch_id = v_switch_id

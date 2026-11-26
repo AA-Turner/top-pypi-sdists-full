@@ -11,14 +11,14 @@ class DescribeSupportFeaturesResponseBody(DaraModel):
         request_id: str = None,
         support_feature_list: str = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # The features supported by the instance. Valid values:
+        # The features supported by the current instance. Currently, you can query only the following features:
         # 
-        # *   sample_data: sample dataset. For more information, see [Sample dataset](https://help.aliyun.com/document_detail/452278.html).
-        # *   diagnose_and_optimize: diagnostics and optimization. For more information, see [Diagnostics and optimization](https://help.aliyun.com/document_detail/323453.html).
+        # - sample_data: Sample dataset. For more information, see [Sample dataset](https://help.aliyun.com/document_detail/452278.html).
+        # - diagnose_and_optimize: Diagnostics and optimization. For more information, see [Diagnostics and optimization](https://help.aliyun.com/document_detail/323453.html).
         self.support_feature_list = support_feature_list
 
     def validate(self):

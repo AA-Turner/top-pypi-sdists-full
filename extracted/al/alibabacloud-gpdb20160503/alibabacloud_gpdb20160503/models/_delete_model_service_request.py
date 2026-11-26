@@ -10,11 +10,11 @@ class DeleteModelServiceRequest(DaraModel):
         dbinstance_id: str = None,
         model_service_id: str = None,
     ):
-        # The cluster ID.
+        # The instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The ID of the model service to be deleted.
+        # The ID of the model service to delete.
         # 
         # This parameter is required.
         self.model_service_id = model_service_id

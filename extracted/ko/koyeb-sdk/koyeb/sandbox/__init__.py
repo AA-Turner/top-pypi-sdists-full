@@ -4,7 +4,7 @@
 Koyeb Sandbox - Interactive execution environment for running arbitrary code on Koyeb
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 from koyeb.api.models.config_file import ConfigFile
 from koyeb.api.models.instance_status import InstanceStatus as SandboxStatus
@@ -37,12 +37,14 @@ from .pool import (
     wait_claim_ready_async,
 )
 from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
+from .sidecar import Sidecar, SidecarInfo, SidecarTimeoutError
 from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
 from .errors import (
     EgressPolicyError,
     PoolClaimError,
     ServicePoolError,
     ServiceTerminalStateError,
+    SidecarError,
     InvalidPortError,
     MissingApiTokenError,
     NoSandboxSecretError,
@@ -80,6 +82,10 @@ __all__ = [
     "PoolClaimError",
     "ServicePoolError",
     "ServiceTerminalStateError",
+    "Sidecar",
+    "SidecarError",
+    "SidecarInfo",
+    "SidecarTimeoutError",
     "InvalidPortError",
     "MissingApiTokenError",
     "NoSandboxSecretError",

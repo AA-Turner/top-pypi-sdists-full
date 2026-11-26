@@ -17,10 +17,13 @@ from ...utils.device_registry_semantics import (
 from ...utils.entity_membership import normalize_member_entity_ids
 from ...utils.fuzzy_search import apply_hidden_penalty
 from ...visibility.resolver import (
+    core_device_list_reply,
     device_registry_needed_for_visibility,
     load_hidden_set,
 )
 from ..coercion import parse_string_list_param
+from ..component_devices import device_list_reply
+from ..component_registries import registry_list_reply
 from ..helpers import (
     raise_tool_error,
 )
@@ -72,7 +75,7 @@ _COMPOSED_NAME_FIELD = "name"
 # the component would have answered.
 _NO_COMPONENT_EMPTY_SEARCH_HINT = (
     "No ha_mcp_tools component detected; for full search functionality, "
-    "install it via HACS (the Marketplace on Home Assistant 2026.11+)."
+    "install it via the Marketplace."
 )
 _OLD_COMPONENT_EMPTY_SEARCH_HINT = (
     "The installed ha_mcp_tools component is out of date; for full search "
@@ -423,27 +426,6 @@ def _validate_entity_search_params(
     return query, domain_filter, area_filter, parsed_result_fields
 
 
-def _raise_gather_exceptions(
-    state_result: Any, registry_result: Any, device_result: Any
-) -> None:
-    """Re-raise fatal exceptions captured by an ``asyncio.gather(..., return_exceptions=True)``.
-
-    ``state_result`` failure is always fatal. Auth/connection errors must
-    propagate so the agent sees "your token is invalid" instead of "zero
-    entities matched". ``CancelledError`` on the registry/device results
-    comes through gather as a captured exception even when
-    ``return_exceptions=True``; it has to propagate or the canceller waits
-    forever. Other registry/device failures are tolerated by the caller (we
-    just lose the hidden filter).
-    """
-    if isinstance(state_result, BaseException):
-        raise state_result
-    if isinstance(registry_result, asyncio.CancelledError):
-        raise registry_result
-    if isinstance(device_result, asyncio.CancelledError):
-        raise device_result
-
-
 def _match_exact_search_entity(
     entity: dict[str, Any],
     query_lower: str,
@@ -544,9 +526,7 @@ async def _exact_match_search(
         )
         fetch_slots.append("registry")
     if need_device:
-        fetch_coros.append(
-            client.send_websocket_message({"type": "config/device_registry/list"})
-        )
+        fetch_coros.append(core_device_list_reply(client))
         fetch_slots.append("device")
     fetched = (
         await asyncio.gather(*fetch_coros, return_exceptions=True)
@@ -563,7 +543,11 @@ async def _exact_match_search(
         else slots.get("registry")
     )
     device_result: Any = slots.get("device")
-    _raise_gather_exceptions(state_result, registry_result, device_result)
+    # States failure is fatal: an auth or connection error must reach the agent
+    # instead of reading as zero matches; registry/device failures only lose
+    # the hidden filter.
+    if isinstance(state_result, BaseException):
+        raise state_result
     all_entities = state_result
     hidden_ids = _build_hidden_ids(registry_result)
     # Opt-in visibility filter: a hard exclude (unlike the hidden_by score
@@ -634,7 +618,7 @@ class EntityEnrichmentMixin(SearchToolsBase):
         those ids to NAMES (the device registry supplies device-inherited
         area/labels, matching the component's ``_registry_enrichment``). Only the
         registries a requested field actually needs are fetched — an aliases-only
-        request skips the four ``*_registry/list`` reads, and a caller that already
+        request skips the four registry list reads, and a caller that already
         holds the registry entries (the area-mode haystack fetch) passes them as
         ``prefetched_entries`` so no second ``get_entries`` round-trip is made.
         Each fetch is fault-tolerant (``return_exceptions=True`` + the ``_ws_*``
@@ -660,19 +644,11 @@ class EntityEnrichmentMixin(SearchToolsBase):
             )
         if need_names:
             coros.extend(
-                self._client.send_websocket_message({"type": command})
-                for command in (
-                    "config/area_registry/list",
-                    "config/floor_registry/list",
-                    "config/label_registry/list",
-                    "config/device_registry/list",
-                )
+                registry_list_reply(self._client, kind)
+                for kind in ("area", "floor", "label")
             )
+            coros.append(device_list_reply(self._client))
         fetched = await asyncio.gather(*coros, return_exceptions=True)
-        for item in fetched:
-            # A cancelled read must propagate, not degrade to an empty field.
-            if isinstance(item, asyncio.CancelledError):
-                raise item
         failed_reads: list[str] = []
         if prefetched_entries is None:
             if _ws_read_failed(fetched[0]):

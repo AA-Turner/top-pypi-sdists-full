@@ -57,12 +57,16 @@ WAKE_BYS = (WAKE_BY_STOP_HOOK, WAKE_BY_QUEUE, WAKE_BY_EXTENSION)
 #: The capability keys a row may set (`capabilities`): any other key is refused, so a
 #: misspelt one never silently reads as False.
 CAPABILITY_KEYS = (
-    "prompt_context", "wake", "root_skills", "follows_updates", "loaded_records", "scoped_installs",
+    "prompt_context", "wake", "root_skills", "gated_skills", "follows_updates", "loaded_records", "scoped_installs",
 )
 #: Probe's skills go in the agent's OWN skills folder, so they carry no plugin
 #: prefix (`cli/root_skills.py`). Claude Code only: Codex and Kimi read the
 #: plugin's `agent-skills/` by manifest key, and pi its package manifest.
 CAPABILITY_ROOT_SKILLS = "root_skills"
+#: The agent loads skills from its OWN home's `skills/`, so a gated skill (A24, the plugin's
+#: `gated-skills/`, which no manifest names) is copied there while the server's answer allows it.
+#: Claude Code (with its root skills) and Codex (`$CODEX_HOME/skills`, the only gated copy there).
+CAPABILITY_GATED_SKILLS = "gated_skills"
 #: An open session follows a plugin update with no restart: its hooks run the
 #: installed plugin copy (`hooks/dispatch.py installed_root`) and a tap from
 #: 0.10.13 on hands its own watcher to the Probe service (`tap/handback.py`),

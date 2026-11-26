@@ -3800,7 +3800,7 @@ class RepositoriesApi:
     ) -> ScanNowRequestResponse:
         """Request a repository scan
 
-        Requires trigger:scan_now and the tenant Scan now flag. Scans all enabled, licensed targets, including tracked branches. Returns 200 with alreadyRunning for an existing request. Defaults: 10 requests per repository and 500 per tenant per UTC day. Trigger responses include X-ScanNow-Limit, X-ScanNow-Remaining and X-ScanNow-Reset (Unix seconds); 429 also includes Retry-After (seconds). Poll the returned request ID every 30 seconds or more after a release. Quota is refunded only when every target is confirmed unpublished or all requested scanners were rejected or covered. Partial publication failures and uncertain delivery remain charged. Publication errors return 500 with reason InternalError and scanRequestId; accepted or uncertain targets can still be polled using that ID. A timeout alone does not refund quota.
+        Requires trigger:scan_now and the tenant Scan now flag. Scans idle enabled, licensed targets, including tracked branches; targets already running are skipped. Returns 202 for a new request with skippedTargets (entity ID, entity type, branch, reason AlreadyRunning), or 200 with alreadyRunning for an existing request whose original skipped targets are unavailable (skippedTargets is null). A release gate must check the new trigger response for skipped targets before polling; Completed only covers submitted targets. Returns 409 with reason NoIdleTargets and unchanged limits when every eligible target is busy; no request or quota charge is created. Defaults: 10 requests per repository and 500 per tenant per UTC day. Trigger responses include X-ScanNow-Limit, X-ScanNow-Remaining and X-ScanNow-Reset (Unix seconds); 429 also includes Retry-After (seconds). Temporary active-target lookup failures are retried up to three attempts (3 seconds per attempt); exhaustion returns 503 with reason ScanStateUnavailable, null scanRequestId and Retry-After (seconds), without a quota charge. Non-transient lookup failures return 500 with reason InternalError and null scanRequestId. Poll the returned request ID every 30 seconds or more after a release. Quota is refunded only when every target is confirmed unpublished or all requested scanners were rejected or covered. Partial publication failures and uncertain delivery remain charged. Publication errors return 500 with reason InternalError and scanRequestId; accepted or uncertain targets can still be polled using that ID. A timeout alone does not refund quota.
 
         :param repository_id: (required)
         :type repository_id: str
@@ -3840,9 +3840,11 @@ class RepositoriesApi:
             '404': "ProblemDetails",
             '202': "ScanNowRequestResponse",
             '200': "ScanNowRequestResponse",
+            '409': "ScanNowNoIdleTargetsResponse",
             '422': "ProblemDetails",
             '429': "ProblemDetails",
             '500': "ScanNowTriggerError",
+            '503': "ScanNowTriggerError",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3874,7 +3876,7 @@ class RepositoriesApi:
     ) -> ApiResponse[ScanNowRequestResponse]:
         """Request a repository scan
 
-        Requires trigger:scan_now and the tenant Scan now flag. Scans all enabled, licensed targets, including tracked branches. Returns 200 with alreadyRunning for an existing request. Defaults: 10 requests per repository and 500 per tenant per UTC day. Trigger responses include X-ScanNow-Limit, X-ScanNow-Remaining and X-ScanNow-Reset (Unix seconds); 429 also includes Retry-After (seconds). Poll the returned request ID every 30 seconds or more after a release. Quota is refunded only when every target is confirmed unpublished or all requested scanners were rejected or covered. Partial publication failures and uncertain delivery remain charged. Publication errors return 500 with reason InternalError and scanRequestId; accepted or uncertain targets can still be polled using that ID. A timeout alone does not refund quota.
+        Requires trigger:scan_now and the tenant Scan now flag. Scans idle enabled, licensed targets, including tracked branches; targets already running are skipped. Returns 202 for a new request with skippedTargets (entity ID, entity type, branch, reason AlreadyRunning), or 200 with alreadyRunning for an existing request whose original skipped targets are unavailable (skippedTargets is null). A release gate must check the new trigger response for skipped targets before polling; Completed only covers submitted targets. Returns 409 with reason NoIdleTargets and unchanged limits when every eligible target is busy; no request or quota charge is created. Defaults: 10 requests per repository and 500 per tenant per UTC day. Trigger responses include X-ScanNow-Limit, X-ScanNow-Remaining and X-ScanNow-Reset (Unix seconds); 429 also includes Retry-After (seconds). Temporary active-target lookup failures are retried up to three attempts (3 seconds per attempt); exhaustion returns 503 with reason ScanStateUnavailable, null scanRequestId and Retry-After (seconds), without a quota charge. Non-transient lookup failures return 500 with reason InternalError and null scanRequestId. Poll the returned request ID every 30 seconds or more after a release. Quota is refunded only when every target is confirmed unpublished or all requested scanners were rejected or covered. Partial publication failures and uncertain delivery remain charged. Publication errors return 500 with reason InternalError and scanRequestId; accepted or uncertain targets can still be polled using that ID. A timeout alone does not refund quota.
 
         :param repository_id: (required)
         :type repository_id: str
@@ -3914,9 +3916,11 @@ class RepositoriesApi:
             '404': "ProblemDetails",
             '202': "ScanNowRequestResponse",
             '200': "ScanNowRequestResponse",
+            '409': "ScanNowNoIdleTargetsResponse",
             '422': "ProblemDetails",
             '429': "ProblemDetails",
             '500': "ScanNowTriggerError",
+            '503': "ScanNowTriggerError",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3948,7 +3952,7 @@ class RepositoriesApi:
     ) -> RESTResponseType:
         """Request a repository scan
 
-        Requires trigger:scan_now and the tenant Scan now flag. Scans all enabled, licensed targets, including tracked branches. Returns 200 with alreadyRunning for an existing request. Defaults: 10 requests per repository and 500 per tenant per UTC day. Trigger responses include X-ScanNow-Limit, X-ScanNow-Remaining and X-ScanNow-Reset (Unix seconds); 429 also includes Retry-After (seconds). Poll the returned request ID every 30 seconds or more after a release. Quota is refunded only when every target is confirmed unpublished or all requested scanners were rejected or covered. Partial publication failures and uncertain delivery remain charged. Publication errors return 500 with reason InternalError and scanRequestId; accepted or uncertain targets can still be polled using that ID. A timeout alone does not refund quota.
+        Requires trigger:scan_now and the tenant Scan now flag. Scans idle enabled, licensed targets, including tracked branches; targets already running are skipped. Returns 202 for a new request with skippedTargets (entity ID, entity type, branch, reason AlreadyRunning), or 200 with alreadyRunning for an existing request whose original skipped targets are unavailable (skippedTargets is null). A release gate must check the new trigger response for skipped targets before polling; Completed only covers submitted targets. Returns 409 with reason NoIdleTargets and unchanged limits when every eligible target is busy; no request or quota charge is created. Defaults: 10 requests per repository and 500 per tenant per UTC day. Trigger responses include X-ScanNow-Limit, X-ScanNow-Remaining and X-ScanNow-Reset (Unix seconds); 429 also includes Retry-After (seconds). Temporary active-target lookup failures are retried up to three attempts (3 seconds per attempt); exhaustion returns 503 with reason ScanStateUnavailable, null scanRequestId and Retry-After (seconds), without a quota charge. Non-transient lookup failures return 500 with reason InternalError and null scanRequestId. Poll the returned request ID every 30 seconds or more after a release. Quota is refunded only when every target is confirmed unpublished or all requested scanners were rejected or covered. Partial publication failures and uncertain delivery remain charged. Publication errors return 500 with reason InternalError and scanRequestId; accepted or uncertain targets can still be polled using that ID. A timeout alone does not refund quota.
 
         :param repository_id: (required)
         :type repository_id: str
@@ -3988,9 +3992,11 @@ class RepositoriesApi:
             '404': "ProblemDetails",
             '202': "ScanNowRequestResponse",
             '200': "ScanNowRequestResponse",
+            '409': "ScanNowNoIdleTargetsResponse",
             '422': "ProblemDetails",
             '429': "ProblemDetails",
             '500': "ScanNowTriggerError",
+            '503': "ScanNowTriggerError",
         }
         response_data = self.api_client.call_api(
             *_param,

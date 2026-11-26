@@ -31,6 +31,7 @@ from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
 from ..attributes import _is_complex_attribute
 from ..base import BaseModel
+from ..base import _unordered
 from ..context import Context
 from ..exceptions import InvalidPathException
 from ..exceptions import InvalidValueException
@@ -196,7 +197,9 @@ class Resource(ScimObject, Generic[AnyExtension]):
         ``immutable`` fields are preserved from *original* when absent,
         or checked for equality when present. ``writeOnly`` fields, such as
         ``password``, are preserved from *original* when left out, and cleared
-        by an explicit null only.
+        by an explicit null only. So are the complex attributes, extensions
+        and entries that only hold such values, since a response shows nothing
+        of them.
 
         The same applies to the sub-attributes of a complex attribute, and to
         those of an entry a multi-valued one keeps. Entries are matched on their
@@ -514,15 +517,6 @@ def _check_comparison_forms(
                 raise InvalidValueException(
                     detail=f"'{binding.urn}' holds a value that cannot be compared: {exc}"
                 ) from exc
-
-
-def _unordered(value: Any) -> Any:
-    """Reduce a dumped value to a form that compares equal regardless of entry order."""
-    if isinstance(value, dict):
-        return {key: _unordered(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return sorted((_unordered(item) for item in value), key=repr)
-    return value
 
 
 def _dedicated_attributes(

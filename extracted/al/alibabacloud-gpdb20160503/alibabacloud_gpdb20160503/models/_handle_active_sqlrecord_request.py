@@ -15,13 +15,12 @@ class HandleActiveSQLRecordRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The type of the operation on the process ID. Valid values:
-        # 
-        # *   **0**: cancel.
-        # *   **1**: terminate.
-        # *   **2**: forcefully terminate.
+        # The operation type for the process ID. Valid values:
+        # - **0**: cancel
+        # - **1**: terminate
+        # - **2**: force terminate
         self.operate_type = operate_type
-        # The process IDs. A process ID is a unique identifier of a query.
+        # The process IDs, which are the unique identifiers of the queries.
         # 
         # This parameter is required.
         self.pids = pids

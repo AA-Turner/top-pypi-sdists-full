@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stac_valid
-Version: 4.6.3
+Version: 4.6.4
 Summary: A package to validate STAC files
 Author-email: Jonathan Healy <jon@healy-hyperspatial.dev>
 Maintainer: Healy Hyperspatial

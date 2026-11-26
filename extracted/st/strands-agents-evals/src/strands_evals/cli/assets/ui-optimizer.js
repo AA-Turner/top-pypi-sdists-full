@@ -1,6 +1,9 @@
 'use strict';
 
 let OPT_RUNS = [], optSel = -1, OPT = null;
+/* The run the reader last had a page of open, by id. The page keeps one run selected from the start,
+   so that every view has a run to draw: that is not the reader having opened it. */
+let optSeen = null;
 let optError = '';                            // why the selected run could not be read, if it could not
 /* The run's `effects.json`, or null when it has none that can be read. */
 let EFFECTS = null;
@@ -18,7 +21,7 @@ let optCases = null;
 
 const baseOf = path => path.slice(path.lastIndexOf('/') + 1);
 
-/** Every run, in the order the Runs list has them, so the two agree. A run is a directory, so it is
+/** Every run, in the order the scan found them, which is the order the Runs list starts in. A run is a directory, so it is
     named by that directory; since this is one flat list rather than a tree, two runs whose
     directories share a name are named by the whole path instead.
 
@@ -105,38 +108,53 @@ function runResultCell(r) {
     + `<br><span class="path">${res.held_out ? 'held out' : 'validation'} · ${reading}</span>`;
 }
 
+/** The runs list's status cell: why a finished run stopped, else where it is, with how to go on where it can. */
+function runStateCell(r) {
+  if (r.state === 'finished' && r.stop_reason) return esc(stopPhrase({ reason: r.stop_reason }).replace(/^it /, ''));
+  const resumable = r.state === 'halted' || r.state === 'interrupted';
+  return `<span class="empty">${esc(runState(r))}</span>`
+    + (resumable ? '<br><span class="path">resume it to continue</span>' : '');
+}
+
 function renderOptimizerRuns() {
   const any = OPT_RUNS.length > 0;
-  /* The Optimization section, the Runs view in it, and the run's own page tabs: all of them wait
-     for a run to be found, so a folder with none is never told it has a section. */
-  $('sgroup-opt').hidden = !any;
+  /* The Optimization section and its Runs list show in every folder, as Reports and Experiments do, so a
+     folder with no run says so there. A run's own page tabs wait for a run to be found. */
   app.querySelectorAll('.tab[data-sec="optimization"]').forEach(t => {
-    t.hidden = !any || (t.dataset.multi !== undefined && !(OPT && OPT.goals.length >= 2));
+    t.hidden = t.dataset.view !== 'opt-runs'
+      && (!any || (t.dataset.multi !== undefined && !(OPT && OPT.goals.length >= 2)));
   });
 
   $('opt-runs-sub').textContent = any
     ? 'Each one is a directory holding a run.json and the events.jsonl the run appended to.'
     : '';
-  $('opt-runs-count').textContent = any ? plural(OPT_RUNS.length, 'run') : '';
-  $('opt-runs-rows').innerHTML = any ? OPT_RUNS.map((r, i) => {
+  const runs = arranged('opt-runs', OPT_RUNS);
+  $('opt-runs-count').textContent = any ? listCount('opt-runs', runs.length, OPT_RUNS.length) : '';
+  $('opt-runs-rows').innerHTML = any ? runs.map(r => {
     const alias = r.name && r.name !== r.run_id ? ` <span class="dim">/ ${esc(r.name)}</span>` : '';
     const at = r.dir && r.dir !== '.' ? r.dir : r.events_path;
-    return `<tr class="run${i === optSel ? ' on' : ''}" data-opt-run="${i}" tabindex="0">
+    /* A row is named by its place among every run, whatever order or filter the list is showing. */
+    return `<tr class="run${r.id === optSeen ? ' on' : ''}" data-opt-run="${OPT_RUNS.indexOf(r)}" tabindex="0" aria-describedby="row-hint">
         <td>${esc(r.run_id)}${alias}<br><span class="path">${esc(at)}</span></td>
         <td class="ev">${runResultCell(r)}</td>
         <td class="ev">${r.champion_id ? esc(r.champion_id) : '<span class="empty">none picked</span>'}</td>
         <td class="ev">${plural(r.candidates, 'candidate')}`
       + `<br><span class="path">${plural(r.iterations, 'iteration')}</span></td>
-        <td class="ev">${r.stop_reason
-        ? `<span class="tag">${esc(r.stop_reason)}</span>`
-        : '<span class="empty">still running</span>'}</td>
+        <td class="ev">${runStateCell(r)}</td>
         <td class="ev">${when(r.modified)}</td></tr>`;
-  }).join('') : `<tr><td colspan="6">${emptyState('No optimizer runs in this pond yet',
+  }).join('') || noMatch('opt-runs', 6) : `<tr><td colspan="6">${emptyState('No optimizer runs here yet',
     `No directory under ${esc(ROOT)} holds a run.json with an events.jsonl beside it.`)}</td></tr>`;
 
   renderRunList();
   /* The list can be shown empty; a view of one run cannot outlive the run. */
   if (!any && SECTION_OF[currentView()] === 'optimization' && currentView() !== 'opt-runs') show(homeView());
+}
+
+/** Mark the run the reader last opened in the Runs list. Called on every view change, like the mark in the sidebar. */
+function markRunRows() {
+  for (const tr of $('opt-runs-rows').querySelectorAll('tr[data-opt-run]')) {
+    tr.classList.toggle('on', (OPT_RUNS[Number(tr.dataset.optRun)] || {}).id === optSeen);
+  }
 }
 
 $('opt-runs-rows').onclick = e => {
@@ -224,13 +242,13 @@ function renderOptimization() {
     ['opt-setup-sub', 'opt-cand-sub', 'opt-cand-count'].forEach(id => { $(id).textContent = ''; });
     ['opt-source', 'opt-mech', 'opt-tradeoff', 'opt-to-none', 'opt-effects', 'opt-space-wrap', 'opt-cost', 'opt-cases']
       .forEach(id => { $(id).hidden = true; });
-    Object.keys(OPT_SEGMENT).forEach(view => optNothing(view, optError && emptyState('This run would not surface',
+    Object.keys(OPT_SEGMENT).forEach(view => optNothing(view, optError && emptyState('This run could not be read',
       `${esc(optError)}<span class="ways">${listWay('opt-runs')}</span>`)));
     return;
   }
 
   /* The page header names the run and its status: here, only what the stop said for itself. */
-  $('opt-sub').textContent = (d.stop && d.stop.message) || '';
+  $('opt-sub').textContent = d.stop && d.stop.message ? `Stop reason: ${d.stop.message}` : '';
   $('opt-method-sum').innerHTML = methodLine(d);
   $('opt-hero').innerHTML = championHero(d);
   $('opt-stats').innerHTML = [
@@ -266,31 +284,27 @@ function renderOptimization() {
   $('opt-to-none').hidden = d.goals.length >= 2;
   $('opt-to-none').innerHTML = d.goals.length >= 2 ? '' : emptyState('One goal, so nothing to trade off',
     `This run optimized one goal${d.goals.length ? `, ${esc(d.goals[0].metric)}, ` : ', '}`
-      + 'so it has a best value rather than a trade-off. Progress charts it by candidate.');
+      + 'so it has a best value rather than a trade-off. Iterations charts it by candidate.');
   if (d.goals.length >= 2) renderTradeoff(d);
 
   renderOptimizerSetup(d, run);
   renderEffects();
   Object.keys(OPT_SEGMENT).forEach(view => optNothing(view, ''));
   if (!Object.keys(d.config).length) {
-    optNothing('opt-setup', emptyState('No setup on this lily pad',
+    optNothing('opt-setup', emptyState('No setup recorded',
       'This run’s run.json is empty, so there is no record of what the run was told to do.'));
   }
   if (!d.proposals.length && !d.iterations.length) {
-    optNothing('opt-progress', emptyState('The search has not made its first hop',
+    optNothing('opt-progress', emptyState('The search has not started',
       'No candidate has been proposed and no iteration has finished, so there is nothing to chart. '
-        + (d.stop ? `The run stopped: ${esc(d.stop.reason)}.` : 'This fills in as the run writes to its log.')));
-  }
-  if (!d.space.length && $('opt-effects').hidden) {
-    optNothing('opt-tunables', emptyState('No tunables on record',
-      'This run.json declares no search space: it was written before the field existed. Setup names the keys '
-        + 'the log changed, which is as close as the record gets.'));
+        + (run.state === 'running' ? 'This fills in as the run writes to its log.'
+          : d.stop ? `The run stopped: ${esc(stopPhrase(d.stop))}.` : `The run is ${esc(runState(run))}.`)));
   }
   $('opt-cand-sub').textContent = 'Each one is a configuration the optimizer built and ran your cases against.';
   renderCandidates();
 }
 
-/* ── Overview ── */
+/* ── Result ── */
 
 function optStat(value, key, hint, title) {
   return `<div class="stat"${title ? ` title="${esc(title)}"` : ''}>`
@@ -330,7 +344,7 @@ function renderCaseChart(d) {
   })), { axis: m.axis, better: m.better });
 }
 
-/* Overview: what the run spent, by iteration and by how each trial ended. */
+/* Result: what the run spent, by iteration and by how each trial ended. */
 function renderCost(d) {
   $('opt-cost').hidden = false;
   $('opt-usage-wrap').hidden = d.usageKeys.length === 0;
@@ -339,7 +353,8 @@ function renderCost(d) {
     const unit = d.usageKeys.find(u => u.key === optUsage);
     $('opt-usage-pick').hidden = d.usageKeys.length < 2;
     /* Trials after the last `iteration_end` are the end phase or an iteration still in flight. */
-    $('opt-usage-cap').textContent = `Summed over that iteration's own trials, not cumulative`
+    $('opt-usage-cap').textContent = `Summed over that iteration's own trials and proposer calls, every role and `
+      + `every attempt (the agent, its judges, the rollouts' other agents, the proposers), not cumulative`
       + (d.endPhase.trials
         ? `, excluding the ${plural(d.endPhase.trials, 'trial')} recorded after the last finished iteration.`
         : '.');
@@ -352,7 +367,7 @@ function renderCost(d) {
     .filter(Boolean).join(' · ');
 }
 
-/* Overview: what a reader should know before trusting the figures above. */
+/* Result: what a reader should know before trusting the figures above. */
 function renderRunNotes(d, run) {
   const notes = [];
   if (run.truncated) {
@@ -378,9 +393,9 @@ $('opt-cases-pick').onchange = e => { optCases = e.target.value; renderCaseChart
 
 $('opt-usage-pick').onchange = e => { optUsage = e.target.value; renderCost(OPT); };
 
-/* ── Progress ── */
+/* ── Iterations ── */
 
-/* Progress: one chart over the objective or a metric, by candidate. */
+/* Iterations: one chart over the objective or a metric, by candidate. */
 function renderSeries(d) {
   /* Metric values are prefixed `m:` so a metric named "objective" cannot collide with the objective. */
   const series = [{ value: 'objective', label: 'Objective' },
@@ -388,7 +403,7 @@ function renderSeries(d) {
   optSeries = fillPick('opt-series-pick', series, optSeries);
   $('opt-series-pick').hidden = series.length < 2;
   const metric = optSeries.startsWith('m:') ? optSeries.slice(2) : null;
-  $('opt-series-head').textContent = `${metric || 'Objective'} by candidate`;
+  $('opt-series-head').textContent = axisName(`${metric || 'Objective'} by candidate`);
   $('opt-series-cap').textContent = metric
     ? `The mean recorded for ${metric} on each candidate it was measured on: the metric itself, `
       + 'not its contribution to the objective.'
@@ -432,7 +447,7 @@ function renderTradeoff(d) {
   }[d.front.source];
   const short = { report: 'the recorded front', champion: 'the champion', snapshot: 'best so far' };
 
-  $('opt-to-head').textContent = `${yg.metric} against ${xg.metric}`;
+  $('opt-to-head').textContent = axisName(`${yg.metric} against ${xg.metric}`);
   $('opt-to-sum').textContent = many
     ? `${d.goals.length} goals`
     : d.goals.map(g => `${g.metric} ${g.dir === 'min' ? '↓' : '↑'}`).join(' against ');
@@ -585,8 +600,8 @@ function renderOptimizerSpace(d) {
   $('opt-space-sub').textContent = space.length
     ? `${plural(space.length, 'key')} the optimizer could set, as run.json declares them. `
       + 'A key with no candidate behind it was never varied.'
-    : 'This run.json declares no search space: it was written before the field existed. Setup '
-      + 'names the keys the log changed, which is as close as the record gets.';
+    : 'This run.json declares no search space: it was written before the field existed. The '
+      + 'configuration above names the keys the log changed, which is as close as the record gets.';
   if (!space.length) {
     $('opt-space-note').textContent = '';
     $('opt-space-note').className = 'optnote';

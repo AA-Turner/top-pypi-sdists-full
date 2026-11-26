@@ -148,15 +148,19 @@ def validate_stream_id(stream_id: str | None, invalid_stream_id_detail: str | No
     - timestamp-sequence (e.g., "1724342400000-0")
     - timestamp-* (e.g., "1724342400000-*")
     - timestamp only (e.g., "1724342400000")
-    - a negative integer (e.g., "-1"), the legacy form of "-", returned as "-"
+    - a negative integer (e.g., "-1") or an id at millisecond 0 (e.g., "0-0"), legacy
+      forms of "-", returned as "-"
     - "-" (special case, represents the beginning of the stream, use if you want to replay all events)
     """
     if not stream_id or stream_id == "-":
         return stream_id
 
     if STREAM_ID_PATTERN.match(stream_id):
-        # The core reads a negative id as "-" only when it fits in an int64.
-        return "-" if stream_id.startswith("-") else stream_id
+        # The core reads a negative id as "-" only when it fits in an int64, and a run
+        # join resumes after a checkpoint only from "-".
+        if stream_id.startswith("-") or int(stream_id.split("-")[0]) == 0:
+            return "-"
+        return stream_id
     raise HTTPException(status_code=422, detail=invalid_stream_id_detail)
 
 

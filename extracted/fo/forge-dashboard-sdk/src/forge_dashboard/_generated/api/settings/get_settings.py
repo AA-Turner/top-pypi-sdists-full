@@ -70,11 +70,9 @@ def sync_detailed(
 ) -> Response[Error | SettingsResponse]:
     """ The signed-in user's own forge configuration
 
-     Forge tokens are never returned, only whether one is set. The
-    webhook token and secret are returned, since the user pastes them
-    into the forge's webhook setup, and a first read creates them. For
-    a read that creates nothing and omits both, see
-    `GET /api/v1/settings/summary`.
+     Forge tokens are never returned, only whether one is set. Nor are the
+    webhook token and secret, though a first read still creates them. For
+    a read that creates nothing, see `GET /api/v1/settings/summary`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -102,11 +100,9 @@ def sync(
 ) -> Error | SettingsResponse | None:
     """ The signed-in user's own forge configuration
 
-     Forge tokens are never returned, only whether one is set. The
-    webhook token and secret are returned, since the user pastes them
-    into the forge's webhook setup, and a first read creates them. For
-    a read that creates nothing and omits both, see
-    `GET /api/v1/settings/summary`.
+     Forge tokens are never returned, only whether one is set. Nor are the
+    webhook token and secret, though a first read still creates them. For
+    a read that creates nothing, see `GET /api/v1/settings/summary`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -129,11 +125,9 @@ async def asyncio_detailed(
 ) -> Response[Error | SettingsResponse]:
     """ The signed-in user's own forge configuration
 
-     Forge tokens are never returned, only whether one is set. The
-    webhook token and secret are returned, since the user pastes them
-    into the forge's webhook setup, and a first read creates them. For
-    a read that creates nothing and omits both, see
-    `GET /api/v1/settings/summary`.
+     Forge tokens are never returned, only whether one is set. Nor are the
+    webhook token and secret, though a first read still creates them. For
+    a read that creates nothing, see `GET /api/v1/settings/summary`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,11 +155,9 @@ async def asyncio(
 ) -> Error | SettingsResponse | None:
     """ The signed-in user's own forge configuration
 
-     Forge tokens are never returned, only whether one is set. The
-    webhook token and secret are returned, since the user pastes them
-    into the forge's webhook setup, and a first read creates them. For
-    a read that creates nothing and omits both, see
-    `GET /api/v1/settings/summary`.
+     Forge tokens are never returned, only whether one is set. Nor are the
+    webhook token and secret, though a first read still creates them. For
+    a read that creates nothing, see `GET /api/v1/settings/summary`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

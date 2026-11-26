@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 1.18.2
+Version: 1.19.0
 Summary: Train transformer language models with reinforcement learning.
 Author-email: Leandro von Werra <leandro.vonwerra@gmail.com>
 License-Expression: Apache-2.0
@@ -16,10 +16,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: accelerate>=1.11.0
+Requires-Dist: accelerate>=1.12.0
 Requires-Dist: datasets>=4.7.0
 Requires-Dist: huggingface_hub>=0.34.0
 Requires-Dist: jinja2
@@ -46,7 +47,7 @@ Requires-Dist: math-verify>=0.8.0; extra == "math-verify"
 Provides-Extra: openreward
 Requires-Dist: openreward>=0.1.109; extra == "openreward"
 Provides-Extra: peft
-Requires-Dist: peft>=0.17.0; extra == "peft"
+Requires-Dist: peft>=0.18.0; extra == "peft"
 Provides-Extra: quality
 Requires-Dist: pre-commit; extra == "quality"
 Requires-Dist: hf-doc-builder; extra == "quality"
@@ -59,7 +60,7 @@ Requires-Dist: pytest-rerunfailures>=16.7; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Provides-Extra: vllm
-Requires-Dist: vllm<0.34.0,>=0.23.0; extra == "vllm"
+Requires-Dist: vllm<0.35.0,>=0.23.0; extra == "vllm"
 Requires-Dist: aiohttp>=3.13.3; extra == "vllm"
 Requires-Dist: requests; extra == "vllm"
 Provides-Extra: vlm
@@ -72,7 +73,7 @@ Requires-Dist: transformers[kernels]; extra == "dev"
 Requires-Dist: transformers[hub-kernels]; extra == "dev"
 Requires-Dist: math-verify>=0.8.0; extra == "dev"
 Requires-Dist: openreward>=0.1.109; extra == "dev"
-Requires-Dist: peft>=0.17.0; extra == "dev"
+Requires-Dist: peft>=0.18.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
 Requires-Dist: bitsandbytes>=0.45.2; extra == "dev"
@@ -340,7 +341,7 @@ Read more in the [Experimental docs](https://huggingface.co/docs/trl/experimenta
 ```bibtex
 @software{vonwerra2020trl,
   title   = {{TRL: Transformers Reinforcement Learning}},
-  author  = {von Werra, Leandro and Belkada, Younes and Tunstall, Lewis and Beeching, Edward and Thrush, Tristan and Lambert, Nathan and Huang, Shengyi and Rasul, Kashif and Gallouédec, Quentin and Dirhoussi, Amine},
+  author  = {von Werra, Leandro and Belkada, Younes and Tunstall, Lewis and Beeching, Edward and Thrush, Tristan and Lambert, Nathan and Huang, Shengyi and Rasul, Kashif and Gallouédec, Quentin and Dirhoussi, Amine and Villanova del Moral, Albert and Paniego Blanco, Sergio},
   license = {Apache-2.0},
   url     = {https://github.com/huggingface/trl},
   year    = {2020}

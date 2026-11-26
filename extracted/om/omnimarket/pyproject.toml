@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnimarket"
-version = "0.4.327"
+version = "0.4.328"
 description = "OmniMarket - Portable ONEX workflow package registry"
 authors = [
     {name = "OmniNode.ai", email = "contact@omninode.ai"}
@@ -593,6 +593,7 @@ node_delegation_answer_gate_compute = "omnimarket.nodes.node_delegation_answer_g
 node_delegation_arm_compare_compute = "omnimarket.nodes.node_delegation_arm_compare_compute"
 node_delegation_availability_report_compute = "omnimarket.nodes.node_delegation_availability_report_compute"
 node_delegation_check_probe_effect = "omnimarket.nodes.node_delegation_check_probe_effect"
+node_delegation_check_regression_effect = "omnimarket.nodes.node_delegation_check_regression_effect"
 node_delegation_client_verdict_compute = "omnimarket.nodes.node_delegation_client_verdict_compute"
 node_delegation_code_budget_compute = "omnimarket.nodes.node_delegation_code_budget_compute"
 node_delegation_completion_rate_compute = "omnimarket.nodes.node_delegation_completion_rate_compute"
@@ -1022,6 +1023,7 @@ node_ledger_append_effect = "omnimarket.nodes.node_ledger_append_effect"
 node_ledger_hash_compute = "omnimarket.nodes.node_ledger_hash_compute"
 node_ledger_hold_verdict_effect = "omnimarket.nodes.node_ledger_hold_verdict_effect"
 node_ledger_orchestrator = "omnimarket.nodes.node_ledger_orchestrator"
+node_ledger_outbox_drain_effect = "omnimarket.nodes.node_ledger_outbox_drain_effect"
 node_ledger_reconcile_command_compute = "omnimarket.nodes.node_ledger_reconcile_command_compute"
 node_ledger_reconcile_compute = "omnimarket.nodes.node_ledger_reconcile_compute"
 node_ledger_reconcile_effect = "omnimarket.nodes.node_ledger_reconcile_effect"

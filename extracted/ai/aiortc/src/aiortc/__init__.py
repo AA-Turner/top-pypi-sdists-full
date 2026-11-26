@@ -47,6 +47,8 @@ from .rtcrtptransceiver import RTCRtpTransceiver
 from .rtcsctptransport import RTCSctpCapabilities, RTCSctpTransport
 from .rtcsessiondescription import RTCSessionDescription
 from .stats import (
+    RTCIceCandidatePairStats,
+    RTCIceCandidateStats,
     RTCInboundRtpStreamStats,
     RTCOutboundRtpStreamStats,
     RTCRemoteInboundRtpStreamStats,
@@ -55,7 +57,7 @@ from .stats import (
     RTCTransportStats,
 )
 
-__version__ = "1.16.0"
+__version__ = "1.17.0"
 
 # Set default logging handler to avoid "No handler found" warnings.
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -75,6 +77,8 @@ __all__ = [
     "RTCDtlsParameters",
     "RTCDtlsTransport",
     "RTCIceCandidate",
+    "RTCIceCandidatePairStats",
+    "RTCIceCandidateStats",
     "RTCIceGatherer",
     "RTCIceParameters",
     "RTCIceServer",

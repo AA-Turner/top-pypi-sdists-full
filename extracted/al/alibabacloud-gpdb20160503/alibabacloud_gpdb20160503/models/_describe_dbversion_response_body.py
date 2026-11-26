@@ -12,7 +12,7 @@ class DescribeDBVersionResponseBody(DaraModel):
     ):
         # The request ID.
         self.request_id = request_id
-        # The recommended upgrade version in the format of "major version,minor version" (separated by a comma). The first value is the target version for major engine version upgrade, and the second value is the target version for minor engine version update.
+        # The recommended upgrade version in the format of "major version,minor version" (separated by a comma). The former is the target major major engine version upgrade, and the latter is the target minor major engine version upgrade.
         self.version_suggestion = version_suggestion
 
     def validate(self):

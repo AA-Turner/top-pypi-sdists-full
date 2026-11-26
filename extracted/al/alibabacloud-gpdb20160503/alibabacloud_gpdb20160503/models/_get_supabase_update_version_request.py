@@ -14,7 +14,7 @@ class GetSupabaseUpdateVersionRequest(DaraModel):
         # 
         # This parameter is required.
         self.project_id = project_id
-        # The region ID.
+        # The region ID. Specifies the region for the query or operation.
         self.region_id = region_id
 
     def validate(self):

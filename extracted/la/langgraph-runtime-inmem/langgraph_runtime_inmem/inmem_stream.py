@@ -1,4 +1,5 @@
 import asyncio
+import bisect
 import logging
 import time
 from collections import defaultdict
@@ -35,6 +36,8 @@ class Message:
     id: bytes | None = None
     # Control messages only: server-generated explanation of an interrupt/rollback
     reason: str | None = None
+    # Stored for replay, so a client can resume after its id.
+    resumable: bool = False
 
 
 class ContextQueue(asyncio.Queue):
@@ -127,6 +130,8 @@ class StreamManager:
         message.id = self._next_id()
         topic = message.topic.decode()
         if resumable:
+            message.resumable = True
+            self._drop_expired()
             self.message_stores[thread_id][run_id].append(message)
         if "control" in topic:
             self.control_keys[thread_id][run_id] = message
@@ -146,6 +151,10 @@ class StreamManager:
     ) -> None:
         thread_id = _ensure_uuid(thread_id)
         message.id = self._next_id()
+        # Thread-level events (state updates) replay too, filed under the thread id.
+        message.resumable = True
+        self._drop_expired()
+        self.message_stores[thread_id][thread_id].append(message)
         queues = self.thread_streams.get(thread_id, ())
         coros = [queue.put(message) for queue in queues]
         results = await asyncio.gather(*coros, return_exceptions=True)
@@ -228,15 +237,35 @@ class StreamManager:
             thread_id = THREADLESS_KEY
         else:
             thread_id = _ensure_uuid(thread_id)
-        if message_id is None or thread_id not in self.message_stores:
+        if message_id is None:
+            return
+        self._drop_expired()
+        if thread_id not in self.message_stores:
             return
         try:
             after = stream_id_key(message_id)
         except ValueError:
             return
-        for message in self.message_stores[thread_id][run_id]:
+        # A copy: a write while the replay is sent can drop expired entries from the front.
+        for message in list(self.message_stores[thread_id].get(run_id, ())):
             if stream_id_key(message.id) > after:
                 yield message
+
+    def _drop_expired(self) -> None:
+        """Forget stored events older than the resumable TTL, as the Redis cache does."""
+        from langgraph_api.config import RESUMABLE_STREAM_TTL_SECONDS  # noqa: PLC0415
+
+        oldest_ms = int(time.time() * 1000) - RESUMABLE_STREAM_TTL_SECONDS * 1000
+        for thread_id, runs in list(self.message_stores.items()):
+            for run_id, messages in list(runs.items()):
+                expired = bisect.bisect_left(
+                    messages, oldest_ms, key=lambda m: stream_id_key(m.id)[0]
+                )
+                del messages[:expired]
+                if not messages:
+                    del runs[run_id]
+            if not runs:
+                del self.message_stores[thread_id]
 
     def get_queues_by_thread_id(self, thread_id: UUID | str) -> list[asyncio.Queue]:
         """Get all queues for a specific thread_id across all runs."""
@@ -263,21 +292,9 @@ async def start_stream() -> None:
 
 
 async def stop_stream() -> None:
-    """Clean up the queue system.
-    Clear all queues and stored control messages."""
-    global stream_manager
-
-    # Send 'done' message to all active queues before clearing
-    for run_id in list(stream_manager.queues.keys()):
-        control_message = Message(topic=f"run:{run_id}:control".encode(), data=b"done")
-
-        for queue in stream_manager.queues[run_id]:
-            try:
-                await queue.put(control_message)
-            except (Exception, RuntimeError):
-                pass  # Ignore errors during shutdown
-
-    # Clear all stored data
+    """Drop the run stream queues, control queues and stored stream messages."""
+    # Sends no `done`: every request has ended or been cancelled by the time this
+    # runs, and a thread stream would report a run cut short as finished.
     stream_manager.queues.clear()
     stream_manager.control_queues.clear()
     stream_manager.message_stores.clear()

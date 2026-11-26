@@ -31,7 +31,7 @@ _OLD_CURSOR_MESSAGE = ("cursor is from an older Probe and can no longer be conti
 
 def build_decision_row(row: dict[str, Any]) -> dict[str, Any]:
     """One decision as a reader quotes it: when, the choice, why, who, where it was filed and what it touched,
-    each place and target `name (id:<uuid>)` (the form `probe` commands take; never a link, #5344)."""
+    each place, target and session `name (id:<uuid>)` (the form `probe` commands take; never a link, #5344)."""
     decided_by = row.get("decided_by") or {}
     out: dict[str, Any] = {
         "id": row.get("id"),
@@ -54,8 +54,8 @@ def build_decision_row(row: dict[str, Any]) -> dict[str, Any]:
     if targets:
         out["affects"] = targets
     session = row.get("session") or {}
-    if session.get("title"):
-        out["session"] = session["title"]
+    if session.get("id"):
+        out["session"] = _get_name_with_id(session.get("title") or session.get("agent"), session["id"])
     if row.get("follows"):
         out["follows"] = row["follows"]
     return {key: value for key, value in out.items() if value is not None}

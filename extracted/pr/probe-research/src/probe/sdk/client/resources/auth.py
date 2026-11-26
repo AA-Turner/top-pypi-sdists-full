@@ -117,7 +117,10 @@ class AuthMixin:
         from ...settings.device import device_authorize
 
         # A named token is for another machine or a job: it must not take this
-        # machine's device slot, or minting it signs this machine out.
+        # machine's device slot, or minting it signs this machine out. It is THIS
+        # person's key, so the request carries this CLI's own key: only the same
+        # account and team may approve it (control/098), never whoever the browser
+        # happens to be signed in as.
         return device_authorize(
             self.settings.base_url,
             scopes=scopes,
@@ -125,6 +128,7 @@ class AuthMixin:
             bind_device=False,
             open_browser=open_browser,
             on_prompt=on_prompt,
+            bearer=self.settings.token or None,
         )
 
     # -- team API keys (probe_svc_, read-only, the team's) --------------------

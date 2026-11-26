@@ -11,11 +11,11 @@ class DownloadDiagnosisRecordsResponseBody(DaraModel):
         download_id: str = None,
         request_id: str = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The ID of the download task.
+        # The download task ID.
         self.download_id = download_id
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
 
     def validate(self):

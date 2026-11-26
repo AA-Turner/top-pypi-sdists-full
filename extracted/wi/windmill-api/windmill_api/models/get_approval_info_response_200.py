@@ -29,6 +29,7 @@ class GetApprovalInfoResponse200:
         hide_cancel (Union[Unset, bool]): whether to hide the cancel button in the UI
         step_summary (Union[Unset, str]): summary of the approval step, for the page title
         flow_summary (Union[Unset, str]): summary of the flow or workflow the approval belongs to
+        required_events (Union[Unset, int]): approvals the step requires; absent for a workflow as code
         view_token (Union[Unset, str]): Share-read-link token for the flow. An authenticated workspace member can append
             it as a `view_token` query param on the run page to read a flow they don't otherwise have access to.
     """
@@ -44,6 +45,7 @@ class GetApprovalInfoResponse200:
     hide_cancel: Union[Unset, bool] = UNSET
     step_summary: Union[Unset, str] = UNSET
     flow_summary: Union[Unset, str] = UNSET
+    required_events: Union[Unset, int] = UNSET
     view_token: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -68,6 +70,7 @@ class GetApprovalInfoResponse200:
         hide_cancel = self.hide_cancel
         step_summary = self.step_summary
         flow_summary = self.flow_summary
+        required_events = self.required_events
         view_token = self.view_token
 
         field_dict: Dict[str, Any] = {}
@@ -93,6 +96,8 @@ class GetApprovalInfoResponse200:
             field_dict["step_summary"] = step_summary
         if flow_summary is not UNSET:
             field_dict["flow_summary"] = flow_summary
+        if required_events is not UNSET:
+            field_dict["required_events"] = required_events
         if view_token is not UNSET:
             field_dict["view_token"] = view_token
 
@@ -138,6 +143,8 @@ class GetApprovalInfoResponse200:
 
         flow_summary = d.pop("flow_summary", UNSET)
 
+        required_events = d.pop("required_events", UNSET)
+
         view_token = d.pop("view_token", UNSET)
 
         get_approval_info_response_200 = cls(
@@ -152,6 +159,7 @@ class GetApprovalInfoResponse200:
             hide_cancel=hide_cancel,
             step_summary=step_summary,
             flow_summary=flow_summary,
+            required_events=required_events,
             view_token=view_token,
         )
 

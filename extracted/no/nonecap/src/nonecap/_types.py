@@ -64,6 +64,8 @@ SolveErrorReason = Literal[
     "recaptcha_not_loaded",
     "refused_wording_unescaped",
     "session_capped",
+    "rqdata_rejected",
+    "sitekey_not_served",
 ]
 """A typed sub-reason within :data:`SolveErrorCode`, set when the solver knows more
 than the code says."""

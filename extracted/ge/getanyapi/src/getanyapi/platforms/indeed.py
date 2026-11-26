@@ -189,7 +189,7 @@ class IndeedNamespace:
         normalized job records per request. Outside the US, salary may be null even
         when the Indeed listing shows pay.
 
-        Price: $0.00125 per request.
+        Price: $0.00115 per request.
 
         Example:
             res = client.indeed.jobs(limit=3, location="Austin, TX", query="data analyst")
@@ -215,7 +215,7 @@ class AsyncIndeedNamespace:
         normalized job records per request. Outside the US, salary may be null even
         when the Indeed listing shows pay.
 
-        Price: $0.00125 per request.
+        Price: $0.00115 per request.
 
         Example:
             res = client.indeed.jobs(limit=3, location="Austin, TX", query="data analyst")

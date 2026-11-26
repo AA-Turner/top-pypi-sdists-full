@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 authors = [{ name = "chatos@alibaba" }]
 requires-python = "<4.0,>=3.10"
 name = "rl-rock"
-version = "1.11.0"
+version = "1.12.0"
 description = "ROCK-Reinforcement Open Construction Kit"
 readme = "README.md"
 dependencies = [
@@ -111,6 +111,8 @@ rock = "rock.cli.main:main"
 
 [dependency-groups]
 test = [
+    "ap-sandbox>=0.1.2",
+    "e2b==2.34.0",
     "pre-commit>=4.3.0",
     "ruff>=0.14.0",
     "iflow-cli-sdk>=0.1.1",
@@ -128,6 +130,7 @@ test = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["rock", "rock.*"]
 
 [tool.setuptools.package-data]
 rock = ["rocklet/local_files/*"]
@@ -162,6 +165,8 @@ ignore = [
 split-on-trailing-comma = true
 
 [tool.pytest.ini_options]
+# Tinker has an isolated environment; run its tests explicitly from that project.
+testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = [
     "-v",               # Verbose output

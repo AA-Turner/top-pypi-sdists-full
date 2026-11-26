@@ -9,31 +9,39 @@ from concurrent.futures import ThreadPoolExecutor
 import ctypes
 import contextlib
 import io
+import logging
 import subprocess
 import sys
 import time
 
 from fastapi import HTTPException, WebSocketDisconnect
 from PIL import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from typing import Literal
 
 from open_terminal.frames import Frames, FrameWindow
 from open_terminal.desktop.audio import HostAudio
+from open_terminal.desktop.video import VideoEncoder
 from open_terminal.env import sanitized_environ
+
+log = logging.getLogger(__name__)
 
 
 class Input(BaseModel):
     type: Literal["mouse", "key", "paste", "release", "frameAck"]
     window: int = Field(default=1, ge=1, le=3)
+    h264: bool = False
     x: int = Field(default=0, ge=0, le=32767)
     y: int = Field(default=0, ge=0, le=32767)
     buttons: int = Field(default=0, ge=0, le=7)
     deltaX: int = Field(default=0, ge=-10000, le=10000)
     deltaY: int = Field(default=0, ge=-10000, le=10000)
+    scrollX: float = Field(default=0, ge=-100000, le=100000)
+    scrollY: float = Field(default=0, ge=-100000, le=100000)
     code: str = Field(default="", max_length=50)
     down: bool = False
     text: str = Field(default="", max_length=20000)
+    shift: bool = False
 
 
 KEYS = {
@@ -114,6 +122,7 @@ def check_permissions():
 
 class NativeDesktop:
     transport = "frames"
+    fps = 30
 
     def __init__(self, fs):
         if fs.username:
@@ -129,12 +138,25 @@ class NativeDesktop:
         self.worker = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="desktop-capture"
         )
+        # Input must not wait behind frame capture and encoding.
+        self.inputs = ThreadPoolExecutor(max_workers=1, thread_name_prefix="desktop-input")
         self.capture = None
         self.origin = (0, 0)
+        self.target = ()
         self.width = self.height = 0
+        self.frame = None
+        self.unscrolled = [0.0, 0.0]
+
+    @property
+    def frame_size(self):
+        """The viewer's picture; assistants always use width and height."""
+        return self.frame or (self.width, self.height)
 
     async def work(self, fn, *args):
         return await asyncio.get_running_loop().run_in_executor(self.worker, fn, *args)
+
+    async def send_input(self, fn, *args):
+        return await asyncio.get_running_loop().run_in_executor(self.inputs, fn, *args)
 
     def setup(self):
         check_permissions()
@@ -208,49 +230,85 @@ class NativeDesktop:
         )
         return image.resize((self.width, self.height), Image.Resampling.BILINEAR)
 
-    def position(self, x, y, buttons=()):
-        if not (0 <= x < self.width and 0 <= y < self.height):
+    def position(self, x, y, buttons=(), size=None):
+        width, height = size or (self.width, self.height)
+        if not (0 <= x < width and 0 <= y < height):
             raise ValueError("Coordinates are outside the current desktop screenshot")
-        target = (
-            self.origin[0] + round(x * self.screen_width / self.width),
-            self.origin[1] + round(y * self.screen_height / self.height),
+        # Button and scroll calls pass this on: macOS applies moves asynchronously,
+        # so reading the cursor back can return where it was before the move.
+        self.target = (
+            self.origin[0] + round(x * self.screen_width / width),
+            self.origin[1] + round(y * self.screen_height / height),
         )
         if sys.platform == "darwin" and buttons:
             # macOS requires drag events, even when mouseDown has already been sent.
             button = next(b for b in ("left", "right", "middle") if b in buttons)
-            self.input.dragTo(*target, button=button, mouseDownUp=False)
+            self.input.dragTo(*self.target, button=button, mouseDownUp=False)
         else:
-            self.input.moveTo(*target)
+            self.input.moveTo(*self.target)
 
-    def paste(self, text):
+    def scroll(self, x, y):
+        """Scroll by screen pixels, keeping what is too small to send yet."""
+        unit = {"darwin": 1, "win32": 100 / 120}.get(sys.platform, 100)
+        steps = []
+        for axis, amount in enumerate((x, y)):
+            total = self.unscrolled[axis] + amount
+            steps.append(int(total / unit))
+            self.unscrolled[axis] = total - steps[axis] * unit
+        x, y = steps
+        if sys.platform == "darwin" and (x or y):
+            import Quartz
+
+            event = Quartz.CGEventCreateScrollWheelEvent(None, Quartz.kCGScrollEventUnitPixel, 2, -y, -x)
+            Quartz.CGEventSetLocation(event, self.target)
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
+        elif sys.platform == "win32":
+            # pyautogui scrolls 1/120 of a notch per step and has no horizontal wheel.
+            for event, amount in ((0x0800, -y), (0x1000, x)):
+                if amount:
+                    ctypes.windll.user32.mouse_event(event, 0, 0, amount & 0xFFFFFFFF, 0)
+        else:
+            if y:
+                self.input.scroll(-y, *self.target)
+            if x:
+                self.input.hscroll(x, *self.target)
+
+    def paste(self, text, shift=False):
         import pyperclip
 
         pyperclip.copy(text)
-        self.input.hotkey("command" if sys.platform == "darwin" else "ctrl", "v")
+        self.input.hotkey("command" if sys.platform == "darwin" else "ctrl", *(["shift"] if shift else []), "v")
 
     def release(self, keys, buttons):
         for key in list(keys):
             self.input.keyUp(key)
         keys.clear()
         for button in list(buttons):
-            self.input.mouseUp(button=button)
+            self.input.mouseUp(*self.target, button=button)
         buttons.clear()
 
     def handle(self, message, keys, buttons):
         if message.type == "mouse":
-            self.position(message.x, message.y, buttons)
+            width, height = self.frame_size
+            self.position(message.x, message.y, buttons, (width, height))
             for flag, button in ((1, "left"), (2, "right"), (4, "middle")):
                 down = bool(message.buttons & flag)
                 if down and button not in buttons:
-                    self.input.mouseDown(button=button)
+                    self.input.mouseDown(*self.target, button=button)
                     buttons.add(button)
                 elif not down and button in buttons:
-                    self.input.mouseUp(button=button)
+                    self.input.mouseUp(*self.target, button=button)
                     buttons.remove(button)
+            if message.scrollX or message.scrollY:
+                self.scroll(
+                    message.scrollX * self.screen_width / width,
+                    message.scrollY * self.screen_height / height,
+                )
+                return
             if message.deltaY:
-                self.input.scroll(-message.deltaY)
+                self.input.scroll(-message.deltaY, *self.target)
             if message.deltaX:
-                self.input.hscroll(message.deltaX)
+                self.input.hscroll(message.deltaX, *self.target)
         elif message.type == "key" and (key := KEYS.get(message.code)):
             if message.down:
                 self.input.keyDown(key)
@@ -260,7 +318,7 @@ class NativeDesktop:
                 keys.discard(key)
         elif message.type == "paste":
             self.release(keys, buttons)
-            self.paste(message.text)
+            self.paste(message.text, message.shift)
         elif message.type == "release":
             self.release(keys, buttons)
 
@@ -269,23 +327,24 @@ class NativeDesktop:
             self.position(body.x, body.y)
         if body.action in ("click", "double_click"):
             self.input.click(
+                *self.target,
                 button=body.button,
                 clicks=2 if body.action == "double_click" else 1,
                 interval=0.1 if body.action == "double_click" else 0,
             )
         elif body.action == "drag":
             try:
-                self.input.mouseDown(button=body.button)
+                self.input.mouseDown(*self.target, button=body.button)
                 self.position(body.to_x, body.to_y, (body.button,))
             finally:
-                self.input.mouseUp(button=body.button)
+                self.input.mouseUp(*self.target, button=body.button)
         elif body.action == "scroll":
             amount = body.amount * (-1 if body.direction in ("down", "left") else 1)
             (
                 self.input.hscroll
                 if body.direction in ("left", "right")
                 else self.input.scroll
-            )(amount)
+            )(amount, *(self.target if body.x is not None else ()))
         elif body.action == "type":
             self.paste(body.text)
         elif body.action == "key":
@@ -299,7 +358,10 @@ class NativeDesktop:
     async def screenshot(self):
         def encode():
             output = io.BytesIO()
-            self.grab().save(output, "PNG")
+            image = self.grab()
+            if image.size != (self.width, self.height):
+                image = image.resize((self.width, self.height), Image.Resampling.LANCZOS)
+            image.save(output, "PNG")
             return output.getvalue()
 
         return await self.work(encode)
@@ -309,53 +371,83 @@ class NativeDesktop:
         ready = FrameWindow()
         keys, buttons = set(), set()
         encoder = Frames()
+        video = VideoEncoder()
+        h264 = False  # The viewer says with each acknowledgment whether it decodes video.
         pending = deque()
         input_ready = asyncio.Event()
+
+        def encode(level):
+            if not h264 and video.process is not None:
+                # The viewer stopped decoding, so its picture may be out of date.
+                video.close()
+                encoder.reset()
+            return encoder.packets(self.grab(), level, video if h264 else None)
 
         async def frames():
             while True:
                 await ready.wait()
                 start = time.monotonic()
-                packet = await self.work(lambda: encoder.encode(self.grab()))
-                if packet is not None:
-                    ready.sent()
-                    await ws.send_bytes(packet)
-                await asyncio.sleep(max(0, 1 / 30 - (time.monotonic() - start)))
+                # A slow viewer gets lighter frames; still areas are sharpened afterwards.
+                packets = await self.work(encode, ready.adapt())
+                if packets:
+                    ready.sent(len(packets))
+                    for packet in packets:
+                        await ws.send_bytes(packet)
+                fps = self.fps if ready.queued < 0.03 else 30
+                await asyncio.sleep(max(0, 1 / fps - (time.monotonic() - start)))
 
         async def commands():
+            nonlocal h264
             received_buttons = 0
             while True:
-                message = Input.model_validate(await ws.receive_json())
+                data = await ws.receive_json()
+                try:
+                    message = Input.model_validate(data)
+                except ValidationError as exc:
+                    log.warning("Ignored desktop input: %s", exc.errors()[0]["msg"])
+                    continue
                 if message.type == "frameAck":
+                    h264 = message.h264
                     ready.ack(message.window)
                 else:
                     motion = (
                         message.type == "mouse"
                         and message.buttons == received_buttons
-                        and not message.deltaX
-                        and not message.deltaY
+                    )
+                    scroll = bool(
+                        message.deltaX or message.deltaY or message.scrollX or message.scrollY
                     )
                     if message.type == "mouse":
                         received_buttons = message.buttons
                     elif message.type in ("release", "paste"):
                         received_buttons = 0
-                    # Only replace consecutive moves, never a button edge, key or scroll.
-                    if motion and pending and pending[-1][1]:
-                        pending[-1] = (message, motion)
+                    # Merge consecutive moves and scrolls, never a button edge or key.
+                    # A move after a scroll stays separate, so it cannot redirect it.
+                    if motion and pending and pending[-1][1] and (scroll or not pending[-1][2]):
+                        message.deltaX += pending[-1][0].deltaX
+                        message.deltaY += pending[-1][0].deltaY
+                        message.scrollX += pending[-1][0].scrollX
+                        message.scrollY += pending[-1][0].scrollY
+                        pending[-1] = (message, motion, scroll)
                     else:
                         if len(pending) >= 256:
                             raise ValueError("Desktop input queue is full")
-                        pending.append((message, motion))
+                        pending.append((message, motion, scroll))
                     input_ready.set()
 
         async def inputs():
             while True:
                 await input_ready.wait()
-                message, _ = pending.popleft()
+                message, *_ = pending.popleft()
                 if not pending:
                     input_ready.clear()
-                async with self.actions:
-                    await self.work(self.handle, message, keys, buttons)
+                try:
+                    async with self.actions:
+                        await self.send_input(self.handle, message, keys, buttons)
+                except Exception as exc:
+                    if getattr(self, "closed", False):
+                        raise
+                    log.warning("Desktop input failed: %s", exc)
 
         tasks = [
             asyncio.create_task(frames()),
@@ -372,9 +464,10 @@ class NativeDesktop:
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.to_thread(video.close)
             async with self.actions:
                 with contextlib.suppress(Exception):
-                    await self.work(self.release, keys, buttons)
+                    await self.send_input(self.release, keys, buttons)
             self.peers.discard(ws)
 
     async def close(self):
@@ -385,3 +478,4 @@ class NativeDesktop:
         if self.capture:
             await self.work(self.capture.close)
         self.worker.shutdown(wait=False, cancel_futures=True)
+        self.inputs.shutdown(wait=False, cancel_futures=True)

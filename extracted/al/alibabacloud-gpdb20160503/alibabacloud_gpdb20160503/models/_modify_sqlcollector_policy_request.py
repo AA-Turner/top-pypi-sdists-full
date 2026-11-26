@@ -10,14 +10,15 @@ class ModifySQLCollectorPolicyRequest(DaraModel):
         dbinstance_id: str = None,
         sqlcollector_status: str = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
+        # 
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances in the specified region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # Specifies whether to enable or disable SQL collection.
-        # 
-        # *   Enable: enables SQL collection.
-        # *   Disabled: disables SQL collection.
+        # The SQL collection status. Valid values:
+        # - Enable: SQL collection is enabled.
+        # - Disabled: SQL collection is disabled.
         # 
         # This parameter is required.
         self.sqlcollector_status = sqlcollector_status

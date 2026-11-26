@@ -52,11 +52,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 import time
 from collections.abc import Callable
 from contextvars import ContextVar
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple, NoReturn
 
 from ha_mcp._vendor.fastmcp.exceptions import ToolError
@@ -68,13 +66,21 @@ from ha_mcp._vendor.fastmcp.server.middleware.middleware import (
 
 from ..errors import ErrorCode, create_entity_not_found_error, create_error_response
 from ..renamed_tools import current_tool_name
+from ..strict_bps import STRICT_BPS_GATED_TOOLS
 from ..tool_dispatch import CALL_PROXY_META_TOOLS, coerce_proxy_arguments
 from ..tools.helpers import raise_tool_error
 from . import resolver
+from .hidden_matcher import (
+    HiddenMatcher,
+    friendly_names,
+    known_entity_ids,
+    scan_value,
+)
 from .identifier_aliases import (
     IdentifierAliases,
     build_identifier_aliases,
     hidden_identifier_argument,
+    is_trace_query,
     result_reveals_hidden,
 )
 from .model import VisibilityConfig
@@ -82,8 +88,10 @@ from .resolver import (
     VisibilityDataUnavailable,
     config_has_active_hide_dimensions,
     config_needs_device_registry,
+    core_device_list_reply,
     load_hidden_set,
 )
+from .result_payloads import result_payloads, serialize_error, serialize_result
 
 if TYPE_CHECKING:
     from ha_mcp._vendor.fastmcp.tools import ToolResult
@@ -98,7 +106,7 @@ _config_load_warning_emitted: ContextVar[bool | None] = ContextVar(
 # does not re-fetch the registry each time; a config edit invalidates it sooner
 # (the cache is keyed on the hide dimensions), so the ~30s window only applies to
 # registry-side staleness (an area/label membership change in HA).
-_CACHE_TTL_SECONDS = 30.0
+CACHE_TTL_SECONDS = 30.0
 
 # Tools whose output cannot be text-scanned for a hidden entity_id.
 _SCREENSHOT_TOOL = "ha_get_dashboard_screenshot"
@@ -111,6 +119,7 @@ _REPORT_ISSUE_TOOL = "ha_report_issue"
 # Always outside the barrier: bundled docs and tool schemas whose examples can
 # name a hidden id (#2949), and the ha_dev_* developer override by design.
 _UNGATED_TOOLS = frozenset({"ha_get_skill_guide", "ha_search_tools"})
+_GUIDE_KEYS = frozenset({"skill_content", "best_practice_warnings"})
 _UNGATED_PREFIX = "ha_dev_"
 # State reads have a shape-bounded scrub exception before the outbound scan.
 _STATE_TOOL = "ha_get_state"
@@ -210,120 +219,6 @@ def _conceal_as_not_found(entity_id: str) -> NoReturn:
     raise_tool_error(create_entity_not_found_error(entity_id))
 
 
-def _iter_strings(value: Any) -> Any:
-    """Yield every string in a nested args/result structure (dicts/lists/strings).
-
-    Dict KEYS are yielded too: HA config payloads key maps by entity_id (a scene's
-    ``entities``, a group's members), so a key is as much a reference as a value —
-    and the outbound scan (``json.dumps``) sees keys, so the inbound scan must
-    traverse the same surface or a hidden id positioned as a key would execute.
-    """
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if isinstance(key, str):
-                yield key
-            yield from _iter_strings(item)
-    elif isinstance(value, (list, tuple)):
-        for item in value:
-            yield from _iter_strings(item)
-
-
-def _scan_value(value: Any, matcher: _HiddenMatcher) -> tuple[str | None, bool]:
-    """Return ``(first_exact_hidden_id, any_embedded_hidden_id)`` over nested strings.
-
-    A string that equals a hidden id exactly drives concealment; a string that
-    merely embeds one (boundary regex) drives the generic refusal. An exact match
-    takes priority, so an exact hit never also counts as embedded.
-    """
-    exact: str | None = None
-    embedded = False
-    for text in _iter_strings(value):
-        if matcher.exact(text):
-            if exact is None:
-                exact = text
-        elif matcher.embeds(text):
-            embedded = True
-    return exact, embedded
-
-
-def _build_hidden_regex(hidden: set[str]) -> re.Pattern[str] | None:
-    """Compile one boundary-aware alternation over the hidden set, or None if empty.
-
-    The ``(?<![a-z0-9_]) ... (?![a-z0-9_])`` guards (case-insensitive) make
-    ``sensor.foo`` match ``states.sensor.foo`` and a bare ``sensor.foo`` in a
-    template, but NOT ``sensor.foo2`` or ``my_sensor.foo``.
-    """
-    if not hidden:
-        return None
-    alternation = "|".join(re.escape(eid) for eid in sorted(hidden))
-    return re.compile(rf"(?<![a-z0-9_])(?:{alternation})(?![a-z0-9_])", re.IGNORECASE)
-
-
-@dataclass(frozen=True)
-class _HiddenMatcher:
-    """The enforced hidden set, its identifier aliases and the boundary regex.
-
-    ``identifier_aliases`` holds the bare keys that address a hidden script,
-    scene or automation (see ``identifier_aliases``). The regex matches the
-    hidden entity_ids plus the alias terms that run a hidden script without
-    naming it. Built only through :meth:`from_hidden`, so ``regex`` is ``None``
-    exactly when ``hidden`` is empty and every scan sees one consistent view.
-    """
-
-    hidden: frozenset[str]
-    regex: re.Pattern[str] | None
-    identifier_aliases: IdentifierAliases = field(hash=False)
-
-    @classmethod
-    def from_hidden(
-        cls, hidden: set[str], aliases: IdentifierAliases
-    ) -> _HiddenMatcher:
-        terms = hidden | aliases.embedded_terms()
-        return cls(frozenset(hidden), _build_hidden_regex(terms), aliases)
-
-    def exact(self, text: str) -> bool:
-        """Whether ``text`` is a hidden entity_id."""
-        return text in self.hidden
-
-    def embeds(self, text: str) -> bool:
-        """Whether ``text`` is, or embeds, a hidden entity_id (exact included)."""
-        return self.regex is not None and self.regex.search(text) is not None
-
-
-def _serialize_result(result: ToolResult) -> str:
-    """Flatten a tool result's text content and structured content for scanning."""
-    parts: list[str] = []
-    for block in getattr(result, "content", None) or []:
-        text = getattr(block, "text", None)
-        if isinstance(text, str):
-            parts.append(text)
-    structured = getattr(result, "structured_content", None)
-    if structured is not None:
-        try:
-            parts.append(json.dumps(structured, default=str))
-        except (TypeError, ValueError):
-            parts.append(str(structured))
-    return "\n".join(parts)
-
-
-def _result_payloads(result: ToolResult) -> list[Any]:
-    """A tool result's structured content and text blocks, JSON-parsed if possible."""
-    payloads: list[Any] = []
-    structured = getattr(result, "structured_content", None)
-    if structured is not None:
-        payloads.append(structured)
-    for block in getattr(result, "content", None) or []:
-        text = getattr(block, "text", None)
-        if isinstance(text, str):
-            try:
-                payloads.append(json.loads(text))
-            except json.JSONDecodeError:
-                payloads.append(text)
-    return payloads
-
-
 # Sentinel returned for a hidden-naming string value or a mapping whose
 # ``entity_id`` is hidden; its enclosing mapping/sequence omits that value. At the
 # top level it reaches ``_scrub_state_representation``, which treats the
@@ -336,7 +231,7 @@ _ATTRIBUTES_KEY = "attributes"
 
 
 def _scrub_hidden_references(
-    value: Any, matcher: _HiddenMatcher, path: str
+    value: Any, matcher: HiddenMatcher, path: str
 ) -> tuple[Any, list[str]]:
     """Return a scrubbed JSON-shaped value and the JSON paths it omitted."""
     if isinstance(value, str):
@@ -354,7 +249,7 @@ def _scrub_hidden_references(
 
 
 def _scrub_hidden_mapping(
-    value: dict[Any, Any], matcher: _HiddenMatcher, path: str
+    value: dict[Any, Any], matcher: HiddenMatcher, path: str
 ) -> tuple[Any, list[str]]:
     entity_id = value.get("entity_id")
     if isinstance(entity_id, str) and matcher.embeds(entity_id):
@@ -381,7 +276,7 @@ def _scrub_hidden_mapping(
 
 
 def _scrub_hidden_sequence(
-    value: list[Any] | tuple[Any, ...], matcher: _HiddenMatcher, path: str
+    value: list[Any] | tuple[Any, ...], matcher: HiddenMatcher, path: str
 ) -> tuple[list[Any], list[str]]:
     scrubbed_list: list[Any] = []
     omitted: list[str] = []
@@ -433,7 +328,7 @@ class _ScrubTally(NamedTuple):
     unwarnable_representations: int
 
 
-def _scrub_state_representation(value: Any, matcher: _HiddenMatcher) -> _ScrubAttempt:
+def _scrub_state_representation(value: Any, matcher: HiddenMatcher) -> _ScrubAttempt:
     """Scrub one JSON value, retaining its original unless a warning can attach."""
     scrubbed, omitted = _scrub_hidden_references(value, matcher, "")
     if not omitted:
@@ -445,7 +340,7 @@ def _scrub_state_representation(value: Any, matcher: _HiddenMatcher) -> _ScrubAt
     return _ScrubAttempt(scrubbed, len(omitted), True)
 
 
-def _scrub_state_result(result: ToolResult, matcher: _HiddenMatcher) -> _ScrubTally:
+def _scrub_state_result(result: ToolResult, matcher: HiddenMatcher) -> _ScrubTally:
     """Scrub ha_get_state JSON representations while preserving a warning.
 
     A representation is replaced only when its top-level shape can carry the
@@ -487,11 +382,6 @@ def _scrub_state_result(result: ToolResult, matcher: _HiddenMatcher) -> _ScrubTa
         mutated_representations,
         unwarnable_representations,
     )
-
-
-def _tool_error_text(exc: ToolError) -> str:
-    """The scannable text of a tool-raised error (its JSON payload args)."""
-    return "\n".join(str(arg) for arg in (getattr(exc, "args", None) or ()))
 
 
 def _unscannable_reason(name: str, args: dict[str, Any]) -> str | None:
@@ -671,9 +561,11 @@ class _VisibilityEnforcementBase(Middleware):
             return None
         return config
 
-    async def _hidden_matcher(self, config: VisibilityConfig) -> _HiddenMatcher:
-        """Resolve the hidden set, aliases and regex through the module-shared cache."""
-        return await _hidden_cache.get(config, self._get_client())
+    async def _hidden_matcher(
+        self, config: VisibilityConfig, *, fresh: bool = False
+    ) -> HiddenMatcher:
+        """Resolve the hidden set and its matcher through the module-shared cache."""
+        return await _hidden_cache.get(config, self._get_client(), fresh=fresh)
 
 
 class VisibilityInboundEnforcement(_VisibilityEnforcementBase):
@@ -715,7 +607,9 @@ class VisibilityInboundEnforcement(_VisibilityEnforcementBase):
             _raise_enforced(effective_name, reason)
 
         try:
-            matcher = await self._hidden_matcher(config)
+            matcher = await self._hidden_matcher(
+                config, fresh=is_trace_query(effective_name, effective_args)
+            )
         except VisibilityDataUnavailable:
             _raise_enforced(effective_name, _FAIL_CLOSED_REASON)
 
@@ -737,7 +631,7 @@ class VisibilityInboundEnforcement(_VisibilityEnforcementBase):
         name: str,
         outer_name: str,
         args: dict[str, Any],
-        matcher: _HiddenMatcher,
+        matcher: HiddenMatcher,
     ) -> None:
         """Conceal on an exact hidden-id argument; refuse on an embedded one."""
         exact: str | None = None
@@ -745,8 +639,8 @@ class VisibilityInboundEnforcement(_VisibilityEnforcementBase):
         if current_tool_name(outer_name) in CALL_PROXY_META_TOOLS:
             inner = _unwrap_proxy_call(args)
             if inner is not None:
-                exact, embedded = _scan_value(inner[1], matcher)
-        raw_exact, raw_embedded = _scan_value(args, matcher)
+                exact, embedded = scan_value(inner[1], matcher)
+        raw_exact, raw_embedded = scan_value(args, matcher)
         exact = exact or raw_exact
         embedded = embedded or raw_embedded
         if exact is not None:
@@ -778,27 +672,57 @@ class VisibilityOutboundEnforcement(_VisibilityEnforcementBase):
         except VisibilityDataUnavailable:
             _raise_enforced(effective_name, _FAIL_CLOSED_REASON)
         return await self._call_and_scan_outbound(
-            effective_name, context, call_next, matcher
+            effective_name, context, call_next, config, matcher.for_call(args)
         )
+
+    async def _settled(
+        self, config: VisibilityConfig, matcher: HiddenMatcher, args: Any, text: str
+    ) -> HiddenMatcher:
+        """The matcher to judge output ``text`` with.
+
+        A longer word that is no known entity's id may be an entity created
+        since the cached read, often by this very call, so the entities are
+        read again before it counts.
+        """
+        if not matcher.unknown_word(text):
+            return matcher
+        try:
+            fresh = await self._hidden_matcher(config, fresh=True)
+        except VisibilityDataUnavailable:
+            return matcher
+        return fresh.for_call(args)
 
     async def _call_and_scan_outbound(
         self,
         name: str,
         context: MiddlewareContext,
         call_next: CallNext,
-        matcher: _HiddenMatcher,
+        config: VisibilityConfig,
+        matcher: HiddenMatcher,
     ) -> Any:
         """Run the tool; refuse if its output (or a tool error) names a hidden id."""
+        args = context.message.arguments or {}
+        # A gated write tool attaches the server's own best-practices text to its
+        # result, and can attach it to its errors: the bundled guide, which
+        # ``ha_get_skill_guide`` serves ungated, and the checker's warnings. Their
+        # fixed examples name entities (``light.bedroom``) that are not this
+        # install's; the variables-order warning also repeats key names from the
+        # config being written.
+        guide = _GUIDE_KEYS if name in STRICT_BPS_GATED_TOOLS else ()
         try:
             result = await call_next(context)
         except ToolError as exc:
-            if matcher.embeds(_tool_error_text(exc)):
+            text = serialize_error(exc, guide)
+            if (await self._settled(config, matcher, args, text)).embeds(text):
                 logger.info("visibility enforce: refused tool error from %s", name)
                 _raise_enforced(name, _outbound_reason(name))
             raise
+        text = serialize_result(result, guide)
+        matcher = await self._settled(config, matcher, args, text)
         scrub_tally = _ScrubTally(0, 0, 0)
         if name == _STATE_TOOL:
             scrub_tally = _scrub_state_result(result, matcher)
+            text = serialize_result(result)
             if scrub_tally.unwarnable_representations:
                 # A retained original still names a hidden id; refuse here rather
                 # than rely on the scan below catching it.
@@ -808,8 +732,8 @@ class VisibilityOutboundEnforcement(_VisibilityEnforcementBase):
                     scrub_tally.unwarnable_representations,
                 )
                 _raise_enforced(name, _outbound_reason(name))
-        if matcher.embeds(_serialize_result(result)) or result_reveals_hidden(
-            _result_payloads(result), matcher.identifier_aliases
+        if matcher.embeds(text) or result_reveals_hidden(
+            result_payloads(result), matcher.identifier_aliases
         ):
             logger.info("visibility enforce: refused result from %s", name)
             _raise_enforced(name, _outbound_reason(name))
@@ -823,8 +747,8 @@ class VisibilityOutboundEnforcement(_VisibilityEnforcementBase):
         return result
 
 
-async def _refresh_hidden_set(config: VisibilityConfig, client: Any) -> _HiddenMatcher:
-    """Fetch registry/states (+device registry when needed) and resolve strictly.
+async def _refresh_hidden_set(config: VisibilityConfig, client: Any) -> HiddenMatcher:
+    """Fetch registry/states and the device and area names, resolve strictly.
 
     Mirrors the search seam's fetches. Any fetch error, or a strict resolver
     degradation, raises so the caller applies its fallback policy.
@@ -833,15 +757,14 @@ async def _refresh_hidden_set(config: VisibilityConfig, client: Any) -> _HiddenM
     coros: list[Any] = [
         client.get_states(),
         client.send_websocket_message({"type": "config/entity_registry/list"}),
+        core_device_list_reply(client),
+        client.send_websocket_message({"type": "config/area_registry/list"}),
     ]
-    if need_device:
-        coros.append(
-            client.send_websocket_message({"type": "config/device_registry/list"})
-        )
     fetched = await asyncio.gather(*coros, return_exceptions=True)
     for item in fetched:
         if isinstance(item, BaseException):
             raise VisibilityDataUnavailable("registry/state fetch failed") from item
+    places = _place_names(fetched[2], fetched[3])
     device_result = fetched[2] if need_device else None
     if need_device:
         # The resolver's device parser fails open (skips unusable payloads and
@@ -864,9 +787,30 @@ async def _refresh_hidden_set(config: VisibilityConfig, client: Any) -> _HiddenM
     hidden, _warnings = await load_hidden_set(
         fetched[1], fetched[0], client, device_result, strict=True
     )
-    return _HiddenMatcher.from_hidden(
-        hidden, build_identifier_aliases(hidden, fetched[1])
+    return HiddenMatcher.from_hidden(
+        hidden,
+        build_identifier_aliases(hidden, fetched[1]),
+        known_entity_ids(fetched[0], fetched[1]),
+        friendly_names(fetched[0]),
+        places,
     )
+
+
+def _place_names(devices: Any, areas: Any) -> set[str]:
+    """The device and area names, which a hidden entity's name may be part of.
+
+    Unreadable, they raise like any other fetch: without them a hidden
+    entity's name could not be told from its device's.
+    """
+    names: set[str] = set()
+    for reply, keys in ((devices, ("name", "name_by_user")), (areas, ("name",))):
+        rows = reply.get("result") if isinstance(reply, dict) else None
+        if not (reply.get("success") and isinstance(rows, list)):
+            raise VisibilityDataUnavailable("device or area registry unusable")
+        for row in rows:
+            if isinstance(row, dict):
+                names.update(v for k in keys if isinstance(v := row.get(k), str))
+    return names
 
 
 class _HiddenSetCache:
@@ -878,27 +822,43 @@ class _HiddenSetCache:
     cold cache and that instance's CLOSED client ("Cannot send a request, as the
     client has been closed" — CI round 3). Every ``get`` therefore takes the
     caller's own live client for any refresh, and all callers share one view of
-    the hidden set. On a refresh failure: fall back to the last-known-good set
-    for the SAME config key (a set computed under a different denylist is a
+    the hidden set. On a TTL refresh failure: fall back to the last-known-good
+    set for the SAME config key (a set computed under a different denylist is a
     different policy); with none, raise ``VisibilityDataUnavailable`` so call
-    gates fail closed. The lock prevents a refresh stampede.
+    gates fail closed. A forced refresh (trace queries) never uses
+    last-known-good: that snapshot may predate a newly registered trace key, so
+    it raises instead. The lock prevents a refresh stampede.
     """
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        self._matcher: _HiddenMatcher | None = None
+        self._matcher: HiddenMatcher | None = None
         self._key: str | None = None
         self._expiry = 0.0
 
-    async def get(self, config: VisibilityConfig, client: Any) -> _HiddenMatcher:
+    async def get(
+        self, config: VisibilityConfig, client: Any, *, fresh: bool = False
+    ) -> HiddenMatcher:
         key = _config_cache_key(config)
         now = time.monotonic()
         async with self._lock:
-            if self._matcher is not None and self._key == key and now < self._expiry:
+            if (
+                not fresh
+                and self._matcher is not None
+                and self._key == key
+                and now < self._expiry
+            ):
                 return self._matcher
             try:
                 matcher = await _refresh_hidden_set(config, client)
             except Exception:
+                if fresh:
+                    logger.warning(
+                        "visibility enforce: forced hidden-set refresh failed; "
+                        "failing closed",
+                        exc_info=True,
+                    )
+                    raise VisibilityDataUnavailable("hidden set unavailable") from None
                 if self._matcher is not None and self._key == key:
                     logger.warning(
                         "visibility enforce: hidden-set refresh failed; using "
@@ -914,14 +874,20 @@ class _HiddenSetCache:
                 raise VisibilityDataUnavailable("hidden set unavailable") from None
             self._matcher = matcher
             self._key = key
-            self._expiry = now + _CACHE_TTL_SECONDS
+            self._expiry = now + CACHE_TTL_SECONDS
             return matcher
 
 
 _hidden_cache = _HiddenSetCache()
 
 
-async def _active_matcher(client: Any) -> _HiddenMatcher | None:
+def reset_hidden_set_cache() -> None:
+    """Discard process-scoped visibility state between isolated server lifetimes."""
+    global _hidden_cache
+    _hidden_cache = _HiddenSetCache()
+
+
+async def _active_matcher(client: Any, *, fresh: bool = False) -> HiddenMatcher | None:
     """The shared matcher while enforce mode is active; ``None`` otherwise or on error.
 
     Fail-soft: the fail-closed policy is owned by the middleware's call gates,
@@ -937,19 +903,9 @@ async def _active_matcher(client: Any) -> _HiddenMatcher | None:
             and config_has_active_hide_dimensions(config)
         ):
             return None
-        return await _hidden_cache.get(config, client)
+        return await _hidden_cache.get(config, client, fresh=fresh)
     except Exception:  # noqa: BLE001
         return None
-
-
-async def active_hidden_entity_ids(client: Any) -> frozenset[str]:
-    """The enforced hidden entity_ids, empty while enforce mode is inactive.
-
-    Tools that list entity IDs in a genuine error (``available_script_ids``)
-    drop these so the list neither leaks a hidden ID nor trips the outbound scan.
-    """
-    matcher = await _active_matcher(client)
-    return matcher.hidden if matcher is not None else frozenset()
 
 
 async def active_identifier_aliases(client: Any) -> IdentifierAliases | None:
@@ -959,27 +915,47 @@ async def active_identifier_aliases(client: Any) -> IdentifierAliases | None:
 
 
 def refuse_hidden_config_file(tool_name: str) -> NoReturn:
-    """Refuse a config-file read whose file defines a hidden item."""
+    """Refuse a config-file read or edit whose file defines a hidden item."""
     _raise_enforced(tool_name, _CONFIG_FILE_REASON)
 
 
-async def active_hidden_regex(client: Any) -> re.Pattern[str] | None:
-    """Return the hidden-set regex while enforce mode is active, else ``None``.
+async def active_hidden_matcher(
+    client: Any, output: Any = None
+) -> HiddenMatcher | None:
+    """Return the hidden-set matcher while enforce mode hides something, else ``None``.
 
     Collection-read surfaces (the ha_search config-body branches, legacy and
-    component) call this to OMIT records referencing a hidden entity before the
+    component) and the ``available_*_ids`` hint of a not-found error call this to OMIT records referencing a hidden entity before the
     response reaches the middleware's outbound scan — which would otherwise
     refuse the whole call on contact, turning the issue-#2015 "collection reads
     omit" contract into a wholesale refusal. ``client`` is the CALLER's live
     client, used only if the shared cache needs a refresh (the middleware's
     inbound gate for the request in flight normally primed it already).
+
+    ``output`` is what the caller is about to scrub. When it holds a longer
+    word no known entity has, the entities are read again first, as the
+    outbound scan does, so an entity created since the cached read is known.
     """
     matcher = await _active_matcher(client)
-    return matcher.regex if matcher is not None else None
+    if (
+        matcher is not None
+        and output is not None
+        and matcher.unknown_word(_serialized(output))
+    ):
+        matcher = await _active_matcher(client, fresh=True) or matcher
+    return matcher if matcher is not None and matcher.hidden else None
+
+
+def _serialized(value: Any) -> str:
+    """``value`` as the text the scans read; ``str()`` when it is not JSON."""
+    try:
+        return json.dumps(value, default=str)
+    except TypeError, ValueError:
+        return str(value)
 
 
 def scrub_records(
-    records: list[dict[str, Any]], regex: re.Pattern[str]
+    records: list[dict[str, Any]], matcher: HiddenMatcher
 ) -> list[dict[str, Any]]:
     """Drop records whose serialized form references a hidden entity.
 
@@ -987,12 +963,4 @@ def scrub_records(
     A record that cannot be serialized is scanned via ``str()`` so it can never
     dodge the scrub by being unserializable.
     """
-    kept: list[dict[str, Any]] = []
-    for record in records:
-        try:
-            blob = json.dumps(record, default=str)
-        except (TypeError, ValueError):
-            blob = str(record)
-        if not regex.search(blob):
-            kept.append(record)
-    return kept
+    return [record for record in records if not matcher.embeds(_serialized(record))]

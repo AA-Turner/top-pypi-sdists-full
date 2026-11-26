@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-prose-editor
-Version: 0.29.0
+Version: 0.30.0
 Summary: Prose editor for the Django admin based on ProseMirror
 Project-URL: Documentation, https://django-prose-editor.readthedocs.io/
 Project-URL: Homepage, https://github.com/feincms/django-prose-editor/

@@ -23,7 +23,7 @@ pub const RKRDB_NULL: c_int = -3;
 /// Breaking-change major for the public C ABI.
 pub const RKRDB_ABI_VERSION_MAJOR: u32 = 1;
 /// Additive-change minor for the public C ABI.
-pub const RKRDB_ABI_VERSION_MINOR: u32 = 1;
+pub const RKRDB_ABI_VERSION_MINOR: u32 = 3;
 /// Layout revision for exported records and the handle contract.
 pub const RKRDB_ABI_LAYOUT_REVISION: u32 = 1;
 
@@ -50,7 +50,7 @@ pub extern "C" fn rkrdb_abi_layout_revision() -> u32 {
 /// The pointer refers to static storage and must not be freed.
 #[no_mangle]
 pub extern "C" fn rkrdb_abi_stamp() -> *const c_char {
-    const STAMP: &[u8] = b"readcon-db/abi-1.1/layout-1\0";
+    const STAMP: &[u8] = b"readcon-db/abi-1.3/layout-1\0";
     STAMP.as_ptr() as *const c_char
 }
 
@@ -1194,8 +1194,10 @@ pub unsafe extern "C" fn rkrdb_get_frame_text(
     .unwrap_or(RKRDB_NULL)
 }
 
-/// Parse stored CON text into a readcon-core `RKRConFrame`.
-/// Caller frees with `free_rkr_frame` from libreadcon_core. NULL on error.
+/// Parse stored CON text into a readcon-core `ConFrame`.
+///
+/// The pointer is allocated in this library. Free it with
+/// [`rkrdb_free_frame`]. NULL on error.
 #[no_mangle]
 pub unsafe extern "C" fn rkrdb_get_frame(
     id: usize,
@@ -1211,6 +1213,23 @@ pub unsafe extern "C" fn rkrdb_get_frame(
         }
     })
     .unwrap_or(std::ptr::null_mut())
+}
+
+/// Free a frame returned by [`rkrdb_get_frame`].
+///
+/// The frame was allocated in this library, so it is freed here. A null
+/// pointer does nothing.
+///
+/// # Safety
+///
+/// `frame` is null, or a pointer returned by [`rkrdb_get_frame`] that has
+/// not already been freed.
+#[no_mangle]
+pub unsafe extern "C" fn rkrdb_free_frame(frame: *mut std::ffi::c_void) {
+    if frame.is_null() {
+        return;
+    }
+    drop(Box::from_raw(frame.cast::<readcon_core::types::ConFrame>()));
 }
 
 /// Collect one trajectory for the H5MD readers.
@@ -1512,6 +1531,37 @@ pub unsafe extern "C" fn rkrdb_xxh3_128(data: *const u8, len: usize, out_hash16:
     RKRDB_OK
 }
 
+/// Content hash of the first frame in `len` bytes of UTF-8 CON text, as
+/// [`ConCorpus::hash_con_text`] computes it. No NUL terminator is read.
+/// Text that is not UTF-8 or holds no frame returns `RKRDB_ERR`.
+///
+/// # Safety
+///
+/// `text` must point to `len` readable bytes and `out_hash16` to 16
+/// writable bytes.
+#[no_mangle]
+pub unsafe extern "C" fn rkrdb_hash_con_text(
+    text: *const c_char,
+    len: usize,
+    out_hash16: *mut u8,
+) -> c_int {
+    if text.is_null() || out_hash16.is_null() {
+        return RKRDB_NULL;
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(text.cast::<u8>(), len) };
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return RKRDB_ERR;
+    };
+    match ConCorpus::hash_con_text(text) {
+        Ok(h) => {
+            let b = h.to_bytes();
+            unsafe { ptr::copy_nonoverlapping(b.as_ptr(), out_hash16, 16) };
+            RKRDB_OK
+        }
+        Err(_) => RKRDB_ERR,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1562,6 +1612,7 @@ mod tests {
             "rkrdb_abi_layout_revision(void)",
             "rkrdb_abi_stamp(void)",
             "rkrdb_abi_compatible(uint32_t major",
+            "rkrdb_free_frame(void *frame)",
         ] {
             assert!(header.contains(f), "readcon-db.h lacks {f}");
         }
@@ -1652,8 +1703,11 @@ mod tests {
                 RKRDB_OK
             );
             assert!(n2 >= 1);
+            rkrdb_free_frame(handle);
             let again = rkrdb_get_frame(id, 2, 0);
             assert!(!again.is_null());
+            rkrdb_free_frame(again);
+            rkrdb_free_frame(ptr::null_mut());
             rkrdb_close(id);
         }
     }
@@ -2258,5 +2312,216 @@ mod tests {
             assert_eq!(rkrdb_h5md_shape(id, 1, &mut nf, &mut na), RKRDB_NULL);
         }
         assert_h5md_readers(id, RKRDB_NULL);
+    }
+
+    fn c_text(id: usize, traj: u64, frame: u32) -> String {
+        let mut buf = vec![0u8; 1 << 16];
+        let n = unsafe {
+            rkrdb_get_frame_text(
+                id,
+                traj,
+                frame,
+                buf.as_mut_ptr() as *mut std::os::raw::c_char,
+                buf.len(),
+            )
+        };
+        assert!(n > 0, "get_frame_text {n}");
+        let bytes = &buf[..n as usize];
+        String::from_utf8(bytes.to_vec()).unwrap()
+    }
+
+    fn c_hash_hits(id: usize, text: &str) -> Option<(u64, u32)> {
+        let mut digest = [0u8; 16];
+        unsafe {
+            assert_eq!(
+                rkrdb_xxh3_128(text.as_ptr(), text.len(), digest.as_mut_ptr()),
+                RKRDB_OK
+            );
+            assert_eq!(rkrdb_select_hash(id, digest.as_ptr()), RKRDB_OK);
+            if rkrdb_result_count(id) == 0 {
+                return None;
+            }
+            assert_eq!(rkrdb_result_count(id), 1);
+            let mut traj = 0u64;
+            let mut frame = 0u32;
+            assert_eq!(rkrdb_result_key(id, 0, &mut traj, &mut frame), RKRDB_OK);
+            Some((traj, frame))
+        }
+    }
+
+    #[test]
+    fn c_abi_extend_trajectory_keeps_source_text_and_generation() {
+        let head = std::fs::read_to_string(fixture("highprec_a.con")).unwrap();
+        let tail = std::fs::read_to_string(fixture("highprec_b.con")).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let head_path = dir.path().join("a.con");
+        let tail_path = dir.path().join("b.con");
+        std::fs::write(&head_path, &head).unwrap();
+        std::fs::write(&tail_path, &tail).unwrap();
+        let corpus = dir.path().join("db");
+        let open = |path: &std::path::Path| {
+            let cpath = CString::new(path.to_str().unwrap()).unwrap();
+            let mut id = 0usize;
+            assert_eq!(unsafe { rkrdb_open(cpath.as_ptr(), &mut id) }, RKRDB_OK);
+            id
+        };
+        let id = open(&corpus);
+        let chead = CString::new(head_path.to_str().unwrap()).unwrap();
+        let ctail = CString::new(tail_path.to_str().unwrap()).unwrap();
+        let mut n = 0u32;
+        unsafe {
+            assert_eq!(
+                rkrdb_append_trajectory(id, 1, chead.as_ptr(), &mut n),
+                RKRDB_OK
+            );
+            assert_eq!(n, 1);
+            assert_eq!(
+                rkrdb_extend_trajectory(id, 1, ctail.as_ptr(), &mut n),
+                RKRDB_OK
+            );
+            assert_eq!(n, 2);
+            assert_eq!(rkrdb_close(id), RKRDB_OK);
+        }
+        let id = open(&corpus);
+        assert_eq!(c_text(id, 1, 0), head);
+        assert_eq!(c_text(id, 1, 1), tail);
+        assert_eq!(c_hash_hits(id, &head), Some((1, 0)));
+        assert_eq!(c_hash_hits(id, &tail), Some((1, 1)));
+        let stored = unsafe { rkrdb_get_frame(id, 1, 1) };
+        assert!(!stored.is_null());
+        let stored = unsafe { Box::from_raw(stored as *mut readcon_core::types::ConFrame) };
+        let source = {
+            let mut it = readcon_core::iterators::ConFrameIterator::new(&tail);
+            it.next().unwrap().unwrap()
+        };
+        assert_eq!(stored.header.boxl, source.header.boxl);
+        assert_eq!(stored.header.masses_per_type, source.header.masses_per_type);
+        assert_eq!(stored.atom_data[0].x(), source.atom_data[0].x());
+        assert_eq!(stored.atom_data[1].x(), source.atom_data[1].x());
+        unsafe {
+            assert_eq!(rkrdb_close(id), RKRDB_OK);
+        }
+    }
+
+    #[test]
+    fn c_abi_six_decimal_text_stays_on_resume() {
+        let original = std::fs::read_to_string(fixture("highprec_a.con")).unwrap();
+        let parsed = {
+            let mut it = readcon_core::iterators::ConFrameIterator::new(&original);
+            it.next().unwrap().unwrap()
+        };
+        let mut buf = std::io::Cursor::new(Vec::new());
+        {
+            let mut w = readcon_core::writer::ConFrameWriter::with_float_format(
+                &mut buf,
+                readcon_core::writer::FloatFormat::DecimalPlaces(6),
+            );
+            w.write_frame(&parsed).unwrap();
+        }
+        let legacy = String::from_utf8(buf.into_inner()).unwrap();
+        assert_ne!(legacy, original);
+        let dir = tempfile::tempdir().unwrap();
+        let corpus = dir.path().join("db");
+        let cpath = CString::new(corpus.to_str().unwrap()).unwrap();
+        let ctext = CString::new(legacy.clone()).unwrap();
+        let mut id = 0usize;
+        let mut n = 0u32;
+        unsafe {
+            assert_eq!(rkrdb_open(cpath.as_ptr(), &mut id), RKRDB_OK);
+            assert_eq!(
+                rkrdb_append_trajectory_str(id, 4, ctext.as_ptr(), std::ptr::null(), &mut n),
+                RKRDB_OK
+            );
+            assert_eq!(rkrdb_close(id), RKRDB_OK);
+            assert_eq!(rkrdb_open(cpath.as_ptr(), &mut id), RKRDB_OK);
+        }
+        assert_eq!(c_text(id, 4, 0), legacy);
+        assert_eq!(c_hash_hits(id, &legacy), Some((4, 0)));
+        assert_eq!(c_hash_hits(id, &original), None);
+        let more = std::fs::read_to_string(fixture("highprec_b.con")).unwrap();
+        let more_path = dir.path().join("b.con");
+        std::fs::write(&more_path, &more).unwrap();
+        let cmore = CString::new(more_path.to_str().unwrap()).unwrap();
+        unsafe {
+            assert_eq!(
+                rkrdb_extend_trajectory(id, 4, cmore.as_ptr(), &mut n),
+                RKRDB_OK
+            );
+            assert_eq!(n, 2);
+        }
+        assert_eq!(c_text(id, 4, 0), legacy);
+        assert_eq!(c_text(id, 4, 1), more);
+        unsafe {
+            assert_eq!(rkrdb_close(id), RKRDB_OK);
+        }
+    }
+
+    fn c_hash_con_text(text: &[u8]) -> Result<[u8; 16], c_int> {
+        let mut digest = [0u8; 16];
+        let st =
+            unsafe { rkrdb_hash_con_text(text.as_ptr().cast(), text.len(), digest.as_mut_ptr()) };
+        if st == RKRDB_OK {
+            Ok(digest)
+        } else {
+            Err(st)
+        }
+    }
+
+    #[test]
+    fn c_abi_hash_con_text_matches_stored_hash_of_high_precision_file() {
+        let head = std::fs::read_to_string(fixture("highprec_a.con")).unwrap();
+        let tail = std::fs::read_to_string(fixture("highprec_b.con")).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cpath = CString::new(dir.path().join("db").to_str().unwrap()).unwrap();
+        let chead = CString::new(fixture("highprec_a.con").to_str().unwrap()).unwrap();
+        let ctail = CString::new(fixture("highprec_b.con").to_str().unwrap()).unwrap();
+        let mut id = 0usize;
+        let mut n = 0u32;
+        unsafe {
+            assert_eq!(rkrdb_open(cpath.as_ptr(), &mut id), RKRDB_OK);
+            assert_eq!(
+                rkrdb_append_trajectory(id, 1, chead.as_ptr(), &mut n),
+                RKRDB_OK
+            );
+            assert_eq!(
+                rkrdb_extend_trajectory(id, 1, ctail.as_ptr(), &mut n),
+                RKRDB_OK
+            );
+        }
+        for (idx, text) in [(0u32, &head), (1, &tail)] {
+            let mut stored = [0u8; 16];
+            unsafe {
+                assert_eq!(rkrdb_frame_hash(id, 1, idx, stored.as_mut_ptr()), RKRDB_OK);
+            }
+            let digest = c_hash_con_text(text.as_bytes()).unwrap();
+            assert_eq!(digest, stored, "frame {idx}");
+            unsafe {
+                assert_eq!(rkrdb_select_hash(id, digest.as_ptr()), RKRDB_OK);
+                assert_eq!(rkrdb_result_count(id), 1);
+                let mut traj = 0u64;
+                let mut frame = 0u32;
+                assert_eq!(rkrdb_result_key(id, 0, &mut traj, &mut frame), RKRDB_OK);
+                assert_eq!((traj, frame), (1, idx));
+            }
+        }
+        let pair = format!("{head}{tail}");
+        assert_eq!(
+            c_hash_con_text(pair.as_bytes()),
+            c_hash_con_text(head.as_bytes())
+        );
+        assert_eq!(c_hash_con_text(b""), Err(RKRDB_ERR));
+        assert_eq!(c_hash_con_text(&[0xff, 0xfe]), Err(RKRDB_ERR));
+        let mut digest = [0u8; 16];
+        unsafe {
+            assert_eq!(
+                rkrdb_hash_con_text(ptr::null(), 0, digest.as_mut_ptr()),
+                RKRDB_NULL
+            );
+            assert_eq!(
+                rkrdb_hash_con_text(head.as_ptr().cast(), head.len(), ptr::null_mut()),
+                RKRDB_NULL
+            );
+            assert_eq!(rkrdb_close(id), RKRDB_OK);
+        }
     }
 }

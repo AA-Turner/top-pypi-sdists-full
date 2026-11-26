@@ -13,11 +13,15 @@ class DescribeHadoopConfigsResponseBody(DaraModel):
     ):
         # The name of the configuration file. Valid values:
         # 
-        # *   hdfs-site
-        # *   core-site
-        # *   yarn-site
-        # *   mapred-site
-        # *   hive-site
+        # - hdfs-site
+        # 
+        # - core-site
+        # 
+        # - yarn-site
+        # 
+        # - mapred-site
+        # 
+        # - hive-site
         self.config_name = config_name
         # The configuration value.
         self.config_value = config_value

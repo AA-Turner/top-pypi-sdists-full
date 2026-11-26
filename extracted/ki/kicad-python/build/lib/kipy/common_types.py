@@ -498,11 +498,20 @@ class TextBox(Wrapper):
 class GraphicShape(Wrapper):
     """Represents an abstract graphic shape (not a board or schematic item)"""
 
-    def __init__(self, proto: base_types_pb2.GraphicShape | None = None):
-        self._graphic_proto = base_types_pb2.GraphicShape()
+    def __init__(
+        self,
+        proto: base_types_pb2.GraphicShape | None = None,
+        proto_ref: base_types_pb2.GraphicShape | None = None,
+    ):
+        self._graphic_proto = proto_ref if proto_ref is not None else base_types_pb2.GraphicShape()
 
         if proto is not None:
             self._graphic_proto.CopyFrom(proto)
+
+    @property
+    def proto(self):
+        self._pack()
+        return self._graphic_proto
 
     @property
     def attributes(self) -> GraphicAttributes:

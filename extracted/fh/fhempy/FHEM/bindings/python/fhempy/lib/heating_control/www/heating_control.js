@@ -10,7 +10,6 @@ var T = {
     on: "an", off_: "aus", rooms: "Räume", comfort: "Komfort", eco: "Eco", manual: "Manuell",
     window: "Fenster offen", until: "bis", back_auto: "Zurück zum Zeitplan",
     schedule: "Zeitplan", save: "Speichern", cancel: "Abbrechen", copy_all: "Für alle Räume übernehmen",
-    tap_hint: "Antippen oder darüber wischen: orange = Komfort, blau = Eco",
     workday: "Arbeitstag", home: "Ganzer Tag zuhause", always_eco: "Immer Eco", always_comfort: "Immer Komfort",
     weekdays: "Mo–Fr", weekend: "Sa–So", alldays: "Alle Tage",
     vac_title: "Urlaub", vac_start: "Urlaub starten", vac_end: "Urlaub beenden",
@@ -42,7 +41,6 @@ var T = {
     on: "on", off_: "off", rooms: "Rooms", comfort: "Comfort", eco: "Eco", manual: "Manual",
     window: "Window open", until: "until", back_auto: "Back to schedule",
     schedule: "Schedule", save: "Save", cancel: "Cancel", copy_all: "Use for all rooms",
-    tap_hint: "Tap or swipe: orange = comfort, blue = eco",
     workday: "Work day", home: "Home all day", always_eco: "Always eco", always_comfort: "Always comfort",
     weekdays: "Mo–Fr", weekend: "Sa–Su", alldays: "All days",
     vac_title: "Vacation", vac_start: "Start vacation", vac_end: "End vacation",
@@ -119,6 +117,9 @@ var T2 = {
   room_free: ["Noch keinem Raum zugeordnet (wird nicht gesteuert)","Not in a room yet (not controlled)"],
   battery_low: ["Batterie schwach","Battery low"],
   unreachable: ["nicht erreichbar","not reachable"],
+  from: ["ab","from"],
+  add_point: ["Zeitpunkt hinzufügen","Add a time"],
+  points_hint: ["Ab der Uhrzeit gilt die Temperatur bis zum nächsten Zeitpunkt. Ein Raum kann den ganzen Tag gleich bleiben oder beliebig oft wechseln.","From the time on the temperature applies until the next time. A room can stay the same all day or change as often as you like."],
   w_need_mixer: ["Bitte den Mischer auswählen.","Please choose the mixer."],
   w_need_pump: ["Bitte die Pumpe auswählen.","Please choose the pump."],
   w_need_flow: ["Bitte die Vorlauf-Temperatur auswählen.","Please choose the flow temperature."]
@@ -131,10 +132,10 @@ if (!root) return;
 if (window.FHC_ROOM) roomLayout();
 // own room: only the page, without the heading and the device row of FHEMWEB
 function roomLayout() {
-  var holder = document.getElementById("fhcRoom"), row = holder && holder.closest("tr");
+  var holder = document.getElementById("fhcRoom"), row = holder?.closest("tr");
   if (!row) return;
   var page = row.closest("table");
-  while (page.parentElement && page.parentElement.closest("table")) page = page.parentElement.closest("table");
+  while (page.parentElement?.closest("table")) page = page.parentElement.closest("table");
   page.parentNode.insertBefore(holder, page);
   row.style.display = "none";
   var block = row.closest("table.block");
@@ -144,7 +145,7 @@ function roomLayout() {
   if (shown || !outer) return;
   outer.style.display = "none";
   var head = outer.previousElementSibling;
-  if (head && head.classList.contains("devTypeTr")) head.style.display = "none";
+  if (head?.classList.contains("devTypeTr")) head.style.display = "none";
 }
 var DEV = D.name;
 var hours = 6;
@@ -412,14 +413,33 @@ function charts() {
 }
 
 // --- rooms ---
+// schedule points of a day from 00:00 on: [[minute, temperature]]
+function dayPoints(week, day) {
+  var pts = (week?.[String(day)] || []).map(function(p) { return [p[0], p[1]]; });
+  if (!pts.length || pts[0][0] > 0) {
+    for (var back = 1; back <= 7; back++) {
+      var prev = week?.[String((day - back + 7) % 7)] || [];
+      if (prev.length) { pts.unshift([0, prev[prev.length - 1][1]]); break; }
+    }
+  }
+  return pts.length ? pts : [[0, 17]];
+}
+// cold blue to warm orange
+function tempColor(t) {
+  var x = Math.max(0, Math.min(1, ((Number(t) || 17) - 15) / 8));
+  var cold = [59, 130, 246], warm = [249, 115, 22];
+  return "rgb(" + cold.map(function(v, i) { return Math.round(v + (warm[i] - v) * x); }).join(",") + ")";
+}
+function segments(pts) {
+  return pts.map(function(p, i) {
+    var end = i + 1 < pts.length ? pts[i + 1][0] : 1440, len = end - p[0];
+    return '<i class="s" style="flex:' + len + ';background:' + tempColor(p[1]) + '">' +
+      (len >= 150 ? num(p[1], 1, "°") : "") + '</i>';
+  }).join("");
+}
 function todayBar(room, cls) {
   var day = (new Date().getDay() + 6) % 7;
-  var periods = (room.week || {})[String(day)] || [];
-  var h = '<div class="bar ' + (cls || "") + '">';
-  for (var i = 0; i < 48; i++) {
-    var c = periods.some(function(p) { return p[0] <= i * 30 && i * 30 < p[1]; });
-    h += '<i class="' + (c ? "c" : "") + '"></i>';
-  }
+  var h = '<div class="bar ' + (cls || "") + '">' + segments(dayPoints(room.week, day));
   var now = new Date();
   h += '<b style="left:' + ((now.getHours() * 60 + now.getMinutes()) / 1440 * 100).toFixed(2) + '%"></b>';
   return h + '</div><div class="hours"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>';
@@ -447,7 +467,7 @@ function roomCard(room) {
   h += '<div class="row" style="margin-top:8px"><button data-edit="1">' + L.schedule + '</button>';
   if (room.state === "manual") h += '<button data-auto="1">' + L.back_auto + '</button>';
   h += '</div>';
-  if (editing && editing.key === room.key) h += editor(room);
+  if (editing && editing.key === room.key) h += editor();
   h += '</div>';
   return h;
 }
@@ -455,9 +475,11 @@ function roomCard(room) {
 // thermostats or the room thermometer: unreachable or battery low
 function alertsOf(room) {
   return (room.alerts || []).map(function(a) {
-    var text = a.kind === "battery"
-      ? L.battery_low + (a.battery !== null && a.battery !== undefined ? " (" + num(a.battery, 0, " %") + ")" : "")
-      : L.unreachable;
+    var text = L.unreachable;
+    if (a.kind === "battery") {
+      text = L.battery_low;
+      if (a.battery !== null && a.battery !== undefined) text += " (" + num(a.battery, 0, " %") + ")";
+    }
     return '<div class="alert ' + esc(a.kind) + '">' + (a.kind === "battery" ? "🪫 " : "⚠ ") +
       esc(a.label) + ': ' + esc(text) + '</div>';
   }).join("");
@@ -469,41 +491,24 @@ function rooms() {
   return h + '<div class="grid">' + list.map(roomCard).join("") + '</div>';
 }
 
-// --- schedule editor ---
+// --- schedule editor: from which time which temperature ---
 function startEdit(room) {
   var week = {};
-  for (var d = 0; d < 7; d++) week[d] = ((room.week || {})[String(d)] || []).map(function(p) { return p.slice(); });
+  for (var d = 0; d < 7; d++) week[d] = dayPoints(room.week, d);
   var today = (new Date().getDay() + 6) % 7;
   editing = {key: room.key, week: week, days: today < 5 ? [0, 1, 2, 3, 4] : [5, 6],
     comfort: room.comfort, eco: room.eco};
-}
-
-function slots(periods) {
-  var a = [];
-  for (var i = 0; i < 48; i++) a.push(periods.some(function(p) { return p[0] <= i * 30 && i * 30 < p[1]; }));
-  return a;
-}
-function periodsOf(a) {
-  var out = [], start = null;
-  for (var i = 0; i <= 48; i++) {
-    if (i < 48 && a[i]) { if (start === null) start = i; }
-    else if (start !== null) { out.push([start * 30, i * 30]); start = null; }
-  }
-  return out;
 }
 function hhmm(m) { return ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + m % 60).slice(-2); }
 function weekText(week) {
   var parts = [];
   for (var d = 0; d < 7; d++) {
-    var p = week[d].map(function(x) { return hhmm(x[0]) + "-" + hhmm(x[1]); }).join(",");
-    parts.push(T.en.days[d] + " " + (p || "-"));
+    parts.push(T.en.days[d] + " " + week[d].map(function(p) { return hhmm(p[0]) + " " + p[1]; }).join(", "));
   }
   return parts.join("; ");
 }
-
-function editor(room) {
-  var e = editing, first = e.days[0];
-  var a = slots(e.week[first]);
+function editor() {
+  var e = editing, pts = e.week[e.days[0]];
   var h = '<div class="editor">';
   h += '<div class="row days"><button data-group="wd">' + L.weekdays + '</button><button data-group="we">' +
     L.weekend + '</button><button data-group="all">' + L.alldays + '</button></div>';
@@ -511,106 +516,99 @@ function editor(room) {
   for (var d = 0; d < 7; d++) {
     h += '<button data-day="' + d + '" class="' + (e.days.indexOf(d) >= 0 ? "on" : "") + '">' + L.days[d] + '</button>';
   }
-  h += '</div><div class="bar edit" data-bar="1" style="margin-top:10px">';
-  for (var i = 0; i < 48; i++) h += '<i data-slot="' + i + '" class="' + (a[i] ? "c" : "") + '"></i>';
-  h += '</div><div class="hours"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span>' +
+  h += '</div><div class="bar edit" style="margin-top:10px">' + segments(pts) + '</div>' +
+    '<div class="hours"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span>' +
     '<span>15</span><span>18</span><span>21</span><span>24</span></div>';
-  h += '<div class="muted">' + L.tap_hint + '</div>';
+  h += '<div class="pts">';
+  pts.forEach(function(p, i) {
+    h += '<div class="pt"><span class="muted">' + esc(L.from) + '</span><input type="time" step="300" data-pt="' + i +
+      '" data-f="t" value="' + hhmm(p[0]) + '"' + (i ? "" : " disabled") + '><input type="number" min="5" max="30" step="0.5" data-pt="' +
+      i + '" data-f="v" value="' + esc(p[1]) + '"><span>°C</span>' +
+      (i ? '<button class="del" data-ptdel="' + i + '" title="' + esc(L.room_remove) + '">✕</button>' : '') + '</div>';
+  });
+  h += '</div><div class="row" style="margin-top:6px"><button data-ptadd="1">＋ ' + esc(L.add_point) + '</button></div>';
+  h += '<div class="muted">' + esc(L.points_hint) + '</div>';
   h += '<div class="row" style="margin-top:6px">' +
     '<button data-preset="work">' + L.workday + '</button><button data-preset="home">' + L.home +
     '</button><button data-preset="eco">' + L.always_eco + '</button><button data-preset="comfort">' +
     L.always_comfort + '</button></div>';
-  h += '<div class="row" style="margin-top:10px">' + stepper("comfort", L.comfort, e.comfort) +
-    stepper("eco", L.eco, e.eco) + '</div>';
   h += '<div class="row" style="margin-top:10px"><button class="primary" data-save="1">' + L.save +
     '</button><button data-copy="1">' + L.copy_all + '</button><button data-close="1">' + L.cancel + '</button></div>';
   return h + '</div>';
 }
-function stepper(kind, label, value) {
-  return '<span class="stepper"><span class="chip ' + kind + '">' + label + '</span>' +
-    '<button class="round" data-lvl="' + kind + '" data-d="-0.5">−</button><b>' + num(value, 1, "°") +
-    '</b><button class="round" data-lvl="' + kind + '" data-d="0.5">+</button></span>';
-}
-
-function applySlots(a) {
-  editing.days.forEach(function(d) { editing.week[d] = periodsOf(a); });
-}
-
-function bindEditor(card) {
-  var bar = card.querySelector("[data-bar]");
-  if (!bar) return;
-  var paint = null;
-  function cellAt(ev) {
-    var r = bar.getBoundingClientRect();
-    var i = Math.floor((ev.clientX - r.left) / r.width * 48);
-    return Math.max(0, Math.min(47, i));
-  }
-  function apply(i) {
-    var cell = bar.children[i];
-    if (!cell) return;
-    cell.className = paint ? "c" : "";
-  }
-  bar.addEventListener("pointerdown", function(ev) {
-    var i = cellAt(ev);
-    paint = !bar.children[i].classList.contains("c");
-    dragging = true;
-    apply(i);
-    bar.setPointerCapture(ev.pointerId);
-    ev.preventDefault();
+// the points of the shown day go to all selected days
+function setPoints(pts) {
+  var seen = {};
+  pts = pts.slice().sort(function(a, b) { return a[0] - b[0]; }).filter(function(p) {
+    if (seen[p[0]]) return false;
+    seen[p[0]] = true;
+    return true;
   });
-  bar.addEventListener("pointermove", function(ev) { if (paint !== null) apply(cellAt(ev)); });
-  function done() {
-    if (paint === null) return;
-    paint = null;
-    dragging = false;
-    var a = [];
-    for (var i = 0; i < 48; i++) a.push(bar.children[i].classList.contains("c"));
-    applySlots(a);
+  if (!pts.length || pts[0][0] !== 0) pts.unshift([0, pts.length ? pts[0][1] : editing.eco]);
+  editing.days.forEach(function(d) { editing.week[d] = pts.map(function(p) { return p.slice(); }); });
+}
+function preset(kind) {
+  var c = editing.comfort, e = editing.eco;
+  return {
+    work: [[0, e], [360, c], [480, e], [960, c], [1320, e]],
+    home: [[0, e], [420, c], [1350, e]],
+    eco: [[0, e]],
+    comfort: [[0, c]]
+  }[kind];
+}
+function pointChange(el) {
+  var pts = editing.week[editing.days[0]].map(function(p) { return p.slice(); });
+  var i = Number(el.dataset.pt);
+  if (el.dataset.f === "t") {
+    var m = /^(\d{1,2}):(\d{2})/.exec(el.value);
+    if (!m) return;
+    pts[i][0] = Math.min(1439, Number(m[1]) * 60 + Number(m[2]));
+  } else {
+    var t = Number(String(el.value).replace(",", "."));
+    if (!Number.isFinite(t) || el.value === "") return;
+    pts[i][1] = Math.max(5, Math.min(30, Math.round(t * 2) / 2));
   }
-  bar.addEventListener("pointerup", done);
-  bar.addEventListener("pointercancel", done);
+  setPoints(pts);
+  render();
 }
 
-var PRESETS = {
-  work: [[360, 480], [960, 1320]],
-  home: [[420, 1350]],
-  eco: [],
-  comfort: [[0, 1440]]
-};
-
+var DAY_GROUPS = { wd: [0, 1, 2, 3, 4], we: [5, 6] };
+function toggleDay(e, d) {
+  var i = e.days.indexOf(d);
+  if (i >= 0 && e.days.length > 1) e.days.splice(i, 1);
+  else if (i < 0) e.days.push(d);
+  e.days.sort(function(a, b) { return a - b; });
+}
+function addPoint(e, pts) {
+  var last = pts[pts.length - 1], at = Math.min(last[0] + 120, 1410);
+  while (pts.some(function(p) { return p[0] === at; }) && at < 1439) at += 30;
+  if (at <= 1439) setPoints(pts.concat([[at, last[1] === e.comfort ? e.eco : e.comfort]]));
+}
+// editor buttons by their data attribute, the first one present wins
+var EDITOR_ACTIONS = [
+  ["group", function(btn, room, e) { e.days = (DAY_GROUPS[btn.dataset.group] || [0, 1, 2, 3, 4, 5, 6]).slice(); }],
+  ["day", function(btn, room, e) { toggleDay(e, Number(btn.dataset.day)); }],
+  ["preset", function(btn) { setPoints(preset(btn.dataset.preset)); }],
+  ["ptadd", function(btn, room, e, pts) { addPoint(e, pts); }],
+  ["ptdel", function(btn, room, e, pts) {
+    setPoints(pts.filter(function(p, j) { return j !== Number(btn.dataset.ptdel); }));
+  }],
+  ["save", function(btn, room, e) {
+    set("schedule " + room.key + " " + weekText(e.week));
+    editing = null;
+  }],
+  ["copy", function(btn, room, e) {
+    var key = room.key;
+    set("schedule " + key + " " + weekText(e.week), function() { set("copy_schedule " + key + " all"); });
+    editing = null;
+  }],
+  ["close", function() { editing = null; }]
+];
 function editorClick(btn, room) {
-  var e = editing;
-  if (btn.dataset.group) {
-    e.days = btn.dataset.group === "wd" ? [0, 1, 2, 3, 4] : btn.dataset.group === "we" ? [5, 6] : [0, 1, 2, 3, 4, 5, 6];
-  } else if (btn.dataset.day) {
-    var d = Number(btn.dataset.day), i = e.days.indexOf(d);
-    if (i >= 0 && e.days.length > 1) e.days.splice(i, 1);
-    else if (i < 0) e.days.push(d);
-    e.days.sort(function(a, b) { return a - b; });
-  } else if (btn.dataset.preset) {
-    applySlots(slots(PRESETS[btn.dataset.preset]));
-  } else if (btn.dataset.lvl) {
-    e[btn.dataset.lvl] = Math.max(5, Math.min(30, Number(e[btn.dataset.lvl]) + Number(btn.dataset.d)));
-  } else if (btn.dataset.save) {
-    set("comfort_temp " + room.key + " " + e.comfort, function() {
-      set("eco_temp " + room.key + " " + e.eco, function() {
-        set("schedule " + room.key + " " + weekText(e.week));
-      });
-    });
-    editing = null;
-  } else if (btn.dataset.copy) {
-    var key = room.key, text = weekText(e.week), c = e.comfort, ec = e.eco;
-    set("comfort_temp " + key + " " + c, function() {
-      set("eco_temp " + key + " " + ec, function() {
-        set("schedule " + key + " " + text, function() { set("copy_schedule " + key + " all"); });
-      });
-    });
-    editing = null;
-  } else if (btn.dataset.close) {
-    editing = null;
-  } else {
-    return false;
-  }
+  var e = editing, pts = e.week[e.days[0]];
+  var action = EDITOR_ACTIONS.filter(function(a) { return btn.dataset[a[0]]; })[0];
+  if (!action) return false;
+  action[1](btn, room, e, pts);
   return true;
 }
 
@@ -737,7 +735,7 @@ function wizStart(step) {
   saved.exclude = excludedText(v.rooms);
   v.roomNames = [];
   Object.keys(v.rooms).forEach(function(n) {
-    if (v.rooms[n] && v.roomNames.indexOf(v.rooms[n]) < 0) v.roomNames.push(v.rooms[n]);
+    if (v.rooms[n] && !v.roomNames.includes(v.rooms[n])) v.roomNames.push(v.rooms[n]);
   });
   v.roomNames.sort(function(a, b) { return a.localeCompare(b); });
   v.thermometers = {}; saved.thermometers = "";
@@ -949,6 +947,7 @@ function loadReadings(device) {
 }
 root.addEventListener("change", function(ev) {
   var el = ev.target;
+  if (editing && el.dataset?.pt !== undefined) return pointChange(el);
   if (!W || !el.dataset) return;
   if (el.dataset.rd) {
     var key = el.dataset.rd, dev = getWizValue(key).split(":")[0];
@@ -974,11 +973,41 @@ function plainSelect(key, value, options) {
   if (!found) h = h.replace('<select data-wiz="' + key + '">', '<select data-wiz="' + key + '"><option value="" selected></option>');
   return h + '</select>';
 }
-function stepBody(name) {
-  var st = D.setup, v = W.v, h = "";
-  if (name === "welcome") return '<p>' + esc(L.w_welcome) + '</p><p class="muted">' + esc(L.setup_hint) + '</p>';
-  if (name === "source") {
-    h += '<div class="srcs">';
+function hasValue(x) { return x !== null && x !== undefined; }
+function thermometerSuggestion(st, key, roomName) {
+  return (st.thermometers[key] || {}).suggestion || (st.room_thermometers || {})[roomName] || "";
+}
+function wizRoomCard(st, v, roomName, i) {
+  var key = roomKey(roomName), inRoom = thermostatsIn(roomName);
+  var h = '<div class="card wroom"><div class="whead"><input type="text" class="rname" data-rename="' + i +
+    '" value="' + esc(roomName) + '"><button class="del" data-delroom="' + i + '" title="' + esc(L.room_remove) +
+    '">✕</button></div><label class="f">' + esc(L.thermostats) + '</label><div class="chips">';
+  inRoom.forEach(function(t) {
+    h += '<span class="chip tchip">' + esc(t.label) +
+      (hasValue(t.temp) ? ' <span class="muted">' + num(t.temp, 1, " °C") + '</span>' : '') +
+      ' <a href="#" data-untherm="' + esc(t.name) + '" title="' + esc(L.room_remove) + '">✕</a></span>';
+  });
+  if (!inRoom.length) h += '<span class="sugg">' + esc(L.room_empty) + '</span>';
+  h += '</div>' + combo("add_" + i, (st.thermostats || []).filter(function(t) {
+    return v.rooms[t.name] !== roomName;
+  }).map(function(t) {
+    return [t.name, t.label + (v.rooms[t.name] ? " – " + v.rooms[t.name] : "")];
+  }), "", "").replace(L.search, L.add_thermostat);
+  var sugg = thermometerSuggestion(st, key, roomName);
+  if (v.thermometers[key] === undefined) v.thermometers[key] = sugg;
+  return h + field(L.room_sensor, sensorField("therm_" + key, sugg), "") + '</div>';
+}
+function pumpSettings(st, v) {
+  return (st.pump_settings_all || []).filter(function(s) {
+    return s !== "AUTOADAPT" || !(st.no_autoadapt || []).includes(v.pump_model);
+  });
+}
+var STEP_BODY = {
+  welcome: function() {
+    return '<p>' + esc(L.w_welcome) + '</p><p class="muted">' + esc(L.setup_hint) + '</p>';
+  },
+  source: function(st, v) {
+    var h = '<div class="srcs">';
     Object.keys(L.sources).forEach(function(k) {
       h += '<button class="src' + (v.heat_source === k ? " on" : "") + '" data-src="' + k + '">' +
         '<svg viewBox="-30 -30 60 60" width="54" height="54">' + SOURCE_ICONS[k] + '</svg><span>' +
@@ -986,56 +1015,32 @@ function stepBody(name) {
     });
     h += '</div>';
     return h + field(L.roles.supply_sensor, sensorField("supply_sensor", st.sensors.supply_sensor.suggestion), L.optional);
-  }
-  if (name === "mixer") {
-    h += field(L.roles.mixer, combo("mixer", withAll(st.roles.mixer.options), v.mixer, st.roles.mixer.suggestion), L.w_mixer);
+  },
+  mixer: function(st, v) {
+    var h = field(L.roles.mixer, combo("mixer", withAll(st.roles.mixer.options), v.mixer, st.roles.mixer.suggestion), L.w_mixer);
     return h + '<label class="chk"><input type="checkbox" data-wiz="mixer_invert"' + (v.mixer_invert === "1" ? " checked" : "") +
       '> ' + esc(L.w_invert) + '</label>';
-  }
-  if (name === "pump") {
-    h += field(L.roles.pump, combo("pump", withAll(st.roles.pump.options), v.pump, st.roles.pump.suggestion), L.w_pump);
+  },
+  pump: function(st, v) {
+    var h = field(L.roles.pump, combo("pump", withAll(st.roles.pump.options), v.pump, st.roles.pump.suggestion), L.w_pump);
     h += field(L.pump_model, plainSelect("pump_model", v.pump_model,
       [["", L.unknown]].concat(st.pump_models.map(function(m) { return [m, m]; }))));
-    var settings = (st.pump_settings_all || []).filter(function(s) {
-      return s !== "AUTOADAPT" || (st.no_autoadapt || []).indexOf(v.pump_model) < 0;
-    });
     h += field(L.pump_setting, plainSelect("pump_setting", v.pump_setting, [["", L.unknown]].concat(
-      settings.map(function(s) { return [s, s]; }))));
-    if (v.pump && v.pump.indexOf(":") < 0) {
+      pumpSettings(st, v).map(function(s) { return [s, s]; }))));
+    if (v.pump && !v.pump.includes(":")) {
       h += field(L.pump_power, '<input type="number" min="0" max="100" step="1" data-wiz="pump_power" value="' +
         esc(v.pump_power) + '" style="width:90px"> W', L.w_power);
     }
     return h;
-  }
-  if (name === "temps") {
+  },
+  temps: function(st) {
     return field(L.roles.flow_sensor, sensorField("flow_sensor", st.sensors.flow_sensor.suggestion), L.w_flow) +
       field(L.roles.return_sensor, sensorField("return_sensor", st.sensors.return_sensor.suggestion), L.w_return);
-  }
-  if (name === "rooms") {
+  },
+  rooms: function(st, v) {
     if (!(st.thermostats || []).length) return '<p class="sugg">' + esc(L.no_rooms) + '</p>';
-    h += '<p class="muted">' + esc(L.w_rooms) + '</p>';
-    v.roomNames.forEach(function(roomName, i) {
-      var key = roomKey(roomName), inRoom = thermostatsIn(roomName);
-      h += '<div class="card wroom"><div class="whead"><input type="text" class="rname" data-rename="' + i +
-        '" value="' + esc(roomName) + '"><button class="del" data-delroom="' + i + '" title="' + esc(L.room_remove) +
-        '">✕</button></div><label class="f">' + esc(L.thermostats) + '</label><div class="chips">';
-      inRoom.forEach(function(t) {
-        h += '<span class="chip tchip">' + esc(t.label) +
-          (t.temp !== null && t.temp !== undefined ? ' <span class="muted">' + num(t.temp, 1, " °C") + '</span>' : '') +
-          ' <a href="#" data-untherm="' + esc(t.name) + '" title="' + esc(L.room_remove) + '">✕</a></span>';
-      });
-      if (!inRoom.length) h += '<span class="sugg">' + esc(L.room_empty) + '</span>';
-      h += '</div>' + combo("add_" + i, (st.thermostats || []).filter(function(t) {
-        return v.rooms[t.name] !== roomName;
-      }).map(function(t) {
-        return [t.name, t.label + (v.rooms[t.name] ? " – " + v.rooms[t.name] : "")];
-      }), "", "").replace(L.search, L.add_thermostat);
-      if (v.thermometers[key] === undefined) {
-        v.thermometers[key] = (st.thermometers[key] || {}).suggestion || (st.room_thermometers || {})[roomName] || "";
-      }
-      var sugg = (st.thermometers[key] || {}).suggestion || (st.room_thermometers || {})[roomName] || "";
-      h += field(L.room_sensor, sensorField("therm_" + key, sugg), "") + '</div>';
-    });
+    var h = '<p class="muted">' + esc(L.w_rooms) + '</p>';
+    v.roomNames.forEach(function(roomName, i) { h += wizRoomCard(st, v, roomName, i); });
     h += '<div class="row wadd"><input type="text" id="fhcNewRoom" placeholder="' + esc(L.room_new) +
       '"><button data-addroom="1">＋ ' + esc(L.room_add) + '</button></div>';
     var free = (st.thermostats || []).filter(function(t) { return !v.rooms[t.name]; });
@@ -1043,13 +1048,15 @@ function stepBody(name) {
       h += '<p class="muted">' + esc(L.room_free) + ': ' + esc(free.map(function(t) { return t.label; }).join(", ")) + '</p>';
     }
     return h;
-  }
-  if (name === "outdoor") {
-    h += '<p>' + esc(L.weather) + ': ' + (st.weather.used ? '<b>' + esc(st.weather.used) + '</b>' :
+  },
+  outdoor: function(st) {
+    var h = '<p>' + esc(L.weather) + ': ' + (st.weather.used ? '<b>' + esc(st.weather.used) + '</b>' :
       '<span class="sugg">' + esc(L.weather_none) + '</span>') + '</p>';
     return h + field(L.roles.outdoor_sensor, sensorField("outdoor_sensor", st.sensors.outdoor_sensor.suggestion), L.optional);
   }
-  // done: summary and start
+};
+// done: summary and start
+function stepDone(st, v) {
   var rows = [
     [L.supply, L.sources[v.heat_source] || v.heat_source],
     [L.mixer, labelOf(withAll(st.roles.mixer.options), v.mixer)],
@@ -1059,13 +1066,16 @@ function stepBody(name) {
     [L.thermostats, (st.thermostats || []).filter(function(t) { return v.rooms[t.name]; })
       .map(function(t) { return t.label; }).join(", ")]
   ];
-  h += '<table class="sum">' + rows.map(function(r) {
+  var h = '<table class="sum">' + rows.map(function(r) {
     return '<tr><td>' + esc(r[0]) + '</td><td><b>' + esc(r[1] || "–") + '</b></td></tr>';
   }).join("") + '</table>';
   if (D.mode !== "setup") return h;
   var missing = wizMissing();
   if (missing.length) return h + '<p class="sugg">' + esc(L.start_missing) + " " + esc(missing.join(", ")) + '</p>';
   return h + '<p><b>' + esc(L.start_ask) + '</b></p>';
+}
+function stepBody(name) {
+  return (STEP_BODY[name] || stepDone)(D.setup, W.v);
 }
 function wizard() {
   var name = STEPS[W.step], n = STEPS.length - 1;
@@ -1113,7 +1123,7 @@ function savedMissing() { return lastMissing || (D.setup.missing || []); }
 function cleanName(text) { return String(text || "").replace(/[,=]/g, " ").replace(/\s+/g, " ").trim(); }
 function renameRoom(i, text) {
   var old = W.v.roomNames[i], name = cleanName(text);
-  if (!name || name === old || W.v.roomNames.indexOf(name) >= 0) return;
+  if (!name || name === old || W.v.roomNames.includes(name)) return;
   W.v.roomNames[i] = name;
   Object.keys(W.v.rooms).forEach(function(t) { if (W.v.rooms[t] === old) W.v.rooms[t] = name; });
   W.v.thermometers[roomKey(name)] = W.v.thermometers[roomKey(old)];
@@ -1129,8 +1139,8 @@ function roomClick2(btn) {
     return true;
   }
   if (btn.dataset.addroom) {
-    var input = document.getElementById("fhcNewRoom"), name2 = cleanName(input && input.value);
-    if (name2 && v.roomNames.indexOf(name2) < 0) v.roomNames.push(name2);
+    var input = document.getElementById("fhcNewRoom"), name2 = cleanName(input?.value);
+    if (name2 && !v.roomNames.includes(name2)) v.roomNames.push(name2);
     render();
     return true;
   }
@@ -1182,10 +1192,6 @@ function render() {
   root.innerHTML = D.mode === "setup"
     ? top() + setup() + scheme()
     : top() + scheme() + rooms() + vacation() + charts() + curveChart() + setup();
-  if (editing) {
-    var card = root.querySelector('.room[data-room="' + editing.key + '"]');
-    if (card) bindEditor(card);
-  }
 }
 
 root.addEventListener("click", function(ev) {

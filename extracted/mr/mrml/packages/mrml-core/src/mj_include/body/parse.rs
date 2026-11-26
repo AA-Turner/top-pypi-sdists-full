@@ -299,13 +299,13 @@ impl ParseElement<MjIncludeBody> for MrmlParser<'_> {
             let with_position = |err: Error| err.adjust_positions(offset);
             match attributes.kind {
                 MjIncludeBodyKind::Html => {
-                    let mut sub = cursor.new_child(&attributes.path, wrapped.as_str());
+                    let mut sub = cursor.new_child(&attributes.path, wrapped.as_str())?;
                     sub.set_source_offset(offset);
-                    sub.assert_element_start().map_err(&with_position)?;
-                    sub.assert_element_end().map_err(&with_position)?;
+                    sub.assert_element_start().map_err(with_position)?;
+                    sub.assert_element_end().map_err(with_position)?;
                     let children: Vec<MjBodyChild> =
-                        self.parse_children(&mut sub).map_err(&with_position)?;
-                    sub.assert_element_close().map_err(&with_position)?;
+                        self.parse_children(&mut sub).map_err(with_position)?;
+                    sub.assert_element_close().map_err(with_position)?;
                     cursor.with_warnings(sub.warnings());
                     vec![MjIncludeBodyChild::MjWrapper(MjWrapper::new(
                         Default::default(),
@@ -313,12 +313,12 @@ impl ParseElement<MjIncludeBody> for MrmlParser<'_> {
                     ))]
                 }
                 MjIncludeBodyKind::Mjml => {
-                    let mut sub = cursor.new_child(&attributes.path, wrapped.as_str());
+                    let mut sub = cursor.new_child(&attributes.path, wrapped.as_str())?;
                     sub.set_source_offset(offset);
-                    sub.assert_element_start().map_err(&with_position)?;
-                    sub.assert_element_end().map_err(&with_position)?;
-                    let children = self.parse_children(&mut sub).map_err(&with_position)?;
-                    sub.assert_element_close().map_err(&with_position)?;
+                    sub.assert_element_start().map_err(with_position)?;
+                    sub.assert_element_end().map_err(with_position)?;
+                    let children = self.parse_children(&mut sub).map_err(with_position)?;
+                    sub.assert_element_close().map_err(with_position)?;
                     cursor.with_warnings(sub.warnings());
                     children
                 }
@@ -364,15 +364,15 @@ impl crate::prelude::parser::AsyncParseElement<MjIncludeBody> for AsyncMrmlParse
             let with_position = |err: Error| err.adjust_positions(offset);
             match attributes.kind {
                 MjIncludeBodyKind::Html => {
-                    let mut sub = cursor.new_child(&attributes.path, wrapped.as_str());
+                    let mut sub = cursor.new_child(&attributes.path, wrapped.as_str())?;
                     sub.set_source_offset(offset);
-                    sub.assert_element_start().map_err(&with_position)?;
-                    sub.assert_element_end().map_err(&with_position)?;
+                    sub.assert_element_start().map_err(with_position)?;
+                    sub.assert_element_end().map_err(with_position)?;
                     let children: Vec<MjBodyChild> = self
                         .async_parse_children(&mut sub)
                         .await
-                        .map_err(&with_position)?;
-                    sub.assert_element_close().map_err(&with_position)?;
+                        .map_err(with_position)?;
+                    sub.assert_element_close().map_err(with_position)?;
                     cursor.with_warnings(sub.warnings());
                     vec![MjIncludeBodyChild::MjWrapper(MjWrapper::new(
                         Default::default(),
@@ -380,15 +380,15 @@ impl crate::prelude::parser::AsyncParseElement<MjIncludeBody> for AsyncMrmlParse
                     ))]
                 }
                 MjIncludeBodyKind::Mjml => {
-                    let mut sub = cursor.new_child(&attributes.path, wrapped.as_str());
+                    let mut sub = cursor.new_child(&attributes.path, wrapped.as_str())?;
                     sub.set_source_offset(offset);
-                    sub.assert_element_start().map_err(&with_position)?;
-                    sub.assert_element_end().map_err(&with_position)?;
+                    sub.assert_element_start().map_err(with_position)?;
+                    sub.assert_element_end().map_err(with_position)?;
                     let children = self
                         .async_parse_children(&mut sub)
                         .await
-                        .map_err(&with_position)?;
-                    sub.assert_element_close().map_err(&with_position)?;
+                        .map_err(with_position)?;
+                    sub.assert_element_close().map_err(with_position)?;
                     cursor.with_warnings(sub.warnings());
                     children
                 }

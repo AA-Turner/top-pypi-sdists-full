@@ -1,6 +1,6 @@
 # forbiddenfruit - Patch built-in python objects
 #
-# Copyright (c) 2013-2020  Lincoln de Sousa <lincoln@clarete.li>
+# Copyright (c) 2013-2026  Lincoln de Sousa <lincoln@clarete.li>
 #
 # This program is dual licensed under GPLv3 and MIT.
 #
@@ -55,7 +55,7 @@ except ImportError:
     # Python 3 support
     import builtins as __builtin__
 
-__version__ = '0.1.4'
+__version__ = '0.1.5'
 
 __all__ = 'curse', 'curses', 'reverse'
 
@@ -68,6 +68,8 @@ Py_ssize_t = ctypes.c_int64 if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c
 tp_as_dict = {}
 # container to cfunc callbacks
 tp_func_dict = {}
+# saved tp_vectorcall slots for types whose __new__ has been cursed
+tp_vectorcall_dict = {}
 
 
 class PyObject(ctypes.Structure):
@@ -97,7 +99,7 @@ FILE_p = ctypes.POINTER(PyFile)
 
 def get_not_implemented():
     namespace = {}
-    name = "_Py_NotImplmented"
+    name = "_Py_NotImplemented"
     not_implemented = ctypes.cast(
         ctypes.pythonapi._Py_NotImplementedStruct, ctypes.py_object)
 
@@ -205,7 +207,43 @@ PyTypeObject._fields_ = [
     ('tp_hash', ctypes.CFUNCTYPE(ctypes.c_int64, PyObject_p)),
     ('tp_call', ctypes.CFUNCTYPE(PyObject_p, PyObject_p, PyObject_p, PyObject_p)),
     ('tp_str', ctypes.CFUNCTYPE(PyObject_p, PyObject_p)),
-    # ...
+    ('tp_getattro', ctypes.c_void_p),  # Type not declared yet
+    ('tp_setattro', ctypes.c_void_p),  # Type not declared yet
+    ('tp_as_buffer', ctypes.c_void_p),  # Type not declared yet
+    ('tp_flags', ctypes.c_void_p),  # Type not declared yet
+    ('tp_doc', ctypes.c_void_p),  # Type not declared yet
+    ('tp_traverse', ctypes.c_void_p),  # Type not declared yet
+    ('tp_clear', ctypes.c_void_p),  # Type not declared yet
+    ('tp_richcompare', ctypes.c_void_p),  # Type not declared yet
+    ('tp_weaklistoffset', ctypes.c_void_p),  # Type not declared yet
+    ('tp_iter', ctypes.c_void_p),  # Type not declared yet
+    ('tp_iternext', ctypes.CFUNCTYPE(PyObject_p, PyObject_p)),
+    ('tp_methods', ctypes.c_void_p),  # Type not declared yet
+    ('tp_members', ctypes.c_void_p),  # Type not declared yet
+    ('tp_getset', ctypes.c_void_p),  # Type not declared yet
+    ('tp_base', ctypes.c_void_p),  # Type not declared yet
+    ('tp_dict', ctypes.c_void_p),  # Type not declared yet
+    ('tp_descr_get', ctypes.c_void_p),  # Type not declared yet
+    ('tp_descr_set', ctypes.c_void_p),  # Type not declared yet
+    ('tp_dictoffset', ctypes.c_void_p),  # Type not declared yet
+    ('tp_init', ctypes.c_void_p),  # Type not declared yet
+    ('tp_alloc', ctypes.c_void_p),  # Type not declared yet
+    ('tp_new', ctypes.CFUNCTYPE(PyObject_p, PyObject_p, PyObject_p, ctypes.c_void_p)),
+    ('tp_free', ctypes.c_void_p),
+    ('tp_is_gc', ctypes.c_void_p),
+    ('tp_bases', ctypes.c_void_p),
+    ('tp_mro', ctypes.c_void_p),
+    ('tp_cache', ctypes.c_void_p),
+    ('tp_subclasses', ctypes.c_void_p),
+    ('tp_weaklist', ctypes.c_void_p),
+    ('tp_del', ctypes.c_void_p),
+    ('tp_version_tag', ctypes.c_uint),
+    ('tp_finalize', ctypes.c_void_p),
+    # tp_vectorcall is the last slot we care about: on CPython 3.8+ some
+    # immutable built-ins (str, bytes, tuple, ...) carry a fast-path
+    # constructor here that bypasses tp_new. Fields declared after it
+    # (tp_watched, tp_versions_used, ...) vary by version and are omitted.
+    ('tp_vectorcall', ctypes.c_void_p),
 ]
 
 
@@ -240,7 +278,7 @@ __hidden_elements__ = defaultdict(list)
 __dir__ = dir
 __builtin__.dir = __filtered_dir__
 
-# build override infomation for dunder methods
+# build override information for dunder methods
 as_number = ('tp_as_number', [
     ("add", "nb_add"),
     ("sub", "nb_subtract"),
@@ -267,7 +305,7 @@ as_number = ('tp_as_number', [
     ("ipow", "nb_inplace_power"),
     ("ilshift", "nb_inplace_lshift"),
     ("irshift", "nb_inplace_rshift"),
-    ("iadd", "nb_inplace_and"),
+    ("iand", "nb_inplace_and"),
     ("ixor", "nb_inplace_xor"),
     ("ior", "nb_inplace_or"),
     ("floordiv", "nb_floor_divide"),
@@ -305,6 +343,10 @@ for override in [as_number, as_sequence, as_async]:
 # divmod isn't a dunder, still make it overridable
 override_dict['divmod()'] = ('tp_as_number', "nb_divmod")
 override_dict['__str__'] = ('tp_str', "tp_str")
+override_dict['__new__'] = ('tp_new', "tp_new")
+override_dict['__hash__'] = ('tp_hash', "tp_hash")
+override_dict['__next__'] = ('tp_iternext', "tp_iternext")
+
 
 
 def _is_dunder(func_name):
@@ -370,6 +412,16 @@ def _curse_special(klass, attr, func):
         tp_func_dict[(klass, attr)] = cfunc
         setattr(tyobj, impl_method, cfunc)
 
+        if attr == '__new__':
+            # Since CPython 3.13, immutable builtins like str, bytes, tuple,
+            # etc will get their `tp_vectorcall` attribute set with a fast
+            # path constructor that bypasses tp_new, so e.g. `str(x)` would
+            # ignore the cursed `__new__`.
+            if klass not in tp_vectorcall_dict:
+                tp_vectorcall_dict[klass] = tyobj.tp_vectorcall
+            tyobj.tp_vectorcall = None
+            ctypes.pythonapi.PyType_Modified(ctypes.py_object(klass))
+
 def _revert_special(klass, attr):
     tp_as_name, impl_method = override_dict[attr]
     tyobj = PyTypeObject.from_address(id(klass))
@@ -393,6 +445,11 @@ def _revert_special(klass, attr):
 
             cfunc = tp_as_dict[(klass, attr)]
             setattr(tyobj, impl_method, cfunc)
+
+    if attr == '__new__' and klass in tp_vectorcall_dict:
+        # restore the fast-path constructor we disabled while cursing __new__
+        tyobj.tp_vectorcall = tp_vectorcall_dict.pop(klass)
+        ctypes.pythonapi.PyType_Modified(ctypes.py_object(klass))
 
 
 def curse(klass, attr, value, hide_from_dir=False):

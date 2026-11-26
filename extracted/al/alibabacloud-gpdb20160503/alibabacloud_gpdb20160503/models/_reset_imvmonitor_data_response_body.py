@@ -10,12 +10,12 @@ class ResetIMVMonitorDataResponseBody(DaraModel):
         request_id: str = None,
         status: bool = None,
     ):
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
         # The execution status of the API operation. Valid values:
         # 
-        # - **false**: Execution failed.
-        # - **true**: Execution succeeded.
+        # - **false**: The execution failed.
+        # - **true**: The execution succeeded.
         self.status = status
 
     def validate(self):

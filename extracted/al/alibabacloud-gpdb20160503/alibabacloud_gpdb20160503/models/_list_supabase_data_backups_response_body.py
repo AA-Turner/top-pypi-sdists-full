@@ -124,21 +124,23 @@ class ListSupabaseDataBackupsResponseBodyItems(DaraModel):
     ):
         # The end time of the backup. Format: yyyy-MM-ddTHH:mm:ssZ (UTC).
         self.backup_end_time = backup_end_time
-        # The local time representation of the backup end time. Format: yyyy-MM-ddTHH:mm:ssZ. The current return value is in Beijing time (UTC+8). The trailing Z is a fixed character in the compatibility format and does not indicate the zero time zone. To parse the time in a standard format, use BackupEndTime.
+        # The local time representation of the backup end time. Format: yyyy-MM-ddTHH:mm:ssZ. The returned value is in Beijing time (UTC+8). The trailing Z is a fixed character for format compatibility and does not indicate the UTC+0 time zone. To parse the time in a standard format, use BackupEndTime.
         self.backup_end_time_local = backup_end_time_local
-        # The backup method. Valid values: Physical: physical backup; Snapshot: snapshot backup.
+        # The backup method. Valid values:
+        # - Physical: physical backup.
+        # - Snapshot: snapshot backup.
         self.backup_method = backup_method
         # The backup mode.
         # 
-        # Valid values for full backups:
+        # Valid values for automatic backups:
         # 
-        # - **Automated**: automatic backup performed by the system.
+        # - **Automated**: automatic system backup.
         # - **Manual**: manual backup.
         # 
         # Valid values for restorable points:
         # 
-        # - **Automated**: restorable point after a full backup.
-        # - **Manual**: restorable point manually triggered by the user.
+        # - **Automated**: restorable point after a automatic backup.
+        # - **Manual**: restorable point manually triggered by a user.
         # - **Period**: restorable point triggered periodically based on the backup policy.
         self.backup_mode = backup_mode
         # The ID of the backup set.
@@ -147,7 +149,7 @@ class ListSupabaseDataBackupsResponseBodyItems(DaraModel):
         self.backup_size = backup_size
         # The start time of the backup. Format: yyyy-MM-ddTHH:mm:ssZ (UTC).
         self.backup_start_time = backup_start_time
-        # The local time representation of the backup start time. Format: yyyy-MM-ddTHH:mm:ssZ. The current return value is in Beijing time (UTC+8). The trailing Z is a fixed character in the compatibility format and does not indicate the zero time zone. To parse the time in a standard format, use BackupStartTime.
+        # The local time representation of the backup start time. Format: yyyy-MM-ddTHH:mm:ssZ. The returned value is in Beijing time (UTC+8). The trailing Z is a fixed character for format compatibility and does not indicate the UTC+0 time zone. To parse the time in a standard format, use BackupStartTime.
         self.backup_start_time_local = backup_start_time_local
         # The status of the backup set. Valid values:
         # 
@@ -156,7 +158,7 @@ class ListSupabaseDataBackupsResponseBodyItems(DaraModel):
         self.backup_status = backup_status
         # The name of the restorable point or the full backup set.
         self.bakset_name = bakset_name
-        # The consistency point in time. The value is a UNIX timestamp in seconds. For a full backup, this indicates the consistency point in time of the backup. For a restorable point, this indicates the point in time to which data can be restored.
+        # The consistency point in time. The value is a UNIX timestamp in seconds. For a full backup, this parameter indicates the consistency point in time of the backup. For a restorable point, this parameter indicates the restorable point in time.
         self.consistent_time = consistent_time
         # The backup type. Valid values:
         # 

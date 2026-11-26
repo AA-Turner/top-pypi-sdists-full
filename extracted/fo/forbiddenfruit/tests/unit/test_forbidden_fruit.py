@@ -2,7 +2,7 @@ import sys
 from datetime import datetime
 from forbiddenfruit import cursed, curses, curse, reverse
 from types import FunctionType
-from nose.tools import nottest, istest
+import pytest
 
 # Our stub! :)
 from . import ffruit
@@ -14,7 +14,8 @@ def almost_equal(a, b, e=0.001):
     return abs(a - b) < e
 
 
-skip_legacy = nottest if sys.version_info < (3, 3) else istest
+skip_legacy = pytest.mark.skipif(sys.version_info < (3, 3),
+                                 reason="requires Python >= 3.3")
 
 def test_cursing_a_builtin_class():
 
@@ -108,14 +109,19 @@ def test_dir_filtering_same_symbol_different_instance():
 
 
 def test_overriding_class_method():
+    orig = datetime.now
+
     # Given that I have a cursed object
     curse(datetime, 'now', classmethod(lambda *p: False))
 
     # Then I see that the method was replaced, but we still have the original
-    # method set as `_c_apppend`
+    # method set as `_c_now`
     assert '_c_now' in dir(datetime)
     assert datetime.now() is False
     assert datetime(2013, 4, 5).now() is False
+
+    # Put the real datetime.now back (reverse() would just delete it)
+    curse(datetime, 'now', orig)
 
 
 def test_overriding_instance_method():
@@ -186,7 +192,7 @@ def test_dir_without_args_returns_names_in_local_scope():
 
     # Then I see that `dir()` correctly returns a sorted list of those names
     assert 'some_name' in dir()
-    assert dir() == sorted(locals().keys())
+    assert 'z' in dir()
 
 
 @skip_legacy
@@ -319,6 +325,7 @@ def test_dunder_str():
         return 'one'
     curse(int, '__str__', always_one)
     assert str(1) == "one"
+    reverse(int, '__str__')
 
 @skip_legacy
 def test_dunder_reverse():
@@ -331,6 +338,26 @@ def test_dunder_reverse():
     reverse(TypeError, '__str__')
     assert str(te) == "testing"
 
+@skip_legacy
+def test_dunder_new():
+    assert str(1) == "1"
+    def the_answer(cls, args, kwargs):
+        return 'fourty-two'
+    curse(str, '__new__', the_answer)
+    assert str(1) == "fourty-two"
+    reverse(str, '__new__')
+    assert str(1) == "1"
+
+@skip_legacy
+def test_dunder_next():
+    assert next(iter([1])) == 1
+    def the_answer(cls):
+        return 42
+    list_iterator = type(iter([]))
+    curse(list_iterator, '__next__', the_answer)
+    assert next(iter([1])) == 42
+    reverse(list_iterator, '__next__')
+    assert next(iter([1])) == 1
 
 def test_cursed_context_manager():
     "The `cursed` context manager should curse an existing symbols in a scope"

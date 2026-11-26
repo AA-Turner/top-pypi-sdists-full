@@ -4,11 +4,19 @@ import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from aioice import Candidate, Connection, ConnectionClosed, TransportPolicy
+from aioice import (
+    Candidate,
+    CandidatePairStats,
+    Connection,
+    ConnectionClosed,
+    TransportPolicy,
+)
 from pyee.asyncio import AsyncIOEventEmitter
 
+from . import clock
 from .exceptions import InvalidStateError
 from .rtcconfiguration import RTCIceServer, RTCIceTransportPolicy
+from .stats import RTCIceCandidatePairStats, RTCIceCandidateStats, RTCStatsReport
 
 ICE_TRANSPORT_POLICIES = {
     RTCIceTransportPolicy.ALL: TransportPolicy.ALL,
@@ -81,6 +89,10 @@ def candidate_from_aioice(x: Candidate) -> RTCIceCandidate:
         tcpType=x.tcptype,
         type=x.type,
     )
+
+
+def candidate_pair_stats_id(pair: CandidatePairStats) -> str:
+    return f"candidate-pair_{id(pair.local_candidate)}_{id(pair.remote_candidate)}"
 
 
 def candidate_to_aioice(x: RTCIceCandidate) -> Candidate:
@@ -317,6 +329,7 @@ class RTCIceTransport(AsyncIOEventEmitter):
                 await self._connection.add_remote_candidate(
                     candidate_to_aioice(candidate)
                 )
+                self.__updateChecking()
 
     def getRemoteCandidates(self) -> list[RTCIceCandidate]:
         """
@@ -342,7 +355,7 @@ class RTCIceTransport(AsyncIOEventEmitter):
         self.__start = asyncio.Event()
         self.__monitor_task = asyncio.ensure_future(self._monitor())
 
-        self.__setState("checking")
+        self.__updateChecking()
         self._connection.remote_is_lite = remoteParameters.iceLite
         self._connection.remote_username = remoteParameters.usernameFragment
         self._connection.remote_password = remoteParameters.password
@@ -365,6 +378,62 @@ class RTCIceTransport(AsyncIOEventEmitter):
                 await self.__monitor_task
                 self.__monitor_task = None
 
+    def _get_stats(self, transportId: str) -> tuple[RTCStatsReport, Optional[str]]:
+        report = RTCStatsReport()
+        selectedId = None
+        timestamp = clock.current_datetime()
+        pairs = self._connection.get_statistics()
+        for pair in pairs:
+            if pair.selected:
+                selectedId = candidate_pair_stats_id(pair)
+            local_id = "local-candidate_" + str(id(pair.local_candidate))
+            remote_id = "remote-candidate_" + str(id(pair.remote_candidate))
+            report.add(
+                RTCIceCandidatePairStats(
+                    timestamp=timestamp,
+                    type="candidate-pair",
+                    id=candidate_pair_stats_id(pair),
+                    transportId=transportId,
+                    localCandidateId=local_id,
+                    remoteCandidateId=remote_id,
+                    state=pair.state,
+                    nominated=pair.nominated,
+                    packetsSent=pair.packets_sent,
+                    packetsReceived=pair.packets_received,
+                    bytesSent=pair.bytes_sent,
+                    bytesReceived=pair.bytes_received,
+                    totalRoundTripTime=pair.total_round_trip_time,
+                    requestsReceived=pair.requests_received,
+                    requestsSent=pair.requests_sent,
+                    responsesReceived=pair.responses_received,
+                    responsesSent=pair.responses_sent,
+                    consentRequestsSent=pair.consent_requests_sent,
+                    currentRoundTripTime=pair.current_round_trip_time,
+                )
+            )
+        candidates = [
+            ("local-candidate", c) for c in self._connection.local_candidates
+        ] + [("remote-candidate", c) for c in self._connection.remote_candidates]
+        for pair in pairs:
+            candidates.append(("local-candidate", pair.local_candidate))
+            candidates.append(("remote-candidate", pair.remote_candidate))
+        for stats_type, candidate in candidates:
+            report.add(
+                RTCIceCandidateStats(
+                    timestamp=timestamp,
+                    type=stats_type,
+                    id=f"{stats_type}_{id(candidate)}",
+                    transportId=transportId,
+                    address=candidate.host,
+                    port=candidate.port,
+                    protocol=candidate.transport,
+                    candidateType=candidate.type,
+                    priority=candidate.priority,
+                    foundation=candidate.foundation,
+                )
+            )
+        return report, selectedId
+
     async def _monitor(self) -> None:
         while True:
             event = await self._connection.get_event()
@@ -377,7 +446,9 @@ class RTCIceTransport(AsyncIOEventEmitter):
         logger.debug(f"RTCIceTransport(%s) {msg}", self.role, *args)
 
     def __setState(self, state: str) -> None:
-        if state != self.__state:
+        # The "closed" state is final, even if connectivity checks were still
+        # in progress when stop() was called (W3C WebRTC section 5.6).
+        if state != self.__state and self.__state != "closed":
             self.__log_debug("- %s -> %s", self.__state, state)
             self.__state = state
             self.emit("statechange")
@@ -387,3 +458,14 @@ class RTCIceTransport(AsyncIOEventEmitter):
             if state == "closed":
                 self.iceGatherer.remove_all_listeners()
                 self.remove_all_listeners()
+
+    def __updateChecking(self) -> None:
+        # Checks need a candidate pair, so remain in "new" until one can exist
+        # (W3C WebRTC section 5.6.4).
+        if (
+            self.__start is not None
+            and self.state == "new"
+            and self.__iceGatherer.getLocalCandidates()
+            and self.getRemoteCandidates()
+        ):
+            self.__setState("checking")

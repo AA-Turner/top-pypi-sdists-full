@@ -14,19 +14,19 @@ class DeleteAINodeRequest(DaraModel):
         dbinstance_id: str = None,
         node_names: List[str] = None,
     ):
-        # The number of AINodes to be deleted.
+        # The number of AI nodes to delete.
         # 
         # This parameter is required.
         self.ainode_num = ainode_num
-        # The ID of the AINode resource pool.
+        # The ID of the AI node pool.
         self.ainode_pool_id = ainode_pool_id
         # The ID of the instance.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to view the details of all AnalyticDB for PostgreSQL instances in the target region, including the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The list of AINodes to be deleted.
+        # The list of AI nodes to delete.
         self.node_names = node_names
 
     def validate(self):

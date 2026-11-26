@@ -160,3 +160,6 @@ class CachedCompanyRepository:
 
     async def remove_beta(self, company_id: str, beta: str) -> EmpresaModel:
         return await self._changed(company_id, await self.inner.remove_beta(company_id, beta))
+
+    async def save_corte(self, company: EmpresaModel) -> EmpresaModel:
+        return await self._changed(company.id, await self.inner.save_corte(company))

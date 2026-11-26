@@ -82,13 +82,26 @@ fix-it leg that competes for the same #2972 fix-round budget as every
 other investigate-tier dispatch; a row that had already spent that
 budget got no further attempt at all even though the cause was
 positively confirmed, not a guess.
+
+#4152: a conflict whose every touched path is covered by one of the
+repo's declared ``Repo.integration_surfaces`` (#4151) never reaches any
+of the above — :func:`attempt_mechanical_surface_resolution` resolves it
+directly, in a local throwaway worktree: take the base side of each
+conflicted surface file, run that surface's ``regen`` command, run its
+``check`` command, commit, and push. No ``claude -p`` leg is ever
+dispatched for this shape; ``coord.merge_queue.process()`` calls it the
+moment it would otherwise record a ``rebaseable`` conflict, and falls
+through to the ordinary conflict-fix dispatch the instant any conflicted
+path isn't covered, no local checkout is available, or any step fails.
 """
 
 from __future__ import annotations
 
+import subprocess
 import time
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 import httpx
@@ -102,6 +115,7 @@ from coord.models import (
     SEALED_PATH_AUTHOR_TYPES,
     Assignment,
     Board,
+    IntegrationSurface,
     Machine,
 )
 from coord.network import StatusResult, probe_reachable
@@ -2210,6 +2224,39 @@ def pick_conflict_fix_machine(
 # ── Dispatch ────────────────────────────────────────────────────────────────
 
 
+def _record_rework_guard_decline(
+    entry: QueuedMerge, kind: str, reason: str,
+) -> None:
+    """#4136: the durable, greppable trace a
+    :func:`coord.drive_queue.may_dispatch_rework` refusal leaves — this
+    module's own counterpart to :func:`_record_conflict_fix_machine_failure`
+    (#3353), which only ever fires once machine selection has already run.
+    This guard sits ahead of that, so without a row of its own here the
+    refusal would leave no trace anywhere, and every caller of
+    :func:`dispatch_conflict_fix` that reports a decline (e.g.
+    ``board_doctor_permissions.sweep_dispatch_fixit_leg``,
+    ``coord/commands/merge.py``) would keep blaming "no capable machine or
+    one already active" for a cause that is neither.
+
+    ``record_audit`` is itself best-effort (swallows all write failures),
+    so a DB hiccup here never takes down the dispatch decline it's
+    recording.
+    """
+    from coord.audit import record_audit  # noqa: PLC0415
+
+    record_audit(
+        tier="operational",
+        category="merge",
+        event_type="rework_guard_declined",
+        actor="daemon",
+        summary=f"{kind} not dispatched for {entry.repo_name}#{entry.issue_number}: {reason}",
+        repo=entry.repo_name,
+        issue=entry.issue_number,
+        assignment_id=entry.assignment_id,
+        details={"reason": reason, "kind": kind},
+    )
+
+
 def _record_conflict_fix_machine_failure(
     entry: QueuedMerge, pick: ConflictFixMachinePick,
 ) -> None:
@@ -2308,6 +2355,420 @@ def describe_conflict_fix_decline(
     # pragma: no cover — `pick.machine is None` always sets `pick.reason`
     # (see ConflictFixMachinePick's docstring).
     return "machine selection declined for an unrecorded reason"
+
+
+# ── #4152: mechanical conflict regen via declared integration surfaces ─────
+
+
+@dataclass(frozen=True)
+class MechanicalSurfaceResolution:
+    """Outcome of :func:`attempt_mechanical_surface_resolution`.
+
+    ``ok`` is derived from an observation taken AFTER the push — a
+    re-fetched ``git ls-remote`` of the branch, not merely the absence of
+    an exception from the push subprocess — so a caller can trust it the
+    same way it trusts :meth:`coord.merge_queue.GhOps.merge_pr`'s boolean
+    return. ``detail`` is a human-readable reason (decline) or summary
+    (success); never used for control flow.
+    """
+
+    ok: bool
+    detail: str
+
+
+def _surface_tail(text: str, limit: int = 4000) -> str:
+    """Trim *text* to its last *limit* characters (#4152 decline/detail
+    messages embed raw command output; this keeps them bounded)."""
+    text = text.strip()
+    return text[-limit:] if len(text) > limit else text
+
+
+def _surface_run(
+    args: "list[str] | str",
+    *,
+    cwd: Path,
+    timeout: float,
+    shell: bool = False,
+) -> subprocess.CompletedProcess:
+    """``subprocess.run`` wrapper used by every step of the #4152 mechanical
+    resolver: a ``subprocess.TimeoutExpired`` or ``OSError`` — both routine
+    for a ``regen``/``check`` that legitimately takes up to 1800s — is
+    turned into a synthetic non-zero :class:`subprocess.CompletedProcess`
+    instead of propagating. Every call site already treats a non-zero
+    ``returncode`` as "decline and clean up", so this keeps that the ONLY
+    failure shape the resolver has to handle, and no exception can escape
+    :func:`attempt_mechanical_surface_resolution` into its caller.
+    """
+    try:
+        return subprocess.run(
+            args, shell=shell, cwd=str(cwd),  # noqa: S602
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as e:
+        return subprocess.CompletedProcess(
+            args, 124, stdout="", stderr=f"timed out after {timeout}s: {e}",
+        )
+    except (subprocess.SubprocessError, OSError) as e:
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr=str(e))
+
+
+def _surface_rev_parse(cwd: Path, ref: str) -> str | None:
+    """Resolve *ref* to a full SHA in *cwd*, or ``None`` on any failure."""
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", ref],
+            cwd=str(cwd), capture_output=True, text=True, timeout=60,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if res.returncode != 0:
+        return None
+    sha = res.stdout.strip()
+    return sha or None
+
+
+def _surface_conflicted_paths(worktree: Path) -> list[str] | None:
+    """List files *worktree* currently reports as unmerged, or ``None`` on
+    a subprocess failure (never on "no conflicts" — that is ``[]``)."""
+    try:
+        res = subprocess.run(
+            ["git", "diff", "--name-only", "--diff-filter=U"],
+            cwd=str(worktree), capture_output=True, text=True, timeout=60,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if res.returncode != 0:
+        return None
+    return [line.strip() for line in res.stdout.splitlines() if line.strip()]
+
+
+def _surface_worktree_path(repo_name: str, target_branch: str, branch: str) -> Path:
+    """Throwaway worktree for one #4152 mechanical-resolution attempt.
+
+    Under ``~/.coord/`` — separate from
+    :func:`coord.revalidate.revalidation_worktree_path`'s directory (this one
+    is pushed FROM, that one never is) — namespaced by repo/target/branch so
+    two entries in the same repo never collide.
+    """
+    from coord.state import COORD_DIR  # noqa: PLC0415
+
+    name = f"{repo_name}-{target_branch}--{branch}".replace("/", "-")
+    return COORD_DIR / "conflict-fix-surface-worktrees" / name
+
+
+def _remove_surface_worktree(repo_dir: Path, wt_path: Path) -> None:
+    """Best-effort cleanup of *wt_path* — mirrors
+    :func:`coord.revalidate._remove_worktree`'s belt-and-suspenders shape
+    (an orphaned worktree registration, from a repo re-clone or a moved
+    ``repo_path``, can make ``git worktree remove`` itself fail; ``prune``
+    and an ``rmtree`` fallback still leave the daemon host clean). Never
+    raises — called from a ``finally`` block.
+    """
+    import shutil  # noqa: PLC0415
+
+    for args in (
+        ["git", "worktree", "remove", "--force", str(wt_path)],
+        ["git", "worktree", "prune"],
+    ):
+        try:
+            subprocess.run(
+                args, cwd=str(repo_dir), capture_output=True, text=True, timeout=60,
+            )
+        except (subprocess.SubprocessError, OSError):
+            pass
+    shutil.rmtree(wt_path, ignore_errors=True)
+
+
+def _resolve_surfaces_in_worktree(
+    wt_path: Path,
+    entry: QueuedMerge,
+    surfaces: list[IntegrationSurface],
+    declared_paths: set[str],
+    old_branch_sha: str,
+) -> MechanicalSurfaceResolution:
+    """Do the actual merge/resolve/regen/check/commit/push inside *wt_path*
+    (already checked out at ``origin/{entry.target_branch}``).
+
+    Never leaves *wt_path* mid-merge on a decline — every early return is
+    preceded by ``git merge --abort``; the caller removes the worktree
+    itself regardless of outcome. Every subprocess call (including the
+    abort itself) goes through :func:`_surface_run`, so a
+    ``TimeoutExpired``/``OSError`` anywhere in here degrades to an ordinary
+    non-zero-returncode decline rather than propagating out of this
+    function — see that helper's docstring.
+    """
+    def _abort() -> None:
+        _surface_run(["git", "merge", "--abort"], cwd=wt_path, timeout=60)
+
+    merged = _surface_run(
+        ["git", "merge", "--no-ff", "--no-commit", f"origin/{entry.branch}"],
+        cwd=wt_path, timeout=120,
+    )
+    if merged.returncode == 0:
+        # A clean local merge is not the shape this resolves (the conflict
+        # that triggered this call may already be stale) — decline and let
+        # the caller's own unchanged CONFLICT handling re-evaluate it.
+        _abort()
+        return MechanicalSurfaceResolution(
+            False, "merge is clean locally — not a real conflict"
+        )
+
+    conflicted = _surface_conflicted_paths(wt_path)
+    if not conflicted:
+        _abort()
+        return MechanicalSurfaceResolution(
+            False, "merge failed but reported no conflicted paths"
+        )
+
+    uncovered = sorted(p for p in conflicted if p not in declared_paths)
+    if uncovered:
+        _abort()
+        return MechanicalSurfaceResolution(
+            False,
+            "conflicted path(s) not covered by a declared integration "
+            f"surface: {', '.join(uncovered)}",
+        )
+
+    # Every conflicted path is a declared surface — take the base side
+    # (`origin/{target_branch}`, checked out as `ours` in this worktree).
+    for path in conflicted:
+        took_base = _surface_run(
+            ["git", "checkout", "--ours", "--", path], cwd=wt_path, timeout=60,
+        )
+        if took_base.returncode != 0:
+            _abort()
+            return MechanicalSurfaceResolution(
+                False,
+                f"could not take the base side of {path}: "
+                f"{_surface_tail(took_base.stderr)}",
+            )
+        staged = _surface_run(["git", "add", "--", path], cwd=wt_path, timeout=60)
+        if staged.returncode != 0:
+            _abort()
+            return MechanicalSurfaceResolution(
+                False, f"could not stage {path}: {_surface_tail(staged.stderr)}",
+            )
+
+    conflicted_set = set(conflicted)
+    ran_surfaces = [s for s in surfaces if conflicted_set & set(s.paths)]
+    for surface in ran_surfaces:
+        regen = _surface_run(
+            surface.regen, shell=True, cwd=wt_path, timeout=1800,
+        )
+        if regen.returncode != 0:
+            _abort()
+            return MechanicalSurfaceResolution(
+                False,
+                f"regen command failed for {surface.paths}: "
+                f"{_surface_tail(regen.stdout + regen.stderr)}",
+            )
+        for path in surface.paths:
+            _surface_run(["git", "add", "--", path], cwd=wt_path, timeout=60)
+        check = _surface_run(
+            surface.check, shell=True, cwd=wt_path, timeout=1800,
+        )
+        if check.returncode != 0:
+            _abort()
+            return MechanicalSurfaceResolution(
+                False,
+                f"check command failed for {surface.paths}: "
+                f"{_surface_tail(check.stdout + check.stderr)}",
+            )
+
+    remaining = _surface_conflicted_paths(wt_path)
+    if remaining:
+        _abort()
+        return MechanicalSurfaceResolution(
+            False,
+            f"unresolved conflict remains after regen: {', '.join(remaining)}",
+        )
+
+    commit = _surface_run(
+        [
+            "git", "commit", "-m",
+            f"Merge {entry.target_branch} into {entry.branch} "
+            "(mechanical integration-surface regen)",
+        ],
+        cwd=wt_path, timeout=120,
+    )
+    if commit.returncode != 0:
+        _abort()
+        return MechanicalSurfaceResolution(
+            False, f"commit failed: {_surface_tail(commit.stderr)}",
+        )
+
+    new_sha = _surface_rev_parse(wt_path, "HEAD")
+    if not new_sha:
+        return MechanicalSurfaceResolution(
+            False, "resolved and committed, but could not read the new HEAD sha",
+        )
+
+    pushed = _surface_run(
+        [
+            "git", "push",
+            f"--force-with-lease={entry.branch}:{old_branch_sha}",
+            "origin", f"HEAD:{entry.branch}",
+        ],
+        cwd=wt_path, timeout=180,
+    )
+    if pushed.returncode != 0:
+        return MechanicalSurfaceResolution(
+            False, f"push failed: {_surface_tail(pushed.stderr)}",
+        )
+
+    # #2096: confirm from an observation taken AFTER the push — re-fetch the
+    # branch ref from the remote rather than trusting the push subprocess's
+    # exit code alone.
+    confirm = _surface_run(
+        ["git", "ls-remote", "origin", f"refs/heads/{entry.branch}"],
+        cwd=wt_path, timeout=60,
+    )
+    remote_sha = confirm.stdout.split()[0] if confirm.stdout.strip() else None
+    if confirm.returncode != 0 or not remote_sha:
+        return MechanicalSurfaceResolution(
+            False, "push reported success but the remote ref could not be "
+            "re-confirmed afterward",
+        )
+    if remote_sha != new_sha:
+        return MechanicalSurfaceResolution(
+            False,
+            f"push reported success but origin/{entry.branch} now reads "
+            f"{remote_sha}, not the pushed {new_sha}",
+        )
+
+    names = ", ".join(sorted({p for s in ran_surfaces for p in s.paths}))
+    return MechanicalSurfaceResolution(
+        True,
+        f"resolved {len(conflicted)} conflicted path(s) ({names}) via "
+        f"{len(ran_surfaces)} integration surface(s); pushed {new_sha} to "
+        f"{entry.branch}",
+    )
+
+
+def attempt_mechanical_surface_resolution(
+    entry: QueuedMerge, config: Config | None,
+) -> MechanicalSurfaceResolution:
+    """#4152: resolve *entry*'s conflict mechanically when every file it
+    touches is covered by one of the repo's declared
+    ``Repo.integration_surfaces`` (#4151) — no ``claude -p`` worker.
+
+    Builds a throwaway worktree at ``origin/{entry.target_branch}``, merges
+    ``origin/{entry.branch}`` into it, and — only when EVERY conflicted path
+    is a declared surface path — takes the base side of each (``git
+    checkout --ours``), runs that surface's ``regen`` command, runs its
+    ``check`` command, commits the resolved merge, and
+    ``git push --force-with-lease``s the result back onto ``entry.branch``
+    (never ``target_branch``). The merge commit's first parent is already
+    ``target_branch``'s current tip, so the pushed branch composes onto it
+    trivially — this is the same "the branch no longer conflicts" outcome a
+    rebase-based conflict-fix worker produces, just reached as a merge
+    commit rather than a linear replay; same as any other conflict-fix,
+    this voids a prior review approval bound to the old patch-id (#4153 is
+    the auto-reaffirm half of this story, not this slice's job).
+
+    Declines (``ok=False``, *entry* untouched) the moment: *config* is
+    ``None``; the repo declares no ``integration_surfaces``; no local
+    checkout for the repo exists on this machine
+    (:func:`coord.revalidate.local_repo_dir`); any git/subprocess step
+    fails; the local merge turns out clean (no real conflict); ANY
+    conflicted path is not covered by a declared surface; or a surface's
+    own ``check`` command fails after its ``regen`` ran. The worktree is
+    always removed before returning, success or decline.
+    """
+    if config is None:
+        return MechanicalSurfaceResolution(False, "no config available")
+    # `.repo()` is optional here the same way `GhOps.check_pr_mergeable` is
+    # elsewhere in this codebase — a duck-typed test stub or an older/
+    # minimal `Config`-alike without it must decline, not raise.
+    repo_fn = getattr(config, "repo", None)
+    repo_cfg = repo_fn(entry.repo_name) if repo_fn is not None else None
+    surfaces = list(getattr(repo_cfg, "integration_surfaces", None) or [])
+    if not surfaces:
+        return MechanicalSurfaceResolution(
+            False, f"{entry.repo_name} declares no integration_surfaces",
+        )
+    declared_paths: set[str] = set()
+    for surface in surfaces:
+        declared_paths.update(surface.paths)
+
+    from coord.revalidate import local_repo_dir  # noqa: PLC0415
+
+    repo_dir = local_repo_dir(config, entry.repo_name)
+    if repo_dir is None or not repo_dir.exists():
+        return MechanicalSurfaceResolution(
+            False, "no local repo checkout available on this machine",
+        )
+
+    fetched = _surface_run(
+        ["git", "fetch", "origin", "--prune"], cwd=repo_dir, timeout=120,
+    )
+    if fetched.returncode != 0:
+        return MechanicalSurfaceResolution(
+            False, f"git fetch failed: {_surface_tail(fetched.stderr)}",
+        )
+
+    old_branch_sha = _surface_rev_parse(repo_dir, f"origin/{entry.branch}")
+    if not old_branch_sha:
+        return MechanicalSurfaceResolution(
+            False, f"could not resolve origin/{entry.branch}",
+        )
+
+    wt_path = _surface_worktree_path(
+        entry.repo_name, entry.target_branch, entry.branch,
+    )
+    _remove_surface_worktree(repo_dir, wt_path)
+    try:
+        wt_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return MechanicalSurfaceResolution(
+            False, f"could not create worktree parent directory: {e}",
+        )
+
+    added = _surface_run(
+        [
+            "git", "worktree", "add", "--force", "--detach",
+            str(wt_path), f"origin/{entry.target_branch}",
+        ],
+        cwd=repo_dir, timeout=120,
+    )
+    if added.returncode != 0:
+        return MechanicalSurfaceResolution(
+            False,
+            f"could not create worktree at origin/{entry.target_branch}: "
+            f"{_surface_tail(added.stderr)}",
+        )
+
+    try:
+        result = _resolve_surfaces_in_worktree(
+            wt_path, entry, surfaces, declared_paths, old_branch_sha,
+        )
+    finally:
+        _remove_surface_worktree(repo_dir, wt_path)
+
+    # #3696: same reasoning as `dispatch_conflict_fix`'s own post-dispatch
+    # cancellation — the push above replaces whatever head `entry.branch`
+    # currently points at, so a Test-stage leg still running/queued against
+    # it would be verifying a commit that no longer exists. This function
+    # (unlike `dispatch_conflict_fix`) receives no `board` to mutate and
+    # have a caller persist later, so it loads and saves its own — best
+    # effort, and never allowed to turn an already-pushed success into a
+    # reported failure.
+    if result.ok and entry.branch:
+        try:
+            from coord.smoke import cancel_stale_smoke_legs  # noqa: PLC0415
+            from coord.state import load_board, save_board  # noqa: PLC0415
+
+            fresh_board = load_board()
+            if fresh_board is not None:
+                cancel_stale_smoke_legs(
+                    fresh_board, config,
+                    repo_name=entry.repo_name, branch=entry.branch,
+                )
+                save_board(fresh_board)
+        except Exception:  # noqa: BLE001 — best-effort, never voids a success
+            pass
+
+    return result
 
 
 def dispatch_conflict_fix(
@@ -2507,7 +2968,28 @@ def dispatch_conflict_fix(
     the completion hook (``coord.reconcile.on_conflict_fix_done``) re-reads
     the branch's LIVE head from GitHub and compares it against this anchor
     before trusting a reported success.
+
+    #4136: before any of the above, consults
+    :func:`coord.drive_queue.may_dispatch_rework` for ``(entry.repo_name,
+    entry.issue_number)`` — the same live question every rework dispatch
+    site answers identically (#2096/#2085) — and returns ``None`` on a
+    refusal without touching the retry cap, machine selection, or any
+    GitHub write. This is the one call site among the seven that does NOT
+    already have a caller that asked the same question moments earlier
+    (``coord.board_doctor._dispatch_base_sync_fix`` does, for its own
+    ``base_sync_fix=True`` path only — see that function's docstring — so
+    this doubles one live read for that one path; every other path through
+    here had no such caller).
     """
+    from coord.drive_queue import may_dispatch_rework  # noqa: PLC0415
+
+    rework_allowed, rework_reason = may_dispatch_rework(
+        entry.repo_name, entry.issue_number, "conflict_fix", board=board,
+    )
+    if not rework_allowed:
+        _record_rework_guard_decline(entry, "conflict_fix", rework_reason)
+        return None
+
     if semantic:
         if has_prior_semantic_escalation(board, entry.assignment_id):
             return None

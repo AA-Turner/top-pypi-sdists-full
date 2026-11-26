@@ -5,8 +5,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, Optional
 
-import httpx
-from httpx import AsyncHTTPTransport
+import httpx2 as httpx
+from httpx2 import AsyncHTTPTransport
 
 from dstack._internal.core.services.ssh.tunnel import (
     SSH_DEFAULT_OPTIONS,
@@ -18,7 +18,7 @@ from dstack._internal.core.services.ssh.tunnel import (
 from dstack._internal.proxy.lib.errors import UnexpectedProxyError
 from dstack._internal.proxy.lib.models import Project, Replica, Service
 from dstack._internal.proxy.lib.repo import BaseProxyRepo
-from dstack._internal.utils.common import get_or_error
+from dstack._internal.utils.common import get_or_error, run_async
 from dstack._internal.utils.logging import get_logger
 from dstack._internal.utils.path import FileContent
 
@@ -27,9 +27,21 @@ OPEN_TUNNEL_TIMEOUT = 10
 # Bound SSH startup work during a shared outage, without limiting service requests.
 MAX_CONCURRENT_TUNNEL_RECONNECTS = 8
 MAX_TUNNEL_RECONNECT_DELAY = 30
+# A drained connection stays open for at least this long, since Nginx workers may still route
+# requests to a removed replica for a short while after a reload.
+REPLICA_DRAIN_GRACE_PERIOD = 5
+REPLICA_DRAIN_POLL_INTERVAL = 1
+# Upper bound for draining, e.g. if a WebSocket connection keeps the replica busy.
+# Matches the default `stop_duration`, the time a job is given to stop gracefully.
+REPLICA_DRAIN_TIMEOUT = 300
 
 
 class ServiceClient(httpx.AsyncClient):
+    """
+    The client that the requests to a service share. An httpx2 client, since a request is
+    cancelled when its client disconnects, and httpx then leaves some connections unreleased.
+    """
+
     def build_request(self, *args, **kwargs) -> httpx.Request:
         self.cookies.clear()  # the client is shared by all users, don't leak cookies
         return super().build_request(*args, **kwargs)
@@ -202,7 +214,11 @@ class ServiceConnectionPool:
     def __init__(self) -> None:
         # TODO(#2238): remove connections to stopped replicas in-server
         self.connections: Dict[str, ServiceConnection] = {}
+        self._draining: set[asyncio.Task] = set()
         self._reconnect_semaphore = asyncio.Semaphore(MAX_CONCURRENT_TUNNEL_RECONNECTS)
+        self._nginx_clients: Dict[str, ServiceClient] = {}
+        """Clients that forward requests to services via Nginx, by service domain.
+        Only used on gateways."""
 
     async def get(self, replica_id: str) -> Optional[ServiceConnection]:
         return self.connections.get(replica_id)
@@ -239,12 +255,30 @@ class ServiceConnectionPool:
             raise
         return connection
 
-    async def remove(self, replica_id: str) -> None:
+    async def remove(self, replica_id: str, drain: bool = False) -> None:
+        """
+        Remove the replica's connection from the pool and close it.
+
+        With `drain`, return right away and close the connection in the background once nothing
+        is connected to its socket, so that requests already sent to the replica can finish.
+        The caller must stop routing requests to the socket first, e.g. by reloading Nginx.
+        """
         connection = self.connections.pop(replica_id, None)
-        if connection is not None:
+        if connection is None:
+            return
+        if not drain:
             await connection.close()
+            return
+        task = asyncio.create_task(_close_after_drain(connection))
+        # The event loop only keeps weak references to tasks
+        self._draining.add(task)
+        task.add_done_callback(self._draining.discard)
 
     async def remove_all(self) -> None:
+        draining = list(self._draining)
+        for task in draining:
+            task.cancel()  # closes the connection without waiting for the drain
+        await asyncio.gather(*draining, return_exceptions=True)
         replica_ids = list(self.connections)
         results = await asyncio.gather(
             *(self.remove(replica_id) for replica_id in replica_ids), return_exceptions=True
@@ -254,6 +288,30 @@ class ServiceConnectionPool:
                 logger.error(
                     "Error removing connection to service replica %s: %s", replica_ids[i], exc
                 )
+        for domain in list(self._nginx_clients):
+            await self.remove_nginx_client(domain)
+
+    def get_nginx_client(self, service: Service) -> ServiceClient:
+        """
+        Returns the client that forwards requests to the service via Nginx.
+        All requests to the service share the client, so that their connections are reused.
+        """
+        domain = service.domain_safe
+        client = self._nginx_clients.get(domain)
+        if client is None:
+            client = self._nginx_clients[domain] = ServiceClient(
+                base_url="http://127.0.0.1",
+                headers={"Host": domain},
+                timeout=service.read_timeout,
+                # Each request in flight holds a connection, and their number is not limited.
+                limits=httpx.Limits(max_connections=None, max_keepalive_connections=20),
+            )
+        return client
+
+    async def remove_nginx_client(self, domain: str) -> None:
+        client = self._nginx_clients.pop(domain, None)
+        if client is not None:
+            await client.aclose()
 
 
 async def get_service_replica_client(
@@ -264,11 +322,7 @@ async def get_service_replica_client(
     """
     if service.domain is not None:
         # Forward to Nginx so that requests are visible to StatsCollector in the access log
-        return httpx.AsyncClient(
-            base_url="http://127.0.0.1",
-            headers={"Host": service.domain},
-            timeout=service.read_timeout,
-        )
+        return service_conn_pool.get_nginx_client(service)
     # Nginx not available, forward directly to the tunnel
     replica = random.choice(service.replicas)
     connection = await service_conn_pool.get(replica.id)
@@ -280,3 +334,65 @@ async def get_service_replica_client(
             )
         connection = await service_conn_pool.get_or_add(project, service, replica)
     return await connection.client()
+
+
+async def _close_after_drain(connection: ServiceConnection) -> None:
+    replica_id = connection.replica.id
+    try:
+        if await _wait_until_idle(connection.app_socket_path):
+            logger.debug("Connection to replica %s is drained, closing", replica_id)
+        else:
+            logger.warning(
+                "Connection to replica %s is still in use after %ss, closing",
+                replica_id,
+                REPLICA_DRAIN_TIMEOUT,
+            )
+    finally:
+        try:
+            await connection.close()
+        except Exception:
+            logger.exception("Error closing drained connection to replica %s", replica_id)
+
+
+async def _wait_until_idle(socket_path: Path) -> bool:
+    """
+    Wait until nothing is connected to the Unix socket, for at most `REPLICA_DRAIN_TIMEOUT`.
+
+    Returns whether the socket became idle in time.
+    """
+    await asyncio.sleep(REPLICA_DRAIN_GRACE_PERIOD)
+    waited = REPLICA_DRAIN_GRACE_PERIOD
+    # `None` means the connections cannot be counted, so wait for the timeout
+    while await _count_socket_connections(socket_path) != 0:
+        if waited >= REPLICA_DRAIN_TIMEOUT:
+            return False
+        await asyncio.sleep(REPLICA_DRAIN_POLL_INTERVAL)
+        waited += REPLICA_DRAIN_POLL_INTERVAL
+    return True
+
+
+# `SS_CONNECTED`, the state of a connected socket in `/proc/net/unix`
+_SS_CONNECTED = "03"
+
+
+async def _count_socket_connections(socket_path: Path) -> Optional[int]:
+    """
+    Count the connections accepted on a listening Unix socket, or return `None` if they cannot
+    be counted.
+
+    Accepted connections are listed in `/proc/net/unix` with the listening socket's path
+    and the connected state. Linux-only, like the gateway. Not `psutil.net_connections()`:
+    it reports no state for Unix sockets, so it cannot tell connections from the listener.
+    """
+    try:
+        table = await run_async(Path("/proc/net/unix").read_text)
+    except OSError:
+        return None
+    path = str(socket_path)
+    count = 0
+    # Columns: Num RefCount Protocol Flags Type St Inode [Path]
+    for line in table.splitlines()[1:]:
+        fields = line.split(maxsplit=7)
+        if len(fields) == 8 and fields[7] == path and fields[5] == _SS_CONNECTED:
+            count += 1
+    return count

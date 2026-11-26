@@ -67,7 +67,8 @@ geometry (the key holds no k), Φ per class once per frequency, then gathered
 into each observer band, so the reduction (`_reduce_phi_band`) is
 unchanged. Memory: an (N_obs, N_src) int32 class map, a quarter of Z, plus
 the class table; no Φ-sized copy. The census holds each class once (THE
-CENSUS, below), and both are held to `PLAN_BUDGET_BYTES` (momwire#2019).
+CENSUS, below), held to the class cap and the plan to its allowance
+(`plan_allowance`, momwire#2123).
 
 OVER A FINITE GROUND (momwire#1970) the image block is not a free-space
 field: the Sommerfeld fill subtracts C2 Φ_img - S, S the interpolated
@@ -278,15 +279,38 @@ CODE_SIGNS = np.array(
 HAVE_PLAN = _acc is not None and bool(getattr(_acc, "sin_pair_reuse_2063", False))
 
 
-#: The byte budget of one fill's plans AND their census, razor2p's
-#: (`_razor_pair_reuse_core.h`, PLAN_BUDGET_BYTES) and for its reason: the
-#: 512 MB hosted bound is this, one dense Z (144 MB at the 3000-segment cap)
-#: and the interpreter. Past it the fill declines (`over_budget_reason`) and
-#: runs as with reuse off (momwire#2019). Measured, Skylake, 4 threads, free
-#: space unless named, peak RSS of the solving process in MB, reuse off / on
-#: before the budget / on with it:
+#: THE ALLOWANCE (momwire#2123, Steve 11-24), the common core's
+#: (`_pair_reuse_core.h`), the same on razor2p and in the C++ fill the
+#: nec42-sinusoidal executable runs. It replaced a fixed 256 MB budget of one
+#: fill's plans and census together (momwire#2019).
 #:
-#:   deck                            segs   off   before  with
+#: * THE CLASS CAP: a plan (the direct block's, the image's or the reflected
+#:   term's, each its own class map) keeps at most `class_cap` of its pairs,
+#:   M N / CLASS_CAP_COMPRESSION (4/3; Steve 11-24, loosened from 2x so
+#:   the radial screens at random angles still reuse): a deck that does not
+#:   reach 4/3x compression
+#:   declines (`cap_reason`). The census stops the moment its count passes
+#:   the cap, after the band that passed it.
+#: * THE KEPT PLAN: its fill (`fill_nbytes`) is held to `plan_allowance`, 4 B
+#:   per pair for the class map plus what the plan really keeps for each
+#:   class the cap allows (Steve 11-24, option 1: each engine's own per-class
+#:   cost, from the plan's layout in C++, `KEPT_BYTES_PER_CLASS`: 105 B
+#:   direct, its canonical sources kept; 73 B reflected) and for each near
+#:   pair (`NEAR_KEPT_BYTES`, 72 B): 82.75 B a pair at the cap direct, 58.75 B
+#:   reflected (`allowance_reason`). Each plan is held to its own; over a
+#:   ground there are two maps.
+#: * THE CENSUS is a transient: it runs before the fill allocates its Z and
+#:   is freed first, so its peak is charged against that room, not added to
+#:   the plan's, and no byte budget bounds it: the cap does. Its peak is
+#:   reported (`census_peak_bytes`).
+#: * Allowances ADD with the other opt-ins' (mixed_lu: 1.5 Z + 512 MB); no
+#:   one place sums them.
+#:
+#: Measured, peak RSS of the solving process in MB, one frequency, free
+#: space unless named. #2019's decks (Skylake, 4 threads), reuse off / on
+#: before any budget / on under the 256 MB budget:
+#:
+#:   deck                            segs   off   before  budget
 #:   20 elements, each its own h     3220   421   1663    451  declines
 #:   20 elements of 5 lengths        3020   382   1277    397  declines
 #:   20 equal elements               3020   382    521    447  reuses
@@ -294,21 +318,46 @@ HAVE_PLAN = _acc is not None and bool(getattr(_acc, "sin_pair_reuse_2063", False
 #:   the same, equal, Sommerfeld     3020   588    523    487  reuses
 #:   uniform dipole                  4001   597    765    670  reuses
 #:   11 elements, each its own h     1111   164    296    292  reuses
-PLAN_BUDGET_BYTES = 256 << 20
+#:
+#: The same decks rebuilt from those descriptions (momwire#2123, i7-8550U, 4
+#: threads), reuse off / on under the allowance, on's |dZin| / |Zin| against
+#: off (the registry's drift is 5e-10), and the kept plan:
+#:
+#:   deck                            segs   off   on    classes      dZin     plan
+#:   20 elements, each its own h     3220   258   728   4,318,673    6.8e-11  497 MB
+#:   20 elements of 5 lengths        3020   238   384   1,072,096    6.6e-11  151 MB
+#:   20 equal elements               3020   238   286       3,391    4.3e-11   39 MB
+#:   the same, unequal spacing       3020   238   288       9,067    3.8e-11   39 MB
+#:   the same, equal, Sommerfeld     3020   584   334   3,391+3,112  1.4e-10   75 MB
+#:   uniform dipole                  4001   348   429       5,173    2.3e-12   67 MB
+#:   11 elements, each its own h     1111   110   166     504,126    4.2e-12   59 MB
+#:
+#: Every deck reuses: the 2.4x "each its own h" decks, which #2019's budget
+#: declined, are inside the cap, and their plans are what the allowance
+#: holds (82.75 B a pair at the cap); the 3220-segment one costs 4.6 s against
+#: 1.2 s off at one frequency, the census paid up front.
+CLASS_CAP_COMPRESSION = 4.0 / 3.0
 
-#: Bytes of plans the process keeps between solvers (`shared`), one fill's
-#: budget (momwire#2026): a long-lived server holds no more than a single
-#: fill may use. A plan is mostly its int32 class map, 4 bytes per pair: the
-#: ELT whip's direct block is ~35 MB. The cache is the common core's
-#: (`_pair_reuse_core.h`, SHARED_PLAN_BYTES), one for every basis.
-SHARED_PLAN_BYTES = PLAN_BUDGET_BYTES
+#: TEST HOOK: the kept plan's allowance in bytes, per plan, in place of
+#: `plan_allowance` (None: the derived one), so small decks reach the
+#: decline. A plan is keyed on the allowance it was built under.
+ALLOWANCE_BYTES = None
+
+#: Bytes of OLD plans the process keeps between solvers (`shared`), one for
+#: every basis (`_pair_reuse_core.h`, SHARED_PLAN_BYTES, momwire#2026). A
+#: fixed cap, not the allowance, so a long-lived server stays bounded: a
+#: fill's own plans may pass it (the newest are kept whatever their size, the
+#: second block's with the first), and before any census the cache is cut
+#: back to it. A plan is mostly its int32 class map, 4 bytes per pair: the
+#: ELT whip's direct block is ~35 MB.
+SHARED_PLAN_BYTES = 256 << 20
 
 #: Bytes per class and per near pair of one wavenumber's values, the three
 #: complex shapes (`evaluate`, `evaluate_near`).
 VALUE_BYTES = 48
 
 #: THE CENSUS (the C++ core's) holds each class once, so what it holds grows
-#: with the deck's classes, not with each band's. Its budget counts what one
+#: with the deck's classes, not with each band's. Its peak counts what one
 #: running table folding the bands in order would hold (`IntGroups`), as the
 #: numpy census it replaced did (momwire#2063): a class seen in many bands is
 #: held once. Holding every band's
@@ -323,14 +372,14 @@ VALUE_BYTES = 48
 #: What the census holds is counted from the class map, the table's keys and
 #: slots (`IntGroups.nbytes`), each class's representative and the near
 #: pairs, plus `BAND_BYTES_PER_PAIR` for every band in flight or
-#: finished and not yet folded. A band starts only where it fits beside that
-#: under the budget, and the census stops once the count, or the plan's
-#: least possible fill (`PLAN_FLOOR_BYTES_PER_CLASS`), passes it: the classes
-#: only grow, so either verdict is final, and a deck that declines has held
-#: no more than the budget on the way.
+#: finished and not yet folded (`census_peak_bytes`). No byte budget bounds
+#: it (momwire#2123): it stops once the count passes the class cap. The
+#: classes only grow, so that verdict is final, and a deck that declines has
+#: held no more than a census at the cap.
 #:
-#: Measured on the whip at 8 threads (Rocketlake): counted 200 MB, and peak
-#: RSS over the census's entry 210 MB to the last fold, 228 MB to the plan.
+#: Measured on the whip at 8 threads (Rocketlake, momwire#2063): counted
+#: 200 MB, and peak RSS over the census's entry 210 MB to the last fold,
+#: 228 MB to the plan.
 #:
 #: Peak transient of one band per pair: its scalars, key columns, codes and
 #: grouping (the hash table, at twice the pairs, and its inverses). Measured
@@ -341,31 +390,56 @@ VALUE_BYTES = 48
 BAND_BYTES_PER_PAIR = 136
 GROUND_BAND_BYTES_PER_PAIR = 168
 
-#: The share of the budget the bands in flight may take: each band is cut to
-#: at most this over a pool's worth (`band_rows` in C++), so the rest is the
-#: classes'. Smaller bands move no class (the numbering is the flat order's).
+#: The share of the plan's allowance the bands in flight may take: each band
+#: is cut to at most this over a pool's worth (`band_rows` in C++), ~14 B a
+#: pair at the default allowance. Smaller bands move no class (the numbering
+#: is the flat order's).
 BAND_SHARE = 0.25
 
-#: The plan's fill holds at least this much per class beside its class map:
-#: one wavenumber's values (`VALUE_BYTES`) and an int64 index (`rep_src`, or
-#: the ground plan's `rep_flat`).
-PLAN_FLOOR_BYTES_PER_CLASS = VALUE_BYTES + 8
+#: What a plan keeps per class (the direct plan, the reflected one) and per
+#: near pair beside its class map: the C++ adapter's constants, derived there
+#: from the plan's layout (`_sin_pair_reuse_core.h`, KEPT_BYTES_PER_CLASS).
+KEPT_BYTES_PER_CLASS, GROUND_KEPT_BYTES_PER_CLASS, NEAR_KEPT_BYTES = (
+    getattr(_acc, "sin_pair_reuse_kept_bytes", (None, None, None))
+    if _acc is not None
+    else (None, None, None)
+)
 
 
-class _OverBudget:
-    """A census that stopped at `PLAN_BUDGET_BYTES`: kept in the plan cache
-    like a plan, so that a sweep does not repeat it per frequency."""
+def class_cap(pairs: int) -> int:
+    """The classes a plan of `pairs` pairs may keep (the core's)."""
+    return int(int(pairs) / CLASS_CAP_COMPRESSION)
 
 
-OVER_BUDGET = _OverBudget()
+def plan_allowance(pairs: int, ground: bool = False, near: int = 0) -> int:
+    """The bytes a plan of `pairs` pairs and `near` near pairs may keep (the
+    C++ adapter's `allowance_of`): its map, the plan's per-class cost for
+    each class the cap allows, and its near pairs'."""
+    per_class = GROUND_KEPT_BYTES_PER_CLASS if ground else KEPT_BYTES_PER_CLASS
+    return 4 * int(pairs) + per_class * class_cap(pairs) + NEAR_KEPT_BYTES * int(near)
 
 
-def over_budget_reason() -> str:
-    """`pair_reuse_declined` for a deck past the budget, razor2p's words."""
+def cap_reason(pairs: int) -> str:
+    """`pair_reuse_declined` for a census past the cap, the core's words: the
+    cap, not the count the census stopped at, which follows its bands."""
     return (
-        "the plan and its census would exceed the "
-        f"{PLAN_BUDGET_BYTES / 2**20:.6g} MB budget"
+        f"more than {class_cap(pairs)} classes for {int(pairs)} pairs "
+        f"(the cap is {CLASS_CAP_COMPRESSION:.4g}x compression)"
     )
+
+
+def allowance_reason(allowance: int) -> str:
+    """`pair_reuse_declined` for a plan past its allowance, the core's words."""
+    return f"the kept plan would exceed its allowance of {allowance / 2**20:.6g} MB"
+
+
+@dataclass(frozen=True)
+class Declined:
+    """A census that declined, and why (`cap_reason`, `allowance_reason`):
+    kept in the plan cache like a plan, so that a sweep does not repeat it
+    per frequency."""
+
+    reason: str
 
 
 def kernel_evals(plan) -> int:
@@ -385,7 +459,7 @@ def kernel_evals(plan) -> int:
 
 def plan_nbytes(plan) -> int:
     """The arrays a plan holds, in bytes (its lists of slices are small)."""
-    if plan is OVER_BUDGET:
+    if isinstance(plan, Declined):
         return 0
     return sum(
         v.nbytes for v in vars(plan).values() if isinstance(v, np.ndarray)
@@ -570,10 +644,10 @@ def reversible_ground_types(src_type, obs_type, src_rev, seg_t):
     )
 
 
-def _as_plan(handle, ground):
-    """`Plan` / `GroundPlan` over a C++ plan's arrays."""
+def _as_plan(handle, ground, why=""):
+    """`Plan` / `GroundPlan` over a C++ plan's arrays, or `Declined`."""
     if handle is None:
-        return OVER_BUDGET
+        return Declined(why)
     common = dict(
         cls=handle.cls,
         near_flat=handle.near_flat,
@@ -608,25 +682,29 @@ def _census(
     src_rev,
     obs_rev,
     ground_z,
-    budget,
+    allowance,
     shared,
+    keep=1,
 ):
     f64 = functools.partial(np.ascontiguousarray, dtype=np.float64)
     i64 = functools.partial(np.ascontiguousarray, dtype=np.int64)
     if not CANONICAL:
         src_rev = obs_rev = None
-    handle, built = _acc.sin_pair_reuse_plan(
+    if allowance is None:
+        allowance = ALLOWANCE_BYTES
+    handle, built, why = _acc.sin_pair_reuse_plan(
         f64(obs_c), f64(obs_t), f64(src_c), f64(src_t), f64(seg_h), f64(a_obs),
         i64(src_type), i64(obs_type), int(rows),
         src_rev=None if src_rev is None else i64(src_rev),
-        budget=budget,
+        allowance=allowance,
         workers=_workers(),
         ground_z=None if not ground else float(ground_z),
         obs_rev=None if obs_rev is None else i64(obs_rev),
         band_bytes=GROUND_BAND_BYTES_PER_PAIR if ground else BAND_BYTES_PER_PAIR,
         shared=shared,
+        keep=keep,
     )  # fmt: skip
-    return _as_plan(handle, ground), built
+    return _as_plan(handle, ground, why), built
 
 
 def build_plan(
@@ -640,7 +718,7 @@ def build_plan(
     obs_type,
     rows,
     src_rev=None,
-    budget=None,
+    allowance=None,
 ):
     """The class map over every (observer, source) pair (`Plan`), the C++
     census's, uncached, found in observer bands whose transients together
@@ -650,12 +728,13 @@ def build_plan(
     and `CANONICAL`, the pairs are keyed in their canonical orientation and
     the map is coded (momwire#1969, module docstring).
 
-    With `budget` (bytes), returns `OVER_BUDGET` where the census or the
-    plan's fill would pass it (momwire#2019); the map is counted before it is
+    Returns `Declined` where the census passes the class cap or the plan's
+    fill its allowance (momwire#2123): `allowance` (bytes) in place of
+    `plan_allowance`, or `ALLOWANCE_BYTES`; the map is counted before it is
     allocated."""
     return _census(
         False, obs_c, obs_t, src_c, src_t, seg_h, a_obs, src_type, obs_type, rows,
-        src_rev, None, None, budget, False,
+        src_rev, None, None, allowance, False,
     )[0]  # fmt: skip
 
 
@@ -672,7 +751,7 @@ def build_ground_plan(
     rows,
     src_rev=None,
     obs_rev=None,
-    budget=None,
+    allowance=None,
 ):
     """The reflected term's class map (`GroundPlan`) over every (observer,
     source) pair, the REAL sources' (the image is the evaluator's), the C++
@@ -681,10 +760,10 @@ def build_ground_plan(
     representative's flat index, the first pair of the class, so the
     representatives are row runs for the evaluation's calls. With `src_rev`
     / `obs_rev` and `CANONICAL`, the pairs are keyed in their canonical
-    orientation; `budget` is `build_plan`'s."""
+    orientation; `allowance` is `build_plan`'s."""
     return _census(
         True, obs_c, obs_t, src_c, src_t, seg_h, a_obs, src_type, obs_type, rows,
-        src_rev, obs_rev, ground_z, budget, False,
+        src_rev, obs_rev, ground_z, allowance, False,
     )[0]  # fmt: skip
 
 
@@ -702,11 +781,13 @@ def shared(
     src_rev=None,
     obs_rev=None,
     ground_z=None,
-    budget=None,
+    allowance=None,
+    keep=1,
 ):
     """`build_plan` (`block` "direct" or "image") or `build_ground_plan`
-    ("reflected") through the process's plan cache: (plan or OVER_BUDGET,
-    whether a census ran).
+    ("reflected") through the process's plan cache: (plan or `Declined`,
+    whether a census ran). `keep` 2 for a fill's second block keeps its
+    first in the cache beside it (`SHARED_PLAN_BYTES`).
 
     A plan holds no k, and its key is every array the census reads, so it
     outlives the solver that found it: the portal builds one solver per
@@ -718,7 +799,7 @@ def shared(
     not repeat it per frequency."""
     return _census(
         block == "reflected", obs_c, obs_t, src_c, src_t, seg_h, a_obs, src_type,
-        obs_type, rows, src_rev, obs_rev, ground_z, budget, True,
+        obs_type, rows, src_rev, obs_rev, ground_z, allowance, True, keep,
     )  # fmt: skip
 
 

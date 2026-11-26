@@ -10,13 +10,11 @@ class RebalanceDBInstanceRequest(DaraModel):
         client_token: str = None,
         dbinstance_id: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must make sure that it is unique among different requests.
-        # 
-        # The token can be up to 64 characters in length and can contain letters, digits, hyphens (-), and underscores (_).
-        # 
-        # For more information, see [How to ensure idempotence](https://help.aliyun.com/document_detail/134212.html).
+        # The client token that is used to ensure idempotence. For more information, see [How to ensure idempotence](https://help.aliyun.com/document_detail/327176.html).
         self.client_token = client_token
-        # The instance ID.
+        # The ID of the instance.
+        # 
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specified region, including instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

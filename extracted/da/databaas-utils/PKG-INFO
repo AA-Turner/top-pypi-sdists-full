@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databaas-utils
-Version: 0.6.1
+Version: 0.7.0
 Summary: Lakekeeper/Iceberg lakehouse access for Databaas: catalog, remote-signed object storage, and Airflow integration.
 Keywords: iceberg,lakekeeper,airflow,lakehouse,pyiceberg
 Author: databaas-application-team

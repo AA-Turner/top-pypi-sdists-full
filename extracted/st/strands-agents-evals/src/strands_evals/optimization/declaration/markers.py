@@ -264,10 +264,9 @@ def component(factory: Callable[..., Any], /, **kwargs: Any) -> Component:
 
     `factory` is positional-only, so a constructor kwarg named `factory` can still be passed. An
     `Int` / `Float` / `OneOf` kwarg without `default=` takes the constructor parameter's default
-    (a `OneOf` without one, its first option), e.g.
-    `component(SlidingWindowConversationManager, window_size=Int(4, 40), pin_first=OneOf(None, 1))`
-    (the constructor's defaults, 40 and None, are the baseline). A constructor default of None
-    doesn't count for an `Int` / `Float`: pass `default=`.
+    (a `OneOf` without one, its first option), e.g. `component(ContextManager, archive=OneOf(None, False))`
+    (the constructor's default, None, is the baseline). A constructor default of None doesn't count for
+    an `Int` / `Float`: pass `default=`.
 
     The constructor is probed once, here, with its defaults, so its side effects (a client it
     creates) run at declaration and the probed instance is discarded. A positional label comes from
@@ -279,9 +278,10 @@ def component(factory: Callable[..., Any], /, **kwargs: Any) -> Component:
     one object. What they refer to is copied too, e.g. the object behind a bound method, and an
     `object()` sentinel becomes a new object that `is` no longer matches. Functions, classes, and
     enum members, which `deepcopy` returns as they are, stay shared. A fixed kwarg that can't be
-    deep-copied (such as an `Agent`, which holds a lock) raises here: construct it in the factory
-    instead, e.g. `component(make_summarizing, summary_ratio=Float(0.1, 0.8))` with a function
-    `make_summarizing(summary_ratio=0.3)` that builds the manager and its summarization `Agent`.
+    deep-copied (such as an `Agent` or a model, which hold locks) raises here: construct it in the
+    factory instead, e.g. `component(make_summarizing, context_utilization=Float(0.5, 0.95))` with a
+    function `make_summarizing(context_utilization=0.85)` that builds a `ContextManager` summarizing
+    with its own model.
     The factory is never copied, so an object it refers to is shared: that is how to share one on
     purpose (a thread-safe client), or to avoid copying a large one for every build.
 
@@ -535,9 +535,9 @@ _ValueMarkerT = TypeVar("_ValueMarkerT", bound=_ValueMarker)
 def _fill_default(marker: _ValueMarkerT, default: Any, *, where: str, source: str) -> _ValueMarkerT:
     """`marker` with `default` (a constructor's or a wrapped function's) filled in, if it has none.
 
-    Shared by `component()` and `tunable`. None is never an `Int` / `Float` / `TextValue` value, so it
-    raises asking for `default=` instead of building with a value the space rejects; a `OneOf` may
-    list None as an option, so it goes through the option check.
+    Shared by `component()`, `tunable`, and `JsonField`. None is never an `Int` / `Float` / `TextValue`
+    value, so it raises asking for `default=` instead of building with a value the space rejects; a
+    `OneOf` may list None as an option, so it goes through the option check.
 
     Args:
         marker: The marker to fill.

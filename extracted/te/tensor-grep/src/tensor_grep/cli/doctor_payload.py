@@ -15,10 +15,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from tensor_grep.cli._main_binding import _self as _self
-
-# Cross-module reads back into the head half of the split. These are NOT patched on
-# `main`, so a direct import is correct -- anything the test suite patches is reached
-# through `_self` instead.
+from tensor_grep.cli.doctor_launcher_probe import (
+    strip_windows_extended_prefix as _strip_windows_extended_prefix,
+)
 from tensor_grep.cli.doctor_report import (
     _doctor_apply_lsp_missing_component_remediation as _doctor_apply_lsp_missing_component_remediation,
 )
@@ -87,6 +86,19 @@ from tensor_grep.cli.doctor_report import (
 )
 from tensor_grep.cli.doctor_report import (
     _doctor_tg_launcher_kind as _doctor_tg_launcher_kind,
+)
+
+# Cross-module reads back into the head half of the split. These are NOT patched on
+# `main`, so a direct import is correct -- anything the test suite patches is reached
+# through `_self` instead.
+from tensor_grep.cli.doctor_report import (
+    evaluate_doctor_dyno_promotion_status as _evaluate_doctor_dyno_promotion_status,
+)
+from tensor_grep.cli.doctor_report import (
+    evaluate_lsp_warm_pool_proof as _evaluate_lsp_warm_pool_proof,
+)
+from tensor_grep.cli.version_info import (
+    native_embeddings_ready as _native_embeddings_ready,
 )
 
 
@@ -349,7 +361,26 @@ def _build_doctor_payload(
                 "and reset ACLs or reinstall the managed launcher."
             )
     gpu_status = _doctor_gpu_status()
-    gpu_status["search_runtime_probe"] = _self._doctor_gpu_search_runtime_probe(native_tg_binary)
+    if fast and native_frontdoor_flavor == "cpu":
+        gpu_status["search_runtime_probe"] = {
+            "status": "skipped_fast_cpu_flavor",
+            "requested_gpu_device_ids": [0],
+            "command": None,
+            "exit_code": None,
+            "routing_backend": None,
+            "routing_reason": None,
+            "sidecar_used": None,
+            "routing_gpu_device_ids": [],
+            "native_error_kind": None,
+            "error": None,
+        }
+    else:
+        probed_bin = (
+            Path(_strip_windows_extended_prefix(str(native_tg_binary)))
+            if native_tg_binary is not None
+            else None
+        )
+        gpu_status["search_runtime_probe"] = _self._doctor_gpu_search_runtime_probe(probed_bin)
     # audit M10: gpu.available reflects whether a CUDA device is *present*, not whether the
     # GPU search runtime actually routes through NativeGpuBackend. Surface an honest
     # search_ready boolean derived from the runtime probe so callers don't read
@@ -365,8 +396,14 @@ def _build_doctor_payload(
             "failure -- text and AST search are unaffected"
         )
     # Complete the promotion_proof tier now that the runtime probe result is available.
-    # This is the highest tier: GPU search actually routed through NativeGpuBackend.
-    cast(dict[str, Any], gpu_status["tier"])["promotion_proof"] = gpu_status["search_ready"]
+    # Promotion requires both NativeGpuBackend probe support AND verified 1 GB / 5 GB
+    # dyno-ratchet parity + speedup evidence (never inferred from sentinel probe alone).
+    promotion_proof, promotion_reason = _evaluate_doctor_dyno_promotion_status(
+        bool(gpu_status["search_ready"])
+    )
+    gpu_status["promotion_proof"] = promotion_proof
+    gpu_status["promotion_reason"] = promotion_reason
+    cast(dict[str, Any], gpu_status["tier"])["promotion_proof"] = promotion_proof
     payload: dict[str, Any] = {
         "schema_version": _self._DOCTOR_SCHEMA_VERSION,
         "doctor_schema_version": _self._DOCTOR_SCHEMA_VERSION,
@@ -377,7 +414,11 @@ def _build_doctor_payload(
         "invoked_as": sys.argv[0] if sys.argv else "tg",
         "root": str(root),
         "config": str(resolved_config),
-        "native_tg_binary": str(native_tg_binary) if native_tg_binary is not None else None,
+        "native_tg_binary": (
+            _strip_windows_extended_prefix(str(native_tg_binary))
+            if native_tg_binary is not None
+            else None
+        ),
         "native_tg_binary_exists": native_tg_binary is not None,
         "native_tg_binary_kind": native_tg_binary_kind,
         "native_frontdoor_flavor": native_frontdoor_flavor,
@@ -485,9 +526,18 @@ def _build_doctor_payload(
         "ast_grep": _self._doctor_ast_grep_status(),
         "ast_cache": _doctor_ast_cache_status(str(root), str(resolved_config)),
         "resident_worker": _doctor_resident_worker_status(str(root)),
-        "env": {key: os.environ[key] for key in env_keys if os.environ.get(key)},
+        "env": {
+            key: (
+                _strip_windows_extended_prefix(os.environ[key])
+                if key == "TG_NATIVE_TG_BINARY"
+                else os.environ[key]
+            )
+            for key in env_keys
+            if os.environ.get(key)
+        },
         "session_daemon": _self._doctor_session_daemon_status(str(root)),
         "dense_model": _doctor_dense_model_status(),
+        "native_embeddings_ready": _native_embeddings_ready(),
     }
 
     # A90 PATH-honesty (docs/plans/2026-08-11-doctor-path-honesty.md): surface the resolved
@@ -543,10 +593,14 @@ def _build_doctor_payload(
             _doctor_apply_lsp_workspace_warnings(_self._doctor_lsp_provider_statuses(str(root)))
         )
         lsp_providers_by_language = _doctor_lsp_providers_by_language(lsp_providers)
+        lsp_pool_proof = _evaluate_lsp_warm_pool_proof(lsp_providers)
         payload["lsp"] = {
             "schema_version": _self._DOCTOR_LSP_SCHEMA_VERSION,
             "enabled": True,
             "probe_timeout_seconds": _doctor_lsp_probe_timeout_seconds(),
+            "lsp_proof": lsp_pool_proof["lsp_proof"],
+            "not_lsp_proof_reason": lsp_pool_proof["not_lsp_proof_reason"],
+            "lsp_proof_summary": lsp_pool_proof,
             "providers": lsp_providers,
             "providers_by_language": lsp_providers_by_language,
         }
@@ -557,6 +611,8 @@ def _build_doctor_payload(
             "schema_version": _self._DOCTOR_LSP_SCHEMA_VERSION,
             "enabled": False,
             "probe_timeout_seconds": None,
+            "lsp_proof": False,
+            "not_lsp_proof_reason": "LSP warm pool verification was not run.",
             "providers": lsp_providers,
             "providers_by_language": lsp_providers_by_language,
         }
@@ -817,7 +873,9 @@ def _render_doctor_payload(payload: dict[str, Any]) -> str:
     )
 
     lsp_payload = cast(dict[str, Any], payload.get("lsp", {}))
+    lines.append(f"native_embeddings_ready: {payload.get('native_embeddings_ready', False)}")
     if lsp_payload.get("enabled"):
+        lines.append(f"lsp_proof: {lsp_payload.get('lsp_proof', False)}")
         lines.append("lsp_providers:")
         if lsp_payload.get("probe_timeout_seconds") is not None:
             lines.append(f"lsp_probe_timeout_seconds: {lsp_payload['probe_timeout_seconds']}")

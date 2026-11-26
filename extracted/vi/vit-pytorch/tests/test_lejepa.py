@@ -1,11 +1,13 @@
 import pytest
 import torch
-from vit_pytorch import ViT
-from vit_pytorch.lejepa import LeJEPA
+from torch import nn
 
-def create_vit():
+from vit_pytorch import ViT
+from vit_pytorch.lejepa import L2Norm, LeJEPA, MLP, sigreg_loss
+
+def create_vit(image_size = 64):
     return ViT(
-        image_size = 64,
+        image_size = image_size,
         patch_size = 16,
         num_classes = 10,
         dim = 64,
@@ -14,7 +16,7 @@ def create_vit():
         mlp_dim = 128
     )
 
-def test_lejepa_default_sigreg():
+def test_lejepa_sigreg():
     model = create_vit()
     learner = LeJEPA(
         model,
@@ -25,68 +27,48 @@ def test_lejepa_default_sigreg():
         num_classes_K = 256
     )
 
-    assert not learner.use_ema
-    assert learner.use_sigreg
-    assert learner.has_sigreg_loss
-    assert learner.target_encoder is None
-
     images = torch.randn(2, 3, 64, 64)
     loss = learner(images)
     loss.backward()
 
     assert torch.isfinite(loss)
+    assert any(p.grad is not None for p in learner.encoder.parameters())
+    assert any(p.grad is not None for p in learner.encoder.projector.parameters())
 
-def test_lejepa_ema_instead_of_sigreg():
-    model = create_vit()
+    proj, embed = learner(images, return_embedding = True)
+    assert proj.shape == (2, 256)
+    assert embed.shape == (2, 64)
+
+    embed_only = learner(images, return_embedding = True, return_projection = False)
+    assert embed_only.shape == (2, 64)
+
+def test_mlp_no_gelu_before_l2norm_and_single_layer():
+    mlp_multi = MLP(dim = 32, dim_out = 16, num_layers = 3, hidden_size = 24)
+    modules = list(mlp_multi.net)
+    l2_idx = next(i for i, m in enumerate(modules) if isinstance(m, L2Norm))
+    assert isinstance(modules[l2_idx - 1], nn.Linear)
+    assert mlp_multi(torch.randn(2, 32)).shape == (2, 16)
+
+    mlp_single = MLP(dim = 32, dim_out = 16, num_layers = 1, hidden_size = 24)
+    assert mlp_single(torch.randn(2, 32)).shape == (2, 16)
+
+def test_lejepa_non_square_image_size():
+    model = create_vit(image_size = (64, 48))
     learner = LeJEPA(
         model,
-        image_size = 64,
+        image_size = (64, 48),
         hidden_layer = 'to_latent',
-        projection_hidden_size = 64,
+        projection_hidden_size = 32,
         projection_layers = 2,
-        num_classes_K = 256,
-        use_ema = True,
-        moving_average_decay = 0.9
+        num_classes_K = 64
     )
 
-    assert learner.use_ema
-    assert not learner.use_sigreg
-    assert not learner.has_sigreg_loss
-    assert learner.target_encoder is not None
-
-    opt = torch.optim.Adam(learner.parameters(), lr = 3e-4)
-
-    images = torch.randn(2, 3, 64, 64)
-    loss = learner(images)
+    loss = learner(torch.randn(2, 3, 64, 48))
     loss.backward()
+    assert torch.isfinite(loss)
 
-    # check grads exist on online encoder and none on target encoder
-    assert any(p.grad is not None for p in learner.encoder.parameters())
-    assert all(p.grad is None for p in learner.target_encoder.parameters())
-
-    # check moving average update
-    param_before = list(learner.target_encoder.parameters())[0].clone()
-    opt.step()
-    learner.update_moving_average()
-    param_after = list(learner.target_encoder.parameters())[0]
-
-    assert not torch.equal(param_before, param_after)
-
-def test_lejepa_flag_resolution():
-    model = create_vit()
-
-    # default
-    l1 = LeJEPA(model, image_size = 64, hidden_layer = -1, projection_hidden_size = 32, num_classes_K = 64)
-    assert not l1.use_ema and l1.use_sigreg
-
-    # moving_average_decay implies use_ema
-    l2 = LeJEPA(model, image_size = 64, hidden_layer = -1, projection_hidden_size = 32, num_classes_K = 64, moving_average_decay = 0.95)
-    assert l2.use_ema and not l2.use_sigreg
-
-    # use_sigreg = False implies use_ema
-    l3 = LeJEPA(model, image_size = 64, hidden_layer = -1, projection_hidden_size = 32, num_classes_K = 64, use_sigreg = False)
-    assert l3.use_ema and not l3.use_sigreg
-
-    # both explicitly True
-    l4 = LeJEPA(model, image_size = 64, hidden_layer = -1, projection_hidden_size = 32, num_classes_K = 64, use_ema = True, use_sigreg = True)
-    assert l4.use_ema and l4.use_sigreg
+@pytest.mark.parametrize('dtype', [torch.float32, torch.float64, torch.float16, torch.bfloat16])
+def test_sigreg_loss_dtypes(dtype):
+    x = torch.randn(4, 32, dtype = dtype)
+    loss = sigreg_loss(x, num_slices = 64)
+    assert torch.isfinite(loss)

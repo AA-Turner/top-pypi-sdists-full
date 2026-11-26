@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import TYPE_CHECKING, Any
 
+from braintrust.integrations.utils import _parse_openai_audio_usage_metrics
 from braintrust.logger import Span
 
 
@@ -72,8 +73,8 @@ class Response:
     calls: set = field(default_factory=set)
     metrics: dict = field(default_factory=dict)
     metadata: dict = field(default_factory=dict)
+    model_metadata: dict = field(default_factory=dict)
     span_ended: bool = False
-    usage_present: bool | None = None
     modality: str | None = None
     audio_sources: dict = field(default_factory=dict)
     context: list = field(default_factory=list)
@@ -153,7 +154,7 @@ class Response:
         if self.ended is not None:
             timing["end"] = self.ended
         self.span.log(metrics=timing)
-        self.llm_span.log(metrics={**self.metrics, **timing})
+        self.llm_span.log(metrics={**self.metrics, **timing}, metadata=self.model_metadata)
         for span in (self.span, self.llm_span):
             if self.metadata:
                 span.log(metadata=self.metadata)
@@ -195,6 +196,7 @@ class Realtime:
         self.closed = False
         self.connected = False
         self.raw_events = False
+        self.session_id: str | None = None
         self.original_push = native.push_audio
 
         def push_audio(frame):
@@ -236,7 +238,8 @@ class Realtime:
     def response(self, identifier):
         key = (self.epoch, identifier)
         if key not in self.responses:
-            self.responses[key] = Response(self, identifier)
+            metadata = {"contrib.livekit.session_id": self.session_id} if self.session_id else {}
+            self.responses[key] = Response(self, identifier, model_metadata=metadata)
         return self.responses[key]
 
     def input_frame(self, start, duration):
@@ -277,6 +280,7 @@ class Realtime:
                 if self.connected:
                     self.reconnected(None)
                 self.connected = True
+                self.session_id = event.get("session", {}).get("id")
             # Use acknowledged provider configuration, including live updates.
             if allowed:
                 instructions = event.get("session", {}).get("instructions")
@@ -293,6 +297,8 @@ class Realtime:
             record = self.response(native["id"])
             record.created = now
             request_id = (native.get("metadata") or {}).get("client_event_id")
+            if request_id:
+                record.model_metadata["contrib.livekit.client_event_id"] = request_id
             # A request override replaces session instructions verbatim.
             options = {**self.model_options, **self.response_options.pop(request_id, {})}
             instructions = options.get("instructions")
@@ -321,7 +327,10 @@ class Realtime:
             record = self.response(native["id"])
             record.status = native.get("status", "incomplete")
             record.ended = now
-            record.usage_present = isinstance(native.get("usage"), dict)
+            usage = native.get("usage")
+            if isinstance(usage, dict):
+                record.model_metadata["contrib.livekit.usage"] = usage
+                record.metrics.update(_parse_openai_audio_usage_metrics(usage))
             details = native.get("status_details") or {}
             for name, value in (
                 ("type", details.get("type")),
@@ -430,7 +439,7 @@ class Realtime:
         record.ended = event.timestamp + event.duration
         if record.status is None:
             record.status = "cancelled" if event.cancelled else "completed"
-        if record.usage_present is not False:
+        if not self.raw_events:
             record.metrics.update(
                 {
                     "prompt_tokens": event.input_tokens,
@@ -441,14 +450,27 @@ class Realtime:
                     "prompt_cached_tokens": event.input_token_details.cached_tokens,
                 }
             )
+            record.model_metadata["contrib.livekit.usage"] = event.model_dump(
+                include={
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                    "input_token_details",
+                    "output_token_details",
+                },
+                exclude_unset=True,
+            )
         if event.ttft >= 0 and record.modality is not None:
             record.metrics["time_to_first_token"] = event.ttft
             if record.modality == "audio":
                 record.metrics["time_to_first_audio"] = event.ttft
-        if event.input_token_details.cached_tokens_details is not None:
-            record.metadata["contrib.livekit.cached_tokens"] = (
-                event.input_token_details.cached_tokens_details.model_dump()
-            )
+        cached_details = event.input_token_details.cached_tokens_details
+        if cached_details is not None:
+            record.model_metadata["contrib.livekit.cached_tokens"] = cached_details.model_dump()
+            if not self.raw_events and "audio_tokens" in cached_details.model_fields_set:
+                count = cached_details.audio_tokens
+                if type(count) is int and count >= 0:
+                    record.metrics["prompt_cached_audio_tokens"] = count
         record.publish()
 
     def output(self, record, item, index, publish=True):

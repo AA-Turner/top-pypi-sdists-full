@@ -7,10 +7,11 @@ import stat
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from dataclasses import field as dataclass_field
 from math import isfinite
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 from urllib.parse import quote, unquote
 
 from . import (
@@ -957,6 +958,7 @@ egress.register_projector(
         "source_versions",
         "view",
         "agent_history",
+        "unresolved_links",
     ),
 )
 egress.register_projector(
@@ -1116,10 +1118,29 @@ def _authorize(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class LinkResolution:
+    """What a link value names for one reader: `page` (with its path), `row` (with its label),
+    `ambiguous` (with the visible candidate paths) or `none`."""
+
+    kind: str
+    path: str | None = None
+    candidates: tuple[str, ...] = ()
+    label: str | None = None
+
+
+#: How a link projector that can borrow no published corpus gets its index. These are the
+#: projector's own routes, each implemented below: walk the vault ("walk"), walk only when no corpus
+#: is coming ("unless_corpus_coming", for a query, see `semantic_contract.link_corpus_coming`), or
+#: never walk ("never").
+ColdIndex = Literal["walk", "unless_corpus_coming", "never"]
+
+
 @dataclass(slots=True)
 class _LinkProjector:
     root: Path
-    manifest: collections.CollectionManifest
+    # None for a projector that only resolves pages (`page_with_identity`) and projects no row.
+    manifest: collections.CollectionManifest | None
     resolver: vault.WikilinkResolver
     memory_targets: Mapping[str, tuple[str, ...]]
     admitted: dict[str, bool]
@@ -1134,7 +1155,18 @@ class _LinkProjector:
     # visibility test for pages the projector only consults. `authorize_path` can carry
     # receipts, and a receipt claims a release, so it decides only a link's final target.
     visible_path: Callable[[str], bool] | None = None
-    walk_allowed: bool = True
+    cold_index: ColdIndex = "walk"
+    # Whether the published corpus was asked for yet, and whether this projector goes without the
+    # index because a corpus is coming; both are settled once, on the first need.
+    borrow_settled: bool = False
+    corpus_coming: bool = False
+    # Whether a walk for the index stopped at one of its caps, so links it did not index were withheld.
+    walk_stopped_short: bool = False
+    # The stripped link values withheld unchecked while a corpus is coming or after a walk stopped short,
+    # and what held them: a top-level field by name, and a child column by `id`, because two child
+    # tables may declare equal columns (`_link_fields` reads both).
+    unchecked_values: set[str] = dataclass_field(default_factory=set)
+    unchecked: set[str | int] = dataclass_field(default_factory=set)
     # The published corpus generation lent for this projector's life, when the index came
     # from it instead of a walk, and its per-identity owner lookup.
     borrowed: Any | None = None
@@ -1142,46 +1174,57 @@ class _LinkProjector:
     # The retired item paths that this projector's links name, made on the first such link. It
     # reads each linked collection once for the whole query, however many of its rows are named.
     retired_links: Any | None = None
+    # What `_decide` learned about each stripped value it let through or turned away, for `resolve`:
+    # the visible page a value named, and the visible pages an ambiguous title matched.
+    named_pages: dict[str, str] = dataclass_field(default_factory=dict)
+    ambiguous_pages: dict[str, tuple[str, ...]] = dataclass_field(default_factory=dict)
+    # The label of the row that a canonical row ref names for this reader, or None when the reader may not read
+    # it. Only a creator that reads rows through a query session supplies it
+    # (`reference_resolution.row_labeller`); without one a row ref is withheld, as it was before rows resolved.
+    row_label: Callable[[tuple[str, str, str]], str | None] | None = None
+    named_rows: dict[str, str] = dataclass_field(default_factory=dict)
 
     @classmethod
     def create(
         cls,
         root: Path,
-        manifest: collections.CollectionManifest,
+        manifest: collections.CollectionManifest | None,
         *,
         policy: Any | None = None,
-        allow_cold_index: bool = True,
+        cold_index: ColdIndex = "walk",
         authorize_path: Callable[[str], bool] | None = None,
         visible_path: Callable[[str], bool] | None = None,
+        row_label: Callable[[tuple[str, str, str]], str | None] | None = None,
     ) -> _LinkProjector:
         # Keep the common numeric/event query path independent of vault-wide
         # link lookup. Even link-bearing collections defer that lookup until a
         # bare title or memory identity actually needs it.
         #
         # The lookup first borrows the published corpus generation, which costs no
-        # walk. Only when none can be borrowed does it walk the vault, within the
-        # caps below.
+        # walk. When none can be borrowed, `cold_index` decides whether it walks the
+        # vault, within the caps below.
         #
-        # `allow_cold_index=False` (bounded-latency callers only, e.g. late
-        # link projection) never takes that walk: when no generation can be
-        # borrowed it starts in the existing "index incomplete" state instead,
-        # so a bare title or memory reference resolves exactly as it already
-        # does whenever a cold walk hits its cap mid-scan -- withheld, never a
-        # new public state -- and `vault.walk_vault_md` is never called.
+        # A projector that does not walk starts in the existing "index incomplete"
+        # state instead, so a bare title or memory reference resolves exactly as it
+        # already does whenever a cold walk hits its cap mid-scan -- withheld -- and
+        # `vault.walk_vault_md` is never called. A query names the fields it withheld
+        # that way in `unresolved_links`, and refuses to select on them (`awaits_corpus`).
         # Path-shaped links never needed the index and keep resolving and being
         # authorized as today.
         empty = vault.WikilinkResolver.from_entries(root, ())
         return cls(root, manifest, empty, {}, {}, None, {}, {}, policy, authorize_path,
-                   visible_path, allow_cold_index)
+                   visible_path, cold_index, row_label=row_label)
 
-    def _candidate_index_available(self) -> bool:
-        if self.candidate_index_complete is not None:
-            return self.candidate_index_complete
+    def _borrow_index(self) -> None:
+        """Borrow the published generation, once. Without one, settle the index unless this projector walks for it."""
+        if self.borrow_settled:
+            return
+        self.borrow_settled = True
         # Lazy: `semantic_contract` imports a module that imports this one.
         from . import semantic_contract
 
         with call_spans.span("records.link_index", {}) as measured:
-            borrowed = semantic_contract.borrow_link_snapshot(self.root, declined=measured)
+            borrowed, reason = semantic_contract.borrow_link_snapshot(self.root, declined=measured)
             if borrowed is not None:
                 self.borrowed = borrowed
                 self.owners_of = memory_refs.reference_owner_lookup(
@@ -1190,14 +1233,64 @@ class _LinkProjector:
                     admit_pending_paths=lambda paths: [path for path in paths if self._visible(path)],
                 )
                 complete, route = True, "borrowed"
-            elif not self.walk_allowed:
+            elif self.cold_index == "never":
                 complete, route = False, "incomplete"
+            elif self.cold_index == "unless_corpus_coming" and semantic_contract.link_corpus_coming(
+                self.root, reason
+            ):
+                self.corpus_coming = True
+                complete, route = False, "awaited"
             else:
-                complete = self._walk_candidate_index()
-                route = "walk" if complete else "incomplete"
+                return  # the walk settles it, on the first value that needs the index
             measured[route] = 1
         self.candidate_index_complete = complete
-        return complete
+
+    def _candidate_index_available(self) -> bool:
+        if self.candidate_index_complete is None:
+            self._borrow_index()
+        if self.candidate_index_complete is None:
+            with call_spans.span("records.link_walk", {}) as measured:
+                complete = self._walk_candidate_index()
+                measured["walk" if complete else "incomplete"] = 1
+            self.candidate_index_complete, self.walk_stopped_short = complete, not complete
+        return self.candidate_index_complete
+
+    def index_available(self) -> bool:
+        """Whether a bare title or a memory identity can resolve for this reader at all, without a cold walk
+        when the projector was made without one."""
+        return self._candidate_index_available()
+
+    def awaits_corpus(self) -> bool:
+        """Whether this projector goes without its index because a published corpus is coming.
+
+        It borrows when nothing has asked yet, and never walks. It depends on no link value, so
+        the answer tells a reader nothing about a link that was withheld.
+        """
+        self._borrow_index()
+        return self.corpus_coming
+
+    def page_with_identity(self, identity: str) -> str | None:
+        """The one page this reader may see holding the memory identity, else None.
+
+        A withheld page, a missing page and two visible pages holding it all answer None. Call
+        `index_available` first: without the index every identity answers None.
+        """
+        return self._memory_target(identity) if self._candidate_index_available() else None
+
+    def resolve(self, value: str) -> LinkResolution:
+        """What one link value names for this reader: one visible page or row, several pages, or none.
+
+        It decides as a read does, through `_decide`, so a write and a later read cannot disagree. A
+        value that names no row or page this reader may see answers `none`, whether it is withheld or missing.
+        """
+        raw = value.strip()
+        if self._allowed(raw):
+            if raw in self.named_rows:
+                return LinkResolution("row", label=self.named_rows[raw])
+            page = self.named_pages.get(raw)
+            return LinkResolution("page", page) if page is not None else LinkResolution("none")
+        candidates = self.ambiguous_pages.get(raw)
+        return LinkResolution("ambiguous", candidates=candidates) if candidates else LinkResolution("none")
 
     def _visible(self, relative: str) -> bool:
         """Whether this reader may see `relative`, decided live and once per page."""
@@ -1315,11 +1408,13 @@ class _LinkProjector:
         return complete
 
     def __call__(self, values: Mapping[str, Any]) -> dict[str, Any]:
+        if self.manifest is None:
+            raise TypeError("a page-only link projector projects no row")
         projected = dict(values)
         for name, spec in self.manifest.schema.fields.items():
             if name not in projected:
                 continue
-            value = self._project_value(projected[name], spec)
+            value = self._project_value(projected[name], spec, name)
             if value is None or (spec.type == "array" and not value):
                 projected.pop(name)
             else:
@@ -1332,7 +1427,7 @@ class _LinkProjector:
         """Project only declared nested links at the audience egress boundary."""
         if column.type != "link":
             return value
-        return self._project_value(value, collections.FieldSpec("link", link_kind=column.link_kind))
+        return self._project_value(value, collections.FieldSpec("link", link_kind=column.link_kind), id(column))
 
     @staticmethod
     def carries_links(spec: collections.FieldSpec) -> bool:
@@ -1341,18 +1436,24 @@ class _LinkProjector:
             spec.type == "array" and spec.items is not None and _LinkProjector.carries_links(spec.items)
         )
 
-    def _project_value(self, value: Any, spec: collections.FieldSpec) -> Any:
+    def _project_value(self, value: Any, spec: collections.FieldSpec, holder: str | int | None = None) -> Any:
+        """`value` as this reader may see it; `holder`, the field or column that holds it, is noted when
+        a value is withheld unchecked."""
         if not self.carries_links(spec):
             return value
         if spec.type == "array" and spec.items is not None and isinstance(value, list | tuple):
             return [
                 result
                 for item in value
-                if (result := self._project_value(item, spec.items)) is not None
+                if (result := self._project_value(item, spec.items, holder)) is not None
             ]
         if spec.type != "link" or type(value) is not str:
             return value
-        return value if self._allowed(value) else None
+        if self._allowed(value):
+            return value
+        if holder is not None and value.strip() in self.unchecked_values:
+            self.unchecked.add(holder)
+        return None
 
     def _allowed(self, value: str) -> bool:
         raw = value.strip()
@@ -1365,13 +1466,23 @@ class _LinkProjector:
         try:
             if raw.lower().startswith(memory_refs.REF_PREFIX):
                 if not self._candidate_index_available():
-                    return False
+                    return self._unchecked(raw)
                 identity = memory_refs.parse_memory_ref(raw)
                 if identity is None or raw != memory_refs.memory_ref(identity):
                     return False
                 target = self._memory_target(identity)
                 if target is None:
                     return self._remember(f"memory:{identity}", False)
+            elif (row := collections.parse_row_ref(raw)) is not None:
+                # A canonical row ref names a row, not a page. It resolves under this reader's own visibility of
+                # that row, and a withheld row, a missing row and an unreadable collection answer alike.
+                if self.row_label is None or raw != collections._profile_item_ref(*row):  # noqa: SLF001
+                    return False
+                label = self.row_label(row)
+                if label is None:
+                    return False
+                self.named_rows[raw] = label
+                return True
             elif raw.lower().startswith(("exomem://vault/", "exomem://source/")):
                 target = memory_refs.resolve_identifier_read_only(self.root, raw)
             elif (match := re.fullmatch(r"\[\[([^\[\]]+)\]\]", raw)) is not None:
@@ -1381,7 +1492,7 @@ class _LinkProjector:
                 target_text = inner.split("|", 1)[0].strip().split("#", 1)[0].strip()
                 bare = "/" not in target_text
                 if bare and not self._candidate_index_available():
-                    return False
+                    return self._unchecked(raw)
                 # A bare title resolves over the borrowed generation filtered to the pages
                 # this reader may see. A path-shaped link never reads the borrowed index, so
                 # its verdict does not depend on which value came first; the pages that claim
@@ -1404,6 +1515,9 @@ class _LinkProjector:
                         targeted_namespace_contains=self._names_file,
                         visible=visible, retired=self._retired_target,
                     )
+                except vault.AmbiguousWikilinkError as error:
+                    self.ambiguous_pages[raw] = error.candidates
+                    return False
                 except vault.WikilinkError:
                     return False
                 target = canonical.split("#", 1)[0] + ".md"
@@ -1441,13 +1555,23 @@ class _LinkProjector:
         except (memory_refs.ReferenceError, vault.PathGuardError):
             return False
         if relative in self.verdicts:
-            return self.verdicts[relative]
-        if relative in self.admitted and not self.admitted[relative]:
-            return self._remember(relative, False)
-        with call_spans.span("records.link_authorize"):
-            allowed = (self.authorize_path(relative) if self.authorize_path is not None
-                       else _authorize(self.root, relative, receipt=True, policy=self.policy))
-        return self._remember(relative, allowed)
+            allowed = self.verdicts[relative]
+        elif relative in self.admitted and not self.admitted[relative]:
+            allowed = self._remember(relative, False)
+        else:
+            with call_spans.span("records.link_authorize"):
+                allowed = self._remember(relative, (
+                    self.authorize_path(relative) if self.authorize_path is not None
+                    else _authorize(self.root, relative, receipt=True, policy=self.policy)))
+        if allowed:
+            self.named_pages[raw] = relative
+        return allowed
+
+    def _unchecked(self, raw: str) -> bool:
+        """Withhold `raw` for want of the index, noting it when a corpus is coming or a walk stopped short."""
+        if self.corpus_coming or self.walk_stopped_short:
+            self.unchecked_values.add(raw)
+        return False
 
     def _names_file(self, key: str) -> bool:
         """Whether the explicit link key `key` names a Markdown file, as the target check reads it.
@@ -1554,9 +1678,17 @@ def query_collection(
     no public tool surface declares it, so nothing in a caller's input can
     ever set it. It only ever comes from an internal caller such as the
     current-state lookup, and it asks `record_formats.query_collection` to
-    defer link governance until after the row limit and to skip a cold
-    vault-wide candidate-index build meanwhile; see its docstring for the
+    defer link governance until after the row limit; see its docstring for the
     preconditions that must hold before that request is actually honoured.
+
+    A query walks the vault for its link index only when no published one is coming
+    (`semantic_contract.link_corpus_coming`). While one is coming, a link field's memory
+    references and bare titles are left out, the result names each returned field that lost one
+    in `unresolved_links`, and a query that filters, sorts or aggregates on a link field is refused
+    with the retryable `LINK_INDEX_WARMING`. When the walk stops at its cap, the same fields are
+    named, and a selection on a field that lost a value is refused with `LINK_INDEX_INCOMPLETE`.
+    This is the flat query grammar only: a version-1 query (`query_engine.route`) keeps building
+    its index inside its own deadline.
     """
     root = Path(vault_root)
     writer = selected_writer(root, collection)
@@ -1595,17 +1727,25 @@ def query_collection(
                 )
             if writer is None and not authorize_path(manifest.storage.source):
                 raise collections.CollectionError("COLLECTION_NOT_FOUND", "collection was not found")
+            # A query walks the vault for its link index only when no published one is coming: a walk
+            # inside the query deadline outran the Records budget on vaults the walk's cap admits.
             links = _LinkProjector.create(
-                root, manifest, policy=policy, allow_cold_index=not late_link_projection,
+                root, manifest, policy=policy,
+                cold_index="never" if late_link_projection else "unless_corpus_coming",
                 authorize_path=authorize_path, visible_path=visible_path,
             )
             # Without a store there is no field plan: a collection released to the caller is read whole.
             plan = None if writer is None else writer._operation.field_plan(manifest)
             readable = manifest if plan is None else plan.manifest
             view = kwargs.get("view")
+            shaping = kwargs
             if view is not None:
-                _authorize_saved_view(root, manifest, view, links, readable=(
-                    None if plan is None or plan.holds_every_field(manifest) else readable))
+                # A view that names a field the caller's plan withholds is unavailable to that caller.
+                shaping = _authorize_saved_view(root, manifest, view, links, readable=(
+                    None if plan is None or plan.holds_every_field(manifest) else readable)).definition["query"]
+            # Without the index a link field's values are left out, so selecting on one would answer wrongly.
+            if (selected := _selected_link_fields(readable, shaping)) and links.awaits_corpus():
+                raise _link_index_warming(selected)
             try:
                 result = record_formats.query_collection(
                     root,
@@ -1622,8 +1762,106 @@ def query_collection(
                 if error.code != "INVALID_RECORD_QUERY_FIELD":
                     raise
                 raise _with_readable_columns(error, readable, kwargs) from error
+            # Only a field that lost a value to a missing index can answer wrongly or be marked.
+            unchecked = _link_fields(readable, result.query, links)
+            if lost := tuple(name for name in selected if name in unchecked):
+                raise _link_index_incomplete(lost)
+            if returned := tuple(name for name in _returned_link_fields(result, readable) if name in unchecked):
+                result = replace(result, unresolved_links=returned)
         egress.emit_boundary_receipt(collector)
         return result
+
+
+def _link_fields(
+    manifest: collections.CollectionManifest, query: Any, unchecked_in: _LinkProjector | None = None
+) -> tuple[str, ...]:
+    """The fields of a reply to `query` whose link values projection can withhold, named as its columns name
+    them, in manifest order: each top-level link field, the link columns of the child table it expands,
+    and each other child table that carries links. With `unchecked_in`, only those in which that projector
+    withheld a value unchecked.
+    """
+    expanded = _expanded_child(manifest, query)
+    tables = {table.field: table for table in manifest.child_tables}
+    names: list[str] = []
+    for name, spec in manifest.schema.fields.items():
+        if (table := tables.get(name)) is None:
+            if _LinkProjector.carries_links(spec) and (unchecked_in is None or name in unchecked_in.unchecked):
+                names.append(name)
+            continue
+        columns = [column.field for column in table.columns if column.type == "link"
+                   and (unchecked_in is None or id(column) in unchecked_in.unchecked)]
+        names.extend(columns if name == expanded else [name] if columns else [])
+    return tuple(names)
+
+
+def _expanded_child(manifest: collections.CollectionManifest, query: Any) -> str | None:
+    """The child field whose rows `query` expands, else None, also for an expansion that validation refuses."""
+    if not isinstance(query, Mapping):
+        return None
+    try:
+        return record_formats.expanded_child(manifest, query)
+    except collections.CollectionError:
+        return None
+
+
+def _selected_link_fields(manifest: collections.CollectionManifest, query: Mapping[str, Any]) -> tuple[str, ...]:
+    """The link fields of `manifest` whose values decide which rows `query` returns or what its aggregate
+    says, named as `_link_fields` names them."""
+    links = _link_fields(manifest, query)
+    roots = None if not links else record_formats.selection_columns(
+        manifest, filters=query.get("filters"), sort_by=query.get("sort_by"),
+        date_column=query.get("date_column"), date_from=query.get("date_from"),
+        date_to=query.get("date_to"), aggregate=query.get("aggregate"),
+    )
+    if roots is None:
+        # A profile reads every column; any other None is a shape that validation refuses, so let it answer.
+        return links if record_formats.is_profile_aggregate(query.get("aggregate")) else ()
+    return tuple(name for name in links if name in roots)
+
+
+#: The wait a query that selects on a link field is told to take before it asks again for the link index.
+_LINK_INDEX_RETRY_MS = 2000
+
+
+def _link_index_warming(fields: Sequence[str]) -> collections.CollectionError:
+    """The retryable refusal of a query that selects on link fields while the link index is coming."""
+    return collections.CollectionError(
+        "LINK_INDEX_WARMING",
+        f"the link index is still being built, so this query cannot yet filter, sort or aggregate on "
+        f"{collections.listed_within(fields)}",
+        {
+            "retry_after_ms": _LINK_INDEX_RETRY_MS,
+            "remediation": "Retry the same query shortly, or query without selecting on those link fields.",
+        },
+    )
+
+
+def _link_index_incomplete(fields: Sequence[str]) -> collections.CollectionError:
+    """The refusal of a query that selected on link fields after its walk for the link index stopped at a cap."""
+    return collections.CollectionError(
+        "LINK_INDEX_INCOMPLETE",
+        f"the link index covers only part of this vault, so this query cannot filter, sort or "
+        f"aggregate on {collections.listed_within(fields)}",
+        {"remediation": "Query without selecting on those link fields; a published link index covers every page."},
+    )
+
+
+def _returned_link_fields(
+    result: record_formats.RecordQueryResult, manifest: collections.CollectionManifest
+) -> tuple[str, ...]:
+    """The link fields whose values `result` returns: its columns' own, every one for a whole row, else none."""
+    links = _link_fields(manifest, result.query)
+    if result.aggregate is not None:
+        # Only a `latest` answer returns a row; the other aggregates return no field value.
+        carries_row = isinstance(result.aggregate, Mapping) and result.aggregate.get("row") is not None
+        return links if carries_row else ()
+    if not result.rows:
+        return ()
+    columns = result.query.get("columns")
+    if not columns:
+        return links
+    roots = {str(column).split(".", 1)[0] for column in columns}
+    return tuple(name for name in links if name in roots)
 
 
 def _with_readable_columns(
@@ -1691,6 +1929,9 @@ def _authorize_saved_view(
         spec = _saved_view_field_spec(manifest, query, column) if type(column) is str else None
         if spec is None:
             continue
+        if _LinkProjector.carries_links(spec) and links.awaits_corpus():
+            # The value is checked once the link index is published, so a retry then can answer.
+            raise _link_index_warming((column,))
         if not _saved_view_filter_links_are_authorized(raw["value"], spec, links):
             raise collections.CollectionError(
                 "SAVED_VIEW_NOT_AVAILABLE", "saved view is not available"
@@ -2768,6 +3009,8 @@ def project_query_result(
         or not _valid_saved_view(result.view, manifest)
         or not _valid_agent_history(agent_history)
         or (result.continuation is not None and type(result.continuation) is not str)
+        or not isinstance(result.unresolved_links, tuple)
+        or not set(result.unresolved_links) <= set(_link_fields(manifest, result.query))
         or (
             isinstance(result.continuation, str)
             and not record_formats.validate_continuation(
@@ -2820,6 +3063,7 @@ def project_query_result(
         source_versions=source_versions,
         columns=columns,
         view=dict(result.view) if isinstance(result.view, Mapping) else None,
+        unresolved_links=result.unresolved_links,
     )
     try:
         rendered = record_formats.render_query_result(typed, output_format=output_format)
@@ -2845,6 +3089,7 @@ def project_query_result(
             ],
             "view": typed.view,
             **({"agent_history": dict(agent_history)} if agent_history is not None else {}),
+            **({"unresolved_links": list(typed.unresolved_links)} if typed.unresolved_links else {}),
             "rendered": rendered,
         }
     )

@@ -12,6 +12,7 @@ from twisted.python import log
 from wormhole import __version__, create, input_with_completion
 
 from ..errors import TransferError
+from .._status import WormholeStatus, AllegedSharedKey, ConfirmedKey
 from ..transit import TransitReceiver
 from ..util import (bytes_to_dict, bytes_to_hexstr, dict_to_bytes,
                     estimate_free_space)
@@ -55,6 +56,11 @@ class Receiver:
         self._reactor = reactor
         self._tor = None
         self._transit_receiver = None
+        self._old_status = WormholeStatus()
+        self._KEY_TIMER = KEY_TIMER
+        self._slow_key_timer = None
+        self._VERIFY_TIMER = VERIFY_TIMER
+        self._slow_verification_timer = None
 
     def _msg(self, *args, **kwargs):
         print(*args, file=self.args.stderr, **kwargs)
@@ -80,6 +86,7 @@ class Receiver:
             self._reactor,
             tor=self._tor,
             timing=self.args.timing,
+            on_status_update=self._on_status,
         )
         if self.args.debug_state:
             w.debug_set_trace("recv", which=" ".join(self.args.debug_state), file=self.args.stdout)
@@ -118,6 +125,46 @@ class Receiver:
         d.addCallbacks(_good, _bad)
         yield d
 
+    def _on_slow_key(self):
+        print("Waiting for sender...", file=self.args.stderr)
+
+    def _start_on_slow_key_timer(self):
+        if not self._slow_key_timer:
+            self._slow_key_timer = self._reactor.callLater(self._KEY_TIMER, self._on_slow_key)
+
+    def _cancel_on_slow_key_timer(self):
+        if self._slow_key_timer and not self._slow_key_timer.called:
+            self._slow_key_timer.cancel()
+            self._slow_key_timer = None
+
+    def _on_slow_verification(self):
+        print("Key established, waiting for confirmation...", file=self.args.stderr)
+
+    def _start_on_slow_verification_timer(self):
+        if not self._slow_verification_timer:
+            self._slow_verification_timer = self._reactor.callLater(self._VERIFY_TIMER, self._on_slow_verification)
+
+    def _cancel_on_slow_verification_timer(self):
+        t = self._slow_verification_timer
+        if t and not t.called:
+            t.cancel()
+            self._slow_verification_timer = None
+
+    def _on_status(self, status):
+        if status.peer_key != self._old_status.peer_key:
+            match status.peer_key:
+                case AllegedSharedKey():
+                    # This fires when we connect to the server and see the
+                    # senders PAKE message. If we used set_code() in the
+                    # "human-selected offline codes" mode, then the sender
+                    # might not have even started yet, so this might not
+                    # fire for a while.
+                    self._cancel_on_slow_key_timer()
+                    self._start_on_slow_verification_timer()
+                case ConfirmedKey():
+                    self._cancel_on_slow_verification_timer()
+        self._old_status = status
+
     @inlineCallbacks
     def _go(self, w):
         welcome = yield w.get_welcome()
@@ -126,29 +173,9 @@ class Receiver:
 
         yield self._handle_code(w)
 
-        def on_slow_key():
-            print("Waiting for sender...", file=self.args.stderr)
+        # this prints a pacifier message unless we get a key quickly
+        self._start_on_slow_key_timer()
 
-        notify = self._reactor.callLater(KEY_TIMER, on_slow_key)
-        try:
-            # We wait here until we connect to the server and see the senders
-            # PAKE message. If we used set_code() in the "human-selected
-            # offline codes" mode, then the sender might not have even
-            # started yet, so we might be sitting here for a while. Because
-            # of that possibility, it's probably not appropriate to give up
-            # automatically after some timeout. The user can express their
-            # impatience by quitting the program with control-C.
-            yield w.get_unverified_key()
-        finally:
-            if not notify.called:
-                notify.cancel()
-
-        def on_slow_verification():
-            print(
-                "Key established, waiting for confirmation...",
-                file=self.args.stderr)
-
-        notify = self._reactor.callLater(VERIFY_TIMER, on_slow_verification)
         try:
             # We wait here until we've seen their VERSION message (which they
             # send after seeing our PAKE message, and has the side-effect of
@@ -164,8 +191,9 @@ class Receiver:
             # long.
             verifier_bytes = yield w.get_verifier()
         finally:
-            if not notify.called:
-                notify.cancel()
+            self._cancel_on_slow_key_timer()
+            self._cancel_on_slow_verification_timer()
+
         self._show_verifier(verifier_bytes)
 
         want_offer = True
@@ -474,7 +502,8 @@ class Receiver:
         zf.extract(info.filename, path=extract_dir)
 
         # not sure why zipfiles store the perms 16 bits away but they do
-        perm = info.external_attr >> 16
+        # strip the high bits for safety
+        perm = (info.external_attr >> 16) & 0o755
         os.chmod(out_path, perm)
 
     def _write_directory(self, f):

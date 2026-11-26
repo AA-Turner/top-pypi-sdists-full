@@ -7,6 +7,7 @@ from typing import Any
 from ...sdk.reads import nonfinite
 from ...sdk.values.run_command_words import CommandListPart
 from ...sdk.client.resources.runs.metrics import SOURCE_READ_CONTRACT
+from ...sdk.client import RunsPage
 from probe.mcp.source.people import PeopleFilters
 
 
@@ -174,10 +175,10 @@ class RunReadsMixin:
         exclude_origin_session: str | None = None,
         query: RunListQuery = RunListQuery(),
         people: PeopleFilters = PeopleFilters(),
-    ) -> tuple[list[dict], str | None]:
+    ) -> RunsPage:
         """``GET /v1/runs``: one page of the lab's runs, NEWEST FIRST (or in ``query.order``, one top-N page and no
-        cursor), and the keyset cursor past it. ``active`` is the server's liveness filter (status running AND a
-        heartbeat inside the window), not a status."""
+        cursor), the keyset cursor past it, and the keys ``latest_metrics=["*"]`` resolved to. ``active`` is the
+        server's liveness filter (status running AND a heartbeat inside the window), not a status."""
         page = self.client.list_runs(
             project_id=project_id,
             experiment_id=experiment_id,
@@ -195,7 +196,9 @@ class RunReadsMixin:
             since=people.since,
             until=people.until,
         )
-        return list(page.items), page.next_cursor
+        return RunsPage(
+            items=list(page.items), next_cursor=page.next_cursor, latest_metrics_keys=page.latest_metrics_keys
+        )
 
     def run_counts(
         self,

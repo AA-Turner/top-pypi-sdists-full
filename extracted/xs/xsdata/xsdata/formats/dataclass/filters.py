@@ -23,6 +23,12 @@ from xsdata.utils import collections, namespaces, text
 from xsdata.utils.objects import literal_value
 
 
+class Code(str):
+    """A python expression, rendered verbatim instead of as a string literal."""
+
+    __slots__ = ()
+
+
 class Filters:
     """Jinja filters for code generation."""
 
@@ -119,9 +125,11 @@ class Filters:
                 "field_definition": self.field_definition,
                 "class_name": self.class_name,
                 "class_bases": self.class_bases,
+                "enum_base": self.enum_base,
                 "class_annotations": self.class_annotations,
                 "class_params": self.class_params,
                 "format_string": self.format_string,
+                "quote": self.quote,
                 "format_docstring": self.format_docstring,
                 "constant_name": self.constant_name,
                 "constant_value": self.constant_value,
@@ -200,6 +208,27 @@ class Filters:
                     bases.append(ext.func_name)
 
         return collections.unique_sequence(bases)
+
+    @staticmethod
+    def enum_base(obj: Class) -> str:
+        """Return the enum base class name for the given enumeration class.
+
+        Members with a single native type that is exactly str or int
+        across the whole class pick StrEnum or IntEnum. Everything else,
+        e.g. bool, Decimal, QName, tokens or mixed types, stays Enum.
+        """
+        bases = {str: "StrEnum", int: "IntEnum"}
+        types = set()
+        for attr in obj.attrs:
+            if attr.is_tokens or len(attr.types) != 1 or not attr.types[0].native:
+                return "Enum"
+
+            types.update(attr.native_types)
+
+        if len(types) == 1:
+            return bases.get(types.pop(), "Enum")
+
+        return "Enum"
 
     @classmethod
     def _parent_match(clazz, ext: GeneratorExtension, obj: Class) -> bool:
@@ -445,6 +474,7 @@ class Filters:
             "type": attr.xml_type,
             "namespace": namespace,
             "mixed": attr.mixed,
+            "empty_value": attr.empty_value,
             "choices": self.field_choices(obj, attr, parent_namespace),
             **restrictions,
         }
@@ -480,6 +510,7 @@ class Filters:
                 "wildcard": choice.is_wildcard,
                 "type": self.choice_type(obj, choice),
                 "namespace": namespace,
+                "empty_value": choice.empty_value,
             }
 
             if choice.is_nameless:
@@ -525,6 +556,9 @@ class Filters:
         if collections.is_array(data):
             return self.format_iterable(data, indent)
 
+        if isinstance(data, Code):
+            return data
+
         if isinstance(data, str):
             return self.format_string(data, indent, key, 4)
 
@@ -558,15 +592,6 @@ class Filters:
         length and the additional pad is more than the max line length,
         wrap the text into multiple lines, avoiding breaking long words
         """
-        if data.startswith("ForwardRef("):
-            return data
-
-        if data.startswith("Type["):
-            return data[5:-1]
-
-        if data.startswith("Literal[") and data.endswith("]"):
-            return data[8:-1]
-
         if key in (self.FACTORY_KEY, self.DEFAULT_KEY):
             return data
 
@@ -596,6 +621,11 @@ class Filters:
             )
         )
         return f"(\n{value}\n{' ' * indent})"
+
+    @staticmethod
+    def quote(value: str) -> str:
+        """Return the value as an escaped double-quoted string literal."""
+        return f'"{text.escape_string(value)}"'
 
     def text_wrap(
         self, string: str, offset: int = 0, subsequent_indent: str = "    "
@@ -770,7 +800,7 @@ class Filters:
 
         if attr.is_tokens:
             members = [
-                f"Literal[{class_name}.{self.constant_name(member, name)}]"
+                Code(f"{class_name}.{self.constant_name(member, name)}")
                 for member in reference.split("@")
             ]
             return f"lambda: {self.format_metadata(members, indent=8)}"
@@ -810,10 +840,13 @@ class Filters:
             result = iterable_fmt.format(result)
 
         if attr.is_list:
+            if attr.is_nillable:
+                result = f"None | {result}"
+
             return iterable_fmt.format(result)
 
         if attr.is_tokens:
-            return result
+            return f"None | {result}" if attr.is_nillable else result
 
         if attr.is_dict:
             if self.generic_collections:
@@ -854,12 +887,12 @@ class Filters:
 
         return result
 
-    def choice_type(self, obj: Class, choice: Attr) -> str:
+    def choice_type(self, obj: Class, choice: Attr) -> Code:
         """Generate type hints for the given choice.
 
         Choices support a subset of features from normal attributes.
         First of all we don't have a proper type hint but a type
-        metadata key. That's why we always need to wrap as Type[xxx].
+        metadata key. That's why we always return code, never a string.
         The second big difference is that our choice belongs to a
         compound field that might be a list, that's why list restriction
         is also ignored.
@@ -878,9 +911,9 @@ class Filters:
             result = iterable_fmt.format(result)
 
         if result.startswith('"'):
-            return f"ForwardRef({result})"
+            return Code(f"ForwardRef({result})")
 
-        return f"Type[{result}]"
+        return Code(result)
 
     def _field_type_names(
         self,
@@ -955,7 +988,11 @@ class Filters:
         return {
             "dataclasses": {"dataclass": ["@dataclass"], "field": [" = field("]},
             "decimal": {"Decimal": type_patterns("Decimal")},
-            "enum": {"Enum": ["(Enum)"]},
+            "enum": {
+                "Enum": ["(Enum)"],
+                "IntEnum": ["(IntEnum)"],
+                "StrEnum": ["(StrEnum)"],
+            },
             "typing": {
                 "ForwardRef": [": ForwardRef("],
                 "Any": type_patterns("Any"),

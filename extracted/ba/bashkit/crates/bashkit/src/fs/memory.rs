@@ -452,6 +452,8 @@ impl InMemoryFs {
             PathBuf::from("/"),
             FsEntry::Directory {
                 metadata: Metadata {
+                    uid: 1000,
+                    gid: 1000,
                     file_type: FileType::Directory,
                     size: 0,
                     mode: 0o755,
@@ -467,6 +469,8 @@ impl InMemoryFs {
                 PathBuf::from(dir),
                 FsEntry::Directory {
                     metadata: Metadata {
+                        uid: 1000,
+                        gid: 1000,
                         file_type: FileType::Directory,
                         size: 0,
                         // `/tmp` is world-writable and sticky, as on Linux.
@@ -485,6 +489,8 @@ impl InMemoryFs {
             FsEntry::File {
                 content: Vec::new(),
                 metadata: Metadata {
+                    uid: 1000,
+                    gid: 1000,
                     file_type: FileType::File,
                     size: 0,
                     mode: 0o666,
@@ -501,6 +507,8 @@ impl InMemoryFs {
                 FsEntry::File {
                     content: Vec::new(),
                     metadata: Metadata {
+                        uid: 1000,
+                        gid: 1000,
                         file_type: FileType::File,
                         size: 0,
                         mode: 0o666,
@@ -516,6 +524,8 @@ impl InMemoryFs {
             PathBuf::from("/dev/fd"),
             FsEntry::Directory {
                 metadata: Metadata {
+                    uid: 1000,
+                    gid: 1000,
                     file_type: FileType::Directory,
                     size: 0,
                     mode: 0o755,
@@ -818,6 +828,8 @@ impl InMemoryFs {
                         FsEntry::File {
                             content: content.clone(),
                             metadata: Metadata {
+                                uid: 1000,
+                                gid: 1000,
                                 file_type: FileType::File,
                                 size: content.len() as u64,
                                 mode: entry.mode,
@@ -832,6 +844,8 @@ impl InMemoryFs {
                         entry.path.clone(),
                         FsEntry::Directory {
                             metadata: Metadata {
+                                uid: 1000,
+                                gid: 1000,
                                 file_type: FileType::Directory,
                                 size: 0,
                                 mode: entry.mode,
@@ -847,6 +861,8 @@ impl InMemoryFs {
                         FsEntry::Symlink {
                             target: target.clone(),
                             metadata: Metadata {
+                                uid: 1000,
+                                gid: 1000,
                                 file_type: FileType::Symlink,
                                 size: 0,
                                 mode: entry.mode,
@@ -862,6 +878,8 @@ impl InMemoryFs {
                         FsEntry::Fifo {
                             content: Vec::new(),
                             metadata: Metadata {
+                                uid: 1000,
+                                gid: 1000,
                                 file_type: FileType::Fifo,
                                 size: 0,
                                 mode: entry.mode,
@@ -938,6 +956,8 @@ impl InMemoryFs {
                         current.clone(),
                         FsEntry::Directory {
                             metadata: Metadata {
+                                uid: 1000,
+                                gid: 1000,
                                 file_type: FileType::Directory,
                                 size: 0,
                                 mode: 0o755,
@@ -955,6 +975,8 @@ impl InMemoryFs {
             FsEntry::File {
                 content: content.to_vec(),
                 metadata: Metadata {
+                    uid: 1000,
+                    gid: 1000,
                     file_type: FileType::File,
                     size: content.len() as u64,
                     mode,
@@ -977,6 +999,8 @@ impl InMemoryFs {
             FsEntry::Symlink {
                 target,
                 metadata: Metadata {
+                    uid: 1000,
+                    gid: 1000,
                     file_type: FileType::Symlink,
                     size,
                     mode: 0o777,
@@ -1039,6 +1063,8 @@ impl InMemoryFs {
                 current.clone(),
                 FsEntry::Directory {
                     metadata: Metadata {
+                        uid: 1000,
+                        gid: 1000,
                         file_type: FileType::Directory,
                         size: 0,
                         mode,
@@ -1104,6 +1130,8 @@ impl InMemoryFs {
                         current.clone(),
                         FsEntry::Directory {
                             metadata: Metadata {
+                                uid: 1000,
+                                gid: 1000,
                                 file_type: FileType::Directory,
                                 size: 0,
                                 mode: 0o755,
@@ -1121,6 +1149,8 @@ impl InMemoryFs {
             FsEntry::LazyFile {
                 loader,
                 metadata: Metadata {
+                    uid: 1000,
+                    gid: 1000,
                     file_type: FileType::File,
                     size: size_hint,
                     mode,
@@ -1132,9 +1162,68 @@ impl InMemoryFs {
     }
 }
 
+impl InMemoryFs {
+    async fn read_dir_admitted(
+        &self,
+        path: &Path,
+        max_entries: usize,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<DirEntry>> {
+        self.limits
+            .validate_path(path)
+            .map_err(|e| IoError::new(ErrorKind::InvalidInput, e.to_string()))?;
+        let path = Self::normalize_path(path);
+        let entries = self.entries.read().unwrap();
+
+        match entries.get(&path) {
+            Some(FsEntry::Directory { .. }) => {
+                let mut result = Vec::new();
+
+                for (entry_path, entry) in entries.iter() {
+                    if entry_path.parent() == Some(&path) && entry_path != &path {
+                        if result.len() == max_entries {
+                            return Err(super::traits::fs_errors::directory_entry_limit());
+                        }
+                        super::charge_dir_entry(
+                            charge,
+                            entry_path.file_name().map_or(0, |name| name.len()),
+                        )?;
+                        let name = entry_path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default();
+
+                        let metadata = match entry {
+                            FsEntry::File { metadata, .. }
+                            | FsEntry::LazyFile { metadata, .. }
+                            | FsEntry::Directory { metadata }
+                            | FsEntry::Symlink { metadata, .. }
+                            | FsEntry::Fifo { metadata, .. } => metadata.clone(),
+                        };
+
+                        result.push(DirEntry { name, metadata });
+                    }
+                }
+
+                Ok(result)
+            }
+            Some(_) => Err(IoError::other("not a directory").into()),
+            None => Err(IoError::new(ErrorKind::NotFound, "not found").into()),
+        }
+    }
+}
+
 #[async_trait]
 impl FileSystem for InMemoryFs {
     async fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
+        self.read_file_bounded(path, None).await
+    }
+
+    async fn read_file_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<u8>> {
         // THREAT[TM-DOS-012, TM-DOS-013, TM-DOS-015]: Validate path before use
         self.limits
             .validate_path(path)
@@ -1165,11 +1254,13 @@ impl FileSystem for InMemoryFs {
 
         // /dev/urandom and /dev/random: return bounded random bytes
         if path == Path::new("/dev/urandom") || path == Path::new("/dev/random") {
+            super::charge_read(charge, DEV_RANDOM_READ_BYTES)?;
             return Self::generate_random_bytes();
         }
 
         // THREAT[TM-DOS-003]: /dev/zero reads are bounded too (1 MiB of zeros).
         if path == Path::new("/dev/zero") {
+            super::charge_read(charge, DEV_ZERO_READ_BYTES)?;
             return Ok(vec![0; DEV_ZERO_READ_BYTES]);
         }
 
@@ -1178,6 +1269,7 @@ impl FileSystem for InMemoryFs {
             let entries = self.entries.read().unwrap();
             match entries.get(&path) {
                 Some(FsEntry::File { content, .. }) | Some(FsEntry::Fifo { content, .. }) => {
+                    super::charge_read(charge, content.len())?;
                     return Ok(content.clone());
                 }
                 Some(FsEntry::Directory { .. }) => {
@@ -1204,6 +1296,14 @@ impl FileSystem for InMemoryFs {
         let mut entries = self.entries.write().unwrap();
         match entries.get(&path) {
             Some(FsEntry::LazyFile { .. }) => {
+                // An arbitrary loader has no pre-allocation size contract.
+                if charge.is_some() {
+                    return Err(IoError::new(
+                        ErrorKind::Unsupported,
+                        "lazy file does not support bounded reads",
+                    )
+                    .into());
+                }
                 // Extract loader, call it, replace entry
                 if let Some(FsEntry::LazyFile { loader, metadata }) = entries.remove(&path) {
                     let content = loader();
@@ -1221,6 +1321,7 @@ impl FileSystem for InMemoryFs {
             }
             // Another thread may have materialized it between lock releases
             Some(FsEntry::File { content, .. }) | Some(FsEntry::Fifo { content, .. }) => {
+                super::charge_read(charge, content.len())?;
                 return Ok(content.clone());
             }
             Some(FsEntry::Directory { .. }) => {
@@ -1301,6 +1402,8 @@ impl FileSystem for InMemoryFs {
                 FsEntry::Fifo {
                     content: content.to_vec(),
                     metadata: Metadata {
+                        uid: 1000,
+                        gid: 1000,
                         file_type: FileType::Fifo,
                         size: content.len() as u64,
                         mode: 0o644,
@@ -1315,6 +1418,8 @@ impl FileSystem for InMemoryFs {
                 FsEntry::File {
                     content: content.to_vec(),
                     metadata: Metadata {
+                        uid: 1000,
+                        gid: 1000,
                         file_type: FileType::File,
                         size: content.len() as u64,
                         mode: 0o644,
@@ -1370,6 +1475,8 @@ impl FileSystem for InMemoryFs {
                     FsEntry::File {
                         content: content.to_vec(),
                         metadata: Metadata {
+                            uid: 1000,
+                            gid: 1000,
                             file_type: FileType::File,
                             size: content.len() as u64,
                             mode: 0o644,
@@ -1512,6 +1619,8 @@ impl FileSystem for InMemoryFs {
                             current.clone(),
                             FsEntry::Directory {
                                 metadata: Metadata {
+                                    uid: 1000,
+                                    gid: 1000,
                                     file_type: FileType::Directory,
                                     size: 0,
                                     mode: 0o755,
@@ -1551,6 +1660,8 @@ impl FileSystem for InMemoryFs {
                 path,
                 FsEntry::Directory {
                     metadata: Metadata {
+                        uid: 1000,
+                        gid: 1000,
                         file_type: FileType::Directory,
                         size: 0,
                         mode: 0o755,
@@ -1565,6 +1676,7 @@ impl FileSystem for InMemoryFs {
     }
 
     async fn remove(&self, path: &Path, recursive: bool) -> Result<()> {
+        super::reject_empty_path(path)?;
         self.limits
             .validate_path(path)
             .map_err(|e| IoError::new(ErrorKind::InvalidInput, e.to_string()))?;
@@ -1634,40 +1746,19 @@ impl FileSystem for InMemoryFs {
     }
 
     async fn read_dir(&self, path: &Path) -> Result<Vec<DirEntry>> {
-        self.limits
-            .validate_path(path)
-            .map_err(|e| IoError::new(ErrorKind::InvalidInput, e.to_string()))?;
-        let path = Self::normalize_path(path);
-        let entries = self.entries.read().unwrap();
+        self.read_dir_admitted(path, usize::MAX, None).await
+    }
 
-        match entries.get(&path) {
-            Some(FsEntry::Directory { .. }) => {
-                let mut result = Vec::new();
+    async fn read_dir_limited(&self, path: &Path, max_entries: usize) -> Result<Vec<DirEntry>> {
+        self.read_dir_admitted(path, max_entries, None).await
+    }
 
-                for (entry_path, entry) in entries.iter() {
-                    if entry_path.parent() == Some(&path) && entry_path != &path {
-                        let name = entry_path
-                            .file_name()
-                            .map(|n| n.to_string_lossy().to_string())
-                            .unwrap_or_default();
-
-                        let metadata = match entry {
-                            FsEntry::File { metadata, .. }
-                            | FsEntry::LazyFile { metadata, .. }
-                            | FsEntry::Directory { metadata }
-                            | FsEntry::Symlink { metadata, .. }
-                            | FsEntry::Fifo { metadata, .. } => metadata.clone(),
-                        };
-
-                        result.push(DirEntry { name, metadata });
-                    }
-                }
-
-                Ok(result)
-            }
-            Some(_) => Err(IoError::other("not a directory").into()),
-            None => Err(IoError::new(ErrorKind::NotFound, "not found").into()),
-        }
+    async fn read_dir_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<DirEntry>> {
+        self.read_dir_admitted(path, usize::MAX, charge).await
     }
 
     async fn exists(&self, path: &Path) -> Result<bool> {
@@ -1680,6 +1771,8 @@ impl FileSystem for InMemoryFs {
     }
 
     async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        super::reject_empty_path(from)?;
+        super::reject_empty_path(to)?;
         self.limits
             .validate_path(from)
             .map_err(|e| IoError::new(ErrorKind::InvalidInput, e.to_string()))?;
@@ -1837,6 +1930,8 @@ impl FileSystem for InMemoryFs {
             FsEntry::Symlink {
                 target: target.to_path_buf(),
                 metadata: Metadata {
+                    uid: 1000,
+                    gid: 1000,
                     file_type: FileType::Symlink,
                     size: target_size as u64,
                     mode: 0o777,
@@ -1952,6 +2047,8 @@ impl FileSystemExt for InMemoryFs {
             FsEntry::Fifo {
                 content: Vec::new(),
                 metadata: Metadata {
+                    uid: 1000,
+                    gid: 1000,
                     file_type: FileType::Fifo,
                     size: 0,
                     mode,

@@ -1,5 +1,6 @@
 from rock._codes import codes
 from rock.actions import CommitErrorCode, SandboxResponse
+from rock.sdk.common.e2b import E2BConnectCode
 from rock.utils.deprecated import deprecated
 
 
@@ -7,6 +8,17 @@ class WorkerCommitError(Exception):
     def __init__(self, code: CommitErrorCode, message: str):
         super().__init__(message)
         self.code = code
+
+
+class E2BSandboxNotFoundError(Exception):
+    pass
+
+
+class E2BConnectError(Exception):
+    def __init__(self, code: E2BConnectCode, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
 
 
 class RockException(Exception):
@@ -30,6 +42,10 @@ class InvalidParameterRockException(RockException):
 class BadRequestRockError(RockException):
     def __init__(self, message, code: codes = codes.BAD_REQUEST):
         super().__init__(message, code)
+
+
+class SandboxNotFoundRockError(BadRequestRockError):
+    pass
 
 
 class InternalServerRockError(RockException):

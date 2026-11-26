@@ -253,6 +253,12 @@ def check_jupyter() -> bool:
     help="Path to local script which will be run on each VM during setup process.",
 )
 @click.option(
+    "--skip-ssd-mount",
+    is_flag=True,
+    default=None,
+    help="Don't automatically mount SSD/NVMe (if any) to ``/scratch``.",
+)
+@click.option(
     "--resumable",
     default=False,
     is_flag=True,
@@ -299,6 +305,7 @@ def start_notebook(
     host_setup_script: str | None,
     resumable: bool = False,
     private: bool = False,
+    skip_ssd_mount: bool | None = None,
 ):
     """
     Launch or re-open a notebook session, with optional file syncing.
@@ -342,6 +349,7 @@ def start_notebook(
         host_setup_script=host_setup_script,
         resumable=resumable,
         private=private,
+        skip_ssd_mount=skip_ssd_mount,
     )
 
 
@@ -378,6 +386,7 @@ def _start_notebook(
     host_setup_script: str | None = None,
     resumable: bool = False,
     private: bool = False,
+    skip_ssd_mount: bool | None = None,
 ) -> coiled.Cluster | None:
     """
     Launch or re-open a notebook session, with optional file syncing.
@@ -476,6 +485,7 @@ def _start_notebook(
                 allow_ingress_from=allow_ingress_from,
                 mount_bucket=mount_bucket,
                 host_setup_script=host_setup_script,
+                skip_ssd_mount=skip_ssd_mount,
                 shutdown_on_close=False,
                 unset_single_threading_variables=True,
                 pause_on_exit=resumable,

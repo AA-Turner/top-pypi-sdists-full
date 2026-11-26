@@ -21,11 +21,13 @@ import structlog
 from langgraph_sdk.client import configure_loopback_transports
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import BaseRoute, Mount
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 import langgraph_api.config as config
+from langgraph_api import sse
 from langgraph_api.api import (
     custom_app_lifespan,
     middleware_for_protected_routes,
@@ -37,6 +39,7 @@ from langgraph_api.api import (
 from langgraph_api.api.openapi import set_custom_spec
 from langgraph_api.errors import app_exception_handlers
 from langgraph_api.js.base import is_js_path
+from langgraph_api.middleware.compression import CompressionMiddleware
 from langgraph_api.middleware.ensure_store import EnsureStoreAccessible
 from langgraph_api.middleware.http_logger import AccessLoggerMiddleware
 from langgraph_api.middleware.private_network import PrivateNetworkMiddleware
@@ -88,7 +91,7 @@ def update_openapi_spec(app):
         schemas = SchemaGenerator(
             {
                 "openapi": "3.1.0",
-                "info": {"title": "LangSmith Deployment", "version": "0.1.0"},
+                "info": {"title": "LangSmith Agent Server", "version": "0.1.0"},
             }
         )
         spec = schemas.get_schema(routes=app.routes)
@@ -148,6 +151,18 @@ def validate_router_lifespan_hooks(router: typing.Any) -> None:
 custom_middleware = (
     user_router.user_middleware if user_router and user_router.user_middleware else []
 )
+base_http_middleware = [
+    m.cls.__name__
+    for m in custom_middleware
+    if isinstance(m.cls, type) and issubclass(m.cls, BaseHTTPMiddleware)
+]
+sse.ABORT_CUT_STREAMS = not base_http_middleware
+if base_http_middleware:
+    logger.warning(
+        "Streams that Redis cuts end with an error event instead of a reconnect "
+        "behind a BaseHTTPMiddleware; write it as plain ASGI middleware to keep reconnects",
+        middleware=base_http_middleware,
+    )
 auth_before_custom_middleware = (
     config.HTTP_CONFIG and config.HTTP_CONFIG.get("middleware_order") == "auth_first"
 )
@@ -299,6 +314,8 @@ if config.MOUNT_PREFIX:
     # request.app.state still provides access to the state set on the original app.
     app.state = original_app.state
 
+# Outside the customer's middleware, which may read or rewrite response bodies.
+app.add_middleware(CompressionMiddleware)
 # Operator routes must run before every other middleware, including the customer's
 # and the JS proxy, so a customer app can't block or filter them. Keep this last.
 app.add_middleware(OperatorRoutesMiddleware, mount_prefix=config.MOUNT_PREFIX)

@@ -31,7 +31,7 @@ from hypothesis import strategies as st
 from .. import __version__
 from .._interfaces import ITorManager
 from ..cli import cli, cmd_receive, cmd_send, welcome
-from ..errors import (ServerConnectionError, TransferError,
+from ..errors import (ServerConnectionError, ServerError, TransferError,
                       UnsendableFileError, WelcomeError, WrongPasswordError)
 from .common import config, setup_mailbox
 
@@ -63,6 +63,17 @@ def test_text_offer():
     assert "directory" not in d
     assert d["message"] == message
     assert fd_to_send is None
+
+
+def test_text_ignores_transit():
+    """A text-mode send ignores a transit message from the peer."""
+    cfg = create_config()
+    cfg.text = "blah blah blah ponies"
+    s = cmd_send.Sender(cfg, None)
+    assert s._transit_sender is None
+    s._handle_transit({"abilities-v1": [{"type": "direct-tcp-v1"}],
+                       "hints-v1": []})
+    assert s._transit_sender is None
 
 
 def test_file_offer(tmpdir_factory):
@@ -599,32 +610,27 @@ async def _do_test(
                 receive_d = cmd_receive.receive(recv_cfg)
         else:
             KEY_TIMER = 0 if mode == "slow-sender-text" else 99999
-            rxw = []
-            with mock.patch.object(cmd_receive, "KEY_TIMER", KEY_TIMER):
+            VERIFY_TIMER = 0 if mode == "slow-text" else 99999
+            with (mock.patch.object(cmd_receive, "KEY_TIMER", KEY_TIMER),
+                  mock.patch.object(cmd_receive, "VERIFY_TIMER", VERIFY_TIMER),
+                  mock.patch.object(cmd_send, "VERIFY_TIMER", VERIFY_TIMER)):
                 send_d = cmd_send.send(send_cfg)
-                receive_d = cmd_receive.receive(recv_cfg, _debug_stash_wormhole=rxw)
-                # we need to keep KEY_TIMER patched until the receiver
-                # gets far enough to start the timer, which happens after
-                # the code is set
-                if mode == "slow-sender-text":
-                    await rxw[0].get_unverified_key()
+                receive_d = cmd_receive.receive(recv_cfg)
+                # both Sender and Receiver sample KEY/VERIFY_TIMER at creation
 
         # The sender might fail, leaving the receiver hanging, or vice
         # versa. Make sure we don't wait on one side exclusively
-        VERIFY_TIMER = 0 if mode == "slow-text" else 99999
-        with mock.patch.object(cmd_receive, "VERIFY_TIMER", VERIFY_TIMER):
-            with mock.patch.object(cmd_send, "VERIFY_TIMER", VERIFY_TIMER):
-                if mock_accept or verify:
-                    with mock.patch.object(builtins, 'input',
-                            return_value='yes') as i:
-                        await gatherResults([send_d, receive_d], True)
-                    if verify:
-                        s = i.mock_calls[0][1][0]
-                        mo = re.search(r'^Verifier (\w+)\. ok\?', s)
-                        assert mo, s
-                        sender_verifier = mo.group(1)
-                else:
-                    await gatherResults([send_d, receive_d], True)
+        if mock_accept or verify:
+            with mock.patch.object(builtins, 'input',
+                    return_value='yes') as i:
+                await gatherResults([send_d, receive_d], True)
+            if verify:
+                s = i.mock_calls[0][1][0]
+                mo = re.search(r'^Verifier (\w+)\. ok\?', s)
+                assert mo, s
+                sender_verifier = mo.group(1)
+        else:
+            await gatherResults([send_d, receive_d], True)
 
         if fake_tor:
             expected_endpoints = [("127.0.0.1", mailbox.port._realPortNumber, False)]
@@ -1400,6 +1406,35 @@ async def test_success(mailbox):
     await cli._dispatch_command(reactor, cfg, fake)
     assert called == [1]
     assert cfg.stderr.getvalue() == ""
+
+
+@pytest_twisted.ensureDeferred
+async def test_server_error_crowded_is_translated_for_humans(mailbox):
+    cfg = create_named_config("send", mailbox.url)
+    cfg.stderr = io.StringIO()
+
+    def fake():
+        raise ServerError("crowded")
+
+    with pytest.raises(SystemExit):
+        await cli._dispatch_command(reactor, cfg, fake)
+    stderr = cfg.stderr.getvalue()
+    assert "crowded" not in stderr
+    assert "Too many peers" in stderr
+    assert "brand-new code" in stderr
+
+
+@pytest_twisted.ensureDeferred
+async def test_server_error_other_codes_are_passed_through(mailbox):
+    cfg = create_named_config("send", mailbox.url)
+    cfg.stderr = io.StringIO()
+
+    def fake():
+        raise ServerError("server-error-msg")
+
+    with pytest.raises(SystemExit):
+        await cli._dispatch_command(reactor, cfg, fake)
+    assert "server error: server-error-msg" in cfg.stderr.getvalue()
 
 
 @pytest_twisted.ensureDeferred

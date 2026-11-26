@@ -58,6 +58,7 @@ VoidInvoiceProcessorType = Union[
     Literal[
         "stripe",
         "revenuecat",
+        "quartz",
     ],
     UnrecognizedStr,
 ]

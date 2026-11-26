@@ -196,7 +196,36 @@ class DatasetRow(ReplayRow):
         return value
 
 
+class ManifestCaptureReference(CaptureReference):
+    model_config = ConfigDict(extra="ignore")
+
+
+class ManifestExpectation(Expectation):
+    model_config = ConfigDict(extra="ignore")
+
+
+class ManifestRow(DatasetRow):
+    """A dataset row as the server returns it.
+
+    ``DatasetRow`` stays strict because it also checks what the SDK publishes. Responses
+    gain fields this release does not use (earlier conversation turns, a reply pair, new
+    verdict kinds), so a read ignores them instead of rejecting the whole dataset.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    reference_capture: ManifestCaptureReference | None = None
+    expectation: ManifestExpectation | None = None
+
+    @field_validator("expected_verdict")
+    @classmethod
+    def label(cls, value: Any) -> Any:
+        return value
+
+
 class DatasetIdentity(Model):
+    model_config = ConfigDict(extra="ignore")
+
     id: UUID
     slug: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
     name: str = Field(min_length=1, max_length=100)
@@ -204,6 +233,8 @@ class DatasetIdentity(Model):
 
 
 class DatasetVersion(Model):
+    model_config = ConfigDict(extra="ignore")
+
     id: UUID
     dataset_id: UUID
     parent_version_id: UUID | None
@@ -212,9 +243,11 @@ class DatasetVersion(Model):
 
 
 class DatasetManifest(Model):
+    model_config = ConfigDict(extra="ignore")
+
     dataset: DatasetIdentity
     version: DatasetVersion
-    rows: list[DatasetRow] = Field(alias="cases")
+    rows: list[ManifestRow] = Field(alias="cases")
 
     @model_validator(mode="after")
     def consistent(self) -> DatasetManifest:

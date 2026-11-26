@@ -29,9 +29,9 @@ class DescribeNamespaceResponseBody(DaraModel):
         self.region_id = region_id
         # The request ID.
         self.request_id = request_id
-        # The execution status of the API operation. Valid values:
-        # - **success**: The execution is successful.
-        # - **fail**: The execution fails.
+        # The API execution status. Valid values:
+        # - **success**: The execution succeeded.
+        # - **fail**: The execution failed.
         self.status = status
 
     def validate(self):

@@ -473,6 +473,29 @@ def test_parse_compu_vtab(parser, tmp_path):
     assert pairs[1].outVal == "On"
 
 
+def test_parse_mixed_compu_table_value_types(parser, tmp_path):
+    a2l_file = tmp_path / "mixed_tables.a2l"
+    a2l_file.write_text(
+        COMPU_TABLES_A2L.replace('0 "Off"', '-1.5 "001"').replace('1 "On"', '2 "Café"'),
+        encoding="latin-1",
+    )
+
+    db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
+    try:
+        num_tab = db.session.query(model.CompuTab).filter_by(name="NumTab").one()
+        verb_tab = db.session.query(model.CompuVtab).filter_by(name="VerbTab").one()
+        verb_range = db.session.query(model.CompuVtabRange).filter_by(name="VerbRange").one()
+
+        assert [(pair.inVal, pair.outVal) for pair in num_tab.pairs] == [(0.0, 0.0), (1.0, 10.0)]
+        assert [(pair.inVal, pair.outVal) for pair in verb_tab.pairs] == [(-1.5, "001"), (2.0, "Café")]
+        assert [(triple.inValMin, triple.inValMax, triple.outVal) for triple in verb_range.triples] == [
+            (0.0, 10.0, "LOW"),
+            (11.0, 20.0, "HIGH"),
+        ]
+    finally:
+        db.close()
+
+
 def test_parse_axis(parser, tmp_path):
     a2l_file = tmp_path / "axis.a2l"
     a2l_file.write_text(AXIS_A2L, encoding="latin-1")
@@ -576,13 +599,13 @@ def test_parse_if_data_comments_and_escaped_strings(parser, tmp_path):
     db = parser.parse(str(a2l_file), in_memory=True, progress_bar=False, loglevel="ERROR")
     db.session.setup_ifdata_parser(loglevel="ERROR")
     raw = (
-        '/begin IF_DATA XCP // FLOAT_VALUE 99\n'
+        "/begin IF_DATA XCP // FLOAT_VALUE 99\n"
         'TEXT_VALUE "a \\"quoted\\" value // not a comment" '
-        '/* FLOAT_VALUE 100\n/end WRONG */ FLOAT_VALUE 1.5 /end IF_DATA'
+        "/* FLOAT_VALUE 100\n/end WRONG */ FLOAT_VALUE 1.5 /end IF_DATA"
     )
 
     assert db.session.parse_ifdata([model.IfData(raw=raw)]) == [
-        {"XCP": {"TEXT_VALUE": r'a \"quoted\" value // not a comment', "FLOAT_VALUE": 1.5}}
+        {"XCP": {"TEXT_VALUE": r"a \"quoted\" value // not a comment", "FLOAT_VALUE": 1.5}}
     ]
 
 
@@ -597,7 +620,7 @@ def test_import_if_data_with_escaped_string(parser, tmp_path):
     section = db.session.query(model.Module).first().if_data
 
     assert db.session.parse_ifdata(section) == [
-        {"XCP": {"DAQ_EVENT": {"FIXED_EVENT_LIST": {"EVENT": [0, 1]}}, "TEXT_VALUE": r'a \"quoted\" value'}}
+        {"XCP": {"DAQ_EVENT": {"FIXED_EVENT_LIST": {"EVENT": [0, 1]}}, "TEXT_VALUE": r"a \"quoted\" value"}}
     ]
 
 

@@ -1,61 +1,92 @@
+"""Base experiment abstractions and memory-aware AO forward modelling.
+
+Acoustic fields are intentionally processed on the memory layer where they
+reside: GPU-resident arrays stay on their owning device, materialized arrays
+use one bandwidth-saturating CPU worker, and file-backed arrays are read by a
+bounded pool of chunk workers. Full acoustic matrices are never copied to VRAM
+just to compute the AO forward model.
+"""
+
 from __future__ import annotations
+
+import copy
+from abc import ABC, abstractmethod
+import gc
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
+import matplotlib as mpl
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.io import loadmat
+from scipy.ndimage import zoom
+from threadpoolctl import threadpool_limits
+from tqdm.auto import tqdm, trange
 
 from AOT_biomaps.Settings import Params
 from AOT_biomaps.AOT_Optic._mainOptic import Phantom
-from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType, FormatSave
-from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
-from AOT_biomaps.AOT_Medium.HomogeneousMedium import HomogeneousMedium
-from AOT_biomaps.AOT_Medium.PVAMedium import PVAMedium
+from AOT_biomaps.AOT_Acoustic.AcousticEnums import FormatSave, TypeSim, WaveType
 from AOT_biomaps.AOT_Medium.BubbleMedium import BubbleMedium
+from AOT_biomaps.AOT_Medium.HomogeneousMedium import HomogeneousMedium
 from AOT_biomaps.AOT_Medium.MediumEnums import PhantomType
-from AOT_biomaps.AOT_Experiment.ExperimentTools import load_AOsignal, create_dark_transparent_hot_cmap
-from abc import ABC, abstractmethod
+from AOT_biomaps.AOT_Medium.PVAMedium import PVAMedium
+from AOT_biomaps.AOT_Acoustic.AcousticTools import get_available_host_memory_bytes
+from AOT_biomaps.AOT_Experiment.ExperimentTools import (
+    create_dark_transparent_hot_cmap,
+    load_AOsignal,
+)
 
-import os
-from scipy.io import loadmat
-import numpy as np
-from tqdm import tqdm, trange
-from datetime import datetime
-import copy
-import warnings
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import matplotlib as mpl
-from scipy.ndimage import zoom
-from threadpoolctl import threadpool_limits
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import gc
-
-
-# Optional cupy import for GPU acceleration
 try:
     import cupy as cp
-    CUPY_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - depends on the runtime
     cp = None
-    CUPY_AVAILABLE = False
+
+CUPY_AVAILABLE = cp is not None
+
+
+def _is_memmap_backed(array):
+    """Return True when an ndarray or one of its base objects is a memmap."""
+    current = array
+    while current is not None:
+        if isinstance(current, np.memmap):
+            return True
+        current = getattr(current, "base", None)
+    return False
+
+
+def _field_is_cupy(array):
+    """Identify CuPy arrays without importing CuPy in CPU-only installations."""
+    return CUPY_AVAILABLE and isinstance(array, cp.ndarray)
 
 class Experiment(ABC):
     def __init__(self, params, acousticType=WaveType.StructuredWave, formatSave=FormatSave.HDR_IMG):
+        """Initialize an experiment and its optional data containers."""
+        if not isinstance(params, Params):
+            raise TypeError("params must be an instance of Params.")
+        if not isinstance(acousticType, WaveType):
+            raise TypeError("acousticType must be an instance of WaveType.")
+        if not isinstance(formatSave, FormatSave):
+            raise TypeError("formatSave must be an instance of FormatSave.")
+    
         self.params = params
         self.OpticImage = None
         self.medium = None
         self.AcousticFields = None
         self.AOsignal_withTumor = None
         self.AOsignal_withoutTumor = None
-
-        if type(acousticType).__name__ != "WaveType":
-            raise TypeError("[AOT-biomaps] acousticType must be an instance of the WaveType class")
-
+        self.expParams = None
         self.FormatSave = formatSave
         self.TypeAcoustic = acousticType
 
-        if type(self.params) != Params:
-            raise TypeError("[AOT-biomaps] params must be an instance of the Params class")
-
     def copy(self):
+        """Return a deep copy of the experiment and its owned data.
+
+        This operation intentionally duplicates resident field arrays. For
+        large experiments, use :meth:`release_fields` or reload file-backed
+        fields instead of copying the complete object.
         """
-    Return une copie profonde de l'objet."""
         return copy.deepcopy(self)
     
     def generate_phantom(self):
@@ -136,87 +167,119 @@ class Experiment(ABC):
             raise ValueError("[AOT-biomaps] Medium is not initialized. Please generate or set the medium before saving.")
         self.medium.save_medium(folderPath, fileName)
 
-    def load_experiment_data(self, file_path, withTumor=True, N_average=None, start_index=0):
-        self.expParams = {}
-        print(f"[AOT-biomaps] Loading experiment data from: {file_path}")
-        
+    def load_experiment_data(
+        self, file_path, withTumor=True, N_average=None, start_index=0, keep_raw=True
+    ):
+        """Load acquisition metadata and average repeated raw acquisitions.
+    
+        Parameters
+        ----------
+        file_path : str or path-like
+            MATLAB acquisition file.
+        withTumor : bool
+            Select the destination AO signal attribute.
+        N_average : int or None
+            Number of repetitions to average. ``None`` uses all repetitions.
+        start_index : int
+            First repetition used when ``N_average`` is specified.
+        keep_raw : bool
+            Retain the original raw array in ``expParams``. Disable this to
+            release the large raw acquisition as soon as averaging completes.
+        """
         mat = loadmat(file_path)
-        available_keys = list(mat.keys())
-        
-        # --- Common variables ---
-        self.expParams['TypeOfSequence'] = str(np.squeeze(mat['TypeOfSequence'])) if 'TypeOfSequence' in mat else None
-        self.expParams['data_raw'] = mat.get('raw')
-        self.expParams['ScanParam'] = mat.get('ScanParam')
-        
-        self.expParams['FreqSonde'] = float(np.squeeze(mat['FreqSonde'])) * 1e6 if 'FreqSonde' in mat else None
-        self.expParams['Naverage'] = int(np.squeeze(mat['NTrig'])) if 'NTrig' in mat else None
-        self.expParams['Nelement'] = int(np.squeeze(mat['NbElemts'])) if 'NbElemts' in mat else None
-        self.expParams['SampleRate'] = float(np.squeeze(mat['SampleRate'])) if 'SampleRate' in mat else None
-        self.expParams['Volt'] = float(np.squeeze(mat['Volt'])) if 'Volt' in mat else None
-        self.expParams['nbHemicycle'] = float(np.squeeze(mat['NbHemicycle'])) if 'NbHemicycle' in mat else None
-        self.expParams['prof'] = float(np.squeeze(mat['Prof'])) if 'Prof' in mat else None
-        
-        self.expParams['c'] = float(np.squeeze(mat['c'])) if 'c' in mat else None
-        self.expParams['pitch'] = float(np.squeeze(mat['pitch'])) if 'pitch' in mat else None
-        self.expParams['z'] = np.squeeze(mat['z']) if 'z' in mat else None
-
-        # --- Tomography variables ---
-        self.expParams['ActiveListMatrix'] = mat.get('ActiveLIST')
-        self.expParams['DelayLAWS'] = mat.get('DelayLAWS')
-        self.expParams['AngleMatrix'] = np.squeeze(mat['Alphas']) if 'Alphas' in mat else None
-        self.expParams['decimation'] = np.squeeze(mat['decimation']) if 'decimation' in mat else None
-        self.expParams['dFx'] = float(np.squeeze(mat['dFx'])) if 'dFx' in mat else None
-
-        # --- Focus variables ---
-        self.expParams['Foc'] = float(np.squeeze(mat['Foc'])) if 'Foc' in mat else None
-        self.expParams['x'] = np.squeeze(mat['x']) if 'x' in mat else None
-
-        if self.expParams['data_raw'] is None:
+        raw = mat.get("raw")
+        self.expParams = {
+            "TypeOfSequence": str(np.squeeze(mat["TypeOfSequence"])) if "TypeOfSequence" in mat else None,
+            "data_raw": raw if keep_raw else None,
+            "ScanParam": mat.get("ScanParam"),
+            "FreqSonde": float(np.squeeze(mat["FreqSonde"])) * 1e6 if "FreqSonde" in mat else None,
+            "Naverage": int(np.squeeze(mat["NTrig"])) if "NTrig" in mat else None,
+            "Nelement": int(np.squeeze(mat["NbElemts"])) if "NbElemts" in mat else None,
+            "SampleRate": float(np.squeeze(mat["SampleRate"])) if "SampleRate" in mat else None,
+            "Volt": float(np.squeeze(mat["Volt"])) if "Volt" in mat else None,
+            "nbHemicycle": float(np.squeeze(mat["NbHemicycle"])) if "NbHemicycle" in mat else None,
+            "prof": float(np.squeeze(mat["Prof"])) if "Prof" in mat else None,
+            "c": float(np.squeeze(mat["c"])) if "c" in mat else None,
+            "pitch": float(np.squeeze(mat["pitch"])) if "pitch" in mat else None,
+            "z": np.squeeze(mat["z"]) if "z" in mat else None,
+            "ActiveListMatrix": mat.get("ActiveLIST"),
+            "DelayLAWS": mat.get("DelayLAWS"),
+            "AngleMatrix": np.squeeze(mat["Alphas"]) if "Alphas" in mat else None,
+            "decimation": np.squeeze(mat["decimation"]) if "decimation" in mat else None,
+            "dFx": float(np.squeeze(mat["dFx"])) if "dFx" in mat else None,
+            "Foc": float(np.squeeze(mat["Foc"])) if "Foc" in mat else None,
+            "x": np.squeeze(mat["x"]) if "x" in mat else None,
+        }
+    
+        if raw is None:
             print("[AOT-biomaps] Warning: 'raw' dataset not found in the file.")
-            print("[AOT-biomaps] Available datasets:", available_keys)
+            print("[AOT-biomaps] Available datasets:", list(mat.keys()))
+            return
+    
+        n_average = self.expParams["Naverage"]
+        if n_average is None:
+            raise KeyError("The acquisition file contains 'raw' but no 'NTrig' repetition count.")
+        if raw.shape[0] % n_average:
+            raise ValueError(
+                f"Raw data length {raw.shape[0]} is not divisible by NTrig={n_average}."
+            )
+        data = raw.reshape(raw.shape[0], n_average, -1)
+        if N_average is None:
+            selected = data
         else:
-            data = self.expParams['data_raw'].reshape(self.expParams['data_raw'].shape[0], self.expParams['Naverage'], -1)
-            
-            if N_average is not None:
-                end_idx = start_index + N_average
-                mean_sig = np.mean(data[:, start_index:end_idx, :], axis=1)
-            else:
-                mean_sig = np.mean(data, axis=1)
-
-            if withTumor:
-                self.AOsignal_withTumor = mean_sig
-            else:   
-                self.AOsignal_withoutTumor = mean_sig  
+            N_average = int(N_average)
+            start_index = int(start_index)
+            end_index = start_index + N_average
+            if N_average <= 0 or start_index < 0 or end_index > n_average:
+                raise ValueError(
+                    f"Invalid repetition range [{start_index}, {end_index}); available repetitions: {n_average}."
+                )
+            selected = data[:, start_index:end_index, :]
+        mean_signal = np.mean(selected, axis=1)
+    
+        if withTumor:
+            self.AOsignal_withTumor = mean_signal
+        else:
+            self.AOsignal_withoutTumor = mean_signal
+    
+        # Drop the raw MAT payload when the caller explicitly requested the
+        # memory-saving mode. ``mat`` owns another reference to the same array.
+        if not keep_raw:
+            del raw
+            mat.clear()
+        del data, selected, mat
     
     @abstractmethod
-    def generate_acoustic_fields(self, fieldDataPath, fieldParamPath, generation_type="envelope_squared", show_log=True):
-        """
-        Generate the acoustic fields for simulation.
-        Args:
-            fieldDataPath: Path to save the generated fields.
-            fieldParamPath: Path to the field parameters file.
-            generation_type: The type of field generation to perform. Must be one of "envelope_squared", "envelope", or "field".
-            show_log: Whether to display a progress bar.
-        Returns:
-            systemMatrix: A numpy array of the generated fields.
-        """
-        pass
+    def generate_acoustic_fields(self, *args, **kwargs):
+        """Generate or load the acoustic-field collection in a subclass."""
+        raise NotImplementedError
 
     def release_fields(self, fieldDataPath=None, lazy_reload=False):
-        """Release the RAM held by materialized acoustic fields.
-
-        Anonymous ndarray pages are munmap'ed immediately once the last reference drops (numpy large blocks are mmap-backed), so `free` -> Used falls at once. 
-        If lazy_reload=True, each field is re-opened as a file-backed memmap (zero bytes read): the SetMixte stays usable, disk pages come back on demand.
+        """Release field arrays, optionally reopening disk-backed views.
+    
+        Parameters
+        ----------
+        fieldDataPath : str or None
+            Directory containing previously saved acoustic fields.
+        lazy_reload : bool
+            If True, reopen each field from disk after releasing its resident
+            array. HDR/IMG fields are mapped lazily by the acoustic loader.
         """
+        if self.AcousticFields is None:
+            return 0
+        if lazy_reload and fieldDataPath is None:
+            raise ValueError("fieldDataPath is required when lazy_reload=True.")
+    
         released = 0
-        for i, f in enumerate(self.AcousticFields or []):
-            if f.field is not None:
-                f.field = None          # last reference -> pages returned to the OS
-                if lazy_reload and fieldDataPath is not None:
-                    f.load_field(fieldDataPath, self.FormatSave, None)   # cheap remap
+        for field in self.AcousticFields:
+            if getattr(field, "field", None) is not None:
+                field.field = None
                 released += 1
-        gc.collect()                    # belt and suspenders (no cycles expected)
-        print(f"[AOT-biomaps] Released {released} fields from RAM.")
+                if lazy_reload:
+                    field.load_field(fieldDataPath, self.FormatSave, None)
+        gc.collect()
+        print(f"[AOT-biomaps] Released or remapped {released} acoustic fields.")
+        return released
 
     def reshape_acoustic_fields(self,dx=None, dy=None, dz=None, dt=None, Nx=None, Ny=None, Nz=None, Nt=None, factorX=None, factorY=None, factorZ=None, factorT=None, reshape_type='NxNyNz', isGPU=None, GPUdevice=None, overwrite=False, fieldDataPath=None):
         """
@@ -261,7 +324,15 @@ class Experiment(ABC):
         else:
             self.AOsignal_withoutTumor = zoomed_AO_signal
 
-    def generate_random_absorbers(self,N_min=0, N_max=5, min_radius_mm=0.5, max_radius_mm=5, min_amplitude=0, max_amplitude=1, seed=None):
+    def generate_random_absorbers(self, N_min=0, N_max=5, min_radius_mm=0.5,
+                                  max_radius_mm=5, min_amplitude=0,
+                                  max_amplitude=1, seed=None):
+        """Generate a random set of Gaussian optical absorbers.
+
+        Radius and amplitude are sampled from the historical distributions and
+        clipped to the supplied bounds. Centers are sampled inside the optical
+        field of view, with one absorber radius of clearance from each edge.
+        """
         if seed is not None:
             np.random.seed(seed)
 
@@ -272,7 +343,7 @@ class Experiment(ABC):
         for i in range(N):
             radius_mm = np.random.normal(loc=10, scale=5)
             radius_mm = max(min_radius_mm, min(radius_mm, max_radius_mm))
-            radius = radius_mm / 1000  # Conversion en mètres
+            radius = radius_mm / 1000.0  # Convert millimetres to metres.
 
             amplitude = np.random.normal(loc=0.5, scale=0.25)
             amplitude = max(min_amplitude, min(amplitude, max_amplitude))
@@ -297,28 +368,34 @@ class Experiment(ABC):
         return absorbers
     
     def cut_acoustic_fields(self, max_t, min_t=0, show_log=True):
+        """Crop every acoustic field along time using sample indices.
+    
+        ``min_t`` and ``max_t`` are integer sample indices, not times in
+        seconds. Slicing is view-based for NumPy arrays and memmaps, so it does
+        not duplicate the complete field.
         """
-        Cut the acoustic fields to a specified time range.
-        Args:
-            max_t: Maximum time in SAMPLE to keep in the fields.
-            min_t: Minimum time in SAMPLE to keep in the fields (default is 0).
-            show_log: Whether to display a progress bar.
-        """
-
-        if min_t < 0 or max_t < 0:
-            raise ValueError("[AOT-biomaps] min_t and max_t must be non-negative integers.")
-        if min_t >= max_t:
-            raise ValueError("[AOT-biomaps] min_t must be less than max_t.")
-
-        if not self.AcousticFields:
-            raise ValueError("[AOT-biomaps] AcousticFields is empty. Cannot cut fields.")
-
-        iteration = range(len(self.AcousticFields)) if not show_log else trange(len(self.AcousticFields), desc=f"[AOT-biomaps] Cutting Acoustic Fields ({min_t} to {max_t} samples)")
-        for i in iteration:
-            field = self.AcousticFields[i]
-            if field.field.shape[0] < max_t:
-                raise ValueError(f"[AOT-biomaps] Field {field.get_name_field()} has an invalid shape: {field.field.shape}. Expected shape to be at least ({max_t},).")
-            self.AcousticFields[i].field = field.field[min_t:max_t, :, :]
+        if self.AcousticFields is None or len(self.AcousticFields) == 0:
+            raise ValueError("AcousticFields is empty. Cannot crop fields.")
+        if int(min_t) != min_t or int(max_t) != max_t:
+            raise TypeError("min_t and max_t must be integer sample indices.")
+        min_t, max_t = int(min_t), int(max_t)
+        if min_t < 0 or max_t <= min_t:
+            raise ValueError("Require 0 <= min_t < max_t.")
+    
+        iterator = range(len(self.AcousticFields))
+        if show_log:
+            iterator = trange(len(self.AcousticFields), desc=f"[AOT-biomaps] Cropping fields [{min_t}:{max_t}]")
+        for index in iterator:
+            acoustic_field = self.AcousticFields[index]
+            if acoustic_field.field is None:
+                raise ValueError(f"Field {acoustic_field.get_name_field()} is not loaded.")
+            if acoustic_field.field.shape[0] < max_t:
+                raise ValueError(
+                    f"Field {acoustic_field.get_name_field()} has {acoustic_field.field.shape[0]} frames; "
+                    f"cannot crop up to sample {max_t}."
+                )
+            acoustic_field.field = acoustic_field.field[min_t:max_t]
+        return self.AcousticFields
 
     def add_noise(self, y=None, noiseType='gaussian', snr_dB=20.0, noiseLvl=0.1, dataToUse=None, m=1, withTumor=True, keep_nonnegative=False, noiseScope='global', show_log=True):
         """
@@ -435,530 +512,582 @@ class Experiment(ABC):
 
         return noiseSignals
     
-    def reduce_dims(self, mode='avg'):
+    def reduce_dims(self, mode="avg"):
+        """Downsample each ``(time, z, x)`` field by two on all axes.
+
+        Existing CuPy fields are pooled on their current GPU and remain there.
+        NumPy arrays and file-backed memmaps are processed on the CPU, so the
+        method never copies a complete host field to VRAM merely because CuPy
+        is installed. Odd trailing samples are discarded, matching valid
+        2-by-2-by-2 pooling.
+
+        Parameters
+        ----------
+        mode : {"avg", "max"}
+            Pooling operation applied to each 2-by-2-by-2 block.
         """
-        Reduces the T, X, Z dimensions of a numpy array (T, X, Z) by a factor of 2 using CuPy pooling.
-        Falls back to numpy if CuPy is not available.
-        Returns a numpy array and updates numerical parameters.
-        """
-        if not CUPY_AVAILABLE:
-            print("[AOT-biomaps] Warning: CuPy not available. Using numpy for downsampling.")
-            # Fall back to numpy implementation
-            for i in trange(len(self.AcousticFields),
-                            desc=f"[AOT-biomaps] Downsampling Acoustic Fields (T, X, Z → T//2, X//2, Z//2)"):
-                field = self.AcousticFields[i].field
-                if field.ndim != 3:
-                    raise ValueError(f"[AOT-biomaps] Unsupported shape: {field.shape}. Expected (T, X, Z).")
-                # Simple numpy downsampling by slicing
-                x_down = field[::2, ::2, ::2]
-                self.AcousticFields[i].field = x_down
-            return
-        
-        for i in trange(len(self.AcousticFields),
-                        desc=f"[AOT-biomaps] Downsampling Acoustic Fields (T, X, Z → T//2, X//2, Z//2)"):
-            # Convert to CuPy array
-            field = self.AcousticFields[i].field
-            if not isinstance(field, cp.ndarray):
-                field = cp.asarray(field)
+        if self.AcousticFields is None or len(self.AcousticFields) == 0:
+            raise ValueError("AcousticFields is not initialized or is empty.")
+        if mode not in ("avg", "max"):
+            raise ValueError("mode must be either 'avg' or 'max'.")
 
-            # Check shape (must be 3D: T, X, Z)
-            if field.ndim != 3:
-                raise ValueError(f"[AOT-biomaps] Unsupported shape: {field.shape}. Expected (T, X, Z).")
+        for index in trange(
+            len(self.AcousticFields),
+            desc="[AOT-biomaps] Downsampling acoustic fields (T, Z, X)",
+        ):
+            acoustic_field = self.AcousticFields[index]
+            field = acoustic_field.field
+            if field is None or field.ndim != 3:
+                shape = None if field is None else field.shape
+                raise ValueError(
+                    f"Unsupported acoustic-field shape {shape}; expected (T, Z, X)."
+                )
 
-            # Add dimensions for pool3d: (1, 1, T, X, Z)
-            x = field[cp.newaxis, cp.newaxis, ...]
+            nt, nz, nx = map(int, field.shape)
+            nt2, nz2, nx2 = nt // 2, nz // 2, nx // 2
+            if min(nt2, nz2, nx2) == 0:
+                raise ValueError(
+                    f"Field dimensions {field.shape} are too small to downsample by two."
+                )
 
-            # Downsample using 3D pooling
-            if mode == 'avg':
-                x_down = cp.nn.pooling.avg_pool3d(x, kernel_size=(2, 2, 2), stride=(2, 2, 2))
-            else:  # mode == 'max'
-                x_down = cp.nn.pooling.max_pool3d(x, kernel_size=(2, 2, 2), stride=(2, 2, 2))
+            if _field_is_cupy(field):
+                # Run on the array's owning device. The crop and added batch/
+                # channel dimensions are views and do not duplicate the input.
+                with cp.cuda.Device(int(field.device.id)):
+                    cropped = field[:2 * nt2, :2 * nz2, :2 * nx2]
+                    pooling_input = cropped[None, None, ...]
+                    if mode == "avg":
+                        reduced = cp.nn.pooling.avg_pool3d(
+                            pooling_input, kernel_size=(2, 2, 2), stride=(2, 2, 2)
+                        )
+                    else:
+                        reduced = cp.nn.pooling.max_pool3d(
+                            pooling_input, kernel_size=(2, 2, 2), stride=(2, 2, 2)
+                        )
+                    # Preserve the historical host-resident result convention;
+                    # the reduced output is much smaller than the original field.
+                    reduced_host = cp.asnumpy(reduced[0, 0])
+                    acoustic_field.field = reduced_host
+                    del pooling_input, cropped, reduced
+            else:
+                # All intermediate views are zero-copy. Only the reduced
+                # output is allocated, keeping memmap-backed processing lazy.
+                cropped = field[:2 * nt2, :2 * nz2, :2 * nx2]
+                blocks = cropped.reshape(nt2, 2, nz2, 2, nx2, 2)
+                if mode == "avg":
+                    reduced = blocks.mean(axis=(1, 3, 5), dtype=np.float32)
+                else:
+                    reduced = blocks.max(axis=(1, 3, 5))
+                acoustic_field.field = reduced
 
-            # Convert to numpy array and remove added dimensions
-            self.AcousticFields[i].field = cp.asnumpy(x_down.squeeze(0).squeeze(0))
-
-        # Utility function to convert and update a parameter
-        def convert_and_update(param_dict, key, operation):
-            if key in param_dict:
-                if isinstance(param_dict[key], str):
-                    param_dict[key] = float(param_dict[key])
-                param_dict[key] = operation(param_dict[key])
-
-        # Update parameters
-        convert_and_update(self.params.general, 'ft', lambda x: x / 2)
-        for param in ['dx', 'dy', 'dz']:
-            convert_and_update(self.params.general, param, lambda x: x * 2)
+        general = self.params.general
+        if general.get("ft") is not None:
+            general["ft"] = float(general["ft"]) / 2.0
+        for key in ("dx", "dy", "dz"):
+            if general.get(key) is not None:
+                general[key] = float(general[key]) * 2.0
+        return self.AcousticFields
 
     def normalize_AOsignals(self, withTumor=True):
-        if withTumor and self.AOsignal_withTumor is None:
-            raise ValueError("[AOT-biomaps] AO signal with tumor is not generated. Please generate it first.")
-        if not withTumor and self.AOsignal_withoutTumor is None:
-            raise ValueError("[AOT-biomaps] AO signal without tumor is not generated. Please generate it first.")
-        if withTumor:
-            self.AOsignal_withTumor = self.AOsignal_withTumor - np.min(self.AOsignal_withTumor)/(np.max(self.AOsignal_withTumor)-np.min(self.AOsignal_withTumor))
+        """Min-max normalize one stored AO signal in place when possible."""
+        attribute = "AOsignal_withTumor" if withTumor else "AOsignal_withoutTumor"
+        signal = getattr(self, attribute)
+        if signal is None:
+            label = "with tumor" if withTumor else "without tumor"
+            raise ValueError(f"AO signal {label} has not been generated.")
+        if not np.issubdtype(signal.dtype, np.floating) or not signal.flags.writeable:
+            signal = np.array(signal, dtype=np.float32, copy=True)
+        minimum = float(np.min(signal))
+        dynamic_range = float(np.max(signal)) - minimum
+        if dynamic_range <= 0.0:
+            signal.fill(0)
         else:
-            self.AOsignal_withoutTumor = self.AOsignal_withoutTumor - np.min(self.AOsignal_withoutTumor)/(np.max(self.AOsignal_withoutTumor)-np.min(self.AOsignal_withoutTumor))
+            np.subtract(signal, minimum, out=signal, casting="unsafe")
+            np.divide(signal, dynamic_range, out=signal, casting="unsafe")
+        setattr(self, attribute, signal)
+        return signal
 
     def save_acoustic_fields(self, save_directory):
+        """Save all loaded acoustic fields using the experiment's file format."""
+        if self.AcousticFields is None:
+            raise ValueError("AcousticFields is not initialized.")
         progress_bar = trange(len(self.AcousticFields), desc="[AOT-biomaps] Saving Acoustic Fields")
         for i in progress_bar:
             progress_bar.set_postfix_str(f"-- {self.AcousticFields[i].get_name_field()}")
             self.AcousticFields[i].save_field(save_directory, formatSave=self.FormatSave)
 
     def show_animated_acoustic(self, wave_name=None, desired_duration_ms=5000, save_dir=None, figsize=(12, 5)):
-        """
-        Plot synchronized animations of A_matrix slices for selected angles.
-        Args:
-            wave_name: optional name for labeling the subplots (e.g., "wave1")
-            desired_duration_ms: Total duration of the animation in milliseconds.
-            save_dir: directory to save the animation gif; if None, animation will not be saved
-        Returns:
-            ani: Matplotlib FuncAnimation object
-        """
-        mpl.rcParams['animation.embed_limit'] = 100
+        """Display synchronized animations of the loaded acoustic fields."""
+        if not self.AcousticFields:
+            raise ValueError("AcousticFields is empty.")
+        n_fields = len(self.AcousticFields)
+        n_frames = min(int(field.field.shape[0]) for field in self.AcousticFields)
+        if n_frames <= 0:
+            raise ValueError("Acoustic fields contain no time frames.")
+    
+        mpl.rcParams["animation.embed_limit"] = 100
         if save_dir is not None:
             os.makedirs(save_dir, exist_ok=True)
-
-        num_plots = len(self.AcousticFields)
-        if num_plots <= 5:
-            nrows, ncols = 1, num_plots
-        else:
-            ncols = 5
-            nrows = (num_plots + ncols - 1) // ncols
-
-        fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-        if isinstance(axes, plt.Axes):
-            axes = np.array([axes])
-        axes = axes.flatten()
+    
+        ncols = min(5, n_fields)
+        nrows = (n_fields + ncols - 1) // ncols
+        fig, axes = plt.subplots(nrows, ncols, figsize=figsize, squeeze=False)
+        axes = axes.ravel()
         ims = []
-
-        fig.suptitle(f"System Matrix Animation {wave_name}", y=0.98)
-
-        for idx in range(num_plots):
-            ax = axes[idx]
-            im = ax.imshow(self.AcousticFields[idx].field[0],
-                        extent=(self.params.general['Xrange'][0], self.params.general['Xrange'][1], self.params.general['Zrange'][1], self.params.general['Zrange'][0]),
-                        vmax=1, aspect='equal', cmap='jet', animated=True)
-            ax.set_xlabel("x (mm)")
-            ax.set_ylabel("z (mm)")
-            ims.append((im, ax, idx))
-
-        for j in range(num_plots, len(axes)):
-            fig.delaxes(axes[j])
-
+        fig.suptitle(f"System Matrix Animation {wave_name or ''}", y=0.98)
+    
+        for index, acoustic_field in enumerate(self.AcousticFields):
+            image = axes[index].imshow(
+                acoustic_field.field[0],
+                extent=(
+                    self.params.general["Xrange"][0], self.params.general["Xrange"][1],
+                    self.params.general["Zrange"][1], self.params.general["Zrange"][0],
+                ),
+                vmax=1,
+                aspect="equal",
+                cmap="jet",
+                animated=True,
+            )
+            axes[index].set_xlabel("x (m)")
+            axes[index].set_ylabel("z (m)")
+            ims.append(image)
+        for index in range(n_fields, len(axes)):
+            fig.delaxes(axes[index])
+    
         plt.tight_layout(rect=[0, 0, 1, 0.95])
-
+    
         def update(frame):
-            artists = []
-            for im, ax, idx in ims:
-                im.set_array(self.AcousticFields[idx].field[frame])
-                fig.suptitle(f"System Matrix Animation {wave_name} t = {frame * 25e-6 * 1000:.2f} ms")
-                artists.append(im)
-            return artists
-
-        interval = desired_duration_ms / self.AcousticFields.shape[0]
-        ani = animation.FuncAnimation(
-            fig, update,
-            frames=range(0, self.AcousticFields.shape[0]),
-            interval=interval, blit=True
+            for image, acoustic_field in zip(ims, self.AcousticFields):
+                image.set_data(acoustic_field.field[frame])
+            fig.suptitle(f"System Matrix Animation {wave_name or ''} — frame {frame}")
+            return ims
+    
+        interval = float(desired_duration_ms) / n_frames
+        movie = animation.FuncAnimation(
+            fig, update, frames=range(n_frames), interval=interval, blit=True
         )
-
         if save_dir is not None:
-            now = datetime.now()
-            date_str = now.strftime("%Y_%d_%m_%y")
-            save_filename = f"AcousticField_{wave_name}_{date_str}.gif"
-            save_path = os.path.join(save_dir, save_filename)
-            ani.save(save_path, writer='pillow', fps=20)
+            date_string = datetime.now().strftime("%Y_%d_%m_%y")
+            safe_name = wave_name or "all_fields"
+            save_path = os.path.join(save_dir, f"AcousticField_{safe_name}_{date_string}.gif")
+            movie.save(save_path, writer="pillow", fps=20)
             print(f"[AOT-biomaps] Saved: {save_path}")
-
+    
         plt.close(fig)
-        return ani
+        return movie
 
     def generate_AOsignal(self, withTumor=True, AOsignalDataPath=None, n_workers=16):
-        """
-        Generate the Acousto-Optic signals y_i(t) = sum_{z,x} lambda(z,x) * A_i(t,z,x), i.e. y = A @ lambda, one column per acoustic field (pattern/angle).
+        """Compute ``y(t, i) = sum_{z,x} A(t,z,x,i) * lambda(z,x)``.
 
-        The implementation is DISPATCHED ON THE MEMORY LAYER WHERE THE FIELDS LIVE.
-        The forward model is memory-bound (arithmetic intensity = 0.25 flop/byte), so the optimal parallelism is dictated by the bandwidth of the storage layer, never by the number of cores:
-            VRAM (cupy arrays, e.g. fp16-resident SetMixte):
-                One worker PER GPU, gemv on-device (~0.06 ms/field at fp16).
-                Expected: ~10,000-15,000 it/s total. Fields are grouped by device id so no cross-device transfer ever happens.
+        Fields are processed where they already reside:
 
-            RAM (materialized anonymous ndarrays, no memmap in base chain):
-                SERIAL gemv with multithreaded BLAS. A single 84.8 MB sgemv already saturates the DRAM ceiling (~44-70 GB/s measured);
-                Python-side thread pools only add GIL contention (measured 7 GB/s aggregate with 96 workers vs 44 GB/s serial).
-                Expected: ~500-850 it/s.
+        * CuPy arrays are projected on their owning GPU; only one temporal
+          trace per field is copied back to the host.
+        * Resident NumPy arrays are processed serially with multithreaded BLAS.
+        * Memmaps and other file-backed arrays use a bounded set of disk-reader
+          workers. Contiguous float32 fields are passed directly to BLAS; any
+          required conversion is limited to time chunks rather than a complete
+          3-D field copy.
 
-            File-backed (np.memmap, or ndarray views whose .base chain
-                reaches a memmap -> still evictable page cache):
-                n_workers CHUNKED tasks (one submission per worker, never one per field) reading the disk concurrently: a single stream caps at ~260 MB/s while the RAID aggregate is ~2.3 GB/s, i.e. N* = 2.3 GB/s / 200 MB/s ~ 12-16 workers saturate it.
-                Expected: I/O-bound, first pass pays the page-cache promotion.
+        The output is a host-side float32 array with shape ``(Nt, N_fields)``.
 
-        Parameters:
-            withTumor (bool): If True, lambda = OpticImage.phantom (absorption map); if False, lambda = OpticImage.laser.intensity.
-            AOsignalDataPath (str): If provided, load a precomputed AO signal from file instead of computing it (and cut the acoustic fields to its temporal length if needed).
-            n_workers (int): Worker count for the FILE-BACKED branch ONLY (concurrent disk readers). Ignored on the VRAM and RAM paths. Default 16 (~RAID saturation). Do not expect gains above it.
+        Parameters
+        ----------
+        withTumor : bool
+            Use the phantom absorption map when True, or laser intensity when
+            False.
+        AOsignalDataPath : str or None
+            Load a precomputed AO signal instead of evaluating the forward
+            model. Acoustic fields are cropped by sample index if necessary.
+        n_workers : int
+            Maximum number of concurrent file-backed field readers. Ignored
+            for resident RAM and GPU fields.
 
-        Returns:
-            None. Stores the result in self.AOsignal_withTumor or self.AOsignal_withoutTumor, shape (Nt, Nf), float32.
+        Returns
+        -------
+        numpy.ndarray
+            AO signal matrix with shape ``(Nt, N_fields)`` and dtype float32.
         """
         if AOsignalDataPath is not None:
-            if not os.path.exists(AOsignalDataPath):
-                raise FileNotFoundError(f"[AOT-biomaps] AO file {AOsignalDataPath} not found.")
-            sig = load_AOsignal(AOsignalDataPath)
-            if withTumor:
-                self.AOsignal_withTumor = sig
-                if sig.shape[0] != self.AcousticFields[0].field.shape[0]:
-                    print(f"[AOT-biomaps] AO signal shape {sig.shape} does not match the expected shape "
-                        f"{self.AcousticFields[0].field.shape}. Resizing Acoustic fields...")
-                    self.cut_acoustic_fields(max_t=sig.shape[0] / float(self.params.general['ft']), min_t=0)
-            else:
-                self.AOsignal_withoutTumor = sig
-                if sig.shape[0] != self.AcousticFields[0].field.shape[0]:
-                    print(f"[AOT-biomaps] AO signal shape {sig.shape} does not match the expected shape "
-                        f"{self.AcousticFields[0].field.shape}. Resizing Acoustic fields...")
-                    self.cut_acoustic_fields(max_t=sig.shape[0] / float(self.params.general['ft']), min_t=0)
-            return
+            if not os.path.isfile(AOsignalDataPath):
+                raise FileNotFoundError(f"AO signal file not found: {AOsignalDataPath}")
+            signal = np.asarray(load_AOsignal(AOsignalDataPath))
+            if signal.ndim != 2:
+                raise ValueError("Loaded AO signal must be a 2-D array (time, fields).")
+            if self.AcousticFields:
+                first = self.AcousticFields[0].field
+                if first is None:
+                    raise ValueError("Acoustic fields must be loaded before importing AO signals.")
+                expected_nt = int(first.shape[0])
+                if signal.shape[0] > expected_nt:
+                    signal = signal[:expected_nt]
+                elif signal.shape[0] < expected_nt:
+                    self.cut_acoustic_fields(max_t=signal.shape[0], min_t=0, show_log=False)
+            setattr(self, "AOsignal_withTumor" if withTumor else "AOsignal_withoutTumor", signal)
+            return signal
 
-        if self.AcousticFields is None:
-            raise ValueError("[AOT-biomaps] AcousticFields is not initialized. Please generate the system matrix first.")
+        if self.AcousticFields is None or len(self.AcousticFields) == 0:
+            raise ValueError("AcousticFields is empty. Generate or load the system matrix first.")
         if self.OpticImage is None:
-            raise ValueError("[AOT-biomaps] OpticImage is not initialized. Please generate the phantom first.")
+            raise ValueError("OpticImage is not initialized.")
 
-        if not all(f.field.shape == self.AcousticFields[0].field.shape for f in self.AcousticFields):
-            minShape = min(f.field.shape[0] for f in self.AcousticFields)
-            self.cut_acoustic_fields(max_t=minShape * self.params.general['ft'])
+        if any(item.field is None for item in self.AcousticFields):
+            raise ValueError("Every acoustic field must be loaded before AO-signal generation.")
+        first_field = self.AcousticFields[0].field
+        reference_shape = tuple(first_field.shape)
+        if len(reference_shape) != 3:
+            raise ValueError(
+                f"Expected acoustic fields with shape (Nt, Nz, Nx), got {reference_shape}."
+            )
 
-        Nt, Nz, Nx = self.AcousticFields[0].field.shape
-        Nf = len(self.AcousticFields)
+        nt, nz, nx = reference_shape
+        min_nt = min(int(item.field.shape[0]) for item in self.AcousticFields)
+        if any(tuple(item.field.shape[1:]) != (nz, nx) for item in self.AcousticFields):
+            raise ValueError("All acoustic fields must share the same spatial dimensions.")
+        if any(int(item.field.shape[0]) != min_nt for item in self.AcousticFields):
+            self.cut_acoustic_fields(max_t=min_nt, min_t=0, show_log=False)
+        nt = min_nt
+        n_fields = len(self.AcousticFields)
 
-        lam = self.OpticImage.phantom if withTumor else self.OpticImage.laser.intensity
-        lam_flat = np.ascontiguousarray(lam, dtype=np.float32).ravel()
-        AOsignal = np.zeros((Nt, Nf), dtype=np.float32)
-        description = "[AOT-biomaps] Generating AO Signal " + ("with" if withTumor else "without") + " Tumor"
+        optical_image = (
+            self.OpticImage.phantom if withTumor else self.OpticImage.laser.intensity
+        )
+        if optical_image is None or tuple(optical_image.shape) != (nz, nx):
+            shape = None if optical_image is None else optical_image.shape
+            raise ValueError(
+                f"Optical image shape {shape} does not match acoustic spatial shape {(nz, nx)}."
+            )
+        weights_host = np.asarray(optical_image, dtype=np.float32).reshape(-1)
+        if not weights_host.flags.c_contiguous:
+            weights_host = np.ascontiguousarray(weights_host)
 
-        # ---- Dispatch: detect the memory layer where the fields live ----------
-        try:
-            import cupy as cp
-            n_cupy = sum(isinstance(f.field, cp.ndarray) for f in self.AcousticFields)
-        except Exception:
-            cp = None
-            n_cupy = 0
+        n_gpu_fields = (
+            sum(_field_is_cupy(item.field) for item in self.AcousticFields)
+            if CUPY_AVAILABLE else 0
+        )
+        if 0 < n_gpu_fields < n_fields:
+            raise ValueError(
+                "Mixed CPU/GPU field residency is not supported. Keep all fields on the host "
+                "or keep all fields on their owning GPUs."
+            )
+        resident_vram = n_gpu_fields == n_fields
+        output = np.empty((nt, n_fields), dtype=np.float32)
+        description = (
+            "[AOT-biomaps] AO forward model "
+            + ("with" if withTumor else "without")
+            + " tumor"
+        )
 
-        if 0 < n_cupy < Nf:
-            raise ValueError("[AOT-biomaps] Mixed field residency: some fields are cupy (VRAM), others are not. Move/materialize them consistently first.")
+        # Select a per-worker scratch budget only for non-contiguous/dtype
+        # conversion paths. Standard C-contiguous float32 memmaps require no
+        # field-sized scratch allocation at all.
+        available_ram = get_available_host_memory_bytes() or 0
+        worker_hint = max(1, int(n_workers))
+        per_worker_scratch = (
+            max(1, int(available_ram // max(8, 4 * worker_hint)))
+            if available_ram else 0
+        )
 
-        resident_vram = (n_cupy == Nf)
+        def _project_numpy_field(field):
+            """Project one host field without materializing a full 3-D copy."""
+            if field.dtype == np.float32 and field.flags.c_contiguous:
+                return field.reshape(nt, -1) @ weights_host
 
-        # File-backed detection, inlined: walk each field's .base chain; a view over a memmap is still file-backed (evictable page cache) whatever its ndarray subclass. Early exit on the first hit.
-        file_backed = False
-        if n_cupy == 0:
-            for f in self.AcousticFields:
-                b = f.field
-                while b is not None:
-                    if isinstance(b, np.memmap):
-                        file_backed = True
-                        break
-                    b = b.base
-                if file_backed:
-                    break
+            frame_bytes = max(1, nz * nx * np.dtype(np.float32).itemsize)
+            if per_worker_scratch:
+                frames_per_chunk = max(1, min(nt, per_worker_scratch // frame_bytes))
+            else:
+                frames_per_chunk = 1
+            projected = np.empty(nt, dtype=np.float32)
+            for start in range(0, nt, frames_per_chunk):
+                stop = min(start + frames_per_chunk, nt)
+                chunk = np.asarray(field[start:stop], dtype=np.float32, order="C")
+                projected[start:stop] = chunk.reshape(stop - start, -1) @ weights_host
+                del chunk
+            return projected
 
-        # =======================================================================
-        # PATH 1 - VRAM: one worker per GPU, gemv on-device
-        # =======================================================================
         if resident_vram:
-            # Static split by device id: worker of GPU d only touches fields already resident on d -> zero cross-device traffic, zero PCIe.
-            by_dev = {}
-            for i, f in enumerate(self.AcousticFields):
-                by_dev.setdefault(int(f.field.device.id), []).append(i)
+            # One worker owns each existing device. Its input fields never
+            # migrate between GPUs; the temporal result buffer is reused.
+            fields_by_device = {}
+            for index, acoustic_field in enumerate(self.AcousticFields):
+                device_id = int(acoustic_field.field.device.id)
+                fields_by_device.setdefault(device_id, []).append(index)
 
-            def _device_worker(dev, idxs, pbar):
-                with cp.cuda.Device(dev):
-                    # Per-dtype lambdas (fp32 and fp16 residents share the same weight vector, cast once per device per dtype).
-                    lam_cache = {}
-                    res = {}
-                    for i in idxs:
-                        F = self.AcousticFields[i].field
-                        dt = F.dtype
-                        if dt not in lam_cache:
-                            lam_cache[dt] = cp.asarray(lam_flat).astype(dt)
-                        res[i] = cp.asnumpy(F.reshape(Nt, -1) @ lam_cache[dt])
-                        pbar.update(1)
-                    return res
+            progress = tqdm(total=n_fields, desc=description)
 
-            with tqdm(total=Nf, desc=description) as pbar:
-                with ThreadPoolExecutor(max_workers=len(by_dev)) as ex:
-                    futs = [ex.submit(_device_worker, dev, idxs, pbar)
-                            for dev, idxs in by_dev.items()]
-                    for fut in as_completed(futs):
-                        for i, s in fut.result().items():
-                            AOsignal[:, i] = s
+            def _gpu_worker(device_id, indices):
+                with cp.cuda.Device(device_id):
+                    device_weights = None
+                    result_gpu = None
+                    result_host = None
+                    current_dtype = None
+                    for index in indices:
+                        field = self.AcousticFields[index].field
+                        dtype = field.dtype
+                        if current_dtype != dtype:
+                            device_weights = cp.asarray(weights_host, dtype=dtype)
+                            result_gpu = cp.empty(nt, dtype=dtype)
+                            result_host = np.empty(nt, dtype=np.dtype(dtype))
+                            current_dtype = dtype
 
-        # =======================================================================
-        # PATH 2 - RAM (materialized): SERIAL gemv, multithreaded BLAS
-        # =======================================================================
-        elif not file_backed:
-            # One 84.8 MB sgemv at a time already runs at the DRAM ceiling.
-            # No Python-side pool: 96 workers measured 7 GB/s (GIL storm) vs 44 GB/s serial. tqdm wraps the real loop: honest timing.
-            with threadpool_limits(limits=os.cpu_count() or 8):
-                for i in tqdm(range(Nf), desc=description):
-                    F = self.AcousticFields[i].field
-                    if not F.flags['C_CONTIGUOUS'] or F.dtype != np.float32:
-                        F = np.ascontiguousarray(F, dtype=np.float32)
-                    AOsignal[:, i] = F.reshape(Nt, -1) @ lam_flat
+                        if field.flags.c_contiguous:
+                            cp.matmul(field.reshape(nt, -1), device_weights, out=result_gpu)
+                        else:
+                            # Reshape only small temporal chunks; never let a
+                            # non-contiguous field trigger a full GPU copy.
+                            frame_bytes = max(1, nz * nx * int(dtype.itemsize))
+                            free_bytes = int(cp.cuda.runtime.memGetInfo()[0])
+                            chunk_budget = max(frame_bytes, free_bytes // 16)
+                            frames_per_chunk = max(1, min(nt, chunk_budget // frame_bytes))
+                            for start in range(0, nt, frames_per_chunk):
+                                stop = min(start + frames_per_chunk, nt)
+                                chunk = cp.ascontiguousarray(field[start:stop]).reshape(stop - start, -1)
+                                cp.matmul(
+                                    chunk,
+                                    device_weights,
+                                    out=result_gpu[start:stop],
+                                )
+                                del chunk
 
-        # =======================================================================
-        # PATH 3 - File-backed (memmap / views): chunked parallel disk readers
-        # =======================================================================
+                        result_gpu.get(out=result_host, blocking=True)
+                        output[:, index] = result_host
+                        progress.update(1)
+                    del device_weights, result_gpu, result_host
+
+            try:
+                with ThreadPoolExecutor(max_workers=len(fields_by_device)) as executor:
+                    futures = [
+                        executor.submit(_gpu_worker, device_id, indices)
+                        for device_id, indices in fields_by_device.items()
+                    ]
+                    for future in as_completed(futures):
+                        future.result()
+            finally:
+                progress.close()
+
+        elif not any(_is_memmap_backed(item.field) for item in self.AcousticFields):
+            # One CPU worker plus threaded BLAS is typically the most efficient
+            # path for resident RAM arrays and avoids concurrent large reads.
+            with threadpool_limits(limits=os.cpu_count() or 1):
+                for index, acoustic_field in enumerate(tqdm(self.AcousticFields, desc=description)):
+                    output[:, index] = _project_numpy_field(acoustic_field.field)
+
         else:
-            # Single stream ~260 MB/s vs RAID aggregate ~2.3 GB/s:
-            # N* = 2.3/0.2 ~ 12-16 concurrent readers saturate the storage. 
-            # CHUNKED tasks (one submission per worker, not 1353 tiny futures) avoid the GIL storm that previously made wall time 20x slower than the displayed tqdm rate. np.array(copy=True) forces the real read (ascontiguousarray is a no-op on contiguous inputs).
-            n_workers = max(1, int(n_workers))
-            edges = np.linspace(0, Nf, n_workers + 1, dtype=int)
+            # File-backed fields are assigned in contiguous index ranges. Each
+            # worker writes directly to its output columns and submits only one
+            # future, avoiding a queue of full-field task arguments/results.
+            worker_count = min(worker_hint, n_fields)
+            edges = np.linspace(0, n_fields, worker_count + 1, dtype=np.int64)
+            progress = tqdm(total=n_fields, desc=description)
 
-            def _chunk_worker(i0, i1):
-                out = np.zeros((Nt, i1 - i0), dtype=np.float32)
-                for k, i in enumerate(range(i0, i1)):
-                    F = self.AcousticFields[i].field
-                    # Inlined file-backed check: walk the .base chain.
-                    b = F
-                    is_fb = False
-                    while b is not None:
-                        if isinstance(b, np.memmap):
-                            is_fb = True
-                            break
-                        b = b.base
-                    if is_fb or not F.flags['C_CONTIGUOUS'] or F.dtype != np.float32:
-                        F = np.array(F, dtype=np.float32, order='C', copy=True)
-                    out[:, k] = F.reshape(Nt, -1) @ lam_flat
-                return i0, out
+            def _disk_worker(start, stop):
+                for index in range(start, stop):
+                    output[:, index] = _project_numpy_field(
+                        self.AcousticFields[index].field
+                    )
+                    progress.update(1)
 
-            with threadpool_limits(limits=1), ThreadPoolExecutor(max_workers=n_workers) as ex:
-                futs = [ex.submit(_chunk_worker, edges[c], edges[c + 1])
-                        for c in range(n_workers)]
-                with tqdm(total=Nf, desc=description) as pbar:
-                    for f in as_completed(futs):
-                        i0, out = f.result()
-                        AOsignal[:, i0:i0 + out.shape[1]] = out
-                        pbar.update(out.shape[1])
+            try:
+                with threadpool_limits(limits=1):
+                    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                        futures = [
+                            executor.submit(_disk_worker, int(edges[i]), int(edges[i + 1]))
+                            for i in range(worker_count)
+                        ]
+                        for future in as_completed(futures):
+                            future.result()
+            finally:
+                progress.close()
 
-        if withTumor:
-            self.AOsignal_withTumor = AOsignal
-        else:
-            self.AOsignal_withoutTumor = AOsignal
+        attribute = "AOsignal_withTumor" if withTumor else "AOsignal_withoutTumor"
+        setattr(self, attribute, output)
+        return output
 
     def save_AOsignals_Castor(self, save_directory, withTumor=True):
-        if withTumor:
-            AO_signal = self.AOsignal_withTumor
-            cdf_location = os.path.join(save_directory, "AOSignals_withTumor.cdf")
-            cdh_location = os.path.join(save_directory, "AOSignals_withTumor.cdh")
-        else:
-            AO_signal = self.AOsignal_withoutTumor
-            cdf_location = os.path.join(save_directory, "AOSignals_withoutTumor.cdf")
-            cdh_location = os.path.join(save_directory, "AOSignals_withoutTumor.cdh")
-
-        info_location = os.path.join(save_directory, "info.txt")
-        nScan = AO_signal.shape[1]
-
-        with open(cdf_location, "wb") as fileID:
-            for j in range(AO_signal.shape[1]):
-                active_list_hex = self.AcousticFields[j].pattern.activeList
-                for i in range(0, len(active_list_hex), 2):
-                    byte_value = int(active_list_hex[i:i+2], 16)
-                    fileID.write(byte_value.to_bytes(1, byteorder='big'))
-                angle = self.AcousticFields[j].angle
-                fileID.write(np.int8(angle).tobytes())
-                fileID.write(AO_signal[:, j].astype(np.float32).tobytes())
-
-        header_content = (
-            f"Data filename: {'AOSignals_withTumor.cdf' if withTumor else 'AOSignals_withoutTumor.cdf'}\n"
-            f"Number of events: {nScan}\n"
-            f"Number of acquisitions per event: {AO_signal.shape[0]}\n"
-            f"Start time (s): 0\n"
-            f"Duration (s): 1\n"
+        """Write AO signals and acquisition metadata in Castor CDF/CDH format."""
+        signal = self.AOsignal_withTumor if withTumor else self.AOsignal_withoutTumor
+        if signal is None:
+            label = "with tumor" if withTumor else "without tumor"
+            raise ValueError(f"AO signal {label} is not available.")
+        if self.AcousticFields is None or len(self.AcousticFields) != signal.shape[1]:
+            raise ValueError("The number of acoustic fields must match the AO signal columns.")
+    
+        os.makedirs(save_directory, exist_ok=True)
+        stem = "AOSignals_withTumor" if withTumor else "AOSignals_withoutTumor"
+        cdf_path = os.path.join(save_directory, f"{stem}.cdf")
+        cdh_path = os.path.join(save_directory, f"{stem}.cdh")
+        info_path = os.path.join(save_directory, "info.txt")
+        signal = np.asarray(signal)
+    
+        with open(cdf_path, "wb") as output_file:
+            for index, acoustic_field in enumerate(self.AcousticFields):
+                pattern_hex = acoustic_field.pattern.activeList
+                output_file.write(bytes.fromhex(pattern_hex))
+                output_file.write(np.asarray(acoustic_field.angle, dtype=np.int8).tobytes())
+                np.asarray(signal[:, index], dtype=np.float32).tofile(output_file)
+    
+        header = (
+            f"Data filename: {stem}.cdf\n"
+            f"Number of events: {signal.shape[1]}\n"
+            f"Number of acquisitions per event: {signal.shape[0]}\n"
+            "Start time (s): 0\n"
+            "Duration (s): 1\n"
             f"Acquisition frequency (Hz): {self.params.general['ft']}\n"
-            f"Data mode: histogram\n"
-            f"Data type: AOT\n"
+            "Data mode: histogram\n"
+            "Data type: AOT\n"
             f"Number of US transducers: {self.params.acoustic['probe']['num_elements']}"
         )
+        with open(cdh_path, "w", encoding="utf-8") as header_file:
+            header_file.write(header)
+        with open(info_path, "w", encoding="utf-8") as info_file:
+            for acoustic_field in self.AcousticFields:
+                info_file.write(acoustic_field.get_name_field() + "\n")
+        print(f"[AOT-biomaps] Castor files saved in {save_directory}.")
+        return cdf_path, cdh_path, info_path
 
-        with open(cdh_location, "w") as fileID:
-            fileID.write(header_content)
+    def show_AOsignal(self, withTumor=True, save_dir=None, wave_name=None, figsize=(12, 5)):
+        """Plot all AO signal traces for one optical phantom condition."""
+        signal = self.AOsignal_withTumor if withTumor else self.AOsignal_withoutTumor
+        if signal is None:
+            label = "with tumor" if withTumor else "without tumor"
+            raise ValueError(f"AO signal {label} is not available.")
+        signal = np.asarray(signal)
+        time_us = np.arange(signal.shape[0], dtype=np.float64) / float(self.params.general["ft"]) * 1e6
+        if signal.ndim != 2 or signal.shape[1] == 0:
+            raise ValueError("AO signal must be a non-empty 2-D array (time, traces).")
+        n_traces = signal.shape[1]
+        ncols = min(5, n_traces)
+        nrows = (n_traces + ncols - 1) // ncols
+        fig, axes = plt.subplots(nrows, ncols, figsize=figsize, squeeze=False)
+        axes = axes.ravel()
+        title = f"AO Signal — {wave_name}" if wave_name else "AO Signal — all traces"
+        fig.suptitle(title, y=0.98)
 
-        with open(info_location, "w") as fileID:
-            for field in self.AcousticFields:
-                fileID.write(field.get_name_field() + "\n")
-
-        print(f"[AOT-biomaps] Files .cdf, .cdh and info.txt saved in {save_directory}")
-
-        def show_AOsignal(self, withTumor=True, save_dir=None, wave_name=None, figsize=(12, 5)):
-            if withTumor and self.AOsignal_withTumor is None:
-                raise ValueError("[AOT-biomaps] AO signal with tumor is not generated. Please generate it first.")
-            if not withTumor and self.AOsignal_withoutTumor is None:
-                raise ValueError("[AOT-biomaps] AO signal without tumor is not generated. Please generate it first.")
-
-            if withTumor:
-                AOsignal = self.AOsignal_withTumor
-            else:
-                AOsignal = self.AOsignal_withoutTumor
-
-            time_axis = np.arange(AOsignal.shape[0]) / float(self.params.general['ft']) * 1e6
-
-            num_plots = AOsignal.shape[1]
-            if num_plots <= 5:
-                nrows, ncols = 1, num_plots
-            else:
-                ncols = 5
-                nrows = (num_plots + ncols - 1) // ncols
-
-            fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-            if isinstance(axes, plt.Axes):
-                axes = np.array([axes])
-            axes = axes.flatten()
-
-            if wave_name is None:
-                title = "AO Signal -- all plots"
-            else:
-                title = f"AO Signal -- {wave_name}"
-
-            fig.suptitle(title, y=0.98)
-
-            for idx in range(num_plots):
-                ax = axes[idx]
-                ax.plot(time_axis, AOsignal[:, idx])
-                ax.set_xlabel("Time (µs)")
-                ax.set_ylabel("Value")
-
-            for j in range(num_plots, len(axes)):
-                fig.delaxes(axes[j])
-
-            plt.tight_layout(rect=[0, 0, 1, 0.95])
-
-            if save_dir is not None:
-                now = datetime.now()
-                date_str = now.strftime("%Y_%d_%m_%y")
-                os.makedirs(save_dir, exist_ok=True)
-                save_filename = f"Static_y_Plot{wave_name}_{date_str}.png"
-                save_path = os.path.join(save_dir, save_filename)
-                plt.savefig(save_path, dpi=200)
-                print(f"[AOT-biomaps] Saved: {save_path}")
-
-            plt.show()
-            plt.close(fig)
-
-    def show_experiment_static(self, fileOfAcousticField=None, N_file=None, save_dir=None, withTumor=True, t=None, figsize=(8, 4), wave_name=None):
-        if fileOfAcousticField is None and N_file is None:
-            print(f"[AOT-biomaps] Warning: No acoustic field file provided. Showing the first field in AcousticFields.")
-            fieldToPlot = self.AcousticFields[0]
-            idx = 0
-        elif fileOfAcousticField is not None:
-            for field in self.AcousticFields:
-                if field.get_name_field() == fileOfAcousticField:
-                    fieldToPlot = field
-                    idx = self.AcousticFields.index(field)
-                    break
-            else:
-                raise ValueError(f"[AOT-biomaps] Field {fileOfAcousticField} not found in AcousticFields.")
-        elif N_file is not None:
-            if N_file < 0 or N_file >= len(self.AcousticFields):
-                raise ValueError(f"[AOT-biomaps] N_file must be between 0 and {len(self.AcousticFields)-1}.")
-            fieldToPlot = self.AcousticFields[N_file]
-            idx = N_file
-        elif fileOfAcousticField is not None and N_file is not None:
-            raise ValueError(f"[AOT-biomaps] Provide either fileOfAcousticField or N_file, not both.")
-
-        if wave_name is None:
-            wave_name = f"{fieldToPlot.pattern.activeList}"
-
-        t_max_us = (fieldToPlot.field.shape[0] - 1) / self.params.general['ft'] * 1e6
-        if t is None:
-            t = t_max_us / 2
-        frame = int(t * self.params.general['ft'] / 1e6)
-        frame = min(frame, fieldToPlot.field.shape[0] - 1)  
-        extent = [
-            self.params.general['Xrange'][0] * 1e3,
-            self.params.general['Xrange'][1] * 1e3,
-            self.params.general['Zrange'][1] * 1e3,
-            self.params.general['Zrange'][0] * 1e3
-        ]
-
-        fig, axs = plt.subplots(1, 2, figsize=figsize)
-        if isinstance(axs, plt.Axes):
-            axs = np.array([axs])
-
-        fig.suptitle(f"AO Signal | {wave_name} | Angle {fieldToPlot.angle}° | t = {t:.2f} µs", y=0.98)
-
-        if withTumor:
-            if self.AOsignal_withTumor is None:
-                raise ValueError("[AOT-biomaps] AO signal with tumor is not generated. Please generate it first.")
-            else:
-                AOsignal = self.AOsignal_withTumor
-            if self.OpticImage.phantom is None:
-                raise ValueError("[AOT-biomaps] Phantom is not generated. Please generate the phantom first.")
-            else:
-                opticImageToPlot = self.OpticImage.phantom
-        else:
-            if self.AOsignal_withoutTumor is None:
-                raise ValueError("[AOT-biomaps] AO signal without tumor is not generated. Please generate it first.")
-            else:
-                AOsignal = self.AOsignal_withoutTumor
-            if self.OpticImage.laser is None:
-                raise ValueError("[AOT-biomaps] Laser image is not generated. Please generate the laser image first.")
-            else:
-                opticImageToPlot = self.OpticImage.laser.intensity
-
-        custom_cmap = create_dark_transparent_hot_cmap(vmin=0.2 * np.max(opticImageToPlot))
-        axs[0].imshow(
-            self.medium.kmedium.sound_speed.T,
-            cmap='gray',
-            origin='upper',
-            extent=extent,
-            aspect='equal'
-        )
-        axs[0].imshow(
-            opticImageToPlot,
-            cmap=custom_cmap,
-            origin='upper',
-            extent=extent,
-            aspect='equal',
-            alpha=0.5
-        )
-
-        frame_data = fieldToPlot.field[frame, :, :] / np.max(fieldToPlot.field[frame, :, :])
-        masked_data = np.where(frame_data > 0.02, frame_data, np.nan)
-        im_field = axs[0].imshow(
-            masked_data,
-            cmap='jet',
-            origin='upper',
-            extent=extent,
-            vmax=1,
-            vmin=0.01,
-            alpha=0.8,
-            aspect='equal'
-        )
-        axs[0].set_xlabel("X (mm)")
-        axs[0].set_ylabel("Z (mm)")
-
-        time_axis = np.arange(AOsignal.shape[0]) / self.params.general['ft'] * 1e6
-        axs[1].plot(time_axis, AOsignal[:, idx], label="AO Signal")
-        axs[1].axvline(x=t, color='r', linestyle='--', label=f"t = {t:.2f} µs")
-        axs[1].set_xlabel("Time (µs)")
-        axs[1].set_ylabel("Amplitude")
-        axs[1].legend()
-
+        for index in range(n_traces):
+            axes[index].plot(time_us, signal[:, index])
+            axes[index].set_xlabel("Time (µs)")
+            axes[index].set_ylabel("Amplitude")
+        for index in range(n_traces, len(axes)):
+            fig.delaxes(axes[index])
         plt.tight_layout(rect=[0, 0, 1, 0.95])
 
         if save_dir is not None:
-            now = datetime.now()
-            date_str = now.strftime("%Y_%d_%m_%y")
             os.makedirs(save_dir, exist_ok=True)
-            save_filename = f"experiment_static_{fieldToPlot.pattern.activeList}_{fieldToPlot.angle}_{date_str}_t{t:.2f}us.png"
-            save_path = os.path.join(save_dir, save_filename)
-            fig.savefig(save_path, dpi=300, bbox_inches='tight')
+            date_string = datetime.now().strftime("%Y_%d_%m_%y")
+            safe_name = wave_name or "all_traces"
+            save_path = os.path.join(save_dir, f"AO_signal_{safe_name}_{date_string}.png")
+            fig.savefig(save_path, dpi=200, bbox_inches="tight")
             print(f"[AOT-biomaps] Saved: {save_path}")
-
         plt.show()
+        plt.close(fig)
+        return fig
+
+    def show_experiment_static(
+        self, fileOfAcousticField=None, N_file=None, save_dir=None,
+        withTumor=True, t=None, figsize=(8, 4), wave_name=None
+    ):
+        """Display one acoustic-field frame alongside its AO temporal trace."""
+        if self.AcousticFields is None or len(self.AcousticFields) == 0:
+            raise ValueError("AcousticFields is empty.")
+        if fileOfAcousticField is not None and N_file is not None:
+            raise ValueError("Provide either fileOfAcousticField or N_file, not both.")
+        if fileOfAcousticField is None and N_file is None:
+            index = 0
+            print("[AOT-biomaps] No field selected; displaying the first field.")
+        elif N_file is not None:
+            index = int(N_file)
+            if index < 0 or index >= len(self.AcousticFields):
+                raise IndexError(f"N_file must be in [0, {len(self.AcousticFields) - 1}].")
+        else:
+            index = next(
+                (i for i, field in enumerate(self.AcousticFields)
+                 if field.get_name_field() == fileOfAcousticField),
+                None,
+            )
+            if index is None:
+                raise ValueError(f"Field {fileOfAcousticField!r} was not found.")
+    
+        field_object = self.AcousticFields[index]
+        field_data = field_object.field
+        if field_data is None:
+            raise ValueError("The selected acoustic field is not loaded.")
+        field_data = np.asarray(field_data)
+        nt = field_data.shape[0]
+        dt = float(self.params.general["ft"])
+        t_max_us = (nt - 1) / dt * 1e6
+        t = t_max_us / 2 if t is None else float(t)
+        frame = int(np.clip(round(t * dt / 1e6), 0, nt - 1))
+    
+        signal = self.AOsignal_withTumor if withTumor else self.AOsignal_withoutTumor
+        if signal is None:
+            label = "with tumor" if withTumor else "without tumor"
+            raise ValueError(f"AO signal {label} is not available.")
+        optical_image = (
+            self.OpticImage.phantom if withTumor else self.OpticImage.laser.intensity
+        )
+        if optical_image is None:
+            raise ValueError("The requested optical image is not available.")
+        if wave_name is None:
+            wave_name = getattr(getattr(field_object, "pattern", None), "activeList", field_object.get_name_field())
+    
+        extent = [
+            self.params.general["Xrange"][0] * 1e3,
+            self.params.general["Xrange"][1] * 1e3,
+            self.params.general["Zrange"][1] * 1e3,
+            self.params.general["Zrange"][0] * 1e3,
+        ]
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+        fig.suptitle(
+            f"AO Signal | {wave_name} | Angle {field_object.angle}° | t = {t:.2f} µs",
+            y=0.98,
+        )
+    
+        if self.medium is not None and getattr(self.medium, "kmedium", None) is not None:
+            axes[0].imshow(
+                self.medium.kmedium.sound_speed.T,
+                cmap="gray", origin="upper", extent=extent, aspect="equal",
+            )
+        optical_max = float(np.max(optical_image))
+        cmap = create_dark_transparent_hot_cmap(vmin=0.2 * optical_max)
+        axes[0].imshow(
+            optical_image, cmap=cmap, origin="upper", extent=extent,
+            aspect="equal", alpha=0.5,
+        )
+        frame_data = field_data[frame]
+        frame_max = float(np.max(frame_data))
+        if frame_max > 0:
+            frame_data = frame_data / frame_max
+            frame_data = np.where(frame_data > 0.02, frame_data, np.nan)
+            axes[0].imshow(
+                frame_data, cmap="jet", origin="upper", extent=extent,
+                vmax=1, vmin=0.01, alpha=0.8, aspect="equal",
+            )
+        axes[0].set_xlabel("X (mm)")
+        axes[0].set_ylabel("Z (mm)")
+    
+        time_us = np.arange(signal.shape[0]) / dt * 1e6
+        if index >= signal.shape[1]:
+            raise ValueError("The selected field index has no corresponding AO signal column.")
+        axes[1].plot(time_us, signal[:, index], label="AO signal")
+        axes[1].axvline(t, color="r", linestyle="--", label=f"t = {t:.2f} µs")
+        axes[1].set_xlabel("Time (µs)")
+        axes[1].set_ylabel("Amplitude")
+        axes[1].legend()
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+        if save_dir is not None:
+            os.makedirs(save_dir, exist_ok=True)
+            date_string = datetime.now().strftime("%Y_%d_%m_%y")
+            save_path = os.path.join(
+                save_dir,
+                f"experiment_static_{index}_{field_object.angle}_{date_string}_t{t:.2f}us.png",
+            )
+            fig.savefig(save_path, dpi=300, bbox_inches="tight")
+            print(f"[AOT-biomaps] Saved: {save_path}")
+        plt.show()
+        plt.close(fig)
+        return fig
     
     def show_phantom(self, withROI=False, figsize=(4,4)):
         """
@@ -989,7 +1118,5 @@ class Experiment(ABC):
 
     @abstractmethod
     def check(self):
-        """
-        Check if the experiment is correctly initialized.
-        """
-        pass
+        """Validate that the concrete experiment contains all required data."""
+        raise NotImplementedError

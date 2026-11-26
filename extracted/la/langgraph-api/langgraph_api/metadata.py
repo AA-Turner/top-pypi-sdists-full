@@ -20,6 +20,7 @@ from langgraph_api.config import (
     USES_INDEXING,
     USES_STORE_TTL,
     USES_THREAD_TTL,
+    langsmith_api_url,
 )
 from langgraph_api.feature_flags import DELTA_CHANNEL_SUPPORT, IS_INMEM_BACKEND
 from langgraph_api.graph import GRAPHS, is_js_graph
@@ -57,8 +58,14 @@ elif PROJECT_ID:
     HOST = "byoc"
 else:
     HOST = "self-hosted"
-PLAN = "enterprise" if plus_features_enabled() else "developer"
 USER_API_URL = os.getenv("LANGGRAPH_API_URL", None)
+
+
+def current_plan() -> str:
+    # Read after license validation, which decides whether plus features are on.
+    return "enterprise" if plus_features_enabled() else "developer"
+
+
 DEPENDENCY_VERSION_DISTRIBUTIONS = {
     "langgraph.python.version": "langgraph",
     "langgraph_checkpoint.version": "langgraph-checkpoint",
@@ -75,17 +82,9 @@ FROM_TIMESTAMP = datetime.now(UTC).isoformat()
 BEACON_ENDPOINT = "https://beacon.langchain.com/v1/beacon/metadata/submit"
 
 # LangChain auth endpoint for API key submissions
-LANGCHAIN_METADATA_ENDPOINT = None
-if LANGSMITH_AUTH_ENDPOINT:
-    if "/api/v1" in LANGSMITH_AUTH_ENDPOINT:
-        # If the endpoint already has /api/v1 (for self-hosted control plane deployments), we assume it's the correct format
-        LANGCHAIN_METADATA_ENDPOINT = (
-            LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/metadata/submit"
-        )
-    else:
-        LANGCHAIN_METADATA_ENDPOINT = (
-            LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/v1/metadata/submit"
-        )
+LANGCHAIN_METADATA_ENDPOINT = (
+    langsmith_api_url("/metadata/submit") if LANGSMITH_AUTH_ENDPOINT else None
+)
 
 
 def _dependency_version_metadata() -> dict[str, str]:
@@ -220,7 +219,7 @@ async def metadata_loop() -> None:
             "langgraph.platform.host": HOST,
             "langgraph.platform.tenant_id": TENANT_ID or "",
             "langgraph.platform.project_id": PROJECT_ID or "",
-            "langgraph.platform.plan": PLAN,
+            "langgraph.platform.plan": current_plan(),
             # user app features
             "user_app.uses_indexing": USES_INDEXING or "",
             "user_app.uses_custom_app": USES_CUSTOM_APP or "",

@@ -15,9 +15,9 @@ class DescribeSupabaseBackupPolicyResponseBody(DaraModel):
         recovery_point_period: str = None,
         request_id: str = None,
     ):
-        # The interval for automatic recovery points, in minutes. A value greater than 0 indicates that automatic recovery points are enabled. A value of -1 indicates that automatic recovery points are disabled.
+        # The interval of automatic recovery points. Unit: minutes. A value greater than 0 indicates that automatic recovery points are enabled. If automatic recovery points are disabled, -1 is returned.
         self.backup_interval = backup_interval
-        # The retention period for data backups, in days.
+        # The data backup retention period. Unit: days.
         self.backup_retention_period = backup_retention_period
         # Indicates whether automatic recovery points are enabled. Valid values:
         # - true: Enabled.
@@ -27,7 +27,7 @@ class DescribeSupabaseBackupPolicyResponseBody(DaraModel):
         self.preferred_backup_period = preferred_backup_period
         # The data backup time window in UTC. The format is HH:mmZ-HH:mmZ.
         self.preferred_backup_time = preferred_backup_time
-        # The interval for the automatic creation of recovery points, in hours. Valid values: 1/6 (10 minutes), 1/2 (30 minutes), 1, 2, 4, and 8. This parameter is valid only when EnableRecoveryPoint is set to true. A value of 0 is returned upon shutdown of automatic recovery points.
+        # The interval for the automatic creation of recovery points. Unit: hours. Valid values: 1/6 (10 minutes), 1/2 (30 minutes), 1, 2, 4, and 8. This value is valid only when EnableRecoveryPoint is set to true. 0 is returned upon shutdown of automatic recovery points.
         self.recovery_point_period = recovery_point_period
         # The request ID.
         self.request_id = request_id

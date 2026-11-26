@@ -4,6 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.egress_policy_mode import EgressPolicyMode
+from koyeb.api.models.mesh import Mesh
+from koyeb.api.models.mesh_scope import MeshScope
+from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api_async.models.deployment_definition import (
     DeploymentDefinition as AsyncDeploymentDefinition,
 )
@@ -348,3 +351,91 @@ class TestBuildEgressPolicy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMeshScopeWiring(unittest.TestCase):
+    """create(mesh_scope=) reaches the wire; update_network_policy keeps it."""
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_create_sends_mesh_scope(self, mock_get_clients):
+        clients = MagicMock()
+        clients.apps.create_app.return_value.app.id = "mock-app-id"
+        mock_get_clients.return_value = clients
+        Sandbox.create(
+            name="t",
+            api_token="tok",
+            wait_ready=False,
+            enable_mesh=True,
+            mesh_scope="MESH_SCOPE_APP",
+        )
+        service = clients.services.create_service.call_args.kwargs["service"]
+        self.assertEqual(
+            service.definition.network_policy.mesh.scope, MeshScope.MESH_SCOPE_APP
+        )
+
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
+    def test_async_create_sends_mesh_scope(self, mock_get_clients):
+        clients = MagicMock()
+        clients.apps.create_app = AsyncMock()
+        clients.apps.create_app.return_value.app.id = "mock-app-id"
+        clients.services.create_service = AsyncMock()
+        mock_get_clients.return_value = clients
+        asyncio.run(
+            AsyncSandbox.create(
+                name="t",
+                api_token="tok",
+                wait_ready=False,
+                enable_mesh=True,
+                mesh_scope=MeshScope.MESH_SCOPE_APP,
+            )
+        )
+        service = clients.services.create_service.call_args.kwargs["service"]
+        self.assertEqual(
+            service.definition.network_policy.mesh.scope.value, "MESH_SCOPE_APP"
+        )
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_invalid_scope_fails_before_any_api_call(self, mock_get_clients):
+        with self.assertRaises(ValueError):
+            Sandbox.create(
+                name="t", api_token="tok", wait_ready=False, mesh_scope="nope"
+            )
+        mock_get_clients.assert_not_called()
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_update_network_policy_keeps_mesh_scope(self, mock_get_clients):
+        clients = MagicMock()
+        clients.deployments.get_deployment.return_value.deployment.definition = (
+            DeploymentDefinition(
+                name="sb",
+                network_policy=NetworkPolicy(mesh=Mesh(scope=MeshScope.MESH_SCOPE_APP)),
+            )
+        )
+        mock_get_clients.return_value = clients
+        _make_sandbox().update_network_policy(block_network=True)
+        policy = clients.services.update_service.call_args.kwargs[
+            "service"
+        ].definition.network_policy
+        self.assertEqual(policy.mesh.scope, MeshScope.MESH_SCOPE_APP)
+        self.assertEqual(
+            policy.egress.mode, EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL
+        )
+
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
+    def test_async_update_network_policy_keeps_mesh_scope(self, mock_get_clients):
+        clients = MagicMock()
+        clients.deployments.get_deployment = AsyncMock()
+        clients.deployments.get_deployment.return_value.deployment.definition = (
+            AsyncDeploymentDefinition.from_dict(
+                {"name": "sb", "network_policy": {"mesh": {"scope": "MESH_SCOPE_APP"}}}
+            )
+        )
+        clients.services.get_service = AsyncMock()
+        clients.services.update_service = AsyncMock()
+        mock_get_clients.return_value = clients
+        asyncio.run(_make_sandbox(AsyncSandbox).update_network_policy())
+        policy = clients.services.update_service.call_args.kwargs[
+            "service"
+        ].definition.network_policy
+        self.assertEqual(policy.mesh.scope.value, "MESH_SCOPE_APP")
+        self.assertEqual(policy.egress.mode.value, "EGRESS_POLICY_MODE_DEFAULT")

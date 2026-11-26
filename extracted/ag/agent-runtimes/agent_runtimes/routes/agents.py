@@ -22,12 +22,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional, cast
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, model_validator
 from pydantic_ai import Agent as PydanticAgent
 from pydantic_ai import DeferredToolRequests
 
 from ..adapters.pydantic_ai_adapter import PydanticAIAdapter
+from ..apps.callers import refuse_a_strangers_page
 from ..apps.today import today_instruction
 from ..capabilities import (
     LLMContextUsageCapability,
@@ -108,6 +109,10 @@ from .vercel_ai import register_vercel_agent, unregister_vercel_agent
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+#: On what an agent remembers: a page that is neither this machine's nor the
+#: platform's reaches nothing on the loopback (`callers.refuse_a_strangers_page`).
+_NO_STRANGERS_PAGE = [Depends(refuse_a_strangers_page)]
 
 # Store the API prefix for dynamic mount paths
 _api_prefix = "/api/v1"
@@ -2309,12 +2314,17 @@ async def create_agent(
             request.memory, request.memory_config = agent_memory(
                 running_app, request.app_instance
             )
+        # Every server it named left out (a Tavily-only agent without the key,
+        # or on Kagent): it reaches none, never every server the runtime knows.
+        every_server_left_out = False
         if left_out.servers:
-            selected_mcp_servers = [
+            kept_servers = [
                 server
                 for server in selected_mcp_servers
                 if _ref_id_of(server.id) not in left_out.servers
             ]
+            every_server_left_out = bool(selected_mcp_servers) and not kept_servers
+            selected_mcp_servers = kept_servers
             request.selected_mcp_servers = selected_mcp_servers
 
         # When codemode is NOT enabled, we start the servers explicitly here
@@ -2714,8 +2724,13 @@ async def create_agent(
             # held the configure for as long as its start took (72 s on r1,
             # 8 November 2026). The bindings of each server are added once it
             # is up (`_start_mcp_servers_for_agent`).
-            disable_mcp_for_codemode = request.mcp_servers_in_background or (
-                selected_mcp_servers_explicit and len(request.selected_mcp_servers) == 0
+            disable_mcp_for_codemode = (
+                request.mcp_servers_in_background
+                or every_server_left_out
+                or (
+                    selected_mcp_servers_explicit
+                    and len(request.selected_mcp_servers) == 0
+                )
             )
             mcp_manager = get_mcp_manager()
             if not disable_mcp_for_codemode and not mcp_manager.get_servers():
@@ -2955,7 +2970,11 @@ async def create_agent(
             # Always apply runtime selection guardrails, even when no spec is provided.
             if capabilities is None:
                 capabilities = []
-            capabilities.extend(build_default_choice_guardrails(agent_id=agent_id))
+            capabilities.extend(
+                build_default_choice_guardrails(
+                    agent_id=agent_id, capabilities=capabilities
+                )
+            )
             # After the defaults, not before: they carry the MCP and skills
             # approval guardrails too, and an agent that asked for no
             # approvals used to get them back from here.
@@ -3211,7 +3230,7 @@ async def create_agent(
             # and execute_code-only sandbox mode.
             codemode_builder = None
             if request.enable_codemode or request.sandbox_variant:
-                disable_mcp_for_codemode = (
+                disable_mcp_for_codemode = every_server_left_out or (
                     selected_mcp_servers_explicit
                     and len(request.selected_mcp_servers) == 0
                 )
@@ -3755,7 +3774,7 @@ async def list_agents() -> AgentListResponse:
     return AgentListResponse(agents=agents)
 
 
-@router.get("/{agent_id}/memory")
+@router.get("/{agent_id}/memory", dependencies=_NO_STRANGERS_PAGE)
 async def list_agent_memory(agent_id: str) -> dict[str, Any]:
     """List durable memories stored for an agent.
 
@@ -3775,7 +3794,7 @@ async def list_agent_memory(agent_id: str) -> dict[str, Any]:
     return {"memories": memories}
 
 
-@router.post("/{agent_id}/memory/search")
+@router.post("/{agent_id}/memory/search", dependencies=_NO_STRANGERS_PAGE)
 async def search_agent_memory(agent_id: str, request: Request) -> dict[str, Any]:
     """Search an agent's durable memory for a query string."""
     from ..memory import get_memory_backend
@@ -3838,7 +3857,7 @@ def _memory_refusal(exc: Exception) -> HTTPException:
 
 # Declared before ``DELETE /{agent_id:path}`` below, which would otherwise
 # take ``DELETE /{agent_id}/memory`` for the deletion of the agent itself.
-@router.post("/{agent_id}/memory")
+@router.post("/{agent_id}/memory", dependencies=_NO_STRANGERS_PAGE)
 async def add_agent_memory(agent_id: str, memory: MemoryToKeep) -> dict[str, Any]:
     """Keep one thing in an agent's durable memory of the person, in their words."""
     words = " ".join(memory.content.split())
@@ -3861,7 +3880,7 @@ async def add_agent_memory(agent_id: str, memory: MemoryToKeep) -> dict[str, Any
     return {"added": 1, "content": words}
 
 
-@router.delete("/{agent_id}/memory/{memory_id}")
+@router.delete("/{agent_id}/memory/{memory_id}", dependencies=_NO_STRANGERS_PAGE)
 async def forget_agent_memory(agent_id: str, memory_id: str) -> dict[str, Any]:
     """Forget one memory of the agent; somebody else's, or another agent's, is not found."""
     backend = _durable_memory_of(agent_id)
@@ -3883,7 +3902,7 @@ async def forget_agent_memory(agent_id: str, memory_id: str) -> dict[str, Any]:
     return {"forgotten": 1}
 
 
-@router.delete("/{agent_id}/memory")
+@router.delete("/{agent_id}/memory", dependencies=_NO_STRANGERS_PAGE)
 async def forget_all_agent_memory(
     agent_id: str, count: int = Query(..., ge=0)
 ) -> dict[str, Any]:

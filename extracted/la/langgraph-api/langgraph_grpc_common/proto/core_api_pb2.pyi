@@ -1637,6 +1637,9 @@ class DeleteThreadRequest(_message.Message):
 
     THREAD_ID_FIELD_NUMBER: _builtins.int
     FILTERS_FIELD_NUMBER: _builtins.int
+    SYNC_CHECKPOINT_DELETE_FIELD_NUMBER: _builtins.int
+    sync_checkpoint_delete: _builtins.bool
+    """Delete checkpoints synchronously, bypassing deferred deletion."""
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -1646,10 +1649,11 @@ class DeleteThreadRequest(_message.Message):
         *,
         thread_id: Global___UUID | None = ...,
         filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+        sync_checkpoint_delete: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["filters", b"filters", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["filters", b"filters", "sync_checkpoint_delete", b"sync_checkpoint_delete", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -1715,6 +1719,10 @@ class SearchThreadsRequest(_message.Message):
     IDS_FIELD_NUMBER: _builtins.int
     EXTRACT_FIELD_NUMBER: _builtins.int
     EXCLUDE_METADATA_JSON_FIELD_NUMBER: _builtins.int
+    CREATED_AFTER_FIELD_NUMBER: _builtins.int
+    CREATED_BEFORE_FIELD_NUMBER: _builtins.int
+    STATE_UPDATED_AFTER_FIELD_NUMBER: _builtins.int
+    STATE_UPDATED_BEFORE_FIELD_NUMBER: _builtins.int
     metadata_json: _builtins.bytes
     values_json: _builtins.bytes
     status: _enum_thread_status_pb2.ThreadStatus.ValueType
@@ -1738,6 +1746,16 @@ class SearchThreadsRequest(_message.Message):
         Keys are user-defined aliases, values are paths like "values.messages[-1]".
         """
 
+    @_builtins.property
+    def created_after(self) -> _timestamp_pb2.Timestamp:
+        """Time-range filters: *_after is inclusive, *_before is exclusive."""
+
+    @_builtins.property
+    def created_before(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def state_updated_after(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def state_updated_before(self) -> _timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
@@ -1753,11 +1771,19 @@ class SearchThreadsRequest(_message.Message):
         ids: _abc.Iterable[Global___UUID] | None = ...,
         extract: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
         exclude_metadata_json: _builtins.bytes | None = ...,
+        created_after: _timestamp_pb2.Timestamp | None = ...,
+        created_before: _timestamp_pb2.Timestamp | None = ...,
+        state_updated_after: _timestamp_pb2.Timestamp | None = ...,
+        state_updated_before: _timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_exclude_metadata_json", b"_exclude_metadata_json", "_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_status", b"_status", "_values_json", b"_values_json", "exclude_metadata_json", b"exclude_metadata_json", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "sort_by", b"sort_by", "sort_order", b"sort_order", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_created_after", b"_created_after", "_created_before", b"_created_before", "_exclude_metadata_json", b"_exclude_metadata_json", "_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_state_updated_after", b"_state_updated_after", "_state_updated_before", b"_state_updated_before", "_status", b"_status", "_values_json", b"_values_json", "created_after", b"created_after", "created_before", b"created_before", "exclude_metadata_json", b"exclude_metadata_json", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "sort_by", b"sort_by", "sort_order", b"sort_order", "state_updated_after", b"state_updated_after", "state_updated_before", b"state_updated_before", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_exclude_metadata_json", b"_exclude_metadata_json", "_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_status", b"_status", "_values_json", b"_values_json", "exclude_metadata_json", b"exclude_metadata_json", "extract", b"extract", "filters", b"filters", "ids", b"ids", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_created_after", b"_created_after", "_created_before", b"_created_before", "_exclude_metadata_json", b"_exclude_metadata_json", "_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_state_updated_after", b"_state_updated_after", "_state_updated_before", b"_state_updated_before", "_status", b"_status", "_values_json", b"_values_json", "created_after", b"created_after", "created_before", b"created_before", "exclude_metadata_json", b"exclude_metadata_json", "extract", b"extract", "filters", b"filters", "ids", b"ids", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order", "state_updated_after", b"state_updated_after", "state_updated_before", b"state_updated_before", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__created_after: _TypeAlias = _typing.Literal["created_after"]  # noqa: Y015
+    _WhichOneofArgType__created_after: _TypeAlias = _typing.Literal["_created_after", b"_created_after"]  # noqa: Y015
+    _WhichOneofReturnType__created_before: _TypeAlias = _typing.Literal["created_before"]  # noqa: Y015
+    _WhichOneofArgType__created_before: _TypeAlias = _typing.Literal["_created_before", b"_created_before"]  # noqa: Y015
     _WhichOneofReturnType__exclude_metadata_json: _TypeAlias = _typing.Literal["exclude_metadata_json"]  # noqa: Y015
     _WhichOneofArgType__exclude_metadata_json: _TypeAlias = _typing.Literal["_exclude_metadata_json", b"_exclude_metadata_json"]  # noqa: Y015
     _WhichOneofReturnType__limit: _TypeAlias = _typing.Literal["limit"]  # noqa: Y015
@@ -1770,10 +1796,18 @@ class SearchThreadsRequest(_message.Message):
     _WhichOneofArgType__sort_by: _TypeAlias = _typing.Literal["_sort_by", b"_sort_by"]  # noqa: Y015
     _WhichOneofReturnType__sort_order: _TypeAlias = _typing.Literal["sort_order"]  # noqa: Y015
     _WhichOneofArgType__sort_order: _TypeAlias = _typing.Literal["_sort_order", b"_sort_order"]  # noqa: Y015
+    _WhichOneofReturnType__state_updated_after: _TypeAlias = _typing.Literal["state_updated_after"]  # noqa: Y015
+    _WhichOneofArgType__state_updated_after: _TypeAlias = _typing.Literal["_state_updated_after", b"_state_updated_after"]  # noqa: Y015
+    _WhichOneofReturnType__state_updated_before: _TypeAlias = _typing.Literal["state_updated_before"]  # noqa: Y015
+    _WhichOneofArgType__state_updated_before: _TypeAlias = _typing.Literal["_state_updated_before", b"_state_updated_before"]  # noqa: Y015
     _WhichOneofReturnType__status: _TypeAlias = _typing.Literal["status"]  # noqa: Y015
     _WhichOneofArgType__status: _TypeAlias = _typing.Literal["_status", b"_status"]  # noqa: Y015
     _WhichOneofReturnType__values_json: _TypeAlias = _typing.Literal["values_json"]  # noqa: Y015
     _WhichOneofArgType__values_json: _TypeAlias = _typing.Literal["_values_json", b"_values_json"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__created_after) -> _WhichOneofReturnType__created_after | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__created_before) -> _WhichOneofReturnType__created_before | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__exclude_metadata_json) -> _WhichOneofReturnType__exclude_metadata_json | None: ...
     @_typing.overload
@@ -1786,6 +1820,10 @@ class SearchThreadsRequest(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__sort_by) -> _WhichOneofReturnType__sort_by | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__sort_order) -> _WhichOneofReturnType__sort_order | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__state_updated_after) -> _WhichOneofReturnType__state_updated_after | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__state_updated_before) -> _WhichOneofReturnType__state_updated_before | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__status) -> _WhichOneofReturnType__status | None: ...
     @_typing.overload
@@ -1822,6 +1860,10 @@ class CountThreadsRequest(_message.Message):
     VALUES_JSON_FIELD_NUMBER: _builtins.int
     STATUS_FIELD_NUMBER: _builtins.int
     EXCLUDE_METADATA_JSON_FIELD_NUMBER: _builtins.int
+    CREATED_AFTER_FIELD_NUMBER: _builtins.int
+    CREATED_BEFORE_FIELD_NUMBER: _builtins.int
+    STATE_UPDATED_AFTER_FIELD_NUMBER: _builtins.int
+    STATE_UPDATED_BEFORE_FIELD_NUMBER: _builtins.int
     metadata_json: _builtins.bytes
     values_json: _builtins.bytes
     status: _enum_thread_status_pb2.ThreadStatus.ValueType
@@ -1829,6 +1871,16 @@ class CountThreadsRequest(_message.Message):
     """Exclude threads whose metadata contains any of these objects (JSON array of objects)."""
     @_builtins.property
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def created_after(self) -> _timestamp_pb2.Timestamp:
+        """Time-range filters: *_after is inclusive, *_before is exclusive."""
+
+    @_builtins.property
+    def created_before(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def state_updated_after(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def state_updated_before(self) -> _timestamp_pb2.Timestamp: ...
     def __init__(
         self,
         *,
@@ -1837,23 +1889,43 @@ class CountThreadsRequest(_message.Message):
         values_json: _builtins.bytes | None = ...,
         status: _enum_thread_status_pb2.ThreadStatus.ValueType | None = ...,
         exclude_metadata_json: _builtins.bytes | None = ...,
+        created_after: _timestamp_pb2.Timestamp | None = ...,
+        created_before: _timestamp_pb2.Timestamp | None = ...,
+        state_updated_after: _timestamp_pb2.Timestamp | None = ...,
+        state_updated_before: _timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_exclude_metadata_json", b"_exclude_metadata_json", "_metadata_json", b"_metadata_json", "_status", b"_status", "_values_json", b"_values_json", "exclude_metadata_json", b"exclude_metadata_json", "metadata_json", b"metadata_json", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_created_after", b"_created_after", "_created_before", b"_created_before", "_exclude_metadata_json", b"_exclude_metadata_json", "_metadata_json", b"_metadata_json", "_state_updated_after", b"_state_updated_after", "_state_updated_before", b"_state_updated_before", "_status", b"_status", "_values_json", b"_values_json", "created_after", b"created_after", "created_before", b"created_before", "exclude_metadata_json", b"exclude_metadata_json", "metadata_json", b"metadata_json", "state_updated_after", b"state_updated_after", "state_updated_before", b"state_updated_before", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_exclude_metadata_json", b"_exclude_metadata_json", "_metadata_json", b"_metadata_json", "_status", b"_status", "_values_json", b"_values_json", "exclude_metadata_json", b"exclude_metadata_json", "filters", b"filters", "metadata_json", b"metadata_json", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_created_after", b"_created_after", "_created_before", b"_created_before", "_exclude_metadata_json", b"_exclude_metadata_json", "_metadata_json", b"_metadata_json", "_state_updated_after", b"_state_updated_after", "_state_updated_before", b"_state_updated_before", "_status", b"_status", "_values_json", b"_values_json", "created_after", b"created_after", "created_before", b"created_before", "exclude_metadata_json", b"exclude_metadata_json", "filters", b"filters", "metadata_json", b"metadata_json", "state_updated_after", b"state_updated_after", "state_updated_before", b"state_updated_before", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__created_after: _TypeAlias = _typing.Literal["created_after"]  # noqa: Y015
+    _WhichOneofArgType__created_after: _TypeAlias = _typing.Literal["_created_after", b"_created_after"]  # noqa: Y015
+    _WhichOneofReturnType__created_before: _TypeAlias = _typing.Literal["created_before"]  # noqa: Y015
+    _WhichOneofArgType__created_before: _TypeAlias = _typing.Literal["_created_before", b"_created_before"]  # noqa: Y015
     _WhichOneofReturnType__exclude_metadata_json: _TypeAlias = _typing.Literal["exclude_metadata_json"]  # noqa: Y015
     _WhichOneofArgType__exclude_metadata_json: _TypeAlias = _typing.Literal["_exclude_metadata_json", b"_exclude_metadata_json"]  # noqa: Y015
     _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
     _WhichOneofArgType__metadata_json: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json"]  # noqa: Y015
+    _WhichOneofReturnType__state_updated_after: _TypeAlias = _typing.Literal["state_updated_after"]  # noqa: Y015
+    _WhichOneofArgType__state_updated_after: _TypeAlias = _typing.Literal["_state_updated_after", b"_state_updated_after"]  # noqa: Y015
+    _WhichOneofReturnType__state_updated_before: _TypeAlias = _typing.Literal["state_updated_before"]  # noqa: Y015
+    _WhichOneofArgType__state_updated_before: _TypeAlias = _typing.Literal["_state_updated_before", b"_state_updated_before"]  # noqa: Y015
     _WhichOneofReturnType__status: _TypeAlias = _typing.Literal["status"]  # noqa: Y015
     _WhichOneofArgType__status: _TypeAlias = _typing.Literal["_status", b"_status"]  # noqa: Y015
     _WhichOneofReturnType__values_json: _TypeAlias = _typing.Literal["values_json"]  # noqa: Y015
     _WhichOneofArgType__values_json: _TypeAlias = _typing.Literal["_values_json", b"_values_json"]  # noqa: Y015
     @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__created_after) -> _WhichOneofReturnType__created_after | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__created_before) -> _WhichOneofReturnType__created_before | None: ...
+    @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__exclude_metadata_json) -> _WhichOneofReturnType__exclude_metadata_json | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__metadata_json) -> _WhichOneofReturnType__metadata_json | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__state_updated_after) -> _WhichOneofReturnType__state_updated_after | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__state_updated_before) -> _WhichOneofReturnType__state_updated_before | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__status) -> _WhichOneofReturnType__status | None: ...
     @_typing.overload
@@ -1925,11 +1997,16 @@ class SetThreadJointStatusRequest(_message.Message):
     CHECKPOINT_FIELD_NUMBER: _builtins.int
     EXCEPTION_JSON_FIELD_NUMBER: _builtins.int
     ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
+    REFUSED_RESUME_FIELD_NUMBER: _builtins.int
     run_status: _builtins.str
     """RunStatus as string"""
     graph_id: _builtins.str
     exception_json: _builtins.bytes
     """JSON-compatible serialization of an exception."""
+    refused_resume: _builtins.bool
+    """Strict resume refused the run's answer before anything ran, so the thread
+    keeps its error, or lack of one, as it was.
+    """
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -1950,10 +2027,11 @@ class SetThreadJointStatusRequest(_message.Message):
         checkpoint: Global___ThreadStatusCheckpoint | None = ...,
         exception_json: _builtins.bytes | None = ...,
         encryption_context: _encryption_pb2.EncryptionContext | None = ...,
+        refused_resume: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_encryption_context", b"_encryption_context", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "encryption_context", b"encryption_context", "exception_json", b"exception_json", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_encryption_context", b"_encryption_context", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "encryption_context", b"encryption_context", "exception_json", b"exception_json", "graph_id", b"graph_id", "run_id", b"run_id", "run_status", b"run_status", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint", "_encryption_context", b"_encryption_context", "_exception_json", b"_exception_json", "checkpoint", b"checkpoint", "encryption_context", b"encryption_context", "exception_json", b"exception_json", "graph_id", b"graph_id", "refused_resume", b"refused_resume", "run_id", b"run_id", "run_status", b"run_status", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__checkpoint: _TypeAlias = _typing.Literal["checkpoint"]  # noqa: Y015
     _WhichOneofArgType__checkpoint: _TypeAlias = _typing.Literal["_checkpoint", b"_checkpoint"]  # noqa: Y015
@@ -2160,6 +2238,7 @@ class RunKwargs(_message.Message):
     RESUMABLE_FIELD_NUMBER: _builtins.int
     CHECKPOINT_DURING_FIELD_NUMBER: _builtins.int
     DURABILITY_FIELD_NUMBER: _builtins.int
+    STRICT_RESUME_FIELD_NUMBER: _builtins.int
     context_json: _builtins.bytes
     input_json: _builtins.bytes
     command_json: _builtins.bytes
@@ -2169,6 +2248,10 @@ class RunKwargs(_message.Message):
     resumable: _builtins.bool
     checkpoint_during: _builtins.bool
     durability: _builtins.str
+    strict_resume: _builtins.bool
+    """Set only when the run's request asked to refuse a resume of an interrupt
+    that isn't open; cleared when the run cancels runs in flight.
+    """
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
     @_builtins.property
@@ -2196,10 +2279,11 @@ class RunKwargs(_message.Message):
         resumable: _builtins.bool | None = ...,
         checkpoint_during: _builtins.bool | None = ...,
         durability: _builtins.str | None = ...,
+        strict_resume: _builtins.bool | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_during", b"_checkpoint_during", "_command_json", b"_command_json", "_config", b"_config", "_context_json", b"_context_json", "_durability", b"_durability", "_input_json", b"_input_json", "_interrupt_after", b"_interrupt_after", "_interrupt_before", b"_interrupt_before", "_resumable", b"_resumable", "_subgraphs", b"_subgraphs", "_temporary", b"_temporary", "_webhook", b"_webhook", "checkpoint_during", b"checkpoint_during", "command_json", b"command_json", "config", b"config", "context_json", b"context_json", "durability", b"durability", "input_json", b"input_json", "interrupt_after", b"interrupt_after", "interrupt_before", b"interrupt_before", "resumable", b"resumable", "subgraphs", b"subgraphs", "temporary", b"temporary", "webhook", b"webhook"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_during", b"_checkpoint_during", "_command_json", b"_command_json", "_config", b"_config", "_context_json", b"_context_json", "_durability", b"_durability", "_input_json", b"_input_json", "_interrupt_after", b"_interrupt_after", "_interrupt_before", b"_interrupt_before", "_resumable", b"_resumable", "_strict_resume", b"_strict_resume", "_subgraphs", b"_subgraphs", "_temporary", b"_temporary", "_webhook", b"_webhook", "checkpoint_during", b"checkpoint_during", "command_json", b"command_json", "config", b"config", "context_json", b"context_json", "durability", b"durability", "input_json", b"input_json", "interrupt_after", b"interrupt_after", "interrupt_before", b"interrupt_before", "resumable", b"resumable", "strict_resume", b"strict_resume", "subgraphs", b"subgraphs", "temporary", b"temporary", "webhook", b"webhook"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_during", b"_checkpoint_during", "_command_json", b"_command_json", "_config", b"_config", "_context_json", b"_context_json", "_durability", b"_durability", "_input_json", b"_input_json", "_interrupt_after", b"_interrupt_after", "_interrupt_before", b"_interrupt_before", "_resumable", b"_resumable", "_subgraphs", b"_subgraphs", "_temporary", b"_temporary", "_webhook", b"_webhook", "checkpoint_during", b"checkpoint_during", "command_json", b"command_json", "config", b"config", "context_json", b"context_json", "durability", b"durability", "feedback_keys", b"feedback_keys", "input_json", b"input_json", "interrupt_after", b"interrupt_after", "interrupt_before", b"interrupt_before", "resumable", b"resumable", "stream_mode", b"stream_mode", "subgraphs", b"subgraphs", "temporary", b"temporary", "webhook", b"webhook"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_during", b"_checkpoint_during", "_command_json", b"_command_json", "_config", b"_config", "_context_json", b"_context_json", "_durability", b"_durability", "_input_json", b"_input_json", "_interrupt_after", b"_interrupt_after", "_interrupt_before", b"_interrupt_before", "_resumable", b"_resumable", "_strict_resume", b"_strict_resume", "_subgraphs", b"_subgraphs", "_temporary", b"_temporary", "_webhook", b"_webhook", "checkpoint_during", b"checkpoint_during", "command_json", b"command_json", "config", b"config", "context_json", b"context_json", "durability", b"durability", "feedback_keys", b"feedback_keys", "input_json", b"input_json", "interrupt_after", b"interrupt_after", "interrupt_before", b"interrupt_before", "resumable", b"resumable", "stream_mode", b"stream_mode", "strict_resume", b"strict_resume", "subgraphs", b"subgraphs", "temporary", b"temporary", "webhook", b"webhook"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__checkpoint_during: _TypeAlias = _typing.Literal["checkpoint_during"]  # noqa: Y015
     _WhichOneofArgType__checkpoint_during: _TypeAlias = _typing.Literal["_checkpoint_during", b"_checkpoint_during"]  # noqa: Y015
@@ -2219,6 +2303,8 @@ class RunKwargs(_message.Message):
     _WhichOneofArgType__interrupt_before: _TypeAlias = _typing.Literal["_interrupt_before", b"_interrupt_before"]  # noqa: Y015
     _WhichOneofReturnType__resumable: _TypeAlias = _typing.Literal["resumable"]  # noqa: Y015
     _WhichOneofArgType__resumable: _TypeAlias = _typing.Literal["_resumable", b"_resumable"]  # noqa: Y015
+    _WhichOneofReturnType__strict_resume: _TypeAlias = _typing.Literal["strict_resume"]  # noqa: Y015
+    _WhichOneofArgType__strict_resume: _TypeAlias = _typing.Literal["_strict_resume", b"_strict_resume"]  # noqa: Y015
     _WhichOneofReturnType__subgraphs: _TypeAlias = _typing.Literal["subgraphs"]  # noqa: Y015
     _WhichOneofArgType__subgraphs: _TypeAlias = _typing.Literal["_subgraphs", b"_subgraphs"]  # noqa: Y015
     _WhichOneofReturnType__temporary: _TypeAlias = _typing.Literal["temporary"]  # noqa: Y015
@@ -2243,6 +2329,8 @@ class RunKwargs(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__interrupt_before) -> _WhichOneofReturnType__interrupt_before | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__resumable) -> _WhichOneofReturnType__resumable | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__strict_resume) -> _WhichOneofReturnType__strict_resume | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__subgraphs) -> _WhichOneofReturnType__subgraphs | None: ...
     @_typing.overload
@@ -2798,24 +2886,35 @@ class GetRunRequest(_message.Message):
     RUN_ID_FIELD_NUMBER: _builtins.int
     THREAD_ID_FIELD_NUMBER: _builtins.int
     FILTERS_FIELD_NUMBER: _builtins.int
+    READ_MASK_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def run_id(self) -> Global___UUID: ...
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     @_builtins.property
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def read_mask(self) -> _field_mask_pb2.FieldMask:
+        """If set, "metadata" and "kwargs" are read only when listed; every other
+        field is always returned. Omitting "kwargs" avoids reading the run's input
+        when the caller only needs its status (e.g. how a run stream ended).
+        """
+
     def __init__(
         self,
         *,
         run_id: Global___UUID | None = ...,
         thread_id: Global___UUID | None = ...,
         filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+        read_mask: _field_mask_pb2.FieldMask | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_read_mask", b"_read_mask", "read_mask", b"read_mask", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["filters", b"filters", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_read_mask", b"_read_mask", "filters", b"filters", "read_mask", b"read_mask", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
+    _WhichOneofReturnType__read_mask: _TypeAlias = _typing.Literal["read_mask"]  # noqa: Y015
+    _WhichOneofArgType__read_mask: _TypeAlias = _typing.Literal["_read_mask", b"_read_mask"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__read_mask) -> _WhichOneofReturnType__read_mask | None: ...
 
 Global___GetRunRequest: _TypeAlias = GetRunRequest  # noqa: Y015
 
@@ -3209,15 +3308,27 @@ class JoinRunRequest(_message.Message):
     IGNORE_RUN_NOT_FOUND_FIELD_NUMBER: _builtins.int
     CANCEL_ON_DISCONNECT_FIELD_NUMBER: _builtins.int
     LAST_EVENT_ID_FIELD_NUMBER: _builtins.int
+    NAMESPACES_FIELD_NUMBER: _builtins.int
+    CHECKPOINT_ID_FIELD_NUMBER: _builtins.int
     ignore_run_not_found: _builtins.bool
     """otherwise known as ignore_404"""
     cancel_on_disconnect: _builtins.bool
     last_event_id: _builtins.str
     """Optional: replay cached events from this point"""
+    checkpoint_id: _builtins.str
+    """Optional, with last_event_id "-": replay only what follows this checkpoint's last
+    marker in the run's stream. A core that predates the field replays the whole run.
+    """
     @_builtins.property
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
     def stream_modes(self) -> _containers.RepeatedScalarFieldContainer[_enum_stream_mode_pb2.StreamMode.ValueType]: ...
+    @_builtins.property
+    def namespaces(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Optional: keep only these conversations, each a "|"-joined namespace ("" is the root
+        graph) without the subagents it starts.
+        """
+
     def __init__(
         self,
         *,
@@ -3226,13 +3337,20 @@ class JoinRunRequest(_message.Message):
         ignore_run_not_found: _builtins.bool = ...,
         cancel_on_disconnect: _builtins.bool = ...,
         last_event_id: _builtins.str | None = ...,
+        namespaces: _abc.Iterable[_builtins.str] | None = ...,
+        checkpoint_id: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_last_event_id", b"_last_event_id", "last_event_id", b"last_event_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_id", b"_checkpoint_id", "_last_event_id", b"_last_event_id", "checkpoint_id", b"checkpoint_id", "last_event_id", b"last_event_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_last_event_id", b"_last_event_id", "cancel_on_disconnect", b"cancel_on_disconnect", "filters", b"filters", "ignore_run_not_found", b"ignore_run_not_found", "last_event_id", b"last_event_id", "stream_modes", b"stream_modes"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_checkpoint_id", b"_checkpoint_id", "_last_event_id", b"_last_event_id", "cancel_on_disconnect", b"cancel_on_disconnect", "checkpoint_id", b"checkpoint_id", "filters", b"filters", "ignore_run_not_found", b"ignore_run_not_found", "last_event_id", b"last_event_id", "namespaces", b"namespaces", "stream_modes", b"stream_modes"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__checkpoint_id: _TypeAlias = _typing.Literal["checkpoint_id"]  # noqa: Y015
+    _WhichOneofArgType__checkpoint_id: _TypeAlias = _typing.Literal["_checkpoint_id", b"_checkpoint_id"]  # noqa: Y015
     _WhichOneofReturnType__last_event_id: _TypeAlias = _typing.Literal["last_event_id"]  # noqa: Y015
     _WhichOneofArgType__last_event_id: _TypeAlias = _typing.Literal["_last_event_id", b"_last_event_id"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__checkpoint_id) -> _WhichOneofReturnType__checkpoint_id | None: ...
+    @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__last_event_id) -> _WhichOneofReturnType__last_event_id | None: ...
 
 Global___JoinRunRequest: _TypeAlias = JoinRunRequest  # noqa: Y015
@@ -3302,12 +3420,22 @@ class PublishStreamEventRequest(_message.Message):
     EVENT_TYPE_FIELD_NUMBER: _builtins.int
     MESSAGE_FIELD_NUMBER: _builtins.int
     RESUMABLE_FIELD_NUMBER: _builtins.int
+    PUBLISHER_ID_FIELD_NUMBER: _builtins.int
+    SEQ_FIELD_NUMBER: _builtins.int
     event_type: _builtins.str
     """Event type (e.g. `values`, `updates`, `messages`, `control`, etc.)"""
     message: _builtins.bytes
     """Event payload (serialized JSON or raw bytes)"""
     resumable: _builtins.bool
     """If true, message will be cached with a TTL for resumable streaming"""
+    publisher_id: _builtins.str
+    """Identifies one publisher, such as one consume call of a run. With seq, it
+    lets the Redis Lua publish scripts drop a retried publish instead of storing
+    and sending it twice. Publishes outside those scripts, such as a plain
+    Pub/Sub publish, ignore both fields. Set both or neither.
+    """
+    seq: _builtins.int
+    """Increases with each event of the publisher; a retry resends the same seq."""
     @_builtins.property
     def run_id(self) -> Global___UUID:
         """if not set, wildcard (-> threads, but not runs)"""
@@ -3322,14 +3450,25 @@ class PublishStreamEventRequest(_message.Message):
         event_type: _builtins.str = ...,
         message: _builtins.bytes = ...,
         resumable: _builtins.bool = ...,
+        publisher_id: _builtins.str | None = ...,
+        seq: _builtins.int | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_run_id", b"_run_id", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_publisher_id", b"_publisher_id", "_run_id", b"_run_id", "_seq", b"_seq", "publisher_id", b"publisher_id", "run_id", b"run_id", "seq", b"seq", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_run_id", b"_run_id", "event_type", b"event_type", "message", b"message", "resumable", b"resumable", "run_id", b"run_id", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_publisher_id", b"_publisher_id", "_run_id", b"_run_id", "_seq", b"_seq", "event_type", b"event_type", "message", b"message", "publisher_id", b"publisher_id", "resumable", b"resumable", "run_id", b"run_id", "seq", b"seq", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__publisher_id: _TypeAlias = _typing.Literal["publisher_id"]  # noqa: Y015
+    _WhichOneofArgType__publisher_id: _TypeAlias = _typing.Literal["_publisher_id", b"_publisher_id"]  # noqa: Y015
     _WhichOneofReturnType__run_id: _TypeAlias = _typing.Literal["run_id"]  # noqa: Y015
     _WhichOneofArgType__run_id: _TypeAlias = _typing.Literal["_run_id", b"_run_id"]  # noqa: Y015
+    _WhichOneofReturnType__seq: _TypeAlias = _typing.Literal["seq"]  # noqa: Y015
+    _WhichOneofArgType__seq: _TypeAlias = _typing.Literal["_seq", b"_seq"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__publisher_id) -> _WhichOneofReturnType__publisher_id | None: ...
+    @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__run_id) -> _WhichOneofReturnType__run_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__seq) -> _WhichOneofReturnType__seq | None: ...
 
 Global___PublishStreamEventRequest: _TypeAlias = PublishStreamEventRequest  # noqa: Y015
 

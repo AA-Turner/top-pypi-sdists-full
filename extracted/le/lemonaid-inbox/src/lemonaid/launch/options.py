@@ -7,6 +7,7 @@ import shlex
 import sys
 from pathlib import Path
 
+from .. import docs, docs_config
 from ..brief import store
 from ..config import TmuxSessionConfig, load_config
 from . import command, handoff, resolve
@@ -30,6 +31,14 @@ def add_arguments(parser: argparse.ArgumentParser, dry_run: bool = True) -> None
     )
     selector.add_argument("--preset", default="", metavar="NAME", help="Named lemon preset")
     parser.add_argument("--shape", default="", metavar="NAME", help="Independent session shape")
+    parser.add_argument(
+        "--docs",
+        choices=docs_config.MODES,
+        default="",
+        help="Which docs this lemon loads at start, kept through its resumes: classic, the "
+        "always-loaded docs, or packages, the packages under [docs] roots that are for it; "
+        "default: [docs] mode",
+    )
     parser.add_argument(
         "--lemon-arg",
         action="append",
@@ -60,10 +69,12 @@ def inspection(
     directory: Path,
     prompt: str = "",
     title: str = "",
+    docs_mode: str = "",
 ) -> dict:
     line, environment = command.harness_line(
         resolved.line, directory, prompt, command.codex_writable_roots(config), title
     )
+    environment = {**environment, **({docs.mode.ENV: docs_mode} if docs_mode else {})}
     windows = list(resolved.windows)
     windows[resolved.lemon_window] = line
     return {
@@ -109,6 +120,7 @@ def preview(args: argparse.Namespace, config: TmuxSessionConfig) -> bool:
         Path.cwd(),
         handoff.first_prompt(given, args.prompt),
         handoff.session_title(given),
+        getattr(args, "docs", ""),
     )
     result["note"] = "Preview uses the current directory; no directory hook or tmux query was run."
     show(result, args.json)

@@ -15,7 +15,7 @@ class RestoreSnapshotRequest(DaraModel):
         restored_lsn: str = None,
         target_branch_id: str = None,
     ):
-        # The idempotency token. Ensures that repeated requests do not execute the same operation more than once.
+        # The idempotency token used to ensure that repeated requests do not execute the same operation.
         self.client_token = client_token
         # Specifies whether to complete the restoration immediately. Default value: false.
         self.finalize_restore = finalize_restore
@@ -23,15 +23,15 @@ class RestoreSnapshotRequest(DaraModel):
         # 
         # This parameter is required.
         self.project_id = project_id
-        # The region ID. Specifies the region in which to query or perform the operation.
+        # The region ID.
         self.region_id = region_id
-        # The name of the restored branch. If not specified, the backend generates a name automatically.
+        # The name of the restored branch. If you do not specify this parameter, the backend generates a name.
         self.restored_branch_name = restored_branch_name
-        # The snapshot LSN used for restoration.
+        # The snapshot LSN used for the restoration.
         # 
         # This parameter is required.
         self.restored_lsn = restored_lsn
-        # The target branch ID. If not specified, the backend selects the target branch based on the restoration process.
+        # The target branch ID. If you do not specify this parameter, the backend selects the target branch based on the restoration process.
         self.target_branch_id = target_branch_id
 
     def validate(self):

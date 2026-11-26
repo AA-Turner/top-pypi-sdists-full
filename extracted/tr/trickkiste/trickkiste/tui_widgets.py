@@ -24,10 +24,12 @@
 # sources needed to train it.
 
 """Textual widgets and helpers: splitters, a status bar, the clipboard, log
-lines from foreign processes, a spinner, a yes/no dialog
+lines from foreign processes, a spinner, a yes/no dialog, a tool's frame
+(header, feedback button and dialog, status bar)
 """
 
 import asyncio
+import importlib.metadata
 import logging
 import os
 import re
@@ -36,20 +38,22 @@ import subprocess
 import textwrap
 from collections.abc import Sequence
 from contextlib import suppress
-from typing import Any, ClassVar, Final, cast
+from pathlib import Path
+from typing import Any, ClassVar, Final, NamedTuple, cast
 
 from rich.console import ConsoleRenderable
 from rich.styled import Styled
 from rich.text import Text
 from rich.traceback import Traceback
-from textual import events
+from textual import events, on
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import Button, Collapsible, Label
+from textual.widgets import Button, Collapsible, Header, Label
 from textual.widgets.button import ButtonVariant
 
 from .base_tui_app import RichLogHandler
@@ -586,3 +590,197 @@ class ConfirmScreen(ModalScreen[bool]):
     def action_answer(self, yes: bool) -> None:
         """y, n or Esc answers"""
         self.dismiss(yes)
+
+
+# ------------------------------------------------------------- the frame
+
+# a Header: dark blue, the title bold and a step brighter than the rest
+HEADER_CSS = """
+Header { background: #0a2a6b; }
+Header.-tall { height: 1; }  /* a click toggles -tall: the title stays one line */
+HeaderTitle { text-style: bold; color: $foreground-lighten-1; }
+"""
+# the feedback button at the header's right end (place_feedback), on top
+FEEDBACK_CSS = """
+Screen { layers: base top; }
+#feedback-bar { position: absolute; layer: top; width: auto; height: 1; }
+#feedback-bar Button {
+    height: 1; min-width: 0; width: auto; border: none; margin-right: 1;
+    background: cyan; color: black;
+}
+#feedback-bar Button:hover { background: darkcyan; }
+#feedback-bar Label { margin-right: 2; }
+"""
+FEEDBACK_TIP: Final = "How to tell us about bugs and ideas"
+RIGHT_BUTTON: Final = 3  # Textual's number for it in mouse events
+
+
+def package_version(package: str, module_file: str | Path) -> str:
+    """What is running: v<version> of the installed @package when
+    @module_file (one of its modules) lies in site-packages, otherwise
+    "local checkout"
+
+    >>> package_version("trickkiste", "/home/me/trickkiste/tui_widgets.py")
+    'local checkout'
+    >>> package_version("no-such-package", "/x/site-packages/no/y.py")
+    'local checkout'
+    """
+    if "site-packages" in str(Path(module_file).resolve()):
+        with suppress(importlib.metadata.PackageNotFoundError):
+            return "v" + importlib.metadata.version(package)
+    return "local checkout"
+
+
+class FeedbackWay(NamedTuple):
+    """One way to give feedback: shown as `<n>. heading` + text, then the
+    link
+    """
+
+    heading: str
+    text: str
+    url: str
+    label: str = ""  # shown instead of the URL
+
+
+class FeedbackScreen(ModalScreen[None]):
+    """The ways to give feedback on a tool"""
+
+    DEFAULT_CSS = """
+    FeedbackScreen { align: center middle; }
+    #feedback-dialog { width: 80; max-width: 100%; height: auto; max-height: 90%;
+                       border: thick $accent; background: $surface; padding: 1 2; }
+    #feedback-dialog Label { margin-bottom: 1; width: 1fr; }
+    #feedback-title { text-style: bold; color: $accent; }
+    #feedback-buttons { height: auto; align-horizontal: center; }
+    """
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("escape", "close", "Close", show=False),
+    ]
+
+    def __init__(self, tool: str, ways: Sequence[FeedbackWay]) -> None:
+        """Feedback on @tool, through @ways"""
+        super().__init__()
+        self.tool, self.ways = tool, ways
+
+    @staticmethod
+    def link(url: str, label: str = "") -> str:
+        """@url shown as itself or behind @label: a terminal hyperlink that a
+        plain click opens as well (the app needs an `open_link` action)
+
+        >>> print(FeedbackScreen.link("https://x.y", "x"))
+        [link="https://x.y"][@click=app.open_link('https://x.y')][underline]x[/][/][/]
+        """
+        return (
+            f'[link="{url}"][@click=app.open_link({url!r})]'
+            f"[underline]{label or url}[/][/][/]"
+        )
+
+    def compose(self) -> ComposeResult:
+        """The title, one label per way, the close button"""
+        with Vertical(id="feedback-dialog"):
+            yield Label(f"Feedback on {self.tool}", id="feedback-title")
+            for number, way in enumerate(self.ways, 1):
+                yield Label(
+                    f"[b]{number}. {way.heading}[/b]{way.text}:\n"
+                    + self.link(way.url, way.label)
+                )
+            with Horizontal(id="feedback-buttons"):
+                yield Button("close", variant="primary", id="feedback-close")
+
+    def on_mount(self) -> None:
+        """Enter closes it"""
+        self.query_one("#feedback-close", Button).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """The close button"""
+        event.stop()
+        self.dismiss(None)
+
+    def action_close(self) -> None:
+        """Esc"""
+        self.dismiss(None)
+
+
+def feedback_bar(
+    tooltip: str | Text = FEEDBACK_TIP, hint: str | Text = ""
+) -> Horizontal:
+    """The feedback button (action `app.feedback`) with @tooltip, @hint (a
+    str is markup) left of it; placed by `place_feedback`
+    """
+    return Horizontal(
+        *([Label(hint, id="feedback-hint")] if hint else []),
+        Button(
+            "feedback", id="feedback", action="app.feedback", tooltip=tooltip
+        ),
+        id="feedback-bar",
+    )
+
+
+def place_feedback(app: App[Any], width: int | None = None) -> None:
+    """The feedback button stays at the header's right end, a clock moves
+    left of it and the title centres in what is left (@width: the new one);
+    the main screen is asked, so a resize behind a dialog counts too
+    """
+    with suppress(NoMatches):
+        main = app.screen_stack[0]
+        bar = main.query_one("#feedback-bar")
+        taken = bar.outer_size.width
+        bar.styles.offset = ((width or app.size.width) - taken, 0)
+        clocks = main.query("HeaderClock")
+        for clock in clocks:
+            clock.styles.offset = (-taken, 0)
+        right = taken + sum(clock.outer_size.width for clock in clocks)
+        for title in main.query("HeaderTitle"):
+            title.styles.padding = (0, right, 0, 0)
+
+
+def tool_frame(
+    tool: str,
+    version: str,
+    feedback_tip: str | Text = FEEDBACK_TIP,
+    hint: str | Text = "",
+) -> list[Widget]:
+    """A tool's frame, for `compose`: the header with the clock and the
+    feedback button (@hint left of it), the status bar with @tool's @version
+    - `FramedApp` makes them work
+    """
+    return [
+        Header(show_clock=True),
+        feedback_bar(feedback_tip, hint),
+        StatusBar(tool, version),
+    ]
+
+
+class FramedApp(App[None]):
+    """What a tool's frame (`tool_frame`) does: the feedback button stays at
+    the header's right end and opens `FEEDBACK_WAYS`, links in dialogs open
+    in the browser, a right click on a link copies it. Its handlers (`@on`)
+    run besides the subclass' own `on_*`.
+    """
+
+    TOOL: ClassVar[str] = ""
+    FEEDBACK_WAYS: ClassVar[Sequence[FeedbackWay]] = ()
+
+    @on(events.Mount)
+    def _frame_mounted(self) -> None:
+        """The feedback button's place needs its width"""
+        self.call_after_refresh(place_feedback, self)
+
+    @on(events.Resize)
+    def _frame_resized(self, event: events.Resize) -> None:
+        """The feedback button follows the header's right end"""
+        self.call_after_refresh(place_feedback, self, event.size.width)
+
+    @on(events.MouseDown)
+    def _frame_mouse_down(self, event: events.MouseDown) -> None:
+        """A right click on a link copies it"""
+        if event.button == RIGHT_BUTTON and (link := event.style.link):
+            copy_text(self, link)
+
+    def action_feedback(self) -> None:
+        """The feedback button: the ways to reach us"""
+        self.push_screen(FeedbackScreen(self.TOOL, self.FEEDBACK_WAYS))
+
+    def action_open_link(self, url: str) -> None:
+        """A click on a link in a dialog: the browser"""
+        self.open_url(url)

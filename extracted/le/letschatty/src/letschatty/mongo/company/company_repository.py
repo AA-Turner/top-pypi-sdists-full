@@ -165,3 +165,6 @@ class MongoCompanyRepository:
 
     async def remove_beta(self, company_id: str, beta: str) -> EmpresaModel:
         return await self._apply(company_id, {"$pull": {"betas": beta}}, containers={"betas": []})
+
+    async def save_corte(self, company: EmpresaModel) -> EmpresaModel:
+        return await self._save(company, ["corte"])

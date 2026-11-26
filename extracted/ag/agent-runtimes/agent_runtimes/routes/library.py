@@ -18,7 +18,8 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from agent_runtimes.routes.spaces import _caller_is_local, owner_token
+from agent_runtimes.apps.callers import refuse_unless_a_skill
+from agent_runtimes.routes.spaces import owner_token
 
 router = APIRouter(prefix="/library", tags=["library"])
 
@@ -80,10 +81,19 @@ async def publish_item(
     item_uid: str, body: PublishItem, request: Request
 ) -> dict[str, Any]:
     """Publish an owned artifact, after an explicit confirmation."""
-    if not _caller_is_local(request):
-        raise HTTPException(
-            403, "Only a skill in this runtime's pod may publish its owner's work."
-        )
+    # A skill's script on the pod's loopback, never a browser's page there
+    # (`callers.refuse_unless_a_skill`).
+    refuse_unless_a_skill(
+        request, "Only a skill in this runtime's pod may publish its owner's work."
+    )
+    # Where a publication may be made is one predicate, read by the gate and
+    # by the skill's readiness too: enforced here as well, since the pod's
+    # loopback is answered whole on a runtime that holds no pod secret.
+    from agent_runtimes.routes.owner import publication_place_refusal
+
+    not_here = publication_place_refusal()
+    if not_here:
+        raise HTTPException(403, not_here)
     if not body.confirm:
         raise HTTPException(
             409,
@@ -100,9 +110,14 @@ async def publish_item(
         raise HTTPException(
             409, "This runtime holds no identity of its owner to publish with."
         )
+    # One path segment of a known shape: `..` or an escaped dot would turn the
+    # call, made with the owner's token, to another resource of the Library.
+    from agent_runtimes.routes.owner import path_id
+
     uid = item_uid.strip()
     if not uid:
         raise HTTPException(422, "The item uid is empty.")
+    path_id(uid, "an item uid")
     payload: dict[str, Any] = {"is_public": True, "video": body.video}
     if body.tags is not None:
         payload["tags"] = body.tags

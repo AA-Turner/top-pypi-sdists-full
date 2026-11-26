@@ -83,6 +83,8 @@ _LAZY: dict[str, str] = {
     # zarr
     "open_zarr_group": "databaas_utils.zarr",
     "local_zarr_group": "databaas_utils.zarr",
+    # writes
+    "commit_with_retry": "databaas_utils.writes",
     # scoping
     "scoped": "databaas_utils.scoping",
     "slug": "databaas_utils.scoping",
@@ -124,6 +126,7 @@ __all__ = [
     "UserLogin",
     "__version__",
     "catalog_properties",
+    "commit_with_retry",
     "load_profile",
     "local_zarr_group",
     "login",
@@ -180,4 +183,5 @@ if TYPE_CHECKING:  # give type checkers and IDEs the real symbols
         TokenProvider,
     )
     from databaas_utils.userauth import UserLogin, login
+    from databaas_utils.writes import commit_with_retry
     from databaas_utils.zarr import local_zarr_group, open_zarr_group

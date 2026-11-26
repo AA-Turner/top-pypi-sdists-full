@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.5573"
+__version__ = "1.1.5580"
 
 # Define package exports
 __all__ = [
@@ -258,11 +258,17 @@ __all__ = [
     "ScanNowHistoryItem",
     "ScanNowHistoryPage",
     "ScanNowLimits",
+    "ScanNowNoIdleTargetsResponse",
     "ScanNowRequestResponse",
+    "ScanNowSkipReason",
+    "ScanNowSkippedTarget",
     "ScanNowStatus",
     "ScanNowStatusActor",
     "ScanNowTargetStatus",
     "ScanNowTriggerError",
+    "ScanNowTriggerErrorReason",
+    "ScanNowTriggerStatus",
+    "ScannedEntityType",
     "ScmType",
     "SdlcAssetDto",
     "SdlcAssetGraphAssetDto",
@@ -543,11 +549,17 @@ from legit_api_client.models.scan_log_status import ScanLogStatus as ScanLogStat
 from legit_api_client.models.scan_now_history_item import ScanNowHistoryItem as ScanNowHistoryItem
 from legit_api_client.models.scan_now_history_page import ScanNowHistoryPage as ScanNowHistoryPage
 from legit_api_client.models.scan_now_limits import ScanNowLimits as ScanNowLimits
+from legit_api_client.models.scan_now_no_idle_targets_response import ScanNowNoIdleTargetsResponse as ScanNowNoIdleTargetsResponse
 from legit_api_client.models.scan_now_request_response import ScanNowRequestResponse as ScanNowRequestResponse
+from legit_api_client.models.scan_now_skip_reason import ScanNowSkipReason as ScanNowSkipReason
+from legit_api_client.models.scan_now_skipped_target import ScanNowSkippedTarget as ScanNowSkippedTarget
 from legit_api_client.models.scan_now_status import ScanNowStatus as ScanNowStatus
 from legit_api_client.models.scan_now_status_actor import ScanNowStatusActor as ScanNowStatusActor
 from legit_api_client.models.scan_now_target_status import ScanNowTargetStatus as ScanNowTargetStatus
 from legit_api_client.models.scan_now_trigger_error import ScanNowTriggerError as ScanNowTriggerError
+from legit_api_client.models.scan_now_trigger_error_reason import ScanNowTriggerErrorReason as ScanNowTriggerErrorReason
+from legit_api_client.models.scan_now_trigger_status import ScanNowTriggerStatus as ScanNowTriggerStatus
+from legit_api_client.models.scanned_entity_type import ScannedEntityType as ScannedEntityType
 from legit_api_client.models.scm_type import ScmType as ScmType
 from legit_api_client.models.sdlc_asset_dto import SdlcAssetDto as SdlcAssetDto
 from legit_api_client.models.sdlc_asset_graph_asset_dto import SdlcAssetGraphAssetDto as SdlcAssetGraphAssetDto

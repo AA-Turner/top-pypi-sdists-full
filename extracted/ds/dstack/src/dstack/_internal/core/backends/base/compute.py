@@ -23,8 +23,8 @@ from dstack._internal import settings
 from dstack._internal.core.backends.base.models import JobConfiguration
 from dstack._internal.core.backends.base.offers import (
     OfferDiskFitter,
+    OfferMatcher,
     OfferModifier,
-    filter_offers_by_requirements,
 )
 from dstack._internal.core.consts import (
     DSTACK_RUNNER_HTTP_PORT,
@@ -149,6 +149,7 @@ class Compute(ABC):
         run: Run,
         job: Job,
         instance_offer: InstanceOfferWithAvailability,
+        project_name: str,
         project_ssh_public_key: str,
         project_ssh_private_key: str,
         volumes: List[Volume],
@@ -160,6 +161,11 @@ class Compute(ABC):
         Launches a new instance for the job. It should return `JobProvisioningData` ASAP.
         If required to wait to get the IP address or SSH port, return partially filled `JobProvisioningData`
         and implement `update_provisioning_data()`.
+
+        `project_name`, `project_ssh_public_key`, and `project_ssh_private_key` belong to the
+        project that will own the provisioned resources -- the project of the job's fleet. It
+        differs from `run.project_name` if the fleet is imported from another project, so name
+        and tag the resources using `project_name`, not `run.project_name`.
 
         `extra_authorized_keys` are the public keys to authorize on the job container in addition
         to `project_ssh_public_key`, as decided by the caller -- typically the user key, or
@@ -290,7 +296,8 @@ class ComputeWithAllOffersCached(ABC):
         offers = self.__apply_modifiers(
             cached_offers, self.get_offers_modifiers(requirements, full_offers)
         )
-        offers = filter_offers_by_requirements(offers, requirements, ignore_disk=True)
+        matcher = OfferMatcher(requirements, check_disk=False)
+        offers = (o for o in offers if matcher.matches(o))
         offers = self.__fit_disk_size(offers, requirements)
         post_filter = self.get_offers_post_filter(requirements)
         if post_filter is not None:
@@ -366,7 +373,11 @@ class ComputeWithFilteredOffersCached(ABC):
         unallocated_resources: bool,
     ) -> List[InstanceOfferWithAvailability]:
         """
-        Returns backend offers with availability matching requirements.
+        Returns backend offers with availability for requirements.
+
+        The offers are matched against `requirements` with `OfferMatcher` afterwards, so this
+        method may use `requirements` only to narrow down or shape the offers, e.g. to query
+        the provider or to size offers.
 
         See `Compute.get_offers()` for the `full_offers` argument description.
         Set the class variable `full_offers_argument_has_effect` to `True` if the `full_offers`
@@ -381,7 +392,9 @@ class ComputeWithFilteredOffersCached(ABC):
     def get_offers(
         self, requirements: Requirements, full_offers: bool, unallocated_resources: bool
     ) -> Iterator[InstanceOfferWithAvailability]:
-        return iter(self._get_offers_cached(requirements, full_offers, unallocated_resources))
+        offers = self._get_offers_cached(requirements, full_offers, unallocated_resources)
+        matcher = OfferMatcher(requirements)
+        return (o for o in offers if matcher.matches(o))
 
     def _get_offers_cached_key(
         self, requirements: Requirements, full_offers: bool, unallocated_resources: bool
@@ -432,6 +445,7 @@ class ComputeWithCreateInstanceSupport(ABC):
         run: Run,
         job: Job,
         instance_offer: InstanceOfferWithAvailability,
+        project_name: str,
         project_ssh_public_key: str,
         project_ssh_private_key: str,
         volumes: List[Volume],
@@ -447,7 +461,7 @@ class ComputeWithCreateInstanceSupport(ABC):
         submits the keys to the shim later, see `Compute.run_job()`.
         """
         instance_config = InstanceConfiguration(
-            project_name=run.project_name,
+            project_name=project_name,
             instance_name=get_job_instance_name(run, job),
             user=run.user,
             ssh_keys=[SSHKey(public=project_ssh_public_key.strip())],
@@ -530,6 +544,7 @@ class ComputeWithGroupProvisioningSupport(ABC):
         run: Run,
         job_configurations: List[JobConfiguration],
         instance_offer: InstanceOfferWithAvailability,
+        project_name: str,
         project_ssh_public_key: str,
         project_ssh_private_key: str,
         placement_group: Optional[PlacementGroup],
@@ -849,6 +864,7 @@ def generate_unique_instance_name(
 def generate_unique_instance_name_for_job(
     run: Run,
     job: Job,
+    project_name: str,
     max_length: int = _DEFAULT_MAX_RESOURCE_NAME_LEN,
     with_provider_ref: bool = False,
 ) -> str:
@@ -860,7 +876,7 @@ def generate_unique_instance_name_for_job(
     """
     return generate_unique_backend_name(
         resource_name=get_job_instance_name(run, job),
-        project_name=run.project_name,
+        project_name=project_name,
         max_length=max_length,
         provider_ref=get_job_provider_ref(job) if with_provider_ref else None,
     )

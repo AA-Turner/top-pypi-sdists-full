@@ -20,7 +20,7 @@ class Field(DaraModel):
         self.boolean_value = boolean_value
         # The Double value.
         self.double_value = double_value
-        # Indicates whether the value is null.
+        # The null status.
         self.is_null = is_null
         # The Long value.
         self.long_value = long_value

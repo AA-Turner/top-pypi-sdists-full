@@ -119,8 +119,21 @@ def update(
         if value is not None:
             config[key] = value
 
+    # The command names the mount arguments the way an operator thinks of them
+    # (--username, --share, ...); the model only has the mount_* fields, and the
+    # API ignores the ones it does not know, so an unmapped name is a silent
+    # no-op that leaves the stored mount value unchanged.
+    mount_argument_map = {
+        "username": "mount_username",
+        "password": "mount_password",
+        "share": "mount_share",
+        "domain": "mount_domain",
+        "hostname": "mount_hostname",
+    }
     overrides = {
-        key: value for key, value in kwargs.items() if key not in READ_ONLY_FIELDS
+        mount_argument_map.get(key, key): value
+        for key, value in kwargs.items()
+        if key not in READ_ONLY_FIELDS
     }
     config.update(
         _without_none(
@@ -292,6 +305,11 @@ class EnvVarConfigObj:
         """A file backed configuration keeps defining the variables in its
         file, so removing one from the inline list does not remove it from the
         environment."""
+        if not self.env_vars:
+            # write_env_list deletes the configuration in this case, and that
+            # removes the file's variables as well, so telling the user to
+            # delete the configuration would be wrong.
+            return
         if not getattr(self.env_config, "file_store_uri", None):
             return
         removed = sorted(set(self.old_file_envs) - set(self.env_vars))
@@ -305,34 +323,60 @@ class EnvVarConfigObj:
 
     def verify_env_list(self):
         """Read the variables back: the API's view, not our request, is what
-        the workload will run with."""
+        the workload will run with.
+
+        A configuration that is missing, or one the server returns without an
+        env_config_vars list, holds no variables. Both are compared as an empty
+        set instead of being accepted as success: a write that the API
+        acknowledged but did not persist is exactly the failure this read-back
+        exists to catch.
+        """
         if self.config_type.upper() != "SECRET_ENV":
             # list_configs only echoes env_config_vars for secret_env
             return
         configs = query(self.ctx, self.application, self.env_name, self.org_id)
+        matching_config = None
         for config in configs:
             if config.config_type.upper() != self.config_type.upper():
                 continue
-            server_vars = getattr(config, "env_config_vars", None)
-            if server_vars is None:
-                return
-            server = {var.name: var.value for var in server_vars}
-            if server == self.env_vars:
-                return
-            raise RuntimeError(
-                "environment {} on {} does not match after write: missing {}, "
-                "unexpected {}, changed {}".format(
-                    self.env_name,
-                    self.application,
-                    sorted(set(self.env_vars) - set(server)),
-                    sorted(set(server) - set(self.env_vars)),
-                    sorted(
-                        name
-                        for name in set(self.env_vars) & set(server)
-                        if server[name] != self.env_vars[name]
-                    ),
-                )
+            if self.env_config and getattr(config, "id", None) != self.env_config.id:
+                # Another configuration of the same type cannot vouch for the
+                # one this command wrote.
+                continue
+            matching_config = config
+            break
+        server_vars = (
+            getattr(matching_config, "env_config_vars", None)
+            if matching_config
+            else None
+        )
+        # The API uses null for an empty value and for a configuration with no
+        # variables, and a file backed configuration parses unquoted numbers out
+        # of its yaml, so compare the values as strings.
+        server = {
+            var.name: "" if var.value is None else str(var.value)
+            for var in (server_vars or [])
+        }
+        expected = {
+            name: "" if value is None else str(value)
+            for name, value in self.env_vars.items()
+        }
+        if server == expected:
+            return
+        raise RuntimeError(
+            "environment {} on {} does not match after write: missing {}, "
+            "unexpected {}, changed {}".format(
+                self.env_name,
+                self.application,
+                sorted(set(expected) - set(server)),
+                sorted(set(server) - set(expected)),
+                sorted(
+                    name
+                    for name in set(expected) & set(server)
+                    if server[name] != expected[name]
+                ),
             )
+        )
 
     def add_env_var(self, env_name, env_value):
         env_data = {}

@@ -21,17 +21,17 @@ class DescribeExtensionResponseBody(DaraModel):
         self.current_version = current_version
         # The description of the extension.
         self.description = description
-        # The extension ID.
+        # The ID of the extension.
         self.extension_id = extension_id
-        # The extension name.
+        # The name of the extension.
         self.extension_name = extension_name
-        # Indicates whether an instance restart is required after you install the extension.
+        # Indicates whether the instance must be restarted to install the extension.
         self.is_install_need_restart = is_install_need_restart
-        # Whether it is the latest version extension.
+        # Indicates whether the extension is the latest version.
         self.is_latest_version = is_latest_version
         # The latest version.
         self.latest_version = latest_version
-        # Request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The status of the extension.
         self.status = status

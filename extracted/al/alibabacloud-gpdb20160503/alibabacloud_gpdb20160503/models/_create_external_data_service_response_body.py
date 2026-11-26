@@ -10,9 +10,9 @@ class CreateExternalDataServiceResponseBody(DaraModel):
         request_id: str = None,
         service_id: int = None,
     ):
-        # Request ID.
+        # The request ID.
         self.request_id = request_id
-        # Service ID.
+        # The service ID.
         self.service_id = service_id
 
     def validate(self):

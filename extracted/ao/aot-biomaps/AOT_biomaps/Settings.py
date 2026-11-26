@@ -40,6 +40,7 @@ class Params:
         self.acoustic['f_US'] = int(float(self.acoustic['f_US']))
         self.general['ft'] = int(float(self.general['ft'])) if self.general.get('ft') is not None else None
         self.general['Nt'] = self.general.get('Nt')
+        self.acoustic['cfl'] = float(self.acoustic['cfl']) if self.acoustic.get('cfl') is not None else 0.3
 
         # ------------------------------------------------------------------
         # Consistency checks

@@ -2,8 +2,9 @@ import asyncio
 import gc
 import re
 from collections.abc import Callable
-from typing import Optional, Union
+from typing import Any, Optional, Union
 from unittest import TestCase
+from unittest.mock import patch
 
 import aioice.stun
 from aiortc import (
@@ -22,7 +23,12 @@ from aiortc.exceptions import (
     InvalidStateError,
     OperationError,
 )
-from aiortc.mediastreams import AudioStreamTrack, MediaStreamTrack, VideoStreamTrack
+from aiortc.mediastreams import (
+    AudioStreamTrack,
+    MediaStreamError,
+    MediaStreamTrack,
+    VideoStreamTrack,
+)
 from aiortc.rtcpeerconnection import (
     filter_preferred_codecs,
     find_common_codecs,
@@ -33,14 +39,21 @@ from aiortc.rtcrtpparameters import (
     RTCRtpCodecCapability,
     RTCRtpCodecParameters,
 )
+from aiortc.rtcrtpreceiver import RTCRtpReceiver
 from aiortc.rtcrtpsender import RTCRtpSender
-from aiortc.sdp import SessionDescription
-from aiortc.stats import RTCStatsReport
+from aiortc.sdp import ExtmapDescription, SessionDescription
+from aiortc.stats import (
+    RTCInboundRtpStreamStats,
+    RTCOutboundRtpStreamStats,
+    RTCStatsReport,
+)
+from av import AudioFrame
 
 from .test_contrib_media import MediaTestCase
 from .utils import asynctest, lf2crlf
 
 LONG_DATA = b"\xff" * 2000
+ICE_STATS_TYPES = ["candidate-pair", "local-candidate", "remote-candidate"]
 STRIP_CANDIDATES_RE = re.compile("^a=(candidate:.*|end-of-candidates)\r\n", re.M)
 
 H264_SDP = lf2crlf(
@@ -75,6 +88,21 @@ class BogusStreamTrack(AudioStreamTrack):
     kind = "bogus"
 
 
+def audio_codecs(*names: str) -> list[RTCRtpCodecCapability]:
+    codecs = RTCRtpSender.getCapabilities("audio").codecs
+    return [codec for name in names for codec in codecs if codec.name == name]
+
+
+def bundle_groups(description: RTCSessionDescription) -> list[list[Union[int, str]]]:
+    parsed = SessionDescription.parse(description.sdp)
+    return [group.items for group in parsed.group if group.semantic == "BUNDLE"]
+
+
+def media_ports(description: RTCSessionDescription) -> list[int]:
+    parsed = SessionDescription.parse(description.sdp)
+    return [media.port for media in parsed.media]
+
+
 def mids(pc: RTCPeerConnection) -> list[Optional[str]]:
     mids = [x.mid for x in pc.getTransceivers()]
     if pc.sctp:
@@ -82,10 +110,51 @@ def mids(pc: RTCPeerConnection) -> list[Optional[str]]:
     return sorted(mids)
 
 
+async def negotiate(pc1: RTCPeerConnection, pc2: RTCPeerConnection) -> None:
+    await pc1.setLocalDescription(await pc1.createOffer())
+    await pc2.setRemoteDescription(pc1.localDescription)
+    await pc2.setLocalDescription(await pc2.createAnswer())
+    await pc1.setRemoteDescription(pc2.localDescription)
+
+
+async def outbound_ssrc(sender: RTCRtpSender) -> int:
+    report = await sender.getStats()
+    return next(
+        stats.ssrc
+        for stats in report.values()
+        if isinstance(stats, RTCOutboundRtpStreamStats)
+    )
+
+
+async def packets_received(receiver: RTCRtpReceiver) -> int:
+    report = await receiver.getStats()
+    return sum(
+        stats.packetsReceived
+        for stats in report.values()
+        if isinstance(stats, RTCInboundRtpStreamStats)
+    )
+
+
 def strip_ice_candidates(description: RTCSessionDescription) -> RTCSessionDescription:
     return RTCSessionDescription(
         sdp=STRIP_CANDIDATES_RE.sub("", description.sdp), type=description.type
     )
+
+
+def strip_ice_candidates_from_section(
+    description: RTCSessionDescription, index: int
+) -> RTCSessionDescription:
+    sections = description.sdp.split("m=")
+    sections[index + 1] = STRIP_CANDIDATES_RE.sub("", sections[index + 1])
+    return RTCSessionDescription(sdp="m=".join(sections), type=description.type)
+
+
+async def wait_for_ended(track: MediaStreamTrack) -> None:
+    try:
+        while True:
+            await track.recv()
+    except MediaStreamError:
+        pass
 
 
 def track_states(pc: RTCPeerConnection) -> dict[str, list[str]]:
@@ -159,7 +228,7 @@ class RTCRtpCodecParametersTest(TestCase):
             ],
         )
 
-    def find_common_codecs_dynamic(self) -> None:
+    def test_find_common_codecs_dynamic(self) -> None:
         local_codecs = [
             RTCRtpCodecParameters(
                 mimeType="audio/opus", clockRate=48000, channels=2, payloadType=96
@@ -192,7 +261,7 @@ class RTCRtpCodecParametersTest(TestCase):
             ],
         )
 
-    def find_common_codecs_feedback(self) -> None:
+    def test_find_common_codecs_feedback(self) -> None:
         local_codecs = [
             RTCRtpCodecParameters(
                 mimeType="video/VP8",
@@ -266,6 +335,45 @@ class RTCRtpCodecParametersTest(TestCase):
                     clockRate=90000,
                     payloadType=97,
                     parameters={"apt": 96},
+                ),
+            ],
+        )
+
+    def test_find_common_codecs_rtx_listed_first(self) -> None:
+        local_codecs = [
+            RTCRtpCodecParameters(
+                mimeType="video/VP8", clockRate=90000, payloadType=100
+            ),
+            RTCRtpCodecParameters(
+                mimeType="video/rtx",
+                clockRate=90000,
+                payloadType=101,
+                parameters={"apt": 100},
+            ),
+        ]
+        remote_codecs = [
+            RTCRtpCodecParameters(
+                mimeType="video/rtx",
+                clockRate=90000,
+                payloadType=97,
+                parameters={"apt": 96},
+            ),
+            RTCRtpCodecParameters(
+                mimeType="video/VP8", clockRate=90000, payloadType=96
+            ),
+        ]
+        common = find_common_codecs(local_codecs, remote_codecs)
+        self.assertEqual(
+            common,
+            [
+                RTCRtpCodecParameters(
+                    mimeType="video/rtx",
+                    clockRate=90000,
+                    payloadType=97,
+                    parameters={"apt": 96},
+                ),
+                RTCRtpCodecParameters(
+                    mimeType="video/VP8", clockRate=90000, payloadType=96
                 ),
             ],
         )
@@ -517,6 +625,17 @@ class RTCPeerConnectionTest(TestCase):
         if pc.sctp:
             self.assertEqual(pc.sctp.transport, transport)
 
+    def assertBundleTagInactive(self, description: RTCSessionDescription) -> None:
+        """
+        Check the BUNDLE-tagged "m=" section is kept bundled, as inactive.
+        """
+        parsed = SessionDescription.parse(description.sdp)
+        self.assertNotEqual(parsed.media[0].port, 0)
+        self.assertEqual(parsed.media[0].direction, "inactive")
+        self.assertEqual(
+            bundle_groups(description), [[m.rtp.muxId for m in parsed.media]]
+        )
+
     def assertClosed(self, pc: RTCPeerConnection) -> None:
         self.assertEqual(pc.connectionState, "closed")
         self.assertEqual(pc.iceConnectionState, "closed")
@@ -551,6 +670,25 @@ class RTCPeerConnectionTest(TestCase):
         )
         self.assertEqual(pc1.iceConnectionState, "completed")
         self.assertEqual(pc2.iceConnectionState, "completed")
+
+    async def assertIceNew(self, pc: RTCPeerConnection) -> None:
+        # Give the connection attempt a chance to run.
+        await asyncio.sleep(0.1)
+        self.assertEqual(pc.iceConnectionState, "new")
+        self.assertEqual(pc.iceGatheringState, "complete")
+
+    def assertIceStats(self, report: RTCStatsReport) -> None:
+        transport = next(s for s in report.values() if s.type == "transport")
+        pair = report[transport.selectedCandidatePairId]
+        self.assertEqual(pair.state, "succeeded")
+        self.assertTrue(pair.nominated)
+        self.assertGreater(pair.bytesSent, 0)
+        self.assertGreater(pair.bytesReceived, 0)
+        self.assertGreater(pair.requestsSent, 0)
+        self.assertGreater(pair.responsesReceived, 0)
+        self.assertIsNotNone(pair.currentRoundTripTime)
+        self.assertEqual(report[pair.localCandidateId].type, "local-candidate")
+        self.assertEqual(report[pair.remoteCandidateId].type, "remote-candidate")
 
     def assertHasIceCandidates(self, description: RTCSessionDescription) -> None:
         self.assertTrue("a=candidate:" in description.sdp)
@@ -754,6 +892,21 @@ class RTCPeerConnectionTest(TestCase):
         with self.assertRaises(InvalidStateError) as cm:
             pc.addTrack(AudioStreamTrack())
         self.assertEqual(str(cm.exception), "RTCPeerConnection is closed")
+
+    @asynctest
+    async def test_addTrack_stopped_transceiver(self) -> None:
+        pc = RTCPeerConnection()
+
+        # A stopped transceiver is not reused, even if it has no track.
+        stopped = pc.addTransceiver("audio")
+        await stopped.stop()
+        track = AudioStreamTrack()
+        sender = pc.addTrack(track)
+        self.assertIsNone(stopped.sender.track)
+        self.assertEqual(sender.track, track)
+        self.assertEqual(len(pc.getTransceivers()), 2)
+
+        await pc.close()
 
     @asynctest
     async def test_addTransceiver_audio_inactive(self) -> None:
@@ -999,8 +1152,9 @@ a=rtpmap:8 PCMA/8000
         # check stats
         report = await pc1.getStats()
         self.assertIsInstance(report, RTCStatsReport)
+        self.assertIceStats(report)
         self.assertEqual(
-            sorted([s.type for s in report.values()]),
+            sorted(s.type for s in report.values() if s.type not in ICE_STATS_TYPES),
             [
                 "inbound-rtp",
                 "outbound-rtp",
@@ -1111,7 +1265,7 @@ a=rtpmap:8 PCMA/8000
         self.assertFalse("a=end-of-candidates" in answer.sdp)
 
         await pc2.setLocalDescription(answer)
-        await self.assertIceChecking(pc2)
+        await self.assertIceNew(pc2)
         self.assertEqual(mids(pc2), ["0"])
         self.assertTrue("m=audio " in pc2.localDescription.sdp)
         self.assertTrue("a=sendrecv" in pc2.localDescription.sdp)
@@ -1341,8 +1495,9 @@ a=rtpmap:8 PCMA/8000
         # check stats
         report = await pc1.getStats()
         self.assertIsInstance(report, RTCStatsReport)
+        self.assertIceStats(report)
         self.assertEqual(
-            sorted([s.type for s in report.values()]),
+            sorted(s.type for s in report.values() if s.type not in ICE_STATS_TYPES),
             [
                 "inbound-rtp",
                 "outbound-rtp",
@@ -1386,6 +1541,107 @@ a=rtpmap:8 PCMA/8000
             pc2_states["signalingState"],
             ["stable", "have-remote-offer", "stable", "closed"],
         )
+
+    @asynctest
+    async def test_connect_audio_codec_removed_new_clock_rate(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(AudioStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        async def recv_sample_rate(track: MediaStreamTrack) -> int:
+            frame = await track.recv()
+            assert isinstance(frame, AudioFrame)
+            return frame.sample_rate
+
+        # pc1 sends Opus.
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+        for track in pc2_tracks:
+            self.assertEqual(await recv_sample_rate(track), 48000)
+        ssrcs = [await outbound_ssrc(sender) for sender in pc1.getSenders()]
+
+        # The answer removes Opus, so pc1 switches to PCMU. The SSRCs are kept,
+        # as pc2 could not tell the tracks apart by payload type.
+        for transceiver in pc2.getTransceivers():
+            transceiver.setCodecPreferences(audio_codecs("PCMU"))
+        await negotiate(pc1, pc2)
+        self.assertCodecNames(pc2.localDescription, ["PCMU", "PCMU"])
+
+        async def wait_for_pcmu(track: MediaStreamTrack) -> None:
+            while await recv_sample_rate(track) != 8000:
+                pass
+
+        for track in pc2_tracks:
+            await asyncio.wait_for(wait_for_pcmu(track), 2)
+        self.assertEqual(
+            [await outbound_ssrc(sender) for sender in pc1.getSenders()], ssrcs
+        )
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_codec_removed_same_clock_rate(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.getTransceivers()[0].setCodecPreferences(audio_codecs("PCMU", "PCMA"))
+        sender = pc1.getSenders()[0]
+
+        pc2 = RTCPeerConnection()
+
+        # pc1 sends PCMU.
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+        receiver = pc2.getReceivers()[0]
+        await self.sleepWhile(lambda: not receiver.getSynchronizationSources())
+        ssrc = await outbound_ssrc(sender)
+
+        # The answer removes PCMU, so pc1 switches to PCMA, whose clock rate
+        # is the same, so the SSRC is kept (RFC 9429 section 5.11).
+        pc2.getTransceivers()[0].setCodecPreferences(audio_codecs("PCMA"))
+        await negotiate(pc1, pc2)
+        self.assertCodecNames(pc2.localDescription, ["PCMA"])
+
+        await asyncio.sleep(0.5)
+        count = await packets_received(receiver)
+        await asyncio.sleep(0.5)
+        self.assertGreater(await packets_received(receiver), count)
+        self.assertEqual(await outbound_ssrc(sender), ssrc)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_codec_unchanged_by_offer(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+
+        # The answer only accepts PCMU.
+        pc2 = RTCPeerConnection()
+        pc2.addTransceiver("audio", direction="recvonly")
+        pc2.getTransceivers()[0].setCodecPreferences(audio_codecs("PCMU"))
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+        self.assertCodecNames(pc2.localDescription, ["PCMU"])
+
+        receiver = pc2.getReceivers()[0]
+        await self.sleepWhile(lambda: not receiver.getSynchronizationSources())
+
+        # A new offer lists Opus again, but pc1 keeps sending PCMU until it
+        # applies the answer (RFC 9429 section 5.11).
+        await pc1.setLocalDescription(await pc1.createOffer())
+
+        await asyncio.sleep(0.5)
+        count = await packets_received(receiver)
+        await asyncio.sleep(0.5)
+        self.assertGreater(await packets_received(receiver), count)
+
+        await pc1.close()
+        await pc2.close()
 
     @asynctest
     async def test_connect_audio_mid_changes(self) -> None:
@@ -2013,6 +2269,118 @@ a=rtpmap:8 PCMA/8000
         )
 
     @asynctest
+    async def test_connect_audio_stopped_by_answerer(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1_tracks = track_remote_tracks(pc1)
+        pc1.addTrack(AudioStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2.on("track", lambda track: pc2.addTrack(AudioStreamTrack()))
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # The answer rejects the "m=" section of the stopped transceiver
+        # (RFC 9429 section 5.3.1).
+        await pc2.getTransceivers()[0].stop()
+        await negotiate(pc1, pc2)
+        self.assertEqual(media_ports(pc2.localDescription), [0])
+        self.assertEqual(bundle_groups(pc2.localDescription), [])
+
+        # Applying the answer stops the offerer's transceiver, which ends its
+        # remote track (W3C webrtc-pc, set the session description).
+        self.assertTrue(pc1.getTransceivers()[0].stopped)
+        self.assertEqual(pc1.getTransceivers()[0].currentDirection, "inactive")
+        await asyncio.wait_for(wait_for_ended(pc1_tracks[0]), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_stopped_by_offerer(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # The offer rejects the "m=" section of the stopped transceiver, without
+        # its "a=msid" line (RFC 9429 section 5.2.2), and so does the answer.
+        await pc1.getTransceivers()[0].stop()
+        await pc1.setLocalDescription(await pc1.createOffer())
+        self.assertEqual(media_ports(pc1.localDescription), [0])
+        self.assertEqual(bundle_groups(pc1.localDescription), [])
+        self.assertNotIn("a=msid:", pc1.localDescription.sdp)
+
+        await pc2.setRemoteDescription(pc1.localDescription)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await pc1.setRemoteDescription(pc2.localDescription)
+        self.assertEqual(media_ports(pc2.localDescription), [0])
+        self.assertEqual(bundle_groups(pc2.localDescription), [])
+
+        # Applying the offer stops the answerer's transceiver, which ends its
+        # remote track (W3C webrtc-pc, set the session description).
+        self.assertTrue(pc2.getTransceivers()[0].stopped)
+        self.assertEqual(pc2.getTransceivers()[0].currentDirection, "inactive")
+        await asyncio.wait_for(wait_for_ended(pc2_tracks[0]), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_two_tracks_first_rejected(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(AudioStreamTrack())
+
+        # pc2 has a transceiver which is not associated yet.
+        pc2 = RTCPeerConnection()
+        pc2.addTrack(AudioStreamTrack())
+        pc2_tracks = track_remote_tracks(pc2)
+        transceiver = pc2.getTransceivers()[0]
+
+        # The first "m=" section is rejected, as an SFU may offer for a
+        # participant who left.
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        rejected_mid, accepted_mid = [m.rtp.muxId for m in parsed.media]
+        parsed.media[0].port = 0
+        parsed.group[0].items = [accepted_mid]
+        await pc2.setRemoteDescription(
+            RTCSessionDescription(sdp=str(parsed), type="offer")
+        )
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        self.assertEqual(media_ports(pc2.localDescription)[0], 0)
+        self.assertEqual(bundle_groups(pc2.localDescription), [[accepted_mid]])
+
+        # pc2's transceiver is used for the accepted "m=" section, and a new
+        # stopped one for the rejected "m=" section.
+        self.assertEqual(transceiver.mid, accepted_mid)
+        self.assertFalse(transceiver.stopped)
+        self.assertEqual(
+            [(t.mid, t.stopped, t.currentDirection) for t in pc2.getTransceivers()],
+            [(accepted_mid, False, "sendrecv"), (rejected_mid, True, "inactive")],
+        )
+
+        # The connection is established, and the accepted "m=" section's media
+        # flows.
+        await pc1.setRemoteDescription(pc2.localDescription)
+        await self.assertIceCompleted(pc1, pc2)
+        await self.sleepWhile(
+            lambda: "connecting" in [pc1.connectionState, pc2.connectionState]
+        )
+        self.assertEqual(pc1.connectionState, "connected")
+        self.assertEqual(pc2.connectionState, "connected")
+        self.assertEqual([t.kind for t in pc2_tracks], ["audio"])
+        await asyncio.wait_for(pc2_tracks[0].recv(), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
     async def test_connect_audio_two_tracks(self) -> None:
         pc1 = RTCPeerConnection()
         pc1_states = track_states(pc1)
@@ -2216,6 +2584,89 @@ a=rtpmap:8 PCMA/8000
         )
 
     @asynctest
+    async def test_connect_audio_two_tracks_ssrc_changes(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(AudioStreamTrack())
+
+        pc2 = RTCPeerConnection()
+
+        def receiving() -> list[bool]:
+            return [bool(r.getSynchronizationSources()) for r in pc2.getReceivers()]
+
+        # Advertise SSRCs which pc1 does not send, as an SFU does before it
+        # reuses the "m=" sections for new participants.
+        await pc1.setLocalDescription(await pc1.createOffer())
+        mangled = RTCSessionDescription(
+            sdp=re.sub(
+                "^a=ssrc:([0-9]+)",
+                lambda m: f"a=ssrc:{int(m.group(1)) ^ 1}",
+                pc1.localDescription.sdp,
+                flags=re.M,
+            ),
+            type=pc1.localDescription.type,
+        )
+        await pc2.setRemoteDescription(mangled)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await pc1.setRemoteDescription(pc2.localDescription)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # The tracks share payload types, so their RTP cannot be routed.
+        await asyncio.sleep(0.5)
+        self.assertEqual(receiving(), [False, False])
+
+        # Renegotiate with the SSRCs which pc1 actually sends, which must not
+        # restart a stopped receiver.
+        await pc2.getTransceivers()[0].stop()
+        await pc1.setLocalDescription(await pc1.createOffer())
+        await pc2.setRemoteDescription(pc1.localDescription)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await pc1.setRemoteDescription(pc2.localDescription)
+
+        await asyncio.sleep(0.5)
+        self.assertEqual(receiving(), [False, True])
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_without_ssrc_then_second_track(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+
+        pc2 = RTCPeerConnection()
+
+        async def negotiate() -> None:
+            # Strip out the SSRCs, so pc2 learns them from the payload types.
+            await pc1.setLocalDescription(await pc1.createOffer())
+            mangled = RTCSessionDescription(
+                sdp=re.sub("^a=ssrc.*\r\n", "", pc1.localDescription.sdp, flags=re.M),
+                type=pc1.localDescription.type,
+            )
+            await pc2.setRemoteDescription(mangled)
+            await pc2.setLocalDescription(await pc2.createAnswer())
+            await pc1.setRemoteDescription(pc2.localDescription)
+
+        await negotiate()
+        await self.assertIceCompleted(pc1, pc2)
+
+        receiver = pc2.getReceivers()[0]
+        await self.sleepWhile(lambda: not receiver.getSynchronizationSources())
+        self.assertEqual(len(receiver.getSynchronizationSources()), 1)
+
+        # The second track shares the payload types of the first one, whose
+        # learned SSRC must survive the renegotiation.
+        pc1.addTrack(AudioStreamTrack())
+        await negotiate()
+
+        count = await packets_received(receiver)
+        await asyncio.sleep(0.5)
+        self.assertGreater(await packets_received(receiver), count)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
     async def test_connect_audio_and_video(self) -> None:
         pc1 = RTCPeerConnection()
         pc2 = RTCPeerConnection()
@@ -2354,6 +2805,322 @@ a=rtpmap:8 PCMA/8000
             ["stable", "have-remote-offer", "stable", "closed"],
         )
         media_test.tearDown()
+
+    @asynctest
+    async def test_connect_audio_and_video_video_rejected_first_offer(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        # The first offer rejects the video "m=" section, as an SFU may.
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        parsed.media[1].port = 0
+        parsed.group[0].items = [parsed.media[0].rtp.muxId]
+        await pc2.setRemoteDescription(
+            RTCSessionDescription(sdp=str(parsed), type="offer")
+        )
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await pc1.setRemoteDescription(pc2.localDescription)
+        self.assertEqual(media_ports(pc2.localDescription)[1], 0)
+
+        # The transports of the video "m=" sections are discarded, so both
+        # connections complete (RFC 9429 section 5.11).
+        await self.assertIceCompleted(pc1, pc2)
+        await self.sleepWhile(
+            lambda: "connecting" in [pc1.connectionState, pc2.connectionState]
+        )
+        self.assertEqual(pc1.connectionState, "connected")
+        self.assertEqual(pc2.connectionState, "connected")
+        self.assertEqual([t.kind for t in pc2_tracks], ["audio"])
+        await asyncio.wait_for(pc2_tracks[0].recv(), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_and_video_video_rejected_minimal(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # Reject the video "m=" section as Firefox does, without transport
+        # attributes and with a format which has no "a=rtpmap" line, which
+        # RFC 3264 section 8.2 allows.
+        await pc1.getTransceivers()[1].stop()
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        video = SessionDescription.parse(
+            "v=0\r\n"
+            "o=- 0 0 IN IP4 0.0.0.0\r\n"
+            "s=-\r\n"
+            "t=0 0\r\n"
+            "m=video 0 UDP/TLS/RTP/SAVPF 120\r\n"
+            "c=IN IP4 0.0.0.0\r\n"
+            "a=inactive\r\n"
+            f"a=mid:{parsed.media[1].rtp.muxId}\r\n"
+        ).media[0]
+        parsed.media[1] = video
+        await pc2.setRemoteDescription(
+            RTCSessionDescription(sdp=str(parsed), type="offer")
+        )
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await pc1.setRemoteDescription(pc2.localDescription)
+        self.assertEqual(media_ports(pc2.localDescription)[1], 0)
+        self.assertNotIn("a=extmap", pc2.localDescription.sdp.split("m=video")[1])
+        self.assertEqual(
+            bundle_groups(pc2.localDescription), [[parsed.media[0].rtp.muxId]]
+        )
+
+        # The video track ends, the audio keeps flowing.
+        await asyncio.wait_for(wait_for_ended(pc2_tracks[1]), 1)
+        await asyncio.wait_for(pc2_tracks[0].recv(), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_and_video_bundle_only(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        # The video "m=" section is bundle-only, so its zero port does not
+        # reject it (RFC 9143 section 6).
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        parsed.media[1].port = 0
+        parsed.media[1].bundle_only = True
+        parsed.media[1].ice_candidates = []
+        await pc2.setRemoteDescription(
+            RTCSessionDescription(sdp=str(parsed), type="offer")
+        )
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await pc1.setRemoteDescription(pc2.localDescription)
+        self.assertFalse(pc2.getTransceivers()[1].stopped)
+
+        # The video flows over the bundled transport.
+        await self.assertIceCompleted(pc1, pc2)
+        await asyncio.wait_for(pc2_tracks[1].recv(), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_and_video_bundle_tag_rejected(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+
+        pc2 = RTCPeerConnection()
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # An offer which rejects the BUNDLE-tagged audio "m=" section, moving the
+        # group to the video one, is refused.
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        parsed.media[0].port = 0
+        parsed.group[0].items = [parsed.media[1].rtp.muxId]
+        with self.assertRaises(OperationError) as cm:
+            await pc2.setRemoteDescription(
+                RTCSessionDescription(sdp=str(parsed), type="offer")
+            )
+        self.assertEqual(
+            str(cm.exception),
+            "Rejecting the BUNDLE-tagged media section is not supported",
+        )
+        self.assertEqual(pc2.signalingState, "stable")
+        self.assertFalse(pc2.getTransceivers()[0].stopped)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_and_video_bundle_tag_stopped_by_answerer(
+        self,
+    ) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+        pc1_tracks = track_remote_tracks(pc1)
+
+        # pc2 sends video back.
+        pc2 = RTCPeerConnection()
+        pc2.addTrack(VideoStreamTrack())
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # The answer keeps the BUNDLE-tagged audio "m=" section of the stopped
+        # transceiver bundled, as inactive.
+        audio = next(t for t in pc2.getTransceivers() if t.kind == "audio")
+        await audio.stop()
+        await negotiate(pc1, pc2)
+        self.assertBundleTagInactive(pc2.localDescription)
+        self.assertEqual(audio.currentDirection, "inactive")
+
+        # The video keeps flowing.
+        self.assertFalse(pc1.getTransceivers()[0].stopped)
+        await asyncio.wait_for(pc1_tracks[0].recv(), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_and_video_bundle_tag_stopped_by_offerer(
+        self,
+    ) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # The offer keeps the BUNDLE-tagged audio "m=" section of the stopped
+        # transceiver bundled, as inactive.
+        await pc1.getTransceivers()[0].stop()
+        await negotiate(pc1, pc2)
+        self.assertBundleTagInactive(pc1.localDescription)
+
+        # The video keeps flowing.
+        self.assertFalse(pc2.getTransceivers()[0].stopped)
+        await asyncio.wait_for(pc2_tracks[1].recv(), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_and_video_no_common_audio(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        # The first offer's audio "m=" section, which is BUNDLE-tagged, has no
+        # supported format, so the answer rejects it and the BUNDLE group
+        # moves to the video one (RFC 9143 section 7.3.1).
+        await pc1.setLocalDescription(await pc1.createOffer())
+        mangled = RTCSessionDescription(
+            sdp=re.sub(
+                "^a=rtpmap:[0-9]+ (opus|G722|PCMU|PCMA)/.*\r\n",
+                "",
+                pc1.localDescription.sdp,
+                flags=re.M,
+            ),
+            type="offer",
+        )
+        await pc2.setRemoteDescription(mangled)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await pc1.setRemoteDescription(pc2.localDescription)
+        parsed = SessionDescription.parse(pc2.localDescription.sdp)
+        self.assertEqual(media_ports(pc2.localDescription)[0], 0)
+        self.assertEqual(
+            bundle_groups(pc2.localDescription), [[parsed.media[1].rtp.muxId]]
+        )
+
+        # The video flows.
+        await self.assertIceCompleted(pc1, pc2)
+        self.assertEqual([t.kind for t in pc2_tracks], ["video"])
+        await asyncio.wait_for(pc2_tracks[0].recv(), 1)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_and_video_offer_without_bundle(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        async def answer_without_bundle() -> None:
+            await pc1.setLocalDescription(await pc1.createOffer())
+            parsed = SessionDescription.parse(pc1.localDescription.sdp)
+            parsed.group = []
+            await pc2.setRemoteDescription(
+                RTCSessionDescription(sdp=str(parsed), type="offer")
+            )
+            await pc2.setLocalDescription(await pc2.createAnswer())
+
+        # An offer without a BUNDLE group gets an answer without one
+        # (RFC 9429 section 5.3.1).
+        await answer_without_bundle()
+        await pc1.setRemoteDescription(pc2.localDescription)
+        self.assertEqual(bundle_groups(pc2.localDescription), [])
+
+        # The media flows over separate transports.
+        await self.assertIceCompleted(pc1, pc2)
+        self.assertEqual([t.kind for t in pc2_tracks], ["audio", "video"])
+        for track in pc2_tracks:
+            await asyncio.wait_for(track.recv(), 1)
+
+        # Applying an answer which rejects the video "m=" section discards its
+        # transport (RFC 9429 section 5.11).
+        video = pc2.getTransceivers()[1]
+        await video.stop()
+        await answer_without_bundle()
+        self.assertEqual(media_ports(pc2.localDescription)[1], 0)
+        self.assertEqual(video.receiver.transport.state, "closed")
+        await pc1.setRemoteDescription(pc2.localDescription)
+        self.assertEqual(pc2.connectionState, "connected")
+        await asyncio.wait_for(pc2_tracks[0].recv(), 1)
+
+        # A new video transceiver gets a new transport, not the discarded one.
+        pc1.addTransceiver(VideoStreamTrack())
+        await answer_without_bundle()
+        await pc1.setRemoteDescription(pc2.localDescription)
+        await self.sleepWhile(lambda: len(pc2_tracks) < 3)
+        await asyncio.wait_for(pc2_tracks[2].recv(), 2)
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_connect_audio_and_video_stopped_by_offerer(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc1.addTrack(VideoStreamTrack())
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # With no other "m=" section left, the BUNDLE-tagged one is rejected too.
+        for transceiver in pc1.getTransceivers():
+            await transceiver.stop()
+        await negotiate(pc1, pc2)
+        self.assertEqual(media_ports(pc1.localDescription), [0, 0])
+        self.assertEqual(bundle_groups(pc1.localDescription), [])
+
+        for track in pc2_tracks:
+            await asyncio.wait_for(wait_for_ended(track), 1)
+
+        await pc1.close()
+        await pc2.close()
 
     @asynctest
     async def test_connect_audio_and_video_mediaplayer(self) -> None:
@@ -2577,6 +3344,34 @@ a=rtpmap:8 PCMA/8000
             pc2_states["signalingState"],
             ["stable", "have-remote-offer", "stable", "closed"],
         )
+
+    @asynctest
+    async def test_connect_audio_then_video_no_task_error(self) -> None:
+        # Exceptions in background tasks are only reported when the task is
+        # collected, to the loop's exception handler.
+        errors: list[dict[str, Any]] = []
+        asyncio.get_running_loop().set_exception_handler(
+            lambda loop, context: errors.append(context)
+        )
+
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+
+        pc2 = RTCPeerConnection()
+
+        await negotiate(pc1, pc2)
+        await self.assertIceCompleted(pc1, pc2)
+
+        # Connecting the transceivers must not run while pc2 applies its answer,
+        # whose new "m=" section is then missing from its local description.
+        pc1.addTrack(VideoStreamTrack())
+        await negotiate(pc1, pc2)
+        await asyncio.sleep(0.5)
+        gc.collect()
+        self.assertEqual(errors, [])
+
+        await pc1.close()
+        await pc2.close()
 
     @asynctest
     async def test_connect_audio_then_video(self) -> None:
@@ -2818,8 +3613,9 @@ a=rtpmap:8 PCMA/8000
         # check stats
         report = await pc1.getStats()
         self.assertIsInstance(report, RTCStatsReport)
+        self.assertIceStats(report)
         self.assertEqual(
-            sorted([s.type for s in report.values()]),
+            sorted(s.type for s in report.values() if s.type not in ICE_STATS_TYPES),
             [
                 "inbound-rtp",
                 "outbound-rtp",
@@ -2899,12 +3695,12 @@ a=rtpmap:8 PCMA/8000
         self.assertHasIceCandidates(pc1.localDescription)
         self.assertHasDtls(pc1.localDescription, "actpass")
 
-        # strip out vp8
+        # Strip out VP8 along with its RTX codec.
         parsed = SessionDescription.parse(pc1.localDescription.sdp)
-        parsed.media[0].rtp.codecs.pop(0)
-        parsed.media[0].fmt.pop(0)
+        del parsed.media[0].rtp.codecs[0:2]
+        del parsed.media[0].fmt[0:2]
         desc1 = RTCSessionDescription(sdp=str(parsed), type=pc1.localDescription.type)
-        self.assertCodecNames(desc1, ["rtx", "H264", "rtx", "H264", "rtx"])
+        self.assertCodecNames(desc1, ["H264", "rtx", "H264", "rtx"])
 
         # handle offer
         await pc2.setRemoteDescription(desc1)
@@ -2971,6 +3767,77 @@ a=rtpmap:8 PCMA/8000
             pc2_states["signalingState"],
             ["stable", "have-remote-offer", "stable", "closed"],
         )
+
+    @asynctest
+    async def test_connect_video_h264_answer_with_other_payload_types(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1_tracks = track_remote_tracks(pc1)
+
+        pc2 = RTCPeerConnection()
+
+        # Offer to receive video with the default codecs.
+        pc1.addTransceiver("video", direction="recvonly")
+        await pc1.setLocalDescription(await pc1.createOffer())
+        self.assertCodecNames(
+            pc1.localDescription, ["VP8", "rtx", "H264", "rtx", "H264", "rtx"]
+        )
+
+        # Accept only H264 constrained baseline, which the offer gives PT 101.
+        pc2.addTrack(VideoStreamTrack())
+        capabilities = RTCRtpSender.getCapabilities("video")
+        preferences = [
+            c
+            for c in capabilities.codecs
+            if c.name == "rtx" or c.parameters.get("profile-level-id") == "42e01f"
+        ]
+        pc2.getTransceivers()[0].setCodecPreferences(preferences)
+        await pc2.setRemoteDescription(pc1.localDescription)
+
+        # Create the answer.
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await self.assertIceChecking(pc2)
+        self.assertCodecNames(pc2.localDescription, ["H264", "rtx"])
+
+        # Relabel the answer with the PTs of the other H264 profile, listing
+        # each twice as in issue #1486. The answerer still sends with the PTs
+        # of the offer (RFC 3264 section 6.1).
+        parsed = SessionDescription.parse(pc2.localDescription.sdp)
+        media = parsed.media[0]
+        self.assertEqual(media.fmt, [101, 102])
+        media.rtp.codecs[0].payloadType = 99
+        media.rtp.codecs[1].payloadType = 100
+        media.rtp.codecs[1].parameters["apt"] = 99
+        media.rtp.codecs = media.rtp.codecs * 2
+        media.fmt = [99, 100, 99, 100]
+        answer = RTCSessionDescription(sdp=str(parsed), type="answer")
+
+        # Record the receive parameters while applying the answer.
+        with patch.object(
+            RTCRtpReceiver,
+            "receive",
+            autospec=True,
+            side_effect=RTCRtpReceiver.receive,
+        ) as receive:
+            await pc1.setRemoteDescription(answer)
+            await self.assertIceCompleted(pc1, pc2)
+
+            # Check that pc1 receives video.
+            self.assertEqual(len(pc1_tracks), 1)
+            frame = await asyncio.wait_for(pc1_tracks[0].recv(), timeout=5)
+            self.assertIsNotNone(frame)
+
+        # Check that pc1 receives H264 and RTX with the PTs of its offer.
+        self.assertEqual(receive.call_count, 1)
+        parameters = receive.call_args.args[1]
+        self.assertEqual([c.payloadType for c in parameters.codecs], [101, 102])
+        self.assertEqual([e.payloadType for e in parameters.encodings], [101])
+        self.assertIsNotNone(parameters.encodings[0].rtx)
+
+        # Close the connections.
+        await pc1.close()
+        await pc2.close()
+        self.assertClosed(pc1)
+        self.assertClosed(pc2)
 
     @asynctest
     async def test_connect_video_no_ssrc(self) -> None:
@@ -3077,6 +3944,93 @@ a=rtpmap:8 PCMA/8000
             pc2_states["signalingState"],
             ["stable", "have-remote-offer", "stable", "closed"],
         )
+
+    @asynctest
+    async def test_connect_video_rtpmap_out_of_order(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc2 = RTCPeerConnection()
+
+        # Create an offer whose rtpmap lines list each RTX codec first.
+        pc1.addTrack(VideoStreamTrack())
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        codecs = parsed.media[0].rtp.codecs
+        parsed.media[0].rtp.codecs = [codecs[i] for i in (1, 0, 3, 2, 5, 4)]
+        offer = RTCSessionDescription(sdp=str(parsed), type="offer")
+
+        # Check the answer keeps every RTX codec, in the order of the offer.
+        await pc2.setRemoteDescription(offer)
+        pc2.addTrack(VideoStreamTrack())
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        self.assertCodecNames(
+            pc2.localDescription, ["VP8", "rtx", "H264", "rtx", "H264", "rtx"]
+        )
+        answer = SessionDescription.parse(pc2.localDescription.sdp)
+        self.assertEqual(answer.media[0].fmt, parsed.media[0].fmt)
+
+        # Close the connections.
+        await pc1.close()
+        await pc2.close()
+        self.assertClosed(pc1)
+        self.assertClosed(pc2)
+
+    @asynctest
+    async def test_connect_video_rtx_listed_first(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1_tracks = track_remote_tracks(pc1)
+
+        pc2 = RTCPeerConnection()
+        pc2_tracks = track_remote_tracks(pc2)
+
+        # Create an offer whose "m=" line lists each RTX codec first.
+        pc1.addTrack(VideoStreamTrack())
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        media = parsed.media[0]
+        media.rtp.codecs = [media.rtp.codecs[i] for i in (1, 0, 3, 2, 5, 4)]
+        media.fmt = [codec.payloadType for codec in media.rtp.codecs]
+        offer = RTCSessionDescription(sdp=str(parsed), type="offer")
+        self.assertCodecNames(offer, ["rtx", "VP8", "rtx", "H264", "rtx", "H264"])
+
+        # Check the answer keeps every RTX codec, in the order of the offer.
+        await pc2.setRemoteDescription(offer)
+        pc2.addTrack(VideoStreamTrack())
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        self.assertCodecNames(
+            pc2.localDescription, ["rtx", "VP8", "rtx", "H264", "rtx", "H264"]
+        )
+        answer = SessionDescription.parse(pc2.localDescription.sdp)
+        self.assertEqual(answer.media[0].fmt, media.fmt)
+
+        # Record the receive parameters of both peers while connecting.
+        with patch.object(
+            RTCRtpReceiver,
+            "receive",
+            autospec=True,
+            side_effect=RTCRtpReceiver.receive,
+        ) as receive:
+            await pc1.setRemoteDescription(pc2.localDescription)
+            await self.assertIceCompleted(pc1, pc2)
+
+            # Check both peers send video with VP8 rather than RTX.
+            for tracks in [pc1_tracks, pc2_tracks]:
+                self.assertEqual(len(tracks), 1)
+                await asyncio.wait_for(tracks[0].recv(), timeout=5)
+
+        # Check both peers map each RTX stream to the codec it repairs.
+        self.assertEqual(receive.call_count, 2)
+        for call in receive.call_args_list:
+            parameters = call.args[1]
+            self.assertEqual(
+                [e.payloadType for e in parameters.encodings], [97, 99, 101]
+            )
+            for encoding in parameters.encodings:
+                self.assertIsNotNone(encoding.rtx)
+
+        # Close the connections.
+        await pc1.close()
+        await pc2.close()
+        self.assertClosed(pc2)
 
     @asynctest
     async def test_connect_video_codec_preferences_offerer(self) -> None:
@@ -4253,7 +5207,7 @@ a=rtpmap:8 PCMA/8000
         self.assertFalse("a=end-of-candidates" in answer.sdp)
 
         await pc2.setLocalDescription(answer)
-        await self.assertIceChecking(pc2)
+        await self.assertIceNew(pc2)
         self.assertTrue("m=application " in pc2.localDescription.sdp)
         self.assertHasIceCandidates(pc2.localDescription)
         self.assertHasDtls(pc2.localDescription, "active")
@@ -4748,6 +5702,20 @@ a=rtpmap:8 PCMA/8000
         await pc2.close()
 
     @asynctest
+    async def test_setLocalDescription_closed_during_gathering(self) -> None:
+        pc = RTCPeerConnection()
+        pc.addTrack(AudioStreamTrack())
+        offer = await pc.createOffer()
+
+        # The connection is closed while candidates are gathered, after the
+        # description was applied.
+        task = asyncio.ensure_future(pc.setLocalDescription(offer))
+        await asyncio.sleep(0)
+        await pc.close()
+        await task
+        self.assertEqual(pc.signalingState, "closed")
+
+    @asynctest
     async def test_setLocalDescription_implicit(self) -> None:
         pc = RTCPeerConnection()
         pc.addTrack(AudioStreamTrack())
@@ -4805,6 +5773,130 @@ a=rtpmap:8 PCMA/8000
         await pc2.close()
 
     @asynctest
+    async def test_setDescription_signalingstatechange(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+        pc2 = RTCPeerConnection()
+
+        # The descriptions are updated before the signaling state changes
+        # (W3C webrtc-pc, set the session description).
+        events: list[tuple[str, str, Optional[str], Optional[str]]] = []
+
+        def record(name: str, pc: RTCPeerConnection) -> None:
+            @pc.on("signalingstatechange")
+            def signalingstatechange() -> None:
+                local = pc.localDescription
+                remote = pc.remoteDescription
+                events.append(
+                    (
+                        name,
+                        pc.signalingState,
+                        local.type if local else None,
+                        remote.type if remote else None,
+                    )
+                )
+
+        record("pc1", pc1)
+        record("pc2", pc2)
+        await negotiate(pc1, pc2)
+        self.assertEqual(
+            events,
+            [
+                ("pc1", "have-local-offer", "offer", None),
+                ("pc2", "have-remote-offer", None, "offer"),
+                ("pc2", "stable", "answer", "offer"),
+                ("pc1", "stable", "offer", "answer"),
+            ],
+        )
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_setRemoteDescription_extmap_attributes(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc2 = RTCPeerConnection()
+
+        # Create an offer whose extensions carry attributes (RFC 6464, RFC 6904).
+        pc1.addTrack(AudioStreamTrack())
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        parsed.media[0].extmap = [
+            ExtmapDescription(id=1, uri="urn:ietf:params:rtp-hdrext:sdes:mid"),
+            ExtmapDescription(
+                id=2,
+                uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+                attributes="vad=on",
+            ),
+            ExtmapDescription(
+                id=3,
+                uri="urn:ietf:params:rtp-hdrext:encrypt",
+                attributes="urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+            ),
+        ]
+        offer = RTCSessionDescription(sdp=str(parsed), type="offer")
+
+        # Check the answer leaves out the encrypted extension.
+        await pc2.setRemoteDescription(offer)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        answer = SessionDescription.parse(pc2.localDescription.sdp)
+        self.assertEqual(
+            answer.media[0].extmap,
+            [
+                ExtmapDescription(id=1, uri="urn:ietf:params:rtp-hdrext:sdes:mid"),
+                ExtmapDescription(
+                    id=2, uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level"
+                ),
+            ],
+        )
+
+        # Close the connections.
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_setRemoteDescription_extmap_duplicate_uri(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc2 = RTCPeerConnection()
+
+        # Create an offer with two instances of an extension (RFC 6464 section 4).
+        pc1.addTrack(AudioStreamTrack())
+        await pc1.setLocalDescription(await pc1.createOffer())
+        parsed = SessionDescription.parse(pc1.localDescription.sdp)
+        parsed.media[0].extmap = [
+            ExtmapDescription(id=1, uri="urn:ietf:params:rtp-hdrext:sdes:mid"),
+            ExtmapDescription(
+                id=2,
+                uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+                attributes="vad=on",
+            ),
+            ExtmapDescription(
+                id=5,
+                uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+                attributes="vad=off",
+            ),
+        ]
+        offer = RTCSessionDescription(sdp=str(parsed), type="offer")
+
+        # Check the answer only accepts the first instance.
+        await pc2.setRemoteDescription(offer)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        answer = SessionDescription.parse(pc2.localDescription.sdp)
+        self.assertEqual(
+            answer.media[0].extmap,
+            [
+                ExtmapDescription(id=1, uri="urn:ietf:params:rtp-hdrext:sdes:mid"),
+                ExtmapDescription(
+                    id=2, uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level"
+                ),
+            ],
+        )
+
+        # Close the connections.
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
     async def test_setRemoteDescription_no_common_audio(self) -> None:
         pc1 = RTCPeerConnection()
         pc2 = RTCPeerConnection()
@@ -4819,11 +5911,13 @@ a=rtpmap:8 PCMA/8000
 
         mangled = RTCSessionDescription(sdp="\n".join(mangled_sdp), type=offer.type)
 
-        with self.assertRaises(OperationError) as cm:
-            await pc2.setRemoteDescription(mangled)
-        self.assertEqual(
-            str(cm.exception), "Failed to set remote audio description send parameters"
-        )
+        # The answer rejects the "m=" section (RFC 9429 section 5.3.1).
+        pc2_tracks = track_remote_tracks(pc2)
+        await pc2.setRemoteDescription(mangled)
+        answer = await pc2.createAnswer()
+        self.assertEqual(media_ports(answer), [0])
+        self.assertTrue(pc2.getTransceivers()[0].stopped)
+        self.assertEqual(pc2_tracks, [])
 
         # close
         await pc1.close()
@@ -4840,8 +5934,35 @@ a=rtpmap:8 PCMA/8000
             sdp=offer.sdp.replace("90000", "92000"),
             type=offer.type,
         )
+
+        # The answer rejects the "m=" section (RFC 9429 section 5.3.1).
+        pc2_tracks = track_remote_tracks(pc2)
+        await pc2.setRemoteDescription(mangled)
+        answer = await pc2.createAnswer()
+        self.assertEqual(media_ports(answer), [0])
+        self.assertTrue(pc2.getTransceivers()[0].stopped)
+        self.assertEqual(pc2_tracks, [])
+
+        # close
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_setRemoteDescription_no_common_video_in_answer(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc2 = RTCPeerConnection()
+        pc1.addTrack(VideoStreamTrack())
+        await pc1.setLocalDescription(await pc1.createOffer())
+        await pc2.setRemoteDescription(pc1.localDescription)
+        answer = await pc2.createAnswer()
+
+        # An answer without a supported format cannot be applied.
+        mangled = RTCSessionDescription(
+            sdp=answer.sdp.replace("90000", "92000"),
+            type=answer.type,
+        )
         with self.assertRaises(OperationError) as cm:
-            await pc2.setRemoteDescription(mangled)
+            await pc1.setRemoteDescription(mangled)
         self.assertEqual(
             str(cm.exception), "Failed to set remote video description send parameters"
         )
@@ -4985,6 +6106,92 @@ a=rtpmap:8 PCMA/8000
 
         # close
         await pc.close()
+
+    @asynctest
+    async def test_setRemoteDescription_bundled_candidates_from_tagged_media(
+        self,
+    ) -> None:
+        # Like a browser, pc1 offers each video section with its own candidates.
+        pc1 = RTCPeerConnection(
+            RTCConfiguration(bundlePolicy=RTCBundlePolicy.MAX_COMPAT)
+        )
+        pc2 = RTCPeerConnection()
+        pc1.addTransceiver("video")
+        pc1.addTransceiver("video")
+        await pc1.setLocalDescription(await pc1.createOffer())
+        self.assertTrue("a=group:BUNDLE 0 1" in pc1.localDescription.sdp)
+
+        def ports(candidates: list[RTCIceCandidate]) -> list[int]:
+            return sorted(c.port for c in candidates)
+
+        tagged, other = [
+            ports(t.sender.transport.transport.iceGatherer.getLocalCandidates())
+            for t in pc1.getTransceivers()
+        ]
+        self.assertNotEqual(tagged, other)
+
+        # pc2 must check the candidates of the BUNDLE-tagged section, "0".
+        await pc2.setRemoteDescription(pc1.localDescription)
+        iceTransport = pc2.getTransceivers()[0].receiver.transport.transport
+        self.assertEqual(ports(iceTransport.getRemoteCandidates()), tagged)
+
+        # close
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_setRemoteDescription_bundled_candidates_from_tag(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1_transceiver1 = pc1.addTransceiver("video")
+        pc1_transceiver2 = pc1.addTransceiver("video")
+        self.assertIs(
+            pc1_transceiver1.receiver.transport, pc1_transceiver2.receiver.transport
+        )
+        await pc1.setLocalDescription(await pc1.createOffer())
+        pc1_ice = pc1_transceiver1.receiver.transport.transport
+        pc1_candidates = pc1_ice.iceGatherer.getLocalCandidates()
+        self.assertTrue(pc1_candidates)
+
+        pc2 = RTCPeerConnection()
+        await pc2.setRemoteDescription(
+            strip_ice_candidates_from_section(pc1.localDescription, 1)
+        )
+        pc2_transceiver1, pc2_transceiver2 = pc2.getTransceivers()
+        self.assertIs(
+            pc2_transceiver1.receiver.transport, pc2_transceiver2.receiver.transport
+        )
+        pc2_ice = pc2_transceiver1.receiver.transport.transport
+        self.assertEqual(
+            [(c.ip, c.port) for c in pc2_ice.getRemoteCandidates()],
+            [(c.ip, c.port) for c in pc1_candidates],
+        )
+
+        await pc1.close()
+        await pc2.close()
+
+    @asynctest
+    async def test_setRemoteDescription_bundled_same_kind_after_other_kind(
+        self,
+    ) -> None:
+        pc1 = RTCPeerConnection()
+        pc2 = RTCPeerConnection()
+        pc1.addTransceiver("audio")
+        pc1.addTransceiver("video")
+        pc1.addTransceiver("video")
+
+        await pc1.setLocalDescription(await pc1.createOffer())
+        await pc2.setRemoteDescription(pc1.localDescription)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await pc1.setRemoteDescription(pc2.localDescription)
+
+        self.assertBundled(pc1)
+        self.assertBundled(pc2)
+        for pc in [pc1, pc2]:
+            iceTransport = pc.getTransceivers()[0].receiver.transport.transport
+            self.assertNotEqual(iceTransport.state, "closed")
+
+        await pc1.close()
+        await pc2.close()
 
     @asynctest
     async def test_setRemoteDescription_media_datachannel_bundled(self) -> None:
@@ -5495,6 +6702,121 @@ a=rtpmap:8 PCMA/8000
             transceiver1.receiver.transport.transport.iceGatherer.getLocalParameters(),
             pc.sctp.transport.transport.iceGatherer.getLocalParameters(),
         )
+
+    async def _test_connect_without_local_candidates(
+        self, pc1: RTCPeerConnection
+    ) -> None:
+        # Without a TURN server, the relay policy leaves no local candidates.
+        pc2 = RTCPeerConnection(
+            RTCConfiguration(iceTransportPolicy=RTCIceTransportPolicy.RELAY)
+        )
+        pc2_states = track_states(pc2)
+
+        await pc1.setLocalDescription(await pc1.createOffer())
+        await pc2.setRemoteDescription(pc1.localDescription)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        self.assertNotIn("a=candidate:", pc2.localDescription.sdp)
+
+        await self.sleepWhile(lambda: pc2.connectionState != "failed")
+        self.assertEqual(pc2.iceConnectionState, "failed")
+
+        # There is nothing to run DTLS over.
+        transceivers = pc2.getTransceivers()
+        dtlsTransport = (
+            transceivers[0].receiver.transport if transceivers else pc2.sctp.transport
+        )
+        self.assertEqual(dtlsTransport.state, "new")
+
+        # Close both peers.
+        await pc1.close()
+        await pc2.close()
+        self.assertClosed(pc1)
+        self.assertClosed(pc2)
+
+        # Check the state changes.
+        self.assertEqual(pc2_states["connectionState"], ["new", "failed", "closed"])
+        self.assertEqual(pc2_states["iceConnectionState"], ["new", "failed", "closed"])
+
+    @asynctest
+    async def test_connect_audio_without_local_candidates(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTransceiver("audio")
+        await self._test_connect_without_local_candidates(pc1)
+
+    @asynctest
+    async def test_connect_audio_without_local_candidates_trickle(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.addTransceiver("audio")
+        pc2 = RTCPeerConnection(
+            RTCConfiguration(iceTransportPolicy=RTCIceTransportPolicy.RELAY)
+        )
+        pc2_states = track_states(pc2)
+
+        await pc1.setLocalDescription(await pc1.createOffer())
+        await pc2.setRemoteDescription(strip_ice_candidates(pc1.localDescription))
+        await pc2.setLocalDescription(await pc2.createAnswer())
+        await self.assertIceNew(pc2)
+
+        # Remote candidates alone do not make a candidate pair.
+        iceGatherer = pc1.getSenders()[0].transport.transport.iceGatherer
+        for candidate in iceGatherer.getLocalCandidates():
+            candidate.sdpMid = pc1.getTransceivers()[0].mid
+            await pc2.addIceCandidate(candidate)
+        await self.assertIceNew(pc2)
+
+        # ICE can only fail once the remote candidates end.
+        await pc2.addIceCandidate(None)
+        await self.sleepWhile(lambda: pc2.iceConnectionState != "failed")
+        self.assertEqual(pc2.iceConnectionState, "failed")
+
+        # Close both peers.
+        await pc1.close()
+        await pc2.close()
+        self.assertEqual(pc2_states["iceConnectionState"], ["new", "failed", "closed"])
+
+    @asynctest
+    async def test_connect_close_during_dtls_handshake(self) -> None:
+        errors: list[dict[str, Any]] = []
+        asyncio.get_running_loop().set_exception_handler(
+            lambda loop, context: errors.append(context)
+        )
+
+        pc1 = RTCPeerConnection()
+        pc2 = RTCPeerConnection()
+
+        # Both sections share a transport, which the second one must not restart.
+        pc1.addTransceiver("audio")
+        pc1.createDataChannel("chat")
+        await pc1.setLocalDescription(await pc1.createOffer())
+        await pc2.setRemoteDescription(pc1.localDescription)
+        await pc2.setLocalDescription(await pc2.createAnswer())
+
+        closed = asyncio.Event()
+
+        async def close() -> None:
+            await pc2.close()
+            closed.set()
+
+        @pc2.on("iceconnectionstatechange")
+        def iceconnectionstatechange() -> None:
+            if pc2.iceConnectionState == "completed":
+                asyncio.ensure_future(close())
+
+        await pc1.setRemoteDescription(pc2.localDescription)
+        await asyncio.wait_for(closed.wait(), timeout=5)
+        await asyncio.sleep(0.1)
+        await pc1.close()
+
+        # An exception nobody retrieved is reported when its task is collected.
+        gc.collect()
+        await asyncio.sleep(0)
+        self.assertEqual(errors, [])
+
+    @asynctest
+    async def test_connect_datachannel_without_local_candidates(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc1.createDataChannel("chat")
+        await self._test_connect_without_local_candidates(pc1)
 
     @asynctest
     async def test_icetransportpolicy_relay(self) -> None:

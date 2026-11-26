@@ -6,6 +6,7 @@ from datetime import datetime
 
 from letschatty.models.chat.client import QualityScore
 from letschatty.models.company.company_messaging_settgins import MessagingSettings
+from letschatty.models.company.corte import CorteDeServicio
 from ..base_models import ChattyAssetModel
 from letschatty.models.channels.channel import WhatsAppClientInfo
 from letschatty.models.utils.types import StrObjectId
@@ -48,6 +49,7 @@ class EmpresaModel(ChattyAssetModel):
     organization_note: Optional[str] = Field(default = None, description="Free-text detail for the organization link (used when organization_relation is 'other', or extra context).")
     shopify_integration: ShopifyIntegration = Field(default = ShopifyIntegration(), description="The Shopify integration for the company")
     tienda_nube_integration: TiendaNubeIntegration = Field(default = TiendaNubeIntegration(), description="The Tienda Nube integration for the company")
+    corte: Optional[CorteDeServicio] = Field(default = None, description="El corte por falta de pago (`models/company/corte.py`). Lo escribe api-chatty con lo que calcula billing; None = al día.")
 
     model_config = ConfigDict(
         validate_by_name=True,

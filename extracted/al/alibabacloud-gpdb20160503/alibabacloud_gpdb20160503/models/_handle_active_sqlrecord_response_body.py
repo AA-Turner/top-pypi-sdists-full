@@ -19,12 +19,12 @@ class HandleActiveSQLRecordResponseBody(DaraModel):
         self.dbinstance_id = dbinstance_id
         # The request ID.
         self.request_id = request_id
-        # The processing result of the active query.
+        # The processing results of the active queries.
         self.results = results
-        # Indicates whether the request was successful. Valid values:
+        # The execution status of the API operation. Valid values:
         # 
-        # *   **false**
-        # *   **true**
+        # - **false**: The execution failed.
+        # - **true**: The execution succeeded.
         self.status = status
 
     def validate(self):
@@ -79,12 +79,11 @@ class HandleActiveSQLRecordResponseBodyResults(DaraModel):
         pid: str = None,
         status: str = None,
     ):
-        # The process ID, which is a unique identifier of the query.
+        # The process ID, which is the unique identifier of the active query SQL statement.
         self.pid = pid
-        # Indicates whether the processing was successful. Valid values:
-        # 
-        # *   **false**
-        # *   **true**
+        # The status of the processing result. Valid values:
+        # - **false**: The processing failed.
+        # - **true**: The processing succeeded.
         self.status = status
 
     def validate(self):

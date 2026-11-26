@@ -11,9 +11,9 @@ class GetApiEndpointsRequest(DaraModel):
         next_token: str = None,
         region_id: str = None,
     ):
-        # The maximum number of records to return for the current query.
+        # The maximum number of records to return in this request.
         self.max_results = max_results
-        # The pagination token for the next query.
+        # The token used to start the next query.
         self.next_token = next_token
         # The region ID.
         self.region_id = region_id

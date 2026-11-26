@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jupyter-ui-poll
-Version: 1.1.0
+Version: 1.2.0
 Summary: Block jupyter cell execution while interacting with widgets
 Keywords: jupyter,ipywidgets
 Author-email: Kirill Kouzoubov <kirill888@gmail.com>
@@ -28,6 +28,7 @@ Project-URL: Documentation, https://jupyter-ui-poll.readthedocs.io/en/latest/
 Project-URL: Homepage, https://github.com/kirill888/jupyter-ui-poll
 Provides-Extra: dev
 Provides-Extra: docs
+Import-Name: jupyter_ui_poll
 
 jupyter-ui-poll
 ###############

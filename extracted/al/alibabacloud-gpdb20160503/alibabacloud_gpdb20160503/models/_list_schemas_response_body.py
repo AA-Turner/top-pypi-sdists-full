@@ -18,15 +18,14 @@ class ListSchemasResponseBody(DaraModel):
     ):
         # The returned message.
         self.message = message
-        # A pagination token. It can be used in the next request to retrieve a new page of results. If NextToken is empty, no next page exists.
+        # The paging token used to start the next paged query.
         self.next_token = next_token
         # The request ID.
         self.request_id = request_id
         self.schemas = schemas
-        # The status of the operation. Valid values:
-        # 
-        # *   **success**
-        # *   **fail**
+        # The execution status of the API operation. Valid values:
+        # - **success**: The execution succeeded.
+        # - **fail**: The execution failed.
         self.status = status
 
     def validate(self):

@@ -20,14 +20,16 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult
 from pydantic import BeforeValidator, Field
 from ...sdk import errors
-from ...sdk.client import BROWSE_NAME_QUERY_FEATURE, BROWSE_PROJECT_QUERY_FEATURE
+from ...sdk.client import BROWSE_NAME_QUERY_FEATURE, BROWSE_PROJECT_QUERY_FEATURE, KEY_METRICS
 from ..delivery import delivery as continuation
 from ..generated.sql import QUERY_SQL_DESCRIPTION, SOURCE_ARG_DOC, SQL_ARG_DOC, TABLES_ARG_DOC
 from ...foundation.token_budget.token_budget import MAX_TOKENS, MIN_TOKENS, cap_to_range
 from ...shared.reads.search_contract import (
     BROWSE_MODE_LEGACY,
     COLLAPSE_MODE_LEGACY,
+    RUN_STATUS_LEGACY,
     TOOL_CORPUS_LEGACY,
+    BackendRetrieval,
     BrowseMode,
     CheckpointStored,
     CollapseMode,
@@ -122,6 +124,7 @@ from probe.mcp.server.tool_text import (
     _SK_PROJECT_DOC,
     _SK_QUERY_DOC,
     _SK_SEARCH_IN_DOC,
+    _SK_RETRIEVAL_DOC,
     _SK_SEMANTIC_DOC,
     _SK_SINCE_DOC,
     _SK_SORT_DOC,
@@ -253,7 +256,7 @@ def _register_browse_and_search(mcp, svc):
         ] = BrowseMode.PROJECTS,
         ref: Annotated[str | None, Field(description=_BR_REF_DOC)] = None,
         depth: Annotated[Depth, Field(description=_BR_DEPTH_DOC)] = 1,
-        status: Annotated[str | None, Field(description=_BR_STATUS_DOC)] = None,
+        status: Annotated[str | None, _accept_legacy(RUN_STATUS_LEGACY), Field(description=_BR_STATUS_DOC)] = None,
         tags: Annotated[list[str] | None, Field(description=_BR_TAGS_DOC)] = None,
         active: Annotated[bool | None, Field(description=_BR_ACTIVE_DOC)] = None,
         # Text is mode=projects' name match (`normalize_text_filter`); the schema still says object.
@@ -274,9 +277,8 @@ def _register_browse_and_search(mcp, svc):
         until: Annotated[
             str, BeforeValidator(_none_as_empty), Field(max_length=64, description=_BR_UNTIL_DOC)
         ] = "",
-        latest_metrics: Annotated[
-            list[str] | None, Field(max_length=50, description=_BR_LATEST_METRICS_DOC)
-        ] = None,
+        # `true` is the page's key metrics (`*`); a list names the keys.
+        latest_metrics: Annotated[Annotated[list[str], Field(max_length=50)] | bool | None, Field(description=_BR_LATEST_METRICS_DOC)] = None,
         workspace_id: Annotated[str | None, Field(description=_BR_WORKSPACE_DOC)] = None,
         project: Annotated[str | None, Field(description=_BR_PROJECT_DOC)] = None,
         experiment: Annotated[str | None, Field(description=_BR_EXPERIMENT_DOC)] = None,
@@ -379,6 +381,8 @@ def _register_browse_and_search(mcp, svc):
             },
             withheld,
         )
+        if isinstance(latest_metrics, bool):
+            latest_metrics = [KEY_METRICS] if latest_metrics else None
         # `order` is mode=runs' sort too: there it reaches the runs list as `order`, never twice.
         people = PeopleFilters(
             owner=owner or None,
@@ -462,6 +466,8 @@ def _register_browse_and_search(mcp, svc):
         cursor: Annotated[str | None, Field(description=_SK_CURSOR_DOC)] = None,
         exclude_session: Annotated[str | None, Field(description=_SK_EXCLUDE_DOC)] = None,
         token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
+        # None is agentic: told apart from an explicit value so `semantic=false` beside one can be refused.
+        retrieval: Annotated[BackendRetrieval | None, Field(description=_SK_RETRIEVAL_DOC)] = None,
         semantic: Annotated[bool, Field(description=_SK_SEMANTIC_DOC)] = True,
         # Plain `str` with "" for absent, as browse's: a date or "7d" must arrive as the text it is.
         owner: Annotated[
@@ -495,7 +501,7 @@ def _register_browse_and_search(mcp, svc):
         8. `verbose` - (default off) bool to include the response bookkeeping
            (schema_version, as_of, scope, capability flags, a complete
            completeness, a null next_cursor) - a debugging aid
-        9. `semantic` - (default true) false = keyword only, no model calls
+        9. `retrieval` - (default agentic) `direct`: vector + BM25 + pasted ids, no model; `keyword`: literal words
         10. `owner`, `since`, `until`, `sort` - (optional) who wrote it, when, and `sort="recent"` for newest first
 
         ### RESULTS:
@@ -504,7 +510,7 @@ def _register_browse_and_search(mcp, svc):
         To open a result:
         - a hit whose `entity_type` is listed in the response's `available_views` is an entity: `entity(refs=["<entity_type>:<id>"])`
         - every other hit (`document`, `file`) is TERMINAL - entity has no route for it. `card.doc_id` is its address; `card.snippet` and `card.source_url` are the content
-        - the one exception: a transcript hit (`card.doc_id` like `<agent>:<tenant>:<session_id>`) opens with `entity(refs=["session:<agent>/<session_id>"], view="transcript")`
+        - the one exception: a transcript hit opens with `entity(refs=["session:<card.session_id>"], view="transcript")`
         """
         with svc() as s:
             return s.search(
@@ -515,6 +521,7 @@ def _register_browse_and_search(mcp, svc):
                 top_k=top_k,
                 collapse=collapse,
                 semantic=semantic,
+                retrieval=retrieval,
                 verbose=verbose,
                 cursor=cursor,
                 exclude_session=exclude_session,
@@ -917,7 +924,17 @@ def _register_events(mcp, svc):
 
 #: The `samples` tool's text and list arguments: plain `str` with "" for absent (a slug like `1` stays text).
 _SampleText = Annotated[str, BeforeValidator(_none_as_empty), Field(max_length=256)]
-_SampleTexts = Annotated[list[Annotated[str, Field(min_length=1, max_length=256)]] | None, Field(max_length=32)]
+_SampleItem = Annotated[str, Field(min_length=1, max_length=256)]
+_SampleTexts = Annotated[list[_SampleItem] | None, Field(max_length=32)]
+
+
+def _to_one_item_list(value: Any) -> Any:
+    """One filter sent as a bare string is that filter, as a one-item list (it is never a list of letters)."""
+    return [value] if isinstance(value, str) else value
+
+
+#: The schema publishes the string form too, so a client that validates against it (Pi) can send it.
+_SampleWhere = Annotated[_SampleTexts, BeforeValidator(_to_one_item_list, json_schema_input_type=_SampleTexts | _SampleItem)]
 
 
 def _register_samples(mcp, svc):
@@ -934,7 +951,7 @@ def _register_samples(mcp, svc):
         result: Annotated[_SampleText, Field(description=_SM_FILTER_DOC)] = "",
         reward: Annotated[float | None, Field(description=_SM_FILTER_DOC)] = None,
         split: Annotated[_SampleText, Field(description=_SM_SPLIT_DOC)] = "",
-        where: Annotated[_SampleTexts, Field(description=_SM_WHERE_DOC)] = None,
+        where: Annotated[_SampleWhere, Field(description=_SM_WHERE_DOC)] = None,
         include: Annotated[_SampleTexts, Field(description=_SM_INCLUDE_DOC)] = None,
         grep: Annotated[_SampleText, Field(description=_SM_GREP_DOC)] = "",
         by: Annotated[_SampleTexts, Field(description=_SM_BY_DOC)] = None,

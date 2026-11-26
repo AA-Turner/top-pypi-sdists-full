@@ -14,6 +14,7 @@ from ipaddress import (
     IPv6Interface,
     IPv6Network,
 )
+from itertools import pairwise
 from pathlib import Path
 from re import Pattern
 from typing import Any, Literal, NamedTuple, cast, overload
@@ -32,9 +33,11 @@ from langgraph.errors import (
 from langgraph.types import Send
 from starlette.exceptions import HTTPException
 
-from langgraph_api.errors import UserInterrupt
+from langgraph_api.errors import UserInterrupt, unknown_interrupt_error
 
 logger = structlog.stdlib.get_logger(__name__)
+
+HIDDEN_ERROR_MESSAGE = "An internal error occurred"
 
 
 class Fragment(NamedTuple):
@@ -90,6 +93,8 @@ def default(obj):
     ):
         return obj._asdict()
     elif isinstance(obj, BaseException):
+        if refusal := unknown_interrupt_error(obj):
+            return refusal
         if isinstance(
             obj,
             (
@@ -114,7 +119,7 @@ def default(obj):
             ),
         ):
             return {"error": type(obj).__name__, "message": str(obj)}
-        return {"error": type(obj).__name__, "message": "An internal error occurred"}
+        return {"error": type(obj).__name__, "message": HIDDEN_ERROR_MESSAGE}
     elif isinstance(obj, (set, frozenset, deque)):
         return list(obj)
     elif isinstance(obj, (timezone, ZoneInfo)):
@@ -184,7 +189,15 @@ def json_dumpb(obj) -> bytes:
     # Replace with U+FFFD (replacement character) instead of stripping,
     # so that "key\x00" becomes "key\uFFFD" rather than "key" — preventing
     # a poisoned key from projecting onto a legitimate one.
-    return dumped.replace(rb"\\u0000", rb"\\ufffd").replace(rb"\u0000", rb"\ufffd")
+    parts = dumped.split(rb"\u0000")
+    out = [parts[0]]
+    for before, after in pairwise(parts):
+        # After an odd run of backslashes, \u0000 is the text "\u0000" (its
+        # backslash escaped), not a NUL character.
+        backslashes = len(before) - len(before.rstrip(b"\\"))
+        out.append(rb"\u0000" if backslashes % 2 else rb"\ufffd")
+        out.append(after)
+    return b"".join(out)
 
 
 def json_loads(content: bytes | Fragment | dict) -> Any:

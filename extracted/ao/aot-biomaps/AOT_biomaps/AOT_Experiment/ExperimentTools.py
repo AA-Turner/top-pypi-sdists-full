@@ -1,45 +1,60 @@
+"""Utility functions for experiment patterns, AO data and probe transforms."""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from itertools import groupby
+from collections import Counter
 from tqdm import trange
 import os
 import random
 from typing import List, Tuple
 
-def select_random_activeList(input_file, output_file, N):
-    if not os.path.exists(input_file):
-        raise FileNotFoundError(f"Input file {input_file} does not exist.")
-    with open(input_file, 'r') as f:
-        total_lines = sum(1 for _ in f)
-
-    if N > total_lines:
-        raise ValueError(f"[AOT-biomaps] N ({N}) cannot be greater than the total number of lines in the file ({total_lines}).")
-
-    selected_indices = random.sample(range(total_lines), N)
-    with open(input_file, 'r') as f_in, open(output_file, 'w') as f_out:
-        for i, line in enumerate(f_in):
-            if i in selected_indices:
-                f_out.write(line)
+def select_random_activeList(input_file, output_file, N, seed=None):
+    """Write ``N`` randomly selected lines while preserving source order."""
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError(f"Input file does not exist: {input_file}")
+    with open(input_file, "r", encoding="utf-8") as source:
+        total_lines = sum(1 for _ in source)
+    N = int(N)
+    if N < 0 or N > total_lines:
+        raise ValueError(f"N must be between 0 and {total_lines}; received {N}.")
+    rng = random.Random(seed)
+    selected = set(rng.sample(range(total_lines), N))
+    with open(input_file, "r", encoding="utf-8") as source, open(
+        output_file, "w", encoding="utf-8"
+    ) as destination:
+        for index, line in enumerate(source):
+            if index in selected:
+                destination.write(line)
+    return sorted(selected)
 
 def get_selected_indices(input_file, output_file):
-    if not os.path.exists(input_file):
-        raise FileNotFoundError(f"[AOT-biomaps] Input file {input_file} does not exist.")
-    if not os.path.exists(output_file):
-        raise FileNotFoundError(f"[AOT-biomaps] File {output_file} does not exist. Run select_random_activeList first.")
+    """Return source-line indices represented in a sampled active-list file.
 
-    with open(output_file, 'r') as f_out:
-        output_lines = f_out.readlines()
+    A multiset comparison preserves duplicate-line semantics without the
+    quadratic repeated ``list.remove`` operations used previously.
+    """
+    if not os.path.isfile(input_file):
+        raise FileNotFoundError(f"Input file does not exist: {input_file}")
+    if not os.path.isfile(output_file):
+        raise FileNotFoundError(
+            f"Selected file does not exist: {output_file}. Run select_random_activeList first."
+        )
 
+    with open(output_file, "r", encoding="utf-8") as file:
+        remaining = Counter(file.readlines())
     selected_indices = []
-    with open(input_file, 'r') as f_in:
-        for i, line in enumerate(f_in):
-            if line in output_lines:
-                selected_indices.append(i)
-                output_lines.remove(line)
-    if len(output_lines) !=0:
-        raise ValueError(f"[AOT-biomaps] File {output_file} contains lines not in {input_file}. Ensure it was created with select_random_activeList.")
-
+    with open(input_file, "r", encoding="utf-8") as file:
+        for index, line in enumerate(file):
+            if remaining[line] > 0:
+                selected_indices.append(index)
+                remaining[line] -= 1
+    unmatched = sum(remaining.values())
+    if unmatched:
+        raise ValueError(
+            f"The selected file contains {unmatched} line(s) not present in the source file."
+        )
     return selected_indices
 
 def calc_mat_os(xm, fx, bool_active_list, signal_type):

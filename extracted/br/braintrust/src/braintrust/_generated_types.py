@@ -1839,7 +1839,7 @@ For prompt-backed functions: the saved, global, or inline preprocessor to use fo
 class ProjectAutomationConfigActionHeaders(TypedDict):
     name: str
     """
-    The HTTP header name
+    The HTTP header name. Connection, Content-Length, Content-Type, Expect, Host, Idempotency-Key, Keep-Alive, Transfer-Encoding, and Upgrade are reserved and can't be used.
     """
     value: str
     """
@@ -1850,11 +1850,11 @@ class ProjectAutomationConfigActionHeaders(TypedDict):
 class ProjectAutomationConfigActionHeaders1(TypedDict):
     name: str
     """
-    The HTTP header name
+    The HTTP header name. Connection, Content-Length, Content-Type, Expect, Host, Idempotency-Key, Keep-Alive, Transfer-Encoding, and Upgrade are reserved and can't be used.
     """
     secret_name: str
     """
-    The data-plane secret containing the header value, bound to the webhook URL it was saved for
+    The data-plane secret that holds the header value. The secret only works with the webhook URL it was saved for.
     """
 
 
@@ -2019,7 +2019,7 @@ class ProjectAutomationConfig2(TypedDict):
 class ProjectAutomationConfig4ActionHeaders(TypedDict):
     name: str
     """
-    The HTTP header name
+    The HTTP header name. Connection, Content-Length, Content-Type, Expect, Host, Idempotency-Key, Keep-Alive, Transfer-Encoding, and Upgrade are reserved and can't be used.
     """
     value: str
     """
@@ -2030,11 +2030,11 @@ class ProjectAutomationConfig4ActionHeaders(TypedDict):
 class ProjectAutomationConfig4ActionHeaders1(TypedDict):
     name: str
     """
-    The HTTP header name
+    The HTTP header name. Connection, Content-Length, Content-Type, Expect, Host, Idempotency-Key, Keep-Alive, Transfer-Encoding, and Upgrade are reserved and can't be used.
     """
     secret_name: str
     """
-    The data-plane secret containing the header value, bound to the webhook URL it was saved for
+    The data-plane secret that holds the header value. The secret only works with the webhook URL it was saved for.
     """
 
 
@@ -2298,7 +2298,7 @@ class ProjectSettingsPatternAlertMention(TypedDict):
 class ProjectSettingsPatternAlertDestinationsHeaders(TypedDict):
     name: str
     """
-    The HTTP header name
+    The HTTP header name. Connection, Content-Length, Content-Type, Expect, Host, Idempotency-Key, Keep-Alive, Transfer-Encoding, and Upgrade are reserved and can't be used.
     """
     value: str
     """
@@ -2309,11 +2309,11 @@ class ProjectSettingsPatternAlertDestinationsHeaders(TypedDict):
 class ProjectSettingsPatternAlertDestinationsHeaders1(TypedDict):
     name: str
     """
-    The HTTP header name
+    The HTTP header name. Connection, Content-Length, Content-Type, Expect, Host, Idempotency-Key, Keep-Alive, Transfer-Encoding, and Upgrade are reserved and can't be used.
     """
     secret_name: str
     """
-    The data-plane secret containing the header value, bound to the webhook URL it was saved for
+    The data-plane secret that holds the header value. The secret only works with the webhook URL it was saved for.
     """
 
 
@@ -2380,6 +2380,21 @@ class ProjectSettingsPatternAlertDestinations2(TypedDict):
     """
 
 
+class ProjectSettingsPatternSource(TypedDict):
+    type: str
+    mcp_server_id: str
+    """
+    The project MCP server that reads this source.
+    """
+    instructions: NotRequired[str | None]
+    """
+    What the user wants Patterns to look for in this source, in their own words.
+    """
+
+
+ProjectSettingsPatternExcludedCategory: TypeAlias = str
+
+
 ProjectSettingsSessionIdField: TypeAlias = str
 
 
@@ -2434,6 +2449,24 @@ class ProjectSettings(TypedDict):
     ]
     """
     Project-wide Slack, webhook, and PagerDuty destinations for new and reactivated Pattern alerts. An empty array disables alerts.
+    """
+    pattern_alert_min_severity: NotRequired[Literal['high', 'medium', 'low'] | None]
+    """
+    Lowest severity that sends Pattern alerts: `low`, `medium`, or `high`. New and reactivated Patterns below it don't send alerts, and raising an active Pattern's severity to it or above sends one. Patterns without a severity count as low. Informational Patterns follow `pattern_alert_informational` instead. Unset or null uses medium.
+    """
+    pattern_alert_informational: NotRequired[bool | None]
+    """
+    Whether new and reactivated informational Patterns send alerts, independent of `pattern_alert_min_severity`. Unset or null sends alerts for informational Patterns.
+    """
+    pattern_sources: NotRequired[Sequence[ProjectSettingsPatternSource] | None]
+    """
+    Sources outside Braintrust that Patterns reads alongside this project's logs, each through a project MCP server.
+    """
+    pattern_excluded_categories: NotRequired[
+        Sequence[ProjectSettingsPatternExcludedCategory]
+    ]
+    """
+    Patterns rubric categories that are turned off for this project. Patterns doesn't look for or assign them.
     """
     session_id_fields: NotRequired[Sequence[Sequence[ProjectSettingsSessionIdField]] | None]
     default_preprocessor: NotRequired[NullableSavedFunctionId | None]
@@ -3010,6 +3043,32 @@ class SavedFunctionIdSavedFunctionId1(TypedDict):
 SavedFunctionId: TypeAlias = (
     SavedFunctionIdSavedFunctionId | SavedFunctionIdSavedFunctionId1
 )
+
+
+class SavedPreprocessorIdSavedPreprocessorId(TypedDict):
+    type: Literal['function']
+    id: str
+    version: NotRequired[str | None]
+    """
+    The version of the function
+    """
+
+
+class SavedPreprocessorIdSavedPreprocessorId1(TypedDict):
+    type: Literal['global']
+    name: str
+    function_type: NotRequired[Literal['preprocessor'] | None]
+    """
+    The type of global function. Defaults to 'preprocessor'.
+    """
+
+
+SavedPreprocessorId: TypeAlias = (
+    SavedPreprocessorIdSavedPreprocessorId | SavedPreprocessorIdSavedPreprocessorId1
+)
+"""
+Saved preprocessor that renders traces for the project's pattern questions. The project default when unset.
+"""
 
 
 class ScoreObject(TypedDict):
@@ -3667,10 +3726,14 @@ class WindowedAutomationConfigLoop(TypedDict):
     """
 
 
+class WindowedAutomationConfigPatterns(TypedDict):
+    preprocessor: NotRequired[SavedPreprocessorId | None]
+
+
 class WindowedAutomationConfigActionsHeaders(TypedDict):
     name: str
     """
-    The HTTP header name
+    The HTTP header name. Connection, Content-Length, Content-Type, Expect, Host, Idempotency-Key, Keep-Alive, Transfer-Encoding, and Upgrade are reserved and can't be used.
     """
     value: str
     """
@@ -3681,11 +3744,11 @@ class WindowedAutomationConfigActionsHeaders(TypedDict):
 class WindowedAutomationConfigActionsHeaders1(TypedDict):
     name: str
     """
-    The HTTP header name
+    The HTTP header name. Connection, Content-Length, Content-Type, Expect, Host, Idempotency-Key, Keep-Alive, Transfer-Encoding, and Upgrade are reserved and can't be used.
     """
     secret_name: str
     """
-    The data-plane secret containing the header value, bound to the webhook URL it was saved for
+    The data-plane secret that holds the header value. The secret only works with the webhook URL it was saved for.
     """
 
 
@@ -3757,7 +3820,9 @@ class WindowedAutomationConfig(TypedDict):
     """
     The type of automation.
     """
-    product_origin: NotRequired[Literal['patterns', 'dashboard', 'digest'] | None]
+    product_origin: NotRequired[
+        Literal['patterns', 'dashboard', 'digest', 'pattern_alerts']
+    ]
     """
     The product surface that created and manages the automation
     """
@@ -3774,6 +3839,10 @@ class WindowedAutomationConfig(TypedDict):
     loop: NotRequired[WindowedAutomationConfigLoop | None]
     """
     Optional Loop agent to run for each triggered window
+    """
+    patterns: NotRequired[WindowedAutomationConfigPatterns | None]
+    """
+    Settings of the Patterns automation
     """
     actions: NotRequired[
         Sequence[

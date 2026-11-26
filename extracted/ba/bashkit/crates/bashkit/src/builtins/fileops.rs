@@ -8,11 +8,12 @@ use super::clap_cache::cached_command;
 use crate::time_compat::SystemTime;
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use std::io::ErrorKind;
 use std::path::Path;
 
 use super::limits::MKTEMP_MAX_ATTEMPTS;
-use super::{Builtin, Context, resolve_path};
-use crate::error::Result;
+use super::{Builtin, Context, resolve_file_operand, resolve_path};
+use crate::error::{Error, Result, io_error_reason};
 use crate::fs::vfs_join;
 use crate::interpreter::ExecResult;
 
@@ -74,7 +75,12 @@ impl Builtin for Mkdir {
         }
 
         for dir in dirs {
-            let path = resolve_path(ctx.cwd, dir);
+            let Some(path) = resolve_file_operand(ctx.cwd, dir) else {
+                return Ok(ExecResult::err(
+                    "mkdir: cannot create directory '': No such file or directory\n",
+                    1,
+                ));
+            };
 
             // Check if already exists
             if ctx.fs.exists(&path).await.unwrap_or(false) {
@@ -128,7 +134,7 @@ impl Builtin for Rm {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
         if let Some(r) = super::check_help_version(
             ctx.args,
-            "Usage: rm [OPTION]... [FILE]...\nRemove (unlink) the FILE(s).\n\n  -f\t\tignore nonexistent files and arguments, never prompt\n  -r, -R\tremove directories and their contents recursively\n      --help\tdisplay this help and exit\n      --version\toutput version information and exit\n",
+            "Usage: rm [OPTION]... [FILE]...\nRemove (unlink) the FILE(s).\n\n  -f\t\tignore nonexistent files and arguments, never prompt\n  -r, -R\tremove directories and their contents recursively\n      --no-preserve-root\tdo not treat '/' specially\n      --preserve-root\tdo not remove '/' (default)\n      --help\tdisplay this help and exit\n      --version\toutput version information and exit\n",
             Some("rm (bashkit) 0.1"),
         ) {
             return Ok(r);
@@ -142,6 +148,7 @@ impl Builtin for Rm {
         // '--' ends option parsing; a lone '-' is a file operand.
         let mut recursive = false;
         let mut force = false;
+        let mut preserve_root = true;
         let mut files: Vec<&String> = Vec::new();
         let mut opts_done = false;
         for arg in ctx.args {
@@ -153,8 +160,9 @@ impl Builtin for Rm {
                 match long.split('=').next().unwrap_or("") {
                     "recursive" => recursive = true,
                     "force" => force = true,
-                    "dir" | "interactive" | "verbose" | "one-file-system" | "no-preserve-root"
-                    | "preserve-root" => {}
+                    "no-preserve-root" => preserve_root = false,
+                    "preserve-root" => preserve_root = true,
+                    "dir" | "interactive" | "verbose" | "one-file-system" => {}
                     _ => return Ok(super::invalid_option("rm", arg, 1)),
                 }
             } else if arg.starts_with('-') && arg.len() > 1 {
@@ -183,15 +191,43 @@ impl Builtin for Rm {
         // the status is 1 if any operand failed.
         let mut stderr = String::new();
         for file in files {
+            // THREAT[TM-FS-018]: Inspect the operand before normalization
+            // erases the difference between an empty name, dot, and a path.
+            if file.is_empty() {
+                stderr.push_str("rm: cannot remove '': No such file or directory\n");
+                continue;
+            }
+            if matches!(
+                file.trim_end_matches(std::path::is_separator)
+                    .rsplit(std::path::is_separator)
+                    .next(),
+                Some("." | "..")
+            ) {
+                stderr.push_str(&format!(
+                    "rm: refusing to remove '.' or '..' directory: skipping '{file}'\n"
+                ));
+                continue;
+            }
             let path = resolve_path(ctx.cwd, file);
 
+            // Decision: GNU rm's --preserve-root failsafe (on by default).
+            // `rm -rf /` used to exit 0 and silently do nothing, which reads
+            // as success to an agent. Refuse like GNU, even with -f; the
+            // check is on the resolved path, after rejecting final dot components.
+            if recursive && preserve_root && path == Path::new("/") {
+                stderr.push_str(&format!(
+                    "rm: it is dangerous to operate recursively on '{}'\n\
+                     rm: use --no-preserve-root to override this failsafe\n",
+                    file
+                ));
+                continue;
+            }
+
             // lstat: rm acts on a link itself (dangling links included).
-            let metadata = ctx.fs.lstat(&path).await;
-            let Ok(meta) = metadata else {
+            let Ok(meta) = ctx.fs.lstat(&path).await else {
                 if !force {
                     stderr.push_str(&format!(
-                        "rm: cannot remove '{}': No such file or directory\n",
-                        file
+                        "rm: cannot remove '{file}': No such file or directory\n"
                     ));
                 }
                 continue;
@@ -204,9 +240,16 @@ impl Builtin for Rm {
             }
 
             if let Err(e) = ctx.fs.remove(&path, recursive).await
-                && !force
+                && (!force
+                    || matches!(&e, Error::Io(io)
+                        if (recursive && matches!(io.kind(),
+                            ErrorKind::StorageFull | ErrorKind::Unsupported | ErrorKind::InvalidData))
+                        || (cfg!(feature = "realfs") && io.kind() == ErrorKind::ResourceBusy)))
             {
-                stderr.push_str(&format!("rm: cannot remove '{}': {}\n", file, e));
+                stderr.push_str(&format!(
+                    "rm: cannot remove '{file}': {}\n",
+                    io_error_reason(&e)
+                ));
             }
         }
 
@@ -316,7 +359,12 @@ impl Builtin for Cp {
             .last()
             .expect("files.last() valid: guarded by files.len() < 2 check above");
         let sources = &files[..files.len() - 1];
-        let dest_path = resolve_path(ctx.cwd, dest);
+        let Some(dest_path) = resolve_file_operand(ctx.cwd, dest) else {
+            return Ok(ExecResult::err(
+                "cp: cannot create regular file '': No such file or directory\n",
+                1,
+            ));
+        };
 
         // Check if destination is a directory
         let dest_is_dir = if let Ok(meta) = ctx.fs.stat(&dest_path).await {
@@ -334,7 +382,10 @@ impl Builtin for Cp {
 
         let mut stderr = String::new();
         for source in sources {
-            let src_path = resolve_path(ctx.cwd, source);
+            let Some(src_path) = resolve_file_operand(ctx.cwd, source) else {
+                stderr.push_str("cp: cannot stat '': No such file or directory\n");
+                continue;
+            };
             // Path::file_name normalizes away a trailing dot, but cp treats
             // source/. as the directory's contents, including with a final slash.
             let contents_only = source
@@ -583,7 +634,15 @@ impl Builtin for Mv {
             .last()
             .expect("files.last() valid: guarded by files.len() < 2 check above");
         let sources = &files[..files.len() - 1];
-        let dest_path = resolve_path(ctx.cwd, dest);
+        let Some(dest_path) = resolve_file_operand(ctx.cwd, dest) else {
+            return Ok(ExecResult::err(
+                format!(
+                    "mv: cannot move '{}' to '': No such file or directory\n",
+                    sources[0]
+                ),
+                1,
+            ));
+        };
 
         // Check if destination is a directory
         let dest_is_dir = if let Ok(meta) = ctx.fs.stat(&dest_path).await {
@@ -600,7 +659,12 @@ impl Builtin for Mv {
         }
 
         for source in sources {
-            let src_path = resolve_path(ctx.cwd, source);
+            let Some(src_path) = resolve_file_operand(ctx.cwd, source) else {
+                return Ok(ExecResult::err(
+                    "mv: cannot stat '': No such file or directory\n",
+                    1,
+                ));
+            };
 
             let final_dest = if dest_is_dir {
                 // Move into directory
@@ -794,6 +858,11 @@ impl Builtin for Touch {
         }
 
         if let Some(r) = reference {
+            if r.is_empty() {
+                return fail(
+                    "touch: failed to get attributes of '': No such file or directory\n".into(),
+                );
+            }
             match ctx.fs.stat(&resolve_path(ctx.cwd, &r)).await {
                 Ok(meta) => target_time = meta.modified,
                 Err(_) => {
@@ -809,7 +878,12 @@ impl Builtin for Touch {
         }
 
         for file in files {
-            let path = resolve_path(ctx.cwd, file);
+            let Some(path) = resolve_file_operand(ctx.cwd, file) else {
+                if no_create {
+                    continue;
+                }
+                return fail("touch: cannot touch '': No such file or directory\n".into());
+            };
 
             if !ctx.fs.exists(&path).await.unwrap_or(false) {
                 if no_create {
@@ -992,9 +1066,12 @@ impl Builtin for Chmod {
         let is_octal = u32::from_str_radix(mode_str, 8).is_ok();
 
         for file in files.iter().filter(|a| !a.starts_with('-')) {
-            let path = resolve_path(ctx.cwd, file);
-
-            if !ctx.fs.exists(&path).await.unwrap_or(false) {
+            let path = resolve_file_operand(ctx.cwd, file);
+            let exists = match &path {
+                Some(path) => ctx.fs.exists(path).await.unwrap_or(false),
+                None => false,
+            };
+            let Some(path) = path.filter(|_| exists) else {
                 return Ok(ExecResult::err(
                     format!(
                         "chmod: cannot access '{}': No such file or directory\n",
@@ -1002,7 +1079,7 @@ impl Builtin for Chmod {
                     ),
                     1,
                 ));
-            }
+            };
 
             let mode = if is_octal {
                 u32::from_str_radix(mode_str, 8)
@@ -1112,7 +1189,12 @@ impl Builtin for Ln {
 
         let (targets, dest) = files.split_at(files.len() - 1);
         let dest = dest[0];
-        let dest_path = resolve_path(ctx.cwd, dest);
+        let Some(dest_path) = resolve_file_operand(ctx.cwd, dest) else {
+            return Ok(ExecResult::err(
+                "ln: failed to create symbolic link '': No such file or directory\n",
+                1,
+            ));
+        };
 
         let into_dir = if no_target_dir {
             if targets.len() > 1 {
@@ -1140,6 +1222,10 @@ impl Builtin for Ln {
         let mut out = String::new();
         let mut errors = String::new();
         for target in targets {
+            if target.is_empty() {
+                errors.push_str("ln: empty target: No such file or directory\n");
+                continue;
+            }
             let (link_name, link_path) = if into_dir {
                 let base = target
                     .trim_end_matches('/')

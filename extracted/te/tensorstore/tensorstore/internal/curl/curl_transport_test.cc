@@ -15,14 +15,16 @@
 #include <stdint.h>
 
 #include <optional>
+#include <utility>
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
+#include <curl/curl.h>  // IWYU pragma: keep
 #include "tensorstore/internal/curl/default_factory.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/testing/env_saver.h"
 
 ABSL_DECLARE_FLAG(std::optional<uint32_t>,
                   tensorstore_curl_connect_timeout_seconds);
@@ -47,18 +49,26 @@ TEST(DefaultCurlHandleFactoryTest, FlagOverride) {
 
 TEST(DefaultCurlHandleFactoryTest, EnvOverride) {
   absl::FlagSaver flag_saver;
+  tensorstore::internal_testing::EnvSaver env_saver;
   absl::SetFlag(&FLAGS_tensorstore_curl_connect_timeout_seconds, std::nullopt);
   tensorstore::internal::SetEnv("TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS",
                                 "45");
   auto config = DefaultCurlHandleFactory::DefaultConfig();
   EXPECT_EQ(config.connect_timeout_seconds, 45);
-  tensorstore::internal::UnsetEnv("TENSORSTORE_CURL_CONNECT_TIMEOUT_SECONDS");
 }
 
 TEST(DefaultCurlHandleFactoryTest, CreateHandle) {
   DefaultCurlHandleFactory factory(DefaultCurlHandleFactory::DefaultConfig());
   auto handle = factory.CreateHandle();
   EXPECT_NE(handle, nullptr);
+#if LIBCURL_VERSION_NUM >= 0x080700
+  auto* raw = handle.get();
+  factory.CleanupHandle(std::move(handle));
+  auto reused = factory.CreateHandle();
+  EXPECT_EQ(reused.get(), raw);
+#else
+  factory.CleanupHandle(std::move(handle));
+#endif
 }
 
 }  // namespace

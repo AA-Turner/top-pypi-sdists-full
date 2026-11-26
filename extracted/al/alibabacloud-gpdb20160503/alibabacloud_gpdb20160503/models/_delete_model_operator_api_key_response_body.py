@@ -10,9 +10,9 @@ class DeleteModelOperatorApiKeyResponseBody(DaraModel):
         api_key_id: int = None,
         request_id: str = None,
     ):
-        # The ID of the API key for which the deletion is accepted. The return of this field does not indicate that the underlying cleanup is complete.
+        # The ID of the API key whose deletion is accepted. The return of this field does not indicate that the underlying cleanup is complete.
         self.api_key_id = api_key_id
-        # The ID of the request. You can use the ID to locate and troubleshoot the request.
+        # The request ID. You can use this ID to locate and troubleshoot the request.
         self.request_id = request_id
 
     def validate(self):

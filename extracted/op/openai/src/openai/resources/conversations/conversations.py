@@ -62,6 +62,7 @@ class Conversations(SyncAPIResource):
         *,
         items: Optional[Iterable[ResponseInputItemParam]] | Omit = omit,
         metadata: Optional[Metadata] | Omit = omit,
+        safety_identifier: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -77,11 +78,12 @@ class Conversations(SyncAPIResource):
               at a time.
 
           metadata: Set of 16 key-value pairs that can be attached to an object. This can be useful
-              for storing additional information about the object in a structured format, and
-              querying for objects via API or the dashboard.
+              for storing additional information about the object in a structured format.
 
               Keys are strings with a maximum length of 64 characters. Values are strings with
               a maximum length of 512 characters.
+
+          safety_identifier: A stable identifier used for safety monitoring and abuse detection.
 
           extra_headers: Send extra headers
 
@@ -97,6 +99,7 @@ class Conversations(SyncAPIResource):
                 {
                     "items": items,
                     "metadata": metadata,
+                    "safety_identifier": safety_identifier,
                 },
                 conversation_create_params.ConversationCreateParams,
             ),
@@ -263,6 +266,7 @@ class AsyncConversations(AsyncAPIResource):
         *,
         items: Optional[Iterable[ResponseInputItemParam]] | Omit = omit,
         metadata: Optional[Metadata] | Omit = omit,
+        safety_identifier: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -278,11 +282,12 @@ class AsyncConversations(AsyncAPIResource):
               at a time.
 
           metadata: Set of 16 key-value pairs that can be attached to an object. This can be useful
-              for storing additional information about the object in a structured format, and
-              querying for objects via API or the dashboard.
+              for storing additional information about the object in a structured format.
 
               Keys are strings with a maximum length of 64 characters. Values are strings with
               a maximum length of 512 characters.
+
+          safety_identifier: A stable identifier used for safety monitoring and abuse detection.
 
           extra_headers: Send extra headers
 
@@ -298,6 +303,7 @@ class AsyncConversations(AsyncAPIResource):
                 {
                     "items": items,
                     "metadata": metadata,
+                    "safety_identifier": safety_identifier,
                 },
                 conversation_create_params.ConversationCreateParams,
             ),

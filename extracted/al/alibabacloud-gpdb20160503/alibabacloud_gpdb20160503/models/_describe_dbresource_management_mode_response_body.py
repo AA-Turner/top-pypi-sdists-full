@@ -10,12 +10,11 @@ class DescribeDBResourceManagementModeResponseBody(DaraModel):
         request_id: str = None,
         resource_management_mode: str = None,
     ):
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The resource management mode. Valid values:
-        # 
-        # *   resourceGroup: resource group management.
-        # *   resourceQueue: resource queue management.
+        # - resourceGroup: resource group
+        # - resourceQueue: resource queue
         self.resource_management_mode = resource_management_mode
 
     def validate(self):

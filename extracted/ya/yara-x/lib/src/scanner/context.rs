@@ -1643,18 +1643,12 @@ fn verify_regexp(
     // faster and less general FastVM, or for the slower but more general
     // PikeVM.
     if let Some(fwd_code) = atom.fwd_code() {
-        // PikeVM executes threads in priority order so its first match is
-        // already the greedy or non-greedy winner, whereas FastVM enumerates
-        // matches in increasing length order and must continue when greedy.
-        let continue_on_match = flags.contains(SubPatternFlags::FastRegexp)
-            && flags.contains(SubPatternFlags::GreedyRegexp);
+        // Both PikeVM and FastVM respect path priority order (ordered
+        // alternation and greedy/non-greedy jumps), so returning
+        // `ControlFlow::Break(())` selects the winning match in both engines.
         vm.try_match(fwd_code, fwd_data, bck_data, flags, |match_len| {
             fwd_match_len = Some(match_len);
-            if continue_on_match {
-                ControlFlow::Continue(())
-            } else {
-                ControlFlow::Break(())
-            }
+            ControlFlow::Break(())
         });
     } else {
         fwd_match_len = Some(atom.len());
@@ -1847,6 +1841,16 @@ fn verify_base64(
         match_len *= 2;
     }
 
+    let match_end = match_start.checked_add(match_len)?;
+
+    // The match must lie completely within the scanned data. In wide mode
+    // the data may end right after the last base64 character, before the
+    // zero byte that completes it. In such cases there's no match because
+    // of the missing zero byte.
+    if match_end > scanned_data.len() {
+        return None;
+    }
+
     // decode_range is the range within the scanned data that we are going
     // to decode as base64. It starts at match_start - decode_start_delta,
     // but if match_start < decode_start_delta this is not a real match.
@@ -1906,7 +1910,7 @@ fn verify_base64(
     let decoded_pattern = decoded.get(padding..padding + pattern.len())?;
 
     if pattern.eq(decoded_pattern) {
-        Some(match_start..match_start + match_len)
+        Some(match_start..match_end)
     } else {
         None
     }
@@ -2188,8 +2192,9 @@ impl<'r> VM<'r> {
     ) {
         let wide = flags.contains(SubPatternFlags::Wide);
         if flags.contains(SubPatternFlags::FastRegexp) {
+            let greedy = flags.contains(SubPatternFlags::GreedyRegexp);
             let input = if code.backwards() { bck_data } else { fwd_data };
-            self.fast_vm.try_match(code, input, wide, f);
+            self.fast_vm.try_match(code, input, wide, greedy, f);
         } else {
             self.pike_vm.try_match(code, fwd_data, bck_data, wide, f);
         }
@@ -2277,16 +2282,22 @@ impl From<i64> for RuntimeObjectHandle {
 }
 
 /// Owns a heap-pinned WASM [`Store`] and its embedded [`ScanContext`], tying
-/// their lifetime to the compiled [`Rules`] (`'r`).
+/// their lifetime to `'r` (the lifetime of the compiled [`Rules`] and any
+/// `console_log` callback stored in the context).
 ///
 /// [`Store`] requires a `'static` state type, so [`ScanContext<'r, '_>`] has
 /// its lifetimes erased to `'static` on construction and restored when
 /// borrowed via [`Self::get`] and [`Self::get_mut`]. Keeping both
 /// transmutations inside this type ensures `'r` can never be separated from
 /// the underlying store and borrows cannot outlive `&self` / `&mut self`.
+///
+/// `_ctx` uses `PhantomData<ScanContext<'r, 'static>>` (rather than
+/// `PhantomData<&'r Rules>`) so the drop checker knows that dropping
+/// [`PinnedScanContext`] drops a [`ScanContext<'r, '_>`] — including any
+/// `console_log` callback whose destructor may access data borrowed for `'r`.
 pub(crate) struct PinnedScanContext<'r> {
     store: Pin<Box<Store<ScanContext<'static, 'static>>>>,
-    _rules: PhantomData<&'r Rules>,
+    _ctx: PhantomData<ScanContext<'r, 'static>>,
 }
 
 impl<'r> PinnedScanContext<'r> {
@@ -2360,8 +2371,10 @@ impl<'r> PinnedScanContext<'r> {
         // Also, the `Store` type requires a type T that is static, therefore
         // we are forced to transmute the ScanContext<'r> into ScanContext<'static>.
         // This is safe to do because the Store only lives for the time that
-        // the scanner lives, and 'r is the lifetime for the rules passed to
-        // the scanner, which are guaranteed to outlive the scanner.
+        // the scanner lives, and `_ctx: PhantomData<ScanContext<'r, 'static>>`
+        // tells the drop checker that dropping `PinnedScanContext<'r>` drops
+        // a `ScanContext<'r, '_>` — ensuring `'r` (both the rules and anything
+        // borrowed by a `console_log` callback) strictly outlives the scanner.
         let mut wasm_store = Box::pin(Store::new(
             wasm::get_engine(),
             unsafe {
@@ -2442,18 +2455,18 @@ impl<'r> PinnedScanContext<'r> {
         ctx.wasm.filesize = Some(filesize);
         ctx.wasm.pattern_search_done = Some(pattern_search_done);
 
-        Self { store: wasm_store, _rules: PhantomData }
+        Self { store: wasm_store, _ctx: PhantomData }
     }
 
     /// Returns a reference to the underlying [`ScanContext`].
     #[cfg(feature = "rules-profiling")]
     #[inline]
-    pub(crate) fn get<'a>(&'a self) -> &'a ScanContext<'r, 'a> {
-        // SAFETY: `self._rules` guarantees `Rules` outlives `'r`, and both
-        // the reference lifetime and scanned-data lifetime `'a` are bounded
-        // by `&'a self`.
+    pub(crate) fn get<'d>(&'d self) -> &'d ScanContext<'r, 'd> {
+        // SAFETY: `self._ctx` guarantees `'r` strictly outlives `self`, and
+        // both the reference lifetime and scanned-data lifetime `'d` are
+        // bounded by `&'d self`.
         unsafe {
-            transmute::<&ScanContext<'static, 'static>, &ScanContext<'r, 'a>>(
+            transmute::<&ScanContext<'static, 'static>, &ScanContext<'r, 'd>>(
                 self.store.data(),
             )
         }
@@ -2461,14 +2474,14 @@ impl<'r> PinnedScanContext<'r> {
 
     /// Returns a mutable reference to the underlying [`ScanContext`].
     #[inline]
-    pub(crate) fn get_mut<'a>(&'a mut self) -> &'a mut ScanContext<'r, 'a> {
-        // SAFETY: `self._rules` guarantees `Rules` outlives `'r`, and both
-        // the exclusive borrow and scanned-data lifetime `'a` are bounded
-        // by `&'a mut self`, preventing aliasing borrows.
+    pub(crate) fn get_mut<'d>(&'d mut self) -> &'d mut ScanContext<'r, 'd> {
+        // SAFETY: `self._ctx` guarantees `'r` strictly outlives `self`, and
+        // both the exclusive borrow and scanned-data lifetime `'a` are bounded
+        // by `&'d mut self`, preventing aliasing borrows.
         unsafe {
             transmute::<
                 &mut ScanContext<'static, 'static>,
-                &mut ScanContext<'r, 'a>,
+                &mut ScanContext<'r, 'd>,
             >(self.store.data_mut())
         }
     }

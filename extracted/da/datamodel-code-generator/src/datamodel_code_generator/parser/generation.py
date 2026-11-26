@@ -93,7 +93,7 @@ from datamodel_code_generator.parser._sites import (
     position_step,
     site_of,
 )
-from datamodel_code_generator.reference import SCHEMA_PATH_KEY
+from datamodel_code_generator.reference import _ALIAS_RESOLUTION_CLASS_NAME_KEY, SCHEMA_PATH_KEY
 from datamodel_code_generator.types import _hint_null
 
 if TYPE_CHECKING:
@@ -105,6 +105,7 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator._constraint_applicability import ConstraintOptions
     from datamodel_code_generator._reference_graph import GraphSnapshot, ReferenceGraph
+    from datamodel_code_generator._user_keys import ClassScope
     from datamodel_code_generator.imports import Import
     from datamodel_code_generator.model._decisions.literal_default import LiteralDefault
     from datamodel_code_generator.model.base import BaseClassDataType, DataModel, DataModelFieldBase
@@ -205,6 +206,7 @@ NO_SITE_EFFECT: frozenset[str] = frozenset({
     "name_enum_member_literal_class",
     "name_reference",
     "omit_field_default",
+    "record_alias_resolution_scope",
     "record_dropped_multiple_of",
     "record_nullable_without_default",
     "record_raw_schema_default",
@@ -1896,6 +1898,12 @@ class GenerationStore:  # noqa: PLR0904
         bump_field(field_)
 
     @staticmethod
+    def record_alias_resolution_scope(field_: DataModelFieldBase, scope: ClassScope | None) -> None:
+        """Record the class scope under which ``--aliases`` names the field (``ModelResolver.explicit_field_alias``)."""
+        field_.__dict__[_ALIAS_RESOLUTION_CLASS_NAME_KEY] = scope
+        bump_field(field_)
+
+    @staticmethod
     def record_raw_schema_default(field_: DataModelFieldBase) -> None:
         """Record that the property a field is built from declares no default, which ``--default-values`` gives."""
         field_.__dict__[_RAW_SCHEMA_DEFAULT_KEY] = _RAW_SCHEMA_DEFAULT_UNDEFINED
@@ -2213,8 +2221,13 @@ class GenerationStore:  # noqa: PLR0904
         _settle_alias_forms(model)
 
     def reset_base_classes(self, model: DataModel) -> None:
-        """Reset ``model`` to its default base classes and invalidate derived facts; its new sites are overridden."""
+        """Reset ``model`` to its default base classes and invalidate derived facts; its new sites are overridden.
+
+        The bases it drops leave the graph: each stops being a child of the model it names, as no model holds it.
+        """
         self._state_model_sites("reset_base_classes", model)
+        for base_class in model.base_classes:
+            base_class.unregister_reference()
         model.set_base_class()
         self._model_changed(model)
 
@@ -2678,7 +2691,7 @@ class GraphBuilder:
         self._store.require_field(field_, use_default_with_required=use_default_with_required)
 
     def reset_base_classes(self, model: DataModel) -> None:
-        """Reset ``model`` to its default base classes and invalidate derived facts; its new sites are overridden."""
+        """Reset ``model`` to its default bases, the ones it drops leaving the graph; its new sites are overridden."""
         self._store.reset_base_classes(model)
 
     def restore_required_inherited_field(self, model: DataModel, field_: DataModelFieldBase) -> bool:
@@ -2719,6 +2732,10 @@ class GraphBuilder:
     def record_nullable_without_default(self, field_: DataModelFieldBase, nullable: bool | None) -> None:  # noqa: FBT001
         """Record the ``nullable`` a field has as one without its default, through the store."""
         self._store.record_nullable_without_default(field_, nullable)
+
+    def record_alias_resolution_scope(self, field_: DataModelFieldBase, scope: ClassScope | None) -> None:
+        """Record the class scope under which ``--aliases`` names the field, through the store."""
+        self._store.record_alias_resolution_scope(field_, scope)
 
     def record_raw_schema_default(self, field_: DataModelFieldBase) -> None:
         """Record that the property a field is built from declares no default, through the store."""

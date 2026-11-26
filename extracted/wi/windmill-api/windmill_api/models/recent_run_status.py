@@ -7,6 +7,7 @@ class RecentRunStatus(str, Enum):
     RESOLVED = "resolved"
     RUNNING = "running"
     SUCCESS = "success"
+    SUSPENDED = "suspended"
 
     def __str__(self) -> str:
         return str(self.value)

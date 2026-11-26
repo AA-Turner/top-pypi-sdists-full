@@ -107,6 +107,10 @@ class CompanyRepository(Protocol):
 
     async def remove_beta(self, company_id: str, beta: str) -> EmpresaModel: ...
 
+    async def save_corte(self, company: EmpresaModel) -> EmpresaModel:
+        """Only `corte` (the cut for non-payment, `models/company/corte.py`): billing computes it, api-chatty saves it."""
+        ...
+
 
 class CompanyCaches(Protocol):
     """What remembers a company outside Mongo: the asset, its settings and betas, its routing keys, and the version each

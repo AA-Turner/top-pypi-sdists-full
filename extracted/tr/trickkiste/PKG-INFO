@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: trickkiste
-Version: 0.3.9
+Version: 0.3.10
 Summary: Random useful stuff
 Project-URL: Repository, https://github.com/frans-fuerst/trickkiste
 Author-email: Frans Fürst <frans.fuerst+om-office@protonmail.com>
@@ -81,6 +81,11 @@ description (some even have a doctest!):
 * `clean_line`: a foreign process' output line without control codes
 * `SPINNER`, `scanner`: a spinner and a K.I.T.T. light over a label
 * `ConfirmScreen`: a yes/no dialog
+* `tool_frame`, `FramedApp`: a tool's frame - a `Header` with the clock and a
+  feedback button at its right end, the `StatusBar`; the app places the
+  button, opens `FeedbackScreen` with its `FEEDBACK_WAYS` and copies a
+  right-clicked link (`HEADER_CSS`, `FEEDBACK_CSS`)
+* `package_version`: `v<version>` when installed, else `local checkout`
 
 ### std_suppress
 

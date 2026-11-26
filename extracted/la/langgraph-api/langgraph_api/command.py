@@ -1,8 +1,23 @@
-from typing import cast
+import re
+from typing import Any, cast
 
 from langgraph.types import Command, Send
 
 from langgraph_api.schema import RunCommand
+
+# langgraph resumes interrupts by id only when every key of the resume map has
+# this shape; any other key turns the whole map into one value for whichever
+# interrupt is pending.
+INTERRUPT_ID_RE = re.compile(r"[0-9a-f]{32}")
+
+
+def keyed_by_interrupt_id(value: Any) -> bool:
+    """Whether langgraph resumes ``value`` per interrupt rather than as one answer."""
+    return (
+        isinstance(value, dict)
+        and bool(value)
+        and all(INTERRUPT_ID_RE.fullmatch(key) for key in value)
+    )
 
 
 def map_cmd(cmd: RunCommand) -> Command:

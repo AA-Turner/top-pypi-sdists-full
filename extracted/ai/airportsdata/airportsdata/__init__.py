@@ -14,7 +14,7 @@ from typing import Dict, Literal, TypedDict, cast
 
 __project_name__ = __package__
 __min_python_version__ = (3, 10)  # minimum version of Python required to run; supported until October 2025
-__version__ = '20261123'  # numbering follows the release date (UTC), 8 digits: dotted forms sort lower in PEP 440
+__version__ = '20261126'  # numbering follows the release date (UTC), 8 digits: dotted forms sort lower in PEP 440
 __author__ = 'Mike Borsetti <mike@borsetti.com>'
 __copyright__ = 'Copyright 2020- Mike Borsetti'
 __license__ = 'MIT'
@@ -57,7 +57,7 @@ def load(code_type: CodeType = 'ICAO') -> Dict[str, 'Airport']:
         'lat': Latitude (decimal)
         'lon': Longitude (decimal)
         'tz': Timezone expressed as a tz database name (IANA-compliant) or empty string for country 'AQ' (Antarctica).
-            Originally sourced from [TimeZoneDB](https://timezonedb.com)
+            Checked against IANA zone boundaries using the Python library timezonefinder
         'lid': The FAA Location Identifier (for US country only; others is blank)
     """
     key = code_type.lower()

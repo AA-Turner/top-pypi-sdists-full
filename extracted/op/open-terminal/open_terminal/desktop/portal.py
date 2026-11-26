@@ -27,6 +27,8 @@ REMOTE = "org.freedesktop.portal.RemoteDesktop"
 SCREENCAST = "org.freedesktop.portal.ScreenCast"
 SESSION = "org.freedesktop.portal.Session"
 REQUEST = "org.freedesktop.portal.Request"
+CLIPBOARD = "org.freedesktop.portal.Clipboard"
+DISPLAY_CONFIG = "org.gnome.Mutter.DisplayConfig"
 log = logging.getLogger(__name__)
 
 
@@ -107,32 +109,61 @@ class PortalInput:
 
     def __init__(self, desktop):
         self.desktop = desktop
+        self.position = None
+        self.moved = 0.0
+        self.held = set()
 
     def notify(self, member, signature, *body):
         self.desktop.sync(self.desktop.notify(member, signature, *body))
 
-    def moveTo(self, x, y):
+    def absolute(self, x, y):
         self.notify("NotifyPointerMotionAbsolute", "udd", self.desktop.node, float(x), float(y))
 
-    def mouseDown(self, button):
+    def moveTo(self, x, y):
+        scale = self.desktop.scale
+        if scale == 1:
+            return self.absolute(x, y)
+        # On a scaled display GNOME takes absolute positions in stream pixels, but the
+        # portal rejects any beyond the smaller logical size, so most of the screen is
+        # out of reach. Relative motion is logical and has no such limit.
+        position, self.position = self.position, None
+        now = time.monotonic()
+        if position is None or (not self.held and now - self.moved > 1):
+            # Someone may have moved the mouse since; start from a known place.
+            near_x = min(x, self.desktop.screen_width / scale - 1)
+            near_y = min(y, self.desktop.screen_height / scale - 1)
+            self.absolute(near_x, near_y)
+            position = near_x / scale, near_y / scale
+        target = x / scale, y / scale
+        if target != position:
+            self.notify("NotifyPointerMotion", "dd", target[0] - position[0], target[1] - position[1])
+        self.position, self.moved = target, now
+
+    # Coordinates match pyautogui's signatures; moveTo has already applied them.
+    def mouseDown(self, x=None, y=None, *, button):
+        self.held.add(button)
         self.notify("NotifyPointerButton", "iu", {"left": 272, "right": 273, "middle": 274}[button], 1)
 
-    def mouseUp(self, button):
+    def mouseUp(self, x=None, y=None, *, button):
+        self.held.discard(button)
         self.notify("NotifyPointerButton", "iu", {"left": 272, "right": 273, "middle": 274}[button], 0)
 
-    def click(self, button, clicks=1, interval=0):
+    def click(self, x=None, y=None, *, button, clicks=1, interval=0):
         for n in range(clicks):
             if n:
                 time.sleep(interval)
             try:
-                self.mouseDown(button)
+                self.mouseDown(button=button)
             finally:
-                self.mouseUp(button)
+                self.mouseUp(button=button)
 
-    def scroll(self, amount):
+    def scroll(self, amount, x=None, y=None):
         self.notify("NotifyPointerAxisDiscrete", "ui", 0, -amount)
 
-    def hscroll(self, amount):
+    def axis(self, x, y):
+        self.notify("NotifyPointerAxis", "dd", float(x), float(y))
+
+    def hscroll(self, amount, x=None, y=None):
         self.notify("NotifyPointerAxisDiscrete", "ui", 1, amount)
 
     def keyDown(self, key):
@@ -153,6 +184,9 @@ class PortalInput:
 
 
 class PortalDesktop(NativeDesktop):
+    fps = 60  # Frames arrive from PipeWire, so an unchanged one costs nothing.
+    scale = 1
+
     def __init__(self, fs):
         super().__init__(fs)
         self.bus = None
@@ -164,6 +198,9 @@ class PortalDesktop(NativeDesktop):
         self.capture_stderr = ""
         self.first_frame = asyncio.Event()
         self.pending = {}
+        self.clipboard_enabled = False
+        self.clipboard_data = b""
+        self.clipboard_tasks = set()
         self.failure = "Desktop sharing has ended. Reconnect and approve sharing on the Linux desktop."
 
     def sync(self, coroutine, timeout=10):
@@ -175,10 +212,11 @@ class PortalDesktop(NativeDesktop):
             future.cancel()
             raise
 
-    async def call(self, interface, member, signature="", body=None, path=PATH):
+    async def call(self, interface, member, signature="", body=None, path=PATH,
+                   destination=DESTINATION):
         try:
             reply = await asyncio.wait_for(self.bus.call(Message(
-                destination=DESTINATION, path=path, interface=interface,
+                destination=destination, path=path, interface=interface,
                 member=member, signature=signature, body=body or [],
             )), 10)
         except TimeoutError as exc:
@@ -194,6 +232,8 @@ class PortalDesktop(NativeDesktop):
             future = self.pending.get(message.path)
             if future is not None and not future.done():
                 future.set_result(message.body)
+        elif message.interface == CLIPBOARD and message.member == "SelectionTransfer" and message.body[0] == self.session:
+            self.transfer_selection(message.body[2])
         elif message.interface == SESSION and message.member == "Closed" and message.path == self.session:
             self.closed = True
             self.latest = None
@@ -240,6 +280,22 @@ class PortalDesktop(NativeDesktop):
         finally:
             self.pending.pop(path, None)
 
+    async def pointer_scale(self, position):
+        """GNOME reports a scaled monitor's logical size, but reads absolute
+        pointer positions in its stream's pixels. Other portals use logical."""
+        try:
+            _, _, monitors, properties = (await self.call(
+                DISPLAY_CONFIG, "GetCurrentState",
+                path="/org/gnome/Mutter/DisplayConfig", destination=DISPLAY_CONFIG,
+            )).body
+        except RuntimeError as exc:
+            log.info("No GNOME display scale; using logical pointer positions: %s", exc)
+            return 1
+        layout = properties.get("layout-mode")
+        if position is None or (layout and layout.value == 2):
+            return 1
+        return next((scale for x, y, scale, *_ in monitors if [x, y] == list(position.value)), 1)
+
     async def start(self):
         self.loop = asyncio.get_running_loop()
         stage = "connecting to the desktop user's D-Bus session"
@@ -252,7 +308,7 @@ class PortalDesktop(NativeDesktop):
             await asyncio.wait_for(self.bus.connect(), 10)
             self.bus.add_message_handler(self.on_message)
             stage = "subscribing to desktop portal responses"
-            for interface in (REQUEST, SESSION):
+            for interface in (REQUEST, SESSION, CLIPBOARD):
                 reply = await asyncio.wait_for(self.bus.call(Message(
                     destination="org.freedesktop.DBus", path="/org/freedesktop/DBus",
                     interface="org.freedesktop.DBus", member="AddMatch", signature="s",
@@ -280,12 +336,17 @@ class PortalDesktop(NativeDesktop):
             await self.request(REMOTE, "SelectDevices", "o", [self.session], devices)
             await self.request(SCREENCAST, "SelectSources", "o", [self.session], {
                 "types": Variant("u", 1), "multiple": Variant("b", False),
-                "cursor_mode": Variant("u", 2),
+                # The viewer shows its own cursor; a second one would trail behind it.
+                "cursor_mode": Variant("u", 1),
             })
             # Restore tokens are single-use, including attempts that time out.
             if saved_token:
                 save_restore_token(None)
+            # Optional, and a saved approval keeps whatever was granted with it.
+            with contextlib.suppress(RuntimeError):
+                await self.call(CLIPBOARD, "RequestClipboard", "oa{sv}", [self.session, {}])
             results = await self.request(REMOTE, "Start", "os", [self.session, ""])
+            self.clipboard_enabled = results.get("clipboard_enabled", Variant("b", False)).value
             if version >= 2:
                 replacement = results.get("restore_token")
                 save_restore_token(replacement.value if replacement else None)
@@ -301,6 +362,11 @@ class PortalDesktop(NativeDesktop):
             self.screen_width, self.screen_height = size.value
             scale = min(1, 1920 / self.screen_width, 1080 / self.screen_height)
             self.width, self.height = round(self.screen_width * scale), round(self.screen_height * scale)
+            self.scale = await self.pointer_scale(properties.get("position"))
+            self.screen_width, self.screen_height = self.screen_width * self.scale, self.screen_height * self.scale
+            # Viewers get the display's own pixels; assistants keep the smaller picture.
+            scale = min(1, 1920 / self.screen_width, 1080 / self.screen_height)
+            self.frame = (round(self.screen_width * scale), round(self.screen_height * scale))
             self.input = PortalInput(self)
             reply = await self.call(SCREENCAST, "OpenPipeWireRemote", "oa{sv}", [self.session, {}])
             try:
@@ -319,12 +385,13 @@ class PortalDesktop(NativeDesktop):
             raise HTTPException(503, f"Could not share the Linux desktop: {detail}") from exc
 
     async def start_capture(self, *, fd=None, env=None):
+        width, height = self.frame_size
         process = await asyncio.create_subprocess_exec(
             "gst-launch-1.0", "-q", "pipewiresrc", f"path={self.node}",
             *((f"fd={fd}",) if fd is not None else ()),
             "!", "queue", "max-size-buffers=1", "leaky=downstream",
             "!", "videoconvert", "!", "videoscale",
-            "!", f"video/x-raw,format=RGBx,width={self.width},height={self.height},pixel-aspect-ratio=1/1",
+            "!", f"video/x-raw,format=RGBx,width={width},height={height},pixel-aspect-ratio=1/1",
             "!", "fdsink", "fd=1", "sync=false",
             pass_fds=() if fd is None else (fd,), env=sanitized_environ(env),
             start_new_session=True,
@@ -347,9 +414,10 @@ class PortalDesktop(NativeDesktop):
         return f" GStreamer: {self.capture_stderr.strip()}" if self.capture_stderr.strip() else ""
 
     async def read_frames(self, process):
+        width, height = self.frame_size
         try:
             while True:
-                data = await process.stdout.readexactly(self.width * self.height * 4)
+                data = await process.stdout.readexactly(width * height * 4)
                 self.update_frame(data)
         except asyncio.IncompleteReadError:
             if self.stderr_task:
@@ -362,7 +430,7 @@ class PortalDesktop(NativeDesktop):
             self.first_frame.set()
 
     def update_frame(self, data):
-        self.latest = Image.frombytes("RGB", (self.width, self.height), data, "raw", "RGBX")
+        self.latest = Image.frombytes("RGB", self.frame_size, data, "raw", "RGBX")
         self.first_frame.set()
 
     def grab(self):
@@ -375,9 +443,51 @@ class PortalDesktop(NativeDesktop):
             raise RuntimeError(self.failure)
         await self.call(REMOTE, member, "oa{sv}" + signature, [self.session, {}, *body])
 
-    def paste(self, text):
-        # Keysyms also work over SSH, without guessing a Wayland socket or
-        # replacing another session's clipboard. No root/uinput access is needed.
+    def scroll(self, x, y):
+        # Absolute positions use the stream's pixels, but scrolling is logical.
+        self.input.axis(x / self.scale, y / self.scale)
+
+    async def selection(self, member, signature, *body):
+        return await self.call(CLIPBOARD, member, "o" + signature, [self.session, *body])
+
+    def transfer_selection(self, serial):
+        task = asyncio.create_task(self.write_selection(serial, self.clipboard_data))
+        self.clipboard_tasks.add(task)
+        task.add_done_callback(self.clipboard_tasks.discard)
+
+    async def write_selection(self, serial, data):
+        reply = None
+        success = False
+        try:
+            reply = await self.selection("SelectionWrite", "u", serial)
+            fd = reply.unix_fds[reply.body[0]]
+            os.set_blocking(fd, False)
+            remaining = memoryview(data)
+            while remaining:
+                try:
+                    remaining = remaining[os.write(fd, remaining):]
+                except BlockingIOError:
+                    ready = self.loop.create_future()
+                    self.loop.add_writer(fd, lambda: ready.done() or ready.set_result(None))
+                    try:
+                        await asyncio.wait_for(ready, 5)
+                    finally:
+                        self.loop.remove_writer(fd)
+            success = True
+        except (OSError, RuntimeError, TimeoutError):
+            pass
+        finally:
+            if reply:
+                for fd in reply.unix_fds:
+                    os.close(fd)
+            with contextlib.suppress(Exception):
+                await self.selection("SelectionWriteDone", "ub", serial, success)
+
+    def paste(self, text, shift=False):
+        # Typing works in every app, but only for characters the keyboard layout has.
+        if self.clipboard_enabled and not text.isascii():
+            return self.paste_clipboard(text, shift)
+
         async def type_text():
             for char in text:
                 key = {"\n": 0xFF0D, "\r": 0xFF0D, "\t": 0xFF09}.get(char)
@@ -390,6 +500,23 @@ class PortalDesktop(NativeDesktop):
 
         self.sync(type_text(), timeout=max(10, len(text) / 100))
 
+    def paste_clipboard(self, text, shift=False):
+        keys = [0xFFE3, *([0xFFE1] if shift else []), ord("v")]
+
+        async def transfer():
+            self.clipboard_data = text.encode("utf-8")
+            await self.selection("SetSelection", "a{sv}", {
+                "mime_types": Variant("as", ["text/plain;charset=utf-8", "text/plain"]),
+            })
+            try:
+                for key in keys:
+                    await self.notify("NotifyKeyboardKeysym", "iu", key, 1)
+            finally:
+                for key in reversed(keys):
+                    await self.notify("NotifyKeyboardKeysym", "iu", key, 0)
+
+        self.sync(transfer())
+
     async def stop_session(self):
         if self.bus and self.session:
             await self.call(SESSION, "Close", path=self.session)
@@ -400,6 +527,9 @@ class PortalDesktop(NativeDesktop):
         try:
             await super().close()
         finally:
+            for task in list(self.clipboard_tasks):
+                task.cancel()
+            await asyncio.gather(*self.clipboard_tasks, return_exceptions=True)
             if self.reader_task:
                 self.reader_task.cancel()
                 await asyncio.gather(self.reader_task, return_exceptions=True)

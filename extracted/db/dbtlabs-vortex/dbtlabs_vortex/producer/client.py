@@ -202,12 +202,18 @@ class VortexProducerClient:
                     # wrap the proto in a VortexMessage
                     timestamp = Timestamp()
                     timestamp.GetCurrentTime()
+                    # capture the wrapped message's proto identity before we
+                    # reassign `message` to the envelope below.
+                    full_name = message.DESCRIPTOR.full_name
                     message = VortexMessage(
                         any=google.protobuf.any_pb2.Any(
-                            type_url="{}/{}".format("", message.DESCRIPTOR.full_name),
+                            type_url="{}/{}".format("", full_name),
                             value=message.SerializeToString(),
                         ),
                         vortex_event_created_at=timestamp,
+                        # envelope fields set automatically by the client.
+                        vortex_event_id=str(uuid.uuid4()),
+                        vortex_event_url="dbt-labs/proto/" + full_name.replace(".", "/"),
                     )
 
                     if wait_seconds > 0:
@@ -421,6 +427,9 @@ class VortexProducerClient:
                         any=message.any,
                         vortex_event_created_at=message.vortex_event_created_at,
                         vortex_client_sent_at=timestamp,
+                        # preserve the envelope fields set in log_proto
+                        vortex_event_id=message.vortex_event_id,
+                        vortex_event_url=message.vortex_event_url,
                     )
 
                     messages[i] = message

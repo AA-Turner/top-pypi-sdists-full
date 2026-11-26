@@ -341,6 +341,36 @@ class TestSandboxFileIO(unittest.TestCase):
                 handle.write("data")
         self.assertEqual(client.calls[0][0], "write_file")
 
+    def test_write_mode_accumulates_multiple_writes(self):
+        client = _FakeSyncClient()
+        with _fs(client) as fs:
+            with fs.open("/b", "w") as handle:
+                handle.write("first\n")
+                handle.write("second\n")
+                self.assertEqual(client.calls, [])
+        self.assertEqual(client.calls, [("write_file", "/b", "first\nsecond\n")])
+
+    def test_write_mode_base64_chunks_land_as_bytes(self):
+        client = _FakeSyncClient(has_files_routes=True)
+        with _fs(client) as fs:
+            with fs.open("/b", "w", encoding="base64") as handle:
+                handle.write(base64.b64encode(b"a").decode())
+                handle.write(base64.b64encode(b"b"))
+        self.assertEqual(client.calls[-1][:3], ("files_put", "/b", b"ab"))
+
+    def test_write_mode_close_retries_after_failed_upload(self):
+        client = _FakeSyncClient(write_file=RuntimeError("boom"))
+        with _fs(client) as fs:
+            handle = fs.open("/b", "w")
+            handle.write("first")
+            with self.assertRaises(SandboxFilesystemError):
+                handle.close()
+            del client.replies["write_file"]
+            handle.close()
+            handle.close()
+        self.assertEqual(client.calls[-1], ("write_file", "/b", "first"))
+        self.assertEqual(len(client.calls), 2)
+
     def test_wrong_mode_raises(self):
         with _fs(_FakeSyncClient()) as fs:
             with self.assertRaises(ValueError):
@@ -355,6 +385,38 @@ class TestSandboxFileIO(unittest.TestCase):
             handle.close()
             with self.assertRaises(ValueError):
                 handle.read()
+
+
+class TestAsyncSandboxFileIO(unittest.IsolatedAsyncioTestCase):
+    async def test_write_mode_accumulates_multiple_writes(self):
+        client = _FakeAsyncClient()
+        with _async_fs(client) as fs:
+            async with fs.open("/b", "w") as handle:
+                await handle.write("first\n")
+                await handle.write("second\n")
+                self.assertEqual(client.calls, [])
+        self.assertEqual(client.calls, [("write_file", "/b", "first\nsecond\n")])
+
+    async def test_write_mode_base64_chunks_land_as_bytes(self):
+        client = _FakeAsyncClient(has_files_routes=True)
+        with _async_fs(client) as fs:
+            async with fs.open("/b", "w", encoding="base64") as handle:
+                await handle.write(base64.b64encode(b"a").decode())
+                await handle.write(base64.b64encode(b"b"))
+        self.assertEqual(client.calls[-1][:3], ("files_put", "/b", b"ab"))
+
+    async def test_write_mode_close_retries_after_failed_upload(self):
+        client = _FakeAsyncClient(write_file=RuntimeError("boom"))
+        with _async_fs(client) as fs:
+            handle = fs.open("/b", "w")
+            await handle.write("first")
+            with self.assertRaises(SandboxFilesystemError):
+                await handle.close()
+            del client.replies["write_file"]
+            await handle.close()
+            await handle.close()
+        self.assertEqual(client.calls[-1], ("write_file", "/b", "first"))
+        self.assertEqual(len(client.calls), 2)
 
 
 class TestAsyncReplyInterpretation(unittest.TestCase):

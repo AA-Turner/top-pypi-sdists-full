@@ -2,12 +2,12 @@ from setuptools import setup
 
 setup(
     name='python-amazon-ad-api',
-    version='2.1.14',
+    version='2.1.15',
     install_requires=[
         "requests>=2.27.1,<2.35.0",
         "six>=1.16,<1.18",
         "cachetools>=5.0,<8.1",
-        "pycryptodome>=3.13,<4.6",
+        "pycryptodome>=3.13,<4.7",
         "pytz>=2021.3,<2027.0",
         "confuse>=1.7,<2.4",
     ],

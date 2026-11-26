@@ -1,14 +1,10 @@
 """Middleware to handle private network requests for CORS preflight."""
 
-from typing import Any
-
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
-from starlette.types import ASGIApp
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
-class PrivateNetworkMiddleware(BaseHTTPMiddleware):
+class PrivateNetworkMiddleware:
     """Add Access-Control-Allow-Private-Network header for preflight requests.
 
     This middleware intercepts OPTIONS requests and adds the
@@ -42,12 +38,18 @@ class PrivateNetworkMiddleware(BaseHTTPMiddleware):
     when accessed from a public site.
     """
 
-    def __init__(self, app: ASGIApp):
-        """Initialize middleware."""
-        super().__init__(app)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-    async def dispatch(self, request: Request, call_next: Any) -> Response:
-        response = await call_next(request)
-        if request.method == "OPTIONS":  # Handle preflight requests
-            response.headers["Access-Control-Allow-Private-Network"] = "true"
-        return response
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["method"] != "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_allowing_private_network(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["Access-Control-Allow-Private-Network"] = "true"
+            await send(message)
+
+        await self.app(scope, receive, send_allowing_private_network)

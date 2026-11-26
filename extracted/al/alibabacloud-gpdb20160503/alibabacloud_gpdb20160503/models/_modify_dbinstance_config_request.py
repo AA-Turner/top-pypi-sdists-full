@@ -15,17 +15,17 @@ class ModifyDBInstanceConfigRequest(DaraModel):
     ):
         # The description of the instance.
         self.dbinstance_description = dbinstance_description
-        # The ID of the instance.
+        # Instance ID of the instance.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the instance IDs of all AnalyticDB for PostgreSQL instances in a specific region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query instance IDs of all AnalyticDB for PostgreSQL instances in a specific region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The wait period for the instance that has no traffic to become idle. Minimum value: 60. Default value: 600. Unit: seconds.
+        # The idle release wait time. After the instance has no service traffic for the specified duration, the instance enters the idle state. Unit: seconds. Minimum value: 60. Default value: 600.
         self.idle_time = idle_time
-        # The ID of the resource group to which the instance belongs. For more information about how to obtain the ID of a resource group, see [View basic information of a resource group](https://help.aliyun.com/document_detail/151181.html).
+        # The ID of the resource group to which the instance belongs. For information about how to obtain the resource group ID, see [View the basic information of a resource group](https://help.aliyun.com/document_detail/151181.html).
         self.resource_group_id = resource_group_id
-        # The threshold of computing resources. Valid values: 8 to 32. Unit: AnalyticDB Compute Units (ACUs).
+        # The compute resource threshold. Valid values: 8 to 32. Unit: ACU.
         self.serverless_resource = serverless_resource
 
     def validate(self):

@@ -54,7 +54,7 @@ EXCLUDED_FROM_GUARD: dict[str, str] = {
 }
 
 RECORDED_CACHE_VERSION = 1
-RECORDED_RUNNER_FIDELITY_VERSION = 'rf20'
+RECORDED_RUNNER_FIDELITY_VERSION = 'rf21'
 # One entry per guarded file, sorted, one per line, with a separator comment between entries: every entry sits
 # between unchanged lines, so git merges re-records of different files, even neighbours, without a conflict.
 RECORDED_DIGESTS: dict[str, str] = {
@@ -68,7 +68,7 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'cache/hasher.py': 'c9dc2acff727bf1c552ddbecf312ea6b55091c1c442f8cdf0096a91e227ac2b7',  # pragma: allowlist secret
     # --
-    'cache/incremental.py': '9803a880a60d3bd5ede1dd14f3ee02da24a8faed7928d50a9ec93504e5a118c6',  # pragma: allowlist secret  # noqa: E501
+    'cache/incremental.py': '55f59c081d153ee68f40fe66288755983a28f44d58b76e0cf7b96100d7700bec',  # pragma: allowlist secret  # noqa: E501
     # --
     'cache/periodic_flush.py': '20f5edde8b7f32596c6940faa3ada471eaf5333de2aacb91b14aa9345bd98417',  # pragma: allowlist secret  # noqa: E501
     # --
@@ -160,7 +160,7 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'parallel/persistent_pool.py': '94ce77176efb2af571a37e220095a8f721efc3b0fac6677a24a4bd24223e6f7d',  # pragma: allowlist secret  # noqa: E501
     # --
-    'parallel/pool.py': '56ae0611b06d35cc3d263319da52a509a23da2141f43bfa8f05bb03c7a6509a6',  # pragma: allowlist secret
+    'parallel/pool.py': '89896eff5a97987c20b40cce19cc83527d6bfa0bd7340a8926beabe6340585fb',  # pragma: allowlist secret
     # --
     'parallel/pool_config.py': '92d388fc68203d1e6a15ef69ab96ade058d9c3c9f3fb8a86f444f57c8e0fd74a',  # pragma: allowlist secret  # noqa: E501
     # --
@@ -168,23 +168,23 @@ RECORDED_DIGESTS: dict[str, str] = {
     # --
     'parallel/worker_kill.py': '04582134f7fa45932ce0c9cb2a6108017f2714571401e01ae5374c2f0b27339d',  # pragma: allowlist secret  # noqa: E501
     # --
-    'plugin.py': '322446f09277f8124151124587c5790bd622f16831cfeb8b587697d5dbb38ae2',  # pragma: allowlist secret
+    'plugin.py': '1cdbf18254812fbda012f8fbe838f92b959c14330df2c1f594e63cead5a52d40',  # pragma: allowlist secret
     # --
     'process_tree.py': 'f48a64afd8d30e9aac97f5d7d8ed245ee4f3283b73dc293f7c0f3553cf1a433e',  # pragma: allowlist secret
     # --
     'reporting/__init__.py': '89554da09af979ba49dee1f14ae15bfc210a64f59b7de9f99e7fd1ab31480401',  # pragma: allowlist secret  # noqa: E501
     # --
-    'reporting/results.py': '82505d9a8978c5193f13e2f53876a963d10ed1a314a22117dd8a286b21530fd6',  # pragma: allowlist secret  # noqa: E501
+    'reporting/results.py': '4b3dc36e5cefb9b6051d45fe5ef164269af0735e4d998698b14a7bf49d7638b9',  # pragma: allowlist secret  # noqa: E501
     # --
-    'reporting/score.py': 'e13c00b47d0451a30d4354240d10b2d2224ffdcd3ca87b658f648a3e6cfc61d3',  # pragma: allowlist secret  # noqa: E501
+    'reporting/score.py': '6dd3df555d7106ce82685631af169b6a3ea25498c31ee586a6ee56cd34415d17',  # pragma: allowlist secret  # noqa: E501
     # --
     'reporting/types.py': 'f732c4d57c6173836ac0244f4176fded3e86da043c768d9b55386f42a57d0492',  # pragma: allowlist secret  # noqa: E501
     # --
-    'rerun_options.py': '1142242889b03fd29c4a954f8faa9e0e58cde6b68b27960e20b58e9a36c37ee9',  # pragma: allowlist secret
+    'rerun_options.py': '66cc6ab9c56aad4abb1bc99ca82b59f96dbb02e6d7e5c9076dcb7abb12eb2af6',  # pragma: allowlist secret
     # --
     'rootdir_mismatch.py': 'da1d561f97b692fbc303589b14f7434584bebbbfdf3174b62d0998b1be2af6c4',  # pragma: allowlist secret  # noqa: E501
     # --
-    'verdicts.py': 'c841fba52a62522ba4b657a64223ea1219eaab80531fb8776408d9f73abe9fbb',  # pragma: allowlist secret
+    'verdicts.py': '0c5f4bd1413878104c75bf785e742d299402945e5ca13cdc0e5bfbbce8ad6d27',  # pragma: allowlist secret
     # --
     'xdist_options.py': '7f8d6cb78badd89966c2b1a9b43325f44a18ae6efc913910757588ae8f842a18',  # pragma: allowlist secret
 }

@@ -2236,6 +2236,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.ainode_spec_infos):
             query['AINodeSpecInfos'] = request.ainode_spec_infos
+        if not DaraCore.is_null(request.auto_renew):
+            query['AutoRenew'] = request.auto_renew
         if not DaraCore.is_null(request.backup_id):
             query['BackupId'] = request.backup_id
         if not DaraCore.is_null(request.cache_storage_size):
@@ -2354,6 +2356,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.ainode_spec_infos):
             query['AINodeSpecInfos'] = request.ainode_spec_infos
+        if not DaraCore.is_null(request.auto_renew):
+            query['AutoRenew'] = request.auto_renew
         if not DaraCore.is_null(request.backup_id):
             query['BackupId'] = request.backup_id
         if not DaraCore.is_null(request.cache_storage_size):

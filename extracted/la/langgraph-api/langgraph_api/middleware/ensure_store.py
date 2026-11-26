@@ -13,6 +13,10 @@ class EnsureStoreAccessible:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        # The store isn't ready until the lifespan has started.
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
         global _CONFIG
         if _CONFIG is None:
             _CONFIG = await _get_partial_conf()

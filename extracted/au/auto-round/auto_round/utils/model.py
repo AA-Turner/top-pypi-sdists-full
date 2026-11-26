@@ -28,7 +28,7 @@ import transformers
 from packaging import version
 
 from auto_round import envs
-from auto_round.export.export_to_gguf.config import ModelType
+from auto_round.export.formats.gguf.config import ModelType
 from auto_round.logger import logger
 from auto_round.utils.common import AUDIO_MM_KEYS, VISION_MM_KEYS, monkey_patch_model
 from auto_round.utils.path_safety import UnsafeCheckpointPathError
@@ -213,7 +213,7 @@ def check_start_with_block_name(name: str, block_name_to_quantize: list):
     return False
 
 
-def download_or_get_path(repo_id: str, platform: str | None = None) -> str:
+def download_or_get_path(repo_id: str, platform: str | None = None, revision: str | None = None) -> str:
     from auto_round import envs
 
     if platform is None:
@@ -223,12 +223,14 @@ def download_or_get_path(repo_id: str, platform: str | None = None) -> str:
             platform = "hf"
 
     if platform == "model_scope":
-        return download_modelscope_model(repo_id)
+        return download_modelscope_model(repo_id, revision=revision)
     else:
-        return download_hf_model(repo_id)
+        return download_hf_model(repo_id, revision=revision)
 
 
-def download_modelscope_model(repo_id: str, local_dir: str | None = None, cache_dir: str | None = None):
+def download_modelscope_model(
+    repo_id: str, local_dir: str | None = None, cache_dir: str | None = None, revision: str | None = None
+):
     from modelscope.utils.file_utils import get_modelscope_cache_dir  # pylint: disable=E0401
 
     system_cache = cache_dir if cache_dir is not None else get_modelscope_cache_dir()
@@ -238,12 +240,12 @@ def download_modelscope_model(repo_id: str, local_dir: str | None = None, cache_
         directory = os.path.join(system_cache, *repo_id.split("/"))
     else:
         directory = os.path.join(system_cache, "models", *repo_id.split("/"))
-    if os.path.exists(directory):
+    if os.path.exists(directory) and revision is None:
         return directory
     else:
         from modelscope.hub.snapshot_download import snapshot_download  # pylint: disable=E0401
 
-        return snapshot_download(repo_id)
+        return snapshot_download(repo_id, revision=revision)
 
 
 def download_hf_model(repo_id, cache_dir=None, repo_type=None, revision=None):
@@ -273,7 +275,7 @@ def download_hf_model(repo_id, cache_dir=None, repo_type=None, revision=None):
     else:  # pragma: no cover
         from huggingface_hub import snapshot_download
 
-        model_path = snapshot_download(repo_id)
+        model_path = snapshot_download(repo_id, revision=revision)
         return model_path
 
 
@@ -292,10 +294,12 @@ def _check_accelerate_version():
 
 
 _MXFP4_SUPPORTED_MODEL_TYPES = {"gpt_oss"}
-_FP8_SUPPORTED_MODEL_TYPES = {"deepseek_v32"}
+# DeepSeek V4 uses this same FP8 checkpoint loader for dense FP8 and packed
+# FP4 experts. Dequantize both before generic fused-MoE replacements run.
+_FP8_SUPPORTED_MODEL_TYPES = {"deepseek_v32", "deepseek_v4"}
 
 
-def _is_mxfp4_model(model_path, trust_remote_code=True):
+def _is_mxfp4_model(model_path, trust_remote_code=False):
     """Check if a model is an MXFP4 quantized model supported for direct loading.
 
     Only checks when transformers >= 5.0.0. Returns False immediately for older versions,
@@ -324,7 +328,7 @@ def _is_mxfp4_model(model_path, trust_remote_code=True):
     return quant_method == "mxfp4" and model_type in _MXFP4_SUPPORTED_MODEL_TYPES
 
 
-def _is_fp8_model(model_path, trust_remote_code=True):
+def _is_fp8_model(model_path, trust_remote_code=False):
     """Check if a model is an FP8 quantized model supported for direct loading.
 
     Only checks when transformers >= 4.56.0. Returns False immediately for older versions,
@@ -445,7 +449,7 @@ def install_debug_layer_config_patch() -> None:
 def llm_load_model(
     pretrained_model_name_or_path: str,
     platform: str = "hf",
-    trust_remote_code: bool = True,
+    trust_remote_code: bool = False,
     model_dtype: str | None = None,
     device: str = "cpu",
     **kwargs,
@@ -541,7 +545,7 @@ def llm_load_model(
 
     model_cls = AutoModel if is_glm else AutoModelForCausalLM
     if "deepseek" in pretrained_model_name_or_path.lower() and trust_remote_code:
-        logger.warning("trust_remote_code is enabled by default, please ensure its correctness.")
+        logger.warning("trust_remote_code is explicitly enabled, please ensure the model source is trusted.")
 
     if is_hpex_available():
         # For loading FP8 model on HPU
@@ -568,9 +572,26 @@ def llm_load_model(
     monkey_patch_model(model)
     check_and_mark_quantized_module(model)
     handle_generation_config(model)
+    _keep_checkpoint_fp32_params(model, pretrained_model_name_or_path, platform, revision=load_kwargs.get("revision"))
     model = _to_model_dtype(model, model_dtype)
 
     return model, tokenizer
+
+
+def _keep_checkpoint_fp32_params(model, pretrained_model_name_or_path, platform, subfolder=None, revision=None):
+    """Keep FP32 tensors of a mixed-precision checkpoint in FP32 after ``from_pretrained``."""
+    from auto_round.utils.missing_tensors import keep_special_fp32_params
+
+    revision = getattr(getattr(model, "config", None), "_commit_hash", None) or revision
+    try:
+        source_dir = pretrained_model_name_or_path
+        if not os.path.isdir(source_dir):
+            source_dir = download_or_get_path(source_dir, platform=platform, revision=revision)
+        if subfolder is not None:
+            source_dir = os.path.join(source_dir, subfolder)
+        keep_special_fp32_params(model, source_dir)
+    except Exception as e:
+        logger.warning(f"Skipping restore of FP32 tensors from the checkpoint due to error: {e}")
 
 
 def _find_pipeline_model_subfolder(model_dir_or_repo: str, file_list: list | None = None) -> tuple:
@@ -651,10 +672,15 @@ def mllm_load_model(
     device: str = "cpu",
     torch_dtype: str = "auto",
     use_auto_mapping: bool = True,
-    trust_remote_code: bool = True,
+    trust_remote_code: bool = False,
     model_dtype: str | None = None,
     **kwargs,
 ):
+    from auto_round.modeling.nemotron_h_omni import (
+        nemotron_h_omni_load_kwargs,
+        prefer_remote_omni_class,
+        register_nemotron_h_omni_checkpoint_mapping,
+    )
     from auto_round.special_model_handler import MISTRAL_3_2_MODELS
 
     _check_accelerate_version()
@@ -725,6 +751,7 @@ def mllm_load_model(
         model_type = config["model_type"]
     else:
         model_type = None
+    register_nemotron_h_omni_checkpoint_mapping(config, trust_remote_code)
 
     if model_type == "qwen2_5_omni":
         if version.parse(transformers.__version__) < version.parse("4.52.0"):
@@ -850,7 +877,9 @@ def mllm_load_model(
                 torch_dtype=torch_dtype,
             )
         else:
-            if architectures.endswith("Model") and hasattr(
+            if prefer_remote_omni_class(config, trust_remote_code):
+                cls = AutoModelForCausalLM
+            elif architectures.endswith("Model") and hasattr(
                 base_lib, n := architectures.replace("Model", "ForConditionalGeneration")
             ):
                 cls = getattr(base_lib, n)
@@ -859,7 +888,7 @@ def mllm_load_model(
             else:
                 cls = AutoModelForCausalLM
             try:
-                model_load_kwargs = {}
+                model_load_kwargs = nemotron_h_omni_load_kwargs(config)
                 if model_subfolder is not None:
                     model_load_kwargs["subfolder"] = model_subfolder
                 model = cls.from_pretrained(
@@ -933,6 +962,9 @@ def mllm_load_model(
     model = model.eval()
     check_and_mark_quantized_module(model)
     handle_generation_config(model)
+    _keep_checkpoint_fp32_params(
+        model, pretrained_model_name_or_path, platform, model_subfolder, revision=kwargs.get("revision")
+    )
     model = _to_model_dtype(model, model_dtype)
 
     if model_subfolder is not None:
@@ -967,7 +999,7 @@ def diffusion_load_model(
     device: str | torch.device = "cpu",
     torch_dtype: str | torch.dtype = "auto",
     use_auto_mapping: bool = False,
-    trust_remote_code: bool = True,
+    trust_remote_code: bool = False,
     model_dtype: str | None = None,
     default_torch_dtype: str | torch.dtype = "auto",
     **kwargs,
@@ -1002,7 +1034,7 @@ def diffusion_load_model(
     if model_type == "nextstep":
         from auto_round.special_model_handler import load_next_step_diffusion
 
-        pipe, model = load_next_step_diffusion(pretrained_model_name_or_path, device_str)
+        pipe, model = load_next_step_diffusion(pretrained_model_name_or_path, device_str, trust_remote_code)
         return pipe, pipe.model
 
     # A special case for Cosmos3: model_index.json _class_name may not match
@@ -1049,7 +1081,7 @@ def diffusion_load_model(
                     torch_dtype[k] = component_dtype
 
         pipe = pipelines.pipeline_utils.DiffusionPipeline.from_pretrained(
-            pretrained_model_name_or_path, torch_dtype=torch_dtype
+            pretrained_model_name_or_path, torch_dtype=torch_dtype, trust_remote_code=trust_remote_code
         )
         pipe_config = pipe.load_config(pretrained_model_name_or_path)
 
@@ -1122,7 +1154,7 @@ def load_model(
     pretrained_model_name_or_path: str | torch.nn.Module,
     platform: str = "hf",
     model_dtype: str | None = None,
-    trust_remote_code: bool = True,
+    trust_remote_code: bool = False,
     device: str = "cpu",
     use_auto_mapping: bool | None = None,
     use_model_replacements: bool = False,
@@ -1454,7 +1486,7 @@ def _get_modular_pipeline_class():
         return None
 
 
-def is_diffusion_model(model_or_path: str | object, trust_remote_code: bool = True) -> bool:
+def is_diffusion_model(model_or_path: str | object, trust_remote_code: bool = False) -> bool:
     from auto_round.utils.common import LazyImport
 
     # Then check if model_index.json exists for diffusion pipeline,
@@ -1598,6 +1630,27 @@ def get_block_names(model, quant_vision=False):
 
 
 def get_lm_head_name(model):
+    """Resolve the name of the LM head module (e.g. ``lm_head``).
+
+    Prefers the model's own ``get_output_embeddings()`` declaration — the
+    transformers-native source of truth, overridden per family — and
+    reverse-maps the returned module to its registered name. Falls back to the
+    last-leaf walk for objects without the method, raising getters, or
+    unregistered heads (trust-remote-code, diffusers, plain ``nn.Module``).
+    Weight tying shares parameters while module objects stay distinct, so the
+    identity mapping stays unambiguous for tied models.
+    """
+    getter = getattr(model, "get_output_embeddings", None)
+    if callable(getter):
+        try:
+            head = getter()
+        except Exception:  # family-specific failures fall back to the walk
+            head = None
+        if head is not None:
+            for name, module in model.named_modules():
+                if module is head:
+                    return name
+            # an unregistered head: fall through to the last-leaf walk
     block_names = get_block_names(model, True)
     last_name = None
     for n, m in model.named_modules():
@@ -1629,6 +1682,7 @@ def get_expert_linear_names(module: torch.nn.Module) -> list[str]:
         [
             "Qwen2MoeSparseMoeBlock",
             "Qwen3MoeSparseMoeBlock",
+            "Qwen3_5MoeSparseMoeBlock",
             "DeepseekMoE",
             "DeepseekV2MoE",
             "DeepseekV3MoE",
@@ -1669,6 +1723,7 @@ def get_expert_input_proj_names(module: torch.nn.Module) -> list[str]:
         [
             "Qwen2MoeSparseMoeBlock",
             "Qwen3MoeSparseMoeBlock",
+            "Qwen3_5MoeSparseMoeBlock",
             "Qwen3VLMoeTextSparseMoeBlock",
             "Qwen3OmniMoeThinkerTextSparseMoeBlock",
             "Qwen3OmniMoeTalkerTextSparseMoeBlock",
@@ -1717,7 +1772,7 @@ def get_nested_attr(module, attr_name: str):
 
 
 def get_gguf_architecture(dir_model, model_type=ModelType.TEXT):
-    from auto_round.export.export_to_gguf.llama_cpp_conversion import get_conversion
+    from auto_round.export.formats.gguf.llama_cpp_conversion import get_conversion
 
     is_mistral_format = False
     if isinstance(dir_model, str):
@@ -2182,7 +2237,7 @@ def to_dtype(input, dtype=torch.float32):
 def set_amax_for_uncalibrated_experts(
     experts: torch.nn.Module, set_amax_value: float | None = None, attr_name="act_max", unify_all: bool = False
 ):
-    """Set amax of uncalibrated experts to a given value or the max of existing amax value from other experts.
+    """Fill missing or degenerate NVFP amax from the largest valid peer statistic.
 
     Args:
         experts: a list of experts
@@ -2211,10 +2266,50 @@ def set_amax_for_uncalibrated_experts(
             value = get_nested_attr(module.orig_layer, attr_name)
         return value
 
+    def _needs_nvfp_repair(module, value):
+        from auto_round.data_type.nvfp import (
+            FLOAT4_E2M1_MAX,
+            FLOAT8_E4M3_MAX,
+            FLOAT8_UE5M3_MAX,
+            get_reciprocal,
+            is_valid_nvfp_global_scale,
+        )
+        from auto_round.schemes import needs_nvfp_global_scale
+
+        data_type = _get_attr(module, "act_data_type")
+        act_bits = _get_attr(module, "act_bits")
+        if (
+            attr_name != "act_max"
+            or not isinstance(data_type, str)
+            or not needs_nvfp_global_scale(data_type)
+            or not isinstance(act_bits, (float, int))
+            or act_bits > 8
+        ):
+            return False
+        if value is None:
+            return True
+        amax = value.to(torch.float32)
+        if not torch.isfinite(amax).all() or (amax < 0).any():
+            raise ValueError("NVFP expert act_max must contain finite, nonnegative calibration statistics.")
+        scale_max = FLOAT8_UE5M3_MAX if "nvfp4_v2" in data_type else FLOAT8_E4M3_MAX
+        global_scale = scale_max * FLOAT4_E2M1_MAX * get_reciprocal(amax.max())
+        return not bool(is_valid_nvfp_global_scale(global_scale).all())
+
+    # ModelOpt set_expert_quantizer_amax reuses the largest calibrated peer amax.
+    # Extend its missing-statistic handling to zero/overflowing NVFP activation ranges.
+    # https://github.com/NVIDIA/TensorRT-Model-Optimizer/blob/main/modelopt/torch/export/layer_utils.py
+    values = [_get_amax_value(module) for module in experts]
+    needs_repair = [_needs_nvfp_repair(module, value) for module, value in zip(experts, values)]
+    degenerate_count = sum(repair and value is not None for repair, value in zip(needs_repair, values))
+
     # get the max amax value from all experts
     if set_amax_value is None:
-        amax_values = [_get_amax_value(m) for m in experts if _get_amax_value(m) is not None]
+        amax_values = [value for value, repair in zip(values, needs_repair) if value is not None and not repair]
         if len(amax_values) == 0:
+            if any(needs_repair):
+                raise ValueError(
+                    "No valid NVFP expert activation statistics are available for this projection; recalibrate."
+                )
             # Check if any expert actually needs act_max (act_bits < 8, not dynamic, not already quantized)
             sample = next((m for m in experts if m is not None), None)
             if sample is not None:
@@ -2236,17 +2331,22 @@ def set_amax_for_uncalibrated_experts(
         set_amax_value = torch.max(all_values)
         set_amax_value = set_amax_value.unsqueeze(0) if set_amax_value.dim() == 0 else set_amax_value
 
-    for module in experts:
-        current_amax = _get_amax_value(module)
+    if not isinstance(set_amax_value, torch.Tensor):
+        set_amax_value = torch.tensor(set_amax_value, dtype=torch.float32)
 
-        # Set amax if it's None (uncalibrated) OR if unify_all is True
-        if current_amax is None or unify_all:
-            # Use float32 dtype explicitly to ensure we create a floating point tensor
-            if not isinstance(set_amax_value, torch.Tensor):
-                set_amax_value = torch.tensor(set_amax_value, dtype=torch.float32)
+    for module, current_amax, repair in zip(experts, values, needs_repair):
+        if current_amax is None or unify_all or repair:
+            if _needs_nvfp_repair(module, set_amax_value):
+                raise ValueError("The replacement NVFP expert act_max must produce a finite positive global scale.")
             set_nested_attr(module, attr_name, set_amax_value.clone())
             if current_amax is None:
                 uncalibrated_experts.append(module)
+
+    if degenerate_count:
+        logger.warning_once(
+            f"Replaced {degenerate_count} degenerate NVFP expert activation statistics "
+            "with the maximum valid amax from the same projection group."
+        )
 
     if uncalibrated_experts:
         logger.info_once(
@@ -2302,6 +2402,8 @@ def set_amax_for_all_moe_layers(model: torch.nn.Module, layer_name=None, attr_na
                         attr_name=attr_name,
                         unify_all=unify_scale,  # Unify scales for input projections (gate/up)
                     )
+                except ValueError as e:
+                    raise ValueError(f"Invalid activation statistics in '{name}.experts.*.{linear_name}': {e}") from e
                 except AttributeError as e:
                     # Provide more helpful debugging information
                     expert_types = list({type(expert).__name__ for expert in sub_module.experts})
@@ -2823,17 +2925,11 @@ def move_to_device_preserving_cpu_pinned(module: torch.nn.Module, device) -> tor
     """
     if module_pinned_execution_device(module) is not None or _module_manages_own_device(module):
         return module
-    # Materialize the iterators before mutating: reassigning ``param.data`` can trigger
-    # changes to the module's internal ``_parameters``/``_buffers`` dicts (e.g. on HPU lazy
-    # mode), which would raise ``RuntimeError: dictionary keys changed during iteration``.
-    for _, param in list(module.named_parameters(recurse=False)):
-        if param.device.type != "meta":
-            param.data = param.data.to(device)
-            if param.grad is not None:
-                param.grad.data = param.grad.data.to(device)
-    for _, buf in list(module.named_buffers(recurse=False)):
-        if buf.device.type != "meta":
-            buf.data = buf.data.to(device)
+    # Use the same conversion machinery as Module.to(): cross-backend transfers
+    # (notably CPU <-> HPU lazy) may require replacing a Parameter rather than
+    # assigning incompatible tensor types to its .data. _apply also moves gradients
+    # and replaces buffers. Recurse manually so pinned children remain untouched.
+    module._apply(lambda tensor: tensor if tensor.device.type == "meta" else tensor.to(device), recurse=False)
     for child in list(module.children()):
         move_to_device_preserving_cpu_pinned(child, device)
     return module
@@ -3186,10 +3282,12 @@ def is_model_free_route(
     has_static_attention_quantization = any(
         kwargs.get(key) is not None for key in ("static_kv_dtype", "static_attention_dtype")
     )
+    if explicit:
+        if has_static_attention_quantization:
+            raise ValueError("model_free=True does not support static KV or attention quantization.")
+        return True
     if has_static_attention_quantization:
         return False
-    if explicit:
-        return True
     # Only auto-route when format is auto_round (or not specified).
     fmt = kwargs.get("format", "auto_round")
     if fmt is None:
@@ -3278,8 +3376,8 @@ def find_layers_from_config(model_dir: str, class_names: list[str] | None = None
     for prefix, config_dir in dirs:
         try:
             with torch.device("meta"):
-                config = AutoConfig.from_pretrained(config_dir, trust_remote_code=True)
-                model = AutoModel.from_config(config, trust_remote_code=True)
+                config = AutoConfig.from_pretrained(config_dir, trust_remote_code=False)
+                model = AutoModel.from_config(config, trust_remote_code=False)
         except Exception as e:
             logger.warning(f"Failed to load model from {config_dir} for layer detection. Skipping. Warning: {e}")
             continue  # skip silently

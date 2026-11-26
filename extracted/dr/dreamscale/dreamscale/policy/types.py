@@ -108,6 +108,13 @@ class ActionTiming:
     worker_preprocess_ms: float | None = None
     worker_inference_ms: float | None = None
     worker_postprocess_ms: float | None = None
+    # The network time split by direction: the client's send to the server's receive stamp,
+    # and the server's send stamp to the client's receive, through the worker's clock offset
+    # from stamped probes (punched QUIC). None when no offset is known. Each is off by at
+    # most clock_offset_uncertainty_ms; their sum is exact.
+    uplink_ms: float | None = None
+    downlink_ms: float | None = None
+    clock_offset_uncertainty_ms: float | None = None
 
 
 @dataclass(frozen=True)

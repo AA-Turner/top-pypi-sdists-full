@@ -22,6 +22,8 @@ WARNING_ONLY_LOGGERS = (
     "psycopg",
     "mcp.server.streamable_http",
     "mcp.server.streamable_http_manager",
+    # Logs every file write under the reload dirs, including core.sqlite.
+    "watchfiles.main",
 )
 for library_logger in WARNING_ONLY_LOGGERS:
     logging.getLogger(library_logger).setLevel(logging.WARNING)

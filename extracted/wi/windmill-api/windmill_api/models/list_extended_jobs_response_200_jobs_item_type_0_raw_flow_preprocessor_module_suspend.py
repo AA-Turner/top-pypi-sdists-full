@@ -49,6 +49,9 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleSuspend:
             approval request is presented, on the approval page and in Slack/Teams approval messages. 'detailed' (used when
             unset) shows the flow details (arguments, graph, approvers); 'minimal' shows only the request: the step
             description, form and approve/reject actions
+        show_on_home (Union[Unset, bool]): If true, a run waiting on this step is listed on the Home page of each user
+            who can approve it. Leave unset when the approval request is sent through another channel (Slack, Discord,
+            email), so it does not sit there unanswered
     """
 
     required_events: Union[Unset, int] = UNSET
@@ -67,6 +70,7 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleSuspend:
     hide_cancel: Union[Unset, bool] = UNSET
     continue_on_disapprove_timeout: Union[Unset, bool] = UNSET
     skin: Union[Unset, ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleSuspendSkin] = UNSET
+    show_on_home: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -116,6 +120,8 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleSuspend:
         if not isinstance(self.skin, Unset):
             skin = self.skin.value
 
+        show_on_home = self.show_on_home
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -137,6 +143,8 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleSuspend:
             field_dict["continue_on_disapprove_timeout"] = continue_on_disapprove_timeout
         if skin is not UNSET:
             field_dict["skin"] = skin
+        if show_on_home is not UNSET:
+            field_dict["show_on_home"] = show_on_home
 
         return field_dict
 
@@ -247,6 +255,8 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleSuspend:
         else:
             skin = ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleSuspendSkin(_skin)
 
+        show_on_home = d.pop("show_on_home", UNSET)
+
         list_extended_jobs_response_200_jobs_item_type_0_raw_flow_preprocessor_module_suspend = cls(
             required_events=required_events,
             timeout=timeout,
@@ -257,6 +267,7 @@ class ListExtendedJobsResponse200JobsItemType0RawFlowPreprocessorModuleSuspend:
             hide_cancel=hide_cancel,
             continue_on_disapprove_timeout=continue_on_disapprove_timeout,
             skin=skin,
+            show_on_home=show_on_home,
         )
 
         list_extended_jobs_response_200_jobs_item_type_0_raw_flow_preprocessor_module_suspend.additional_properties = d

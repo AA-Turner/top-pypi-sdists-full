@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::str::FromStr;
 
 use super::MjBody;
 use crate::helper::size::Pixel;
@@ -7,18 +7,18 @@ use crate::prelude::render::*;
 impl<'root> Renderer<'root, MjBody, ()> {
     fn get_width(&self) -> Option<Pixel> {
         self.attribute("width")
-            .and_then(|value| Pixel::try_from(value).ok())
+            .and_then(|value| Pixel::from_str(value).ok())
     }
 
     fn get_body_tag(&self) -> Tag<'_> {
-        self.set_body_style(Tag::new("body").add_style("word-spacing", "normal"))
+        self.set_body_style(Tag::new("body"))
+            .maybe_add_attribute("class", self.attribute("css-class"))
     }
 
     fn get_content_div_tag(&self) -> Tag<'_> {
         self.set_body_style(Tag::new("div"))
             .maybe_add_attribute("aria-label", self.context.header.title())
             .add_attribute("aria-roledescription", "email")
-            .maybe_add_attribute("class", self.attribute("css-class"))
             .add_attribute("role", "article")
             .add_attribute("lang", self.context.header.lang())
             .add_attribute("dir", self.context.header.dir())
@@ -29,7 +29,8 @@ impl<'root> Renderer<'root, MjBody, ()> {
         'root: 'a,
         'a: 't,
     {
-        tag.maybe_add_style("background-color", self.attribute("background-color"))
+        tag.add_style("word-spacing", "normal")
+            .maybe_add_style("background-color", self.attribute("background-color"))
     }
 
     fn render_preview(&self, buf: &mut RenderBuffer) {

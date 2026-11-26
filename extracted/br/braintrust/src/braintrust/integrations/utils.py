@@ -12,6 +12,7 @@ _try_to_dict``).
 import base64
 import binascii
 import io
+import math
 import mimetypes
 import os
 import re
@@ -672,12 +673,14 @@ def _prettify_response_params(params: dict[str, Any], *, drop_not_given: bool = 
     return ret
 
 
-def _extract_google_modality_token_count(details: Any, modality: str) -> int | float | None:
+def _extract_google_modality_token_count(
+    details: Any, modality: str, *, count_field: str = "token_count"
+) -> int | float | None:
     counts = []
     for detail in details or []:
         detail_modality = getattr(detail, "modality", None)
         detail_modality = getattr(detail_modality, "value", detail_modality)
-        token_count = getattr(detail, "token_count", None)
+        token_count = getattr(detail, count_field, None)
         if isinstance(detail_modality, str) and detail_modality.upper() == modality and token_count is not None:
             counts.append(token_count)
     return sum(counts) if counts else None
@@ -716,6 +719,12 @@ def _extract_google_usage_metadata_metrics(usage_metadata: Any) -> dict[str, Any
     if prompt_audio_tokens is not None:
         metrics["prompt_audio_tokens"] = prompt_audio_tokens
 
+    prompt_cached_audio_tokens = _extract_google_modality_token_count(
+        getattr(usage_metadata, "cache_tokens_details", None), "AUDIO"
+    )
+    if prompt_cached_audio_tokens is not None:
+        metrics["prompt_cached_audio_tokens"] = prompt_cached_audio_tokens
+
     candidates_tokens_details = getattr(usage_metadata, "candidates_tokens_details", None)
     completion_audio_tokens = _extract_google_modality_token_count(candidates_tokens_details, "AUDIO")
     if completion_audio_tokens is not None:
@@ -728,7 +737,7 @@ def _extract_google_usage_metadata_metrics(usage_metadata: Any) -> dict[str, Any
 
 
 def _extract_google_usage_metadata_provider_metadata(usage_metadata: Any) -> dict[str, Any] | None:
-    """Preserve Google usage breakdowns that do not map to standard metrics."""
+    """Preserve Google's full cache and tool-use modality breakdowns."""
     if usage_metadata is None:
         return None
 
@@ -738,6 +747,59 @@ def _extract_google_usage_metadata_provider_metadata(usage_metadata: Any) -> dic
         if details:
             usage_by_modality[name] = details
     return {"usage_by_modality": usage_by_modality} if usage_by_modality else None
+
+
+def _extract_openai_cached_audio_tokens(usage: Any) -> int | None:
+    if not isinstance(usage, dict):
+        return None
+    for key in ("input_token_details", "input_tokens_details", "prompt_tokens_details"):
+        details = usage.get(key)
+        if isinstance(details, dict):
+            cached_details = details.get("cached_tokens_details")
+            if isinstance(cached_details, dict):
+                count = cached_details.get("audio_tokens")
+                if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
+                    return count
+    return None
+
+
+def _metered_duration_metrics(seconds: Any, *, standby_seconds: Any = None) -> dict[str, int | float]:
+    return {
+        name: value
+        for name, value in (("usage_seconds", seconds), ("usage_standby_seconds", standby_seconds))
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value < math.inf
+    }
+
+
+def _parse_openai_audio_usage_metrics(usage: dict[str, Any]) -> dict[str, int | float]:
+    input_details = (
+        usage.get("input_token_details") or usage.get("input_tokens_details") or usage.get("prompt_tokens_details")
+    )
+    output_details = (
+        usage.get("output_token_details")
+        or usage.get("output_tokens_details")
+        or usage.get("completion_tokens_details")
+    )
+    input_details = input_details if isinstance(input_details, dict) else {}
+    output_details = output_details if isinstance(output_details, dict) else {}
+    counts = {
+        "prompt_tokens": usage.get("input_tokens", usage.get("prompt_tokens")),
+        "completion_tokens": usage.get("output_tokens", usage.get("completion_tokens")),
+        "tokens": usage.get("total_tokens", usage.get("tokens")),
+        "prompt_audio_tokens": input_details.get("audio_tokens"),
+        "prompt_cached_tokens": input_details.get("cached_tokens"),
+        "prompt_cached_audio_tokens": _extract_openai_cached_audio_tokens(usage),
+        "prompt_cache_creation_tokens": usage.get(
+            "prompt_cache_creation_tokens", input_details.get("cache_write_tokens")
+        ),
+        "completion_audio_tokens": output_details.get("audio_tokens"),
+        "completion_image_tokens": output_details.get("image_tokens"),
+        "completion_reasoning_tokens": output_details.get("reasoning_tokens"),
+    }
+    return {
+        **{key: value for key, value in counts.items() if type(value) is int and value >= 0},
+        **_metered_duration_metrics(usage.get("seconds")),
+    }
 
 
 def _parse_openai_usage_metrics(
@@ -755,6 +817,10 @@ def _parse_openai_usage_metrics(
     usage = _try_to_dict(usage)
     if not isinstance(usage, dict):
         return metrics
+
+    cached_audio_tokens = _extract_openai_cached_audio_tokens(usage)
+    if cached_audio_tokens is not None:
+        metrics["prompt_cached_audio_tokens"] = cached_audio_tokens
 
     for name, value in usage.items():
         if name.endswith("_tokens_details"):

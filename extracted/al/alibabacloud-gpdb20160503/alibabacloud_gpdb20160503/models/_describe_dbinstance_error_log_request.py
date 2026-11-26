@@ -30,14 +30,14 @@ class DescribeDBInstanceErrorLogRequest(DaraModel):
         self.end_time = end_time
         # This parameter is not supported in the public cloud. You do not need to specify this parameter.
         self.host = host
-        # The keyword used to search for error logs.
+        # The keyword in the error logs.
         self.keywords = keywords
         # The log level. Valid values:
         # 
-        # - **ALL**: displays logs of all levels.
-        # - **PANIC**: displays only panic-level logs.
-        # - **FATAL**: displays only fatal-level logs.
-        # - **ERROR**: displays only error-level logs.
+        # - **ALL**: Displays logs of all levels.
+        # - **PANIC**: Displays only panic-level logs.
+        # - **FATAL**: Displays only fatal-level logs.
+        # - **ERROR**: Displays only error-level logs.
         self.log_level = log_level
         # The page number. The value must be greater than 0 and cannot exceed the maximum value of the Integer type. Default value: **1**.
         self.page_number = page_number

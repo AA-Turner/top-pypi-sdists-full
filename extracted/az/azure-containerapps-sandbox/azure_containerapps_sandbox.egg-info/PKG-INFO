@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: azure-containerapps-sandbox
-Version: 0.1.0b4
-Summary: Azure Container Apps Sandbox SDK for Python — data plane + sandbox group management. Community preview.
+Version: 1.0.0b1
+Summary: Azure Container Apps Sandbox data-plane SDK for Python. Community preview.
 Author-email: Microsoft <acasupport@microsoft.com>
 License: MIT
 Project-URL: Homepage, https://github.com/microsoft/azure-container-apps
@@ -13,31 +13,28 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
-Requires-Dist: azure-core>=1.30
-Requires-Dist: azure-mgmt-core>=1.4
+Requires-Dist: azure-core>=1.37.0
 Requires-Dist: azure-identity>=1.15
 Requires-Dist: aiohttp<4,>=3.0
 Requires-Dist: certifi>=2023.7.22
+Requires-Dist: isodate>=0.6.1
+Requires-Dist: typing-extensions>=4.6.0
+Requires-Dist: websockets<17,>=15.0.1
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: build; extra == "dev"
-Requires-Dist: azure-mgmt-authorization>=4.0; extra == "dev"
-Requires-Dist: azure-mgmt-resource>=23.0; extra == "dev"
-Requires-Dist: azure-mgmt-subscription>=3.0; extra == "dev"
+Requires-Dist: azure-mgmt-appcontainers<6,>=5.1.0; extra == "dev"
 
 # Azure Container Apps Sandbox Client Library for Python
 
 > **⚠️ Preview** — This SDK is in preview. The API surface may change without notice.
 
-Data-plane and control-plane SDK for Azure Container Apps sandboxes.
+Data-plane SDK for ACA Sandboxes.
 
 ## Isolated MicroVMs
 
@@ -63,72 +60,151 @@ pip install azure-containerapps-sandbox
 
 ## Quick start
 
+Provision the resource group and sandbox group separately before using this SDK,
+and grant your calling identity the **Container Apps SandboxGroup Data Owner**
+role on the group or its parent resource group. Supply the existing subscription
+ID, resource group, sandbox group name, and regional endpoint below.
+`SandboxGroupManagementClient` (sync and async) and the ARM `SandboxGroup` model
+have been removed; this package does not create, configure, or delete sandbox
+groups.
+
 ```python
-import uuid
 from azure.identity import DefaultAzureCredential
-from azure.mgmt.resource.resources import ResourceManagementClient
-from azure.mgmt.authorization import AuthorizationManagementClient
 from azure.containerapps.sandbox import (
-    SandboxGroupManagementClient,
     SandboxGroupClient,
     endpoint_for_region,
 )
 
 credential = DefaultAzureCredential()
-subscription_id = "<your-subscription-id>"  # az account show --query id -o tsv
-principal_id = "<your-principal-id>"  # az ad signed-in-user show --query id -o tsv
+subscription_id = "<your-subscription-id>"
 resource_group = "my-rg"
 sandbox_group = "my-sandbox-group"
 region = "eastus2"
 
-# 1. Create resource group
-resource_client = ResourceManagementClient(credential, subscription_id)
-resource_client.resource_groups.create_or_update(resource_group, {"location": region})
-
-# 2. Create sandbox group
-mgmt = SandboxGroupManagementClient(
-    credential, subscription_id=subscription_id, resource_group=resource_group,
-)
-mgmt.create_group(sandbox_group, location=region)
-
-# 3. Grant data-plane access
-auth_client = AuthorizationManagementClient(credential, subscription_id)
-scope = f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
-role_def = next(auth_client.role_definitions.list(
-    scope, filter="roleName eq 'Container Apps SandboxGroup Data Owner'"
-))
-auth_client.role_assignments.create(scope, uuid.uuid4(), {
-    "role_definition_id": role_def.id,
-    "principal_id": principal_id,
-    "principal_type": "User",
-})
-
-# 4. Connect to data plane and create a sandbox
+# 1. Connect to an existing sandbox group and create a sandbox
 client = SandboxGroupClient(
     endpoint_for_region(region), credential,
     subscription_id=subscription_id,
     resource_group=resource_group,
     sandbox_group=sandbox_group,
 )
-sandbox = client.begin_create_sandbox(disk="ubuntu").result()
+sandbox = client.create_sandbox(disk="ubuntu")
 
-# 5. Run a command
+# 2. Run a command
 result = sandbox.exec("echo hello world && uname -a")
 print(result.stdout)
 
-# 6. Clean up
+# 3. Delete the sandbox; keep the separately provisioned group
 sandbox.delete()
-mgmt.delete_group(sandbox_group)
 client.close()
-mgmt.close()
 ```
+
+`create_sandbox()` sends the create request and returns a `SandboxClient` on
+HTTP **201 Created**, without issuing follow-up GETs or creating a poller.
+The async equivalent is `sandbox = await client.create_sandbox(...)`.
+The existing `begin_create_sandbox(...).result()` (or its async equivalent)
+remains available to explicitly wait for the sandbox to reach `Running`.
 
 ## Authentication
 
 Uses `DefaultAzureCredential` from `azure-identity`, which automatically
 picks up `az login`, managed identity, environment variables, etc.
 
+## Import container images
+
+Sync and async `create_disk_image` and `begin_create_disk_image` import registry
+images using `PUT /diskimages/v2`. Image references (including tags, digests and
+registry ports) are sent unchanged. `create_disk_image` returns immediately;
+`begin_create_disk_image` polls the disk image with GET until it is ready.
+
+```python
+from azure.containerapps.sandbox import RegistryCredentials
+
+image = client.begin_create_disk_image("docker.io/library/alpine:latest", name="alpine").result()
+private_image = client.begin_create_disk_image(
+    "example.azurecr.io/team/app:v1",
+    registry_credentials=RegistryCredentials(username="<user>", token="<token>"),
+).result()
+identity_image = client.begin_create_disk_image(
+    "example.azurecr.io/team/app:v1",
+    managed_identity_client_id="<user-assigned-identity-client-id>",
+).result()
+```
+
+Omit both authentication options for anonymous pulls. Credentials require both a
+nonempty username and token and cannot be combined with managed identity.
+`managed_identity_client_id="system"` selects the sandbox group's
+system-assigned identity (case-insensitive). A user-assigned identity must be an
+identity client ID, not an ARM resource ID. Configure the identity on the group
+separately and grant it registry pull permissions. The SDK passes the supplied
+identity selector directly to the data plane and does not look up identities
+through ARM.
+
+**Breaking change:** replace `managed_identity_resource_id` with
+`managed_identity_client_id`; for user-assigned identities, supply the client ID
+rather than the resource ID.
+
+**Breaking change:** disk-image create methods no longer accept `entrypoint` or
+`cmd`, including via `**kwargs`. Configure command overrides when creating the
+sandbox container instead. Disk-image response `image.entrypoint` and
+`image.cmd` metadata is still available.
+
+For `aio` clients, await the create/begin calls and the poller's `result()`.
+
+## Complete egress policies
+
+Use `sandbox.get_egress_policy()` and `sandbox.set_egress_policy(policy)` as the
+primary entry points. `EgressPolicy` exposes `http: EgressHttpPolicy`,
+`tds: EgressTdsPolicy`, and `transport_rules: EgressTransportPolicy`, including
+forward proxies, hooks, database credentials, routing, inspection, enforcement,
+and validation warnings. These public models are imported from
+`azure.containerapps.sandbox`, not `_generated`.
+
+Fetch the whole policy before editing an existing section, then write it back
+to preserve the other sections. For structured policies, change
+`policy.http.default_action`, not the legacy flat `policy.default_action`.
+An HTTP default does not configure TDS or TCP/UDP defaults.
+`set_egress_default()` has been removed from both sync and async clients.
+See the [full policy examples and model reference](../../../docs/python-sdk-reference.md#egress-policy).
+
+## TCP port forwarding
+
+Before cleanup, reuse `sandbox` above with the group client's endpoint set to the
+regional `managementEndpoint` supplied by your separate provisioning workflow.
+For an HTTP server on port 8080 in the default container:
+
+```python
+import sys
+
+with sandbox.start_port_forward(8080) as tunnel:
+    tunnel.write(b"GET / HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\n\r\n")
+    while (chunk := tunnel.read(timeout=30)) is not None:
+        sys.stdout.buffer.write(chunk)
+```
+
+`with` closes only the tunnel. For `aio`, use async credentials/clients and
+`async with await sandbox.start_port_forward(...)`, `await tunnel.write(...)`,
+and `async for chunk in tunnel`. Read timeout or async task cancellation closes only
+the tunnel; `asyncio.timeout` can bound authentication and I/O. Connect/handshake
+timeouts do not bound token acquisition.
+See [data-plane authorization and protocol requirements](../../../../docs/arch-design/PortForward.md#arm-backed-sandboxes).
+
+## Sandbox group metrics
+
+Group-level metrics are always enabled. To opt into per-sandbox metrics, configure
+`enableDetailedMetrics` on the sandbox group through your separate provisioning
+workflow. This Python data-plane SDK does not manage that setting.
+
 ## Port access control
+
+Ports default to **anonymous access** (accessible without authentication),
+matching the portal. Integer entries such as `ports=[8080]` and
+`sandbox.update_ports([8080])` use this default, as does `sandbox.add_port(8080)`.
+Missing/empty auth, `anonymous=False` without a nonempty email, and disabled
+Entra providers also default to anonymous. Enabled Entra policies are preserved.
+To require authentication, pass `email="user@contoso.com"` to `add_port`, or
+use `AddPortRequest` with `auth=PortAuthConfig(entra_id=PortAuthEntraId(enabled=True, emails=[...]))`
+when creating or updating ports. The same behavior applies to async clients.
 
 Restrict which inbound client IPs can reach a port with a source-IP
 allow/deny policy. Rules match by CIDR range — the lowest `priority` is

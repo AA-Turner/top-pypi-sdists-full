@@ -6,6 +6,7 @@ first, or is about to be released - so they share one path.
 """
 
 import dataclasses
+from collections import abc
 from pathlib import Path
 
 from .. import tmux
@@ -41,8 +42,11 @@ def _spawn(
     harness: str,
     prompt: str,
     title: str,
+    environment: abc.Mapping[str, str] | None = None,
+    claude_flags: abc.Sequence[str] = (),
 ) -> Opened:
-    """A new session from the *harness* template.
+    """A new session from the *harness* template, its harness window started with
+    *environment* and, for Claude, *claude_flags*.
 
     The name comes from the spawn, not from looking the directory up again: a
     pane in another session can report the same directory, as lemonaid's scratch
@@ -56,6 +60,8 @@ def _spawn(
         template_name=harness,
         initial_prompt=prompt,
         title=title,
+        environment=environment,
+        claude_flags=claude_flags,
     )
     return Opened(tmux.session.spawned_name(session_name, str(directory)), True, error)
 
@@ -68,6 +74,8 @@ def open_place(
     harness: str = "default",
     prompt: str = "",
     title: str = "",
+    environment: abc.Mapping[str, str] | None = None,
+    claude_flags: abc.Sequence[str] = (),
 ) -> Opened:
     """Switch to a session rooted at *directory*, creating one if none exists."""
     session, pane_id = tmux.navigation.get_pane_for_cwd(str(directory))
@@ -82,7 +90,9 @@ def open_place(
     if session and pane_id:
         return _switch(session, pane_id, attach)
 
-    return _spawn(directory, config, session_name, attach, harness, prompt, title)
+    return _spawn(
+        directory, config, session_name, attach, harness, prompt, title, environment, claude_flags
+    )
 
 
 def open_session(
@@ -153,8 +163,12 @@ def open_key(
     harness: str = "default",
     prompt: str = "",
     title: str = "",
+    launch_for: abc.Callable[[Path], tuple[abc.Mapping[str, str], abc.Sequence[str]]] | None = None,
 ) -> tuple[Path | None, Opened]:
     """Get a session for *key* under *root*, acquiring its directory if needed.
+
+    *launch_for* gives, from the directory, the environment and Claude flags its harness
+    window starts with.
 
     Idempotent at three levels: an existing directory is not re-created, an
     existing session is switched to rather than duplicated, and neither case is
@@ -167,6 +181,7 @@ def open_key(
     if directory is None:
         return None, Opened(error=error)
 
+    environment, claude_flags = launch_for(directory) if launch_for else ({}, ())
     return directory, open_place(
         directory,
         config,
@@ -175,4 +190,6 @@ def open_key(
         harness=harness,
         prompt=prompt,
         title=title,
+        environment=environment,
+        claude_flags=claude_flags,
     )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiomisc
-Version: 18.0.42
+Version: 18.0.44
 Summary: aiomisc - miscellaneous utils for asyncio
 Author-email: Dmitry Orlov <me@mosquito.su>
 License-Expression: MIT
@@ -53,7 +53,7 @@ Requires-Dist: aiohttp-asgi>=0.5.2; extra == "asgi"
 Provides-Extra: carbon
 Requires-Dist: aiocarbon>=0.15; extra == "carbon"
 Provides-Extra: cron
-Requires-Dist: croniter<3,>=2.0; extra == "cron"
+Requires-Dist: croniter<8,>=2.0; extra == "cron"
 Provides-Extra: dns
 Requires-Dist: dnslib>=0.9; extra == "dns"
 Provides-Extra: grpc

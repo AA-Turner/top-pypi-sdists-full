@@ -14,11 +14,15 @@ class DescribeHadoopConfigsRequest(DaraModel):
     ):
         # The name of the configuration file. Valid values:
         # 
-        # *   hdfs-site
-        # *   core-site
-        # *   yarn-site
-        # *   mapred-site
-        # *   hive-site
+        # - hdfs-site: hdfs-site.xml file
+        # 
+        # - core-site: core-site.xml file
+        # 
+        # - yarn-site: yarn-site.xml file
+        # 
+        # - mapred-site: mapred-site.xml file
+        # 
+        # - hive-site: hive-site.xml file
         # 
         # This parameter is required.
         self.config_name = config_name
@@ -26,13 +30,13 @@ class DescribeHadoopConfigsRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The E-MapReduce (EMR) Hadoop cluster ID.
+        # The EMR instance ID.
         # 
         # This parameter is required.
         self.emr_instance_id = emr_instance_id
-        # The region ID of the instance.
+        # The region ID.
         # 
-        # >  You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query the most recent region list.
+        # > You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs.
         self.region_id = region_id
 
     def validate(self):

@@ -417,6 +417,7 @@ impl MountableFs {
 
     /// THREAT[TM-DOS-046]: Validate path using root filesystem limits before delegation.
     fn validate_path(&self, path: &Path) -> Result<()> {
+        super::reject_empty_path(path)?;
         self.root
             .limits()
             .validate_path(path)
@@ -488,6 +489,66 @@ impl MountableFs {
     fn has_mount_below(&self, path: &Path) -> bool {
         let mounts = self.mounts.read().unwrap();
         mounts.keys().any(|m| m != path && m.starts_with(path))
+    }
+
+    async fn read_dir_with_limit(
+        &self,
+        path: &Path,
+        limit: Option<usize>,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<DirEntry>> {
+        self.validate_path(path)?;
+        let path = Self::normalize_path(path);
+        let (fs, resolved) = self.resolve(&path);
+
+        let mut entries = match limit {
+            Some(limit) => fs.read_dir_limited(&resolved, limit).await?,
+            None => fs.read_dir_bounded(&resolved, charge).await?,
+        };
+
+        // Add mount points that are direct children of this directory. Their
+        // entry carries the mounted root's metadata, the same `stat` returns,
+        // so callers can trust listing metadata without a per-entry `stat`.
+        let children: Vec<(String, Arc<dyn FileSystem>)> = {
+            let mounts = self.mounts.read().unwrap();
+            mounts
+                .iter()
+                .filter(|(mount_path, _)| mount_path.parent() == Some(&path))
+                .filter_map(|(mount_path, mfs)| {
+                    let name = mount_path.file_name()?;
+                    Some(
+                        super::charge_dir_entry(charge, name.len())
+                            .map(|()| (name.to_string_lossy().into_owned(), Arc::clone(mfs))),
+                    )
+                })
+                .take(limit.map_or(usize::MAX, |limit| limit.saturating_add(1)))
+                .collect::<Result<_>>()?
+        };
+        if limit.is_some_and(|limit| children.len() > limit) {
+            return Err(super::traits::fs_errors::directory_entry_limit());
+        }
+        for (name, mfs) in children {
+            let metadata = mfs.stat(Path::new("/")).await.unwrap_or_else(|_| Metadata {
+                uid: 1000,
+                gid: 1000,
+                file_type: FileType::Directory,
+                size: 0,
+                mode: 0o755,
+                modified: crate::time_compat::SystemTime::now(),
+                created: crate::time_compat::SystemTime::now(),
+            });
+            match entries.iter_mut().find(|e| e.name == name) {
+                Some(entry) => entry.metadata = metadata,
+                None => {
+                    if limit == Some(entries.len()) {
+                        return Err(super::traits::fs_errors::directory_entry_limit());
+                    }
+                    entries.push(DirEntry { name, metadata });
+                }
+            }
+        }
+
+        Ok(entries)
     }
 }
 
@@ -578,12 +639,20 @@ impl super::SearchCapable for MountableFs {
 #[async_trait]
 impl FileSystem for MountableFs {
     async fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
+        self.read_file_bounded(path, None).await
+    }
+
+    async fn read_file_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<u8>> {
         // THREAT[TM-DOS-046]: validate before delegation so mounted backends
         // never receive control-character / depth-limit / length-limit
         // violating paths through any read API.
         self.validate_path(path)?;
         let (fs, resolved) = self.resolve(path);
-        fs.read_file(&resolved).await
+        fs.read_file_bounded(&resolved, charge).await
     }
 
     async fn write_file(&self, path: &Path, content: &[u8]) -> Result<()> {
@@ -618,41 +687,20 @@ impl FileSystem for MountableFs {
     }
 
     async fn read_dir(&self, path: &Path) -> Result<Vec<DirEntry>> {
-        self.validate_path(path)?;
-        let path = Self::normalize_path(path);
-        let (fs, resolved) = self.resolve(&path);
+        self.read_dir_with_limit(path, None, None).await
+    }
 
-        let mut entries = fs.read_dir(&resolved).await?;
+    async fn read_dir_limited(&self, path: &Path, max_entries: usize) -> Result<Vec<DirEntry>> {
+        self.read_dir_with_limit(path, Some(max_entries), None)
+            .await
+    }
 
-        // Add mount points that are direct children of this directory. Their
-        // entry carries the mounted root's metadata, the same `stat` returns,
-        // so callers can trust listing metadata without a per-entry `stat`.
-        let children: Vec<(String, Arc<dyn FileSystem>)> = {
-            let mounts = self.mounts.read().unwrap();
-            mounts
-                .iter()
-                .filter(|(mount_path, _)| mount_path.parent() == Some(&path))
-                .filter_map(|(mount_path, mfs)| {
-                    let name = mount_path.file_name()?.to_string_lossy().into_owned();
-                    Some((name, Arc::clone(mfs)))
-                })
-                .collect()
-        };
-        for (name, mfs) in children {
-            let metadata = mfs.stat(Path::new("/")).await.unwrap_or_else(|_| Metadata {
-                file_type: FileType::Directory,
-                size: 0,
-                mode: 0o755,
-                modified: crate::time_compat::SystemTime::now(),
-                created: crate::time_compat::SystemTime::now(),
-            });
-            match entries.iter_mut().find(|e| e.name == name) {
-                Some(entry) => entry.metadata = metadata,
-                None => entries.push(DirEntry { name, metadata }),
-            }
-        }
-
-        Ok(entries)
+    async fn read_dir_bounded(
+        &self,
+        path: &Path,
+        charge: super::ReadCharge<'_>,
+    ) -> Result<Vec<DirEntry>> {
+        self.read_dir_with_limit(path, None, charge).await
     }
 
     async fn walk(&self, root: &Path, opts: super::WalkOptions) -> Result<Vec<super::DirListing>> {

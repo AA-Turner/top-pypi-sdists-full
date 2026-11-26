@@ -217,6 +217,7 @@ ServiceName = Literal[
     "elasticache",
     "elasticbeanstalk",
     "elb",
+    "elb-proxy",
     "elbv2",
     "elementalinference",
     "emr",

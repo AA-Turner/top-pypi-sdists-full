@@ -63,11 +63,8 @@ fn write_regex_prefilter_corpus(dir: &std::path::Path) {
 }
 
 fn decode_hex_trigram(key: &str) -> [u8; 3] {
-    fn byte_at(key: &str, offset: usize) -> u8 {
-        u8::from_str_radix(&key[offset..offset + 2], 16).unwrap()
-    }
-
-    [byte_at(key, 0), byte_at(key, 2), byte_at(key, 4)]
+    let b = |o| u8::from_str_radix(&key[o..o + 2], 16).unwrap();
+    [b(0), b(2), b(4)]
 }
 
 fn write_legacy_v1_index(dir: &Path) {
@@ -81,11 +78,9 @@ fn write_legacy_v1_index(dir: &Path) {
     let mut buf = Vec::new();
     buf.extend_from_slice(b"TGI\x00");
     buf.push(1);
-
     let root_bytes = dir.to_string_lossy().as_bytes().to_vec();
     buf.extend_from_slice(&(root_bytes.len() as u32).to_le_bytes());
     buf.extend_from_slice(&root_bytes);
-
     let files = payload["files"].as_array().unwrap();
     buf.extend_from_slice(&(files.len() as u32).to_le_bytes());
     for entry in files {
@@ -95,7 +90,6 @@ fn write_legacy_v1_index(dir: &Path) {
         buf.extend_from_slice(&(entry["mtime_ns"].as_u64().unwrap() as u128).to_le_bytes());
         buf.extend_from_slice(&entry["size"].as_u64().unwrap().to_le_bytes());
     }
-
     let postings = payload["postings"].as_object().unwrap();
     buf.extend_from_slice(&(postings.len() as u32).to_le_bytes());
     for (key, value) in postings {
@@ -159,6 +153,10 @@ fn hello_per_file_counts() -> std::collections::BTreeMap<String, usize> {
     std::collections::BTreeMap::from([("a.txt".to_string(), 1), ("b.txt".to_string(), 1)])
 }
 
+fn resolved_index_path(dir: &Path) -> std::path::PathBuf {
+    tensor_grep_rs::index_cache::resolve_index_paths(dir.to_str().unwrap()).write_path
+}
+
 #[test]
 fn test_tg_search_index_builds_and_returns_results() {
     let dir = tempdir().unwrap();
@@ -182,7 +180,7 @@ fn test_tg_search_index_builds_and_returns_results() {
     assert!(stdout.contains("hello world"), "stdout={stdout}");
     assert!(stdout.contains("hello again"), "stdout={stdout}");
     assert!(
-        dir.path().join(".tg_index").exists(),
+        resolved_index_path(dir.path()).exists(),
         "index file should be created"
     );
 }
@@ -317,7 +315,7 @@ fn test_tg_search_index_warm_cache_reuses_index() {
         .unwrap();
     assert!(out1.status.success());
 
-    let index_path = dir.path().join(".tg_index");
+    let index_path = resolved_index_path(dir.path());
     assert!(index_path.exists());
     let mtime_1 = index_path.metadata().unwrap().modified().unwrap();
 
@@ -468,7 +466,7 @@ fn test_tg_search_auto_routes_to_warm_index() {
         .arg(dir.path())
         .output()
         .unwrap();
-    assert!(dir.path().join(".tg_index").exists());
+    assert!(resolved_index_path(dir.path()).exists());
 
     // Now search WITHOUT --index but with --verbose to see routing
     let output = tg()
@@ -688,7 +686,7 @@ fn test_tg_search_index_old_format_triggers_rebuild() {
         hello_per_file_counts()
     );
 
-    let rebuilt = fs::read(dir.path().join(".tg_index")).unwrap();
+    let rebuilt = fs::read(resolved_index_path(dir.path())).unwrap();
     assert_eq!(&rebuilt[0..4], b"TGI\x00");
     assert_eq!(
         rebuilt[4],
@@ -1319,7 +1317,7 @@ fn test_tg_search_warm_auto_index_smart_case_lowercase_pattern_matches_native() 
     // built, EVERY subsequent query in this dir auto-routes to it, so a "native" query run
     // afterward would be contaminated (it would hit the index too, making the parity check
     // vacuous). With no index present, `--json -S foo` routes to NativeCpu.
-    assert!(!dir.path().join(".tg_index").exists());
+    assert!(!resolved_index_path(dir.path()).exists());
     let native = tg()
         .arg("search")
         .arg("--json")
@@ -1335,7 +1333,7 @@ fn test_tg_search_warm_auto_index_smart_case_lowercase_pattern_matches_native() 
         "sanity: native smart-case lowercase pattern is case-insensitive = 3"
     );
     assert!(
-        !dir.path().join(".tg_index").exists(),
+        !resolved_index_path(dir.path()).exists(),
         "a cold native --json query must not create an index"
     );
 
@@ -1350,7 +1348,7 @@ fn test_tg_search_warm_auto_index_smart_case_lowercase_pattern_matches_native() 
         .output()
         .unwrap();
     assert!(build.status.success());
-    assert!(dir.path().join(".tg_index").exists());
+    assert!(resolved_index_path(dir.path()).exists());
 
     // Warm auto-routing (NO --index) with --json -S foo must ALSO honor smart-case -- the
     // query flows through the same run_index_query chokepoint as explicit --index, so a
@@ -1790,7 +1788,7 @@ fn test_tg_search_warm_auto_index_reroutes_instead_of_dropping_hidden_files() {
         .output()
         .unwrap();
     assert!(build.status.success());
-    assert!(dir.path().join(".tg_index").exists());
+    assert!(resolved_index_path(dir.path()).exists());
 
     // NO --index: --hidden combined with --json reaches detect_warm_index_state's gate the same
     // way the pre-existing H1e smart-case tests above reach handle_index_search's (a plain/non-
@@ -2025,7 +2023,7 @@ fn test_tg_search_warm_index_count_shape_does_not_depend_on_hidden_index_file() 
     // raw bytes, for the same rg-nondeterministic-order reason as the sibling test above.
     let dir = tempdir().unwrap();
     write_corpus(dir.path());
-    assert!(!dir.path().join(".tg_index").exists());
+    assert!(!resolved_index_path(dir.path()).exists());
 
     let cold = tg()
         .arg("search")
@@ -2051,7 +2049,7 @@ fn test_tg_search_warm_index_count_shape_does_not_depend_on_hidden_index_file() 
         .output()
         .unwrap();
     assert!(build.status.success());
-    assert!(dir.path().join(".tg_index").exists());
+    assert!(resolved_index_path(dir.path()).exists());
 
     // Same plain `-c` again -- now warm auto-routes to the index (count is an Honor flag).
     let warm = tg()

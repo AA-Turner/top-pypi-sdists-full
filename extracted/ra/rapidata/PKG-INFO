@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rapidata
-Version: 3.31.6
+Version: 3.31.7
 Summary: Official Python SDK for Rapidata: human feedback, preference data for RLHF, model evaluation and data labeling from real people.
 Project-URL: Homepage, https://rapidata.ai/?utm_source=pypi&utm_medium=referral&utm_campaign=python_sdk&utm_content=project_links
 Project-URL: Documentation, https://docs.rapidata.ai/?utm_source=pypi&utm_medium=referral&utm_campaign=python_sdk&utm_content=project_links

@@ -13,19 +13,19 @@ class CreateExternalDataServiceRequest(DaraModel):
         service_name: str = None,
         service_spec: str = None,
     ):
-        # Instance ID.
+        # The instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # Region ID, you can view available region IDs through the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) interface.
+        # The region ID. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs.
         self.region_id = region_id
-        # Service description.
+        # The service description.
         self.service_description = service_description
-        # Service name.
+        # The service name.
         # 
         # This parameter is required.
         self.service_name = service_name
-        # Service specification (in CU), value:
+        # The service specifications in compute units (CUs). Valid values:
         # 
         # - 8
         # 

@@ -59,6 +59,7 @@ from bitfab.transport import (
     shutdown_trace_transports,
 )
 from bitfab.transport_types import (
+    SANDBOX_STORE_WRITE_OPERATION,
     SPAN_OPERATION,
     TRACE_OPERATION,
     CarrierMeta,
@@ -1571,6 +1572,27 @@ class HttpClient:
                 payload,
                 _carrier_ref(payload) if payload.get("completed") is True else None,
             ),
+        )
+
+    def send_sandbox_store_write(
+        self, trace_id: str, sandbox: str, state: Any, version: int
+    ) -> None:
+        safe_payload, body, dropped = _encode_payload(
+            {
+                "traceId": trace_id,
+                "sandbox": sandbox,
+                "state": state,
+                "version": version,
+                "sdkVersion": __version__,
+            },
+            MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES,
+        )
+        _warn_for_dropped_values(dropped)
+        self._get_trace_transport().submit(
+            SANDBOX_STORE_WRITE_OPERATION,
+            safe_payload,
+            body,
+            _carrier_meta(SANDBOX_STORE_WRITE_OPERATION, safe_payload, None),
         )
 
     def send_external_span(self, payload: dict[str, Any]) -> None:

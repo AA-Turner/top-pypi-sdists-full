@@ -24,6 +24,8 @@ const GPT_OSS: &str = "openai/gpt-oss-120b";
 const KIMI: &str = "hoangquan456/Kimi-K2.5";
 const GEMMA4: &str = "google/gemma-4-31B-it";
 const MINIMAX: &str = "MiniMaxAI/MiniMax-M2.1";
+/// An o200k-style byte-level BPE with `ignore_merges`.
+const INKLING2: &str = "thinkingmachines/Inkling-2-Small";
 
 /// Both implementations of one model.
 struct Pair {
@@ -186,7 +188,7 @@ fn shared_prefix_pairs(seed: u64, n: usize) -> Vec<(String, String)> {
 fn shared_prefix_pairs_match_huggingface() {
     let pairs = shared_prefix_pairs(0x5eed_1001, 150);
     let mut failures = Vec::new();
-    for model in [QWEN3, GPT_OSS, KIMI, GEMMA4] {
+    for model in [QWEN3, GPT_OSS, KIMI, GEMMA4, INKLING2] {
         failures.extend(shared_prefix_pair_failures(shared_pair(model), &pairs));
     }
     assert_no_failures("B-after-A shared-prefix fuzz", &failures);
@@ -238,7 +240,7 @@ fn long_whitespace_runs_match_huggingface_on_a_small_stack() {
 fn long_whitespace_runs_body() {
     let inputs = long_whitespace_inputs();
     let mut failures = Vec::new();
-    for model in [QWEN3, GPT_OSS, KIMI, GEMMA4] {
+    for model in [QWEN3, GPT_OSS, KIMI, GEMMA4, INKLING2] {
         let pair = shared_pair(model);
         let want: Vec<Vec<u32>> = inputs.iter().map(|s| pair.hf_ids(s, false)).collect();
         // Small stack; an overflow aborts the child process and fails the test.
@@ -347,7 +349,10 @@ fn decode_failures(pair: &Pair, seed: u64, n: usize) -> Vec<String> {
 #[test]
 fn random_inputs_match_huggingface() {
     let mut failures = Vec::new();
-    for (i, model) in [QWEN3, GPT_OSS, KIMI, GEMMA4].into_iter().enumerate() {
+    for (i, model) in [QWEN3, GPT_OSS, KIMI, GEMMA4, INKLING2]
+        .into_iter()
+        .enumerate()
+    {
         let pair = shared_pair(model);
         failures.extend(fuzz_failures(pair, 0x5eed_2000 + i as u64, 2000));
     }
@@ -357,7 +362,10 @@ fn random_inputs_match_huggingface() {
 #[test]
 fn random_id_sequences_decode_like_huggingface() {
     let mut failures = Vec::new();
-    for (i, model) in [QWEN3, GPT_OSS, KIMI, GEMMA4].into_iter().enumerate() {
+    for (i, model) in [QWEN3, GPT_OSS, KIMI, GEMMA4, INKLING2]
+        .into_iter()
+        .enumerate()
+    {
         let pair = shared_pair(model);
         failures.extend(decode_failures(pair, 0x5eed_2100 + i as u64, 1500));
     }
@@ -411,7 +419,7 @@ fn large_inputs_match_huggingface_twice() {
         format!("{} abcdefghijklmno", prose(&mut Rng::new(2), 30)),
     ];
     let mut failures = Vec::new();
-    for model in [QWEN3, GPT_OSS, KIMI, GEMMA4, MINIMAX] {
+    for model in [QWEN3, GPT_OSS, KIMI, GEMMA4, MINIMAX, INKLING2] {
         let pair = shared_pair(model);
         for input in &inputs {
             let want = pair.hf_ids(input, false);
@@ -440,6 +448,7 @@ fn tokenizers_sharing_a_thread_match_huggingface() {
         shared_pair(QWEN3),
         shared_pair(GPT_OSS),
         shared_pair(GEMMA4),
+        shared_pair(INKLING2),
     ];
     let prefix = prose(&mut Rng::new(3), 1200);
     let mut inputs = vec![
@@ -572,13 +581,71 @@ const GEMMA_EXTRA: &[&str] = &[
     // The metaspace itself in the input.
     "\u{2581}already\u{2581}escaped",
     "   leading and trailing   ",
+    // Chinese, cut between chars no token holds together (see `CharPairs`).
+    CHINESE,
 ];
+
+/// Chinese prose: long runs with no space, where vocab splitting cuts between
+/// characters rather than bytes.
+const CHINESE: &str = "自然语言处理是计算机科学领域与人工智能领域中的一个重要方向。\
+    它研究能实现人与计算机之间用自然语言进行有效通信的各种理论和方法。\
+    分词器把文本切分成模型可以理解的词元，例如“的件”应当编码为两个词元——\
+    而不是一个跨越两个字的词元。2026年11月，我们测试了中文、日本語とカタカナ、한국어。";
+
+/// Random runs of `tok`'s own CJK tokens (as text: decoded, so ByteLevel vocabs
+/// count too), glued together so that a merge could straddle any boundary
+/// between them.
+fn cjk_token_runs(tok: &Tokenizer, rng: &mut Rng, count: usize) -> Vec<String> {
+    let cjk: Vec<String> = (0..tok.vocab_size() as u32)
+        .filter_map(|id| tok.decode(&[id], false).ok())
+        .filter(|t| {
+            t.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)) && !t.contains('\u{fffd}')
+        })
+        .collect();
+    let cjk: Vec<&str> = cjk.iter().map(String::as_str).collect();
+    (0..count)
+        .map(|_| (0..1 + rng.below(40)).map(|_| rng.pick(&cjk)).collect())
+        .collect()
+}
+
+/// Chinese, on every byte-level model too: prose, runs of the model's own CJK
+/// tokens, punctuation-led runs (o200k's prefix), and capital runs after CJK
+/// that cross the scanner's 64-char words.
+#[test]
+fn chinese_matches_huggingface() {
+    let mut failures = Vec::new();
+    for (i, model) in [QWEN3, GPT_OSS, KIMI, GEMMA4, INKLING2]
+        .into_iter()
+        .enumerate()
+    {
+        let pair = shared_pair(model);
+        let mut rng = Rng::new(0x5eed_7000 + i as u64);
+        let mut inputs = vec![CHINESE.to_string()];
+        inputs.extend(cjk_token_runs(&pair.ours, &mut rng, 150));
+        for p in ["，", "：", "“", "（", " ", "_"] {
+            inputs.push(format!("我们{p}测试了中文{p}和日本語{p}"));
+        }
+        for lead in [0, 20, 50, 61, 62, 63] {
+            for caps in [1, 2, 3, 30, 70] {
+                for tail in ["", "abc", " x", "中", "!"] {
+                    inputs.push(format!("{}中{}{tail}", "x".repeat(lead), "Q".repeat(caps)));
+                }
+            }
+        }
+        for input in &inputs {
+            failures.extend(pair.check(input, false));
+        }
+    }
+    assert_no_failures("Chinese vs HF", &failures);
+}
 
 #[test]
 fn gemma4_matches_huggingface() {
     let pair = gemma();
     let mut failures = Vec::new();
-    for input in crate::tests::CORPUS.iter().chain(GEMMA_EXTRA) {
+    let runs = cjk_token_runs(&pair.ours, &mut Rng::new(0x5eed_6003), 200);
+    let inputs = crate::tests::CORPUS.iter().chain(GEMMA_EXTRA).copied();
+    for input in inputs.chain(runs.iter().map(String::as_str)) {
         for special in [false, true] {
             failures.extend(pair.check(input, special));
         }
@@ -609,6 +676,10 @@ fn gemma4_bigram_splitting_is_output_preserving() {
         with.needs_vocab_splitting,
         "Gemma 4 should use bigram splitting"
     );
+    assert!(
+        with.model().char_pairs().is_some(),
+        "Gemma 4 should also cut between chars"
+    );
     without.needs_vocab_splitting = false;
     let mut rng = Rng::new(0x5eed_6001);
     let mut inputs: Vec<String> = crate::tests::CORPUS.iter().map(|s| s.to_string()).collect();
@@ -616,6 +687,8 @@ fn gemma4_bigram_splitting_is_output_preserving() {
         let k = 1 + rng.below(30);
         adversarial_text(&mut rng, k)
     }));
+    inputs.push(CHINESE.to_string());
+    inputs.extend(cjk_token_runs(with, &mut rng, 500));
     inputs.push(large_input(0x5eed_6002, true));
     let failures: Vec<String> = inputs
         .iter()
@@ -668,6 +741,15 @@ const CHAT_SPECIALS: &[(&str, &[&str])] = &[
         ],
     ),
     (MINIMAX, &["]~b]", "[e~[", "]~!b[", "<think>"]),
+    (
+        INKLING2,
+        &[
+            "<|message_user|>",
+            "<|message_model|>",
+            "<|content_text|>",
+            "<|end_message|>",
+        ],
+    ),
 ];
 
 fn segment_cache_failures(pair: &Pair, budget: usize, seed: u64) -> Vec<String> {

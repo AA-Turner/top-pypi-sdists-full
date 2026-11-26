@@ -12,17 +12,39 @@ Last Updated: 13/02/2026
 import subprocess
 import sys
 import os
+import shutil
 import re
 import shlex
+import json
+import datetime
+import time
 import ascii_colors as logging
 from ascii_colors import ASCIIColors
 from pathlib import Path
 from typing import Optional, List, Tuple, Union, Dict, Any
+from urllib.request import Request, urlopen
 from packaging import version as packaging_version
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
 
 # Setup logger
 logger = logging.getLogger(__name__)
+
+
+def _is_uv_managed_environment(python_executable: str) -> bool:
+    """Checks uv's marker in the pyvenv.cfg belonging to a Python interpreter."""
+    environment_path = Path(python_executable).resolve().parent.parent
+    try:
+        config = (environment_path / "pyvenv.cfg").read_text(
+            encoding="utf-8", errors="replace"
+        )
+    except OSError:
+        return False
+    return any(
+        line.partition("=")[0].strip().lower() == "uv"
+        for line in config.splitlines()
+    )
+
 
 # Emoji constants for visual feedback
 EMOJI = {
@@ -43,11 +65,33 @@ EMOJI = {
     "shield": "🛡️",
 }
 
+_DEFAULT_QUARANTINE_HOURS = 48.0
+_QUARANTINE_ENV_VAR = "PIPMASTER_MIN_AGE_HOURS"
+
+
+def get_quarantine_hours() -> float:
+    """Return the configured minimum release age in hours (0 disables the quarantine)."""
+    raw = os.environ.get(_QUARANTINE_ENV_VAR)
+    if raw is None or not raw.strip():
+        return _DEFAULT_QUARANTINE_HOURS
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        logger.warning(
+            f"{EMOJI['warning']} Ignoring invalid {_QUARANTINE_ENV_VAR}={raw!r}; "
+            f"using default {_DEFAULT_QUARANTINE_HOURS:g}h"
+        )
+        return _DEFAULT_QUARANTINE_HOURS
+
 
 class PackageManager:
     """
-    Manages Python package installations and queries using pip.
-    Enhanced with ASCIIColors visual feedback for pleasant UX.
+    Manages Python package installations and queries using pip or uv.
+
+    By default, uv is selected automatically only when its executable is
+    available and the target environment contains uv's ``pyvenv.cfg`` marker.
+    Set ``use_uv=True`` to require uv for any environment, or ``False`` to force
+    pip. Enhanced with ASCIIColors visual feedback for pleasant UX.
     """
     def __init__(
         self,
@@ -55,11 +99,23 @@ class PackageManager:
         pip_command_base: Optional[List[str]] = None,
         venv_path: Optional[str] = None,
         create_if_not_exist: bool = False,
+        use_uv: Optional[bool] = None,
+        uv_executable: Optional[str] = None,
     ):
+        if use_uv and pip_command_base is not None:
+            raise ValueError("pip_command_base cannot be combined with use_uv=True")
+
         self.venv_path = venv_path
         self.target_python_executable: str = python_executable or sys.executable
-        self.pip_command_base: List[str] = pip_command_base or [sys.executable, "-m", "pip"]
+        self.use_uv = False
+        self.uv_executable: Optional[str] = None
+        self.pip_command_base = pip_command_base or [
+            self.target_python_executable,
+            "-m",
+            "pip",
+        ]
         self._version_cache: Dict[str, Optional[str]] = {}
+        self._quarantine_cache: Dict[Tuple[str, float], Optional[str]] = {}
 
         if self.venv_path:
             venv_path_obj = Path(self.venv_path)
@@ -78,13 +134,214 @@ class PackageManager:
                 self.target_python_executable = os.path.join(self.venv_path, 'Scripts', 'python.exe')
             else:  # Unix/Linux/MacOS
                 self.target_python_executable = os.path.join(self.venv_path, 'bin', 'python')
-            self.pip_command_base = [self.target_python_executable, "-m", "pip"]
+        detected_uv = shutil.which(uv_executable or "uv")
+        auto_select_uv = (
+            use_uv is None
+            and pip_command_base is None
+            and _is_uv_managed_environment(self.target_python_executable)
+        )
+        if use_uv or auto_select_uv:
+            if not detected_uv:
+                if use_uv:
+                    raise FileNotFoundError(
+                        "The 'uv' executable was not found. Install it with "
+                        "pipmaster.install_uv() or disable use_uv."
+                    )
+            else:
+                self.use_uv = True
+                self.uv_executable = detected_uv
+                self.pip_command_base = [detected_uv, "pip"]
 
-        logger.debug(f"{EMOJI['info']}  PackageManager initialized for: {self.target_python_executable}")
+        if not self.use_uv:
+            self.pip_command_base = pip_command_base or [
+                self.target_python_executable,
+                "-m",
+                "pip",
+            ]
+
+        backend = "uv" if self.use_uv else "pip"
+        logger.debug(f"{EMOJI['info']}  PackageManager initialized for: {self.target_python_executable} using {backend}")
+
+    def _build_command(self, command: List[str]) -> List[str]:
+        """Builds a backend command pinned to the configured Python environment."""
+        command_to_run = self.pip_command_base + command
+        if self.use_uv:
+            command_to_run.extend(["--python", self.target_python_executable])
+        return command_to_run
 
     def _clear_version_cache(self) -> None:
         """Clears the temporary version cache used to avoid repeated subprocess calls."""
         self._version_cache.clear()
+
+    @staticmethod
+    def _specifier_allows_quarantine(specifier: Optional[str]) -> bool:
+        """Return True when a version specifier leaves the range open upward."""
+        if not specifier:
+            return True
+        try:
+            spec = SpecifierSet(specifier, prereleases=True)
+        except Exception:
+            # Unknown constraint set: err on the side of not rewriting it.
+            return False
+        if not str(spec):
+            return True
+        for item in spec:
+            if item.operator in ("==", "===", "~=", "<", "<="):
+                return False
+        return True
+
+    def _safe_quarantined_version(
+        self, package_name: str, min_age_hours: float
+    ) -> Optional[str]:
+        """Newest stable release of ``package_name`` older than ``min_age_hours``."""
+        key = (package_name.lower(), float(min_age_hours))
+        if key in self._quarantine_cache:
+            return self._quarantine_cache[key]
+
+        best: Optional[packaging_version.Version] = None
+        try:
+            request = Request(
+                f"https://pypi.org/pypi/{package_name}/json",
+                headers={"User-Agent": "pipmaster"},
+            )
+            with urlopen(request, timeout=15) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except (OSError, ValueError) as exc:
+            logger.debug(
+                f"{EMOJI['warning']} Quarantine lookup failed for "
+                f"'{package_name}': {exc}"
+            )
+            self._quarantine_cache[key] = None
+            return None
+
+        threshold_seconds = float(min_age_hours) * 3600.0
+        now_ts = time.time()
+        for version_text, files in (data.get("releases") or {}).items():
+            try:
+                candidate = packaging_version.Version(version_text)
+            except packaging_version.InvalidVersion:
+                continue
+            if candidate.is_prerelease:
+                continue
+            stamps: List[float] = []
+            for entry in files:
+                if not isinstance(entry, dict) or entry.get("yanked"):
+                    continue
+                stamp = entry.get("upload_time_iso_8601") or entry.get("upload_time")
+                if not stamp:
+                    continue
+                try:
+                    when = datetime.datetime.fromisoformat(
+                        stamp.replace("Z", "+00:00")
+                    )
+                except ValueError:
+                    continue
+                stamps.append(when.timestamp())
+            if not stamps:
+                continue
+            if now_ts - max(stamps) >= threshold_seconds and (
+                best is None or candidate > best
+            ):
+                best = candidate
+
+        result = str(best) if best is not None else None
+        self._quarantine_cache[key] = result
+        return result
+
+    def _apply_quarantine(
+        self, target: str, index_url: Optional[str] = None, verbose: bool = False
+    ) -> str:
+        """Pin an upward-open install target to the newest trustworthy release.
+
+        Applies only to plain name+specifier requests whose version range is
+        open upward (no specifier, ``>=``, ``>``). Explicit pins, upper bounds,
+        extras, direct URL/VCS references and editable/path installs are passed
+        through untouched. Returns ``target`` when the configured window is
+        disabled, PyPI metadata is unavailable, the currently installed version
+        is already at or above the safe one, or the safe version does not
+        satisfy the user's lower bound.
+        """
+        min_age_hours = get_quarantine_hours()
+        if min_age_hours <= 0:
+            return target
+        if target.startswith(("-e", "--editable", "file:")) or any(
+            ch in target for ch in ("/", "\\")
+        ):
+            return target
+        if index_url:
+            if verbose:
+                logger.warning(
+                    f"{EMOJI['warning']} Quarantine skipped for '{target}': a "
+                    f"custom index_url prevents release-age verification"
+                )
+            return target
+
+        try:
+            requirement = Requirement(target)
+        except InvalidRequirement:
+            return target
+        if requirement.url or requirement.extras:
+            return target
+
+        specifier_text = str(requirement.specifier) or None
+        if not self._specifier_allows_quarantine(specifier_text):
+            return target
+
+        safe_version = self._safe_quarantined_version(
+            requirement.name, min_age_hours
+        )
+        if safe_version is None:
+            if verbose:
+                logger.warning(
+                    f"{EMOJI['warning']} Quarantine: no safe release found for "
+                    f"'{requirement.name}'; installing as requested"
+                )
+            return target
+
+        if specifier_text:
+            try:
+                if not SpecifierSet(
+                    specifier_text, prereleases=True
+                ).contains(safe_version, prereleases=True):
+                    if verbose:
+                        logger.warning(
+                            f"{EMOJI['warning']} Quarantine: newest safe version "
+                            f"{safe_version} of '{requirement.name}' does not "
+                            f"satisfy '{specifier_text}'; installing as requested"
+                        )
+                    return target
+            except Exception:
+                return target
+
+        installed = self.get_installed_version(requirement.name)
+        if installed is not None:
+            try:
+                if packaging_version.Version(
+                    safe_version
+                ) <= packaging_version.Version(installed):
+                    return target
+            except packaging_version.InvalidVersion:
+                pass
+
+        pinned = f"{requirement.name}=={safe_version}"
+        log = logger.info if verbose else logger.debug
+        log(
+            f"{EMOJI['shield']} Quarantine: pinning '{requirement.name}' to "
+            f"{safe_version} (at least {min_age_hours:g}h old)"
+        )
+        return pinned
+
+    def _quarantine_targets(
+        self,
+        targets: List[str],
+        index_url: Optional[str] = None,
+        verbose: bool = False,
+    ) -> List[str]:
+        """Apply :meth:`_apply_quarantine` to a batch of install targets."""
+        return [
+            self._apply_quarantine(target, index_url=index_url, verbose=verbose)
+            for target in targets
+        ]
 
     def _run_command(
         self, command: List[str], capture_output: bool = False, dry_run: bool = False, verbose: bool = False
@@ -93,11 +350,12 @@ class PackageManager:
         Runs a pip command using subprocess with optional visual feedback.
         """
         if dry_run:
-            dry_run_msg = f"{EMOJI['info']} Dry run: Would execute: {' '.join(self.pip_command_base + command)}"
+            command_to_run = self._build_command(command)
+            dry_run_msg = f"{EMOJI['info']} Dry run: Would execute: {' '.join(command_to_run)}"
             logger.info(dry_run_msg)
             return True, f"Dry run: Command would be '{' '.join(command)}'"
 
-        command_to_run = self.pip_command_base + command
+        command_to_run = self._build_command(command)
         command_str = " ".join(command_to_run)
         
         if verbose:
@@ -327,6 +585,7 @@ class PackageManager:
         verbose: bool = False,
     ) -> bool:
         """Installs a package with pleasant visual feedback."""
+        package = self._apply_quarantine(package, index_url=index_url, verbose=verbose)
         command = ["install"]
         if upgrade:
             command.append("--upgrade")
@@ -620,7 +879,7 @@ class PackageManager:
             command.extend(["--index-url", index_url])
         if extra_args:
             command.extend(extra_args)
-        command.extend(packages)
+        command.extend(self._quarantine_targets(packages, index_url=index_url, verbose=verbose))
 
         if verbose or dry_run:
             logger.info(msg)
@@ -647,7 +906,8 @@ class PackageManager:
         """Uninstalls a package with visual feedback."""
         msg = f"{EMOJI['remove']} Removing package: {package}"
         
-        command = ["uninstall", "-y", package]
+        command = ["uninstall"] if self.use_uv else ["uninstall", "-y"]
+        command.append(package)
         if extra_args:
             command.extend(extra_args)
         
@@ -679,7 +939,8 @@ class PackageManager:
 
         msg = f"{EMOJI['remove']} Removing {len(packages)} package(s)..."
         
-        command = ["uninstall", "-y"] + packages
+        command = ["uninstall"] if self.use_uv else ["uninstall", "-y"]
+        command.extend(packages)
         if extra_args:
             command.extend(extra_args)
         

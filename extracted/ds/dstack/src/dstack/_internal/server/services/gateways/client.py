@@ -11,13 +11,23 @@ from dstack._internal.core.models.common import validate_json_extra_ignore
 from dstack._internal.core.models.configurations import RateLimit, ServiceConfiguration
 from dstack._internal.core.models.instances import SSHConnectionParams
 from dstack._internal.core.models.runs import JobSpec, JobSubmission, get_service_port
+from dstack._internal.proxy.gateway.schemas.config import ConfigRequest
+from dstack._internal.proxy.gateway.schemas.metering import (
+    CollectMeteringRequest,
+    CollectMeteringResponse,
+    MeteringBatch,
+)
 from dstack._internal.proxy.gateway.schemas.registry import (
+    ImportListItem,
+    ImportListResponse,
+    RegisterImportRequest,
     ReplicaProxyJumpKeyUpdate,
+    UnregisterImportRequest,
     UpdateReplicaProxyJumpKeysResponse,
 )
 from dstack._internal.proxy.gateway.schemas.services import ServiceListItem, ServiceListResponse
+from dstack._internal.proxy.gateway.schemas.state import StateSummaryResponse
 from dstack._internal.proxy.gateway.schemas.stats import ServiceStats
-from dstack._internal.server import settings
 
 
 class GatewayClient:
@@ -28,7 +38,7 @@ class GatewayClient:
             raise ValueError("Either uds or port should be specified, not both")
 
         # Shows that the gateway's HTTP server has started. Should become True
-        # in submit_gateway_config during gateway setup. If setup fails, it
+        # in info() during gateway setup. If setup fails, it
         # should become True after any other successful request.
         self.is_server_ready = False
 
@@ -56,7 +66,7 @@ class GatewayClient:
         has_router_replica: bool = False,
     ):
         if "openai" in options:
-            entrypoint = f"gateway.{domain.split('.', maxsplit=1)[1]}"
+            entrypoint = get_gateway_endpoint_domain(domain)
             await self.register_openai_entrypoint(project, entrypoint, gateway_https, read_timeout)
 
         payload = {
@@ -198,7 +208,39 @@ class GatewayClient:
         resp.raise_for_status()
         self.is_server_ready = True
 
+    async def register_import(
+        self, importer_project: str, export_id: uuid.UUID, exporter_project: str, name: str
+    ) -> None:
+        resp = await self._client.post(
+            self._url(f"/api/registry/{importer_project}/imports/register"),
+            json=RegisterImportRequest(
+                export_id=export_id.hex,
+                exporter_project=exporter_project,
+                name=name,
+            ).model_dump(),
+        )
+        resp.raise_for_status()
+        self.is_server_ready = True
+
+    async def unregister_import(
+        self, importer_project: str, export_id: uuid.UUID, name: str
+    ) -> None:
+        resp = await self._client.post(
+            self._url(f"/api/registry/{importer_project}/imports/unregister"),
+            json=UnregisterImportRequest(export_id=export_id.hex, name=name).model_dump(),
+        )
+        resp.raise_for_status()
+        self.is_server_ready = True
+
+    async def list_imports(self) -> list[ImportListItem]:
+        resp = await self._client.get(self._url("/api/registry/imports/list"))
+        resp.raise_for_status()
+        self.is_server_ready = True
+        return validate_json_extra_ignore(ImportListResponse, resp.content).imports
+
     async def list_services(self) -> list[ServiceListItem]:
+        """Deprecated in favor of `get_state_summary`."""
+        # TODO: drop when most users upgrade to 0.22.9+
         resp = await self._client.get(self._url("/api/services/list"))
         if resp.status_code == 400:
             raise gateway_error(resp.json())
@@ -207,14 +249,22 @@ class GatewayClient:
         self.is_server_ready = True
         return resp_parsed.services
 
-    async def submit_gateway_config(self) -> None:
+    async def get_state_summary(self) -> Optional[StateSummaryResponse]:
+        resp = await self._client.get(self._url("/api/state/get_summary"))
+        if resp.status_code == 404:
+            # An older gateway not yet updated to 0.22.9+
+            # TODO: drop when most users upgrade to 0.22.9+
+            return None
+        if resp.status_code == 400:
+            raise gateway_error(resp.json())
+        resp.raise_for_status()
+        resp_parsed = validate_json_extra_ignore(StateSummaryResponse, resp.content)
+        self.is_server_ready = True
+        return resp_parsed
+
+    async def submit_gateway_config(self, config: ConfigRequest) -> None:
         resp = await self._client.post(
-            self._url("/api/config"),
-            json={
-                "acme_server": settings.ACME_SERVER,
-                "acme_eab_kid": settings.ACME_EAB_KID,
-                "acme_eab_hmac_key": settings.ACME_EAB_HMAC_KEY,
-            },
+            self._url("/api/config"), json=config.model_dump(mode="json")
         )
         if resp.status_code == 400:
             raise gateway_error(resp.json())
@@ -242,8 +292,29 @@ class GatewayClient:
             return []
         return TypeAdapter(list[ServiceStats]).validate_python(resp_data)
 
+    async def collect_metering(
+        self, after: int, limit: int, timeout: float
+    ) -> list[MeteringBatch]:
+        """
+        Returns up to `limit` metering batches with numbers above `after`, oldest first.
+        The gateway deletes the batches up to `after`, so pass the number of the last saved batch.
+        """
+        resp = await self._client.post(
+            self._url("/api/metering/collect"),
+            json=CollectMeteringRequest(after=after, limit=limit).model_dump(),
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        self.is_server_ready = True
+        return validate_json_extra_ignore(CollectMeteringResponse, resp.content).batches
+
     def _url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
+
+
+def get_gateway_endpoint_domain(service_domain: str) -> str:
+    """Returns the domain where the gateway serves the models of the service."""
+    return f"gateway.{service_domain.split('.', maxsplit=1)[1]}"
 
 
 def gateway_error(data: dict) -> GatewayError:

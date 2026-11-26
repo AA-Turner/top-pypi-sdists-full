@@ -14,15 +14,15 @@ class DeleteExtensionRequest(DaraModel):
     ):
         # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances in a specific region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances in the specified region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The name of the database.
+        # The name of the database in the instance.
         # 
         # This parameter is required.
         self.dbnames = dbnames
-        # The name of the extension.
+        # The name of the plug-in.
         # 
         # This parameter is required.
         self.extension = extension

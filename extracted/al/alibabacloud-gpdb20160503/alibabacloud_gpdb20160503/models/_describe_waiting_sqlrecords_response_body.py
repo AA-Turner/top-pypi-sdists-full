@@ -15,13 +15,13 @@ class DescribeWaitingSQLRecordsResponseBody(DaraModel):
         request_id: str = None,
         total_count: int = None,
     ):
-        # The list of lock diagnostics records.
+        # The list of queries.
         self.items = items
-        # The page number of the returned page.
+        # The current page number.
         self.page_number = page_number
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # The total number of entries returned.
+        # The total number of entries.
         self.total_count = total_count
 
     def validate(self):
@@ -84,22 +84,22 @@ class DescribeWaitingSQLRecordsResponseBodyItems(DaraModel):
     ):
         # The name of the database.
         self.database = database
-        # The ID of the process that uniquely identifies the query.
+        # The process ID, which is the unique identifier of the SQL statement for the waiting query.
         self.pid = pid
-        # The SQL statement of the query.
+        # The SQL text of the query.
         self.sqlstmt = sqlstmt
-        # The ID of the session that contains the query.
+        # The ID of the session to which the query belongs.
         self.session_id = session_id
-        # The start time of the query. This value is in the timestamp format. Unit: milliseconds.
+        # The start time of the query. The value is a timestamp in milliseconds.
         self.start_time = start_time
-        # The waiting state of the query. Valid values:
+        # The wait status of the query. Valid values:
         # 
-        # *   **LockWaiting**
-        # *   **ResourceWaiting**
+        # - **LockWaiting**: The query is waiting for a lock.
+        # - **ResourceWaiting**: The query is waiting for resources.
         self.status = status
-        # The database account that is used to perform the query.
+        # The user who executed the query.
         self.user = user
-        # The waiting period of the query. Unit: milliseconds.
+        # The wait time of the SQL statement, in milliseconds.
         self.waiting_time = waiting_time
 
     def validate(self):

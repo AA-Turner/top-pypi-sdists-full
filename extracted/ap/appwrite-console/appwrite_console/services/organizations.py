@@ -14,6 +14,7 @@ from ..enums.addon_key import AddonKey
 from ..models.addon_price import AddonPrice
 from ..models.aggregation_team_list import AggregationTeamList
 from ..models.aggregation_team import AggregationTeam
+from ..models.alert_list import AlertList
 from ..models.alert import Alert
 from ..models.billing_address import BillingAddress
 from ..models.credit_list import CreditList
@@ -24,6 +25,8 @@ from ..models.estimation_update_plan import EstimationUpdatePlan
 from ..models.downgrade_feedback import DowngradeFeedback
 from ..models.invoice_list import InvoiceList
 from ..models.invoice import Invoice
+from ..models.monitor_list import MonitorList
+from ..models.monitor import Monitor
 from ..models.payment_method import PaymentMethod
 from ..models.billing_plan import BillingPlan
 from ..models.estimation_plan_change import EstimationPlanChange
@@ -703,6 +706,102 @@ class Organizations(Service):
 
         return self._parse_response(response, model=AggregationTeam)
 
+    def list_alerts(
+        self,
+        organization_id: str,
+        queries: Optional[List[str]] = None,
+        total: Optional[bool] = None,
+    ) -> AlertList:
+        """
+        List the alerts raised across the organization, open and resolved: its projects' monitors and its budget monitors. You see a project's alerts when your role reads that project's alerts, and budget alerts when it reads billing. Use queries to filter by monitor or status, and order by `$createdAt` for the latest first.
+
+        Parameters
+        ----------
+        organization_id : str
+            Organization ID.
+        queries : Optional[List[str]]
+            Array of query strings generated using the Query class provided by the SDK. [Learn more about queries](https://appwrite.io/docs/queries). Maximum of 100 queries are allowed, each 4096 characters long. You may filter on the following attributes: monitorId, name, status, type, resourceType, resourceId, metric, resolvedAt, severity, acknowledgedAt, escalationId, search
+        total : Optional[bool]
+            When set to false, the total count returned will be 0 and will not be calculated.
+        Returns
+        -------
+        AlertList
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organizations/{organizationId}/alerts'
+        api_params = {}
+        if organization_id is None or organization_id == '':
+            raise AppwriteException('Missing required parameter: "organization_id"')
+        api_path = api_path.replace('{organizationId}', self._encode_path(organization_id))
+        if queries is not None:
+            api_params['queries'] = self._normalize_value(queries)
+        if total is not None:
+            api_params['total'] = self._normalize_value(total)
+
+        response = self.client.call(
+            'get',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=AlertList)
+
+    def get_alert(
+        self,
+        organization_id: str,
+        alert_id: str,
+    ) -> Alert:
+        """
+        Get one of the alerts raised across the organization by its unique ID: when it fired, its peak, and when it resolved.
+
+        Parameters
+        ----------
+        organization_id : str
+            Organization ID.
+        alert_id : str
+            Alert ID.
+        Returns
+        -------
+        Alert
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organizations/{organizationId}/alerts/{alertId}'
+        api_params = {}
+        if organization_id is None or organization_id == '':
+            raise AppwriteException('Missing required parameter: "organization_id"')
+        if alert_id is None or alert_id == '':
+            raise AppwriteException('Missing required parameter: "alert_id"')
+        api_path = api_path.replace('{organizationId}', self._encode_path(organization_id))
+        api_path = api_path.replace('{alertId}', self._encode_path(alert_id))
+
+        response = self.client.call(
+            'get',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=Alert)
+
     def update_alert(
         self,
         organization_id: str,
@@ -710,7 +809,7 @@ class Organizations(Service):
         acknowledged: bool,
     ) -> Alert:
         """
-        Acknowledge one of the organization's firing alerts, or undo that. Everyone who can read the alert sees who acknowledged it and when; it keeps firing until its monitor recovers. You can acknowledge the alerts you can read: a project's when your role reads that project's alerts, and budget alerts when it reads billing.
+        Acknowledge one of the organization's firing alerts, or undo that. Everyone who can read the alert sees who acknowledged it and when; it keeps firing until its monitor recovers. You can acknowledge the alerts you can read: a project's when your role reads that project's alerts, and budget alerts when it reads billing. A credential acting for you, such as an OAuth2 app's access token, also needs the `alerts.write` scope.
 
         Parameters
         ----------
@@ -1642,6 +1741,107 @@ class Organizations(Service):
         )
 
         return response
+
+    def list_monitors(
+        self,
+        organization_id: str,
+        queries: Optional[List[str]] = None,
+        total: Optional[bool] = None,
+    ) -> MonitorList:
+        """
+        List the monitors across the organization: its projects' monitors and the budget monitors its budget settings create. You see a project's monitors when your role reads that project's monitors, and budget monitors when it reads billing. Use queries to filter by type, for example `Query.equal('type', ['budget'])`.
+
+        Parameters
+        ----------
+        organization_id : str
+            Organization ID.
+        queries : Optional[List[str]]
+            Array of query strings generated using the Query class provided by the SDK. [Learn more about queries](https://appwrite.io/docs/queries). Maximum of 100 queries are allowed, each 4096 characters long. You may filter on the following attributes: name, type, resourceType, resourceId, enabled, severity, escalationId, status, evaluatedAt, triggeredAt, search
+        total : Optional[bool]
+            When set to false, the total count returned will be 0 and will not be calculated.
+        Returns
+        -------
+        MonitorList
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organizations/{organizationId}/monitors'
+        api_params = {}
+        if organization_id is None or organization_id == '':
+            raise AppwriteException('Missing required parameter: "organization_id"')
+        api_path = api_path.replace('{organizationId}', self._encode_path(organization_id))
+        if queries is not None:
+            api_params['queries'] = self._normalize_value(queries)
+        if total is not None:
+            api_params['total'] = self._normalize_value(total)
+
+        response = self.client.call(
+            'get',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=MonitorList)
+
+    def get_monitor(
+        self,
+        organization_id: str,
+        monitor_id: str,
+        project_id: Optional[str] = None,
+    ) -> Monitor:
+        """
+        Get one of the organization's monitors by its unique ID, with its state as of its last evaluation.
+
+        Parameters
+        ----------
+        organization_id : str
+            Organization ID.
+        monitor_id : str
+            Monitor ID.
+        project_id : Optional[str]
+            ID of the project the monitor belongs to, as a monitor ID is unique within its project only. Leave empty for an organization monitor, such as a budget monitor, or the oldest monitor of the organization with that ID.
+        Returns
+        -------
+        Monitor
+            API response as a typed Pydantic model
+
+        Raises
+        ------
+        AppwriteException
+            If API request fails
+        """
+
+        api_path = '/organizations/{organizationId}/monitors/{monitorId}'
+        api_params = {}
+        if organization_id is None or organization_id == '':
+            raise AppwriteException('Missing required parameter: "organization_id"')
+        if monitor_id is None or monitor_id == '':
+            raise AppwriteException('Missing required parameter: "monitor_id"')
+        api_path = api_path.replace('{organizationId}', self._encode_path(organization_id))
+        api_path = api_path.replace('{monitorId}', self._encode_path(monitor_id))
+        if project_id is not None:
+            api_params['projectId'] = self._normalize_value(project_id)
+
+        response = self.client.call(
+            'get',
+            api_path,
+            {
+                'X-Appwrite-Project': self.client.get_config('project'),
+                'accept': 'application/json',
+            },
+            api_params,
+        )
+
+        return self._parse_response(response, model=Monitor)
 
     def set_default_payment_method(
         self,

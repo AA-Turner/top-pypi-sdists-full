@@ -19,13 +19,13 @@ class ListBranchesResponseBody(DaraModel):
         total_count: int = None,
     ):
         self.branches = branches
-        # The maximum number of records to return in this query.
+        # The maximum number of entries to return for the current query.
         self.max_results = max_results
-        # The cursor for paging query. You do not need to specify this parameter for the first query. For subsequent queries, use the NextToken value returned in the previous response.
+        # The cursor for the paging query. You do not need to specify this parameter for the first query. For subsequent queries, use the NextToken value returned from the previous query.
         self.next_token = next_token
         # The page number. The value must be greater than 0. Default value: 1.
         self.page_number = page_number
-        # The number of records per page.
+        # The number of entries per page.
         # 
         # Valid values:
         # - 10
@@ -37,7 +37,7 @@ class ListBranchesResponseBody(DaraModel):
         self.page_size = page_size
         # The request ID.
         self.request_id = request_id
-        # The total number of branches that match the query conditions.
+        # The total number of branches that meet the query conditions.
         self.total_count = total_count
 
     def validate(self):

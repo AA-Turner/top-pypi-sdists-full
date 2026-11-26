@@ -55,8 +55,8 @@ class RepoStatus:
                 is its own admin permission flag. Always false for a repo
                 reached through an unauthenticated, username-only listing.
                 A point-in-time snapshot: a permission change since the last
-                refresh can still make a following ensure-webhook call fail
-                despite this having said true. For a GitHub App connection
+                refresh can still make a later hook write fail despite this having
+                said true. For a GitHub App connection
                 there is no user role to read, so this is true when listing
                 the repo's webhooks worked on the last refresh.
             rebase_bots (bool): Whether the signed-in user has turned on rebasing bot pull

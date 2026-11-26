@@ -14,33 +14,33 @@ class DescribeBackupPolicyResponseBody(DaraModel):
         recovery_point_period: str = None,
         request_id: str = None,
     ):
-        # The number of days for which data backup files are retained.
+        # The retention period of data backups in days.
         self.backup_retention_period = backup_retention_period
-        # Indicates whether automatic point-in-time backup is enabled. Valid values:
+        # Indicates whether automatic recovery points are enabled. Valid values:
         # 
-        # *   **true**: Automatic point-in-time backup is enabled.
-        # *   **false**: Automatic point-in-time backup is disabled.
+        # - **true**: Enabled.
+        # - **false**: Disabled.
         self.enable_recovery_point = enable_recovery_point
-        # The cycle based on which backups are performed. If more than one day of the week is specified, the days of the week are separated by commas (,). Valid values:
+        # The backup cycle. Separate multiple values with commas (,). Valid values:
         # 
-        # *   **Monday**
-        # *   **Tuesday**
-        # *   **Wednesday**
-        # *   **Thursday**
-        # *   **Friday**
-        # *   **Saturday**
-        # *   **Sunday**
+        # - **Monday**: Monday.
+        # - **Tuesday**: Tuesday.
+        # - **Wednesday**: Wednesday.
+        # - **Thursday**: Thursday.
+        # - **Friday**: Friday.
+        # - **Saturday**: Saturday.
+        # - **Sunday**: Sunday.
         self.preferred_backup_period = preferred_backup_period
-        # The backup time. The time is in the HH:mmZ-HH:mmZ format. The time is displayed in UTC.
+        # The backup time. Format: HH:mmZ-HH:mmZ (UTC).
         self.preferred_backup_time = preferred_backup_time
-        # The frequency of the point-in-time backup. Valid values:
+        # The recovery point frequency. Valid values:
         # 
-        # *   **1**: per hour
-        # *   **2**: per 2 hours
-        # *   **4**: per 4 hours
-        # *   **8**: per 8 hours
+        # - **1**: Every hour.
+        # - **2**: Every two hours.
+        # - **4**: Every four hours.
+        # - **8**: Every eight hours.
         self.recovery_point_period = recovery_point_period
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
 
     def validate(self):

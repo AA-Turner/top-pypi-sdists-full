@@ -10,6 +10,7 @@ import httpx2
 import pytest
 
 from acp._sse import serialize_sse_event
+from acp.connection import Connection
 from acp.http.client import AcpHttpStatusError, create_http_stream
 from acp.http.protocol import CONNECTION_ID_HEADER, CONTENT_TYPE_JSON, SESSION_ID_HEADER
 
@@ -259,6 +260,34 @@ async def test_post_error_status_raises() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("payload", [b"<html>not an ACP response</html>", b"{invalid"])
+async def test_invalid_post_json_rejects_request_without_losing_connection(payload: bytes) -> None:
+    server = FakeServer()
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.method == "POST":
+            message = json.loads(request.content)
+            if message.get("method") == "broken":
+                return httpx2.Response(200, content=payload)
+            if message.get("method") == "after":
+                return httpx2.Response(200, json={"jsonrpc": "2.0", "id": message["id"], "result": "ok"})
+        return server.handler(request)
+
+    async def noop(method: str, params: Any, is_notification: bool) -> None:
+        pass
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        transport = create_http_stream("http://testserver/acp", client=client)
+        await transport.send({"jsonrpc": "2.0", "id": "init", "method": "initialize", "params": {}})
+        await asyncio.wait_for(transport.receive(), timeout=1)
+
+        async with Connection(noop, transport) as connection:
+            with pytest.raises(json.JSONDecodeError):
+                await asyncio.wait_for(connection.send_request("broken", {}), timeout=1)
+            assert await asyncio.wait_for(connection.send_request("after", {}), timeout=1) == "ok"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("result", [{}, None])
 async def test_load_opens_session_stream_from_request_id(result: Any) -> None:
     server = FakeServer()
@@ -285,6 +314,64 @@ async def test_load_opens_session_stream_from_request_id(result: Any) -> None:
         live = {"jsonrpc": "2.0", "id": 2, "result": {"stopReason": "end_turn"}}
         server.push_session("saved", live)
         assert await asyncio.wait_for(transport.receive(), timeout=1) == live
+    finally:
+        await transport.close()
+        await client.aclose()
+
+
+@pytest.mark.parametrize("line_ending", ["\n", "\r\n", "\r"])
+@pytest.mark.asyncio
+async def test_connection_sse_accepts_standard_line_endings(line_ending: str) -> None:
+    """A complete event is delivered while its connection remains open."""
+    server = FakeServer()
+    transport, client = _make_transport(server)
+    message = {"jsonrpc": "2.0", "method": "_test/update", "params": {"text": "ready"}}
+    try:
+        await transport.send({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}})
+        await asyncio.wait_for(transport.receive(), timeout=1)
+        data = json.dumps(message)
+        server.conn_stream.put_nowait(f"data: {data}{line_ending}{line_ending}".encode())
+        assert await asyncio.wait_for(transport.receive(), timeout=1) == message
+    finally:
+        await transport.close()
+        await client.aclose()
+
+
+@pytest.mark.parametrize("layout", ["cr", "crlf-split", "mixed", "bytewise"])
+@pytest.mark.asyncio
+async def test_connection_sse_preserves_split_and_multiline_events(layout: str) -> None:
+    """CRLF split across reads is one ending, including before a second data field."""
+    server = FakeServer()
+    transport, client = _make_transport(server)
+    first = {"jsonrpc": "2.0", "method": "_test/update", "params": {"text": "\u4e2d\u6587\u0085\u2028"}}
+    second = {"jsonrpc": "2.0", "method": "_test/done"}
+    head = 'data: {"jsonrpc":"2.0",'
+    tail = 'data: "method":"_test/update","params":{"text":"\u4e2d\u6587\u0085\u2028"}}'
+    last = "data: " + json.dumps(second)
+    if layout == "cr":
+        chunks = [(head + "\r" + tail + "\r\r" + last + "\r\r").encode()]
+    elif layout == "crlf-split":
+        chunks = [
+            (head + "\r").encode(),
+            b"",
+            ("\n" + tail + "\r").encode(),
+            b"\n\r",
+            ("\n" + last + "\r").encode(),
+            b"\n\r",
+            b"\n",
+        ]
+    elif layout == "mixed":
+        chunks = [(head + "\r" + tail + "\n\r\n" + last + "\r\r").encode()]
+    else:
+        data = (head + "\r\n" + tail + "\r\r" + last + "\n\n").encode()
+        chunks = [data[index : index + 1] for index in range(len(data))]
+    try:
+        await transport.send({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}})
+        await asyncio.wait_for(transport.receive(), timeout=1)
+        for chunk in chunks:
+            server.conn_stream.put_nowait(chunk)
+        assert await asyncio.wait_for(transport.receive(), timeout=1) == first
+        assert await asyncio.wait_for(transport.receive(), timeout=1) == second
     finally:
         await transport.close()
         await client.aclose()

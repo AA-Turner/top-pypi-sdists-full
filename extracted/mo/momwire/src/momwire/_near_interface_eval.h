@@ -225,13 +225,22 @@ struct Features {
     // either: the crossing fill reads it from the active features.
     bool crossing_anchors = false;
     // momwire#1911: the point-matched sinusoidal fill's pair reuse
-    // (`_sin_pair_reuse_core.h`). Not a near-interface lever either: the C++
-    // fill reads it from the REQUESTED set, as `SinusoidalSolver` reads its
-    // flag at construction. Its reach is level 1 and it has no EXE_FEATURES
-    // row, so no shipped executable requests it; the in-process hook
-    // (`sinusoidal_nec4_printout(features=)`) and a certification build
-    // (`MW_EXE_CERTIFY`, standalone/CMakeLists.txt) do.
+    // (`_sin_pair_reuse_core.h`), the one fill-reuse switch's slot. Not a
+    // near-interface lever either: the C++ fill reads it from the REQUESTED
+    // set, as `SinusoidalSolver` reads its flag at construction. The
+    // executables request it with MOMWIRE_X_PAIR_REUSE (`EXE_PARTS` in
+    // standalone/momwire_razor2p.cpp); the point-matched fill is its only
+    // reader, so on another route it only names the switch on line 2. The
+    // in-process hook (`sinusoidal_nec4_printout(features=)`) requests it too.
     bool pair_reuse = false;
+    // momwire#1809: `pair_reuse`'s part on bs2, `offset_reuse` (a uniform
+    // edge's same-edge moments by offset, and the offset edges' own blocks
+    // from their distinct moments). Not a near-interface lever either: bs2's
+    // C++ fill reads it, with `pair_reuse` for the census
+    // (`_nec5_bspline_printout_core.cpp`), from the REQUESTED set. The bs2
+    // executables request it through the whole (`EXE_PARTS`) or by its own
+    // variable.
+    bool offset_reuse = false;
     // momwire#1847: the transmitted grid blended from frequency anchors
     // (`somm_trans::anchored_grid_reading`). Not a near-interface lever
     // either: the mixed blocks' grid requests read it, bs2's and the
@@ -254,6 +263,11 @@ bool withdraw_feature(const std::string &name);
 // (a certification build running a feature past its reach, momwire#1911).
 std::string requested_stamp();
 void stamp_uncertified(bool on);
+// Back to the start: the default-on features requested unstamped, nothing
+// else, and no " uncertified" tail. An executable re-requests what one deck's
+// pragma cards add (`DeckPragmas` in standalone/momwire_razor2p.cpp) from
+// here, and what its environment asks after that deck.
+void reset_requested();
 
 // One buried fill with the requested features on, as the Python solvers'
 // scopes put them around theirs; restores what was on before.

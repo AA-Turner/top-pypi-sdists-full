@@ -33,6 +33,7 @@ from . import (
 )
 from . import structured_collections as collections
 from .collection_profiles import profile_for
+from .collection_store import link_declarations
 from .kbdir import managed_join
 
 log = logging.getLogger(__name__)
@@ -599,6 +600,7 @@ def append_record(
             audit_correlation=audit_correlation,
         )
         _release_held_file(root, resumed, warnings)
+        warnings.extend(_related_pages_not_looked_up(manifest, created=True))
         committed = _with_warnings(committed, warnings)
     # Outside the guard on purpose -- see `_due_state_carrier`.
     advisory = _due_state_carrier(
@@ -1829,11 +1831,14 @@ def bulk_upsert_records(
             origin_inputs=tuple(origin_inputs),
             dependency_plan=dependencies,
         )
-        return _report(
-            committed=True,
-            after_hash=prev_container,
-            first_transition=by_index[plans[0].index]["transition_id"],
-            last_transition=by_index[plans[-1].index]["transition_id"],
+        return _with_warnings(
+            _report(
+                committed=True,
+                after_hash=prev_container,
+                first_transition=by_index[plans[0].index]["transition_id"],
+                last_transition=by_index[plans[-1].index]["transition_id"],
+            ),
+            _related_pages_not_looked_up(manifest, created=bool(inserts)),
         )
 
 
@@ -3072,6 +3077,7 @@ def _validate_revision_manifest(
         )
     record_formats.validate_storage_contract(proposed)
     record_governance.require_proposed_manifest_visibility(root, proposed)
+    link_declarations.require_relations(root, proposed, current)
     newly_required = _newly_required(current, proposed)
     for record in snapshot.records:
         _validate_values(proposed, record.values, written=newly_required)
@@ -3462,6 +3468,7 @@ def _preflight_collection_create(
         diagnostic = manifest.view_diagnostics[0]
         raise collections.CollectionError(diagnostic.code, diagnostic.reason)
     record_formats.validate_storage_contract(manifest)
+    link_declarations.require_relations(root, manifest)
     source = root / manifest.storage.source
     _assert_portable_absent(root, source)
     if source.exists() or _casefold_alias(source):
@@ -3501,6 +3508,7 @@ def _normalized_manifest_contract(
                 **({"enum": list(spec.enum)} if spec.enum else {}),
                 **({"units": list(spec.units)} if spec.units else {}),
                 **({"link_kind": spec.link_kind} if spec.link_kind is not None else {}),
+                **({"relation": spec.relation} if spec.relation is not None else {}),
                 **({"offset": spec.offset} if spec.offset is not None else {}),
             }
             for name, spec in manifest.schema.fields.items()
@@ -5548,6 +5556,15 @@ def ignored_recipe_warnings(manifest: collections.CollectionManifest) -> list[di
     """``collections.ignored_recipes_diagnostic`` in validate's warning shape; empty when there is none."""
     diagnostic = collections.ignored_recipes_diagnostic(manifest)
     return [] if diagnostic is None else [{"code": diagnostic.code, "message": diagnostic.reason}]
+
+
+def _related_pages_not_looked_up(manifest: collections.CollectionManifest, *, created: bool) -> list[str]:
+    """The warning a file-mode Records write that created rows carries: only a vault store looks up related pages."""
+    if not created or manifest.semantic_profile != "records":
+        return []
+    from .collection_store import related_pages
+
+    return [related_pages.unavailable_warning("a Records collection kept as files never runs the lookup")]
 
 
 def _with_warnings(result: dict[str, Any], warnings: list[Any]) -> dict[str, Any]:

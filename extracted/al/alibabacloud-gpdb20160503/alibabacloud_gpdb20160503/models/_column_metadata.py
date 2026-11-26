@@ -29,23 +29,23 @@ class ColumnMetadata(DaraModel):
         self.comment = comment
         # The data type.
         self.data_type = data_type
-        # The case sensitivity.
+        # Indicates whether the column is case-sensitive.
         self.is_case_sensitive = is_case_sensitive
-        # The currency value indicator.
+        # Indicates whether the column stores currency values.
         self.is_currency = is_currency
-        # The primary key indicator.
+        # Indicates whether the column is a primary key.
         self.is_primary_key = is_primary_key
-        # The signed indicator.
+        # Indicates whether the column is signed.
         self.is_signed = is_signed
         # The maximum character length.
         self.max_length = max_length
         # The column name.
         self.name = name
-        # The nullability.
+        # Indicates whether NULL values are allowed.
         self.nullable = nullable
-        # The precision of the column, which indicates the total number of digits in the integer and fractional parts of a decimal number.
+        # The column precision, which indicates the total number of digits in the integer and fractional parts of a decimal number.
         self.precision = precision
-        # The scale of the column, which indicates the number of digits in the fractional part of a decimal number.
+        # The column scale, which indicates the number of digits in the fractional part of a decimal number.
         self.scale = scale
         # The schema name.
         self.schema_name = schema_name

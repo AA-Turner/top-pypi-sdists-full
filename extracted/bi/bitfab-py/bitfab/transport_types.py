@@ -5,7 +5,7 @@ from typing import Any, Final, Literal, NamedTuple, Protocol
 
 from bitfab.compress import PreparedRequest
 
-TraceOperation = Literal["external_span", "external_trace", "internal_trace"]
+TraceOperation = Literal["span", "trace", "internal_trace", "sandbox_store_write"]
 
 
 class DeliveryReceipt(NamedTuple):
@@ -14,8 +14,9 @@ class DeliveryReceipt(NamedTuple):
     queued: bool = False
 
 
-SPAN_OPERATION: Final = "external_span"
-TRACE_OPERATION: Final = "external_trace"
+SPAN_OPERATION: Final = "span"
+TRACE_OPERATION: Final = "trace"
+SANDBOX_STORE_WRITE_OPERATION: Final = "sandbox_store_write"
 
 # Takes an ALREADY-ENCODED request body and a timeout, and returns once the
 # server has accepted it whole. Supplied by the HTTP client, which owns the

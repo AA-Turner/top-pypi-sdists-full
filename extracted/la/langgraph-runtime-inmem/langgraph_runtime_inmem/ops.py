@@ -194,6 +194,8 @@ async def _save_thread_status(
     checkpoint: CheckpointPayload | None,
     exception: BaseException | None,
     now: datetime,
+    *,
+    refused: bool = False,
 ) -> None:
     """Write a thread's status and error from the facts this update knows.
 
@@ -201,21 +203,26 @@ async def _save_thread_status(
     Without a checkpoint there is nothing to replace values, interrupts and
     has_next with, so the thread keeps the ones it already has. has_next is
     recorded only once the thread is saved, so a failed save can't leave the two
-    apart.
+    apart. A resume that strict mode refused ran nothing, so the thread keeps the
+    error, or lack of one, it had.
     """
     from langgraph_api.serde import json_dumpb, json_loads  # noqa: PLC0415
 
-    failure = _thread_failure(exception)
+    failure = None if refused else _thread_failure(exception)
     has_next = None if checkpoint is None else bool(checkpoint["next"])
 
     update: dict = {
         "updated_at": now,
         "state_updated_at": now,
         "status": _thread_status(
-            conn, thread_id, failed=failure is not None, has_next=has_next
+            conn,
+            thread_id,
+            failed=None if refused else failure is not None,
+            has_next=has_next,
         ),
-        "error": json_loads(json_dumpb(failure)) if failure else None,
     }
+    if not refused:
+        update["error"] = json_loads(json_dumpb(failure)) if failure else None
     if checkpoint is not None:
         update["values"] = json_loads(json_dumpb(checkpoint["values"]))
         update["interrupts"] = json_loads(
@@ -236,13 +243,17 @@ async def _save_thread_status(
     # facts apart from the thread.
     if has_next is not None:
         _thread_has_next(conn)[thread_id] = has_next
-    _thread_failed(conn)[thread_id] = failure is not None
+    if not refused:
+        _thread_failed(conn)[thread_id] = failure is not None
 
 
 def _run_stream_mode_matches(event_mode: str, stream_mode: list[str] | None) -> bool:
     """Return True if a published run-stream event matches the join filter."""
-    # A run's error is its outcome, not a selectable mode, so no filter drops it.
-    if not stream_mode or event_mode == "error":
+    # The interrupts a run answers are for the thread's other clients.
+    if event_mode == "interrupts":
+        return False
+    # A run's error and end are its outcome, not selectable modes, so no filter drops them.
+    if not stream_mode or event_mode in ("error", "end"):
         return True
     if event_mode in stream_mode:
         return True
@@ -1012,6 +1023,13 @@ def _is_jsonb_value_contained(superset: Any, subset: Any) -> bool:
     return superset == subset
 
 
+def _in_time_range(
+    value: datetime, after: datetime | None, before: datetime | None
+) -> bool:
+    """Check value against an [after, before) range; None bounds are open."""
+    return (after is None or value >= after) and (before is None or value < before)
+
+
 def bytes_decoder(obj):
     """Custom JSON decoder that converts base64 back to bytes."""
     if "__type__" in obj and obj["__type__"] == "bytes":
@@ -1114,6 +1132,10 @@ class Threads(Authenticated):
         select: list[ThreadSelectField] | None = None,
         extract: dict[str, str] | None = None,
         exclude_metadata: list[dict[str, Any]] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        state_updated_after: datetime | None = None,
+        state_updated_before: datetime | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> tuple[AsyncIterator[Thread], int]:
         threads = conn.store["threads"]
@@ -1159,6 +1181,15 @@ class Threads(Authenticated):
             if exclude_metadata and any(
                 is_jsonb_contained(thread["metadata"], excluded)
                 for excluded in exclude_metadata
+            ):
+                continue
+
+            if not _in_time_range(
+                thread["created_at"], created_after, created_before
+            ) or not _in_time_range(
+                thread.get("state_updated_at") or thread["updated_at"],
+                state_updated_after,
+                state_updated_before,
             ):
                 continue
 
@@ -1523,6 +1554,8 @@ class Threads(Authenticated):
         graph_id: str,
         checkpoint: CheckpointPayload | None = None,
         exception: BaseException | None = None,
+        *,
+        refused_resume: bool = False,
     ) -> None:
         """Set the status of both thread and run atomically in a single query.
 
@@ -1536,6 +1569,8 @@ class Threads(Authenticated):
             run_status: New status for the run (or "rollback" to delete the run)
             checkpoint: Checkpoint payload for thread status calculation
             exception: Exception that occurred (affects thread status)
+            refused_resume: Strict resume refused the run's answer before anything
+                ran, so the thread keeps its error, or lack of one, as it was.
         """
         # No auth since it's internal
         thread_id = _ensure_uuid(thread_id)
@@ -1566,13 +1601,21 @@ class Threads(Authenticated):
         if run.get("cancel_action") == "rollback":
             # A rollback recorded while the run ran wins over the signal its worker saw first, as in Go.
             run_status, checkpoint, exception = "rollback", None, None
+            refused_resume = False
         if run_status == "rollback":
             await Runs.delete(conn, run_id, thread_id=run["thread_id"])
         else:
             run.update({"status": run_status, "updated_at": now})
         thread["metadata"]["graph_id"] = graph_id
         await _save_thread_status(
-            conn, thread_id, thread, stored_thread, checkpoint, exception, now
+            conn,
+            thread_id,
+            thread,
+            stored_thread,
+            checkpoint,
+            exception,
+            now,
+            refused=refused_resume,
         )
 
     @staticmethod
@@ -1580,6 +1623,8 @@ class Threads(Authenticated):
         conn: InMemConnectionProto,
         thread_id: UUID,
         ctx: Auth.types.BaseAuthContext | None = None,
+        *,
+        sync_checkpoint_delete: bool = False,  # deletes are always synchronous
     ) -> AsyncIterator[UUID]:
         """Delete a thread by ID and cascade delete all associated runs."""
         thread_list = conn.store["threads"]
@@ -1638,6 +1683,8 @@ class Threads(Authenticated):
         strategy: Literal["delete", "keep_latest"] = "delete",
         batch_size: int = 100,
         ctx: Auth.types.BaseAuthContext | None = None,
+        *,
+        sync_checkpoint_delete: bool = False,
     ) -> int:
         """Prune threads by ID (inmem implementation).
 
@@ -1646,6 +1693,7 @@ class Threads(Authenticated):
             strategy: Prune strategy ("delete" supported, "keep_latest" not supported)
             batch_size: Not used in inmem implementation
             ctx: Auth context for permission checks
+            sync_checkpoint_delete: Not used; inmem deletes are always synchronous
 
         Returns:
             Number of threads successfully pruned
@@ -1858,8 +1906,13 @@ class Threads(Authenticated):
             config: Config,
             subgraphs: bool = False,
             ctx: Auth.types.BaseAuthContext | None = None,
+            channels: Sequence[str] | None = None,
         ) -> StateSnapshot:
-            """Get state for a thread."""
+            """Get state for a thread.
+
+            ``channels`` is accepted for parity with the gRPC runtime; the
+            in-memory checkpointer always loads whole checkpoints.
+            """
             from langgraph_api.graph import get_graph  # noqa: PLC0415
             from langgraph_api.store import get_store  # noqa: PLC0415
 
@@ -2384,6 +2437,8 @@ class Threads(Authenticated):
                     return False
                 if "state_update" in stream_modes and event_name == "state_update":
                     return False
+                if event_name == "interrupts" and "lifecycle" in stream_modes:
+                    return False
                 if "lifecycle" in stream_modes and event_name == "metadata":
                     try:
                         message_data = orjson.loads(message_bytes)
@@ -2405,17 +2460,22 @@ class Threads(Authenticated):
                         "Joined thread stream",
                         thread_id=str(thread_id),
                     )
+                    # Before the replay, so what is published while it is sent reaches a queue.
+                    created_queues.extend(
+                        await Threads.Stream.subscribe(conn, thread_id, seen_runs)
+                    )
+                    # ``message_stores`` is keyed by ``UUID`` (see
+                    # :meth:`StreamManager.put`), and callers can hand us
+                    # ``thread_id`` as either ``str`` or ``UUID``.
+                    store_key = _ensure_uuid(thread_id)
 
                     # Restore messages if resuming from a specific event
                     if last_event_id is not None:
-                        # ``message_stores`` is keyed by ``UUID`` (see
-                        # :meth:`StreamManager.put`). Callers can hand us
-                        # ``thread_id`` as either ``str`` or ``UUID``, so
-                        # normalize before the lookup — otherwise replay
-                        # always misses and yields nothing.
-                        store_key = _ensure_uuid(thread_id)
                         all_events = []
-                        for run_id in stream_manager.message_stores.get(store_key, []):
+                        # A copy: restore_messages drops expired runs from this dict.
+                        for run_id in list(
+                            stream_manager.message_stores.get(store_key, ())
+                        ):
                             for message in stream_manager.restore_messages(
                                 run_id, thread_id, last_event_id
                             ):
@@ -2463,61 +2523,49 @@ class Threads(Authenticated):
                         new_queue_tuples = await Threads.Stream.subscribe(
                             conn, thread_id, seen_runs
                         )
+                        drained = []
                         # Track new queues for cleanup
                         for run_id, queue in new_queue_tuples:
                             created_queues.append((run_id, queue))
+                            # A run that started after the join can store events
+                            # before this poll gives it a queue.
+                            drained.extend(
+                                (message, run_id)
+                                for message in stream_manager.message_stores.get(
+                                    store_key, {}
+                                ).get(run_id, ())
+                            )
 
-                        drained_any = False
+                        # Drain every queue before yielding, then send in id order: a
+                        # client resumes after the last id it got.
                         for run_id, queue in created_queues:
-                            while True:
-                                try:
-                                    message = queue.get_nowait()
-                                except asyncio.QueueEmpty:
-                                    break
-                                try:
-                                    decoded = decode_stream_message(
-                                        message.data, channel=message.topic
-                                    )
-                                except (ValueError, KeyError):
-                                    continue
-                                event = decoded.event_bytes
-                                event_name = event.decode("utf-8")
-                                payload = decoded.message_bytes
-
-                                if event == b"control" and payload == b"done":
-                                    # Don't shadow the queue-iteration
-                                    # ``run_id`` with the topic-extracted
-                                    # string — non-control events later in
-                                    # this drain pass would yield the
-                                    # rebound value. Wire output is
-                                    # identical (``str(UUID)`` matches the
-                                    # topic suffix), but the rebinding is
-                                    # fragile if the topic format moves.
-                                    topic = message.topic.decode()
-                                    done_run_id = topic.split("run:")[1].split(":")[0]
-                                    meta_event = b"metadata"
-                                    meta_payload = orjson.dumps(
-                                        {"status": "run_done", "run_id": done_run_id}
-                                    )
-                                    if not should_filter_event(
-                                        "metadata", meta_payload
-                                    ):
-                                        yield (
-                                            meta_event,
-                                            meta_payload,
-                                            message.id,
-                                            done_run_id,
-                                        )
-                                        drained_any = True
-                                else:
-                                    if not should_filter_event(event_name, payload):
-                                        yield (
-                                            event,
-                                            payload,
-                                            message.id,
-                                            str(run_id),
-                                        )
-                                        drained_any = True
+                            while not queue.empty():
+                                drained.append((queue.get_nowait(), run_id))
+                        drained.sort(key=lambda item: stream_id_key(item[0].id))
+                        drained_any = False
+                        for message, run_id in drained:
+                            try:
+                                decoded = decode_stream_message(
+                                    message.data, channel=message.topic
+                                )
+                            except (ValueError, KeyError):
+                                continue
+                            event = decoded.event_bytes
+                            payload = decoded.message_bytes
+                            if event == b"control" and payload == b"done":
+                                event = b"metadata"
+                                payload = orjson.dumps(
+                                    {"status": "run_done", "run_id": str(run_id)}
+                                )
+                            if not should_filter_event(event.decode("utf-8"), payload):
+                                # Only a stored event can be resumed from.
+                                yield (
+                                    event,
+                                    payload,
+                                    message.id if message.resumable else None,
+                                    str(run_id),
+                                )
+                                drained_any = True
 
                         if drained_any:
                             # Yield once so other tasks (worker, send) can
@@ -2603,6 +2651,10 @@ class Threads(Authenticated):
         values: MetadataInput = None,
         status: ThreadStatus | None = None,
         exclude_metadata: list[dict[str, Any]] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        state_updated_after: datetime | None = None,
+        state_updated_before: datetime | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> int:
         """Get count of threads."""
@@ -2634,6 +2686,15 @@ class Threads(Authenticated):
             if exclude_metadata and any(
                 is_jsonb_contained(thread["metadata"], excluded)
                 for excluded in exclude_metadata
+            ):
+                continue
+
+            if not _in_time_range(
+                thread["created_at"], created_after, created_before
+            ) or not _in_time_range(
+                thread.get("state_updated_at") or thread["updated_at"],
+                state_updated_after,
+                state_updated_before,
             ):
                 continue
 
@@ -3127,6 +3188,11 @@ class Runs(Authenticated):
             else None
         )
 
+        # A run that cancels the runs in flight replaces them, so refusing its
+        # answer would stop the agent mid-turn: it never resumes strictly.
+        if multitask_strategy in ("interrupt", "rollback") and inflight_runs:
+            kwargs = {k: v for k, v in kwargs.items() if k != "strict_resume"}
+
         # Create new run
         configurable = Runs._merge_jsonb(
             Runs._get_configurable(assistant["config"]),
@@ -3227,8 +3293,14 @@ class Runs(Authenticated):
         *,
         thread_id: UUID,
         ctx: Auth.types.BaseAuthContext | None = None,
+        read_mask_paths: list[str] | None = None,
     ) -> AsyncIterator[Run]:
-        """Get a run by ID."""
+        """Get a run by ID.
+
+        Args:
+            read_mask_paths: Column restriction hint for the postgres runtime;
+                ignored for inmem since there's no input-column I/O to skip.
+        """
 
         run_id, thread_id = _ensure_uuid(run_id), _ensure_uuid(thread_id)
         filters = await Runs.handle_event(
@@ -3675,9 +3747,11 @@ class Runs(Authenticated):
                     )
                     run = await anext(run_iter, None)
 
+                    last_replayed = None
                     for message in get_stream_manager().restore_messages(
                         run_id, thread_id, last_event_id
                     ):
+                        last_replayed = stream_id_key(message.id)
                         data, id = message.data, message.id
                         decoded = decode_stream_message(data, channel=message.topic)
                         mode = decoded.event_bytes.decode("utf-8")
@@ -3700,6 +3774,13 @@ class Runs(Authenticated):
                         try:
                             # Wait for messages with a timeout
                             message = await asyncio.wait_for(queue.get(), timeout=0.5)
+                            # The queue was subscribed before the replay, so it can
+                            # repeat events the replay already sent.
+                            if (
+                                last_replayed is not None
+                                and stream_id_key(message.id) <= last_replayed
+                            ):
+                                continue
                             data, id = message.data, message.id
                             decoded = decode_stream_message(data, channel=message.topic)
                             mode = decoded.event_bytes.decode("utf-8")

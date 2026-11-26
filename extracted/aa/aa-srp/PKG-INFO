@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aa-srp
-Version: 5.11.1
+Version: 5.12.0
 Summary: Improved SRP Module for Alliance Auth
 Project-URL: Changelog, https://github.com/ppfeufer/aa-srp/blob/master/CHANGELOG.md
 Project-URL: Codecov, https://codecov.io/gh/ppfeufer/aa-srp
@@ -703,7 +703,7 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: <3.15,>=3.11
 Requires-Dist: allianceauth<6,>=5.5
-Requires-Dist: django-eveonline-sde>=1
+Requires-Dist: django-eveonline-sde>=2
 Provides-Extra: tests-allianceauth-latest
 Requires-Dist: aa-discordnotify; extra == 'tests-allianceauth-latest'
 Requires-Dist: aa-forum; extra == 'tests-allianceauth-latest'
@@ -843,7 +843,7 @@ Make sure you're in the virtual environment (venv) of your Alliance Auth
 installation Then install the latest release directly from PyPi.
 
 ```shell
-pip install aa-srp==5.11.1
+pip install aa-srp==5.12.0
 ```
 
 #### Step 2: Configure Alliance Auth<a name="step-2-configure-alliance-auth"></a>
@@ -868,10 +868,11 @@ Add the following new task to ensure the SDE data is kept up to date:
 
 ```python
 if "eve_sde" in INSTALLED_APPS:
-    # Run at 12:00 each day
+    # Run 30 minutes past the hour UTC
     CELERYBEAT_SCHEDULE["EVE SDE :: Check for SDE Updates"] = {
         "task": "eve_sde.tasks.check_for_sde_updates",
-        "schedule": crontab(minute="0", hour="12"),
+        "schedule": crontab(minute="30"),
+        "apply_offset": True,
     }
 
     # Set the following when you have a bare metal installation, or Docker with a
@@ -906,7 +907,7 @@ Restart your supervisor services for Auth
 Add the app to your `conf/requirements.txt`
 
 ```requirements
-aa-srp==5.11.1
+aa-srp==5.12.0
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings"></a>
@@ -929,10 +930,11 @@ Add the following new task to ensure the SDE data is kept up to date:
 
 ```python
 if "eve_sde" in INSTALLED_APPS:
-    # Run at 12:00 each day
+    # Run 30 minutes past the hour UTC
     CELERYBEAT_SCHEDULE["EVE SDE :: Check for SDE Updates"] = {
         "task": "eve_sde.tasks.check_for_sde_updates",
-        "schedule": crontab(minute="0", hour="12"),
+        "schedule": crontab(minute="30"),
+        "apply_offset": True,
     }
 
     # Set the following when you have a bare metal installation, or Docker with a
@@ -1032,7 +1034,7 @@ To update your existing installation of AA SRP, first enable your virtual enviro
 Then run the following command to update AA SRP to the latest version.
 
 ```shell
-pip install aa-srp==5.11.1
+pip install aa-srp==5.12.0
 
 python manage.py collectstatic
 python manage.py migrate
@@ -1048,7 +1050,7 @@ To update your existing installation of AA SRP, first update the version in your
 `conf/requirements.txt` to the latest version.
 
 ```requirements
-aa-srp==5.11.1
+aa-srp==5.12.0
 ```
 
 Then build your Auth container and restart your containers.

@@ -6,9 +6,12 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dstack._internal.core.models.backends.base import BackendType
-from dstack._internal.core.models.common import ApplyAction
+from dstack._internal.core.models.common import ApplyAction, EntityReference
 from dstack._internal.core.models.gateways import GatewayStatus
+from dstack._internal.core.models.services import OpenAIChatModel
 from dstack._internal.core.models.users import GlobalRole, ProjectRole
+from dstack._internal.server.models import GatewayModel, ProjectModel, UserModel
+from dstack._internal.server.services.gateways import get_project_gateway_model_by_reference
 from dstack._internal.server.services.projects import add_project_member
 from dstack._internal.server.testing.common import (
     clear_events,
@@ -17,11 +20,43 @@ from dstack._internal.server.testing.common import (
     create_gateway,
     create_gateway_replica,
     create_project,
+    create_repo,
+    create_secret,
+    create_service_run,
     create_user,
     get_auth_headers,
     list_events,
 )
 from dstack._internal.server.testing.matchers import SomeUUID4Str
+
+CANNOT_REMOVE_DOMAIN_OR_PUT_PROJECT_NAME_INTO_IT_ERROR = (
+    "Cannot remove the domain of 'my-gateway' or put ${{ run.project_name }} into it:"
+    " 'test-model' is exported by 'models', and 'test-service' serves it to importer projects"
+    " from this gateway."
+    " Move the service to another gateway, or remove the model from the export first."
+)
+
+
+async def create_service_with_exported_model(
+    session: AsyncSession, project: ProjectModel, user: UserModel, gateway: GatewayModel
+) -> None:
+    repo = await create_repo(session=session, project_id=project.id)
+    await create_service_run(
+        session=session,
+        project=project,
+        repo=repo,
+        user=user,
+        gateway=gateway,
+        model=OpenAIChatModel(name="test-model", format="openai"),
+    )
+    await create_export(
+        session=session,
+        exporter_project=project,
+        importer_projects=[],
+        exported_fleets=[],
+        exported_models=["test-model"],
+        name="models",
+    )
 
 
 class TestListAndGetGateways:
@@ -112,6 +147,7 @@ class TestListAndGetGateways:
                     "load_balancer": None,
                     "certificate": {"type": "lets-encrypt"},
                     "tags": None,
+                    "otel": None,
                     "replicas": None,
                 },
             }
@@ -199,6 +235,7 @@ class TestListAndGetGateways:
                 "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
+                "otel": None,
                 "replicas": None,
             },
         }
@@ -541,6 +578,7 @@ class TestCreateGateway:
                 "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
+                "otel": None,
                 "replicas": None,
             },
         }
@@ -632,6 +670,7 @@ class TestCreateGateway:
                 "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
+                "otel": None,
                 "replicas": None,
             },
         }
@@ -974,6 +1013,7 @@ class TestDefaultGateway:
                 "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
+                "otel": None,
                 "replicas": None,
             },
         }
@@ -1371,6 +1411,7 @@ class TestUpdateGateway:
                 "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
+                "otel": None,
                 "replicas": None,
             },
         }
@@ -1379,6 +1420,41 @@ class TestUpdateGateway:
         assert (
             events[0].message == "Gateway wildcard domain changed 'old.example' -> 'new.example'"
         )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_rejects_wildcard_domain_with_project_name_if_gateway_serves_exported_model(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session, global_role=GlobalRole.USER)
+        project = await create_project(session)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.ADMIN
+        )
+        backend = await create_backend(session, project.id)
+        gateway = await create_gateway(
+            session=session,
+            project_id=project.id,
+            backend_id=backend.id,
+            name="my-gateway",
+            wildcard_domain="example.com",
+        )
+        await create_service_with_exported_model(session, project, user, gateway)
+        response = await client.post(
+            f"/api/project/{project.name}/gateways/set_wildcard_domain",
+            json={
+                "name": gateway.name,
+                "wildcard_domain": "${{ run.project_name }}.example.com",
+            },
+            headers=get_auth_headers(user.token),
+        )
+        assert response.status_code == 400
+        assert (
+            response.json()["detail"][0]["msg"]
+            == CANNOT_REMOVE_DOMAIN_OR_PUT_PROJECT_NAME_INTO_IT_ERROR
+        )
+        await session.refresh(gateway)
+        assert gateway.wildcard_domain == "example.com"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
@@ -2205,6 +2281,55 @@ class TestApplyGatewayPlan:
         assert any("Gateway updated." in e.message and "domain" in e.message for e in events)
         await session.refresh(gateway)
         assert gateway.last_update_at is not None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    @pytest.mark.parametrize("domain", ["${{ run.project_name }}.example.com", None])
+    async def test_rejects_domain_with_project_name_or_none_if_gateway_serves_exported_model(
+        self, test_db, session: AsyncSession, client: AsyncClient, domain: Optional[str]
+    ):
+        user = await create_user(session, global_role=GlobalRole.USER)
+        project = await create_project(session)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.ADMIN
+        )
+        backend = await create_backend(session, project.id, backend_type=BackendType.AWS)
+        gateway = await create_gateway(
+            session=session,
+            project_id=project.id,
+            backend_id=backend.id,
+            name="my-gateway",
+            region="us-east-1",
+            wildcard_domain="example.com",
+        )
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
+        await create_service_with_exported_model(session, project, user, gateway)
+        response = await client.post(
+            f"/api/project/{project.name}/gateways/apply",
+            json={
+                "plan": {
+                    "spec": {
+                        "configuration": {
+                            "type": "gateway",
+                            "name": "my-gateway",
+                            "backend": "aws",
+                            "region": "us-east-1",
+                            "domain": domain,
+                        }
+                    },
+                    "current_resource": None,
+                },
+                "force": True,
+            },
+            headers=get_auth_headers(user.token),
+        )
+        assert response.status_code == 400
+        assert (
+            response.json()["detail"][0]["msg"]
+            == CANNOT_REMOVE_DOMAIN_OR_PUT_PROJECT_NAME_INTO_IT_ERROR
+        )
+        await session.refresh(gateway)
+        assert gateway.wildcard_domain == "example.com"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
@@ -3037,3 +3162,84 @@ class TestApplyGatewayPlanDefault:
 
         await session.refresh(project)
         assert project.default_gateway_id is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+class TestGatewayOTel:
+    async def test_creates_gateway_with_secret_references(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session, global_role=GlobalRole.USER)
+        project = await create_project(session)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.ADMIN
+        )
+        await create_secret(session=session, project=project, name="token", value="s3cret")
+        await create_backend(session, project.id, backend_type=BackendType.AWS)
+        otel = {
+            "endpoint": "https://otlp.example.com",
+            "headers": {"Authorization": "Bearer ${{ secrets.token }}"},
+            "traces": True,
+        }
+
+        response = await client.post(
+            f"/api/project/{project.name}/gateways/apply",
+            json={
+                "plan": {
+                    "spec": {
+                        "configuration": {
+                            "type": "gateway",
+                            "name": "my-gateway",
+                            "backend": "aws",
+                            "region": "us-east-1",
+                            "otel": otel,
+                        }
+                    },
+                    "current_resource": None,
+                },
+                "force": False,
+            },
+            headers=get_auth_headers(user.token),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["configuration"]["otel"]["headers"] == otel["headers"]
+        assert "s3cret" not in response.text
+        gateway = await get_project_gateway_model_by_reference(
+            session, project, EntityReference(name="my-gateway", project=None)
+        )
+        assert gateway is not None
+        assert "secrets.token" in (gateway.configuration or "")
+        assert "s3cret" not in (gateway.configuration or "")
+        events = await list_events(session)
+        assert all("s3cret" not in e.message for e in events)
+
+    async def test_rejects_missing_secret(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session, global_role=GlobalRole.USER)
+        project = await create_project(session)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.ADMIN
+        )
+        await create_backend(session, project.id, backend_type=BackendType.AWS)
+
+        response = await client.post(
+            f"/api/project/{project.name}/gateways/get_plan",
+            json={
+                "spec": {
+                    "configuration": {
+                        "type": "gateway",
+                        "name": "my-gateway",
+                        "backend": "aws",
+                        "region": "us-east-1",
+                        "otel": {"endpoint": "${{ secrets.missing }}", "traces": True},
+                    }
+                }
+            },
+            headers=get_auth_headers(user.token),
+        )
+
+        assert response.status_code == 400
+        assert "secrets.missing" in response.text

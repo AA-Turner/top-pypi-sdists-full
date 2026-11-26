@@ -352,11 +352,13 @@ test('the digest is the verdict, one table and a footer; the numbers and load go
   assert.doesNotMatch(`${text}\n${thread[0]}`, /k6:|How to read|closed model/, 'the mechanics live in REPORTS.md');
 });
 
-test('the scale-to-zero variant carries its own suffix and links its own section', () => {
-  const { text } = buildDigest([run('wait_write')], { ...base, titleSuffix: ' (Scale to Zero)', docsAnchor: 'scale-to-zero' });
-  assert.match(text, /^🟢 \*Daily Benchmark \(Scale to Zero\) · Aug 17\*/);
-  assert.match(text, /REPORTS\.md#scale-to-zero\|What is this\?>/);
-});
+for (const [variant, docsAnchor] of [['Scale to Zero', 'scale-to-zero'], ['Multi-Process', 'multi-process']]) {
+  test(`the ${docsAnchor} variant carries its own suffix and links its own section`, () => {
+    const { text } = buildDigest([run('wait_write')], { ...base, titleSuffix: ` (${variant})`, docsAnchor });
+    assert.ok(text.startsWith(`🟢 *Daily Benchmark (${variant}) · Aug 17*`));
+    assert.ok(text.includes(`REPORTS.md#${docsAnchor}|What is this?>`));
+  });
+}
 
 test('the doc link points at the commit that ran, so a branch dispatch links a page that exists', () => {
   const saved = process.env.GITHUB_SHA;

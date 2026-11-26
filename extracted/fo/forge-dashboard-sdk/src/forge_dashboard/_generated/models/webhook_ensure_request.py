@@ -21,7 +21,7 @@ T = TypeVar("T", bound="WebhookEnsureRequest")
 
 @_attrs_define
 class WebhookEnsureRequest:
-    """ Which repo to create or fix up a webhook on.
+    """ Which repo a repo-level action targets.
 
         Attributes:
             forge (Forge):

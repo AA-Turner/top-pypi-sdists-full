@@ -12,22 +12,22 @@ class ModifyAccountDescriptionRequest(DaraModel):
         client_token: str = None,
         dbinstance_id: str = None,
     ):
-        # The new description of the database account.
+        # The modified account description. The description must meet the following requirements:
         # 
-        # *   The description must start with a letter.
-        # *   The description cannot start with `http://` or `https://`.
-        # *   The description can contain letters, underscores (_), hyphens (-), and digits.
-        # *   The description must be 2 to 256 characters in length.
+        # - It must start with a letter or a Chinese character.
+        # - It cannot start with `http://` or `https://`.
+        # - It can contain letters, Chinese characters, underscores (_), hyphens (-), and digits.
+        # - It must be 2 to 256 characters in length.
         self.account_description = account_description
         # The name of the database account.
         # 
         # This parameter is required.
         self.account_name = account_name
-        # Idempotence check. For more information, see [How to Ensure Idempotence](https://help.aliyun.com/document_detail/327176.html).
+        # The client token that is used to ensure idempotence. For more information, see [Ensure idempotence](https://help.aliyun.com/document_detail/327176.html).
         self.client_token = client_token
-        # The instance ID.
+        # Instance ID of the instance.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances within a region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query instance IDs of all AnalyticDB for PostgreSQL instances in the specified region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

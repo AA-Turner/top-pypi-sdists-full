@@ -65,8 +65,10 @@ from trilogy.core.processing.nodes.base_node import (
 )
 from trilogy.core.processing.null_provenance import side_nullable
 from trilogy.core.processing.utility import (
+    JoinSequence,
     collect_applied_conditions,
     find_nullable_concepts,
+    keep_planned_join_types,
     left_deep_joins,
     padded_sources,
     row_applied_atoms,
@@ -451,6 +453,13 @@ class MergeNode(StrategyNode):
         # bound completely before stays complete for them
         self.consumer_proofs: ConsumerProofs | None = None
         self.unfiltered_partials: set[str] | None = None
+        # the columns it rendered off one source alone when it took them
+        # (`single_source_reads`): a consumer's join on one rejects that
+        # source's padded rows
+        self.key_reads: dict[str, str] | None = None
+        # the join types it planned before a parent narrowed, by the right
+        # parent's position (`consumer_proofs._pin_join_types`)
+        self.planned_join_types: JoinSequence | None = None
 
         final_joins: list[NodeJoin] = []
         if self.node_joins is not None:
@@ -698,6 +707,7 @@ class MergeNode(StrategyNode):
         side_proofs: set[str] = set()
         or_groups: list[list[set[str]]] = []
         key_proofs: set[str] = set()
+        key_sources: dict[str, str] = {}
         if self.conditions:
             proofs = non_null_proofs(self.conditions)
             side_proofs = gather_non_null_proofs(self.conditions)
@@ -709,6 +719,9 @@ class MergeNode(StrategyNode):
             side_proofs |= consumer.side_proofs
             or_groups += [[set(d) for d in group] for group in consumer.or_groups]
             key_proofs = set(consumer.keys - zero)
+            key_sources = {
+                a: s for a, s in (self.key_reads or {}).items() if a in key_proofs
+            }
         if zero:
             proofs -= zero
             side_proofs -= zero
@@ -722,6 +735,7 @@ class MergeNode(StrategyNode):
                 side_proofs=side_proofs,
                 or_groups=or_groups,
                 key_proofs=key_proofs,
+                key_sources=key_sources,
             )
         # A query-level filter pushed into the single branch that exposes its
         # columns still constrains the FINAL output: any output concept it
@@ -789,6 +803,7 @@ class MergeNode(StrategyNode):
             side_proofs=side_proofs,
             or_groups=or_groups,
             key_proofs=key_proofs,
+            key_sources=key_sources,
             filtered_ids=filtered_ids,
             coalescing_keys=coalescing,
         )
@@ -1058,16 +1073,22 @@ class MergeNode(StrategyNode):
             f"{self.logging_prefix}{LOGGER_PREFIX} Final join count for CTE parent count {len(join_candidates)} is {len(joins)}"
         )
         _cap_lookup_joins(joins, lookup_keys - row_keys)
+        if self.planned_join_types is not None:
+            keep_planned_join_types(
+                joins,
+                [p.resolve().identifier for p in self.parents],
+                self.planned_join_types,
+            )
         narrow_join_types(joins, join_proofs, final_datasets)
-        # Per-datasource NULL-ability from the resolved join graph: orders
-        # ``final_datasets`` so the preserved side wins ``resolve_concept_map``'s
-        # first pass, and prunes NULL-able-side pairs from JOIN ON when a
-        # preserved alternative exists. Both reduce redundant ``coalesce``.
-        null_status = compute_outer_null_status(joins)
         prune_outer_join_pairs(joins)
         narrow_directional_join_types(joins, join_proofs, final_datasets)
         restore_unpadded_joins(joins)
         narrow_keyless_joins(joins, self._gate_sources(final_datasets))
+        # Per-datasource NULL-ability from the final join types: orders
+        # ``final_datasets`` so the preserved side wins ``resolve_concept_map``'s
+        # first pass, which reduces redundant ``coalesce``. Taken after every
+        # narrowing, so a FULL narrowed to RIGHT reads no key off its left.
+        null_status = compute_outer_null_status(joins)
         # FULL JOINs only: both sides may be NULL, so source_map needs every
         # input supplying the address. For LEFT/RIGHT the preserved-side
         # ordering above suffices.
@@ -1213,8 +1234,14 @@ class MergeNode(StrategyNode):
         joined_partials = merge_partial_addresses(
             final_datasets, joins, final_output_concepts
         )
+        extent_free = self._extent_free_partials(
+            final_datasets, final_output_concepts, joins
+        )
         if self.unfiltered_partials is not None:
             joined_partials &= self.unfiltered_partials
+            extent_free = [
+                c for c in extent_free if c.address in self.unfiltered_partials
+            ]
         qds = QueryDatasource(
             input_concepts=unique(self.input_concepts, "address"),
             output_concepts=final_output_concepts,
@@ -1236,9 +1263,7 @@ class MergeNode(StrategyNode):
             partial_concepts=unique(
                 self.partial_concepts
                 + [c for c in final_output_concepts if c.address in joined_partials]
-                + self._extent_free_partials(
-                    final_datasets, final_output_concepts, joins
-                ),
+                + extent_free,
                 "address",
             ),
             rollup_concepts=rollup_concepts,

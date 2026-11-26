@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abx-plugins
-Version: 1.13.880
+Version: 1.13.929
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://plugins.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
 Requires-Dist: abxbus==2.5.96
-Requires-Dist: abxpkg==1.13.110
+Requires-Dist: abxpkg==1.13.120
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: imagesize>=2.0.0
 Requires-Dist: psutil!=7.2.2,>=7.2.1
@@ -217,6 +217,7 @@ background services, models, or migrations. Both stop polling in hidden tabs.
 | `register_eventbus(bus, config)` | `None`; register handlers, services or middleware on the supplied native `abxbus.EventBus`. |
 | `wrap_asgi(application, config)` | ASGI callable; wrap the complete host application, or return it unchanged when disabled. |
 | `enter_operation(name, config, *, attributes)` | Context manager for host work outside the bus, including scheduler passes and CLI commands; receives existing Process identity. |
+| `get_subprocess_env(config)` | Environment mapping for a child Process, captured within the active operation; disabled plugins return `{}`. |
 | `read_snapshot_inventory(snapshot_dir, *, verify=False)` | `None` when absent, otherwise `{path: {size, hash, is_dir}}`; invalid inventories raise `ValueError`. |
 
 `app.py` may export `AppConfig`, a native Django `AppConfig` subclass with a unique

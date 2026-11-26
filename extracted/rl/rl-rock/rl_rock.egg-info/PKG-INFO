@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rl-rock
-Version: 1.11.0
+Version: 1.12.0
 Summary: ROCK-Reinforcement Open Construction Kit
 Author: chatos@alibaba
 Requires-Python: <4.0,>=3.10

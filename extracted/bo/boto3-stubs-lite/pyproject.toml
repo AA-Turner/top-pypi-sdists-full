@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs-lite"
-version = "1.44.11"
+version = "1.44.12"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Lite type annotations for boto3 1.44.11 generated with mypy-boto3-builder 8.12.0"
+description = "Lite type annotations for boto3 1.44.12 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.44.0, <1.45.0",
 ]
 boto3 = [
-    "boto3==1.44.11",
+    "boto3==1.44.12",
 ]
 all = [
     "mypy-boto3-abuse-signal>=1.44.0, <1.45.0",
@@ -225,6 +225,7 @@ all = [
     "mypy-boto3-elasticache>=1.44.0, <1.45.0",
     "mypy-boto3-elasticbeanstalk>=1.44.0, <1.45.0",
     "mypy-boto3-elb>=1.44.0, <1.45.0",
+    "mypy-boto3-elb-proxy>=1.44.0, <1.45.0",
     "mypy-boto3-elbv2>=1.44.0, <1.45.0",
     "mypy-boto3-elementalinference>=1.44.0, <1.45.0",
     "mypy-boto3-emr>=1.44.0, <1.45.0",
@@ -984,6 +985,9 @@ elasticbeanstalk = [
 ]
 elb = [
     "mypy-boto3-elb>=1.44.0, <1.45.0",
+]
+elb-proxy = [
+    "mypy-boto3-elb-proxy>=1.44.0, <1.45.0",
 ]
 elbv2 = [
     "mypy-boto3-elbv2>=1.44.0, <1.45.0",

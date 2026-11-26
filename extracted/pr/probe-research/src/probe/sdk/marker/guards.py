@@ -883,7 +883,7 @@ UPKEEP_FLAG_RULES = {
                "--no-tracking --no-capture --no-auto-update --no-agent-rules --channel --uninstall --folder "
                "--experimental --token --base-url --context --ingest-token --hmac-secret --endpoint-only "
                "<auth_code>"),
-    "login": ("--device", "--base-url --token --ingest-token --hmac-secret --endpoint-only --context"),
+    "login": ("--device --email --team", "--base-url --token --ingest-token --hmac-secret --endpoint-only --context"),
     "logout": ("", ""),
     "whoami": ("", ""),
     "doctor": ("--fix --send --bundle --out --json", ""),
@@ -948,7 +948,7 @@ PROBE_UPKEEP = {
     "import review": {"--agent": 1, "--background": 0, "--chats-agent": 1, "--chats-all": 0, "--chats-folder": 1, "--chats-limit": 1, "--chats-since": 1, "--folder": 1, "--json": 0, "--renews": 1, "--sessions": 1, "--skip-files-over": 1, "--wandb-folder": 1, "--wandb-key": 1, "--wandb-project": 1, "--workspace": 1},
     "import status": {"--json": 0, "--review": 1, "--wait": 0},
     "install": {"--agent": 1, "--agent-rules": 0, "--auto-update": 0, "--capture": 0, "--json": 0, "--profile": 1, "--tracking": 0, "--yes": 0, "-y": 0},
-    "login": {"--device": 0},
+    "login": {"--device": 0, "--email": 1, "--team": 1},
     "logout": {},
     "repair": {"--json": 0},
     "service start": {"--json": 0, "--min-version": 1},

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cyclonedx-python-lib
-Version: 11.12.0
+Version: 11.13.0
 Summary: Python library for CycloneDX
 License: Apache-2.0
 License-File: LICENSE
@@ -10,7 +10,7 @@ Author: Paul Horton
 Author-email: phorton@sonatype.com
 Maintainer: Jan Kowalleck
 Maintainer-email: jan.kowalleck@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9,<4
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development
 Classifier: Topic :: System :: Software Distribution
@@ -31,14 +32,14 @@ Classifier: Typing :: Typed
 Provides-Extra: json-validation
 Provides-Extra: validation
 Provides-Extra: xml-validation
-Requires-Dist: jsonschema[format-nongpl] (>=4.25,<5.0) ; extra == "validation" or extra == "json-validation"
+Requires-Dist: jsonschema[format-nongpl] (>=4.25,<5) ; extra == "validation" or extra == "json-validation"
 Requires-Dist: license-expression (>=30,<31)
 Requires-Dist: lxml (>=4,<7) ; extra == "validation" or extra == "xml-validation"
 Requires-Dist: packageurl-python (>=0.11,<2)
-Requires-Dist: py-serializable (>=2.1.0,<3.0.0)
+Requires-Dist: py-serializable (>=2.1.0,<3)
 Requires-Dist: referencing (>=0.28.4) ; extra == "validation" or extra == "json-validation"
-Requires-Dist: sortedcontainers (>=2.4.0,<3.0.0)
-Requires-Dist: typing_extensions (>=4.6,<5.0) ; python_version < "3.13"
+Requires-Dist: sortedcontainers (>=2.4.0,<3)
+Requires-Dist: typing_extensions (>=4.6,<5) ; python_version < "3.13"
 Project-URL: Bug Tracker, https://github.com/CycloneDX/cyclonedx-python-lib/issues
 Project-URL: Changelog, https://github.com/CycloneDX/cyclonedx-python-lib/releases
 Project-URL: Documentation, https://cyclonedx-python-library.readthedocs.io/

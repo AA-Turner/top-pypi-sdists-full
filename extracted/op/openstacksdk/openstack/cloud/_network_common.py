@@ -503,10 +503,15 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
             or None if no matching floating IP is found.
 
         """
-        return cast(
-            '_floating_ip.FloatingIP | utils.Munch | None',
-            _utils._get_entity(self, 'floating_ip', id, filters),
-        )
+        if self.use_direct_get and id is not None and _utils._is_uuid_like(id):
+            return self.get_floating_ip_by_id(id)
+
+        entities = self.search_floating_ips(id, filters)
+        if not entities:
+            return None
+        if len(entities) > 1:
+            raise exceptions.SDKException(f"Multiple matches found for {id}")
+        return entities[0]
 
     def list_floating_ips(
         self, filters: dict[str, Any] | None = None
@@ -780,7 +785,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         nat_destination: str | None = None,
         port: str | None = None,
         wait: bool = False,
-        timeout: int | float = 60,
+        timeout: float = 60,
     ) -> _floating_ip.FloatingIP | utils.Munch:
         """Allocate a new floating IP from a network or a pool.
 
@@ -855,7 +860,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         nat_destination: str | None = None,
         port: str | None = None,
         wait: bool = False,
-        timeout: int | float = 60,
+        timeout: float = 60,
         network_id: str | None = None,
     ) -> _floating_ip.FloatingIP | utils.Munch:
         if not network_id:
@@ -1083,7 +1088,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         floating_ip: _floating_ip.FloatingIP | utils.Munch,
         fixed_address: str | None = None,
         wait: bool = False,
-        timeout: int | float = 60,
+        timeout: float = 60,
         skip_attach: bool = False,
         nat_destination: str | None = None,
     ) -> _server.Server:
@@ -1288,7 +1293,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         fixed_address: str | None = None,
         reuse: bool = True,
         wait: bool = False,
-        timeout: int | float = 60,
+        timeout: float = 60,
         nat_destination: str | None = None,
     ) -> _server.Server:
         """Add a floating IP to a server from a given pool
@@ -1345,7 +1350,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         server: _server.Server,
         ips: str | list[str],
         wait: bool = False,
-        timeout: int | float = 60,
+        timeout: float = 60,
         fixed_address: str | None = None,
         nat_destination: str | None = None,
     ) -> _server.Server:
@@ -1395,7 +1400,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         self,
         server: _server.Server,
         wait: bool = False,
-        timeout: int | float = 60,
+        timeout: float = 60,
         reuse: bool = True,
     ) -> str | None:
         """Add a floating IP to a server.
@@ -1427,7 +1432,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         self,
         server: _server.Server,
         wait: bool = False,
-        timeout: int | float = 60,
+        timeout: float = 60,
         reuse: bool = True,
     ) -> _server.Server:
         skip_attach = False
@@ -1493,7 +1498,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         ips: str | list[str] | None = None,
         ip_pool: str | None = None,
         wait: bool = False,
-        timeout: int | float = 60,
+        timeout: float = 60,
         reuse: bool = True,
         fixed_address: str | None = None,
         nat_destination: str | None = None,
@@ -1743,7 +1748,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         methods that returns "original" objects (e.g.
         _neutron_allocate_floating_ip)
 
-        :param list ips: A list of Neutron floating IPs.
+        :param ips: A list of Neutron floating IPs.
 
         :returns:
             A list of normalized dicts with the following attributes::
@@ -1898,10 +1903,17 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
             or None if no matching security group is found.
 
         """
-        return cast(
-            '_security_group.SecurityGroup | utils.Munch | None',
-            _utils._get_entity(self, 'security_group', name_or_id, filters),
-        )
+        if self.use_direct_get and _utils._is_uuid_like(name_or_id):
+            return self.get_security_group_by_id(name_or_id)
+
+        entities = self.search_security_groups(name_or_id, filters)
+        if not entities:
+            return None
+        if len(entities) > 1:
+            raise exceptions.SDKException(
+                f"Multiple matches found for {name_or_id}"
+            )
+        return entities[0]
 
     def get_security_group_by_id(
         self, id: str
@@ -1937,12 +1949,11 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
     ) -> _security_group.SecurityGroup | utils.Munch:
         """Create a new security group
 
-        :param string name: A name for the security group.
-        :param string description: Describes the security group.
-        :param string project_id:
-            Specify the project ID this security group will be created
-            on (admin-only).
-        :param string stateful: Whether the security group is stateful or not.
+        :param name: A name for the security group.
+        :param description: Describes the security group.
+        :param project_id: Specify the project ID this security group will be
+            created on (admin-only).
+        :param stateful: Whether the security group is stateful or not.
 
         :returns: A ``openstack.network.v2.security_group.SecurityGroup``
             representing the new security group.
@@ -1983,7 +1994,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
     def delete_security_group(self, name_or_id: str) -> bool:
         """Delete a security group
 
-        :param string name_or_id: The name or unique ID of the security group.
+        :param name_or_id: The name or unique ID of the security group.
 
         :returns: True if delete succeeded, False otherwise.
 
@@ -2027,9 +2038,9 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
     ) -> _security_group.SecurityGroup | utils.Munch:
         """Update a security group
 
-        :param string name_or_id: Name or ID of the security group to update.
-        :param string name: New name for the security group.
-        :param string description: New description for the security group.
+        :param name_or_id: Name or ID of the security group to update.
+        :param name: New name for the security group.
+        :param description: New description for the security group.
 
         :returns: A ``openstack.network.v2.security_group.SecurityGroup``
             describing the updated security group.
@@ -2080,49 +2091,38 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
     ) -> _security_group_rule.SecurityGroupRule | utils.Munch:
         """Create a new security group rule
 
-        :param string secgroup_name_or_id:
-            The security group name or ID to associate with this security
-            group rule. If a non-unique group name is given, an exception
-            is raised.
-        :param int port_range_min:
-            The minimum port number in the range that is matched by the
-            security group rule. If the protocol is TCP or UDP, this value
-            must be less than or equal to the port_range_max attribute value.
-            If nova is used by the cloud provider for security groups, then
-            a value of None will be transformed to -1.
-        :param int port_range_max:
-            The maximum port number in the range that is matched by the
-            security group rule. The port_range_min attribute constrains the
-            port_range_max attribute. If nova is used by the cloud provider
-            for security groups, then a value of None will be transformed
-            to -1.
-        :param string protocol:
-            The protocol that is matched by the security group rule. Valid
-            values are None, tcp, udp, and icmp.
-        :param string remote_ip_prefix:
-            The remote IP prefix to be associated with this security group
-            rule. This attribute matches the specified IP prefix as the
-            source IP address of the IP packet.
-        :param string remote_group_id:
-            The remote group ID to be associated with this security group
-            rule.
-        :param string remote_address_group_id:
-            The remote address group ID to be associated with this security
-            group rule.
-        :param string direction:
-            Ingress or egress: The direction in which the security group
-            rule is applied. For a compute instance, an ingress security
-            group rule is applied to incoming (ingress) traffic for that
-            instance. An egress rule is applied to traffic leaving the
+        :param secgroup_name_or_id: The security group name or ID to associate
+            with this security group rule. If a non-unique group name is given,
+            an exception is raised.
+        :param port_range_min: The minimum port number in the range that is
+            matched by the security group rule. If the protocol is TCP or UDP,
+            this value must be less than or equal to the port_range_max
+            attribute value. If nova is used by the cloud provider for security
+            groups, then a value of None will be transformed to -1.
+        :param port_range_max: The maximum port number in the range that is
+            matched by the security group rule. The port_range_min attribute
+            constrains the port_range_max attribute. If nova is used by the
+            cloud provider for security groups, then a value of None will be
+            transformed to -1.
+        :param protocol: The protocol that is matched by the security group
+            rule. Valid values are None, tcp, udp, and icmp.
+        :param remote_ip_prefix: The remote IP prefix to be associated with
+            this security group rule. This attribute matches the specified IP
+            prefix as the source IP address of the IP packet.
+        :param remote_group_id: The remote group ID to be associated with this
+            security group rule.
+        :param remote_address_group_id: The remote address group ID to be
+            associated with this security group rule.
+        :param direction: Ingress or egress: The direction in which the
+            security group rule is applied. For a compute instance, an ingress
+            security group rule is applied to incoming (ingress) traffic for
+            that instance. An egress rule is applied to traffic leaving the
             instance.
-        :param string ethertype:
-            Must be IPv4 or IPv6, and addresses represented in CIDR must
-            match the ingress or egress rules.
-        :param string project_id:
-            Specify the project ID this security group will be created
-            on (admin-only).
-        :param string description:
-            Description of the rule, max 255 characters.
+        :param ethertype: Must be IPv4 or IPv6, and addresses represented in
+            CIDR must match the ingress or egress rules.
+        :param project_id: Specify the project ID this security group will be
+            created on (admin-only).
+        :param description: Description of the rule, max 255 characters.
 
         :returns: A ``openstack.network.v2.security_group.SecurityGroup``
             representing the new security group rule.
@@ -2219,7 +2219,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
     def delete_security_group_rule(self, rule_id: str) -> bool:
         """Delete a security group rule
 
-        :param string rule_id: The unique ID of the security group rule.
+        :param rule_id: The unique ID of the security group rule.
 
         :returns: True if delete succeeded, False otherwise.
 
@@ -2270,7 +2270,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         security group dicts as returned from neutron. This does not make them
         look exactly the same, but it's pretty close.
 
-        :param list groups: A list of security group dicts.
+        :param groups: A list of security group dicts.
 
         :returns: A list of normalized dicts.
         """
@@ -2324,7 +2324,7 @@ class NetworkCommonCloudMixin(openstackcloud._OpenStackCloudMixin):
         Note that nova uses -1 for non-specific port values, but neutron
         represents these with None.
 
-        :param list rules: A list of security group rule dicts.
+        :param rules: A list of security group rule dicts.
 
         :returns: A list of normalized dicts.
         """

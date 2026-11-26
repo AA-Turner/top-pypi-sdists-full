@@ -290,7 +290,10 @@ class RunAttachMixin:
         near = [n for n in self._near(slug, existing) if n != slug]
         if not near:
             return
-        cli_hint = ' --question "..." --project PROJECT_SLUG' if kind == "experiment" else ""
+        cli_hint = (
+            ' --name "..." --question "..." --project PROJECT_SLUG' if kind == "experiment"
+            else ' --kind general --name "..."'
+        )
         sdk_hint = ", question=..., project_id=PROJECT_ID" if kind == "experiment" else ""
         raise errors.ValidationError(
             f"refusing to create {kind} {slug!r}: it is a near-miss of "
@@ -313,7 +316,10 @@ class RunAttachMixin:
         # --question, so omitting it would print a command that fails on the one
         # field this whole change exists to force. The slug is quoted because it
         # arrives from the caller and this string is presented as copy-pasteable.
-        extra = ' --question "..." --project PROJECT_SLUG' if kind == "experiment" else ""
+        extra = (
+            ' --name "..." --question "..." --project PROJECT_SLUG' if kind == "experiment"
+            else ' --kind general --name "..."'
+        )
         return errors.NotFoundError(
             f"no {kind} with slug {slug!r}.{hint} "
             f"Create it with `probe {kind} create {shlex.quote(slug)}{extra}` "

@@ -11,20 +11,20 @@ class ModifyParametersRequest(DaraModel):
         force_restart_instance: bool = None,
         parameters: str = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # Specifies whether to forcibly restart the instance. Valid values:
         # 
-        # *   **true**
-        # *   **false**
+        # - **true**: Forcibly restarts the instance.
+        # - **false** (default): Does not forcibly restart the instance.
         self.force_restart_instance = force_restart_instance
-        # The name and value of the parameter to be modified. Specify the parameter in the `<Parameter name>:<Parameter value>` format.
+        # The names and values of the parameters to be modified. The format is `<ParameterName>:<ParameterValue>`.
         # 
-        # You can call the [DescribeParameters](https://help.aliyun.com/document_detail/208310.html) operation to query the parameters that can be modified.
+        # You can call the [DescribeParameters](https://help.aliyun.com/document_detail/208310.html) operation to query the configuration parameters that can be modified.
         # 
         # This parameter is required.
         self.parameters = parameters

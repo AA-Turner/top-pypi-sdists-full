@@ -100,8 +100,11 @@ def sync_detailed(
     instance is already connected: the instance is locked until
     `DELETE /api/v1/connections/forgejo`, and `PUT /api/v1/settings`
     refuses to change `forgejoUrl` meanwhile. Replaces pasting a Forgejo
-    token. Needs `FORGEJO_OAUTH_CLIENT_ID` and
-    `FORGEJO_OAUTH_CLIENT_SECRET` on the server; see
+    token. The owner creates a public OAuth client on their own instance
+    and names its Client ID in `clientId`: no secret, PKCE only, scopes
+    asked for explicitly (`SetupForgejo.scopes`). A server that has
+    `FORGEJO_OAUTH_CLIENT_ID` and `FORGEJO_OAUTH_CLIENT_SECRET` set uses
+    that client when `clientId` is omitted; see
     `SettingsResponse.forgejoOAuthConfigured`.
 
     Args:
@@ -142,8 +145,11 @@ def sync(
     instance is already connected: the instance is locked until
     `DELETE /api/v1/connections/forgejo`, and `PUT /api/v1/settings`
     refuses to change `forgejoUrl` meanwhile. Replaces pasting a Forgejo
-    token. Needs `FORGEJO_OAUTH_CLIENT_ID` and
-    `FORGEJO_OAUTH_CLIENT_SECRET` on the server; see
+    token. The owner creates a public OAuth client on their own instance
+    and names its Client ID in `clientId`: no secret, PKCE only, scopes
+    asked for explicitly (`SetupForgejo.scopes`). A server that has
+    `FORGEJO_OAUTH_CLIENT_ID` and `FORGEJO_OAUTH_CLIENT_SECRET` set uses
+    that client when `clientId` is omitted; see
     `SettingsResponse.forgejoOAuthConfigured`.
 
     Args:
@@ -179,8 +185,11 @@ async def asyncio_detailed(
     instance is already connected: the instance is locked until
     `DELETE /api/v1/connections/forgejo`, and `PUT /api/v1/settings`
     refuses to change `forgejoUrl` meanwhile. Replaces pasting a Forgejo
-    token. Needs `FORGEJO_OAUTH_CLIENT_ID` and
-    `FORGEJO_OAUTH_CLIENT_SECRET` on the server; see
+    token. The owner creates a public OAuth client on their own instance
+    and names its Client ID in `clientId`: no secret, PKCE only, scopes
+    asked for explicitly (`SetupForgejo.scopes`). A server that has
+    `FORGEJO_OAUTH_CLIENT_ID` and `FORGEJO_OAUTH_CLIENT_SECRET` set uses
+    that client when `clientId` is omitted; see
     `SettingsResponse.forgejoOAuthConfigured`.
 
     Args:
@@ -221,8 +230,11 @@ async def asyncio(
     instance is already connected: the instance is locked until
     `DELETE /api/v1/connections/forgejo`, and `PUT /api/v1/settings`
     refuses to change `forgejoUrl` meanwhile. Replaces pasting a Forgejo
-    token. Needs `FORGEJO_OAUTH_CLIENT_ID` and
-    `FORGEJO_OAUTH_CLIENT_SECRET` on the server; see
+    token. The owner creates a public OAuth client on their own instance
+    and names its Client ID in `clientId`: no secret, PKCE only, scopes
+    asked for explicitly (`SetupForgejo.scopes`). A server that has
+    `FORGEJO_OAUTH_CLIENT_ID` and `FORGEJO_OAUTH_CLIENT_SECRET` set uses
+    that client when `clientId` is omitted; see
     `SettingsResponse.forgejoOAuthConfigured`.
 
     Args:

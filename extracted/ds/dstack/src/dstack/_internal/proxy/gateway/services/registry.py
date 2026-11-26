@@ -122,13 +122,17 @@ async def unregister_service(
 
         logger.debug("Unregistering service %s", service.fmt())
 
+        await nginx.unregister(service)
+        # Only after the reload, so that Nginx stops routing requests to the replicas
         await stop_replica_connections(
             ids=(r.id for r in service.replicas),
             service_conn_pool=service_conn_pool,
+            drain=True,
         )
-        await nginx.unregister(service)
         await repo.delete_models_by_run(project_name, run_name)
         await repo.delete_service(project_name, run_name)
+        # After the service is deleted, so that no request gets a new client.
+        await service_conn_pool.remove_nginx_client(service.domain_safe)
 
     logger.info("Service %s is unregistered now", service.fmt())
 
@@ -337,6 +341,43 @@ async def register_model_entrypoint(
     logger.info("Entrypoint %s is now registered in project %s", domain, project_name)
 
 
+async def register_import(
+    importer_project: str,
+    export_id: str,
+    exporter_project: str,
+    name: str,
+    repo: GatewayProxyRepo,
+) -> None:
+    imported_model = gateway_models.ImportedModel(
+        importer_project=importer_project,
+        export_id=export_id,
+        exporter_project=exporter_project,
+        name=name,
+    )
+    await repo.set_import(imported_model)
+    logger.info(
+        "Import of model %s from project %s is now registered in project %s",
+        name,
+        exporter_project,
+        importer_project,
+    )
+
+
+async def unregister_import(
+    importer_project: str,
+    export_id: str,
+    name: str,
+    repo: GatewayProxyRepo,
+) -> None:
+    await repo.delete_import(importer_project, export_id, name)
+    logger.info(
+        "Import of model %s through export %s is now unregistered in project %s",
+        name,
+        export_id,
+        importer_project,
+    )
+
+
 async def apply_service(
     service: models.Service,
     old_service: Optional[models.Service],
@@ -344,18 +385,16 @@ async def apply_service(
     nginx: Nginx,
     service_conn_pool: ServiceConnectionPool,
 ) -> dict[models.Replica, BaseException]:
+    removed_replica_ids = []
     if old_service is not None:
         if service.domain != old_service.domain:
             raise UnexpectedProxyError(
                 f"Did not expect service {service.fmt()}"
                 f" domain name to change ({old_service.domain} -> {service.domain})"
             )
-        await stop_replica_connections(
-            ids=(
-                replica.id for replica in old_service.replicas if replica not in service.replicas
-            ),
-            service_conn_pool=service_conn_pool,
-        )
+        removed_replica_ids = [
+            replica.id for replica in old_service.replicas if replica not in service.replicas
+        ]
     replica_conns, replica_failures = await get_or_add_replica_connections(
         service, repo, service_conn_pool
     )
@@ -370,6 +409,10 @@ async def apply_service(
     ]
     service_config = await get_nginx_service_config(service, replica_configs)
     await nginx.register(service_config, (await repo.get_config()).acme_settings)
+    # Only after the reload, so that Nginx stops routing requests to the removed replicas
+    await stop_replica_connections(
+        ids=removed_replica_ids, service_conn_pool=service_conn_pool, drain=True
+    )
     return replica_failures
 
 
@@ -402,10 +445,17 @@ async def get_or_add_replica_connections(
 
 
 async def stop_replica_connections(
-    ids: Iterable[str], service_conn_pool: ServiceConnectionPool
+    ids: Iterable[str], service_conn_pool: ServiceConnectionPool, drain: bool = False
 ) -> None:
-    tasks = map(service_conn_pool.remove, ids)
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    """
+    With `drain`, return right away and close each connection once requests already sent
+    through it finish. See `ServiceConnectionPool.remove`.
+    """
+    ids = list(ids)
+    results = await asyncio.gather(
+        *(service_conn_pool.remove(replica_id, drain=drain) for replica_id in ids),
+        return_exceptions=True,
+    )
     for replica_id, exc in zip(ids, results):
         if isinstance(exc, Exception):
             logger.error("Error stopping connection to replica %s: %s", replica_id, exc)
@@ -490,7 +540,6 @@ async def apply_entrypoint(
     config = ModelEntrypointConfig(
         domain=entrypoint.domain,
         https=entrypoint.https,
-        project_name=entrypoint.project_name,
         read_timeout=entrypoint.read_timeout,
     )
     acme = (await repo.get_config()).acme_settings
@@ -508,8 +557,10 @@ async def _migrate_cors_enabled(repo: GatewayProxyRepo) -> None:
     openai_run_names: set[tuple[str, str]] = set()
     for service in services:
         for model in await repo.list_models(service.project_name):
-            if model.run_name == service.run_name and isinstance(
-                model.format_spec, models.OpenAIChatModelFormat
+            if (
+                model.project_name == service.project_name  # not a model the project imports
+                and model.run_name == service.run_name
+                and isinstance(model.format_spec, models.OpenAIChatModelFormat)
             ):
                 openai_run_names.add((service.project_name, service.run_name))
     for service in services:

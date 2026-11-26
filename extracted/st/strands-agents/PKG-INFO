@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents
-Version: 1.66.0
+Version: 1.67.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -54,6 +54,7 @@ Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'all'
 Requires-Dist: cedar-policy-mcp-schema-generator==0.7.0; extra == 'all'
 Requires-Dist: cedarpy==4.12.2; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.133.0; extra == 'all'
+Requires-Dist: genai-prices<0.3,>=0.2.4; (python_version >= '3.11') and extra == 'all'
 Requires-Dist: google-genai<3.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: google-genai<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
@@ -127,11 +128,13 @@ Requires-Dist: pyaudio<0.3.0,>=0.2.0; extra == 'bidi-pyaudio'
 Provides-Extra: cedar
 Requires-Dist: cedar-policy-mcp-schema-generator==0.7.0; extra == 'cedar'
 Requires-Dist: cedarpy==4.12.2; extra == 'cedar'
+Provides-Extra: cost-estimator
+Requires-Dist: genai-prices<0.3,>=0.2.4; (python_version >= '3.11') and extra == 'cost-estimator'
 Provides-Extra: dev
 Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'dev'
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'dev'
 Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'dev'
-Requires-Dist: mypy<2.4.0,>=1.15.0; extra == 'dev'
+Requires-Dist: mypy<3.0.0,>=2.0.0; extra == 'dev'
 Requires-Dist: pre-commit<4.7.0,>=3.2.0; extra == 'dev'
 Requires-Dist: pytest-asyncio<1.5.0,>=1.0.0; extra == 'dev'
 Requires-Dist: pytest-cov<8.0.0,>=7.0.0; extra == 'dev'

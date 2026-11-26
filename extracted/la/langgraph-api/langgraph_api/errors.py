@@ -1,5 +1,8 @@
+from typing import Any
+
 import jsonschema_rs
 import structlog
+from langgraph import errors as langgraph_errors
 from langgraph.errors import EmptyInputError, InvalidUpdateError
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -8,6 +11,30 @@ from starlette.responses import JSONResponse, Response
 from langgraph_api.js.errors import RemoteException
 
 logger = structlog.stdlib.get_logger(__name__)
+
+UNKNOWN_INTERRUPT_ERROR = "UnknownInterruptError"
+
+
+def unknown_interrupt_error(exc: BaseException) -> dict[str, Any] | None:
+    """The error payload when strict resume refused an answer, else None.
+
+    Its message and ids describe the answer the client sent, so they reach
+    the client in full. A JS graph's error arrives as a RemoteException, which
+    carries only the class name.
+    """
+    if isinstance(exc, RemoteException):
+        return exc.dict() if exc.error == UNKNOWN_INTERRUPT_ERROR else None
+    # Absent before langgraph 1.2.20, which has no strict resume to raise it.
+    error_class = getattr(langgraph_errors, UNKNOWN_INTERRUPT_ERROR, None)
+    if error_class is None or not isinstance(exc, error_class):
+        return None
+    return {
+        "error": UNKNOWN_INTERRUPT_ERROR,
+        "message": str(exc),
+        "reason": getattr(exc, "reason", None),
+        "interrupt_ids": list(getattr(exc, "interrupt_ids", ())),
+        "pending_ids": list(getattr(exc, "pending_ids", ())),
+    }
 
 
 def is_body_allowed_for_status_code(status_code: int | None) -> bool:
@@ -93,3 +120,20 @@ class UserTimeout(Exception):
     def __init__(self, timeout_error: TimeoutError):
         super().__init__(timeout_error)
         self.timeout_error = timeout_error
+
+
+class AgentDisabledError(RuntimeError):
+    """Agent Auth reports the deployment's agent disabled, so the run fails before it starts."""
+
+    def __init__(self, message="Agent is disabled, so it can't start new runs."):
+        super().__init__(message)
+
+
+class StreamCutError(Exception):
+    """The event stream behind a response ended before its run did.
+
+    The SSE response aborts instead of sending an ``error`` event, so the SDKs
+    reconnect run and thread streams with ``Last-Event-ID``. Behind a custom
+    ``BaseHTTPMiddleware``, which would end an aborted response cleanly, the
+    response sends an ``error`` event instead.
+    """

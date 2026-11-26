@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
@@ -49,6 +50,9 @@ _RESOURCE_IN_USE: type[Exception] | None = getattr(
 
 _BUSY_TIMEOUT_SECONDS = 5.0
 """How long a query waits for an interrupted one to give up the connection."""
+
+_LIST_OR_ARRAY_SUFFIX = re.compile(r"\[\d*\]$")
+"""How duckdb ends the name of a LIST or ARRAY type."""
 
 _LIKE_ESCAPE = "\\"
 """What escapes a LIKE metacharacter in a term the caller typed."""
@@ -195,6 +199,9 @@ class DuckDbConnection(HarlequinConnection):
         "BIGINT": "##",
         "UBIGINT": "u##",
         "HUGEINT": "###",
+        "UHUGEINT": "u###",
+        "BIGNUM": "###",
+        "VARINT": "###",
         "UUID": "uid",
         "FLOAT": "#.#",
         "DOUBLE": "#.#",
@@ -204,11 +211,15 @@ class DuckDbConnection(HarlequinConnection):
         "TIMESTAMP_NS": "ts",
         "TIMESTAMP_S": "ts",
         "TIME": "t",
+        "TIME_NS": "t",
         "TIME_TZ": "ttz",
+        "TIME WITH TIME ZONE": "ttz",
         "TIMESTAMP_TZ": "ttz",
         "TIMESTAMPTZ_NS": "ttz",
         "TIMESTAMP WITH TIME ZONE": "ttz",
         "VARCHAR": "s",
+        "JSON": "{j}",
+        "ENUM": "enum",
         "BLOB": "0b",
         "BIT": "010",
         "INTERVAL": "|-|",
@@ -219,6 +230,7 @@ class DuckDbConnection(HarlequinConnection):
         "TUPLE": "{}",
         "VARIANT": "var",
         "MAP": "{m}",
+        "UNION": "uni",
         # the spatial extension's types. WKB_BLOB is bytes and shows as bytes;
         # the rest are geometry, whether stored as a blob or as a struct of
         # doubles, and the label says so rather than what holds it.
@@ -451,9 +463,10 @@ class DuckDbConnection(HarlequinConnection):
         to check class members. So we just convert to a string and split
         complex types on their first paren to match our dictionary.
         """
-        base_type = str(native_type).split("(")[0].split("[")[0]
+        type_name = str(native_type)
+        base_type = type_name.split("(")[0].split("[")[0]
         short_base_type = cls.COLUMN_TYPE_MAPPING.get(base_type, cls.UNKNOWN_TYPE)
-        if str(native_type).endswith("[]"):
+        if _LIST_OR_ARRAY_SUFFIX.search(type_name):
             return f"[{short_base_type}]"
         else:
             return short_base_type
@@ -562,16 +575,22 @@ class DuckDbAdapter(HarlequinAdapter):
 
         msg = ""
         if self.init_path is not None and not self.no_init:
+            # deferred so importing the adapter loads no SQL grammar
+            from harlequin.statements import split
+
             init_script = self._read_init_script(self.init_path)
             try:
                 count = 0
                 for command in self._split_script(init_script):
-                    rewritten_command = self._rewrite_init_command(command)
-                    for cmd in rewritten_command.split(";"):
-                        if cmd.strip():
-                            # duckdb 2 refuses queries while a result is unread
-                            connection.execute(cmd).fetchall()
-                            count += 1
+                    rewritten_command = self._rewrite_init_command(command, connection)
+                    for statement in split(rewritten_command):
+                        result = connection.execute(statement.sql)
+                        # duckdb returns None for a comment-only statement
+                        if result is None:
+                            continue
+                        # duckdb 2 refuses queries while a result is unread
+                        result.fetchall()
+                        count += 1
             except duckdb.Error as e:
                 msg = f"Attempted to execute script at {self.init_path}\n{e}"
                 raise HarlequinConnectionError(
@@ -617,13 +636,27 @@ Connected to database `{primary_db}`
         return [command.strip() for command in commands if command]
 
     @staticmethod
-    def _rewrite_dot_open(command: str) -> str:
+    def _rewrite_dot_open(command: str, connection: duckdb.DuckDBPyConnection) -> str:
         """
         Rewrites .open command into its SQL equivalent.
+
+        A bare `.open` attaches a fresh in-memory database under a name no
+        attached database has, since the one it would replace cannot be closed.
         """
         args = command.split()[1:]
         if not args:
-            return "attach ':memory:'; use memory;"
+            taken_names = {
+                database_name.lower()
+                for (database_name,) in connection.execute(
+                    "select database_name from duckdb_databases()"
+                ).fetchall()
+            }
+            in_memory_name = "memory"
+            suffix = 0
+            while in_memory_name in taken_names:
+                suffix += 1
+                in_memory_name = f"memory_{suffix}"
+            return f"attach ':memory:' as {in_memory_name}; use {in_memory_name};"
         else:
             # --readonly is only supported option
             if len(args) == 2 and args[0] == "--readonly":
@@ -636,7 +669,9 @@ Connected to database `{primary_db}`
             return f"attach '{db_path}'{option} as {db_path.stem}; use {db_path.stem};"
 
     @classmethod
-    def _rewrite_init_command(cls, command: str) -> str:
+    def _rewrite_init_command(
+        cls, command: str, connection: duckdb.DuckDBPyConnection
+    ) -> str:
         """
         DuckDB init scripts can contain dot commands, which can only be executed
         by the CLI, not the python API. Here, we rewrite some common ones into
@@ -645,6 +680,6 @@ Connected to database `{primary_db}`
         if not command.startswith("."):
             return command
         elif command.startswith(".open"):
-            return cls._rewrite_dot_open(command)
+            return cls._rewrite_dot_open(command, connection)
         else:
             return ""

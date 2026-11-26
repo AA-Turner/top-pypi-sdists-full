@@ -67,6 +67,7 @@ from agent_runtimes.apps.callers import (
     is_the_pod,
     origin_allowed,
     platform_origins,
+    refuse_a_strangers_page,
 )
 from agent_runtimes.apps.enforcement import sentence_of
 from agent_runtimes.apps.loading import AppNotRunnable, agent_id_of, load_app
@@ -83,6 +84,10 @@ from agent_runtimes.voice import hear, spoken_of, voice_settings
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/apps", tags=["apps"])
+
+#: On what an application remembers: a page that is neither this machine's nor the
+#: platform's reaches nothing on the loopback (`callers.refuse_a_strangers_page`).
+_NO_STRANGERS_PAGE = [Depends(refuse_a_strangers_page)]
 
 #: The id of the application each agent of this runtime runs, by agent name:
 #: ``default`` for the one ``/apps/configure`` made, and each agent made for an
@@ -2454,9 +2459,30 @@ async def session_switches(uid: str, request: Request) -> Dict[str, Any]:
 
     Only what it switched: the rest is as the agent has it. Read by whoever
     may drive the session — its visitor, its person — and nobody else.
+    Beside them, ``mcp_read_only``: the tools that run without asking unless
+    the conversation says they ask (`_switches_answer`).
     """
     live, _ = await _held(uid, request)
-    return live.switches.as_dict()
+    return _switches_answer(live)
+
+
+def _switches_answer(live: Any) -> Dict[str, Any]:
+    """
+    A conversation's switches, with the tools that run without asking by default.
+
+    The tools of its agent's running servers (``mcp_read_only``): those the
+    catalogue classes read only (`guardrails.read_only_tools`).
+    """
+    from agent_runtimes.apps import switches
+
+    answer = live.switches.as_dict()
+    try:
+        answer["mcp_read_only"] = switches.read_only_of(
+            switches.offered_of(live.agent_id)
+        )
+    except switches.SwitchRefused:
+        answer["mcp_read_only"] = {}
+    return answer
 
 
 @router.put("/sessions/{uid}/switches")
@@ -2482,7 +2508,7 @@ async def switch_in_session(
         live.switches.switch(body, switches.offered_of(live.agent_id))
     except switches.SwitchRefused as refused:
         raise _refused(refused) from None
-    return live.switches.as_dict()
+    return _switches_answer(live)
 
 
 @router.post("/sessions/{uid}/window")
@@ -3073,7 +3099,7 @@ def _remembered(entry: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-@router.get("/memories/{app}")
+@router.get("/memories/{app}", dependencies=_NO_STRANGERS_PAGE)
 async def app_memories(
     app: str, request: Request, limit: int = Query(500, ge=1, le=1000)
 ) -> Dict[str, Any]:
@@ -3091,7 +3117,7 @@ async def app_memories(
     }
 
 
-@router.delete("/memories/{app}/{memory_id}")
+@router.delete("/memories/{app}/{memory_id}", dependencies=_NO_STRANGERS_PAGE)
 async def forget_memory(app: str, memory_id: str, request: Request) -> Dict[str, Any]:
     """Forget one thing an application remembers of the caller; somebody else's is not found."""
     if not await _memory_of(app, await _whose(request)).forget(memory_id):
@@ -3111,7 +3137,7 @@ class Correction(BaseModel):
     memory: str
 
 
-@router.patch("/memories/{app}/{memory_id}")
+@router.patch("/memories/{app}/{memory_id}", dependencies=_NO_STRANGERS_PAGE)
 async def correct_memory(
     app: str, memory_id: str, correction: Correction, request: Request
 ) -> Dict[str, Any]:
@@ -3141,7 +3167,7 @@ async def correct_memory(
     return {"corrected": 1, "memory": _remembered(corrected)}
 
 
-@router.delete("/memories/{app}")
+@router.delete("/memories/{app}", dependencies=_NO_STRANGERS_PAGE)
 async def forget_everything(
     app: str, request: Request, count: int = Query(..., ge=0)
 ) -> Dict[str, Any]:

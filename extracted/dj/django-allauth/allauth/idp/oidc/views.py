@@ -62,6 +62,7 @@ from allauth.idp.oidc.internal.oauthlib.utils import (
     respond_json_error,
 )
 from allauth.idp.oidc.internal.resources import get_resources
+from allauth.idp.oidc.internal.scope import get_supported_scopes
 from allauth.idp.oidc.models import Client, Token
 from allauth.utils import build_absolute_uri
 
@@ -133,6 +134,8 @@ class ConfigurationView(View):
             data["registration_endpoint"] = build_absolute_uri(
                 request, reverse("idp:oidc:client_registration")
             )
+        if app_settings.CIMD_ENABLED:
+            data["client_id_metadata_document_supported"] = True
 
         get_adapter().populate_server_metadata(data)
         response = JsonResponse(data)
@@ -140,9 +143,8 @@ class ConfigurationView(View):
         return response
 
     def _get_supported_types(self) -> dict[str, list[str]]:
-        scopes_supported = ["openid", "profile", "email"]
         return {
-            "scopes_supported": scopes_supported,
+            "scopes_supported": get_supported_scopes(),
             "grant_types_supported": sorted(gt.value for gt in Client.GrantType),
             "response_types_supported": sorted(rt.value for rt in Client.ResponseType),
         }

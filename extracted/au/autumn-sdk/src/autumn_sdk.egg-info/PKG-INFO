@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autumn-sdk
-Version: 1.3.63
+Version: 1.3.67
 Summary: Python SDK for the Autumn billing API
 Author: Autumn
 License: Apache-2.0
@@ -346,6 +346,10 @@ Use this to modify feature properties like name, display settings, or to archive
 
 Use this to permanently remove a feature. Note: features that are used in products cannot be deleted - archive them instead.
 
+### [Feedback](docs/sdks/feedback/README.md)
+
+* [submit](docs/sdks/feedback/README.md#submit) - Sends feedback about Autumn straight to the Autumn team: what worked, what broke, or what was missing. Any secret key works, including a sandbox key from `agent.provision`, so an agent can report friction it hit while integrating. Limited to 10 per hour per organization; send related notes together.
+
 ### [Invoices](docs/sdks/invoices/README.md)
 
 * [create](docs/sdks/invoices/README.md#create) - Creates a standalone send-invoice Stripe invoice from catalog pricing and custom charges. Quantities are billable units, exclusive of any included usage; Autumn applies billing units and tiers. Nothing about the customer's plans, balances or subscriptions changes. Pass preview: true to get the calculated lines and totals without creating an invoice.
@@ -533,10 +537,10 @@ with Autumn(
 
 
 **Inherit from [`AutumnError`](./src/autumn_sdk/errors/autumnerror.py)**:
-* [`InvalidRequestError`](./src/autumn_sdk/errors/invalidrequesterror.py): The request isn't an RFC 8693 token exchange. Status code `400`. Applicable to 1 of 108 methods.*
-* [`InvalidGrantError`](./src/autumn_sdk/errors/invalidgranterror.py): The subject token is invalid, expired, or matches no trust rule. Status code `401`. Applicable to 1 of 108 methods.*
-* [`RateLimitExceededError`](./src/autumn_sdk/errors/ratelimitexceedederror.py): Too many exchanges from this client or organization. Status code `429`. Applicable to 1 of 108 methods.*
-* [`InternalError`](./src/autumn_sdk/errors/internalerror.py): Autumn couldn't issue a token. Status code `500`. Applicable to 1 of 108 methods.*
+* [`InvalidRequestError`](./src/autumn_sdk/errors/invalidrequesterror.py): The request isn't an RFC 8693 token exchange. Status code `400`. Applicable to 1 of 109 methods.*
+* [`InvalidGrantError`](./src/autumn_sdk/errors/invalidgranterror.py): The subject token is invalid, expired, or matches no trust rule. Status code `401`. Applicable to 1 of 109 methods.*
+* [`RateLimitExceededError`](./src/autumn_sdk/errors/ratelimitexceedederror.py): Too many exchanges from this client or organization. Status code `429`. Applicable to 1 of 109 methods.*
+* [`InternalError`](./src/autumn_sdk/errors/internalerror.py): Autumn couldn't issue a token. Status code `500`. Applicable to 1 of 109 methods.*
 * [`ResponseValidationError`](./src/autumn_sdk/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

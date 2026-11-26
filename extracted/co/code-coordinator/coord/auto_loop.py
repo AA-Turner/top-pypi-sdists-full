@@ -108,7 +108,10 @@ FIX_DISPATCH_TYPES: frozenset[str] = frozenset({"work"}) | SEALED_PATH_AUTHOR_TY
 # request-changes verdict was propagated onto the parent row without a fix
 # dispatch, or (#4002) a request-changes verdict against an already-approved
 # head was recorded on the review row (non-blocking, no fix round) rather
-# than discarded.
+# than discarded. ``rework_refused`` (#4134) belongs here too: by the time
+# ``may_dispatch_rework`` refuses, ``propagate_review_verdict`` has already
+# written ``review.review_verdict``/``work.review_state`` onto the board —
+# same "mutates, no dispatch" shape as ``terminal_skip``.
 #
 # #1622: module-level rather than a local in ``_run_for_review_transition``
 # because ``coord fix`` is now a second caller of
@@ -117,6 +120,7 @@ FIX_DISPATCH_TYPES: frozenset[str] = frozenset({"work"}) | SEALED_PATH_AUTHOR_TY
 PERSIST_ACTION_KINDS: tuple[str, ...] = (
     "fix_dispatched", "approved", "approved_with_nits", "terminal_skip",
     "verdict_propagated", "finisher_dispatched", "superseded_by_approval",
+    "rework_refused",
 )
 
 
@@ -183,6 +187,13 @@ class LoopAction:
                                  `coord.board_doctor_permissions.
                                  finisher_self_bless` has no caller yet
                                  (#3834)
+    - ``"rework_refused"``     — #4134: ``coord.drive_queue.
+                                 may_dispatch_rework`` refused — the live
+                                 PR/row state already answers "nothing left
+                                 to rework" (merged/closed, a `done` row,
+                                 ancestor branch, a repeated already-done
+                                 verdict, or the non-convergence latch); no
+                                 fix worker was dispatched
     """
     assignment_id: str | None
     detail: str = ""
@@ -1503,6 +1514,28 @@ def _dispatch_fix_for_review(
             ),
         )]
 
+    # #4134: the first real gate, right after `work` resolves — the one
+    # question every rework dispatcher must ask before firing
+    # (#2096/#2085). Checked ahead of the narrower #522 terminal-skip and
+    # #3756 fix-round-ceiling guards below: those answer "is THIS issue's
+    # own budget/terminal state fine", while this answers "is there
+    # anything left to rework at all" against the live PR/branch/row.
+    from coord.drive_queue import may_dispatch_rework  # noqa: PLC0415
+
+    rework_allowed, rework_reason = may_dispatch_rework(
+        work.repo_name, work.issue_number, "fix", board=board,
+    )
+    if not rework_allowed:
+        log.warning(
+            "auto_loop: NOT dispatching fix for %s — %s",
+            work.assignment_id, rework_reason,
+        )
+        return [LoopAction(
+            kind="rework_refused",
+            assignment_id=review.assignment_id,
+            detail=rework_reason,
+        )]
+
     # #522: never dispatch a fix for work that is already done on GitHub.
     # A merged PR / closed issue must not re-enter the review→fix loop — this
     # is the root cause of the 2026-06-09 launch flood (#349 ×4, #194).
@@ -1649,6 +1682,10 @@ def _dispatch_fix_for_review(
         work, briefing, board, config, next_iteration,
         model=model, http_client=http_client,
         override_machine=override_machine, failure_detail=fix_failure,
+        # The guard above already asked `may_dispatch_rework` about this
+        # exact (repo, issue) and got an allow; every question it asks is a
+        # live GitHub read, so one fix round asks once.
+        rework_guard_checked=True,
     )
 
     if fix is None:
@@ -1955,6 +1992,7 @@ def _dispatch_fix(
     override_machine: str | None = None,
     status_fetcher=None,
     failure_detail: list[str] | None = None,
+    rework_guard_checked: bool = False,
 ) -> Assignment | None:
     """POST a fix assignment to the agent server.
 
@@ -1967,10 +2005,21 @@ def _dispatch_fix(
     *override_machine* — from ``coord fix --machine`` — pins the dispatch to
     exactly that machine (no fallback). *status_fetcher* is forwarded to
     :func:`coord.dispatch.select_fix_machine` for test injection. When the
-    caller passes a *failure_detail* list, a human-readable reason (naming
-    the machine(s) tried and why) is appended to it whenever this returns
-    ``None`` for lack of a usable machine — the #3208 fix for a bare
-    "dispatch failed: timed out" with no named cause.
+    caller passes a *failure_detail* list, a human-readable reason is
+    appended to it whenever this returns ``None`` — either naming the
+    machine(s) tried and why (the #3208 fix for a bare "dispatch failed:
+    timed out" with no named cause), or, when ``may_dispatch_rework``
+    refuses before machine selection is ever attempted, that refusal's own
+    reason.
+
+    *rework_guard_checked* is for a caller that just asked
+    :func:`coord.drive_queue.may_dispatch_rework` about this same
+    ``(repo, issue)`` and got an allow — :func:`_dispatch_fix_for_review`
+    is that caller. Every refusal the guard can reach is a LIVE GitHub read
+    (a PR state per candidate branch, a base/head compare, a remote branch
+    listing), so asking twice inside one fix round doubles that cost for an
+    answer that cannot have changed in between. Default ``False`` keeps the
+    guard mandatory for every other caller.
 
     #1176/#2302: the dispatched type mirrors ``work.type`` for any
     :data:`coord.models.SEALED_PATH_AUTHOR_TYPES` member (``"test-author"``,
@@ -1988,6 +2037,26 @@ def _dispatch_fix(
     Returns the new Assignment (already added to ``board.active``), or None
     on failure.
     """
+    # #4134: the first gate, ahead of machine selection — #4133's incident
+    # (quadraui#2825) was a fix leg re-dispatched ~22 times against a PR
+    # that was already merged, because no dispatcher asked the live
+    # question before firing. `may_dispatch_rework` is that one question;
+    # every rework dispatch site answers it the same way (#2096/#2085).
+    from coord.drive_queue import may_dispatch_rework  # noqa: PLC0415
+
+    if not rework_guard_checked:
+        allowed, reason = may_dispatch_rework(
+            work.repo_name, work.issue_number, "fix", board=board,
+        )
+        if not allowed:
+            log.warning(
+                "auto_loop: NOT dispatching fix for %s — %s",
+                work.assignment_id, reason,
+            )
+            if failure_detail is not None:
+                failure_detail.append(reason)
+            return None
+
     from coord.dispatch import describe_fix_machine_failure, select_fix_machine
 
     selection = select_fix_machine(

@@ -24,6 +24,8 @@ from pydantic.v1 import Field, StrictBool, StrictInt, StrictStr
 from typing import Dict, List, Optional
 from typing_extensions import Annotated
 from lusid.models.accept_estimate_valuation_point_response import AcceptEstimateValuationPointResponse
+from lusid.models.adjust_holding import AdjustHolding
+from lusid.models.adjust_holding_request import AdjustHoldingRequest
 from lusid.models.allocation_group_definition import AllocationGroupDefinition
 from lusid.models.carry_accrual_request import CarryAccrualRequest
 from lusid.models.carry_accrual_result import CarryAccrualResult
@@ -32,6 +34,7 @@ from lusid.models.deleted_entity_response import DeletedEntityResponse
 from lusid.models.diary_entry import DiaryEntry
 from lusid.models.facility import Facility
 from lusid.models.facility_request import FacilityRequest
+from lusid.models.facility_reseed_result import FacilityReseedResult
 from lusid.models.fee import Fee
 from lusid.models.fee_properties import FeeProperties
 from lusid.models.fee_request import FeeRequest
@@ -45,6 +48,8 @@ from lusid.models.fund_tax_scope import FundTaxScope
 from lusid.models.fund_valuation_request import FundValuationRequest
 from lusid.models.list_aggregation_response import ListAggregationResponse
 from lusid.models.management_fee_request import ManagementFeeRequest
+from lusid.models.management_fee_resplit_request import ManagementFeeResplitRequest
+from lusid.models.management_fee_resplit_result import ManagementFeeResplitResult
 from lusid.models.management_fee_result import ManagementFeeResult
 from lusid.models.model_property import ModelProperty
 from lusid.models.nav_activity_adjustment import NavActivityAdjustment
@@ -1776,7 +1781,7 @@ class FundsApi:
 
     @validate_arguments
     def create_facility(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_request : Annotated[FacilityRequest, Field(description="The Facility to create.")], async_req: Optional[bool]=None, **kwargs) -> Union[Facility, Awaitable[Facility]]:  # noqa: E501
-        """[EXPERIMENTAL] CreateFacility: [EXPERIMENTAL] CreateFacility: Create a Facility.  # noqa: E501
+        """[EARLY ACCESS] CreateFacility: [EARLY ACCESS] CreateFacility: Create a Facility.  # noqa: E501
 
         Create the given Facility against a Fund.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -1811,7 +1816,7 @@ class FundsApi:
 
     @validate_arguments
     def create_facility_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_request : Annotated[FacilityRequest, Field(description="The Facility to create.")], **kwargs) -> ApiResponse:  # noqa: E501
-        """[EXPERIMENTAL] CreateFacility: [EXPERIMENTAL] CreateFacility: Create a Facility.  # noqa: E501
+        """[EARLY ACCESS] CreateFacility: [EARLY ACCESS] CreateFacility: Create a Facility.  # noqa: E501
 
         Create the given Facility against a Fund.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -3010,7 +3015,7 @@ class FundsApi:
 
     @validate_arguments
     def delete_facility(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility to be deleted.")], async_req: Optional[bool]=None, **kwargs) -> Union[DeletedEntityResponse, Awaitable[DeletedEntityResponse]]:  # noqa: E501
-        """[EXPERIMENTAL] DeleteFacility: [EXPERIMENTAL] DeleteFacility: Delete a Facility.  # noqa: E501
+        """[EARLY ACCESS] DeleteFacility: [EARLY ACCESS] DeleteFacility: Delete a Facility.  # noqa: E501
 
         Delete the given Facility.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -3045,7 +3050,7 @@ class FundsApi:
 
     @validate_arguments
     def delete_facility_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility to be deleted.")], **kwargs) -> ApiResponse:  # noqa: E501
-        """[EXPERIMENTAL] DeleteFacility: [EXPERIMENTAL] DeleteFacility: Delete a Facility.  # noqa: E501
+        """[EARLY ACCESS] DeleteFacility: [EARLY ACCESS] DeleteFacility: Delete a Facility.  # noqa: E501
 
         Delete the given Facility.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -5022,7 +5027,7 @@ class FundsApi:
 
     @validate_arguments
     def get_facility(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to retrieve the Facility. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve the Facility. Defaults to returning the latest version of the Facility if not specified.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[Facility, Awaitable[Facility]]:  # noqa: E501
-        """[EXPERIMENTAL] GetFacility: [EXPERIMENTAL] GetFacility: Get a Facility for a specified Fund.  # noqa: E501
+        """[EARLY ACCESS] GetFacility: [EARLY ACCESS] GetFacility: Get a Facility for a specified Fund.  # noqa: E501
 
         Retrieve a Facility for a specified Fund.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -5061,7 +5066,7 @@ class FundsApi:
 
     @validate_arguments
     def get_facility_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to retrieve the Facility. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve the Facility. Defaults to returning the latest version of the Facility if not specified.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
-        """[EXPERIMENTAL] GetFacility: [EXPERIMENTAL] GetFacility: Get a Facility for a specified Fund.  # noqa: E501
+        """[EARLY ACCESS] GetFacility: [EARLY ACCESS] GetFacility: Get a Facility for a specified Fund.  # noqa: E501
 
         Retrieve a Facility for a specified Fund.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -7970,7 +7975,7 @@ class FundsApi:
 
     @validate_arguments
     def get_registry_for_fund(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to retrieve the registry. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve the registry. Defaults to return the latest version if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set. Read more about filtering results from LUSID here https://support.lusid.com/filtering-results-from-lusid.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the \"Instrument\" or \"Holding\" domain to decorate onto              the lines. These take the format {domain}/{scope}/{code} e.g. \"Instrument/system/Name\" or \"Holding/system/CommittedCapital\".")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, investor_record_id : Annotated[Optional[StrictStr], Field( description="When provided, only the lines of this investor record are returned.")] = None, commitment_line_id : Annotated[Optional[StrictStr], Field( description="When provided, only the lines of this commitment line are returned.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 5000 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing registry lines from a previous call to get the registry.              This value is returned from the previous call. If a pagination token is provided, the effectiveAt, asAt, filter,              propertyKeys, investorRecordId and commitmentLineId must not change between calls.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[VersionedResourceListWithWarningsOfRegistryLine, Awaitable[VersionedResourceListWithWarningsOfRegistryLine]]:  # noqa: E501
-        """[EXPERIMENTAL] GetRegistryForFund: [EXPERIMENTAL] GetRegistryForFund: Get the registry of a Fund.  # noqa: E501
+        """[EARLY ACCESS] GetRegistryForFund: [EARLY ACCESS] GetRegistryForFund: Get the registry of a Fund.  # noqa: E501
 
         Get the register lines of a Fund at the given effective and asAt datetimes: the registry lines of its  transaction portfolios, each tagged with the portfolio it sits in, with their units, cost and capital  balances. Registry lines are never holdings, so they do not appear in the holdings of the Fund.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -8021,7 +8026,7 @@ class FundsApi:
 
     @validate_arguments
     def get_registry_for_fund_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to retrieve the registry. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve the registry. Defaults to return the latest version if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set. Read more about filtering results from LUSID here https://support.lusid.com/filtering-results-from-lusid.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the \"Instrument\" or \"Holding\" domain to decorate onto              the lines. These take the format {domain}/{scope}/{code} e.g. \"Instrument/system/Name\" or \"Holding/system/CommittedCapital\".")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, investor_record_id : Annotated[Optional[StrictStr], Field( description="When provided, only the lines of this investor record are returned.")] = None, commitment_line_id : Annotated[Optional[StrictStr], Field( description="When provided, only the lines of this commitment line are returned.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 5000 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing registry lines from a previous call to get the registry.              This value is returned from the previous call. If a pagination token is provided, the effectiveAt, asAt, filter,              propertyKeys, investorRecordId and commitmentLineId must not change between calls.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
-        """[EXPERIMENTAL] GetRegistryForFund: [EXPERIMENTAL] GetRegistryForFund: Get the registry of a Fund.  # noqa: E501
+        """[EARLY ACCESS] GetRegistryForFund: [EARLY ACCESS] GetRegistryForFund: Get the registry of a Fund.  # noqa: E501
 
         Get the register lines of a Fund at the given effective and asAt datetimes: the registry lines of its  transaction portfolios, each tagged with the portfolio it sits in, with their units, cost and capital  balances. Registry lines are never holdings, so they do not appear in the holdings of the Fund.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -11885,7 +11890,7 @@ class FundsApi:
 
     @validate_arguments
     def list_facilities(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to list the Facilities. Defaults to the current LUSID              system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to list the Facilities. Defaults to returning the latest version of each Facility if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing facilities; this              value is returned from the previous call. If a pagination token is provided, the filter, effectiveAt              and asAt fields must not have changed since the original request.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number. Defaults to 100 if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the results.              For example, to filter on the lender, specify \"lender eq 'Bank'\". For more information about filtering              results, see https://support.lusid.com/docs/filtering-information-retrieved-from-lusid.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names to sort by, each suffixed by \" ASC\" or \" DESC\"")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[PagedResourceListOfFacility, Awaitable[PagedResourceListOfFacility]]:  # noqa: E501
-        """[EXPERIMENTAL] ListFacilities: [EXPERIMENTAL] ListFacilities: List Facilities for a specified Fund.  # noqa: E501
+        """[EARLY ACCESS] ListFacilities: [EARLY ACCESS] ListFacilities: List Facilities for a specified Fund.  # noqa: E501
 
         List all the Facilities matching a particular criteria.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -11930,7 +11935,7 @@ class FundsApi:
 
     @validate_arguments
     def list_facilities_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to list the Facilities. Defaults to the current LUSID              system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to list the Facilities. Defaults to returning the latest version of each Facility if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing facilities; this              value is returned from the previous call. If a pagination token is provided, the filter, effectiveAt              and asAt fields must not have changed since the original request.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number. Defaults to 100 if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the results.              For example, to filter on the lender, specify \"lender eq 'Bank'\". For more information about filtering              results, see https://support.lusid.com/docs/filtering-information-retrieved-from-lusid.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names to sort by, each suffixed by \" ASC\" or \" DESC\"")] = None, **kwargs) -> ApiResponse:  # noqa: E501
-        """[EXPERIMENTAL] ListFacilities: [EXPERIMENTAL] ListFacilities: List Facilities for a specified Fund.  # noqa: E501
+        """[EARLY ACCESS] ListFacilities: [EARLY ACCESS] ListFacilities: List Facilities for a specified Fund.  # noqa: E501
 
         List all the Facilities matching a particular criteria.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -16163,6 +16168,368 @@ class FundsApi:
 
 
     @overload
+    async def reseed_facility_balance(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility to re-seed.")], dry_run : Annotated[Optional[StrictBool], Field(description="Report what a re-seed would write, and any draws or repayments that cannot be attributed, without writing anything. Defaults to false.")] = None, **kwargs) -> FacilityReseedResult:  # noqa: E501
+        ...
+
+    @overload
+    def reseed_facility_balance(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility to re-seed.")], dry_run : Annotated[Optional[StrictBool], Field(description="Report what a re-seed would write, and any draws or repayments that cannot be attributed, without writing anything. Defaults to false.")] = None, async_req: Optional[bool]=True, **kwargs) -> FacilityReseedResult:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def reseed_facility_balance(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility to re-seed.")], dry_run : Annotated[Optional[StrictBool], Field(description="Report what a re-seed would write, and any draws or repayments that cannot be attributed, without writing anything. Defaults to false.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[FacilityReseedResult, Awaitable[FacilityReseedResult]]:  # noqa: E501
+        """[EARLY ACCESS] ReseedFacilityBalance: [EARLY ACCESS] ReseedFacilityBalance: Re-seed a Facility's balance from its booked draws and repayments.  # noqa: E501
+
+        Rebuild the balance a Facility's limit is judged on from the draws and repayments booked on it: DealFundings  drawn from it and capital calls repaying it, in Booked or Booking status, on allocation maps whose  structureMemberId is the Fund, and FacilityDrawEvents and FacilityRepaymentEvents in the sources of the Fund's  portfolios. Afterwards the balance is the booked draws and repayments. Running it again writes nothing. A  Facility with nothing booked on it is seeded with 0. Draws and repayments still in Booking status count, and  are named in a FacilityBookingInProgress warning.  A draw or repayment written at the same time makes the re-seed fail as a concurrent modification; retry it.  A draw or repayment naming the Facility on an allocation map whose structureMemberId is not a fund cannot be  attributed, and the re-seed is refused with 409 FacilityFlowsUnattributable naming them; nothing is written,  and draws, repayments, FacilityInterestEvents and FacilityCommitmentFeeEvents on the Facility are refused the  same way until the maps are fixed and the Facility is re-seeded.  With dryRun, nothing is written: the response says what a re-seed would write, or lists the draws and  repayments that cannot be attributed. Requires the Fund's update entitlement, except for a dry run.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.reseed_facility_balance(scope, code, facility_code, dry_run, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param facility_code: The code of the Facility to re-seed. (required)
+        :type facility_code: str
+        :param dry_run: Report what a re-seed would write, and any draws or repayments that cannot be attributed, without writing anything. Defaults to false.
+        :type dry_run: bool
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: FacilityReseedResult
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the reseed_facility_balance_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.reseed_facility_balance_with_http_info(scope, code, facility_code, dry_run, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def reseed_facility_balance_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility to re-seed.")], dry_run : Annotated[Optional[StrictBool], Field(description="Report what a re-seed would write, and any draws or repayments that cannot be attributed, without writing anything. Defaults to false.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+        """[EARLY ACCESS] ReseedFacilityBalance: [EARLY ACCESS] ReseedFacilityBalance: Re-seed a Facility's balance from its booked draws and repayments.  # noqa: E501
+
+        Rebuild the balance a Facility's limit is judged on from the draws and repayments booked on it: DealFundings  drawn from it and capital calls repaying it, in Booked or Booking status, on allocation maps whose  structureMemberId is the Fund, and FacilityDrawEvents and FacilityRepaymentEvents in the sources of the Fund's  portfolios. Afterwards the balance is the booked draws and repayments. Running it again writes nothing. A  Facility with nothing booked on it is seeded with 0. Draws and repayments still in Booking status count, and  are named in a FacilityBookingInProgress warning.  A draw or repayment written at the same time makes the re-seed fail as a concurrent modification; retry it.  A draw or repayment naming the Facility on an allocation map whose structureMemberId is not a fund cannot be  attributed, and the re-seed is refused with 409 FacilityFlowsUnattributable naming them; nothing is written,  and draws, repayments, FacilityInterestEvents and FacilityCommitmentFeeEvents on the Facility are refused the  same way until the maps are fixed and the Facility is re-seeded.  With dryRun, nothing is written: the response says what a re-seed would write, or lists the draws and  repayments that cannot be attributed. Requires the Fund's update entitlement, except for a dry run.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.reseed_facility_balance_with_http_info(scope, code, facility_code, dry_run, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param facility_code: The code of the Facility to re-seed. (required)
+        :type facility_code: str
+        :param dry_run: Report what a re-seed would write, and any draws or repayments that cannot be attributed, without writing anything. Defaults to false.
+        :type dry_run: bool
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(FacilityReseedResult, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'facility_code',
+            'dry_run'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method reseed_facility_balance" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+        if _params['facility_code']:
+            _path_params['facilityCode'] = _params['facility_code']
+
+
+        # process the query parameters
+        _query_params = []
+        if _params.get('dry_run') is not None:  # noqa: E501
+            _query_params.append(('dryRun', _params['dry_run']))
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "FacilityReseedResult",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/facilities/{facilityCode}/$reseed', 'POST',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
+    async def resplit_prepaid_management_fees(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], management_fee_resplit_request : Annotated[ManagementFeeResplitRequest, Field(description="The window to re-split, and whether to write.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund, on a dry run only. Defaults to return the latest version if not specified.")] = None, **kwargs) -> ManagementFeeResplitResult:  # noqa: E501
+        ...
+
+    @overload
+    def resplit_prepaid_management_fees(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], management_fee_resplit_request : Annotated[ManagementFeeResplitRequest, Field(description="The window to re-split, and whether to write.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund, on a dry run only. Defaults to return the latest version if not specified.")] = None, async_req: Optional[bool]=True, **kwargs) -> ManagementFeeResplitResult:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def resplit_prepaid_management_fees(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], management_fee_resplit_request : Annotated[ManagementFeeResplitRequest, Field(description="The window to re-split, and whether to write.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund, on a dry run only. Defaults to return the latest version if not specified.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[ManagementFeeResplitResult, Awaitable[ManagementFeeResplitResult]]:  # noqa: E501
+        """[EARLY ACCESS] ResplitPrepaidManagementFees: [EXPERIMENTAL] ResplitPrepaidManagementFees: Re-split the Fund's prepaid management fee periods.  # noqa: E501
+
+        Derive again, for every prepaid management fee period meeting the window, the split of its offsets between the  fee payable and a receivable from the manager, from the period's prepayment, its accruals and the payments to  the manager the Fund's books now hold, without calculating any fee again. A payment booked after a split leaves  it out of date until the period is re-split, which a valuation point over the period does before it is struck.  An unchanged split writes nothing, a re-split into a final period is its post-close activity, and a dry run  writes nothing and says which periods' splits are out of date.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.resplit_prepaid_management_fees(scope, code, management_fee_resplit_request, as_at, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param management_fee_resplit_request: The window to re-split, and whether to write. (required)
+        :type management_fee_resplit_request: ManagementFeeResplitRequest
+        :param as_at: The asAt datetime at which to read the Fund, on a dry run only. Defaults to return the latest version if not specified.
+        :type as_at: datetime
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: ManagementFeeResplitResult
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the resplit_prepaid_management_fees_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.resplit_prepaid_management_fees_with_http_info(scope, code, management_fee_resplit_request, as_at, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def resplit_prepaid_management_fees_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], management_fee_resplit_request : Annotated[ManagementFeeResplitRequest, Field(description="The window to re-split, and whether to write.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund, on a dry run only. Defaults to return the latest version if not specified.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+        """[EARLY ACCESS] ResplitPrepaidManagementFees: [EXPERIMENTAL] ResplitPrepaidManagementFees: Re-split the Fund's prepaid management fee periods.  # noqa: E501
+
+        Derive again, for every prepaid management fee period meeting the window, the split of its offsets between the  fee payable and a receivable from the manager, from the period's prepayment, its accruals and the payments to  the manager the Fund's books now hold, without calculating any fee again. A payment booked after a split leaves  it out of date until the period is re-split, which a valuation point over the period does before it is struck.  An unchanged split writes nothing, a re-split into a final period is its post-close activity, and a dry run  writes nothing and says which periods' splits are out of date.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.resplit_prepaid_management_fees_with_http_info(scope, code, management_fee_resplit_request, as_at, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param management_fee_resplit_request: The window to re-split, and whether to write. (required)
+        :type management_fee_resplit_request: ManagementFeeResplitRequest
+        :param as_at: The asAt datetime at which to read the Fund, on a dry run only. Defaults to return the latest version if not specified.
+        :type as_at: datetime
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(ManagementFeeResplitResult, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'management_fee_resplit_request',
+            'as_at'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method resplit_prepaid_management_fees" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+
+        # process the query parameters
+        _query_params = []
+        if _params.get('as_at') is not None:  # noqa: E501
+            if isinstance(_params['as_at'], datetime):
+                _query_params.append(('asAt', _params['as_at'].strftime(self.api_client.configuration.datetime_format)))
+            else:
+                _query_params.append(('asAt', _params['as_at']))
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        if _params['management_fee_resplit_request'] is not None:
+            _body_params = _params['management_fee_resplit_request']
+
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get('_content_type',
+            self.api_client.select_header_content_type(
+                ['application/json-patch+json', 'application/json', 'text/json', 'application/*+json']))
+        if _content_types_list:
+                _header_params['Content-Type'] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "ManagementFeeResplitResult",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/fees/$resplit', 'POST',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
     async def revert_valuation_point_to_estimate(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], revert_valuation_point_data_request : Annotated[RevertValuationPointDataRequest, Field(description="The revertValuationPointRequest which contains the Diary Entry code for the Final Valuation Point to move to Estimate status.")], nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, sets the status of the Valuation Point of the specified NAV Type to be Estimate.              Otherwise, the Primary NAV Type will be used.")] = None, **kwargs) -> RevertValuationPointResponse:  # noqa: E501
         ...
 
@@ -16723,6 +17090,222 @@ class FundsApi:
 
 
     @overload
+    async def set_holdings_for_fund(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[StrictStr, Field(..., description="The effective datetime or cut label at which the holdings should be set to the provided targets.")], adjust_holding_request : Annotated[List[AdjustHoldingRequest], Field(description="The complete set of target holdings for the Fund's derived portfolio.")], nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, reconciliation_methods : Annotated[Optional[List[StrictStr]], Field(description="Optional parameter for specifying a reconciliation method: e.g. FxForward. Available values: FxForward.")] = None, override_movement_name : Annotated[Optional[StrictStr], Field( description="Optional parameter to override movement name for the set holdings.")] = None, override_offset_movement_name : Annotated[Optional[StrictStr], Field( description="Optional parameter will create an additional offset movement for the set holdings with this new name and transaction type: CarryAsPnl")] = None, **kwargs) -> AdjustHolding:  # noqa: E501
+        ...
+
+    @overload
+    def set_holdings_for_fund(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[StrictStr, Field(..., description="The effective datetime or cut label at which the holdings should be set to the provided targets.")], adjust_holding_request : Annotated[List[AdjustHoldingRequest], Field(description="The complete set of target holdings for the Fund's derived portfolio.")], nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, reconciliation_methods : Annotated[Optional[List[StrictStr]], Field(description="Optional parameter for specifying a reconciliation method: e.g. FxForward. Available values: FxForward.")] = None, override_movement_name : Annotated[Optional[StrictStr], Field( description="Optional parameter to override movement name for the set holdings.")] = None, override_offset_movement_name : Annotated[Optional[StrictStr], Field( description="Optional parameter will create an additional offset movement for the set holdings with this new name and transaction type: CarryAsPnl")] = None, async_req: Optional[bool]=True, **kwargs) -> AdjustHolding:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def set_holdings_for_fund(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[StrictStr, Field(..., description="The effective datetime or cut label at which the holdings should be set to the provided targets.")], adjust_holding_request : Annotated[List[AdjustHoldingRequest], Field(description="The complete set of target holdings for the Fund's derived portfolio.")], nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, reconciliation_methods : Annotated[Optional[List[StrictStr]], Field(description="Optional parameter for specifying a reconciliation method: e.g. FxForward. Available values: FxForward.")] = None, override_movement_name : Annotated[Optional[StrictStr], Field( description="Optional parameter to override movement name for the set holdings.")] = None, override_offset_movement_name : Annotated[Optional[StrictStr], Field( description="Optional parameter will create an additional offset movement for the set holdings with this new name and transaction type: CarryAsPnl")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[AdjustHolding, Awaitable[AdjustHolding]]:  # noqa: E501
+        """[EXPERIMENTAL] SetHoldingsForFund: Set holdings for a Fund.  # noqa: E501
+
+        Set the holdings of the derived portfolio a Fund maintains for a NAV type to the provided targets. LUSID will  automatically construct adjustment transactions to ensure that the entire set of holdings for the derived  portfolio are always set to the provided targets for the specified effective datetime.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.set_holdings_for_fund(scope, code, effective_at, adjust_holding_request, nav_type_code, reconciliation_methods, override_movement_name, override_offset_movement_name, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param effective_at: The effective datetime or cut label at which the holdings should be set to the provided targets. (required)
+        :type effective_at: str
+        :param adjust_holding_request: The complete set of target holdings for the Fund's derived portfolio. (required)
+        :type adjust_holding_request: List[AdjustHoldingRequest]
+        :param nav_type_code: When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.
+        :type nav_type_code: str
+        :param reconciliation_methods: Optional parameter for specifying a reconciliation method: e.g. FxForward. Available values: FxForward.
+        :type reconciliation_methods: List[str]
+        :param override_movement_name: Optional parameter to override movement name for the set holdings.
+        :type override_movement_name: str
+        :param override_offset_movement_name: Optional parameter will create an additional offset movement for the set holdings with this new name and transaction type: CarryAsPnl
+        :type override_offset_movement_name: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: AdjustHolding
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the set_holdings_for_fund_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.set_holdings_for_fund_with_http_info(scope, code, effective_at, adjust_holding_request, nav_type_code, reconciliation_methods, override_movement_name, override_offset_movement_name, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def set_holdings_for_fund_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[StrictStr, Field(..., description="The effective datetime or cut label at which the holdings should be set to the provided targets.")], adjust_holding_request : Annotated[List[AdjustHoldingRequest], Field(description="The complete set of target holdings for the Fund's derived portfolio.")], nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, reconciliation_methods : Annotated[Optional[List[StrictStr]], Field(description="Optional parameter for specifying a reconciliation method: e.g. FxForward. Available values: FxForward.")] = None, override_movement_name : Annotated[Optional[StrictStr], Field( description="Optional parameter to override movement name for the set holdings.")] = None, override_offset_movement_name : Annotated[Optional[StrictStr], Field( description="Optional parameter will create an additional offset movement for the set holdings with this new name and transaction type: CarryAsPnl")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+        """[EXPERIMENTAL] SetHoldingsForFund: Set holdings for a Fund.  # noqa: E501
+
+        Set the holdings of the derived portfolio a Fund maintains for a NAV type to the provided targets. LUSID will  automatically construct adjustment transactions to ensure that the entire set of holdings for the derived  portfolio are always set to the provided targets for the specified effective datetime.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.set_holdings_for_fund_with_http_info(scope, code, effective_at, adjust_holding_request, nav_type_code, reconciliation_methods, override_movement_name, override_offset_movement_name, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param effective_at: The effective datetime or cut label at which the holdings should be set to the provided targets. (required)
+        :type effective_at: str
+        :param adjust_holding_request: The complete set of target holdings for the Fund's derived portfolio. (required)
+        :type adjust_holding_request: List[AdjustHoldingRequest]
+        :param nav_type_code: When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.
+        :type nav_type_code: str
+        :param reconciliation_methods: Optional parameter for specifying a reconciliation method: e.g. FxForward. Available values: FxForward.
+        :type reconciliation_methods: List[str]
+        :param override_movement_name: Optional parameter to override movement name for the set holdings.
+        :type override_movement_name: str
+        :param override_offset_movement_name: Optional parameter will create an additional offset movement for the set holdings with this new name and transaction type: CarryAsPnl
+        :type override_offset_movement_name: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(AdjustHolding, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'effective_at',
+            'adjust_holding_request',
+            'nav_type_code',
+            'reconciliation_methods',
+            'override_movement_name',
+            'override_offset_movement_name'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method set_holdings_for_fund" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+
+        # process the query parameters
+        _query_params = []
+        if _params.get('effective_at') is not None:  # noqa: E501
+            _query_params.append(('effectiveAt', _params['effective_at']))
+
+        if _params.get('nav_type_code') is not None:  # noqa: E501
+            _query_params.append(('navTypeCode', _params['nav_type_code']))
+
+        if _params.get('reconciliation_methods') is not None:  # noqa: E501
+            _query_params.append(('reconciliationMethods', _params['reconciliation_methods']))
+            _collection_formats['reconciliationMethods'] = 'multi'
+
+        if _params.get('override_movement_name') is not None:  # noqa: E501
+            _query_params.append(('overrideMovementName', _params['override_movement_name']))
+
+        if _params.get('override_offset_movement_name') is not None:  # noqa: E501
+            _query_params.append(('overrideOffsetMovementName', _params['override_offset_movement_name']))
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        if _params['adjust_holding_request'] is not None:
+            _body_params = _params['adjust_holding_request']
+
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get('_content_type',
+            self.api_client.select_header_content_type(
+                ['application/json-patch+json', 'application/json', 'text/json', 'application/*+json']))
+        if _content_types_list:
+                _header_params['Content-Type'] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "AdjustHolding",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/holdings', 'PUT',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
     async def set_share_class_instruments(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], set_share_class_instruments_request : Annotated[SetShareClassInstrumentsRequest, Field(description="The scopes and instrument identifiers for the instruments to be set.")], **kwargs) -> Fund:  # noqa: E501
         ...
 
@@ -16907,7 +17490,7 @@ class FundsApi:
 
     @validate_arguments
     def update_facility(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility to update.")], facility_request : Annotated[FacilityRequest, Field(description="The Facility definition to store.")], async_req: Optional[bool]=None, **kwargs) -> Union[Facility, Awaitable[Facility]]:  # noqa: E501
-        """[EXPERIMENTAL] UpdateFacility: [EXPERIMENTAL] UpdateFacility: Update a Facility.  # noqa: E501
+        """[EARLY ACCESS] UpdateFacility: [EARLY ACCESS] UpdateFacility: Update a Facility.  # noqa: E501
 
         Replace the definition of a Facility of a Fund. The code, the Fund and the currency cannot change. Lowering  the limit below what is already drawn is accepted and the response carries a warning: the draws already  booked stand, and further draws are refused until the Facility is repaid within its limit.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
@@ -16944,7 +17527,7 @@ class FundsApi:
 
     @validate_arguments
     def update_facility_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], facility_code : Annotated[StrictStr, Field(..., description="The code of the Facility to update.")], facility_request : Annotated[FacilityRequest, Field(description="The Facility definition to store.")], **kwargs) -> ApiResponse:  # noqa: E501
-        """[EXPERIMENTAL] UpdateFacility: [EXPERIMENTAL] UpdateFacility: Update a Facility.  # noqa: E501
+        """[EARLY ACCESS] UpdateFacility: [EARLY ACCESS] UpdateFacility: Update a Facility.  # noqa: E501
 
         Replace the definition of a Facility of a Fund. The code, the Fund and the currency cannot change. Lowering  the limit below what is already drawn is accepted and the response carries a warning: the draws already  booked stand, and further draws are refused until the Facility is repaid within its limit.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an

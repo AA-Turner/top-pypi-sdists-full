@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import requests
+from typing import TYPE_CHECKING
 
 from django.http import HttpRequest
 from django.urls import reverse
@@ -13,9 +14,14 @@ from allauth.socialaccount.internal import jwtkit
 from allauth.socialaccount.providers.base import ProviderAccount
 from allauth.socialaccount.providers.oauth2.client import OAuth2Error
 from allauth.socialaccount.providers.oauth2.provider import OAuth2Provider
+from allauth.socialaccount.providers.openid_connect import _sessions
 from allauth.socialaccount.providers.openid_connect.views import (
     OpenIDConnectOAuth2Adapter,
 )
+
+
+if TYPE_CHECKING:
+    from allauth.socialaccount.models import SocialLogin
 
 
 def _pick_data(data: dict) -> dict:
@@ -109,6 +115,20 @@ class OpenIDConnectProvider(OAuth2Provider):
     def get_oauth2_adapter(self, request: HttpRequest):
         return self.oauth2_adapter_class(request, self.app.provider_id)
 
+    def _on_login_processed(
+        self, request: HttpRequest, sociallogin: SocialLogin
+    ) -> None:
+        data = sociallogin.account.extra_data
+        id_token = sociallogin.state.get("id_token")
+        decoded_id_token = data.get("id_token")
+        if isinstance(decoded_id_token, dict) and isinstance(id_token, str):
+            _sessions.track_session(
+                request,
+                provider_id=self.app.provider_id,
+                id_token=id_token,
+                decoded_id_token=decoded_id_token,
+            )
+
     def verify_token(self, request: HttpRequest, token):
         id_token = token.get("id_token")
         if not id_token:
@@ -125,7 +145,8 @@ class OpenIDConnectProvider(OAuth2Provider):
             )
         except (OAuth2Error, requests.RequestException) as e:
             raise get_adapter().validation_error("invalid_token") from e
-        login = self.sociallogin_from_response(request, identity_data)
+        login = self.sociallogin_from_response(request, {"id_token": identity_data})
+        login.state["id_token"] = id_token
         return login
 
 

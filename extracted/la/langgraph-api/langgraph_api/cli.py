@@ -16,6 +16,8 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Literal
 
+from langgraph_api import embedded_core
+
 if typing.TYPE_CHECKING:
     from packaging.version import Version
 
@@ -299,7 +301,26 @@ def run_server(
                 continue
             to_patch[k] = v
 
-    with patch_environment(**to_patch):
+    def _env(name: str, default: str = "") -> str:
+        if env_vars and name in env_vars:
+            return env_vars[name]
+        return os.getenv(name, default)
+
+    use_core = runtime_edition == "inmem" and _env("FF_INMEM_CORE", "true").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    if use_core:
+        to_patch[embedded_core.ADDRESS_ENV] = ""
+    core = (
+        embedded_core.start(None if disable_persistence else embedded_core.SQLITE_PATH)
+        if use_core
+        else contextlib.nullcontext(None)
+    )
+    with patch_environment(**to_patch), core as core_address:
+        if core_address is not None:
+            os.environ[embedded_core.ADDRESS_ENV] = core_address
         is_ssl = ssl_certfile is not None and ssl_keyfile is not None
         local_url = _resolve_server_url(
             host,

@@ -1,0 +1,357 @@
+#     Copyright 2026, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
+
+
+"""Generic tests, cover most important forms of them."""
+
+# Tests are dirty on purpose.
+#
+# pylint: disable=redefined-outer-name,used-before-assignment
+
+from typing import ParamSpec, TypeAliasType, TypeVar, TypeVarTuple
+
+
+def someGenericFunction[T]():
+    print("hello", T)
+
+
+someGenericFunction()
+
+# Verify the name didn't leak.
+try:
+    print(T)
+except NameError:
+    print("not found")
+
+T = 1
+
+
+def someGenericFunctionShadowingGlobal[T]():
+    print(T)
+
+
+someGenericFunctionShadowingGlobal()
+print(T)
+
+
+print("Function in a class with private name")
+
+
+class someClassWithPrivateArgumentNames:
+    def f(self, *, __kw: 1):
+        pass
+
+
+print(someClassWithPrivateArgumentNames.f.__annotations__)
+
+
+def simpleExample[T](test: T) -> T:
+    print(test)
+    return test
+
+
+simpleExample(42)
+
+try:
+    print(T)
+except NameError:
+    print("good")
+
+try:
+
+    def weirdExample[T](a: T = T):
+        print(a)
+
+except NameError as err:
+    print(err)
+
+try:
+
+    def weirdExample[*Ts](a: Ts = Ts):
+        print(a)
+
+except NameError as err:
+    print(err)
+
+try:
+
+    def weirdExample[**P](a: P = P):
+        print(a)
+
+except NameError as err:
+    print(err)
+
+
+try:
+
+    async def asyncExample[T, *Ts, **P](a: T, b: Ts, c: P) -> T | Ts | P:
+        print(a, b, c)
+        print(T, Ts, P)
+
+    # This is a little cheat to await it without using asyncio
+    try:
+        asyncExample(1, 2, 3).send(None)
+    except StopIteration:
+        print("Awaited function")
+except NameError as err:
+    print(err)
+
+
+class TypeParams[T, *Ts, **P]:
+    saved = (T, Ts, P)
+
+
+print(TypeParams.__type_params__)
+print(tuple(a is b for a, b in zip(TypeParams.__type_params__, TypeParams.saved)))
+print(TypeParams.__bases__)
+print(TypeParams.__orig_bases__)
+
+
+def functionTypeParams[T, *Ts, **P]():
+    pass
+
+
+async def asyncFunctionTypeParams[T, *Ts, **P]():
+    pass
+
+
+async def asyncGenTypeParams[T, *Ts, **P]():
+    pass
+
+
+print(functionTypeParams, functionTypeParams.__type_params__)
+print(asyncFunctionTypeParams, asyncFunctionTypeParams.__type_params__)
+print(asyncGenTypeParams, asyncGenTypeParams.__type_params__)
+
+
+class EnclosingScope[T, *Ts, **P]:
+    def method(self):
+        print("Type variables in enclosing scope:", T, Ts, P)
+        return T, Ts, P
+
+
+print("Stole from class:", EnclosingScope().method())
+
+print(
+    "Type variables in class dict:",
+    "T" in EnclosingScope.__dict__,
+    "Ts" in EnclosingScope.__dict__,
+    "P" in EnclosingScope.__dict__,
+)
+
+
+class TypeVariablesInBases[T](list[T]):
+    pass
+
+
+print("Type variables in bases:", TypeVariablesInBases.__orig_bases__)
+
+
+def sideEffect():
+    print("Side effect")
+    return 42
+
+
+def usingBound[T: str, UnionT: str | int, Deferred: sideEffect()]():
+    print("T.__bound__", T.__bound__)
+    print("UnionT.__bound__", UnionT.__bound__)
+    print("Deferred.__bound__", Deferred.__bound__)
+
+
+print("Function with bound")
+usingBound()
+
+print("Class with bound")
+
+
+class UsingBound[T: str, UnionT: str | int, Deferred: sideEffect()]:
+    print("T.__bound__", T.__bound__)
+    print("UnionT.__bound__", UnionT.__bound__)
+    print("Deferred.__bound__", Deferred.__bound__)
+
+
+def classTypeAliasInFunction():
+    class Parent[A]:
+        type TA1[B] = dict[A, B]
+
+    print(
+        "Type alias in class in function:",
+        Parent.TA1.__parameters__,
+        Parent.TA1.__value__,
+    )
+
+
+classTypeAliasInFunction()
+
+
+def typeAliasInFunction():
+    def outer[A]():
+        type TA1[B] = dict[A, B]
+        return TA1
+
+    alias = outer()
+
+    print(
+        "Type alias in function:",
+        alias.__parameters__,
+        alias.__value__,
+        outer.__type_params__,
+    )
+
+
+typeAliasInFunction()
+
+print("Type alias in class with forward references")
+
+
+class TypeAliasForwardReferences:
+    type TA1 = dict[Later, int]
+    type TA2[ValueT] = tuple[ValueT, Later]
+
+    class Later:
+        pass
+
+
+print(TypeAliasForwardReferences.TA1.__value__)
+print(TypeAliasForwardReferences.TA2.__value__)
+
+
+def typeAliasInClassInFunction():
+    class Local:
+        type TA1 = list[Later]
+
+        class Later:
+            pass
+
+    print("Type alias in class in function:", Local.TA1.__value__)
+
+
+typeAliasInClassInFunction()
+
+print("Type alias in class using class namespace")
+
+
+class TypeAliasClassNamespace:
+    type TA1 = dict[Shadowed]
+
+    Shadowed = str
+
+
+print(TypeAliasClassNamespace.TA1.__value__)
+
+
+class TypeAliasDeletedClassAttribute:
+    type TA1 = dict[Deleted]
+
+    Deleted = str
+
+
+del TypeAliasDeletedClassAttribute.Deleted
+Deleted = bytes
+print(TypeAliasDeletedClassAttribute.TA1.__value__)
+
+print("Type variable bound using class namespace")
+
+
+class TypeVarBoundForwardReference:
+    def someGenericMethod[ValueT: Later]():
+        pass
+
+    class Later:
+        pass
+
+
+print(TypeVarBoundForwardReference.someGenericMethod.__type_params__[0].__bound__)
+
+print("Type variable constraints")
+
+
+def usingConstraints[T: (str, int), Deferred: (sideEffect(),)]():
+    print("T.__constraints__", T.__constraints__)
+    print("T.__bound__", T.__bound__)
+    print("Deferred.__constraints__", Deferred.__constraints__)
+
+
+print("Function with constraints")
+usingConstraints()
+
+print("Class with constraints")
+
+
+class UsingConstraints[T: (str, int), Deferred: (sideEffect(),)]:
+    print("T.__constraints__", T.__constraints__)
+    print("T.__bound__", T.__bound__)
+    print("Deferred.__constraints__", Deferred.__constraints__)
+
+
+print("Type variable constraints using class namespace")
+
+
+class TypeVarConstraintsForwardReference:
+    def someGenericMethod[ValueT: (Later,)]():
+        pass
+
+    class Later:
+        pass
+
+
+print(
+    TypeVarConstraintsForwardReference.someGenericMethod.__type_params__[
+        0
+    ].__constraints__
+)
+
+print("Type variable constraints are lazily evaluated")
+
+
+class TypeVarConstraintsLazyEvaluation[T: Undefined, U: (Undefined,)]:
+    pass
+
+
+for type_param in TypeVarConstraintsLazyEvaluation.__type_params__:
+    for attribute_name in ("__bound__", "__constraints__"):
+        try:
+            print(attribute_name, getattr(type_param, attribute_name))
+        except NameError as e:
+            print(attribute_name, type(e).__name__, e)
+
+Undefined = "defined"
+
+print("Type variable constraints after definition")
+for type_param in TypeVarConstraintsLazyEvaluation.__type_params__:
+    print(type_param.__bound__, type_param.__constraints__)
+
+print("Module attribution of typing objects")
+
+print("TypeVar:", TypeVar("T").__module__)
+print("ParamSpec:", ParamSpec("P").__module__)
+print("TypeVarTuple:", TypeVarTuple("Ts").__module__)
+print("TypeAliasType:", TypeAliasType("Alias", int).__module__)
+
+
+def makeTypeAliasType():
+    return TypeAliasType("FunctionAlias", int)
+
+
+print("Function alias:", makeTypeAliasType().__module__)
+
+
+class TypeAliasTypeContainer:
+    Alias = TypeAliasType("ClassAlias", int)
+
+
+print("Class alias:", TypeAliasTypeContainer.Alias.__module__)
+
+#     Python tests originally created or extracted from other peoples work. The
+#     parts were too small to be protected.
+#
+#     Licensed under the Apache License, Version 2.0 (the "License");
+#     you may not use this file except in compliance with the License.
+#     You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.

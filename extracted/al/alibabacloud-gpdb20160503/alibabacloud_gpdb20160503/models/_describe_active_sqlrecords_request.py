@@ -19,27 +19,27 @@ class DescribeActiveSQLRecordsRequest(DaraModel):
     ):
         # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to view the details of all AnalyticDB for PostgreSQL instances in the target region, including the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The name of the database.
+        # The database name. Default value: all databases.
         self.database = database
-        # The end of the time range to query. Specify the time in the yyyy-MM-ddTHH:mm:ssZ format. The end time must be later than the start time.
+        # The end time of the query. Format: `yyyy-MM-ddTHH:mm:ssZ`. The end time must be later than the start time.
         self.end_time = end_time
-        # The keyword used to filter queries.
+        # The query keyword.
         self.keyword = keyword
-        # The maxmum amount of time consumed by traces. Unit: milliseconds.
+        # The maximum execution duration, in seconds.
         self.max_duration = max_duration
-        # The minimum amount of time consumed by traces. Unit: milliseconds.
+        # The minimum execution duration, in seconds. For example, a value of 100 specifies queries that run for more than 100 seconds.
         self.min_duration = min_duration
-        # The field used to sort lock diagnostics records and the sorting order.
+        # The sort field and sort order.
         # 
-        # Default value: `{"Field":"StartTime","Type":"Desc"}`, which indicates that lock diagnostics records are sorted by the start time in descending order. No other values are supported.
+        # Default value: `{"Field":"StartTime","Type":"Desc"}`, which indicates sorting by start time in descending order. Other sort fields and sort orders are not supported.
         self.order = order
-        # The beginning of the time range to query. Specify the time in the yyyy-MM-ddTHH:mmZ format. The time must be in UTC.
+        # The start time of the query. Format: `yyyy-MM-ddTHH:mm:ssZ`.
         self.start_time = start_time
-        # The name of the database account.
+        # The username.
         self.user = user
 
     def validate(self):

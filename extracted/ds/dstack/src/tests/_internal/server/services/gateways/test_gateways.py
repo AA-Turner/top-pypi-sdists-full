@@ -6,11 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from dstack._internal import settings as core_settings
 from dstack._internal.core.backends.base.compute import get_dstack_gateway_install_command
+from dstack._internal.core.errors import ServerClientError
+from dstack._internal.core.models.backends.base import BackendType
+from dstack._internal.core.models.gateways import GatewayConfiguration, GatewayOTelConfig
 from dstack._internal.proxy.gateway.const import SERVICE_SCALING_WINDOWS
 from dstack._internal.proxy.gateway.schemas.stats import Stat
+from dstack._internal.proxy.gateway.testing.common import make_otel_settings
 from dstack._internal.server.services import gateways
 from dstack._internal.server.services.gateways import (
     _merge_per_window_stats,
+    _validate_gateway_configuration,
+    build_gateway_config,
     get_gateway_replica_models,
 )
 from dstack._internal.server.testing.common import (
@@ -18,6 +24,8 @@ from dstack._internal.server.testing.common import (
     create_gateway,
     create_gateway_replica,
     create_project,
+    create_secret,
+    create_user,
 )
 
 
@@ -127,13 +135,6 @@ class TestInitGateways:
             "get_or_add",
             AsyncMock(return_value=connection),
         )
-        monkeypatch.setattr(
-            gateways.gateway_connections_pool,
-            "all",
-            AsyncMock(return_value=[connection]),
-        )
-        configure = AsyncMock()
-        monkeypatch.setattr(gateways, "configure_gateway_replica", configure)
         project = await create_project(session=session)
         backend = await create_backend(session=session, project_id=project.id)
         replica = await create_gateway_replica(session=session, backend=backend)
@@ -145,5 +146,59 @@ class TestInitGateways:
         connection.tunnel.aexec.assert_awaited_once_with(
             get_dstack_gateway_install_command(), timeout=ANY
         )
-        configure.assert_awaited_once()
         assert replica.app_updated_at == (now if updated else previously_updated_at)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+class TestValidateGatewayConfiguration:
+    @pytest.mark.parametrize(
+        ("endpoint", "error"),
+        [
+            pytest.param("${{ secrets.missing }}", "secrets.missing", id="missing-secret"),
+            pytest.param("${{ secrets.token }}", "endpoint must be", id="invalid-secret-value"),
+        ],
+    )
+    async def test_rejects_invalid_otel_without_revealing_secrets(
+        self, test_db, session: AsyncSession, endpoint: str, error: str
+    ):
+        project = await create_project(session=session)
+        await create_secret(session=session, project=project, name="token", value="s3cret")
+        configuration = _make_otel_configuration(
+            GatewayOTelConfig(endpoint=endpoint, headers={"A": "${{ secrets.token }}"})
+        )
+
+        with pytest.raises(ServerClientError, match=error) as exc_info:
+            await _validate_gateway_configuration(session, project, configuration)
+
+        assert "s3cret" not in str(exc_info.value)
+
+    async def test_does_not_use_other_projects_secrets(self, test_db, session: AsyncSession):
+        user = await create_user(session=session)
+        project = await create_project(session=session, owner=user, name="owner")
+        other_project = await create_project(session=session, owner=user, name="other")
+        await create_secret(session=session, project=other_project, name="token", value="x")
+        configuration = _make_otel_configuration(
+            GatewayOTelConfig(endpoint="https://otlp", headers={"A": "${{ secrets.token }}"})
+        )
+
+        with pytest.raises(ServerClientError, match="secrets.token"):
+            await _validate_gateway_configuration(session, project, configuration)
+
+
+def _make_otel_configuration(otel: GatewayOTelConfig) -> GatewayConfiguration:
+    return GatewayConfiguration(backend=BackendType.AWS, region="us-east-1", otel=otel)
+
+
+class TestBuildGatewayConfig:
+    def test_hash_depends_on_config_and_key(self):
+        otel_settings = make_otel_settings(headers={"Authorization": "Bearer s3cret"})
+
+        config = build_gateway_config(otel_settings, hash_key="key")
+
+        assert config.otel_settings == otel_settings
+        assert config.config_hash == build_gateway_config(otel_settings, "key").config_hash
+        assert config.config_hash != build_gateway_config(None, "key").config_hash
+        assert config.config_hash != build_gateway_config(otel_settings, "other").config_hash
+        other_otel_settings = make_otel_settings(headers={"Authorization": "Bearer other"})
+        assert config.config_hash != build_gateway_config(other_otel_settings, "key").config_hash

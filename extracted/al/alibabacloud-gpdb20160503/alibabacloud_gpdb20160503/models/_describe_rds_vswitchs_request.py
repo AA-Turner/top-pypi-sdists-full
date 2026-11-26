@@ -19,26 +19,22 @@ class DescribeRdsVSwitchsRequest(DaraModel):
     ):
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The ID of the region.
+        # The region ID.
         # 
-        # >  You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query the most recent region list and zone list.
+        # > You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs and zone IDs.
         self.region_id = region_id
-        # This parameter is no longer used.
+        # **[Deprecated]** This parameter is deprecated. You do not need to specify this parameter.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
         self.security_token = security_token
-        # The virtual private cloud (VPC) ID of the instance.
-        # 
-        # > 
-        # 
-        # *   You can call the [DescribeRdsVpcs](https://help.aliyun.com/document_detail/208327.html) operation to query the available VPC IDs.
-        # 
-        # *   This parameter must be specified.
+        # The VPC ID.
+        # > - You can call the [DescribeRdsVpcs](https://help.aliyun.com/document_detail/208327.html) operation to query available VPC IDs.
+        # > - This parameter is required.
         self.vpc_id = vpc_id
-        # The ID of the zone.
+        # The zone ID.
         # 
-        # >  You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query the most recent region list and zone list.
+        # > You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs and zone IDs.
         self.zone_id = zone_id
 
     def validate(self):

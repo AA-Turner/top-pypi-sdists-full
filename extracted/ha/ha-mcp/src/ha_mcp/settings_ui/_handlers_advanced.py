@@ -21,7 +21,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from .._version import is_running_in_addon
-from ..config import _reset_global_settings, get_global_settings
+from ..config import get_global_settings, reset_global_settings
 from ..errors import ErrorCode, create_error_response
 from . import _persistence, _supervisor
 
@@ -82,9 +82,9 @@ def _advanced_field_row(
 ) -> dict[str, Any]:
     """Build one ``_get_advanced_settings`` field row (value + origin + bounds)."""
     from ..config import (
-        _ADVANCED_SETTINGS_BOUNDS,
         _ADVANCED_SETTINGS_CHOICES,
         _ADVANCED_SETTINGS_SENTINELS,
+        ADVANCED_SETTINGS_BOUNDS,
         OAUTH_MODE_TOKEN,
     )
     from ..config_registry import ADVANCED_MULTILINE, ADVANCED_RESTART_REQUIRED
@@ -110,7 +110,7 @@ def _advanced_field_row(
         # The UI shows the restart banner after saving such a field.
         "restart_required": fname in ADVANCED_RESTART_REQUIRED,
     }
-    bounds = _ADVANCED_SETTINGS_BOUNDS.get(fname)
+    bounds = ADVANCED_SETTINGS_BOUNDS.get(fname)
     if bounds is not None:
         row["min"], row["max"] = bounds
         # A value outside the range with its own meaning (sidecar_pin_port:
@@ -259,10 +259,10 @@ def _coerce_advanced_value(
 
 def _check_advanced_bounds_choices(fname: str, coerced: Any) -> JSONResponse | None:
     """Enforce the bounds + choices constraints for a coerced value."""
-    from ..config import _ADVANCED_SETTINGS_BOUNDS, _ADVANCED_SETTINGS_CHOICES
+    from ..config import _ADVANCED_SETTINGS_CHOICES, ADVANCED_SETTINGS_BOUNDS
     from ..config import _ADVANCED_SETTINGS_SENTINELS as _SENTINELS
 
-    bounds = _ADVANCED_SETTINGS_BOUNDS.get(fname)
+    bounds = ADVANCED_SETTINGS_BOUNDS.get(fname)
     sentinel = _SENTINELS.get(fname)
     if (
         bounds is not None
@@ -491,10 +491,11 @@ async def _write_advanced_overrides_file(
     single file holds both advanced + feature-flag overrides.
     """
     from ..config import _FEATURE_FLAG_OVERRIDE_FILENAME
+    from ..utils.config_write_lock import config_write_guard
     from ..utils.data_paths import get_data_dir
 
     path = get_data_dir() / _FEATURE_FLAG_OVERRIDE_FILENAME
-    async with _persistence._get_override_file_lock():
+    async with config_write_guard():
         existing: dict[str, Any] = {}
         try:
             existing_raw = path.read_text()
@@ -558,7 +559,7 @@ async def _save_advanced_settings(
 
     try:
         body = await request.json()
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return JSONResponse(
             create_error_response(
                 ErrorCode.VALIDATION_INVALID_JSON, "Invalid JSON body"
@@ -594,7 +595,7 @@ async def _save_advanced_settings(
     if write_err is not None:
         return write_err
 
-    _reset_global_settings()
+    reset_global_settings()
     return JSONResponse(
         {
             "success": True,

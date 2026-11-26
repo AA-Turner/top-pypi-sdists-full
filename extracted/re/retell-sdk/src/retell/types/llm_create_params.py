@@ -10,12 +10,14 @@ from .._utils import PropertyInfo
 
 __all__ = [
     "LlmCreateParams",
-    "BackupModel",
-    "BackupModelBackupModelChoice",
     "GeneralTool",
     "GeneralToolEscalateChatTool",
     "GeneralToolEscalateChatToolDestination",
     "GeneralToolEscalateChatToolDestinationDestination",
+    "GeneralToolEscalateChatToolDestinationDestinationParameters",
+    "GeneralToolEscalateChatToolHandoffMessage",
+    "GeneralToolEscalateChatToolHandoffMessageNodeInstructionPrompt",
+    "GeneralToolEscalateChatToolHandoffMessageNodeInstructionStaticText",
     "GeneralToolEndCallTool",
     "GeneralToolTransferCallTool",
     "GeneralToolTransferCallToolTransferDestination",
@@ -88,6 +90,10 @@ __all__ = [
     "StateToolEscalateChatTool",
     "StateToolEscalateChatToolDestination",
     "StateToolEscalateChatToolDestinationDestination",
+    "StateToolEscalateChatToolDestinationDestinationParameters",
+    "StateToolEscalateChatToolHandoffMessage",
+    "StateToolEscalateChatToolHandoffMessageNodeInstructionPrompt",
+    "StateToolEscalateChatToolHandoffMessageNodeInstructionStaticText",
     "StateToolEndCallTool",
     "StateToolTransferCallTool",
     "StateToolTransferCallToolTransferDestination",
@@ -143,12 +149,6 @@ __all__ = [
 
 
 class LlmCreateParams(TypedDict, total=False):
-    backup_model: BackupModel
-    """Backup models are supported only for call agents.
-
-    Response engines with a backup model cannot be used by chat agents.
-    """
-
     begin_after_user_silence_ms: Optional[int]
     """
     If set, the AI will begin the conversation after waiting for the user for the
@@ -203,51 +203,6 @@ class LlmCreateParams(TypedDict, total=False):
     mcps: Optional[Iterable[Mcp]]
     """A list of MCPs to use for this LLM."""
 
-    model: Optional[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """Available LLM models for agents."""
-
     model_config: ModelConfig
     """Model settings for the response engine.
 
@@ -257,34 +212,6 @@ class LlmCreateParams(TypedDict, total=False):
     carries over. In agent_override, type is required whenever primary is set;
     setting backup to null disables it for that call only.
     """
-
-    model_high_priority: Optional[bool]
-    """Deprecated, use model_config.primary.tier fast.
-
-    Ignored when model_config is set.
-    """
-
-    model_temperature: float
-    """Deprecated, use model_config.temperature. Ignored when model_config is set."""
-
-    model_ultrafast: Optional[bool]
-    """Deprecated, use model_config.primary.tier ultrafast.
-
-    Ignored when model_config is set.
-    """
-
-    s2s_model: Optional[
-        Literal[
-            "gpt-realtime-2.1",
-            "gpt-realtime-2.1-mini",
-            "gpt-realtime-2",
-            "gpt-realtime-1.5",
-            "gpt-realtime",
-            "gpt-realtime-mini",
-            "grok-voice-3.0",
-        ]
-    ]
-    """The speech-to-speech model to use"""
 
     start_speaker: Literal["user", "agent"]
     """The speaker who starts the conversation.
@@ -313,79 +240,32 @@ class LlmCreateParams(TypedDict, total=False):
     """
 
 
-class BackupModelBackupModelChoice(TypedDict, total=False):
-    """Backup models are supported only for call agents.
-
-    Response engines with a backup model cannot be used by chat agents.
+class GeneralToolEscalateChatToolDestinationDestinationParameters(TypedDict, total=False):
+    """
+    Customer-defined fields nested in args on chat_transfer_requested events, in the same format as custom function parameters. A property with const is sent as that fixed value, with dynamic variables such as {{customer_id}} resolved. Any other property is inferred by the LLM from its description.
     """
 
-    model: Required[
-        Literal[
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5.4-nano",
-            "gpt-5.5",
-            "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-6.2-astra",
-            "gpt-6.2-sol",
-            "gpt-6-astra",
-            "gpt-6-sol",
-            "gpt-6.1-sol",
-            "gpt-6.1-terra",
-            "gpt-6-luna",
-            "tell-1",
-            "claude-4.6-sonnet",
-            "claude-5-opus",
-            "claude-5.5-opus",
-            "claude-5-sonnet",
-            "claude-5.5-sonnet",
-            "claude-5.5-haiku",
-            "claude-4.5-haiku",
-            "gemini-3.0-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-4-neon",
-            "gemini-4-hydrogen",
-            "gemini-4-carbon",
-            "gemini-4-argon",
-        ]
-    ]
-    """The LLM model to use"""
-
-    type: Required[Literal["cascading"]]
-    """Type of model choice"""
-
-    backup_kick_in_timeout: int
+    properties: Required[object]
     """
-    Duration in milliseconds to prefer primary model output while both models run
-    concurrently. Must be between 300 and 60000 milliseconds, inclusive. Defaults to
-    1500 when omitted.
+    The value of properties is an object, where each key is the name of a property
+    and each value is a schema used to validate that property.
     """
 
-    high_priority: bool
-    """Whether to use high priority pool with more dedicated resource, default false"""
+    type: Required[Literal["object"]]
+    """Type must be "object" for a JSON Schema object."""
 
-    ultrafast: bool
+    additional_properties: Annotated[bool, PropertyInfo(alias="additionalProperties")]
     """
-    Whether to use the ultrafast tier for much faster response generation, default
-    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
-    precedence over high_priority.
+    On an integration function's response schema, false means the output fields are
+    fixed to properties and no others can be added.
     """
 
+    required: SequenceNotStr[str]
+    """List of names of required property when generating this parameter.
 
-BackupModel: TypeAlias = Union[BackupModelBackupModelChoice, Optional[object]]
+    LLM will do its best to generate the required properties in its function
+    arguments. Property must exist in properties.
+    """
 
 
 class GeneralToolEscalateChatToolDestinationDestination(TypedDict, total=False):
@@ -394,17 +274,17 @@ class GeneralToolEscalateChatToolDestinationDestination(TypedDict, total=False):
     url: Required[str]
     """Customer webhook URL for transfer requests and forwarded SMS messages."""
 
-    body: Dict[str, object]
-    """Customer-defined fields nested in args on chat_transfer_requested events.
-
-    String values support dynamic variables such as {{customer_id}}, including
-    inside nested objects and arrays. Field names and non-string values are
-    preserved.
-    """
-
     headers: Dict[str, str]
 
     max_retry: int
+
+    parameters: GeneralToolEscalateChatToolDestinationDestinationParameters
+    """
+    Customer-defined fields nested in args on chat_transfer_requested events, in the
+    same format as custom function parameters. A property with const is sent as that
+    fixed value, with dynamic variables such as {{customer_id}} resolved. Any other
+    property is inferred by the LLM from its description.
+    """
 
     query_params: Dict[str, str]
 
@@ -417,8 +297,36 @@ class GeneralToolEscalateChatToolDestination(TypedDict, total=False):
     type: Required[Literal["webhook"]]
 
 
+class GeneralToolEscalateChatToolHandoffMessageNodeInstructionPrompt(TypedDict, total=False):
+    text: Required[str]
+    """The prompt text for the instruction"""
+
+    type: Required[Literal["prompt"]]
+    """Type of instruction"""
+
+
+class GeneralToolEscalateChatToolHandoffMessageNodeInstructionStaticText(TypedDict, total=False):
+    text: Required[str]
+    """The static text for the instruction"""
+
+    type: Required[Literal["static_text"]]
+    """Type of instruction"""
+
+
+GeneralToolEscalateChatToolHandoffMessage: TypeAlias = Union[
+    GeneralToolEscalateChatToolHandoffMessageNodeInstructionPrompt,
+    GeneralToolEscalateChatToolHandoffMessageNodeInstructionStaticText,
+]
+
+
 class GeneralToolEscalateChatTool(TypedDict, total=False):
     destination: Required[GeneralToolEscalateChatToolDestination]
+
+    handoff_message: Required[GeneralToolEscalateChatToolHandoffMessage]
+    """
+    What the agent says once the destination webhook returns a 2xx response, right
+    before the human takes over.
+    """
 
     name: Required[str]
 
@@ -2078,7 +1986,7 @@ ModelConfigDuplexModelConfigBackup: TypeAlias = Union[
 
 
 class ModelConfigDuplexModelConfigPrimary(TypedDict, total=False):
-    model: Required[Literal["gpt-live-1"]]
+    model: Required[Literal["gpt-live-1.1", "gpt-live-1"]]
 
 
 class ModelConfigDuplexModelConfig(TypedDict, total=False):
@@ -2163,23 +2071,51 @@ class StateEdge(TypedDict, total=False):
     """
 
 
+class StateToolEscalateChatToolDestinationDestinationParameters(TypedDict, total=False):
+    """
+    Customer-defined fields nested in args on chat_transfer_requested events, in the same format as custom function parameters. A property with const is sent as that fixed value, with dynamic variables such as {{customer_id}} resolved. Any other property is inferred by the LLM from its description.
+    """
+
+    properties: Required[object]
+    """
+    The value of properties is an object, where each key is the name of a property
+    and each value is a schema used to validate that property.
+    """
+
+    type: Required[Literal["object"]]
+    """Type must be "object" for a JSON Schema object."""
+
+    additional_properties: Annotated[bool, PropertyInfo(alias="additionalProperties")]
+    """
+    On an integration function's response schema, false means the output fields are
+    fixed to properties and no others can be added.
+    """
+
+    required: SequenceNotStr[str]
+    """List of names of required property when generating this parameter.
+
+    LLM will do its best to generate the required properties in its function
+    arguments. Property must exist in properties.
+    """
+
+
 class StateToolEscalateChatToolDestinationDestination(TypedDict, total=False):
     method: Required[Literal["POST", "PUT"]]
 
     url: Required[str]
     """Customer webhook URL for transfer requests and forwarded SMS messages."""
 
-    body: Dict[str, object]
-    """Customer-defined fields nested in args on chat_transfer_requested events.
-
-    String values support dynamic variables such as {{customer_id}}, including
-    inside nested objects and arrays. Field names and non-string values are
-    preserved.
-    """
-
     headers: Dict[str, str]
 
     max_retry: int
+
+    parameters: StateToolEscalateChatToolDestinationDestinationParameters
+    """
+    Customer-defined fields nested in args on chat_transfer_requested events, in the
+    same format as custom function parameters. A property with const is sent as that
+    fixed value, with dynamic variables such as {{customer_id}} resolved. Any other
+    property is inferred by the LLM from its description.
+    """
 
     query_params: Dict[str, str]
 
@@ -2192,8 +2128,36 @@ class StateToolEscalateChatToolDestination(TypedDict, total=False):
     type: Required[Literal["webhook"]]
 
 
+class StateToolEscalateChatToolHandoffMessageNodeInstructionPrompt(TypedDict, total=False):
+    text: Required[str]
+    """The prompt text for the instruction"""
+
+    type: Required[Literal["prompt"]]
+    """Type of instruction"""
+
+
+class StateToolEscalateChatToolHandoffMessageNodeInstructionStaticText(TypedDict, total=False):
+    text: Required[str]
+    """The static text for the instruction"""
+
+    type: Required[Literal["static_text"]]
+    """Type of instruction"""
+
+
+StateToolEscalateChatToolHandoffMessage: TypeAlias = Union[
+    StateToolEscalateChatToolHandoffMessageNodeInstructionPrompt,
+    StateToolEscalateChatToolHandoffMessageNodeInstructionStaticText,
+]
+
+
 class StateToolEscalateChatTool(TypedDict, total=False):
     destination: Required[StateToolEscalateChatToolDestination]
+
+    handoff_message: Required[StateToolEscalateChatToolHandoffMessage]
+    """
+    What the agent says once the destination webhook returns a 2xx response, right
+    before the human takes over.
+    """
 
     name: Required[str]
 

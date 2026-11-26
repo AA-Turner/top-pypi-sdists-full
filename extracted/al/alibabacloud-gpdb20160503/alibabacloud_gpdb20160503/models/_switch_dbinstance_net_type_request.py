@@ -11,16 +11,15 @@ class SwitchDBInstanceNetTypeRequest(DaraModel):
         dbinstance_id: str = None,
         port: str = None,
     ):
-        # The prefix of the custom endpoint.
-        # 
-        # *   The prefix can contain lowercase letters, digits, and hyphens (-) and must start with a lowercase letter.
-        # *   The prefix can be up to 30 characters in length.
+        # The prefix of the custom endpoint:
+        # - It consists of lowercase letters, digits, and hyphens, and must start with a letter.
+        # - It can be up to 30 characters in length.
         # 
         # This parameter is required.
         self.connection_string_prefix = connection_string_prefix
         # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/2361776.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/2361776.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specified region, including the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

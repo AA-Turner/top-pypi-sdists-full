@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.59.0
+Version: 4.59.1
 Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -70,7 +70,7 @@ Requires-Dist: websockets>=17.4; python_version >= "3.11"
 Requires-Dist: filelock==4.1.0; python_version == "3.10"
 Requires-Dist: filelock>=4.3.1; python_version >= "3.11"
 Requires-Dist: fasteners>=0.20
-Requires-Dist: mycdp>=1.4.0
+Requires-Dist: mycdp>=1.4.1
 Requires-Dist: pynose>=1.5.5
 Requires-Dist: typing-extensions>=4.16.0
 Requires-Dist: sbvirtualdisplay>=1.4.0
@@ -233,9 +233,8 @@ Dynamic: summary
 🎭 <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/playwright/ReadMe.md"><b><span translate="no">Stealthy Playwright Mode</span></b></a> <b>extends CDP Mode's stealth to Playwright.</b><ul><li>(Examples: <a href="https://github.com/seleniumbase/SeleniumBase/tree/master/examples/cdp_mode/playwright">./examples/cdp_mode/playwright</a>)</li></ul>
 </ul>
 
-📚 In addition to the stealth modes, SeleniumBase has regular modes for website testing:
-* 🧪 [**Over 200 end-to-end testing examples included**](https://github.com/seleniumbase/SeleniumBase/tree/master/examples).
-** (Many of those run with **`pytest`** instead of **`python`**)
+📚 In addition to stealth modes, SeleniumBase has regular modes for E2E testing.
+* 🧪 [**Over 200 end-to-end testing examples included**](https://github.com/seleniumbase/SeleniumBase/tree/master/examples).<br />(Many of those run with **`pytest`** instead of **`python`**)
 
 --------
 

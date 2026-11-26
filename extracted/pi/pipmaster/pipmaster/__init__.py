@@ -10,7 +10,7 @@ Last Updated: 13/02/2026
 """
 
 # Read version dynamically
-__version__ = "1.2.2"
+__version__ = "1.3.0"
 
 # --- Core Classes ---
 from .core import (
@@ -44,6 +44,7 @@ from .convenience import (
     get_pip_manager_with_venv,
     # Install functions
     install,
+    install_uv,
     install_if_missing,
     install_edit,
     install_requirements,
@@ -107,6 +108,7 @@ __all__ = [
     "ensure_packages",
     "ensure_requirements",
     "install",
+    "install_uv",
     "install_if_missing",
     "install_multiple",
     "uninstall",

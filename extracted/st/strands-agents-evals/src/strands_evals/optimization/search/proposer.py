@@ -26,7 +26,10 @@ class ProposalRequest:
         parent: The candidate to change: the step's parent, or in a step with several blocks the slot's
             values so far (the parent with the earlier blocks' structural patches merged; not yet scored).
         trials: The step's parent's train trial records (Reflection builds its evidence from them); it
-            always has them, since every candidate is scored on train.
+            always has them, since every candidate is scored on train. Each trajectory is as the run
+            directory reads it back from its transcript, in a fresh run and after a resume alike. They are
+            read the first time anything reads `trials`, once for every request of the step, so read them
+            during `propose`: afterwards the run folder may be gone.
         scores: The step's parent's train scores (`SplitScores.train`).
         inputs: Train case name -> `case.input`, for the cases in `trials`. Inputs only: no expected field
             (`expected_output`, `expected_trajectory`, ...) and no `metadata` is ever passed.
@@ -44,9 +47,9 @@ class ProposalRequest:
         criteria: Combines per-metric estimates or sampled values into the objective and checks constraints
             (`criteria.feasibility_threshold` is the P(met) threshold the ranking uses).
         log: `log(event, **fields)` writes an event; a proposer may write only `screened`, `proposer_retry`,
-            and `proposer_usage` (any other name raises `ValueError`). `proposer_usage` (`usage=` a `Usage`) is
-            a `propose` call's model spend that isn't on any patch it returns (in one event or several): each
-            token is reported once, on a returned patch's `usage` or in such an event, never both.
+            and `proposer_usage` (any other name raises `ValueError`). `proposer_usage` (`usage=` a `Usage`, else
+            `TypeError`) is a `propose` call's model spend that isn't on any patch it returns (in one event or
+            several): each token is reported once, on a returned patch's `usage` or in such an event, never both.
     """
 
     space: Space

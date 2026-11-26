@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix
-Version: 22.0.1
+Version: 22.1.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -21,7 +21,7 @@ Requires-Dist: aioitertools
 Requires-Dist: aiosqlite>=0.22.1
 Requires-Dist: alembic<2,>=1.3.0
 Requires-Dist: anthropic<2,>=1
-Requires-Dist: arize-phoenix-client>=3.7.0
+Requires-Dist: arize-phoenix-client>=3.8.0
 Requires-Dist: arize-phoenix-evals>=3.9.5
 Requires-Dist: arize-phoenix-otel>=0.17.3
 Requires-Dist: arize-phoenix-sqlean>=0.2.1
@@ -408,8 +408,10 @@ The **[skills](https://arize.com/docs/phoenix/integrations/developer-tools/skill
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | [phoenix-cli](skills/phoenix-cli/)                       | Debug LLM applications with the Phoenix CLI. Fetch traces, analyze errors, review experiments, and query the GraphQL API  |
 | [phoenix-error-analysis](skills/phoenix-error-analysis/) | Read sampled traces, write notes, and group them into failure categories that pick eval targets and fix priorities         |
-| [phoenix-evals](skills/phoenix-evals/)                   | Build, run, and validate evaluators for AI/LLM applications using Phoenix                                                  |
+| [phoenix-evals](skills/phoenix-evals/)                   | Write code and LLM-as-a-judge evaluators and score traces, spans, and sessions in Phoenix                                  |
+| [phoenix-experiments](skills/phoenix-experiments/)       | Build datasets, run and compare experiments, and gate CI on evals                                                          |
 | [phoenix-harbor](skills/phoenix-harbor/)                 | Configure and interpret the Phoenix plugin for Harbor agent evaluations                                                    |
+| [phoenix-judge-alignment](skills/phoenix-judge-alignment/) | Check an LLM judge against human labels, improve it, and decide whether to trust it                                      |
 | [phoenix-tracing](skills/phoenix-tracing/)               | OpenInference semantic conventions and instrumentation for tracing LLM applications                                        |
 
 ## Security & Privacy

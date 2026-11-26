@@ -1,7 +1,7 @@
 //! Cross-platform `Instant`/`SystemTime`.
 //!
 //! `std::time::Instant`/`SystemTime` panic unconditionally on
-//! wasm32-unknown-unknown ("time not implemented on this platform" — no OS
+//! `wasm{32,64}-unknown-unknown` ("time not implemented on this platform" — no OS
 //! clock, no extension point to satisfy; see
 //! `library/std/src/sys/time/unsupported.rs` in the Rust source). `web-time`
 //! is a drop-in replacement backed by `Performance.now()`/`Date.now()` via
@@ -11,41 +11,42 @@
 //! `std::time`'s directly anywhere wall-clock time is read.
 //!
 //! `web-time` is only correct when the wasm host *is* a JS host, so it sits
-//! behind the `wasm_js` feature. Without it, `wasm32-unknown-unknown` takes
-//! [`host_clock`], where the embedder supplies the clock (and the timer, by
-//! spinning on it). See that module for the contract.
+//! behind the `wasm_js` feature. Without it, the
+//! `wasm{32,64}-unknown-unknown` targets take [`host_clock`], where the
+//! embedder supplies the clock (and the timer, by spinning on it). See that
+//! module for the contract.
 
 use std::future::Future;
 use std::time::Duration;
 
 #[cfg(all(
-    target_arch = "wasm32",
+    target_family = "wasm",
     target_os = "unknown",
     not(feature = "wasm_js")
 ))]
 pub mod host_clock;
 
 #[cfg(all(
-    target_arch = "wasm32",
+    target_family = "wasm",
     target_os = "unknown",
     not(feature = "wasm_js")
 ))]
 pub use host_clock::{Instant, SystemTime, UNIX_EPOCH};
 
-#[cfg(all(target_arch = "wasm32", target_os = "unknown", feature = "wasm_js"))]
+#[cfg(all(target_family = "wasm", target_os = "unknown", feature = "wasm_js"))]
 pub use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 // WASI targets (wasip1, wasip2, wasip1-threads) have real clocks in std, and
 // no tokio timer driver worth routing `Instant` through.
-#[cfg(all(target_arch = "wasm32", not(target_os = "unknown")))]
+#[cfg(all(target_family = "wasm", not(target_os = "unknown")))]
 pub use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 pub use std::time::{SystemTime, UNIX_EPOCH};
 
 // Tokio's instant follows the runtime's paused/advanced monotonic clock. This
 // makes shell deadlines and `time` deterministic under virtual-time runtimes.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 pub use tokio::time::Instant;
 
 /// Portable timer future. JS-host wasm uses `setTimeout`; native targets keep
@@ -53,7 +54,7 @@ pub use tokio::time::Instant;
 /// target is deliberately single-threaded (the same invariant as JS builtins).
 pub async fn sleep(duration: Duration) {
     #[cfg(all(
-        target_arch = "wasm32",
+        target_family = "wasm",
         target_os = "unknown",
         not(feature = "wasm_js")
     ))]
@@ -67,13 +68,13 @@ pub async fn sleep(duration: Duration) {
         }
     }
 
-    #[cfg(all(target_arch = "wasm32", target_os = "unknown", feature = "wasm_js"))]
+    #[cfg(all(target_family = "wasm", target_os = "unknown", feature = "wasm_js"))]
     send_wrapper::SendWrapper::new(gloo_timers::future::TimeoutFuture::new(duration_millis(
         duration,
     )))
     .await;
 
-    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
     tokio::time::sleep(duration).await;
 }
 
@@ -86,7 +87,7 @@ pub async fn timeout<F: Future>(
     future: F,
 ) -> Result<F::Output, TimeoutElapsed> {
     #[cfg(all(
-        target_arch = "wasm32",
+        target_family = "wasm",
         target_os = "unknown",
         not(feature = "wasm_js")
     ))]
@@ -113,7 +114,7 @@ pub async fn timeout<F: Future>(
         .await;
     }
 
-    #[cfg(all(target_arch = "wasm32", target_os = "unknown", feature = "wasm_js"))]
+    #[cfg(all(target_family = "wasm", target_os = "unknown", feature = "wasm_js"))]
     {
         use futures_util::future::{Either, select};
         let timer = send_wrapper::SendWrapper::new(gloo_timers::future::TimeoutFuture::new(
@@ -126,13 +127,13 @@ pub async fn timeout<F: Future>(
         }
     }
 
-    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
     tokio::time::timeout(duration, future)
         .await
         .map_err(|_| TimeoutElapsed)
 }
 
-#[cfg(all(target_arch = "wasm32", target_os = "unknown", feature = "wasm_js"))]
+#[cfg(all(target_family = "wasm", target_os = "unknown", feature = "wasm_js"))]
 fn duration_millis(duration: Duration) -> u32 {
     (duration.as_secs_f64() * 1000.0)
         .ceil()
@@ -143,7 +144,7 @@ fn duration_millis(duration: Duration) -> u32 {
 ///
 /// `chrono` implements `From<std::time::SystemTime>` but not
 /// `From<web_time::SystemTime>` — same API shape, different type, so the
-/// blanket impl doesn't apply on wasm32. Goes through `duration_since`
+/// blanket impl doesn't apply on wasm. Goes through `duration_since`
 /// instead, which both `SystemTime`s support identically.
 pub(crate) fn to_chrono_utc(t: SystemTime) -> chrono::DateTime<chrono::Utc> {
     let epoch = || chrono::DateTime::from_timestamp(0, 0).expect("epoch is representable");
@@ -173,7 +174,7 @@ pub(crate) fn to_chrono_utc(t: SystemTime) -> chrono::DateTime<chrono::Utc> {
 /// Current wall-clock time as a `chrono::DateTime<Utc>`.
 ///
 /// Use instead of `chrono::Utc::now()`: chrono reads the clock through
-/// `std::time::SystemTime` (which panics on wasm32-unknown-unknown) or, with
+/// `std::time::SystemTime` (which panics on `wasm{32,64}-unknown-unknown`) or, with
 /// its `wasmbind` feature, through the JS `Date` — neither works for a non-JS
 /// wasm embedder. This routes through [`SystemTime`], so every target gets the
 /// clock it actually has.

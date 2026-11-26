@@ -7,7 +7,7 @@ import contextlib
 import numpy as np
 from .exceptions import ULogException, ULogIncompatibleFlagException
 #pylint: disable=too-many-instance-attributes, unused-argument, missing-docstring
-#pylint: disable=protected-access, too-many-branches
+#pylint: disable=protected-access, too-many-branches, too-many-lines
 
 __author__ = "Beat Kueng"
 
@@ -560,6 +560,55 @@ class ULog(object):
             ret.extend(zip(t[indices], x[indices]))
             return ret
 
+        def _char_array_columns(self):
+            """ group the columns of all char array fields by field name.
+
+            A field declared as e.g. 'char[9] callsign' is stored as the
+            individual columns 'callsign[0]' to 'callsign[8]'. Returns a dict
+            that maps the field name ('callsign') to the ordered list of
+            its column names. A plain 'char' field maps to its own name.
+            """
+            columns = {}
+            for field in self.field_data:
+                if field.type_str != 'char':
+                    continue
+                name = field.field_name
+                base_name = name
+                if name.endswith(']') and '[' in name:
+                    base_name = name[:name.rindex('[')]
+                columns.setdefault(base_name, []).append(name)
+            return columns
+
+        def list_string_fields(self):
+            """ return the names of all char (array) fields of this data set,
+            e.g. ['callsign'] for a field declared as 'char[9] callsign' """
+            return list(self._char_array_columns().keys())
+
+        def get_string_field(self, field_name):
+            """ return a char (array) field converted to strings.
+
+            The individual char columns of the field (see
+            list_string_fields()) are combined into one string per data
+            point, so the result is an np.ndarray of strings with one entry
+            per sample. Each string ends at the first NUL byte and
+            undecodable bytes are replaced.
+
+            :param field_name: name of the field, e.g. 'callsign'
+            :return: np.ndarray with the field's strings
+            """
+            columns = self._char_array_columns()
+            if field_name not in columns:
+                raise KeyError('field {!r} is not a char (array) field of '
+                               'the {!r} data set'.format(field_name, self.name))
+            column_data = [self.data[name] for name in columns[field_name]]
+            # shape: (num samples, num chars); int8 -> raw bytes per sample
+            raw = np.array(column_data, dtype=np.int8).T.view(np.uint8)
+            strings = []
+            for row in raw:
+                strings.append(bytes(row).split(b'\x00', 1)[0].decode(
+                    'utf-8', errors='replace'))
+            return np.array(strings)
+
 
 
     ## Representations of the messages from the log file ##
@@ -742,7 +791,6 @@ class ULog(object):
             self.message_name = ULog.parse_string(data[3:])
             self.field_data = [] # list of _FieldData
             self.timestamp_idx = -1
-            self.max_data_size = 0 # Max size of each data point (including padding fields at end)
 
             self._parse_format(message_formats)
 
@@ -758,13 +806,17 @@ class ULog(object):
             dtype_list = []
             for field in self.field_data:
                 numpy_type = ULog._UNPACK_TYPES[field.type_str][2]
-                self.max_data_size += ULog._UNPACK_TYPES[field.type_str][1]
                 dtype_list.append((field.field_name, numpy_type))
             self.dtype = np.dtype(dtype_list).newbyteorder('<')
 
 
         def _parse_format(self, message_formats):
             self._parse_nested_type('', self.message_name, message_formats)
+
+            # Calculate the maximum size (including optional padding at the end)
+            self.max_data_size = 0
+            for field in self.field_data:
+                self.max_data_size += ULog._UNPACK_TYPES[field.type_str][1]
 
             # remove padding fields at the end
             while (len(self.field_data) > 0 and
@@ -887,6 +939,7 @@ class ULog(object):
 
         # read the whole file, or the rest if data appended
         self._read_file_data(message_name_filter_list)
+        self._convert_subscriptions()
 
         self._file_handle.close()
         del self._file_handle
@@ -913,6 +966,10 @@ class ULog(object):
             try:
                 header.initialize(data)
                 data = self._file_handle.read(header.msg_size)
+                if len(data) < header.msg_size:
+                    # short read: truncated file or bogus msg_size -> corruption
+                    self._file_corrupt = True
+                    break
                 if header.msg_type == self.MSG_TYPE_INFO:
                     msg_info = self._MessageInfo(data, header)
                     self._msg_info_dict[msg_info.key] = msg_info.value
@@ -1140,7 +1197,12 @@ class ULog(object):
         except struct.error:
             pass #we read past the end of the file
 
-        # convert into final representation
+    def _convert_subscriptions(self):
+        """
+        convert the data of all subscriptions into the final representation.
+        Called once after the whole file is read: data in the appended sections
+        needs the subscriptions of the data before them.
+        """
         while self._subscriptions:
             _, value = self._subscriptions.popitem()
             if len(value.buffer) > 0: # only add if we have data

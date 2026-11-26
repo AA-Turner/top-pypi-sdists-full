@@ -1,6 +1,6 @@
 [project]
 name = "agent-client-protocol"
-version = "1.0.0"
+version = "1.1.0"
 description = "A Python implement of Agent Client Protocol (ACP, by Zed Industries)"
 authors = [
     { name = "Chojan Shang", email = "psiace@apache.org" },
@@ -46,7 +46,7 @@ http = [
 
 [dependency-groups]
 dev = [
-    "datamodel-code-generator==0.81.0",
+    "datamodel-code-generator==0.92.0",
     "pytest>=7.2.0",
     "pytest-asyncio>=0.21.0",
     "tox-uv>=1.11.3",

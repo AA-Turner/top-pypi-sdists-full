@@ -29,4 +29,6 @@ class AlertMetric(Enum):
     DEDICATEDDATABASES_QPS = "dedicatedDatabases.qps"
     DEDICATEDDATABASES_IOPSREAD = "dedicatedDatabases.iopsRead"
     DEDICATEDDATABASES_IOPSWRITE = "dedicatedDatabases.iopsWrite"
+    ANALYTICS_EVENTS = "analytics.events"
+    ANALYTICS_PAGEVIEWS = "analytics.pageviews"
     BILLING_BUDGETUSED = "billing.budgetUsed"

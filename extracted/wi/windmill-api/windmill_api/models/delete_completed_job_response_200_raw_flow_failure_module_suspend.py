@@ -48,6 +48,9 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
             presented, on the approval page and in Slack/Teams approval messages. 'detailed' (used when unset) shows the
             flow details (arguments, graph, approvers); 'minimal' shows only the request: the step description, form and
             approve/reject actions
+        show_on_home (Union[Unset, bool]): If true, a run waiting on this step is listed on the Home page of each user
+            who can approve it. Leave unset when the approval request is sent through another channel (Slack, Discord,
+            email), so it does not sit there unanswered
     """
 
     required_events: Union[Unset, int] = UNSET
@@ -64,6 +67,7 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
     hide_cancel: Union[Unset, bool] = UNSET
     continue_on_disapprove_timeout: Union[Unset, bool] = UNSET
     skin: Union[Unset, DeleteCompletedJobResponse200RawFlowFailureModuleSuspendSkin] = UNSET
+    show_on_home: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -111,6 +115,8 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
         if not isinstance(self.skin, Unset):
             skin = self.skin.value
 
+        show_on_home = self.show_on_home
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -132,6 +138,8 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
             field_dict["continue_on_disapprove_timeout"] = continue_on_disapprove_timeout
         if skin is not UNSET:
             field_dict["skin"] = skin
+        if show_on_home is not UNSET:
+            field_dict["show_on_home"] = show_on_home
 
         return field_dict
 
@@ -244,6 +252,8 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
         else:
             skin = DeleteCompletedJobResponse200RawFlowFailureModuleSuspendSkin(_skin)
 
+        show_on_home = d.pop("show_on_home", UNSET)
+
         delete_completed_job_response_200_raw_flow_failure_module_suspend = cls(
             required_events=required_events,
             timeout=timeout,
@@ -254,6 +264,7 @@ class DeleteCompletedJobResponse200RawFlowFailureModuleSuspend:
             hide_cancel=hide_cancel,
             continue_on_disapprove_timeout=continue_on_disapprove_timeout,
             skin=skin,
+            show_on_home=show_on_home,
         )
 
         delete_completed_job_response_200_raw_flow_failure_module_suspend.additional_properties = d

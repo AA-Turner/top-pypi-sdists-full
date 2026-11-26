@@ -21,12 +21,12 @@ class ListSupabaseProjectTagsRequest(DaraModel):
         # Region ID
         self.region_id = region_id
         # The instance ID.
-        # > You must specify at least one of ResourceId and Tag.
+        # > You must specify at least one of the ResourceId and Tag parameters.
         self.resource_id = resource_id
         # The resource type. Set the value to instance.
         self.resource_type = resource_type
         # The list of tags.
-        # > You must specify at least one of ResourceId and Tag.
+        # > You must specify at least one of the ResourceId and Tag parameters.
         self.tag = tag
 
     def validate(self):
@@ -89,13 +89,13 @@ class ListSupabaseProjectTagsRequestTag(DaraModel):
     ):
         # The tag key. The tag key must be 1 to 64 characters in length.
         # 
-        # Tag.N is used to exactly match Supabase instances that have the specified tags bound. A tag is a key-value pair.
+        # `Tag.N` is used to precisely search for AnalyticDB for PostgreSQL instances that are bound to specific tags. It consists of a key-value pair.
         # 
         # Valid values of N: 1 to 20.
         # 
-        # - If you specify only Tag.N.Key, all instances associated with the specified tag key are returned.
-        # - If you specify only Tag.N.Value, the error message `InvalidParameter.TagValue` is returned.
-        # - If you specify multiple tag key-value pairs at the same time, only instances that match all the specified tag key-value pairs are returned.
+        # - If only `Tag.N.Key` is specified, all instances associated with the tag key are returned.
+        # - If only `Tag.N.Value` is specified, the `InvalidParameter.TagValue` error is returned.
+        # - If multiple tag key-value pairs are specified, only AnalyticDB for PostgreSQL instances that match all the specified tag key-value pairs are returned.
         self.key = key
         # The tag value. The tag value must be 1 to 128 characters in length.
         # 

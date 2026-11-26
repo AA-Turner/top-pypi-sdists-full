@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 from ..models.forge import Forge
 from ..models.forge_error_kind import ForgeErrorKind
+from ..models.forge_health_cause import ForgeHealthCause
 from ..types import UNSET, Unset
 from typing import cast
 import datetime
@@ -44,6 +45,17 @@ class ForgeHealth:
                 absent); it has not been checked yet. The first refresh that
                 reaches it replaces this entry. A client says "starting up,
                 showing data from 3 minutes ago", and never "unreachable".
+            cause (ForgeHealthCause | Unset): Why the rows shown for this forge are not from the latest read,
+                while the forge is not down. "starting" is the same fact as
+                the `starting` flag: the rows are the ones the last run saved and no
+                refresh has asked the forge since the app started. "slow" means
+                the latest pass gave no answer in time (it hit its deadline, or
+                was skipped because the last fetch was still running) and the
+                last good rows are held, with the forge still reachable, until
+                three passes in a row have missed. A good read clears it. Absent
+                when the rows are current, and when the forge is shown as down
+                (see errorKind). A client words it, "slow to answer" or
+                "starting up", and does not call the rows live.
             stale_since (datetime.datetime | Unset): Present when the last refresh against this forge failed, or the
                 forge has not been asked yet since the app started (see
                 starting), and the pull requests, issues and repos in the
@@ -102,6 +114,7 @@ class ForgeHealth:
     repo_count: int
     capabilities: ForgeCapabilities
     starting: bool | Unset = UNSET
+    cause: ForgeHealthCause | Unset = UNSET
     stale_since: datetime.datetime | Unset = UNSET
     error: str | Unset = UNSET
     error_kind: ForgeErrorKind | Unset = UNSET
@@ -132,6 +145,11 @@ class ForgeHealth:
         capabilities = self.capabilities.to_dict()
 
         starting = self.starting
+
+        cause: str | Unset = UNSET
+        if not isinstance(self.cause, Unset):
+            cause = self.cause.value
+
 
         stale_since: str | Unset = UNSET
         if not isinstance(self.stale_since, Unset):
@@ -182,6 +200,8 @@ class ForgeHealth:
         })
         if starting is not UNSET:
             field_dict["starting"] = starting
+        if cause is not UNSET:
+            field_dict["cause"] = cause
         if stale_since is not UNSET:
             field_dict["staleSince"] = stale_since
         if error is not UNSET:
@@ -229,6 +249,16 @@ class ForgeHealth:
 
 
         starting = d.pop("starting", UNSET)
+
+        _cause = d.pop("cause", UNSET)
+        cause: ForgeHealthCause | Unset
+        if isinstance(_cause,  Unset):
+            cause = UNSET
+        else:
+            cause = ForgeHealthCause(_cause)
+
+
+
 
         _stale_since = d.pop("staleSince", UNSET)
         stale_since: datetime.datetime | Unset
@@ -306,6 +336,7 @@ class ForgeHealth:
             repo_count=repo_count,
             capabilities=capabilities,
             starting=starting,
+            cause=cause,
             stale_since=stale_since,
             error=error,
             error_kind=error_kind,

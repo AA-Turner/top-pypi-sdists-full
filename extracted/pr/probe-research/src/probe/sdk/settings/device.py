@@ -206,6 +206,9 @@ def device_authorize(
     client: httpx.Client | None = None,
     sleep: Callable[[float], None] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
+    bearer: str | None = None,
+    expected_email: str | None = None,
+    expected_team: str | None = None,
 ) -> dict:
     """Run the device flow and return the whole mint response (``TokenCreated``).
 
@@ -231,6 +234,11 @@ def device_authorize(
     (`probe token create` for a pod) and must not take THIS machine's slot. The exchange
     releases a device's credentials when the request names one, so naming this laptop
     revoked its own login (a customer's Mac, 2026-10-23).
+
+    The wrong-account guard (control/098): ``bearer`` is this CLI's own key, sent on the START only, so the
+    server binds the request to its person and team and refuses an approval from another browser account (a
+    stale key binds nothing; an older server ignores it). ``expected_email`` / ``expected_team`` (``probe login
+    --email/--team``) bind a first sign-in the same way, and win over the key. Neither can widen an approval.
     """
     if token_name is None:
         token_name = f"Probe CLI · {hostname()}"
@@ -268,7 +276,15 @@ def device_authorize(
                 device_instance_id = None
         if device_instance_id is not None:
             body["device_instance_id"] = device_instance_id
-        start = http.post(_START_PATH, json=body)
+        # Omitted when None: an older backend ignores unknown fields, but nothing is sent it cannot use.
+        if expected_email:
+            body["expected_email"] = expected_email
+        if expected_team:
+            body["expected_team"] = expected_team
+        if bearer:
+            start = http.post(_START_PATH, json=body, headers={"Authorization": f"Bearer {bearer}"})
+        else:
+            start = http.post(_START_PATH, json=body)
         if start.status_code != 201:
             raise _login_error(start, f"could not start device login ({start.status_code})")
         data = start.json()

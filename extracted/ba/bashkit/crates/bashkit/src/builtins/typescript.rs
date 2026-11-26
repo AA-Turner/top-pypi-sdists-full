@@ -22,7 +22,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 use std::sync::OnceLock;
 use std::time::Duration;
 use zapcode_core::{ResourceLimits, RunResult, Value, VmState, ZapcodeRun};
@@ -51,13 +51,13 @@ const TS_CALL_WORK_UNITS: u64 = 4096;
 /// in debug builds (32 MiB was the smallest that passed
 /// `deep_nesting_at_the_limit_does_not_overflow` in a debug build; 128 MiB
 /// gives 4x). The memory is reserved, not committed, until used.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 const TS_VM_STACK_BYTES: usize = 128 * 1024 * 1024;
 
 /// Upper bound used when the host does not configure TypeScript VM admission.
 /// Four active 128 MiB stack reservations are a deliberate process-wide cap,
 /// while smaller hosts default to their available CPU parallelism.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 const DEFAULT_MAX_ACTIVE_TS_VMS: usize = 4;
 
 /// Error returned by [`configure_typescript_vm_concurrency`].
@@ -110,7 +110,7 @@ pub fn configure_typescript_vm_concurrency(
             maximum: tokio::sync::Semaphore::MAX_PERMITS,
         });
     }
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(target_family = "wasm"))]
     {
         TS_VM_ADMISSION
             .set(VmAdmission::new(max_active))
@@ -121,14 +121,14 @@ pub fn configure_typescript_vm_concurrency(
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 #[derive(Clone)]
 struct VmAdmission {
     semaphore: Arc<tokio::sync::Semaphore>,
     limit: usize,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 impl VmAdmission {
     fn new(limit: usize) -> Self {
         Self {
@@ -155,10 +155,10 @@ impl VmAdmission {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 static TS_VM_ADMISSION: OnceLock<VmAdmission> = OnceLock::new();
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 fn vm_admission() -> &'static VmAdmission {
     TS_VM_ADMISSION.get_or_init(|| {
         let parallelism = std::thread::available_parallelism().map_or(1, usize::from);
@@ -255,6 +255,8 @@ impl TypeScriptLimits {
 /// Async handler for external TypeScript function calls.
 ///
 /// Receives `(function_name, args)` when TypeScript calls a registered external function.
+/// Arguments are limited to 100,000 values and 10,000,000 UTF-8 bytes of strings
+/// and object keys per call, with a nesting limit of 64 from the argument array.
 /// Return `Ok(Value)` for success or `Err(String)` for an error thrown in TypeScript.
 pub type TypeScriptExternalFnHandler = Arc<
     dyn Fn(
@@ -1024,7 +1026,7 @@ async fn run_typescript(
 
     // Per-run heap meter (vm_meter.rs); ZapCode itself never enforces
     // max_memory, so without the metered allocator `ts` fails closed.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(target_family = "wasm"))]
     if !crate::vm_meter::allocator_installed() {
         return Ok(ExecResult::err(METER_MISSING_ERROR.to_string(), 1));
     }
@@ -1090,11 +1092,11 @@ async fn run_typescript(
 const VM_THREAD_ERROR: &str = "ts: cannot start execution thread\n";
 
 /// Message when `MeteredAllocator` is not the global allocator.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 const METER_MISSING_ERROR: &str =
     "ts: TypeScript memory limits need bashkit::MeteredAllocator as the global allocator\n";
 
-#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+#[cfg_attr(target_family = "wasm", allow(dead_code))]
 enum VmStepResult<T> {
     Complete(T),
     TimedOut,
@@ -1108,7 +1110,7 @@ enum VmStepResult<T> {
 /// blocking pool. The permit lives inside that blocking task, so a caller
 /// whose deadline expires cannot release the slot while its abandoned VM
 /// thread is still winding down.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 async fn run_vm_step<T: Send + 'static>(
     meter: Arc<crate::vm_meter::VmMeter>,
     deadline: Option<Instant>,
@@ -1117,7 +1119,7 @@ async fn run_vm_step<T: Send + 'static>(
     run_vm_step_with_admission(vm_admission().clone(), meter, deadline, step).await
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 async fn run_vm_step_with_admission<T: Send + 'static>(
     admission: VmAdmission,
     meter: Arc<crate::vm_meter::VmMeter>,
@@ -1161,7 +1163,7 @@ async fn run_vm_step_with_admission<T: Send + 'static>(
 /// Run one synchronous ZapCode step (parse/compile/run, or a resume) inside
 /// `meter`'s window on a dedicated [`TS_VM_STACK_BYTES`] stack. `None` means
 /// no thread could be started.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 fn on_vm_stack<T: Send + 'static>(
     meter: &crate::vm_meter::VmMeter,
     step: impl FnOnce() -> T + Send + 'static,
@@ -1184,7 +1186,7 @@ fn on_vm_stack<T: Send + 'static>(
 
 /// wasm32 has no threads: run on the current stack. The nesting cap still
 /// applies; see the zapcode-runtime knowledge page for the residual risk.
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 async fn run_vm_step<T>(
     meter: Arc<crate::vm_meter::VmMeter>,
     _deadline: Option<Instant>,
@@ -1280,14 +1282,30 @@ async fn process_vm_result(
                 tokio::task::yield_now().await;
                 // Host callbacks share the same deadline, so a slow external
                 // function cannot pin the run between VM steps.
-                let call = handle_external_call(&function_name, &args, fs, cwd, external_fns);
-                let outcome = match deadline.and_then(|d| d.checked_duration_since(Instant::now()))
-                {
-                    Some(remaining) => crate::time_compat::timeout(remaining, call).await.ok(),
-                    // No representable deadline (huge max_duration): run uncapped.
-                    None if deadline.is_none() => Some(call.await),
-                    None => None,
+                let read = super::vfs_read::VfsRead::new(
+                    meter.memory_remaining(),
+                    execution_budget.cloned(),
+                );
+                let outcome = {
+                    let call = handle_external_call(
+                        &function_name,
+                        args,
+                        fs,
+                        cwd,
+                        external_fns,
+                        &read,
+                        meter,
+                    );
+                    match deadline.and_then(|d| d.checked_duration_since(Instant::now())) {
+                        Some(remaining) => crate::time_compat::timeout(remaining, call).await.ok(),
+                        // No representable deadline (huge max_duration): run uncapped.
+                        None if deadline.is_none() => Some(call.await),
+                        None => None,
+                    }
                 };
+                if let Some(budget) = execution_budget {
+                    budget.check()?;
+                }
                 let return_value = match outcome {
                     Some(Ok(value)) => value,
                     Some(Err(error)) => return Ok(ExecResult::err(format!("{error}\n"), 1)),
@@ -1302,6 +1320,7 @@ async fn process_vm_result(
 
                 let started = Instant::now();
                 let resumed = run_vm_step(Arc::clone(meter), deadline, move || {
+                    let _read = read;
                     snapshot.resume(return_value)
                 })
                 .await;
@@ -1332,25 +1351,28 @@ async fn process_vm_result(
 /// Handle an external function call — either VFS operation or user-registered function.
 async fn handle_external_call(
     function_name: &str,
-    args: &[Value],
+    args: Vec<Value>,
     fs: &Arc<dyn FileSystem>,
     cwd: &Path,
     external_fns: Option<&TypeScriptExternalFns>,
+    read: &super::vfs_read::VfsRead,
+    meter: &crate::vm_meter::VmMeter,
 ) -> std::result::Result<Value, String> {
     // Try VFS functions first
     match function_name {
-        "readFile" => Ok(handle_read_file(args, fs, cwd).await),
-        "writeFile" => Ok(handle_write_file(args, fs, cwd).await),
-        "exists" => Ok(handle_exists(args, fs, cwd).await),
-        "readDir" => Ok(handle_read_dir(args, fs, cwd).await),
-        "mkdir" => Ok(handle_mkdir(args, fs, cwd).await),
-        "remove" => Ok(handle_remove(args, fs, cwd).await),
-        "stat" => Ok(handle_stat(args, fs, cwd).await),
+        "readFile" => Ok(handle_read_file(&args, fs, cwd, read, meter).await),
+        "writeFile" => Ok(handle_write_file(&args, fs, cwd).await),
+        "exists" => Ok(handle_exists(&args, fs, cwd).await),
+        "readDir" => Ok(handle_read_dir(&args, fs, cwd, read, meter).await),
+        "mkdir" => Ok(handle_mkdir(&args, fs, cwd).await),
+        "remove" => Ok(handle_remove(&args, fs, cwd).await),
+        "stat" => Ok(handle_stat(&args, fs, cwd).await),
         _ => {
             // Try user-registered external functions
             if let Some(ef) = external_fns {
                 if ef.names.contains(&function_name.to_string()) {
-                    (ef.handler)(function_name.to_string(), args.to_vec()).await
+                    check_external_arguments(&args)?;
+                    (ef.handler)(function_name.to_string(), args).await
                 } else {
                     Err(format!("unknown external function '{function_name}'"))
                 }
@@ -1361,6 +1383,59 @@ async fn handle_external_call(
     }
 }
 
+// THREAT[TM-TS-029]: Foreign bindings materialize each array or object entry
+// outside the VM meter. Charge every occurrence of a string, including keys,
+// because separate entries may share the same Arc-backed text in the VM.
+fn check_external_arguments(args: &[Value]) -> std::result::Result<(), &'static str> {
+    const MAX_VALUES: usize = 100_000;
+    const MAX_STRING_BYTES: usize = 10_000_000;
+
+    fn charge_bytes(remaining: &mut usize, bytes: usize) -> std::result::Result<(), &'static str> {
+        *remaining = remaining
+            .checked_sub(bytes)
+            .ok_or("TypeScript external call arguments exceed 10000000 string bytes")?;
+        Ok(())
+    }
+
+    fn visit(
+        value: &Value,
+        depth: usize,
+        values: &mut usize,
+        bytes: &mut usize,
+    ) -> std::result::Result<(), &'static str> {
+        if depth > crate::runtime_value::MAX_DEPTH {
+            return Err("TypeScript external call arguments exceed nesting depth of 64");
+        }
+        *values = values
+            .checked_sub(1)
+            .ok_or("TypeScript external call arguments exceed 100000 values")?;
+        match value {
+            Value::String(text) => charge_bytes(bytes, text.len())?,
+            Value::Array(items) => {
+                for item in items {
+                    visit(item, depth + 1, values, bytes)?;
+                }
+            }
+            Value::Object(entries) => {
+                for (key, item) in entries {
+                    charge_bytes(bytes, key.len())?;
+                    visit(item, depth + 1, values, bytes)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    let mut values = MAX_VALUES;
+    let mut bytes = MAX_STRING_BYTES;
+    for arg in args {
+        // The binding's argument array is the root of the document.
+        visit(arg, 1, &mut values, &mut bytes)?;
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // VFS bridging: ZapCode external functions → Bashkit FileSystem
 // ---------------------------------------------------------------------------
@@ -1368,7 +1443,7 @@ async fn handle_external_call(
 /// Extract a path string from the first arg, resolve relative to cwd.
 fn extract_path(args: &[Value], cwd: &Path) -> Option<PathBuf> {
     match args.first()? {
-        Value::String(s) => {
+        Value::String(s) if !s.is_empty() => {
             let p = Path::new(s.as_ref());
             if p.has_root() {
                 Some(p.to_owned())
@@ -1381,13 +1456,26 @@ fn extract_path(args: &[Value], cwd: &Path) -> Option<PathBuf> {
 }
 
 /// readFile(path: string): string
-async fn handle_read_file(args: &[Value], fs: &Arc<dyn FileSystem>, cwd: &Path) -> Value {
+async fn handle_read_file(
+    args: &[Value],
+    fs: &Arc<dyn FileSystem>,
+    cwd: &Path,
+    read: &super::vfs_read::VfsRead,
+    meter: &crate::vm_meter::VmMeter,
+) -> Value {
     let Some(path) = extract_path(args, cwd) else {
         return Value::String(Arc::from("Error: readFile requires a path argument"));
     };
-    match fs.read_file(&path).await {
-        Ok(bytes) => match String::from_utf8(bytes) {
-            Ok(s) => Value::String(Arc::from(s.as_str())),
+    let charge = |bytes| read.reserve(bytes);
+    match fs.read_file_bounded(&path, Some(&charge)).await {
+        Ok(bytes) => match std::str::from_utf8(&bytes) {
+            Ok(s) => {
+                if let Err(error) = read.reserve(s.len().saturating_add(64)) {
+                    return Value::String(Arc::from(format!("Error: {error}")));
+                }
+                let _window = crate::vm_meter::VmWindow::enter(meter);
+                Value::String(Arc::from(s))
+            }
             Err(_) => Value::String(Arc::from(format!(
                 "Error: can't decode '{}': not valid UTF-8",
                 path.display()
@@ -1429,14 +1517,32 @@ async fn handle_exists(args: &[Value], fs: &Arc<dyn FileSystem>, cwd: &Path) -> 
 }
 
 /// readDir(path: string): string[]
-async fn handle_read_dir(args: &[Value], fs: &Arc<dyn FileSystem>, cwd: &Path) -> Value {
+async fn handle_read_dir(
+    args: &[Value],
+    fs: &Arc<dyn FileSystem>,
+    cwd: &Path,
+    read: &super::vfs_read::VfsRead,
+    meter: &crate::vm_meter::VmMeter,
+) -> Value {
     let Some(path) = extract_path(args, cwd) else {
         return Value::String(Arc::from("Error: readDir requires a path argument"));
     };
-    match fs.read_dir(&path).await {
+    let charge = |bytes| read.reserve(bytes);
+    match fs.read_dir_bounded(&path, Some(&charge)).await {
         Ok(entries) => {
+            for entry in &entries {
+                if let Err(error) = read.reserve(
+                    entry
+                        .name
+                        .len()
+                        .saturating_add(std::mem::size_of::<Value>() + 64),
+                ) {
+                    return Value::String(Arc::from(format!("Error: {error}")));
+                }
+            }
+            let _window = crate::vm_meter::VmWindow::enter(meter);
             let items: Vec<Value> = entries
-                .into_iter()
+                .iter()
                 .map(|e| Value::String(Arc::from(e.name.as_str())))
                 .collect();
             Value::Array(items)
@@ -1529,6 +1635,62 @@ mod tests {
     use std::collections::HashMap;
     use std::path::PathBuf;
     use std::sync::Arc;
+
+    #[tokio::test]
+    async fn external_call_enforces_aggregate_argument_limits() {
+        let fs: Arc<dyn FileSystem> = Arc::new(InMemoryFs::new());
+        let cwd = Path::new("/");
+        let external_fns = TypeScriptExternalFns {
+            names: vec!["inspect".into()],
+            handler: Arc::new(|_, args| Box::pin(async move { Ok(Value::Int(args.len() as i64)) })),
+            prelude: None,
+            rewrites: Vec::new(),
+        };
+
+        let meter = crate::vm_meter::VmMeter::new(None);
+        let read = super::super::vfs_read::VfsRead::new(meter.memory_remaining(), None);
+        let call = async |args: Vec<Value>| {
+            handle_external_call(
+                "inspect",
+                args,
+                &fs,
+                cwd,
+                Some(&external_fns),
+                &read,
+                &meter,
+            )
+            .await
+        };
+        let short = vec![Value::String(Arc::from("ok")), Value::Null];
+        assert!(matches!(call(short).await, Ok(Value::Int(2))));
+
+        let wide = vec![Value::Array(vec![Value::Null; 100_000])];
+        assert_eq!(
+            call(wide).await.err().as_deref(),
+            Some("TypeScript external call arguments exceed 100000 values")
+        );
+
+        let text = "x".repeat(5_000_001);
+        let large = vec![
+            Value::String(Arc::from(text.as_str())),
+            Value::Object(
+                [(Arc::from(text.as_str()), Value::Null)]
+                    .into_iter()
+                    .collect(),
+            ),
+        ];
+        assert_eq!(
+            call(large).await.err().as_deref(),
+            Some("TypeScript external call arguments exceed 10000000 string bytes")
+        );
+
+        let nested = (0..crate::runtime_value::MAX_DEPTH)
+            .fold(Value::Null, |item, _| Value::Array(vec![item]));
+        assert_eq!(
+            call(vec![nested]).await.err().as_deref(),
+            Some("TypeScript external call arguments exceed nesting depth of 64")
+        );
+    }
 
     #[test]
     fn registry_rewrite_encodes_call_argument() {
@@ -1843,6 +2005,17 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_vfs_empty_path_does_not_select_cwd() {
+        let result = run_with_vfs(
+            &["-c", "await exists('')"],
+            &[("/home/user/sentinel", "data")],
+        )
+        .await;
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "false\n");
+    }
+
+    #[tokio::test]
     async fn test_console_log_before_vfs() {
         // console.log output BEFORE a VFS call is captured
         let r = run_with_vfs(
@@ -1919,7 +2092,7 @@ mod tests {
         ));
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(target_family = "wasm"))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn vm_admission_caps_active_threads_and_times_out_queued_steps() {
         use std::sync::atomic::{AtomicUsize, Ordering};

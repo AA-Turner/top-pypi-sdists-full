@@ -287,7 +287,7 @@ custom_app_lifespan = (
 
 
 if "__inmem" in MIGRATIONS_PATH:
-    from langgraph_runtime_inmem.routes import get_internal_routes
+    from langgraph_runtime.routes import get_internal_routes
 
     if get_internal_routes is not None:
         for route in get_internal_routes():

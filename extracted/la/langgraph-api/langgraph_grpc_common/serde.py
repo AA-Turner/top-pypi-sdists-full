@@ -15,6 +15,7 @@ from ipaddress import (
     IPv6Interface,
     IPv6Network,
 )
+from itertools import pairwise
 from pathlib import Path
 from re import Pattern
 from typing import Any, NamedTuple, cast
@@ -160,7 +161,15 @@ def json_dumpb(obj) -> bytes:
     # Replace with U+FFFD (replacement character) instead of stripping,
     # so that "key\x00" becomes "key\uFFFD" rather than "key" — preventing
     # a poisoned key from projecting onto a legitimate one.
-    return dumped.replace(rb"\\u0000", rb"\\ufffd").replace(rb"\u0000", rb"\ufffd")
+    parts = dumped.split(rb"\u0000")
+    out = [parts[0]]
+    for before, after in pairwise(parts):
+        # After an odd run of backslashes, \u0000 is the text "\u0000" (its
+        # backslash escaped), not a NUL character.
+        backslashes = len(before) - len(before.rstrip(b"\\"))
+        out.append(rb"\u0000" if backslashes % 2 else rb"\ufffd")
+        out.append(after)
+    return b"".join(out)
 
 
 def set_serializer(serializer: SerializerProtocol) -> None:

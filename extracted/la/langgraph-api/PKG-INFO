@@ -1,13 +1,15 @@
 Metadata-Version: 2.4
 Name: langgraph-api
-Version: 0.18.5
+Version: 0.19.0
 Author-email: Will Fu-Hinthorn <will@langchain.dev>, Josh Rogers <josh@langchain.dev>, Parker Rule <parker@langchain.dev>
 License: Elastic-2.0
 License-File: LICENSE
 Requires-Python: >=3.11
 Requires-Dist: anyio>=4.14.2
 Requires-Dist: cloudpickle>=3.0.0
-Requires-Dist: cryptography>=50.0.0
+Requires-Dist: croniter>=1.0.1
+Requires-Dist: cryptography<49,>=48.0.1; sys_platform == 'darwin' and platform_machine == 'x86_64'
+Requires-Dist: cryptography>=50.0.0; sys_platform != 'darwin' or platform_machine != 'x86_64'
 Requires-Dist: grpcio-health-checking<1.82.0,>=1.81.0
 Requires-Dist: grpcio-tools==1.81.1
 Requires-Dist: grpcio<1.86.0,>=1.85.0
@@ -17,7 +19,6 @@ Requires-Dist: jsonschema-rs<0.45,>=0.35.0
 Requires-Dist: langchain-core>=0.3.64
 Requires-Dist: langchain-protocol<0.1,>=0.0.18
 Requires-Dist: langgraph-checkpoint<5,>=3.0.1
-Requires-Dist: langgraph-runtime-inmem<0.39.0.dev0,>=0.38.0.dev0
 Requires-Dist: langgraph-sdk>=0.4.4
 Requires-Dist: langgraph<2,>=0.4.10
 Requires-Dist: langsmith[otel]>=0.6.3
@@ -42,6 +43,10 @@ Requires-Dist: uvloop>=0.18.0; platform_system != 'Windows'
 Requires-Dist: watchfiles>=0.13
 Requires-Dist: websockets>=13.0
 Requires-Dist: zstandard>=0.23.0
+Provides-Extra: inmem
+Requires-Dist: blockbuster<2.0.0,>=1.5.24; extra == 'inmem'
+Requires-Dist: langgraph-api-core-bin<0.20.0.dev0,>=0.19.0.dev0; extra == 'inmem'
+Requires-Dist: langgraph>=0.5; extra == 'inmem'
 Description-Content-Type: text/markdown
 
 # LangGraph API
@@ -92,6 +97,25 @@ langgraph dev
 ```
 
 Your agent's state (threads, runs, assistants) persists in memory while the server is running - perfect for development and testing. Each run's state is tracked and can be inspected, making it easy to debug and improve your agent's behavior.
+
+## A2A wire versions
+
+Send `A2A-Version: 1.0` on JSON-RPC requests to opt into v1 response shapes,
+including streaming responses. V1 responses omit legacy `kind` discriminators,
+use `statusUpdate` and `artifactUpdate` stream wrappers, emit UTC timestamps
+ending in `Z`, and encode file parts with `url` or `raw`, `mediaType`, and
+`filename`. Server-generated tool result data uses `toolResults` in this mode;
+arbitrary application data and extension payloads are not renamed.
+
+Requests without the header, with an empty header, or with `A2A-Version: 0.3`,
+retain the existing response behavior, including `tool_results`. Surrounding
+whitespace is stripped, and numeric patch versions are ignored: `1.0.1` selects
+v1 output and `0.3.1` selects legacy output. Method names alone do not opt into
+v1 output. Unsupported major/minor versions and malformed header values return
+JSON-RPC error `-32009`.
+All requests accept `url` and `raw` file parts in addition to the existing inputs,
+independent of the response version header.
+This opt-in covers wire serialization, not full protocol conformance.
 
 ## A2A task history scope
 

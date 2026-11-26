@@ -94,8 +94,27 @@ _CMAKE_SYSTEM_PROCESSOR_VALUES: dict[str, ValueList] = {
 
 _CMAKE_SYSTEM_NAME_AND_PROCESSOR_VALUES: dict[tuple[str, str], ValueList] = {
     ("Windows", "AMD64"): [("cpu", "x64_windows")],
+    ("Windows", "ARM64"): [("cpu", "arm64_windows")],
     ("QNX", "x86_64"): [("cpu", "x64_qnx")],
 }
+
+_X86_CPU_CONFIG_SETTINGS = frozenset(
+    ["@platforms//cpu:x86_64", "@platforms//cpu:x86_32"]
+)
+
+
+def may_target_x86(cmake_vars: dict[str, str]) -> bool:
+  """Returns False only if `CMAKE_SYSTEM_PROCESSOR` is known not to be x86.
+
+  Unknown processors are assumed to possibly be x86, so that x86-only tools
+  like NASM remain enabled for them.
+  """
+  settings = _CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS.get(
+      cmake_vars.get("CMAKE_SYSTEM_PROCESSOR", "")
+  )
+  if settings is None:
+    return True
+  return not _X86_CPU_CONFIG_SETTINGS.isdisjoint(settings)
 
 
 # https://bazel.build/extending/platforms#specifying-build-platform
@@ -117,6 +136,11 @@ def add_platform_constraints(workspace: Workspace) -> None:
       and workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "GNU"
   ):
     bazel_compiler = "mingw-gcc"
+  elif (
+      cmake_is_true(workspace.cmake_vars.get("MSVC"))
+      and cmake_cxx_compiler_id == "Clang"
+  ):
+    bazel_compiler = "clang-cl"
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/cpp:compiler"),
@@ -192,7 +216,7 @@ def add_platform_constraints(workspace: Workspace) -> None:
     # Bazel defines this by default.
     workspace.cdefines.append("NOMINMAX")
 
-  if cmake_cxx_compiler_id == "MSVC":
+  if bazel_compiler in ("msvc-cl", "clang-cl"):
     # Bazel defines this by default.  In practice, heavy use of C++ templates
     # can cause compilation to fail without this flag.
     workspace.copts.append("/bigobj")

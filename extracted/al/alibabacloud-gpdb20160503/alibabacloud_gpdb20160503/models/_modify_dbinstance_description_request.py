@@ -11,19 +11,17 @@ class ModifyDBInstanceDescriptionRequest(DaraModel):
         dbinstance_id: str = None,
         resource_group_id: str = None,
     ):
-        # The description of the instance.
-        # 
-        # The description must be 2 to 256 characters in length. It cannot start with http:// or https://.
+        # The description of the instance. The description must be 2 to 256 characters in length and cannot start with http:// or https://.
         # 
         # This parameter is required.
         self.dbinstance_description = dbinstance_description
-        # The ID of the instance.
+        # Instance ID of the instance.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the instance IDs of all AnalyticDB for PostgreSQL instances in a specific region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query instance IDs of all AnalyticDB for PostgreSQL instances in a specific region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # This parameter is no longer used.
+        # **[Deprecated]** You do not need to specify this parameter.
         self.resource_group_id = resource_group_id
 
     def validate(self):

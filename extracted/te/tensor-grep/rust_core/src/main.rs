@@ -3,11 +3,12 @@ use anyhow::Context;
 use clap::ValueEnum;
 use clap::{Args, Parser, Subcommand};
 use hmac::{Hmac, Mac};
+#[allow(dead_code)]
 mod cli_invocations;
 mod native_checkpoint_publication;
 mod native_multi_pattern;
 mod validation_rollback;
-use cli_invocations::is_search_version_invocation;
+mod version_info;
 use native_multi_pattern::collect_native_multi_pattern_matches;
 use validation_rollback::{
     collect_validation_rollback_snapshots, emit_rollback_status,
@@ -1230,8 +1231,8 @@ fn main_inner() -> anyhow::Result<()> {
         std::process::exit(2);
     }
 
-    if is_top_level_version_invocation(&raw_args) || is_search_version_invocation(&raw_args) {
-        println!("tg {}", env!("CARGO_PKG_VERSION"));
+    if let Some(verbose) = version_info::version_invocation_verbose(&raw_args) {
+        version_info::print_version(verbose);
         return Ok(());
     }
 
@@ -1389,14 +1390,6 @@ fn require_ripgrep_or_exit(rg_available: bool, context: &str) {
         );
         std::process::exit(2);
     }
-}
-
-fn is_top_level_version_invocation(raw_args: &[OsString]) -> bool {
-    raw_args.len() == 2
-        && matches!(
-            raw_args.get(1).and_then(|arg| arg.to_str()),
-            Some("--version" | "-V")
-        )
 }
 
 fn is_top_level_pcre2_version_invocation(raw_args: &[OsString]) -> bool {
@@ -5575,6 +5568,7 @@ mod tests {
             match_counts_by_file: std::collections::BTreeMap::new(),
             matches: Vec::new(),
             remediation: None,
+            advisory_hints: Vec::new(),
             result_incomplete,
             incomplete_reason_class,
             incomplete_paths_count,
@@ -8548,8 +8542,8 @@ fn detect_warm_index_state(
         return (IndexRoutingState::default(), None);
     }
 
-    let index_path = resolve_index_path(request.primary_path());
-    if !index_path.exists() {
+    let index_path = tensor_grep_rs::index_cache::resolve_read_index_path(request.primary_path());
+    if !tensor_grep_rs::index_cache::confined_regular_file_exists(&index_path) {
         return (IndexRoutingState::default(), None);
     }
 
@@ -9416,6 +9410,7 @@ fn emit_multi_pattern_native_results(
             incomplete_paths,
             options.path_was_implicit,
             (binary_matches > 0).then_some(binary_matches),
+            None,
         )?;
     } else if options.ndjson {
         emit_ndjson_search_results(
@@ -9578,7 +9573,7 @@ fn run_native_search_with_optional_rg_fallback(
 
 fn handle_ripgrep_search(args: SearchArgs) -> anyhow::Result<()> {
     if args.version {
-        println!("tg {}", env!("CARGO_PKG_VERSION"));
+        version_info::print_version(args.verbose);
         return Ok(());
     }
     if args.pcre2_version {
@@ -9932,15 +9927,6 @@ fn handle_ripgrep_search(args: SearchArgs) -> anyhow::Result<()> {
     }
 }
 
-fn resolve_index_path(search_path: &str) -> PathBuf {
-    let root = Path::new(search_path);
-    if root.is_file() {
-        root.parent().unwrap_or(Path::new(".")).join(".tg_index")
-    } else {
-        root.join(".tg_index")
-    }
-}
-
 /// Persists `index` to `index_path` under the write-serializing index lock -- the ONLY place in
 /// the search path that acquires it. Readers (`TrigramIndex::load`, `detect_warm_index_state`)
 /// never take this lock; a wrong lock on the read path would deadlock (or at minimum
@@ -9951,9 +9937,23 @@ fn resolve_index_path(search_path: &str) -> PathBuf {
 /// caller's in-memory `index` (already fully built) is unaffected and is what actually answers
 /// the search.
 fn save_index_locked(index: &TrigramIndex, index_path: &Path, verbose: bool) {
-    match tensor_grep_rs::index_lock::IndexLockGuard::acquire(index_path) {
+    let index_dir = match tensor_grep_rs::index_cache::ensure_cache_parent_anchored(index_path) {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!("[index] warning: failed to prepare index cache directory: {e}");
+            return;
+        }
+    };
+    let Some(file_name) = index_path.file_name() else {
+        eprintln!(
+            "[index] warning: failed to persist index: {} has no file name",
+            index_path.display()
+        );
+        return;
+    };
+    match tensor_grep_rs::index_lock::IndexLockGuard::acquire_anchored(index_path, &index_dir) {
         Ok(_guard) => {
-            if let Err(e) = index.save(index_path) {
+            if let Err(e) = index.save_anchored(&index_dir, file_name) {
                 eprintln!("[index] warning: failed to persist index: {e}");
             } else if verbose {
                 eprintln!("[index] persisted index to {}", index_path.display());
@@ -10008,7 +10008,7 @@ fn handle_index_search(
         );
     }
 
-    let index_path = resolve_index_path(request.primary_path());
+    let index_paths = tensor_grep_rs::index_cache::resolve_index_paths(request.primary_path());
 
     // M17 (audit-m17): never serve a mismatched root. The preloaded index arrived via
     // `detect_warm_index_state`'s routing gate, which now marks a root-mismatched index
@@ -10033,8 +10033,8 @@ fn handle_index_search(
             );
         }
         loaded
-    } else if index_path.exists() {
-        let loaded = match TrigramIndex::load(&index_path) {
+    } else if tensor_grep_rs::index_cache::confined_regular_file_exists(&index_paths.read_path) {
+        let loaded = match TrigramIndex::load(&index_paths.read_path) {
             Ok(idx) => idx,
             Err(e) => {
                 eprintln!("[index] warning: failed to load index: {e}, rebuilding...");
@@ -10043,7 +10043,7 @@ fn handle_index_search(
                     Path::new(request.primary_path()),
                     args.no_ignore,
                 )?;
-                save_index_locked(&fresh, &index_path, args.verbose);
+                save_index_locked(&fresh, &index_paths.write_path, args.verbose);
                 if args.verbose {
                     eprintln!(
                         "[index] full rebuild complete in {:?}: {} files, {} trigrams, {} postings",
@@ -10071,7 +10071,7 @@ fn handle_index_search(
                 Path::new(request.primary_path()),
                 args.no_ignore,
             )?;
-            save_index_locked(&fresh, &index_path, args.verbose);
+            save_index_locked(&fresh, &index_paths.write_path, args.verbose);
             if args.verbose {
                 eprintln!(
                     "[index] full rebuild complete in {:?}: {} files, {} trigrams, {} postings",
@@ -10092,7 +10092,7 @@ fn handle_index_search(
                 Path::new(request.primary_path()),
                 args.no_ignore,
             )?;
-            save_index_locked(&update.index, &index_path, args.verbose);
+            save_index_locked(&update.index, &index_paths.write_path, args.verbose);
             if args.verbose {
                 eprintln!(
                     "[index] incremental update complete in {:?}: reused {} unchanged files, added {}, modified {}, deleted {}; {} files, {} trigrams, {} postings",
@@ -10127,7 +10127,7 @@ fn handle_index_search(
         let started = Instant::now();
         let fresh =
             TrigramIndex::build_with_options(Path::new(request.primary_path()), args.no_ignore)?;
-        save_index_locked(&fresh, &index_path, args.verbose);
+        save_index_locked(&fresh, &index_paths.write_path, args.verbose);
         if args.verbose {
             eprintln!(
                 "[index] full rebuild complete in {:?}: {} files, {} trigrams, {} postings",
@@ -10220,6 +10220,7 @@ fn run_index_query(
             None,
             request.path_was_implicit,
             binary_match_files,
+            None,
         );
     }
 
@@ -10353,6 +10354,8 @@ struct SearchResultJson<'a> {
     scope_note: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     remediation: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    advisory_hints: Vec<String>,
 }
 
 /// Terminal record keeps disclosures available on empty and incomplete scans.
@@ -12076,12 +12079,10 @@ fn write_audit_manifest_for_plan(
 fn verify_audit_manifest_payload(
     args: &AuditVerifyArgs,
 ) -> anyhow::Result<AuditManifestVerifyJson> {
-    let manifest_path = args.manifest_path.canonicalize().with_context(|| {
-        format!(
-            "failed to resolve audit manifest {}",
-            args.manifest_path.display()
-        )
-    })?;
+    let p = &args.manifest_path;
+    let manifest_path = p
+        .canonicalize()
+        .with_context(|| format!("failed to resolve audit manifest {}", p.display()))?;
     let manifest_bytes = std::fs::read(&manifest_path)
         .with_context(|| format!("failed to read audit manifest {}", manifest_path.display()))?;
     let manifest: RewriteAuditManifestRead = serde_json::from_slice(&manifest_bytes)
@@ -12202,10 +12203,13 @@ fn verify_audit_manifest_payload(
         routing_backend: "AuditManifest",
         routing_reason: "audit-manifest-verify",
         sidecar_used: false,
-        manifest_path: manifest_path.to_string_lossy().to_string(),
-        signing_key_path: signing_key_path.map(|path| path.to_string_lossy().to_string()),
+        manifest_path: tensor_grep_rs::clean_windows_extended_path(&manifest_path),
+        signing_key_path: signing_key_path
+            .as_deref()
+            .map(tensor_grep_rs::clean_windows_extended_path),
         previous_manifest_path: previous_manifest_path
-            .map(|path| path.to_string_lossy().to_string()),
+            .as_deref()
+            .map(tensor_grep_rs::clean_windows_extended_path),
         kind: Some(manifest.kind),
         manifest_sha256: manifest.manifest_sha256,
         previous_manifest_sha256: manifest.previous_manifest_sha256,
@@ -12247,18 +12251,6 @@ fn emit_validation_status(summary: &ValidationSummary) {
                     .unwrap_or_else(|| " (no exit code)".to_string())
             );
         }
-    }
-}
-
-fn warn_windows_single_quote_ast_pattern(pattern: &str) {
-    if !cfg!(windows) {
-        return;
-    }
-    let trimmed = pattern.trim();
-    if trimmed.len() >= 2 && trimmed.starts_with('\'') && trimmed.ends_with('\'') {
-        eprintln!(
-            "No AST matches found. cmd.exe treats single quotes literally; use double quotes in cmd.exe or run this pattern from PowerShell/Git Bash where single quotes quote literal text."
-        );
     }
 }
 
@@ -12319,9 +12311,10 @@ fn handle_ast_run(mut args: RunArgs) -> anyhow::Result<()> {
             None,
             path_was_implicit,
             None,
+            Some((&args.lang, args.selector.as_deref())),
         )?;
         if match_count == 0 {
-            warn_windows_single_quote_ast_pattern(pattern);
+            ast_run_remediation::warn_windows_single_quote_ast_pattern(pattern);
             std::process::exit(1);
         }
         return Ok(());
@@ -12336,12 +12329,17 @@ fn handle_ast_run(mut args: RunArgs) -> anyhow::Result<()> {
     if args.verbose {
         emit_verbose_metadata(RoutingDecision::ast());
     }
+    ast_run_remediation::emit_cli_run_advisories(
+        &args.lang,
+        args.selector.as_deref(),
+        pattern,
+        path,
+        &matches,
+        match_count,
+    );
     if match_count == 0 {
-        ast_run_remediation::emit_text_for_search(pattern, match_count);
-        warn_windows_single_quote_ast_pattern(pattern);
         std::process::exit(1);
     }
-
     let stdout = io::stdout();
     let mut stdout = io::BufWriter::new(stdout.lock());
     if args.files_with_matches {
@@ -14150,7 +14148,9 @@ fn emit_json_search_results(
     incomplete_paths: Option<usize>,
     path_was_implicit: bool,
     binary_match_files: Option<usize>,
+    ast_context: Option<(&str, Option<&str>)>,
 ) -> anyhow::Result<()> {
+    let (ast_lang, ast_selector) = ast_context.map_or((None, None), |(l, s)| (Some(l), s));
     let proof_fields = gpu_proof_fields(
         requested_gpu_device_ids,
         decision.routing_backend(),
@@ -14189,6 +14189,13 @@ fn emit_json_search_results(
         matched_file_paths,
         match_counts_by_file,
         remediation: ast_run_remediation::json_for_search(pattern, matches.len(), decision.reason),
+        advisory_hints: ast_run_remediation::python_return_type_advisory_for_json(
+            ast_lang,
+            ast_selector,
+            pattern,
+            path,
+            &matches,
+        ),
         matches,
         result_incomplete,
         incomplete_reason_class,

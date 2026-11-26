@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import time
 from typing import Any, TypedDict
 from urllib.parse import urlencode
 
 from bitfab.http import HttpClient
+from bitfab.warn_once import warn_once
 
 SANDBOX_STORES_PATH = "/api/sdk/sandboxStores"
+SAVING_WAIT_SECONDS = 30.0
+SAVING_POLL_FIRST_SECONDS = 0.25
+SAVING_POLL_MAX_SECONDS = 2.0
 
 
 class SandboxStore(TypedDict):
@@ -91,11 +96,29 @@ class SandboxStoresClient:
 
 
 def read_sandbox_store_state(
-    http_client: HttpClient, sandbox: str, trace_id: str
+    http_client: HttpClient,
+    sandbox: str,
+    trace_id: str,
+    wait_seconds: float = SAVING_WAIT_SECONDS,
 ) -> dict[str, Any] | None:
     query = urlencode({"sandbox": sandbox, "traceId": trace_id})
-    found = http_client.get(f"{SANDBOX_STORES_PATH}?{query}").get("sandboxStore")
-    return None if found is None else {"state": found.get("state")}
+    deadline = time.monotonic() + wait_seconds
+    poll = SAVING_POLL_FIRST_SECONDS
+    while True:
+        response = http_client.get(f"{SANDBOX_STORES_PATH}?{query}")
+        saving = response.get("saving") is True
+        if not saving or time.monotonic() >= deadline:
+            if saving:
+                warn_once(
+                    f"sandbox-store-still-saving:{sandbox}",
+                    f"the {sandbox} sandbox state of trace {trace_id} was still "
+                    f"being saved after {wait_seconds} s; the replay starts from "
+                    "what was saved so far.",
+                )
+            found = response.get("sandboxStore")
+            return None if found is None else {"state": found.get("state")}
+        time.sleep(min(poll, max(0.0, deadline - time.monotonic())))
+        poll = min(poll * 2, SAVING_POLL_MAX_SECONDS)
 
 
 def write_sandbox_stores(

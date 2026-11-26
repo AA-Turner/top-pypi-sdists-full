@@ -17,17 +17,17 @@ class DescribeDBInstanceDiagnosisSummaryResponseBody(DaraModel):
         segment_status_info: main_models.DescribeDBInstanceDiagnosisSummaryResponseBodySegmentStatusInfo = None,
         total_count: str = None,
     ):
-        # The group ID.
+        # The list of node details for the instance.
         self.items = items
-        # The state information about the coordinator node.
+        # The statistics information about the status of coordinator nodes.
         self.master_status_info = master_status_info
-        # The page number.
+        # The current page number.
         self.page_number = page_number
         # The request ID.
         self.request_id = request_id
-        # The state information about compute nodes.
+        # The statistics information about the status of compute nodes.
         self.segment_status_info = segment_status_info
-        # The total number of entries returned.
+        # The total number of entries.
         self.total_count = total_count
 
     def validate(self):
@@ -104,15 +104,15 @@ class DescribeDBInstanceDiagnosisSummaryResponseBodySegmentStatusInfo(DaraModel)
         preferred_node_num: int = None,
         synced_node_num: int = None,
     ):
-        # The number of abnormal nodes.
+        # The number of nodes in the abnormal state.
         self.exception_node_num = exception_node_num
-        # The number of normal nodes.
+        # The number of nodes in the normal state.
         self.normal_node_num = normal_node_num
-        # The number of nodes whose roles are reversed.
+        # The number of nodes whose roles have been switched due to a primary/secondary switchover.
         self.not_preferred_node_num = not_preferred_node_num
         # The number of unsynchronized nodes.
         self.not_syncing_node_num = not_syncing_node_num
-        # The number of nodes whose roles are normal.
+        # The number of nodes with normal roles.
         self.preferred_node_num = preferred_node_num
         # The number of synchronized nodes.
         self.synced_node_num = synced_node_num
@@ -177,15 +177,15 @@ class DescribeDBInstanceDiagnosisSummaryResponseBodyMasterStatusInfo(DaraModel):
         preferred_node_num: int = None,
         synced_node_num: int = None,
     ):
-        # The number of abnormal nodes.
+        # The number of nodes in the abnormal state.
         self.exception_node_num = exception_node_num
-        # The number of normal nodes.
+        # The number of nodes in the normal state.
         self.normal_node_num = normal_node_num
-        # The number of nodes whose roles are reversed.
+        # The number of nodes whose roles have been switched due to a primary/secondary switchover.
         self.not_preferred_node_num = not_preferred_node_num
         # The number of unsynchronized nodes.
         self.not_syncing_node_num = not_syncing_node_num
-        # The number of nodes whose roles are normal.
+        # The number of nodes with normal roles.
         self.preferred_node_num = preferred_node_num
         # The number of synchronized nodes.
         self.synced_node_num = synced_node_num
@@ -259,7 +259,7 @@ class DescribeDBInstanceDiagnosisSummaryResponseBodyItems(DaraModel):
         self.hostname = hostname
         # The IP address of the node.
         self.node_address = node_address
-        # The node group ID.
+        # The group ID.
         self.node_cid = node_cid
         # The node ID.
         self.node_id = node_id
@@ -267,34 +267,34 @@ class DescribeDBInstanceDiagnosisSummaryResponseBodyItems(DaraModel):
         self.node_name = node_name
         # The port number of the node.
         self.node_port = node_port
-        # The initial role of the node. Valid values:
+        # The original role of the node. Valid values:
         # 
-        # *   **primary**: primary node.
-        # *   **mirror**: secondary node.
+        # - **primary**: The primary node.
+        # - **mirror**: The mirror node.
         # 
-        # If the value of this parameter is the same as that of **NodeRole**, no primary/secondary switchover occurs. If the value of this parameter is different from that of **NodeRole**, a primary/secondary switchover occurs.
+        # If the value of this parameter is the same as the value of the **NodeRole** parameter, no role reversal (primary/secondary switchover) has occurred. If the values are different, a role reversal has occurred.
         self.node_preferred_role = node_preferred_role
-        # The data synchronization state of the node. Valid values:
+        # The data synchronization status of the node. Valid values:
         # 
-        # *   **Synced**: The node data is synchronized.
-        # *   **Not Syncing**: The node data is not synchronized.
-        # *   **No sync required**: Data synchronization is not required. This value may be returned only for the coordinator node.
+        # - **Synced**: The data is synchronized.
+        # - **Not Syncing**: The data is not synchronized.
+        # - **No sync required**: No synchronization is required. This mode applies only to coordinator nodes.
         self.node_replication_mode = node_replication_mode
         # The current role of the node. Valid values:
         # 
-        # *   **primary**: primary node.
-        # *   **mirror**: secondary node.
+        # - **primary**: The primary node.
+        # - **mirror**: The mirror node.
         self.node_role = node_role
-        # The running state of the node. Valid values:
+        # The running status of the node. Valid values:
         # 
-        # *   **UP**: The node is running.
-        # *   **DOWN**: The node is faulty.
+        # - **UP**: The node is running.
+        # - **DOWN**: The node has failed.
         self.node_status = node_status
-        # The type of the node. Valid values:
+        # The node type. Valid values:
         # 
-        # *   **master**: primary coordinator node.
-        # *   **slave**: standby coordinator node.
-        # *   **segment**: compute node.
+        # - **master**: The coordinator node.
+        # - **slave**: The secondary coordinator node.
+        # - **segment**: The compute node.
         self.node_type = node_type
 
     def validate(self):

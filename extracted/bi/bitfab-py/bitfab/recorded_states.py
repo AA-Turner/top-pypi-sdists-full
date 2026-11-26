@@ -14,7 +14,8 @@ logger = logging.getLogger("bitfab")
 class _Recorded:
     holder: Any
     snapshot: Callable[[Any], Any]
-    write: Callable[[Any], Any]
+    write: Callable[[Any, int], Any]
+    version: int = 0
     dirty: bool = False
     finished: bool = False
 
@@ -35,7 +36,7 @@ def update_recorded_state(
     create: Callable[[], Any],
     change: Callable[[Any], None],
     snapshot: Callable[[Any], Any],
-    write: Callable[[Any], Any],
+    write: Callable[[Any, int], Any],
 ) -> None:
     with _registry.lock:
         key = (trace_id, sandbox)
@@ -44,10 +45,21 @@ def update_recorded_state(
             entry = _Recorded(create(), snapshot, write)
             _registry.entries[key] = entry
         change(entry.holder)
+        entry.version += 1
         entry.dirty = True
         if not _registry.writing:
             _registry.writing = True
             threading.Thread(target=_write_while_dirty, daemon=True).start()
+
+
+def recorded_state_versions(trace_id: str) -> dict[str, int] | None:
+    with _registry.lock:
+        versions = {
+            sandbox: entry.version
+            for (owner, sandbox), entry in _registry.entries.items()
+            if owner == trace_id and not entry.finished
+        }
+    return versions or None
 
 
 def trace_finished(trace_id: str) -> None:
@@ -60,11 +72,11 @@ def trace_finished(trace_id: str) -> None:
                 del _registry.entries[(owner, sandbox)]
 
 
-def _next_dirty() -> tuple[tuple[str, str], _Recorded, Any] | None:
+def _next_dirty() -> tuple[tuple[str, str], _Recorded, Any, int] | None:
     for key, entry in _registry.entries.items():
         if entry.dirty:
             entry.dirty = False
-            return key, entry, entry.snapshot(entry.holder)
+            return key, entry, entry.snapshot(entry.holder), entry.version
     return None
 
 
@@ -79,9 +91,9 @@ def _write_while_dirty() -> None:
                 _registry.writing = False
                 _registry.lock.notify_all()
                 return
-        key, entry, state = found
+        key, entry, state, version = found
         try:
-            entry.write(state)
+            entry.write(state, version)
         except Exception:
             logger.debug(
                 "Bitfab: the %s sandbox's state for trace %s could not be saved",

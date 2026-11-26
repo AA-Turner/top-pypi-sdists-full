@@ -22,19 +22,25 @@ class ListSupabaseDataBackupsRequest(DaraModel):
     ):
         # The ID of the backup set. You can obtain the ID from the BackupSetId parameter returned by the ListSupabaseDataBackups operation.
         self.backup_id = backup_id
-        # The backup mode. Valid values: Automated: automatic backup performed by the system; Manual: manual backup.
+        # The backup pattern. Valid values:
+        # - Automated: automatic backup.
+        # - Manual: manual backup.
         self.backup_mode = backup_mode
-        # The status of the backup set. Valid values: Success: successful; Failed: failed.
+        # The status of the backup set. Valid values:
+        # - Success: successful.
+        # - Failed: failed.
         self.backup_status = backup_status
-        # The backup type. Valid values: DATA: full backup; RESTOREPOI: restorable point.
+        # The backup type. Valid values:
+        # - DATA: full backup.
+        # - RESTOREPOI: restorable point.
         self.data_type = data_type
         # The end time of the query. The end time must be later than the start time. Format: yyyy-MM-ddTHH:mmZ (UTC).
         self.end_time = end_time
         # The maximum number of entries to return for the current request.
         self.max_results = max_results
-        # The paging query token. Do not specify this parameter for the first request. For subsequent requests, specify the NextToken value returned by the previous response.
+        # The paging mark for paged query. Do not specify this parameter for the first request. For subsequent requests, specify the NextToken value returned by the previous response.
         self.next_token = next_token
-        # The page number. The value must be greater than 0 and not exceed the maximum value of an integer. Default value: 1.
+        # The page number. The value must be greater than 0 and cannot exceed the maximum value of an integer. Default value: 1.
         self.page_number = page_number
         # The number of entries per page. Valid values:
         # 

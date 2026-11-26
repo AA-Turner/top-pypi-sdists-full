@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents-evals
-Version: 1.12.1
+Version: 1.13.1
 Summary: Evaluation framework for Strands
 Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0
@@ -20,7 +20,7 @@ Requires-Dist: opentelemetry-sdk>=1.20.0
 Requires-Dist: pydantic<3.0.0,>=2.4.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.0
 Requires-Dist: rich<16.0.0,>=15.0.0
-Requires-Dist: strands-agents>=1.66.0
+Requires-Dist: strands-agents>=1.67.0
 Requires-Dist: tenacity<10.0.0,>=8.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Provides-Extra: adk
@@ -329,8 +329,11 @@ A diagnosis written by `strands-evals diagnose -o` is shown on the page of the s
 or listed on its own when that session is not in the folder. The directory of a `LocalFileTaskResultStore`
 is named on the lists and its files are left out of the scan.
 
-Pass `--read-only` to browse without the Save path at all, and `--host` to serve beyond this machine
-(for example `0.0.0.0` inside a container).
+Pass `--read-only` to browse without the Save path at all: the cases editor then shows each file and offers
+nothing that changes it. Pass `--host` to serve beyond this machine (for example `0.0.0.0` inside a container).
+
+A list is sorted by its column heads and filtered by the box over it. In a window narrower than 1080 px the
+sidebar is a drawer, opened by the button in the top bar.
 
 Limits of `ui`:
 
@@ -340,7 +343,7 @@ Limits of `ui`:
   cap. On a folder of tens of thousands of files that takes a noticeable part of a second each time.
 - Each `.md` request scans the whole folder, to find what the file is paired with.
 - The page works only when `strands-evals ui` serves it. Opened from disk, it says how to start the server.
-- A comparison, an optimizer result and a candidate are written by the page and copied from it. They have no
+- An optimizer result and a candidate are written by the page and copied from it. They have no
   `.md` address. Neither do a candidate's report and the failing-rows prompt, which the server writes from
   what the page sends to `POST /api/markdown`.
 - A document nested more than 200 levels deep is listed, but is not written as Markdown: `.md` and
@@ -355,6 +358,37 @@ Limits of `ui`:
 - The page is laid out for windows 360 px wide and up. Below that the top bar overflows.
 
 Run any subcommand with `--help` for the full flag set (custom evaluators via `MODULE:CLASS`, trace attributes, `--fail-on` exit-code rules, output formats, etc.).
+
+### Anonymous usage telemetry
+
+The `strands-evals` console script sends one anonymous event per invocation, so the maintainers can see which
+subcommands people actually use and which releases are in the field. The event holds five values and nothing else:
+
+| Field | Value |
+| --- | --- |
+| `cli_version` | the installed version, as `MAJOR.MINOR.PATCH` (any prerelease label or build metadata is dropped) |
+| `os` | `linux`, `macos`, `windows` or `other` |
+| `interactive` | whether stdout is a terminal — the same check that picks between rich and JSON output |
+| `command` | the subcommand name only, never its arguments: `run --agent app:agent` is sent as `run` |
+| `outcome` | `completed`, `failed`, `interrupted`, or `started` for `ui`, which serves until you stop it |
+
+**There is no identifier of any kind** — no install id, machine id, user id, session id or run id — so no two events
+can be linked to each other or to you. **Nothing about what you evaluated is collected**: no dataset, experiment,
+case or evaluator names, no prompts, no model ids, and no score, pass rate or any other result. `outcome` describes
+the CLI process, not your evaluation: a suite where every case failed still reports `completed`. The receiving
+endpoint rejects any field that is not on the list above, so a value added by mistake is refused rather than stored.
+The full disclosure, including retention, is in
+[the telemetry service repository](https://github.com/strands-agents/telemetry-service/blob/main/docs/strands-evals-telemetry.md).
+
+To turn it off, set either environment variable:
+
+```bash
+export STRANDS_EVALS_TELEMETRY=0   # this CLI only
+export DO_NOT_TRACK=1              # the cross-tool convention, honored by other tools too
+```
+
+The send blocks for at most one second and is never retried; if it fails, the event is dropped and your exit code is
+unchanged. Using `strands_evals` as a Python library sends nothing — only the console script reports.
 
 ## Agent Skills
 
@@ -759,7 +793,7 @@ print(result.summary())     # what shipped, the validation pick, the test report
 print(result.best.diff())   # the rewritten system prompt, as a unified diff
 ```
 
-The same run works from the command line (`strands-evals optimize run experiment.json --agent agent.py:create_agent`), including Strands harness config files (`--config agent.json`) and agent files exported by the strands CLI (`--agent agent.py` or `--agent agent.ts`). Every trial is saved as it finishes, so a stopped run resumes without paying twice. The budget counts the agent's rollouts only; the model calls that rewrite text and the LLM judges come on top, and `result.summary()` reports the tokens of each. The [`optimize`](.agents/skills/optimize/SKILL.md) skill walks a coding agent through such a run. Install with `pip install 'strands-agents-evals[optimization]'`; see the [Optimization guide](https://strandsagents.com/docs/user-guide/evals-sdk/optimization/).
+The same run works from the command line (`strands-evals optimize run experiment.json --agent agent.py:create_agent`), including Strands harness config files (`--config agent.json`) and agent files exported by the strands CLI (`--agent agent.py` or `--agent agent.ts`). Every trial is saved as it finishes, so a stopped run resumes without paying twice. To browse a run's progress, candidates, and trade-offs, even while it runs, use `strands-evals ui .` (runs go under `optimization/runs/` in the working directory by default; `base_dir=` or `--base-dir` puts them elsewhere). The budget counts the agent's rollouts only; the model calls that rewrite text and the LLM judges come on top, and `result.summary()` reports the tokens of each. The [`optimize`](.agents/skills/optimize/SKILL.md) skill walks a coding agent through such a run. Install with `pip install 'strands-agents-evals[optimization]'`; see the [Optimization guide](https://strandsagents.com/docs/user-guide/evals-sdk/optimization/).
 
 ### Custom Evaluators with Structured Output
 

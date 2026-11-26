@@ -11,14 +11,14 @@ class ModifyDBResourceGroupShrinkRequest(DaraModel):
         owner_id: int = None,
         resource_group_items_shrink: str = None,
     ):
-        # The instance ID.
+        # The ID of the instance.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specified region, including instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         self.owner_id = owner_id
-        # The information about the resource group.
+        # The details of the resource groups.
         # 
         # This parameter is required.
         self.resource_group_items_shrink = resource_group_items_shrink

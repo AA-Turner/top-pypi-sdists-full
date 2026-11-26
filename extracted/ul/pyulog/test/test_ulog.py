@@ -10,6 +10,7 @@ import struct
 from io import BytesIO
 
 from ddt import ddt, data
+import numpy as np
 
 import pyulog
 
@@ -90,6 +91,35 @@ class TestULog(unittest.TestCase):
             else:
                 assert copied_value == original_value
 
+    def test_data_in_appended_section(self):
+        '''
+        Test that data messages after an appended data offset are read with
+        the subscriptions from before it.
+        '''
+        def message(msg_type, payload):
+            return struct.pack('<HB', len(payload), ord(msg_type)) + payload
+
+        def data_msg(timestamp, x):
+            return message('D', struct.pack('<HQB', 1, timestamp, x))
+
+        def build(appended_offset):
+            flag_bits = bytes(8) + b'\x01' + bytes(7) + struct.pack('<QQQ', appended_offset, 0, 0)
+            return self._build_ulog(
+                ('B', flag_bits),
+                ('F', b'app:uint64_t timestamp;uint8_t x;'),
+                ('A', struct.pack('<BH', 0, 1) + b'app')).getvalue() + data_msg(1, 10)
+
+        # the log is cut inside a message, and the appended data starts after the cut
+        cut_message = data_msg(2, 0)[:7]
+        appended_offset = len(build(0)) + len(cut_message)
+        content = build(appended_offset) + cut_message + data_msg(3, 30)
+
+        ulog = pyulog.ULog(BytesIO(content))
+        assert not ulog.file_corruption
+        dataset = ulog.get_dataset('app')
+        np.testing.assert_array_equal(dataset.data['timestamp'], [1, 3])
+        np.testing.assert_array_equal(dataset.data['x'], [10, 30])
+
     @staticmethod
     def _build_ulog(*messages):
         '''
@@ -128,6 +158,46 @@ class TestULog(unittest.TestCase):
             ulog = pyulog.ULog(self._build_ulog((msg_type, payload)))
             assert ulog.file_corruption
 
+    def test_trailing_padding_in_data(self):
+        '''
+        Test that data is read with or without its trailing padding field,
+        and that longer data is flagged as corruption.
+        '''
+        fmt = ('F', b'pad:uint64_t timestamp;uint8_t x;uint8_t[7] _padding0;')
+        add = ('A', struct.pack('<BH', 0, 1) + b'pad')
+
+        def data_msg(timestamp, x, padding=b''):
+            return ('D', struct.pack('<HQB', 1, timestamp, x) + padding)
+
+        ulog = pyulog.ULog(self._build_ulog(
+            fmt, add, data_msg(1, 10), data_msg(2, 20, bytes(7))))
+        assert not ulog.file_corruption
+        dataset = ulog.get_dataset('pad')
+        np.testing.assert_array_equal(dataset.data['timestamp'], [1, 2])
+        np.testing.assert_array_equal(dataset.data['x'], [10, 20])
+        assert not any(name.startswith('_padding') for name in dataset.data)
+
+        ulog = pyulog.ULog(self._build_ulog(fmt, add, data_msg(1, 10, bytes(8))))
+        assert ulog.file_corruption
+
+    def test_short_read_in_definitions(self):
+        '''
+        Test that a length field larger than the remaining file is flagged as
+        corruption instead of seeking backwards past the start.
+        '''
+        for msg_type, msg_size in ((0, 100), (ord('L'), 1000), (ord('K'), 0xFFFF),
+                                   (ord('C'), 100), (0x7F, 20000)):
+            content = pyulog.ULog.HEADER_BYTES + b'\x01' + struct.pack('<Q', 0)
+            content += struct.pack('<HB', msg_size, msg_type)  # header only
+            assert pyulog.ULog(BytesIO(content)).file_corruption
+
+            # a real file raises OSError from seek() without the fix
+            with tempfile.TemporaryDirectory() as tmpdir:
+                path = os.path.join(tmpdir, 'bogus.ulg')
+                with open(path, 'wb') as log_file:
+                    log_file.write(content)
+                assert pyulog.ULog(path).file_corruption
+
     def test_strict_string_parsing(self):
         '''
         Test that string parsing errors still raise with disable_str_exceptions=False,
@@ -139,5 +209,67 @@ class TestULog(unittest.TestCase):
             with self.assertRaises(UnicodeDecodeError):
                 pyulog.ULog(self._build_ulog((msg_type, payload)), disable_str_exceptions=False)
             assert not pyulog.ULog(self._build_ulog((msg_type, payload))).file_corruption
+
+class TestDataStringFields(unittest.TestCase):
+    '''
+    Tests the ULog.Data helpers that combine char array fields into strings.
+    '''
+
+    def _make_data(self, field_data, data_dict):
+        ''' Build a ULog.Data object without going through a log file. '''
+        data_obj = object.__new__(pyulog.ULog.Data)
+        data_obj.name = 'test_topic'
+        data_obj.field_data = [pyulog.ULog._FieldData(name, type_str)  # pylint: disable=protected-access
+                               for name, type_str in field_data]
+        data_obj.data = data_dict
+        return data_obj
+
+    def test_string_field_from_log_file(self):
+        '''
+        The transponder_report topic of the px4 events sample log has a
+        char[9] 'callsign' field, stored as 9 individual columns.
+        '''
+        ulog_file_name = os.path.join(TEST_PATH, 'sample_px4_events.ulg')
+        ulog = pyulog.ULog(ulog_file_name)
+        topic = ulog.get_dataset('transponder_report')
+        assert topic.list_string_fields() == ['callsign']
+        strings = topic.get_string_field('callsign')
+        assert len(strings) == len(topic.data['timestamp'])
+        # compare against a manual combination of the char columns
+        columns = [topic.data['callsign[{}]'.format(i)] for i in range(9)]
+        for sample, string in enumerate(strings):
+            raw = bytes(int(column[sample]) & 0xff for column in columns)
+            assert string == raw.split(b'\x00', 1)[0].decode('utf-8', 'replace')
+
+    def test_string_field_conversion(self):
+        ''' Char columns are joined per sample and cut at the first NUL. '''
+        # 2 samples of a char[5] field: 'ab' (NUL-padded), then a sample
+        # with an invalid utf-8 byte: 'c\xffd'
+        sample_bytes = [b'ab\x00zz', bytes([0x63, 0xff, 0x64, 0x00, 0x00])]
+        columns = {}
+        for i in range(5):
+            column = np.array([sample[i] for sample in sample_bytes],
+                              dtype=np.uint8)
+            columns['text[{}]'.format(i)] = column.view(np.int8)
+        field_data = [('text[{}]'.format(i), 'char') for i in range(5)]
+        data_obj = self._make_data(field_data, columns)
+        assert data_obj.list_string_fields() == ['text']
+        strings = data_obj.get_string_field('text')
+        assert list(strings) == ['ab', 'c\ufffdd']
+
+    def test_plain_char_and_non_char_fields(self):
+        ''' A plain char field is a 1-char string field; other types are not
+        string fields and requesting them raises a KeyError. '''
+        field_data = [('timestamp', 'uint64_t'), ('flag', 'char')]
+        data_dict = {'timestamp': np.array([1, 2], dtype=np.uint64),
+                     'flag': np.array([ord('y'), ord('n')], dtype=np.int8)}
+        data_obj = self._make_data(field_data, data_dict)
+        assert data_obj.list_string_fields() == ['flag']
+        assert list(data_obj.get_string_field('flag')) == ['y', 'n']
+        with self.assertRaises(KeyError):
+            data_obj.get_string_field('timestamp')
+        with self.assertRaises(KeyError):
+            data_obj.get_string_field('does_not_exist')
+
 
 # vim: set et fenc=utf-8 ft=python ff=unix sts=4 sw=4 ts=4

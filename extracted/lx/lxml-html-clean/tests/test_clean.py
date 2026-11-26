@@ -147,6 +147,180 @@ class CleanerTest(unittest.TestCase):
             b'<noscript><style>p {{color: red;}}/* deleted */h2 {{color: blue;}}</style></noscript>',
             lxml.html.tostring(clean_html(s)))
 
+    def test_breakout_comment_in_noscript(self):
+        # libxml2 parses the <noscript> body as markup, so this is a single
+        # inert comment node.  A browser with scripting enabled treats the
+        # body as raw text, closes <noscript> at the </noscript> inside the
+        # comment and runs the <img onerror>.  The comment must be dropped
+        # even with comments=False.  Reproduces the report follow-up to
+        # GHSA-5jfw-gq64-q45f (which only covered <style> text).
+        html = ('<noscript><!--</noscript>'
+                '<img src=x onerror=alert(1)>--></noscript>')
+        cleaner = Cleaner(comments=False)
+        self.assertEqual(
+            '<noscript></noscript>',
+            cleaner.clean_html(html))
+        # The default cleaner strips all comments, so it is unaffected.
+        self.assertEqual(
+            '<noscript></noscript>',
+            Cleaner().clean_html(html))
+
+    def test_breakout_comment_in_noscript_case_insensitive(self):
+        html = ('<noscript><!--</NoScript>'
+                '<img src=x onerror=alert(1)>--></noscript>')
+        self.assertEqual(
+            '<noscript></noscript>',
+            Cleaner(comments=False).clean_html(html))
+
+    def test_breakout_comment_deeply_nested_in_noscript(self):
+        # The raw-text element only has to be an ancestor, not the direct
+        # parent, of the comment.
+        html = ('<noscript><p><span><!--</noscript>'
+                '<img src=x onerror=alert(1)>--></span></p></noscript>')
+        self.assertEqual(
+            '<noscript><p><span></span></p></noscript>',
+            Cleaner(comments=False).clean_html(html))
+
+    def test_breakout_comment_in_other_raw_text_ancestors(self):
+        # Any raw-text / escapable-raw-text ancestor is a breakout vector.
+        # Depending on libxml2's reparenting the wrapper may be dropped, but
+        # in every case the dangerous comment (and its <img onerror>) must be
+        # gone from the output.
+        cleaner = Cleaner(comments=False)
+        for tag in ("noscript", "noembed", "iframe", "xmp",
+                    "title", "textarea"):
+            html = ('<{0}><!--</{0}>'
+                    '<img src=x onerror=alert(1)>--></{0}>').format(tag)
+            out = cleaner.clean_html(html)
+            self.assertNotIn("onerror", out, tag)
+            self.assertNotIn("<!--", out, tag)
+
+    def test_benign_comment_with_math_lt_is_kept(self):
+        # A comment that merely contains '<' must not be touched.
+        html = '<div><!-- note: 1 < 2 --></div>'
+        self.assertEqual(
+            '<div><!-- note: 1 < 2 --></div>',
+            Cleaner(comments=False).clean_html(html))
+
+    def test_benign_commented_out_markup_is_kept(self):
+        # Commenting out real markup is a normal use of comments=False and
+        # must keep working for non-raw-text containers.
+        html = '<div><!-- <b>old</b> --></div>'
+        self.assertEqual(
+            '<div><!-- <b>old</b> --></div>',
+            Cleaner(comments=False).clean_html(html))
+
+    def test_benign_commented_out_end_tag_in_normal_element_is_kept(self):
+        # '</div>' inside a comment in a normal (non-raw-text) element is
+        # genuinely inert in a browser, so it must not be dropped.
+        html = '<div><!-- old: </div> leftover --></div>'
+        self.assertEqual(
+            '<div><!-- old: </div> leftover --></div>',
+            Cleaner(comments=False).clean_html(html))
+
+    def test_breakout_end_tag_outside_raw_text_ancestor_is_kept(self):
+        # A '</noscript>' smuggled in a comment that is NOT inside a
+        # <noscript> stays an inert comment in a browser (A3 in the report),
+        # so we must not over-remove it.
+        html = ('<div><!--</noscript>'
+                '<img src=x onerror=alert(1)>--></div>')
+        self.assertEqual(
+            '<div><!--</noscript><img src=x onerror=alert(1)>--></div>',
+            Cleaner(comments=False).clean_html(html))
+
+    def test_breakout_comment_still_drops_conditional_comments(self):
+        # The existing IE conditional-comment handling must keep working
+        # alongside the new breakout check.
+        html = '<div><!--[if IE]><script>alert(1)</script><![endif]--></div>'
+        self.assertEqual(
+            '<div></div>',
+            Cleaner(comments=False).clean_html(html))
+
+    def test_srcdoc_removed_with_safe_attrs_only_false(self):
+        # srcdoc is a whole HTML document rendered in the frame and wins
+        # over src, so a whitelisted src does not make it safe.
+        html = ('<iframe src="https://www.youtube.com/embed/x" '
+                'srcdoc="&lt;script&gt;alert(1)&lt;/script&gt;"></iframe>')
+        cleaner = Cleaner(host_whitelist=['www.youtube.com'],
+                          safe_attrs_only=False)
+        self.assertEqual(
+            '<iframe src="https://www.youtube.com/embed/x"></iframe>',
+            cleaner.clean_html(html))
+
+    def test_srcdoc_kept_when_javascript_false(self):
+        html = '<iframe srcdoc="&lt;b&gt;x&lt;/b&gt;"></iframe>'
+        cleaner = Cleaner(javascript=False, embedded=False, frames=False,
+                          safe_attrs_only=False)
+        self.assertIn('srcdoc', cleaner.clean_html(html))
+
+    def test_svg_animation_javascript_href(self):
+        cleaner = Cleaner(safe_attrs_only=False, remove_unknown_tags=False)
+        for html in (
+            '<svg><a><set attributeName="href" to="javascript:alert(1)">'
+            '</set><text>x</text></a></svg>',
+            '<svg><a><animate attributeName="href" '
+            'values="x;javascript:alert(1)"></animate><text>x</text></a></svg>',
+            '<svg><a><animate attributeName="xlink:href" from="x" '
+            'by="javascript:alert(1)"></animate><text>x</text></a></svg>',
+            '<svg><a><set attributeName=" HREF " to="javascript:alert(1)">'
+            '</set><text>x</text></a></svg>',
+            # WebKit lets <animateTransform> target href as well.
+            '<svg><a href="#"><animateTransform attributeName="href" '
+            'type="x" from="javascript:alert(1)//" '
+            'to="javascript:alert(1)//"></animateTransform>'
+            '<text>x</text></a></svg>',
+        ):
+            out = cleaner.clean_html(html)
+            self.assertNotIn('javascript', out, html)
+
+    def test_svg_animation_all_value_attrs_removed(self):
+        html = ('<svg><a><animate attributeName="href" from="javascript:1" '
+                'to="javascript:2" by="javascript:3" values="javascript:4">'
+                '</animate><text>x</text></a></svg>')
+        cleaner = Cleaner(safe_attrs_only=False, remove_unknown_tags=False)
+        self.assertEqual(
+            '<svg><a><animate attributename="href"></animate>'
+            '<text>x</text></a></svg>',
+            cleaner.clean_html(html))
+
+    def test_svg_animation_without_attributename(self):
+        # Must not raise, with the default Cleaner (which strips
+        # attributeName first) or with safe_attrs_only=False.
+        for cleaner in (Cleaner(),
+                        Cleaner(safe_attrs_only=False,
+                                remove_unknown_tags=False)):
+            cleaner.clean_html('<svg><animate></animate></svg>')
+            cleaner.clean_html('<svg><a><animate attributeName="href" '
+                               'to="x"></animate></a></svg>')
+            cleaner.clean_html('<svg><set to="x"></set></svg>')
+
+    def test_xhtml_attribute_collisions_and_prefixes(self):
+        # XHTML trees are case- and namespace-sensitive, so several
+        # attributes can share one normalized name.
+        cleaner = Cleaner(host_whitelist=['www.youtube.com'],
+                          safe_attrs_only=False, remove_unknown_tags=False)
+        for xml in (
+            '<div><iframe src="https://www.youtube.com/embed/x" '
+            'srcdoc="MARK" SRCDOC=""/></div>',
+            '<svg xmlns="http://www.w3.org/2000/svg"><a><set '
+            'attributeName="href" attributename="width" '
+            'to="javascript:MARK"/></a></svg>',
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            'xmlns:q="http://www.w3.org/1999/xlink"><a><set '
+            'attributeName="q:href" to="javascript:MARK"/></a></svg>',
+        ):
+            el = lxml.etree.fromstring(xml, lxml.html.xhtml_parser)
+            out = lxml.etree.tostring(cleaner.clean_html(el)).decode()
+            self.assertNotIn('MARK', out, xml)
+
+    def test_svg_animation_of_other_attributes_is_kept(self):
+        html = ('<svg><rect><animate attributeName="width" from="0" to="10">'
+                '</animate></rect></svg>')
+        cleaner = Cleaner(safe_attrs_only=False, remove_unknown_tags=False)
+        out = cleaner.clean_html(html)
+        self.assertIn('from="0"', out)
+        self.assertIn('to="10"', out)
+
     def test_sneaky_import_in_style(self):
         # Prevent "@@importimport" -> "@import" replacement etc.
         style_codes = [

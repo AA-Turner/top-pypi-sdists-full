@@ -178,7 +178,7 @@ def _mcp_server_version() -> str:
 # Earlier contracts added primary path confinement, tools, and task-shaped meta-tools.
 # Pass-through producers are public MCP wire surfaces; review their payload changes too.
 # compact outputSchema, tg_session preconditions & safety notes
-_TG_MCP_SERVER_CONTRACT_VERSION = "1.25.0"
+_TG_MCP_SERVER_CONTRACT_VERSION = "1.28.0"
 
 
 def _apply_mcp_server_metadata(server: FastMCP) -> None:
@@ -192,12 +192,12 @@ _register_tool = register_mcp_tool(mcp)
 
 
 def _legacy_tools_enabled() -> bool:
-    """Whether legacy per-function MCP tool names are individually advertised (default True; set TG_MCP_LEGACY_TOOLS=0 for compact 15-tool surface)."""
-    return os.environ.get("TG_MCP_LEGACY_TOOLS", "").strip().lower() not in {
-        "0",
-        "false",
-        "no",
-        "off",
+    """Whether legacy per-function MCP tool names are individually advertised (default False; set TG_MCP_LEGACY_TOOLS=1 for full 61-tool legacy surface)."""
+    return os.environ.get("TG_MCP_LEGACY_TOOLS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
     }
 
 
@@ -1121,9 +1121,29 @@ _PLAN_DIGEST_VERSION = "tg-plan-digest-v1"
 
 
 @_register_tool  # type: ignore
-def tg_mcp_capabilities() -> str:
+def tg_mcp_capabilities(summary: bool = False) -> str:
     """Report MCP tool availability for the current runtime."""
     try:
+        if summary:
+            from tensor_grep.cli.mcp_compact import (
+                build_capabilities_summary_payload,
+                finalize_capabilities_summary,
+            )
+
+            native_tg, _native_error = _self._resolve_native_tg_binary_for_mcp()
+            summary_payload = build_capabilities_summary_payload(
+                version=_json_output_version(),
+                mcp_contract_version=_TG_MCP_SERVER_CONTRACT_VERSION,
+                cli_version=_mcp_server_version(),
+                native_available=native_tg is not None,
+                embedded_rewrite_available=bool(_self._embedded_rewrite_available()),
+                legacy_tools_enabled=bool(_legacy_tools_enabled()),
+                total_tools=len(_MCP_TOOL_CAPABILITIES),
+                meta_tools=sorted(_META_MCP_TOOLS),
+                singleton_tools=sorted(_SINGLETON_MCP_TOOLS),
+            )
+            injected = _self._inject_mcp_contract_fields(json.dumps(summary_payload, indent=2))
+            return finalize_capabilities_summary(injected)
         return _self._inject_mcp_contract_fields(
             json.dumps(_self._mcp_capabilities_payload(), indent=2)
         )
@@ -3768,30 +3788,48 @@ def tg_ast_search(
         return _sanitized_tool_error_text("tg_ast_search", exc)
 
 
+_CLASSIFY_TEXT_MAX_BYTES = 2 * 1024 * 1024
+_CLASSIFY_ANOMALY_LINE_MAX_CHARS = 512
+_CLASSIFY_LINE_PATTERN = re.compile(r"[^\r\n]+(?:\r\n|\r|\n)?|(?:\r\n|\r|\n)")
+
+
 @_register_tool  # type: ignore
-def tg_classify_logs(file_path: str, structured_json: bool = True) -> str:
-    """Classify anomalies in a log file (heuristics default; CyBERT if TENSOR_GREP_CLASSIFY_PROVIDER=cybert)."""
+def tg_classify_logs(
+    file_path: str | None = None,
+    structured_json: bool = True,
+    text: str | None = None,
+) -> str:
+    """Classify anomalies in a log file or inline text (heuristics default; CyBERT if TENSOR_GREP_CLASSIFY_PROVIDER=cybert)."""
     # round-7 security (audit #81 #1): confine file_path to the project root (cwd) before any
     # read -- unconfined it is an arbitrary-file-read/exfil primitive (FallbackReader will
     # happily read .env/keys/anything locally readable, and up to 20 heuristic-flagged lines
     # are echoed back verbatim in anomalies[].text below). Forward the RESOLVED path so the
     # downstream read below sees the same anchor-validated location this check validated.
     try:
-        try:
-            file_path = str(_confine_read_path(file_path, _mcp_root(), label="file_path"))
-        except PathConfinementError as exc:
+        if (file_path is None and text is None) or (file_path is not None and text is not None):
+            message = "Provide exactly one of file_path or text."
             if structured_json:
-                # M14: confinement-refusal envelope crossed the wire un-stamped.
-                return _self._inject_mcp_contract_fields(
-                    json.dumps(
-                        {
-                            "file_path": "[refused]",
-                            "error": {"code": "invalid_input", "message": str(exc)},
-                        },
-                        indent=2,
+                return _meta_invalid_input_error("tg_classify_logs", "classify_logs", message)
+            return f"Error: {message}"
+
+        target_label = "inline text"
+        if file_path is not None:
+            try:
+                file_path = str(_confine_read_path(file_path, _mcp_root(), label="file_path"))
+            except PathConfinementError as exc:
+                if structured_json:
+                    # M14: confinement-refusal envelope crossed the wire un-stamped.
+                    return _self._inject_mcp_contract_fields(
+                        json.dumps(
+                            {
+                                "file_path": "[refused]",
+                                "error": {"code": "invalid_input", "message": str(exc)},
+                            },
+                            indent=2,
+                        )
                     )
-                )
-            return f"Error: {exc}"
+                return f"Error: {exc}"
+            target_label = file_path
 
         try:
             from tensor_grep.io.reader_fallback import FallbackReader
@@ -3801,32 +3839,60 @@ def tg_classify_logs(file_path: str, structured_json: bool = True) -> str:
                 _classify_lines_with_metadata,
             )
 
-            reader = FallbackReader()
-            # round-7 security (audit #81 #1): bound the read BEFORE materializing. read_lines()
-            # is a generator; previously `list(reader.read_lines(file_path))` fully materialized
-            # the entire file into memory before the DEFAULT_CLASSIFY_MAX_LINES budget was applied
-            # below -- an unbounded-memory DoS on a large (or attacker-influenceable) file. Cap the
-            # read one line past the budget via itertools.islice so `_apply_classify_line_budget`
-            # can still report `truncated=True` accurately without reading the rest of the file.
-            lines = list(
-                itertools.islice(reader.read_lines(file_path), DEFAULT_CLASSIFY_MAX_LINES + 1)
-            )
-            if not lines:
-                if structured_json:
-                    # M14: empty/unreadable envelope crossed the wire un-stamped.
-                    return _self._inject_mcp_contract_fields(
-                        json.dumps(
-                            {
-                                "file_path": file_path,
-                                "error": {
-                                    "code": "invalid_input",
-                                    "message": f"File {file_path} is empty or unreadable.",
-                                },
-                            },
-                            indent=2,
-                        )
+            if text is not None:
+                if (
+                    len(text) > _CLASSIFY_TEXT_MAX_BYTES
+                    or len(text.encode("utf-8", errors="replace")) > _CLASSIFY_TEXT_MAX_BYTES
+                ):
+                    message = (
+                        f"text input exceeds maximum size of {_CLASSIFY_TEXT_MAX_BYTES} bytes."
                     )
-                return f"Error: File {file_path} is empty or unreadable."
+                    if structured_json:
+                        return _meta_invalid_input_error(
+                            "tg_classify_logs", "classify_logs", message
+                        )
+                    return f"Error: {message}"
+                lines = list(
+                    itertools.islice(
+                        (m.group(0) for m in _CLASSIFY_LINE_PATTERN.finditer(text)),
+                        DEFAULT_CLASSIFY_MAX_LINES + 1,
+                    )
+                )
+                if not lines:
+                    message = "text input is empty."
+                    if structured_json:
+                        return _meta_invalid_input_error(
+                            "tg_classify_logs", "classify_logs", message
+                        )
+                    return f"Error: {message}"
+            else:
+                assert file_path is not None
+                reader = FallbackReader()
+                # round-7 security (audit #81 #1): bound the read BEFORE materializing. read_lines()
+                # is a generator; previously `list(reader.read_lines(file_path))` fully materialized
+                # the entire file into memory before the DEFAULT_CLASSIFY_MAX_LINES budget was applied
+                # below -- an unbounded-memory DoS on a large (or attacker-influenceable) file. Cap the
+                # read one line past the budget via itertools.islice so `_apply_classify_line_budget`
+                # can still report `truncated=True` accurately without reading the rest of the file.
+                lines = list(
+                    itertools.islice(reader.read_lines(file_path), DEFAULT_CLASSIFY_MAX_LINES + 1)
+                )
+                if not lines:
+                    if structured_json:
+                        # M14: empty/unreadable envelope crossed the wire un-stamped.
+                        return _self._inject_mcp_contract_fields(
+                            json.dumps(
+                                {
+                                    "file_path": file_path,
+                                    "error": {
+                                        "code": "invalid_input",
+                                        "message": f"File {file_path} is empty or unreadable.",
+                                    },
+                                },
+                                indent=2,
+                            )
+                        )
+                    return f"Error: File {file_path} is empty or unreadable."
 
             budgeted_lines, line_budget = _apply_classify_line_budget(
                 lines,
@@ -3839,43 +3905,45 @@ def tg_classify_logs(file_path: str, structured_json: bool = True) -> str:
             warnings_or_errors = []
             for i, r in enumerate(results):
                 if r["label"] in ("warn", "error") and r["confidence"] > 0.8:
+                    line_text = budgeted_lines[i].strip()
+                    if len(line_text) > _CLASSIFY_ANOMALY_LINE_MAX_CHARS:
+                        line_text = line_text[: _CLASSIFY_ANOMALY_LINE_MAX_CHARS - 3] + "..."
                     warnings_or_errors.append((
-                        budgeted_lines[i].strip(),
+                        line_text,
                         r["label"],
                         r["confidence"],
                     ))
 
             if structured_json:
                 # M14: the success envelope crossed the wire un-stamped.
-                return _self._inject_mcp_contract_fields(
-                    json.dumps(
-                        {
-                            "file_path": file_path,
-                            "provider": provider_used,
-                            "provider_status": provider_status,
-                            "sample_lines": line_budget["emitted_lines"],
-                            "total_lines": line_budget["total_lines"],
-                            # Round-3 audit finding: sample_lines/total_lines are numeric
-                            # fields a client must compare itself; stamp the same explicit
-                            # top-level truncated boolean every other capped tool already
-                            # carries, so unified_incomplete_envelope's generic check works.
-                            "truncated": line_budget["emitted_lines"] < line_budget["total_lines"],
-                            "anomaly_count": len(warnings_or_errors),
-                            "anomalies": [
-                                {"label": label, "confidence": conf, "text": text}
-                                for text, label, conf in warnings_or_errors[:20]
-                            ],
-                        },
-                        indent=2,
-                    )
-                )
+                payload: dict[str, Any] = {
+                    "provider": provider_used,
+                    "provider_status": provider_status,
+                    "sample_lines": line_budget["emitted_lines"],
+                    "total_lines": line_budget["total_lines"],
+                    # Round-3 audit finding: sample_lines/total_lines are numeric
+                    # fields a client must compare itself; stamp the same explicit
+                    # top-level truncated boolean every other capped tool already
+                    # carries, so unified_incomplete_envelope's generic check works.
+                    "truncated": line_budget["emitted_lines"] < line_budget["total_lines"],
+                    "anomaly_count": len(warnings_or_errors),
+                    "anomalies": [
+                        {"label": label, "confidence": conf, "text": line_text}
+                        for line_text, label, conf in warnings_or_errors[:20]
+                    ],
+                }
+                if file_path is not None:
+                    payload["file_path"] = file_path
+                else:
+                    payload["source"] = "text"
+                return _self._inject_mcp_contract_fields(json.dumps(payload, indent=2))
 
             if not warnings_or_errors:
-                return f"No severe anomalies detected in {file_path}. All logs appear nominal."
+                return f"No severe anomalies detected in {target_label}. All logs appear nominal."
 
             output = [
                 (
-                    f"Log Classification for {file_path} "
+                    f"Log Classification for {target_label} "
                     f"(provider={provider_used}, status={provider_status}, "
                     f"sample={line_budget['emitted_lines']}/{line_budget['total_lines']} lines):"
                 )
@@ -4692,6 +4760,7 @@ def tg_context(
     grounding: Literal["off", "local", "registry"] = "local",
     rerank: Literal["off", "auto", "cross-encoder"] = "off",
     citations: bool = False,
+    compact: bool = False,
 ) -> str:
     """Edit-planning context (query required): capsule (1200 tok), edit_plan (targets), pack (~16k), render (pack+source)."""
     try:
@@ -4703,17 +4772,24 @@ def tg_context(
         refusal = _av.investigation_options_refusal(grounding, rerank)
         if refusal is not None:
             return _meta_invalid_input_error("tg_context", action, refusal)
+        if compact and citations:
+            return _meta_invalid_input_error(
+                "tg_context", action, "compact=True cannot be combined with citations=True."
+            )
         if query is None:
             return _meta_missing_param_error("tg_context", action, "query")
 
         try:
+            from tensor_grep.cli.mcp_compact import compact_mcp_json_result
+
             max_tokens_kwargs: dict[str, Any] = (
                 {} if max_tokens is None else {"max_tokens": max_tokens}
             )
+            result_json: str | None = None
             if action == "pack":
-                return _self.tg_context_pack(query=query, path=path, **max_tokens_kwargs)
-            if action == "edit_plan":
-                return _self.tg_edit_plan(
+                result_json = _self.tg_context_pack(query=query, path=path, **max_tokens_kwargs)
+            elif action == "edit_plan":
+                result_json = _self.tg_edit_plan(
                     query=query,
                     path=path,
                     max_files=max_files,
@@ -4723,8 +4799,8 @@ def tg_context(
                     max_symbols=max_symbols,
                     provider=provider,
                 )
-            if action == "render":
-                return _self.tg_context_render(
+            elif action == "render":
+                result_json = _self.tg_context_render(
                     query=query,
                     path=path,
                     max_files=max_files,
@@ -4740,8 +4816,8 @@ def tg_context(
                     citations=citations,
                     **max_tokens_kwargs,
                 )
-            if action == "capsule":
-                return _self.tg_agent_capsule(
+            elif action == "capsule":
+                result_json = _self.tg_agent_capsule(
                     query=query,
                     path=path,
                     max_files=max_files,
@@ -4758,7 +4834,9 @@ def tg_context(
                     citations=citations,
                     **max_tokens_kwargs,
                 )
-            return _meta_unknown_action_error("tg_context", action, _TG_CONTEXT_ACTIONS)
+            else:
+                return _meta_unknown_action_error("tg_context", action, _TG_CONTEXT_ACTIONS)
+            return compact_mcp_json_result(result_json, action=action) if compact else result_json
         except Exception as exc:
             payload = _meta_envelope(tool="tg_context", action=action)
             payload["error"] = _sanitized_tool_error("tg_context", exc)
@@ -4779,8 +4857,9 @@ def tg_explore(
     config: str | None = "sgconfig.yml",
     with_lsp: bool = True,
     json_output: bool = True,
+    compact: bool = False,
 ) -> str:
-    """Repo orientation & diagnostics: orient (capsule), repo_map (inventory), doctor (system/GPU/LSP), devices (GPUs)."""
+    """Repo orientation & diagnostics: orient (capsule), repo_map (inventory), doctor (system/GPU/LSP), devices (GPUs). compact=True bounds JSON responses to <=4000 bytes (requires json_output=True)."""
     try:
         try:
             path = str(_confine_mcp_path(path, label="path"))
@@ -4789,21 +4868,33 @@ def tg_explore(
         except PathConfinementError as exc:
             return _meta_confinement_error("tg_explore", action, exc)
 
+        if compact and not json_output:
+            return _meta_invalid_input_error(
+                "tg_explore", action, "compact=True cannot be combined with json_output=False."
+            )
+
         try:
+            result_json: str | None = None
             if action == "orient":
-                return _self.tg_orient(
+                result_json = _self.tg_orient(
                     path=path,
                     max_tokens=max_tokens,
                     max_central_files=max_central_files,
                     ignore=ignore,
                 )
-            if action == "repo_map":
-                return _self.tg_repo_map(path=path, max_repo_files=max_repo_files)
-            if action == "doctor":
-                return _self.tg_doctor(path=path, config=config, with_lsp=with_lsp)
-            if action == "devices":
-                return _self.tg_devices(json_output=json_output)
-            return _meta_unknown_action_error("tg_explore", action, _TG_EXPLORE_ACTIONS)
+            elif action == "repo_map":
+                result_json = _self.tg_repo_map(path=path, max_repo_files=max_repo_files)
+            elif action == "doctor":
+                result_json = _self.tg_doctor(path=path, config=config, with_lsp=with_lsp)
+            elif action == "devices":
+                result_json = _self.tg_devices(json_output=json_output)
+            else:
+                return _meta_unknown_action_error("tg_explore", action, _TG_EXPLORE_ACTIONS)
+            if compact:
+                from tensor_grep.cli.mcp_compact import compact_mcp_json_result
+
+                return compact_mcp_json_result(result_json, action=action)
+            return result_json
         except Exception as exc:
             payload = _meta_envelope(tool="tg_explore", action=action)
             payload["error"] = _sanitized_tool_error("tg_explore", exc)

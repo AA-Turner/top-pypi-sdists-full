@@ -70,11 +70,10 @@ def sync_detailed(
 ) -> Response[Error | SettingsSummary]:
     """ The signed-in user's settings, read without side effects
 
-     The same data as `GET /api/v1/settings`, minus the webhook token and
-    secret, plus `webhookConfigured`. It never provisions webhook
-    credentials: for a user who has none yet it answers
-    `webhookConfigured: false` and creates nothing. Forge tokens are
-    never returned, only whether one is set. It returns exactly what
+     The same data as `GET /api/v1/settings`, plus `webhookConfigured`. It
+    never provisions webhook credentials: for a user who has none yet it
+    answers `webhookConfigured: false` and creates nothing. Forge tokens
+    are never returned, only whether one is set. It returns exactly what
     the `get_settings` MCP tool returns.
 
     Raises:
@@ -103,11 +102,10 @@ def sync(
 ) -> Error | SettingsSummary | None:
     """ The signed-in user's settings, read without side effects
 
-     The same data as `GET /api/v1/settings`, minus the webhook token and
-    secret, plus `webhookConfigured`. It never provisions webhook
-    credentials: for a user who has none yet it answers
-    `webhookConfigured: false` and creates nothing. Forge tokens are
-    never returned, only whether one is set. It returns exactly what
+     The same data as `GET /api/v1/settings`, plus `webhookConfigured`. It
+    never provisions webhook credentials: for a user who has none yet it
+    answers `webhookConfigured: false` and creates nothing. Forge tokens
+    are never returned, only whether one is set. It returns exactly what
     the `get_settings` MCP tool returns.
 
     Raises:
@@ -131,11 +129,10 @@ async def asyncio_detailed(
 ) -> Response[Error | SettingsSummary]:
     """ The signed-in user's settings, read without side effects
 
-     The same data as `GET /api/v1/settings`, minus the webhook token and
-    secret, plus `webhookConfigured`. It never provisions webhook
-    credentials: for a user who has none yet it answers
-    `webhookConfigured: false` and creates nothing. Forge tokens are
-    never returned, only whether one is set. It returns exactly what
+     The same data as `GET /api/v1/settings`, plus `webhookConfigured`. It
+    never provisions webhook credentials: for a user who has none yet it
+    answers `webhookConfigured: false` and creates nothing. Forge tokens
+    are never returned, only whether one is set. It returns exactly what
     the `get_settings` MCP tool returns.
 
     Raises:
@@ -164,11 +161,10 @@ async def asyncio(
 ) -> Error | SettingsSummary | None:
     """ The signed-in user's settings, read without side effects
 
-     The same data as `GET /api/v1/settings`, minus the webhook token and
-    secret, plus `webhookConfigured`. It never provisions webhook
-    credentials: for a user who has none yet it answers
-    `webhookConfigured: false` and creates nothing. Forge tokens are
-    never returned, only whether one is set. It returns exactly what
+     The same data as `GET /api/v1/settings`, plus `webhookConfigured`. It
+    never provisions webhook credentials: for a user who has none yet it
+    answers `webhookConfigured: false` and creates nothing. Forge tokens
+    are never returned, only whether one is set. It returns exactly what
     the `get_settings` MCP tool returns.
 
     Raises:

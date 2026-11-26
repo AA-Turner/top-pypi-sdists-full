@@ -14,6 +14,7 @@ Provides a configurable FastAPI application with:
 
 import asyncio
 import contextlib
+import dataclasses
 import json
 import logging
 import multiprocessing as mp
@@ -28,7 +29,7 @@ from typing import Any, AsyncGenerator
 
 from code_sandboxes import CodeSandboxClient
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -78,6 +79,7 @@ from .routes import (
     mcp_router,
     mcp_ui_router,
     notifications_router,
+    owner_router,
     protocols_router,
     sandbox_router,
     set_a2a_app,
@@ -157,6 +159,46 @@ def _is_reload_parent_process() -> bool:
     return "--reload" in sys.argv and mp.current_process().name == "MainProcess"
 
 
+def startup_left_out(
+    agent_spec: Any, skills: list[str], *, skills_overridden: bool = False
+) -> tuple[Any, list[str], str]:
+    """
+    What an agent started with the process leaves out, as a created one does.
+
+    The spec's optional servers and skills not set up here (``left_out_of``,
+    the one place that decides it for every path), its skills without those
+    left out unless the command line chose them, and the sentence its
+    instructions end with. Backend tools are not counted: this path registers
+    every one.
+
+    Parameters
+    ----------
+    agent_spec : Any
+        The agent's spec, from the catalogue.
+    skills : list[str]
+        The skills it starts with.
+    skills_overridden : bool
+        Whether the command line chose the skills (then they are kept).
+
+    Returns
+    -------
+    tuple[Any, list[str], str]
+        The ``LeftOut``, the skills kept, and the sentence ("" when nothing
+        is left out).
+    """
+    from .guardrails.declared_secrets import declared_secrets
+    from .routes.agents import left_out_of
+
+    left_out = dataclasses.replace(left_out_of(declared_secrets(agent_spec)), tools={})
+    if left_out.skills and not skills_overridden:
+        skills = [
+            skill
+            for skill in skills
+            if str(skill).split(":", 1)[0] not in left_out.skills
+        ]
+    return left_out, skills, (left_out.sentence() if left_out else "")
+
+
 async def _create_and_register_cli_agent(
     app: FastAPI,
     agent_id: str,
@@ -167,6 +209,7 @@ async def _create_and_register_cli_agent(
     api_prefix: str,
     protocol: str = "vercel-ai",
     sandbox_variant: str | None = None,
+    started_without: str = "",
 ) -> dict[str, Any]:
     """
     Create and register an agent from CLI options.
@@ -189,6 +232,9 @@ async def _create_and_register_cli_agent(
             'datalayer', 'google-colab', 'kaggle', 'monty', 'modal',
             'daytona', 'cloudflare', 'coreweave', 'e2b', 'agentcore' — runs it at that
             provider, under the credentials this process holds for it.
+        started_without: What the agent is told it starts without (its
+            spec's optional servers and skills not set up here), appended to
+            its instructions; empty when nothing is left out.
 
     Returns:
         A dictionary with startup information about the registered agent and
@@ -502,6 +548,8 @@ async def _create_and_register_cli_agent(
     # installed skills, their scripts, parameters, and usage.
     if skills_prompt_section:
         system_prompt = system_prompt + "\n\n" + skills_prompt_section
+    if started_without:
+        system_prompt = system_prompt + "\n\n" + started_without
 
     tool_ids = list(agent_spec.backend_tools or [])
     capabilities = build_capabilities_from_agent_spec(
@@ -1319,6 +1367,15 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
                 mcp_manager = get_mcp_manager()
                 lifecycle_manager = get_mcp_lifecycle_manager()
 
+                left_out, skills_list, started_without = startup_left_out(
+                    agent_spec, skills_list, skills_overridden=bool(skills_str)
+                )
+                if left_out:
+                    logger.info(
+                        "Default agent starts without %s (not set up)",
+                        sorted(left_out.servers) + sorted(left_out.skills),
+                    )
+
                 if no_catalog_mcp_servers:
                     # Skip all catalog MCP servers (both from agent spec and CLI --mcp-servers)
                     # But still store the agent spec servers so they can be started later via API
@@ -1356,11 +1413,18 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
                     logger.info(
                         "No CLI --mcp-servers specified: using agent spec servers"
                     )
-                    for mcp_server in agent_spec.mcp_servers:
+                    # What it declares optional and is not set up for here is
+                    # left out, as a created agent's is (agentspecs 0.0.188).
+                    spec_servers = [
+                        server
+                        for server in agent_spec.mcp_servers
+                        if server.id not in left_out.servers
+                    ]
+                    for mcp_server in spec_servers:
                         mcp_manager.add_server(mcp_server)
-                    all_mcp_servers = list(agent_spec.mcp_servers)
+                    all_mcp_servers = list(spec_servers)
                     logger.info(
-                        f"Loaded {len(agent_spec.mcp_servers)} MCP servers from agent spec"
+                        f"Loaded {len(spec_servers)} MCP servers from agent spec"
                     )
 
                 # Under Kagent, the RemoteMCPServer tools of the Agent's
@@ -1422,6 +1486,7 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
                     api_prefix=config.api_prefix,
                     protocol=protocol,
                     sandbox_variant=sandbox_variant,
+                    started_without=started_without,
                 )
                 # Store startup info on app.state so the /health/startup
                 # endpoint can expose it to CLI consumers (e.g. agent).
@@ -1659,8 +1724,16 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     # pod itself only on the application's own routes, websockets and the
     # dynamic AG-UI and A2A mounts included. Inside CORS, so that a page reads
     # the refusal's sentence.
-    from .apps.visitors import OwnRoutesOnly
+    from .apps.visitors import OwnersOnly, OwnRoutesOnly, access_mode, route_templates
 
+    # The lock, inside that gate: what the gate lets through and is neither
+    # public, an application's own nor self-proving answers the runtime's
+    # owner. In `log` mode a call that proves nothing is served and said in
+    # the log; in `enforce` mode it is refused. Read here, once: a runtime
+    # does not start on a mode it cannot read.
+    app.add_middleware(
+        OwnersOnly, mode=access_mode(), templates=lambda: route_templates(app)
+    )
     app.add_middleware(OwnRoutesOnly)
 
     # The agent host (`{name}.agent.<domain>`), once the runtime's agent answers
@@ -1680,7 +1753,10 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # Allow all origins
-        allow_credentials=True,
+        # No credentialed request: the runtime's clients send a bearer token (a
+        # ``token`` query on a websocket), never a cookie, and with credentials
+        # allowed a request carrying a cookie has its own origin echoed back.
+        allow_credentials=False,
         allow_methods=["*"],  # Allow all methods
         allow_headers=["*"],  # Allow all headers
         expose_headers=["*"],  # Expose all headers to the client
@@ -1725,6 +1801,8 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     app.include_router(spaces_router, prefix=config.api_prefix)
     # A skill publishes one owned artifact without receiving the owner's token.
     app.include_router(library_router, prefix=config.api_prefix)
+    # Who the runtime runs for, and its agent's events, asked by a skill.
+    app.include_router(owner_router, prefix=config.api_prefix)
     app.include_router(tool_approvals_router, prefix=config.api_prefix)
     app.include_router(tool_approvals_legacy_router)
     app.include_router(tool_approvals_ws_router)
@@ -1777,8 +1855,14 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         }
 
     @app.get(f"{config.api_prefix}/runtime/status")
-    async def runtime_status() -> dict[str, Any]:
-        """Runtime status endpoint for overlays and quick diagnostics."""
+    async def runtime_status(request: Request) -> dict[str, Any]:
+        """Runtime status endpoint for overlays and quick diagnostics.
+
+        The sandbox's own credentials are said only to a caller that proved
+        the runtime is theirs (`callers.sandbox_answer`).
+        """
+        from .apps.callers import sandbox_answer
+
         startup_info = dict(getattr(app.state, "startup_info", None) or {})
 
         sandbox_status: dict[str, Any]
@@ -1800,8 +1884,8 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
             "agent_sessions": True,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "api_prefix": config.api_prefix,
-            "startup": startup_info,
-            "sandbox": sandbox_status,
+            "startup": await sandbox_answer(request, startup_info),
+            "sandbox": await sandbox_answer(request, sandbox_status),
         }
 
     # Serve the built frontend assets (agent.html, JS/CSS bundles, etc.)

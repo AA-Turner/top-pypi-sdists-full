@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nonecap
-Version: 0.12.2
+Version: 0.12.3
 Summary: Official Python client for NoneCap, the hCaptcha solver API.
 Project-URL: Homepage, https://nonecap.com/
 Project-URL: Documentation, https://nonecap.com/api-reference

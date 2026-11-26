@@ -309,8 +309,6 @@ def run_yam(
     hud=False,
     hud_job=None,
     recorder=None,
-    episode_capture=None,
-    teleop_device=None,
     steady_send=None,
     connect=None,
     input_fn=input,
@@ -395,8 +393,6 @@ def run_yam(
             trace_images=trace_images,
             hud=hud_session,
             recorder=recorder,
-            episode_capture=episode_capture,
-            teleop_device=teleop_device,
         )
         return runner
 

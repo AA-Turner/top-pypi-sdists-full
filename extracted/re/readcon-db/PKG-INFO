@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: readcon-db
-Version: 0.2.3
+Version: 0.2.4
 Summary: Mmap CON corpus store (LMDB/Heed) with xxHash exact match
 Home-Page: https://lode-org.github.io/readcon-db/
 License: MIT
@@ -39,11 +39,16 @@ Docs: <https://lode-org.github.io/readcon-db/> · crate: <https://crates.io/crat
 
 ## Quick start (from source)
 
+Outside Windows a source build also needs CMake: readcon-core links
+zlib-ng, which `libz-ng-sys` builds with CMake.
+
 ```bash
 git clone https://github.com/lode-org/readcon-db
 cd readcon-db
 cargo test --locked
-cargo build --release   # libreadcon_db + CLI readcon-db
+cargo test --locked --features capi
+cargo build --release                    # CLI readcon-db; no C symbols
+cargo build --release --features capi   # libreadcon_db with the C ABI
 ```
 
 Optional LODE sibling checkout (edit core + db together): clone both under the same parent, then create **untracked** `.cargo/config.toml` in `readcon-db`:

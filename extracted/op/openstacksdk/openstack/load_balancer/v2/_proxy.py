@@ -1430,6 +1430,23 @@ class Proxy(proxy.Proxy):
         lb = self._get_resource(_amphora.Amphora, amphora)
         lb.failover(self)
 
+    def amphora_statistics(
+        self, amphora: str | _amphora.Amphora
+    ) -> Generator[_amphora.AmphoraStats, None, None]:
+        """Retrieve statistics for each listener on an amphora.
+
+        :param amphora: The ID of an amphora or an
+            :class:`~openstack.load_balancer.v2.amphora.Amphora` instance.
+
+        :returns: A generator of
+            :class:`~openstack.load_balancer.v2.amphora.AmphoraStats`
+            instances, one per listener.
+        """
+        amphora_id = resource.Resource._get_id(amphora)
+        return self._list(
+            _amphora.AmphoraStats, amphora_id=amphora_id, paginated=False
+        )
+
     # ====== Availability Zone Profiles ======
 
     def create_availability_zone_profile(
@@ -1698,7 +1715,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         status: str,
         failures: list[str] | None = None,
-        interval: int | float | None = 2,
+        interval: float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
         callback: Callable[[int], None] | None = None,
@@ -1735,7 +1752,7 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int | float | None = 2,
+        interval: float | None = 2,
         wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:

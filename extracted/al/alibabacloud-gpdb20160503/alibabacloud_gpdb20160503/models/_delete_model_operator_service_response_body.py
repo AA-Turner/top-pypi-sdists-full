@@ -10,9 +10,9 @@ class DeleteModelOperatorServiceResponseBody(DaraModel):
         request_id: str = None,
         service_id: str = None,
     ):
-        # The request ID, which is used to locate and troubleshoot the request.
+        # The request ID.
         self.request_id = request_id
-        # The ID of the model operator service for which the release is accepted. The return of this field does not indicate that the cleanup of underlying resources is complete.
+        # The ID of the model operator service accepted for release. The return of this field does not indicate that the cleanup of underlying resources is complete.
         self.service_id = service_id
 
     def validate(self):

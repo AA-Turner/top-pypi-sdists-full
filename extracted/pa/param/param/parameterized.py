@@ -10,6 +10,7 @@ __init__.py (providing specialized Parameter types).
 from __future__ import annotations
 
 import abc
+import contextvars
 import copy
 import datetime as dt
 import enum
@@ -22,11 +23,12 @@ import sys
 import types
 import typing as t
 import warnings
-from contextlib import contextmanager
+import weakref
+from contextlib import contextmanager, ExitStack
 from inspect import getfullargspec
 
 from collections import defaultdict, namedtuple, OrderedDict
-from functools import partial, wraps, reduce
+from functools import cached_property, partial, wraps, reduce
 from itertools import chain
 from operator import itemgetter, attrgetter
 from types import FunctionType, MethodType
@@ -113,6 +115,14 @@ def _dt_types():
     yield dt.date
     if np := sys.modules.get("numpy"):
         yield np.datetime64  # type: ignore[unresolved-attribute]
+
+@gen_types
+def _plain_value_types():
+    # Only reachable for objects whose module is already imported.
+    if pathlib := sys.modules.get("pathlib"):
+        yield pathlib.PurePath
+    if uuid := sys.modules.get("uuid"):
+        yield uuid.UUID
 
 @gen_types
 def _int_types():
@@ -218,6 +228,78 @@ def transform_reference(arg):
         arg = transform(arg)
     return arg
 
+def _register_weak_listener(store: set, callback: Callable[..., t.Any]) -> None:
+    ref_type = weakref.WeakMethod if inspect.ismethod(callback) else weakref.ref
+    store.add(ref_type(callback, store.discard))
+
+def _notify_weak_listeners(store: set | None, *args: t.Any) -> None:
+    if not store:
+        return
+    for ref in tuple(store):
+        callback = ref()
+        if callback is not None:
+            callback(*args)
+
+class _WeakInvalidator:
+    """
+    A weakly-bound invalidation callback for an ``rx`` pipeline node.
+
+    ``rx`` nodes register invalidation callbacks on their *source* parameters.
+    If those callbacks were strong bound-method references the source (which is
+    typically long-lived) would keep every derived node — and anything it
+    captured, such as large arrays — alive indefinitely. Wrapping the bound
+    method in a :class:`weakref.WeakMethod` lets the derived node be garbage
+    collected as soon as nothing else references it; once collected the call
+    becomes a no-op and the now-dead watcher is removed by a finalizer (see
+    ``rx._watch_invalidation``). Defined here rather than in ``reactive`` so
+    ``_call_watcher`` can recognize an unbatched invalidator without an import.
+    """
+
+    __slots__ = ('_ref', '_watcher', '_unbatched', '__weakref__')
+
+    _watcher: Watcher | None
+
+    def __init__(self, method, unbatched: bool = False):
+        self._ref = weakref.WeakMethod(method)
+        self._watcher = None
+        # Marking a node dirty is bookkeeping, not a notification; deferring it
+        # would let a read inside a batch, or a reference resolved while
+        # flushing one, see the value from before the write.
+        self._unbatched = unbatched
+
+    def __call__(self, *events):
+        method = self._ref()
+        if method is not None:
+            return method(*events)
+
+def _watch_ref_change(owner: 'Parameterized', name: str, callback: Callable[[], t.Any]) -> None:
+    """Notify ``callback`` when a reference is replaced without a value change."""
+    private = owner._param__private
+    if private.ref_change_watchers is None:
+        private.ref_change_watchers = {}
+    _register_weak_listener(private.ref_change_watchers.setdefault(name, set()), callback)
+
+def _notify_ref_change(owner, name):
+    watchers = owner._param__private.ref_change_watchers
+    _notify_weak_listeners(watchers.get(name) if watchers else None)
+
+def _watch_async_ref_settle_change(owner: 'Parameterized', name: str, callback: Callable[[], t.Any]) -> None:
+    """Notify ``callback`` when an async reference schedules or settles."""
+    private = owner._param__private
+    if private.async_ref_settle_watchers is None:
+        private.async_ref_settle_watchers = {}
+    _register_weak_listener(private.async_ref_settle_watchers.setdefault(name, set()), callback)
+
+def _notify_async_ref_settle_change(owner, name):
+    watchers = owner._param__private.async_ref_settle_watchers
+    _notify_weak_listeners(watchers.get(name) if watchers else None)
+
+def _notify_ref_changes(owner, name, ref_changed, settle_changed):
+    if ref_changed:
+        _notify_ref_change(owner, name)
+    if settle_changed:
+        _notify_async_ref_settle_change(owner, name)
+
 def eval_function_with_deps(function: Callable[..., t.Any]) -> t.Any:
     """
     Evaluate a function after resolving its dependencies.
@@ -261,14 +343,71 @@ def resolve_value(value: t.Any, recursive: bool = True) -> t.Any:
             resolve_value(value.step)
         )
     value = transform_reference(value)
-    is_gen = inspect.isgeneratorfunction(value)
-    if hasattr(value, '_dinfo') or iscoroutinefunction(value) or is_gen:
+    if hasattr(value, '_dinfo') or _is_async_fn(value):
+        is_gen = inspect.isgeneratorfunction(value)
         value = eval_function_with_deps(value)
         if is_gen:
             value = _to_async_gen(value)
     elif isinstance(value, Parameter) and value.name is not None:
         value = getattr(value.owner, value.name)
     return value
+
+# PyPy aliases some of these to the Python function and method types.
+_BUILTIN_CALLABLE_TYPES = frozenset({
+    types.BuiltinFunctionType, types.MethodWrapperType,
+    types.WrapperDescriptorType, types.MethodDescriptorType,
+}) - {types.FunctionType, types.MethodType}
+
+def _is_async_fn(value: t.Any) -> bool:
+    """Whether value is a coroutine or generator function."""
+    # The inspect checks are comparatively slow and every function, method
+    # or partial they could match is callable. Builtins (e.g. the operator
+    # functions rx applies) have neither code flags nor a __dict__ to carry
+    # a coroutine marker.
+    if not callable(value) or type(value) in _BUILTIN_CALLABLE_TYPES:
+        return False
+    return iscoroutinefunction(value) or inspect.isgeneratorfunction(value)
+
+def _is_bare_async_ref(value: t.Any) -> bool:
+    """
+    Whether value is a coroutine or generator function that has not been
+    declared a reference with ``bind`` or ``depends``.
+    """
+    return not hasattr(value, '_dinfo') and _is_async_fn(value)
+
+def _warn_bare_async_ref(value: t.Any, operand: bool = False) -> None:
+    """
+    Warn that rx will stop calling the bare coroutine or generator function
+    ``value``. ``operand`` marks an input to an rx operation, which is called
+    but whose result is never awaited or iterated.
+    """
+    if inspect.isasyncgenfunction(value):
+        kind = 'async generator'
+    elif inspect.isgeneratorfunction(value):
+        kind = 'generator'
+    else:
+        kind = 'coroutine'
+    func = value
+    while isinstance(func, partial):
+        func = func.func
+    name = getattr(func, '__name__', repr(func))
+    if operand:
+        result = 'coroutine' if kind == 'coroutine' else 'async generator'
+        message = (
+            f"Passing the {kind} function {name!r} as an input to a reactive "
+            f"operation is deprecated. It is currently called and the resulting "
+            f"{result} is passed on without being awaited or iterated; in a "
+            "future version the function itself will be passed on."
+        )
+    else:
+        bound = f"param.bind({name}, ...)" if func is not value else f"param.bind({name})"
+        message = (
+            f"Passing the {kind} function {name!r} to a reactive expression is "
+            "deprecated. In a future version rx will treat it like any other "
+            "function, i.e. keep it as a value instead of calling and resolving "
+            f"it. Wrap it with {bound} to keep resolving it."
+        )
+    warnings.warn(message, category=_ParamFutureWarning, stacklevel=_find_stack_level())
 
 def resolve_ref(reference: t.Any, recursive: bool = False) -> list[Parameter]:
     """Resolve all parameters a dynamic reference depends on."""
@@ -402,7 +541,7 @@ def _batch_call_watchers(parameterized, enable=True, run=True):
         yield
     finally:
         parameterized.param._BATCH_WATCH = BATCH_WATCH
-        if run and not BATCH_WATCH:
+        if run and not _is_batched(parameterized):
             parameterized.param._batch_call_watchers()
 
 
@@ -414,7 +553,9 @@ def batch_call_watchers(parameterized):
 
     This context manager queues any events triggered by setting a parameter value
     on the supplied :class:`Parameterized` object, saving them up to dispatch
-    them all at once when the context manager exits.
+    them all at once when the context manager exits. Only notifications are
+    deferred: an ``rx`` expression read inside the block already reflects the
+    writes made so far.
     """
     BATCH_WATCH = parameterized.param._BATCH_WATCH
     parameterized.param._BATCH_WATCH = True
@@ -422,8 +563,233 @@ def batch_call_watchers(parameterized):
         yield
     finally:
         parameterized.param._BATCH_WATCH = BATCH_WATCH
-        if not BATCH_WATCH:
+        if not _is_batched(parameterized):
             parameterized.param._batch_call_watchers()
+
+
+class _Batch:
+    """State for one `batch()` transaction: objects touched so far, in
+    touch order, and whether it has already been flushed (so a task
+    that outlives the block falls back to ordinary behavior instead of
+    queuing into a transaction that will never drain again).
+    """
+
+    __slots__ = ('touched', 'closed')
+
+    def __init__(self):
+        self.touched: dict[t.Any, None] = {}
+        self.closed = False
+
+
+# The transaction active in this context, or None. A ContextVar rather
+# than a module attribute so concurrent transactions on different
+# threads/tasks never share one; nested `batch()` calls reuse it.
+_param_batch: contextvars.ContextVar[_Batch | None] = contextvars.ContextVar(
+    'param_batch', default=None
+)
+
+
+def _is_batched(obj) -> bool:
+    """Whether ``obj`` should defer watcher notification right now, and
+    the only thing that should ask that: individually batched
+    (`batch_call_watchers`, `.param.update()`, the per-watcher `queued`
+    handling) or touched by an open `batch()` transaction, which ``obj``
+    is then registered into. Deliberately not the same as reading
+    `_BATCH_WATCH`, the raw flag a save/restore site needs back
+    unchanged; checking the transaction first also matters, since an
+    object already individually batched must still be registered.
+    """
+    current = _param_batch.get()
+    if current is not None and not current.closed:
+        current.touched[obj] = None
+        return True
+    return bool(obj._param__private.parameters_state['BATCH_WATCH'])
+
+
+def _watcher_group_key(watcher: Watcher):
+    """Return a watcher's identity for coalescing across owners:
+    everything but `inst`/`cls`/`parameter_names`, which are expected
+    to differ per owner for what is otherwise one shared registration.
+    """
+    try:
+        hash(watcher.fn)
+    except TypeError:
+        fn_key = id(watcher.fn)
+    else:
+        fn_key = watcher.fn
+    return (fn_key, watcher.mode, watcher.onlychanged, watcher.what,
+            watcher.queued, watcher.precedence)
+
+
+class _WatcherGroup:
+    """One coalesced group inside `_flush_batch`: a watcher, the owners
+    merged into it, their combined events, and (outside 'args' mode)
+    the names contributed so far, to catch a keyword collision.
+    """
+
+    __slots__ = ('watcher', 'owners', 'events', 'names')
+
+    def __init__(self, watcher: Watcher):
+        self.watcher = watcher
+        self.owners: dict[t.Any, None] = {}
+        self.events: list[Event] = []
+        self.names: set[t.Any] = set()
+
+
+def _flush_batch(objects):
+    """Execute every watcher queued on ``objects``, coalescing the same
+    callback registered on more than one of them into a single call.
+    Every object's events are gathered before any watcher runs, so one
+    raising does not stop the rest; the first exception is re-raised
+    once every group has been attempted.
+    """
+    groups: dict[t.Any, _WatcherGroup] = {}
+    for obj in objects:
+        self_ = obj.param
+        if not self_._events:
+            continue
+        event_dict = {(event.name, event.what): event for event in self_._events}
+        watchers, self_._events, self_._state_watchers = self_._state_watchers[:], [], []
+        for watcher in watchers:
+            events = [
+                self_._update_event_type(watcher, event_dict[(name, watcher.what)], self_._TRIGGER)
+                for name in watcher.parameter_names
+                if (name, watcher.what) in event_dict
+            ]
+            if not events:
+                continue
+            key = _watcher_group_key(watcher)
+            group = groups.get(key)
+            if group is not None and watcher.mode != 'args':
+                # A same-named kwarg would silently overwrite another
+                # owner's; keep this owner's call separate instead.
+                if group.names & {event.name for event in events}:
+                    key = (key, id(obj))
+                    group = groups.get(key)
+            if group is None:
+                group = groups[key] = _WatcherGroup(watcher)
+            group.owners[obj] = None
+            group.events.extend(events)
+            if watcher.mode != 'args':
+                group.names.update(event.name for event in events)
+
+    # Lower precedence runs first; grouping already keys on precedence,
+    # so every watcher in a group shares one.
+    errors = []
+    for group in sorted(groups.values(), key=lambda g: g.watcher.precedence):
+        owners = list(group.owners)
+        try:
+            with ExitStack() as stack:
+                for owner in owners:
+                    stack.enter_context(_batch_call_watchers(owner, enable=group.watcher.queued, run=False))
+                owners[0].param._execute_watcher(group.watcher, group.events)
+        except Exception as e:
+            errors.append(e)
+    if errors:
+        # Clear the list on the way out: the raised exception's traceback
+        # holds this frame, so a list still referencing it would form a
+        # cycle keeping the frame and the event values alive until the
+        # cyclic garbage collector runs.
+        try:
+            raise errors[0]
+        finally:
+            errors.clear()
+
+
+@contextmanager
+def batch() -> Generator[None, None, None]:
+    """
+    Context manager that defers watcher notification for every
+    :class:`Parameterized` object touched inside it, discovered as it is
+    touched rather than named up front, and coalesces the same watcher
+    registered on more than one of them into a single call.
+
+    Where ``batch_call_watchers`` batches one object the caller already
+    knows about, ``batch`` covers a transaction spanning several objects,
+    or one whose full set is only known once it runs (a sheet of
+    overrides, a dynamic graph rebuild). Every watcher fires once, after
+    everything inside the block has landed, including a cascading set
+    made by another watcher while flushing, rather than once per object
+    and possibly on a mix of old and new values. The same callback
+    registered with the same settings on more than one touched object,
+    as ``bind(fn, *refs, watch=True)`` does across every distinct owner
+    among ``refs``, is called once rather than once per owner; one
+    registered with different settings (a different ``precedence`` or
+    ``onlychanged``, say) is left uncoalesced rather than guessing which
+    should win. Nesting is safe: only the outermost block flushes, and
+    it composes with ``batch_call_watchers``/``.param.update()``/
+    ``discard_events`` used inside it. Only notifications are deferred:
+    an ``rx`` expression read inside the block already reflects the
+    writes made so far. If more than one watcher raises
+    while flushing, the rest still run and the first exception is
+    re-raised once the block has finished; if the block itself already
+    raised, a later error while flushing is a warning instead.
+
+    Outside ``batch``, a watcher that sets another parameter notifies its
+    watchers inline, so every step of a chain of watchers or references
+    adds to the call stack and a chain of a few hundred objects raises
+    ``RecursionError``. While flushing, such sets are queued and drained
+    in a loop instead, so wrap the change at the root of a deep dataflow
+    graph in ``batch`` to update chains of any length.
+
+    Examples
+    --------
+    >>> import param
+    >>> class A(param.Parameterized):
+    ...     x = param.Number(default=1)
+    >>> class B(param.Parameterized):
+    ...     y = param.Number(default=10)
+    >>> a, b = A(), B()
+    >>> calls = []
+    >>> _ = param.bind(lambda x, y: calls.append(x + y), a.param.x, b.param.y, watch=True)
+    >>> with param.batch():
+    ...     a.x = 2
+    ...     b.y = 20
+    >>> calls  # one call, seeing x=2, y=20; without `batch()` this would be [12, 22]
+    [22]
+    """
+    outer = _param_batch.get()
+    outermost = outer is None
+    current: _Batch = outer if outer is not None else _Batch()
+    token = _param_batch.set(current)
+    error = None
+    flush_error = None
+    try:
+        yield
+    except BaseException as exc:
+        error = exc
+        raise
+    finally:
+        if outermost:
+            # Stays open for the whole drain, not just the block, so a
+            # watcher's own side effects are also captured by
+            # `_is_batched` rather than firing live; keep draining until
+            # a pass adds nothing new.
+            while current.touched:
+                touched = list(current.touched)
+                current.touched.clear()
+                try:
+                    _flush_batch(touched)
+                except Exception as exc:
+                    if flush_error is None:
+                        flush_error = exc
+            current.closed = True
+        _param_batch.reset(token)
+        try:
+            if outermost and flush_error is not None:
+                if error is None:
+                    raise flush_error
+                # The block already raised; a second error here would only
+                # replace it, so report it instead of raising over the top.
+                warnings.warn(
+                    f"batch() failed to notify some watchers while unwinding "
+                    f"from {error!r}: {flush_error!r}",
+                    RuntimeWarning, stacklevel=2,
+                )
+        finally:
+            # The propagating exception's traceback holds this frame;
+            # drop the references to it (see _flush_batch).
+            error = flush_error = None
 
 
 @contextmanager
@@ -501,7 +867,9 @@ def discard_events(parameterized: 'Parameterized') -> Generator[None, None, None
     on the supplied :class:`Parameterized` object during its scope are discarded.
     This allows for silent changes to dependent parameters, making it useful
     for initialization or setup phases where changes should not propagate
-    to watchers or dependencies.
+    to watchers or dependencies. Only notifications are discarded: an ``rx``
+    expression depending on a changed parameter still reflects the new value
+    the next time it is read.
 
     Be cautious when using this context manager, as it bypasses the normal
     dependency mechanism. Manual changes made within this context may
@@ -1083,6 +1451,8 @@ _add_doc(Event,
 
 _Watcher = namedtuple("_Watcher", "inst cls fn mode onlychanged parameter_names what queued precedence")
 
+_watcher_precedence = attrgetter('precedence')
+
 class Watcher(_Watcher):
     """
     Object declaring a callback function to invoke when an Event is
@@ -1115,6 +1485,9 @@ class Watcher(_Watcher):
     `precedence` : A numeric value which determines the precedence of
     the watcher.  Lower precedence values are executed
     with higher priority.
+
+    Call `.remove()` on the returned `Watcher` to stop it from being
+    triggered.
     """
 
     def __new__(cls_, *args, **kwargs):
@@ -1146,6 +1519,29 @@ class Watcher(_Watcher):
         attrs = ', '.join([f'{f}={getattr(self, f)!r}' for f in cls._fields])
         return f"{cls.__name__}({attrs})"
 
+    def remove(self) -> None:
+        """
+        Remove this watcher, stopping it from being triggered by
+        subsequent events on the parameters it is watching.
+
+        Examples
+        --------
+        >>> import param
+        >>> class MyClass(param.Parameterized):
+        ...     a = param.Number(default=1)
+        ...
+        ...     def callback(self, event):
+        ...         print(f"Triggered by {event.name}")
+        ...
+        >>> instance = MyClass()
+        >>> watcher = instance.param.watch(instance.callback, 'a')
+        >>> watcher.remove()
+        """
+        (self.cls if self.inst is None else self.inst).param.unwatch(self)
+
+    @cached_property
+    def _is_coroutine(self) -> bool:
+        return iscoroutinefunction(self.fn)
 
 
 class ParameterMetaclass(type):
@@ -1866,9 +2262,8 @@ class Parameter(_ParameterBase, t.Generic[_T]):
                 "An event cannot be triggered for an unbound parameter."
             )
         event = Event(what=attribute, name=self.name, obj=None, cls=self.owner, old=old, new=new, type=None)
-        for watcher in self.watchers[attribute]:
-            self.owner.param._call_watcher(watcher, event)
-        if not self.owner.param._BATCH_WATCH:
+        self.owner.param._dispatch_event(self.watchers[attribute], event)
+        if not _is_batched(self.owner):
             self.owner.param._batch_call_watchers()
 
     def _invalidate_init_cache(self):
@@ -1929,19 +2324,20 @@ class Parameter(_ParameterBase, t.Generic[_T]):
         instance's value, if one has been set - otherwise produce the
         class's value (default).
         """
-        if self.name is None:
+        # Slot reads go through Parameter.__getattribute__, so `name` is
+        # bound to a local rather than read twice.
+        name = self.name
+        if name is None:
             raise ValueError("Parameter name is not set")
 
         if obj is None: # e.g. when __get__ called for a Parameterized class
-            result = self.default
-        else:
-            # Attribute error when .values does not exist (_ClassPrivate)
-            # and KeyError when there's no cached value for this parameter.
-            try:
-                result = obj._param__private.values[self.name]
-            except (AttributeError, KeyError):
-                result = self.default
-        return result
+            return self.default
+        # Attribute error when .values does not exist (_ClassPrivate)
+        # and KeyError when there's no cached value for this parameter.
+        try:
+            return obj._param__private.values[name]
+        except (AttributeError, KeyError):
+            return self.default
 
     @instance_descriptor
     def __set__(self, obj: Parameterized | None, val: _T):
@@ -1970,94 +2366,120 @@ class Parameter(_ParameterBase, t.Generic[_T]):
         object stored in a constant or read-only Parameter (e.g. one
         item in a list).
         """
-        if self.name is None:
+        # Slot reads go through Parameter.__getattribute__, so `name` is bound
+        # to a local and reused below rather than re-read from the slot.
+        name = self.name
+        if name is None:
             raise RuntimeError(
                 "A parameter value cannot be set for an unbound parameter."
             )
-        name = self.name
+        ref_changed = settle_changed = False
 
         if obj is not None and self.allow_refs and obj._param__private.initialized:
             syncing = name in obj._param__private.syncing
-            ref, deps, val, is_async = obj.param._resolve_ref(self, val)
+            ref, deps, val, is_async, scheduled = obj.param._resolve_ref(self, val)
             refs = obj._param__private.refs
             if ref is not None:
                 obj.param._update_ref(name, ref)
+                ref_changed = True
+                settle_changed = True
             elif name in refs and not syncing and not obj._param__private.parameters_state['TRIGGER']:
-                del refs[name]
-                if name in obj._param__private.async_refs:
-                    obj._param__private.async_refs.pop(name).cancel()
+                obj.param._remove_ref(name)
+                ref_changed = True
+                settle_changed = True
+            settle_changed |= scheduled
             if is_async or val is Undefined:
+                _notify_ref_changes(obj, name, ref_changed, settle_changed)
                 return
 
-        self._validate(val)
+        try:
+            self._validate(val)
 
-        _old = NotImplemented
-        # obj can be None if __set__ is called for a Parameterized class
-        if self.constant or self.readonly:
-            if self.readonly:
-                raise TypeError("Read-only parameter '%s' cannot be modified" % name)
-            elif obj is None:
-                _old = self.default
-                self.default = val
-            elif not obj._param__private.initialized:
-                _old = obj._param__private.values.get(self.name, self.default)
-                obj._param__private.values[self.name] = val
+            _old = NotImplemented
+            # obj can be None if __set__ is called for a Parameterized class
+            readonly = self.readonly
+            if self.constant or readonly:
+                if readonly:
+                    raise TypeError("Read-only parameter '%s' cannot be modified" % name)
+                elif obj is None:
+                    _old = self.default
+                    self.default = val
+                elif not obj._param__private.initialized:
+                    _old = obj._param__private.values.get(name, self.default)
+                    obj._param__private.values[name] = val
+                else:
+                    _old = obj._param__private.values.get(name, self.default)
+                    if val is not _old:
+                        raise TypeError("Constant parameter '%s' cannot be modified" % name)
             else:
-                _old = obj._param__private.values.get(self.name, self.default)
-                if val is not _old:
-                    raise TypeError("Constant parameter '%s' cannot be modified" % name)
-        else:
+                if obj is None:
+                    _old = self.default
+                    self.default = val
+                else:
+                    private = obj._param__private
+                    # When setting a Parameter before calling super.
+                    if not isinstance(private, _InstancePrivate):
+                        warnings.warn(
+                            f"Setting the Parameter {name!r} to {val!r} before "
+                            f"the Parameterized class {type(obj).__name__!r} is fully "
+                            "instantiated is deprecated and will raise an error in "
+                            "a future version. Ensure the value is set after calling "
+                            "`super().__init__(**params)` in the constructor.",
+                            category=_ParamPendingDeprecationWarning,
+                            stacklevel=_find_stack_level(),
+                        )
+                        private = _InstancePrivate(
+                            explicit_no_refs=type(obj)._param__private.explicit_no_refs
+                        )
+                        obj.__dict__['_param__private'] = private  # pyright: ignore[reportIndexIssue]
+                    values = private.values
+                    # Only fall back to reading the `default` slot when there is no
+                    # value stored yet, since that read is not free.
+                    try:
+                        _old = values[name]
+                    except KeyError:
+                        _old = self.default
+                    values[name] = val
+            self._post_setter(obj, val)
+
             if obj is None:
-                _old = self.default
-                self.default = val
-            else:
-                # When setting a Parameter before calling super.
-                if not isinstance(obj._param__private, _InstancePrivate):
-                    warnings.warn(
-                        f"Setting the Parameter {self.name!r} to {val!r} before "
-                        f"the Parameterized class {type(obj).__name__!r} is fully "
-                        "instantiated is deprecated and will raise an error in "
-                        "a future version. Ensure the value is set after calling "
-                        "`super().__init__(**params)` in the constructor.",
-                        category=_ParamPendingDeprecationWarning,
-                        stacklevel=_find_stack_level(),
-                    )
-                    obj.__dict__['_param__private'] = _InstancePrivate(  # pyright: ignore[reportIndexIssue]
-                        explicit_no_refs=type(obj)._param__private.explicit_no_refs
-                    )
-                _old = obj._param__private.values.get(name, self.default)
-                obj._param__private.values[name] = val
-        self._post_setter(obj, val)
-
-        if obj is None:
-            self._invalidate_init_cache()
-
-        if obj is not None:
-            if not hasattr(obj, '_param__private') or not getattr(obj._param__private, 'initialized', False):
-                return
-            obj.param._update_deps(name)
-
-        if obj is None:
-            watchers = self.watchers.get("value")
-        elif name in obj._param__private.watchers:
-            watchers = obj._param__private.watchers[name].get('value')
-            if watchers is None:
+                self._invalidate_init_cache()
                 watchers = self.watchers.get("value")
-        else:
-            watchers = None
+                obj_param = None
+            else:
+                instance_private = getattr(obj, '_param__private', None)
+                if instance_private is None or not getattr(instance_private, 'initialized', False):
+                    return
+                obj_param = obj.param
+                obj_param._update_deps(name)
 
-        obj = self.owner if obj is None and self.owner is not None else obj
+                instance_watchers = instance_private.watchers
+                if name in instance_watchers:
+                    watchers = instance_watchers[name].get('value')
+                    if watchers is None:
+                        watchers = self.watchers.get("value")
+                else:
+                    watchers = None
 
-        if obj is None or not watchers:
-            return
+            if not watchers:
+                return
+            owner = self.owner
+            if obj is None:
+                if owner is None:
+                    return
+                obj = owner
 
-        event = Event(what='value', name=name, obj=obj, cls=self.owner, old=_old, new=val, type=None)
+            event = Event('value', name, obj, owner, _old, val, None)
 
-        # Copy watchers here since they may be modified inplace during iteration
-        for watcher in sorted(watchers, key=lambda w: w.precedence):
-            obj.param._call_watcher(watcher, event)
-        if not obj.param._BATCH_WATCH:
-            obj.param._batch_call_watchers()
+            # Copy watchers here since they may be modified inplace during iteration
+            if obj_param is None:
+                obj_param = obj.param
+            obj_param._dispatch_event(sorted(watchers, key=_watcher_precedence), event)
+            if not _is_batched(obj):
+                obj_param._batch_call_watchers()
+        finally:
+            if obj is not None:
+                _notify_ref_changes(obj, name, ref_changed, settle_changed)
 
     def _validate_value(self, value, allow_None):
         """Validate the parameter value against constraints.
@@ -2319,6 +2741,16 @@ def as_uninitialized(fn):
     return override_initialization
 
 
+_BUILTIN_VALUE_TYPES = frozenset({
+    int, float, complex, bool, str, bytes, type(None), list, tuple, set, dict,
+})
+
+
+def _eq_or_both_missing(obj1, obj2) -> bool:
+    """Equal, or both missing values such as NaN or NaT, which never equal themselves."""
+    return bool(obj1 == obj2) or (obj1 != obj1 and obj2 != obj2)
+
+
 class Comparator:
     """
     Comparator defines methods for determining whether two objects
@@ -2334,26 +2766,75 @@ class Comparator:
     applies. This is useful for defining comparisons for objects
     without explicitly importing them.
 
-    To use the Comparator simply call the is_equal function.
+    To use the Comparator simply call the is_equal function, and register
+    a comparison for further types with :meth:`register`.
+
+    Missing values that never equal themselves, such as ``float('nan')``
+    and ``pd.NaT``, compare equal to each other.
     """
 
     equalities: dict[type | tuple[type, ...] | Callable[[t.Any], bool], Callable[[t.Any, t.Any], bool]] = {
-        numbers.Number: operator.eq,
+        numbers.Number: _eq_or_both_missing,
         str: operator.eq,
         bytes: operator.eq,
         type(None): operator.eq,
+        dt.timedelta: operator.eq,
         lambda o: hasattr(o, '_infinitely_iterable'): operator.eq,  # Time
     }
     gen_equalities = {
-        _dt_types: operator.eq
+        _dt_types: _eq_or_both_missing,
+        _plain_value_types: operator.eq,
     }
 
     @classmethod
+    def register(cls, key, eq=operator.eq):
+        """
+        Register how to compare two objects matched by ``key``.
+
+        Parameters
+        ----------
+        key : type, tuple of types or callable
+            Both objects must be instances of the type(s), or the callable
+            must return True for each of them.
+        eq : callable, optional
+            Called with both objects and returns whether they are equal.
+            Defaults to ``operator.eq``.
+
+        Returns
+        -------
+        callable
+            The registered ``eq``.
+
+        Notes
+        -----
+        A registered comparison takes precedence over the defaults and
+        over earlier registrations, and registering the same ``key``
+        again replaces its comparison.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from param.parameterized import Comparator
+        >>> Comparator.register(np.ndarray, lambda a, b: np.array_equal(a, b, equal_nan=True))
+        """
+        cls.equalities = {key: eq, **{k: v for k, v in cls.equalities.items() if k != key}}
+        return eq
+
+    @classmethod
     def is_equal(cls, obj1, obj2):
-        equals = cls.equalities.copy()
-        for gen, op in cls.gen_equalities.items():
-            for v in gen():
-                equals[v] = op
+        gen_equalities = cls.gen_equalities
+        if (
+            type(obj1) in _BUILTIN_VALUE_TYPES and type(obj2) in _BUILTIN_VALUE_TYPES
+            and gen_equalities.keys() <= _DEFAULT_GEN_EQUALITIES
+        ):
+            # The default generated equalities cover types that can match
+            # neither object, so skip expanding them.
+            equals = cls.equalities
+        else:
+            equals = cls.equalities.copy()
+            for gen, op in gen_equalities.items():
+                for v in gen():
+                    equals.setdefault(v, op)
 
         for eq_type, eq in equals.items():
             if isinstance(eq_type, type) or (isinstance(eq_type, tuple) and all(isinstance(t, type) for t in eq_type)):
@@ -2391,6 +2872,9 @@ class Comparator:
             else:
                 return False
         return True
+
+
+_DEFAULT_GEN_EQUALITIES = frozenset(Comparator.gen_equalities)
 
 
 class _ParametersRestorer:
@@ -2632,7 +3116,7 @@ class Parameters:
         params_to_ref = private.params_to_ref or []
 
         if not params and not params_to_deepcopy and not params_to_ref:
-            return {}, {}
+            return {}, {}, set()
 
         for p in params_to_deepcopy:
             self_._instantiate_param(p)
@@ -2640,17 +3124,18 @@ class Parameters:
             self_._instantiate_param(p, deepcopy=False)
 
         ## keyword arg setting
-        deps, refs = {}, {}
+        deps, refs, scheduled = {}, {}, set()
         for name, val in params.items():
-            desc = self_.cls.get_param_descriptor(name)[0]
-            if not desc:
-                raise TypeError(
-                    f"{self.__class__.__name__}.__init__() got an unexpected "
-                    f"keyword argument {name!r}"
-                )
-
             pobj = objects.get(name)
             if pobj is None:
+                # Only walk the class hierarchy when the cached class
+                # parameters do not already contain the name.
+                desc = self_.cls.get_param_descriptor(name)[0]
+                if not desc:
+                    raise TypeError(
+                        f"{self.__class__.__name__}.__init__() got an unexpected "
+                        f"keyword argument {name!r}"
+                    )
                 setattr(self, name, val)
                 continue
             elif not pobj.allow_refs:
@@ -2658,10 +3143,10 @@ class Parameters:
                 # speculatively evaluate values to check whether they
                 # contain a reference and warn the user that the
                 # behavior may change in future.
-                if name not in self_.cls._param__private.explicit_no_refs:
+                if name not in self_.cls._param__private.explicit_no_refs and not _is_bare_async_ref(val):
                     resolved = val
                     try:
-                        ref, _, resolved, _ = self_._resolve_ref(pobj, val)
+                        ref, _, resolved, _, _ = self_._resolve_ref(pobj, val)
                     except Exception:
                         ref = None
                     if ref:
@@ -2680,13 +3165,15 @@ class Parameters:
                 continue
 
             # Resolve references
-            ref, ref_deps, resolved, is_async = self_._resolve_ref(pobj, val)
+            ref, ref_deps, resolved, is_async, scheduled_ref = self_._resolve_ref(pobj, val)
             if ref is not None:
                 refs[name] = ref
                 deps[name] = ref_deps
+                if scheduled_ref:
+                    scheduled.add(name)
             if not is_async and not (resolved is Undefined or resolved is Skip):
                 setattr(self, name, resolved)
-        return refs, deps
+        return refs, deps, scheduled
 
     def _setup_refs(self_, refs: Mapping[str, Iterable[t.Any]]):
         if self_.self is None:
@@ -2711,29 +3198,39 @@ class Parameters:
     def _update_ref(self_, name: str, ref: t.Any):
         if self_.self is None:
             return
-        param_private = self_.self._param__private
+        refs = dict(self_.self._param__private.refs, **{name: ref})
+        self_._rewatch_refs(name, refs)
+
+    def _remove_ref(self_, name: str):
+        if self_.self is None:
+            return
+        refs = dict(self_.self._param__private.refs)
+        refs.pop(name, None)
+        self_._rewatch_refs(name, refs)
+
+    def _rewatch_refs(self_, name: str, refs: dict[str, t.Any]):
+        # must be called from `_update_ref` or `_remove_ref`
+        param_private = t.cast("Parameterized", self_.self)._param__private
         if name in param_private.async_refs:
             param_private.async_refs.pop(name).cancel()
         for _, watcher in param_private.ref_watchers:
-            dep_obj = watcher.cls if watcher.inst is None else watcher.inst
-            dep_obj.param.unwatch(watcher)
-        self_.self._param__private.ref_watchers = []
-        refs = dict(self_.self._param__private.refs, **{name: ref})
-        deps = {name: resolve_ref(ref, self_[name].nested_refs) for name, ref in refs.items()}
+            watcher.remove()
+        param_private.ref_watchers = []
+        deps = {pname: resolve_ref(ref, self_[pname].nested_refs) for pname, ref in refs.items()}
         self_._setup_refs(deps)
-        self_.self._param__private.refs = refs
+        param_private.refs = refs
 
     def _sync_refs(self_, *events):
         if self_.self is None:
             return
+        scheduled = []
         updates = {}
         for pname, ref in self_.self._param__private.refs.items():
             # Skip updating value if dependency has not changed
             recursive = self_[pname].nested_refs
             deps = resolve_ref(ref, recursive)
-            is_gen = inspect.isgeneratorfunction(ref)
-            is_async = iscoroutinefunction(ref) or is_gen
-            if not any((dep.owner is e.obj and dep.name == e.name) for dep in deps for e in events) and not is_async:
+            is_async = _is_async_fn(ref)
+            if not any((dep.owner is e.obj and dep.name == e.name) for dep in deps for e in events):
                 continue
 
             try:
@@ -2747,20 +3244,24 @@ class Parameters:
                 async_executor(partial(
                     self_._async_ref, pname, t.cast("t.Awaitable[t.Any]", new_val), generation
                 ))
+                scheduled.append(pname)
                 continue
 
             updates[pname] = new_val
 
-        with edit_constant(self_.self):
-            with _syncing(self_.self, updates):
-                self_.update(updates)
+        try:
+            with edit_constant(self_.self):
+                with _syncing(self_.self, updates):
+                    self_.update(updates)
+        finally:
+            for pname in scheduled:
+                _notify_async_ref_settle_change(self_.self, pname)
 
     def _resolve_ref(self_, pobj: Parameter, value: t.Any):
-        is_gen = inspect.isgeneratorfunction(value)
-        is_async = iscoroutinefunction(value) or is_gen
+        is_async = _is_async_fn(value)
         deps = resolve_ref(value, recursive=pobj.nested_refs)
-        if not (deps or is_async or is_gen):
-            return None, None, value, False
+        if not (deps or is_async):
+            return None, None, value, False, False
         ref = value
         try:
             value = resolve_value(value, recursive=pobj.nested_refs)
@@ -2772,7 +3273,7 @@ class Parameters:
                 self_._async_ref, pobj.name, t.cast("t.Awaitable[t.Any]", value), generation
             ))
             value = None
-        return ref, deps, value, is_async
+        return ref, deps, value, is_async, bool(is_async and pobj.name)
 
     def _schedule_async_ref(self_, pname: str) -> int:
         """
@@ -2782,6 +3283,10 @@ class Parameters:
         The generation is bumped synchronously, before the task is handed to
         the executor, so that the reference reads as unsettled from the moment
         it is superseded rather than only once the task starts running.
+
+        Does not notify here: a raising listener must not be able to abort
+        the schedule before the task exists to ever settle it. The caller
+        notifies once the task has been handed to ``async_executor``.
         """
         if self_.self is None:
             return 0
@@ -2804,13 +3309,15 @@ class Parameters:
             return
         settled = self_.self._param__private.async_ref_settled
         settled[pname] = max(settled[pname], generation)
+        _notify_async_ref_settle_change(self_.self, pname)
 
     def _awaiting_ref(self_, pname: str) -> bool:
         """Whether an asynchronous reference has not yet produced a value."""
         if self_.self is None:
             return False
         private = self_.self._param__private
-        return private.async_ref_scheduled[pname] != private.async_ref_settled[pname]
+        ref = private.refs.get(pname)
+        return _is_async_fn(ref) and private.async_ref_scheduled[pname] != private.async_ref_settled[pname]
 
     async def _async_ref(self_, pname: str, awaitable: t.Awaitable[t.Any], generation: int = 0):
         if self_.self is None:
@@ -2827,25 +3334,33 @@ class Parameters:
                 running_task.cancel()
             self_.self._param__private.async_refs[pname] = current_task
         try:
+            # Settle in the same batch as the value is written, so readers
+            # are notified once the reference counts as settled rather than
+            # skipping the update that delivers its value.
             if isinstance(awaitable, types.AsyncGeneratorType):
                 async for new_obj in awaitable:
-                    with _syncing(self_.self, (pname,)):
-                        self_.update({pname: new_obj})
-                    self_._settle_async_ref(pname, generation)
+                    with batch():
+                        with _syncing(self_.self, (pname,)):
+                            self_.update({pname: new_obj})
+                        self_._settle_async_ref(pname, generation)
             else:
-                with _syncing(self_.self, (pname,)):
-                    try:
-                        self_.update({pname: await awaitable})
-                    except Skip:
-                        pass
-                self_._settle_async_ref(pname, generation)
+                # Await outside _syncing so a cancelled run cannot restore a stale syncing set.
+                try:
+                    value = await awaitable
+                except Skip:
+                    self_._settle_async_ref(pname, generation)
+                else:
+                    with batch():
+                        with _syncing(self_.self, (pname,)):
+                            self_.update({pname: value})
+                        self_._settle_async_ref(pname, generation)
         finally:
-            self_._settle_async_ref(pname, generation)
-            # Ensure we clean up but only if the task matches the current task,
-            # i.e. only the resolution that still owns the reference clears it.
-            async_refs = self_.self._param__private.async_refs
-            if pname in async_refs and async_refs[pname] is current_task:
-                del async_refs[pname]
+            try:
+                self_._settle_async_ref(pname, generation)
+            finally:
+                async_refs = self_.self._param__private.async_refs
+                if pname in async_refs and async_refs[pname] is current_task:
+                    del async_refs[pname]
 
     @classmethod
     def _changed(cls, event):
@@ -2904,6 +3419,8 @@ class Parameters:
         class_param = self_.cls.param
         init_methods = []
         for method, queued, on_init, constant, dynamic in class_param._depends['watch']:
+            if not (init or dynamic):
+                continue
             # On initialization set up constant watchers; otherwise
             # clean up previous dynamic watchers for the updated attribute
             dynamic = [d for d in dynamic if attribute is None or d.spec.split(".")[0] == attribute]
@@ -2918,7 +3435,7 @@ class Parameters:
                     init_methods.append(m)
             elif dynamic:
                 for w in obj._param__private.dynamic_watchers.pop(method, []):
-                    (w.cls if w.inst is None else w.inst).param.unwatch(w)
+                    w.remove()
             else:
                 continue
 
@@ -3187,8 +3704,13 @@ class Parameters:
         for tp in trigger_params:
             self_[tp]._mode = 'set'
 
-        values = self_.values()
-        restore = {k: values[k] for k, v in base.items() if k in values}
+        # Only the values being replaced are needed, so avoid computing
+        # values() for every parameter.
+        param_objs = self_.objects('existing')
+        restore = {
+            k: self_.get_value_generator(k, param_objs)
+            for k in base if k in param_objs
+        }
 
         for (k, v) in base.items():
             if k not in self_:
@@ -3201,7 +3723,7 @@ class Parameters:
                 raise
 
         self_._BATCH_WATCH = BATCH_WATCH
-        if not BATCH_WATCH:
+        if not _is_batched(self_or_cls):
             self_._batch_call_watchers()
 
         for tp in trigger_params:
@@ -3396,7 +3918,7 @@ class Parameters:
             event_type = 'triggered'
         else:
             event_type = 'changed' if watcher.onlychanged else 'set'
-        return event._replace(type=event_type)
+        return type(event)._make((*event[:6], event_type))
 
     def _execute_watcher(self, watcher: Watcher, events: Iterable[Event]):
         if watcher.mode == 'args':
@@ -3404,7 +3926,7 @@ class Parameters:
         else:
             args, kwargs = (), {event.name: event.new for event in events}
 
-        if iscoroutinefunction(watcher.fn):
+        if watcher._is_coroutine if isinstance(watcher, Watcher) else iscoroutinefunction(watcher.fn):
             if async_executor is None:
                 raise RuntimeError("Could not execute %s coroutine function. "
                                    "Please register a asynchronous executor on "
@@ -3418,21 +3940,47 @@ class Parameters:
             except Skip:
                 pass
 
+    def _dispatch_event(self_, watchers: Iterable[Watcher], event: Event):
+        """
+        Call each of ``watchers``, in order, for a single ``event``.
+
+        Whether the value changed is computed at most once per event, the
+        first time an ``onlychanged`` watcher needs it, and reused for the
+        remaining watchers, so a deep comparison of a large value is not
+        repeated per watcher. If an earlier watcher mutates ``event.old``
+        or ``event.new`` in place, later watchers reuse that result rather
+        than comparing again. Unchanged events skip ``onlychanged``
+        watchers unless the event is being triggered.
+        """
+        changed = None
+        for watcher in watchers:
+            if watcher.onlychanged and not self_._TRIGGER:
+                if changed is None:
+                    changed = self_._changed(event)
+                if not changed:
+                    continue
+            self_._call_watcher(watcher, event)
+
     def _call_watcher(self_, watcher: Watcher, event: Event):
         """Invoke the given watcher appropriately given an Event object."""
-        if self_._TRIGGER:
-            pass
-        elif watcher.onlychanged and (not self_._changed(event)):
-            return
-
-        if self_._BATCH_WATCH:
-            self_._events.append(event)
-            if not any(watcher is w for w in self_._state_watchers):
-                self_._state_watchers.append(watcher)
+        fn = watcher.fn
+        self_or_cls = self_.self_or_cls
+        state = self_or_cls._param__private.parameters_state
+        if not (isinstance(fn, _WeakInvalidator) and fn._unbatched) and _is_batched(self_or_cls):
+            state['events'].append(event)
+            state_watchers = state['watchers']
+            if not any(watcher is w for w in state_watchers):
+                state_watchers.append(watcher)
         else:
-            event = self_._update_event_type(watcher, event, self_._TRIGGER)
-            with _batch_call_watchers(self_.self_or_cls, enable=watcher.queued, run=False):
+            event = self_._update_event_type(watcher, event, state['TRIGGER'])
+            # Inlined _batch_call_watchers(..., run=False), which only
+            # saves and restores the flag.
+            batch_watch = state['BATCH_WATCH']
+            state['BATCH_WATCH'] = watcher.queued or batch_watch
+            try:
                 self_._execute_watcher(watcher, (event,))
+            finally:
+                self_or_cls._param__private.parameters_state['BATCH_WATCH'] = batch_watch
 
     def _batch_call_watchers(self_):
         """
@@ -3446,13 +3994,19 @@ class Parameters:
             self_._events = []
             self_._state_watchers = []
 
-            for watcher in sorted(watchers, key=lambda w: w.precedence):
+            self_or_cls = self_.self_or_cls
+            for watcher in sorted(watchers, key=_watcher_precedence):
+                state = self_or_cls._param__private.parameters_state
                 events = [self_._update_event_type(watcher, event_dict[(name, watcher.what)],
-                                                   self_._TRIGGER)
+                                                   state['TRIGGER'])
                           for name in watcher.parameter_names
                           if (name, watcher.what) in event_dict]
-                with _batch_call_watchers(self_.self_or_cls, enable=watcher.queued, run=False):
+                batch_watch = state['BATCH_WATCH']
+                state['BATCH_WATCH'] = watcher.queued or batch_watch
+                try:
                     self_._execute_watcher(watcher, events)
+                finally:
+                    self_or_cls._param__private.parameters_state['BATCH_WATCH'] = batch_watch
 
     def set_dynamic_time_fn(self_, time_fn: Callable, sublistattr: str | None = None) -> None:
         """
@@ -4187,19 +4741,24 @@ class Parameters:
                     instance_watchers[parameter_name] = {}
                 if what not in instance_watchers[parameter_name]:
                     instance_watchers[parameter_name][what] = []
-                method = getattr(instance_watchers[parameter_name][what], action)
+                watchers = instance_watchers[parameter_name][what]
             else:
                 param_watchers = self_[parameter_name].watchers
                 if what not in param_watchers:
                     param_watchers[what] = []
-                method = getattr(param_watchers[what], action)
-            try:
-                method(watcher)
-            except ValueError:
-                # ValueError raised when attempting to remove an already
-                # removed watcher. Error swallowed as unwatch is idempotent.
-                if action != 'remove':
-                    raise
+                watchers = param_watchers[what]
+
+            if action == 'append':
+                watchers.append(watcher)
+            else:
+                # Matches by value (Watcher is a namedtuple), which is
+                # what lets unwatch keep working on a Watcher rebuilt
+                # with the same fields, e.g. by Parameterized.__setstate__
+                # after a copy or unpickle. Missing is a no-op.
+                try:
+                    watchers.remove(watcher)
+                except ValueError:
+                    pass
 
     def watch(
         self_,
@@ -4305,7 +4864,7 @@ class Parameters:
         precedence: int = -1,
     ) -> Watcher:
         if isinstance(parameter_names, (list, tuple)):
-            parameter_names = tuple(parameter_names)
+            parameter_names = tuple(dict.fromkeys(parameter_names))
         else:
             parameter_names = (parameter_names,)
         watcher = Watcher(
@@ -4341,6 +4900,7 @@ class Parameters:
         --------
         watch : Registers a new watcher to observe parameter changes.
         watch_values : Registers a watcher specifically for value changes.
+        Watcher.remove : Equivalent, callable directly on the ``Watcher``.
 
         Examples
         --------
@@ -5030,9 +5590,20 @@ class ParameterizedMetaclass(type):
 
         if parameter and not isinstance(value,Parameter):
             if owning_class != mcs:
+                inherited = parameter
                 parameter = copy.copy(parameter)
                 parameter.owner = t.cast("t.Any", mcs)
                 type.__setattr__(mcs, attribute_name, parameter)
+                # The cached class parameters of mcs and its subclasses may
+                # still point to the inherited Parameter that was just copied,
+                # so swap in the copy and let the derived lists be rebuilt.
+                for cls in descendents(t.cast("type[t.Any]", mcs)):
+                    private = cls._param__private
+                    if private.params.get(attribute_name) is inherited:
+                        private.params[attribute_name] = parameter
+                        private.params_to_deepcopy = None
+                        private.params_to_ref = None
+                        private.params_with_default_factory = None
             mcs.__dict__[attribute_name].__set__(None,value)
 
         else:
@@ -5296,6 +5867,12 @@ def script_repr(
     - The ``imports`` list may not include all modules required for parameter
       values, focusing primarily on the modules needed for the Parameterized
       object itself.
+    - By default, only parameter values that differ from their defaults are
+      included. To include every parameter value, set
+      ``param.parameterized.script_repr_suppress_defaults = False`` before
+      calling ``script_repr``. See
+      https://param.holoviz.org/user_guide/Serialization_and_Persistence.html#script-repr-limitations-and-workarounds
+      for more details.
 
     References
     ----------
@@ -5680,6 +6257,12 @@ class _InstancePrivate:
                 parameter_attribute (e.g. 'value'): list of `Watcher`s
     values: dict
         Dict of parameter name: value.
+    ref_change_watchers: dict[str, set[weakref.ReferenceType]] | None
+        Dict of parameter name: weak refs notified by ``_watch_ref_change``.
+        Lazy; ``None`` until something registers.
+    async_ref_settle_watchers: dict[str, set[weakref.ReferenceType]] | None
+        Dict of parameter name: weak refs notified by
+        ``_watch_async_ref_settle_change``. Lazy; ``None`` until something registers.
     """
 
     __slots__ = [
@@ -5692,6 +6275,8 @@ class _InstancePrivate:
         'async_ref_settled',
         'refs',
         'ref_watchers',
+        'ref_change_watchers',
+        'async_ref_settle_watchers',
         'syncing',
         'watchers',
         'values',
@@ -5707,6 +6292,8 @@ class _InstancePrivate:
     async_ref_settled: defaultdict[str, int]
     refs: dict[str, t.Any]
     ref_watchers: list[tuple[tuple[str, ...], Watcher]]
+    ref_change_watchers: dict[str, set[weakref.ReferenceType]] | None
+    async_ref_settle_watchers: dict[str, set[weakref.ReferenceType]] | None
     syncing: set[str]
     watchers: dict[str, dict[str, list[Watcher]]]
     values: dict[str, t.Any]
@@ -5734,6 +6321,8 @@ class _InstancePrivate:
                 "watchers": [] # Queue of batched watchers
             }
         self.ref_watchers = []
+        self.ref_change_watchers = None
+        self.async_ref_settle_watchers = None
         self.async_refs = {}
         self.async_ref_scheduled = defaultdict(int)
         self.async_ref_settled = defaultdict(int)
@@ -5963,11 +6552,12 @@ class Parameterized(metaclass=ParameterizedMetaclass):
             self.__dict__['_param__private'] = _InstancePrivate(  # pyright: ignore[reportIndexIssue]
                 explicit_no_refs=type(self)._param__private.explicit_no_refs
             )
+        param_ns = self.param
         # Skip generating a custom instance name when a class in the hierarchy
         # has overridden the default of the `name` Parameter.
-        if self.param.name.default == self.__class__.__name__:
-            self.param._generate_name()
-        refs, deps = self.param._setup_params(**params)
+        if param_ns.name.default == self.__class__.__name__:
+            param_ns._generate_name()
+        refs, deps, scheduled = param_ns._setup_params(**params)
         object_count += 1
 
         self._param__private.initialized = True
@@ -5993,9 +6583,11 @@ class Parameterized(metaclass=ParameterizedMetaclass):
                 with discard_events(self):
                     setattr(self, pname, default_val)
 
-        self.param._setup_refs(deps)
-        self.param._update_deps(init=True)
+        param_ns._setup_refs(deps)
+        param_ns._update_deps(init=True)
         self._param__private.refs = refs
+        for pname in scheduled:
+            _notify_async_ref_settle_change(self, pname)
 
     # 'Special' methods
 

@@ -2200,6 +2200,17 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
         ...
 
     @property
+    def time_zone(self) -> typing.Any:
+        """
+        The time zone of this indicator's values, so that the values of assets of different exchange time zones share
+        one clock: the exchange time zone of the first symbol given at construction
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
     def is_ready(self) -> bool:
         """Gets a flag indicating when this indicator is ready and fully initialized"""
         ...
@@ -2241,6 +2252,19 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
         
         :param input: The input data point (e.g., TradeBar for a symbol).
         :returns: The most recently computed value of the indicator.
+        """
+        ...
+
+    def get_value_end_time(self, input: QuantConnect_Indicators_MultiSymbolIndicator_TInput) -> datetime.datetime:
+        """
+        Gets the end time of the value this indicator computes from the given input, in time_zone.
+        The input of a symbol this indicator no longer tracks keeps its end time
+        
+        
+        This Class is protected.
+        
+        :param input: The input given to the indicator
+        :returns: The end time of the indicator's value.
         """
         ...
 
@@ -6714,6 +6738,18 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         """
         ...
 
+    def get_value_end_time(self, input: QuantConnect_Indicators_IndicatorBase_T) -> datetime.datetime:
+        """
+        Gets the end time of the value this indicator computes from the given input: by default, the input's end time
+        
+        
+        This Class is protected.
+        
+        :param input: The input given to the indicator
+        :returns: The end time of the indicator's value.
+        """
+        ...
+
     def min(self, period: int, wait_for_first_to_ready: bool = True) -> QuantConnect.Indicators.Minimum:
         """
         Creates a new Minimum indicator with the specified period from the left indicator
@@ -7408,9 +7444,10 @@ class CrossSectionalInformationCoefficient(QuantConnect.Indicators.MultiSymbolIn
     end at different local times, such as futures of different exchanges, share their daily periods. The indicator
     correlates a period as soon as every asset it tracks has an input for it. Otherwise, such as when an asset was
     delisted, it correlates the assets that have one when the next period starts. Each value has the end time of its
-    period's last input. A period needs at least three assets with a signal value and a return. An asset with no input
-    for a period pairs its last signal value with its return since then. Use add and
-    remove to follow a changing cross-section, such as a universe's constituents.
+    period's last input, in the exchange time zone of the first asset given at construction. A period needs at least
+    three assets with a signal value and a return. An asset with no input for a period pairs its last signal value with
+    its return since then. Use add and remove to follow a changing cross-section, such as a
+    universe's constituents.
     """
 
     @property

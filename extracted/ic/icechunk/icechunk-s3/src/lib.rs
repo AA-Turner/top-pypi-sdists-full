@@ -8,10 +8,11 @@ use std::{
     sync::Arc, time::Duration,
 };
 
-use async_trait::async_trait;
 use aws_config::{
-    BehaviorVersion, meta::region::RegionProviderChain, retry::RetryConfig,
-    timeout::TimeoutConfig,
+    BehaviorVersion,
+    meta::region::RegionProviderChain,
+    retry::RetryConfig,
+    timeout::{TimeoutConfig, TimeoutConfigBuilder},
 };
 use aws_credential_types::provider::error::CredentialsError;
 use aws_sdk_s3::{
@@ -46,8 +47,8 @@ pub use icechunk_storage::s3_config::{
 use icechunk_storage::{
     DeleteObjectsResult, GetModifiedResult, ListInfo, RepositoryCreation, Settings,
     Storage, StorageContext, StorageError, StorageErrorKind, StorageInfo, StorageResult,
-    VersionInfo, VersionedUpdateResult, obj_not_found_res, obj_store_error,
-    obj_store_error_res, other_error,
+    Timeout, VersionInfo, VersionedUpdateResult, filter_ids_by_id_prefix,
+    obj_not_found_res, obj_store_error, obj_store_error_res, other_error,
     readback::{
         ReadbackOutcome, WRITE_ID_METADATA_KEY, resolve_lost_response,
         resolve_precondition, write_id_for,
@@ -260,6 +261,49 @@ fn endpoint_with_bucket_separator(endpoint_url: &str) -> Cow<'_, str> {
     }
 }
 
+/// Bounds a request the server accepted but never answers, which the SDK
+/// otherwise waits on forever. Generous because an attempt includes uploading
+/// the request body, over a link shared by every concurrent request.
+const DEFAULT_OPERATION_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
+fn with_timeout(
+    builder: TimeoutConfigBuilder,
+    timeout: Timeout,
+    set: fn(TimeoutConfigBuilder, Duration) -> TimeoutConfigBuilder,
+    disable: fn(TimeoutConfigBuilder) -> TimeoutConfigBuilder,
+) -> TimeoutConfigBuilder {
+    match timeout {
+        Timeout::Unset => builder,
+        Timeout::Disabled => disable(builder),
+        Timeout::After(duration) => set(builder, duration),
+    }
+}
+
+/// The SDK default HTTPS client, with `pem` as the only trust roots. `None` trusts nothing.
+fn https_client_with_roots(pem: Option<Vec<u8>>) -> aws_sdk_s3::config::SharedHttpClient {
+    use aws_smithy_http_client::{Builder, ConnectorBuilder, proxy::ProxyConfig, tls};
+    let mut trust_store = tls::TrustStore::empty();
+    if let Some(pem) = pem {
+        trust_store = trust_store.with_pem_certificate(pem);
+    }
+    #[expect(clippy::expect_used)]
+    let ctx = tls::TlsContext::builder()
+        .with_trust_store(trust_store)
+        .build()
+        .expect("TlsContextBuilder::build is infallible");
+    Builder::new().build_with_connector_fn(move |settings, components| {
+        let mut conn = ConnectorBuilder::default()
+            .tls_provider(tls::Provider::Rustls(tls::rustls_provider::CryptoMode::AwsLc))
+            .tls_context(ctx.clone());
+        conn.set_connector_settings(settings.cloned());
+        if let Some(components) = components {
+            conn.set_sleep_impl(components.sleep_impl());
+        }
+        conn.set_proxy_config(Some(ProxyConfig::from_env()));
+        conn.build()
+    })
+}
+
 #[instrument(skip(credentials))]
 pub async fn mk_client(
     config: &S3Options,
@@ -286,7 +330,7 @@ pub async fn mk_client(
     };
 
     let mut aws_config =
-        aws_config::defaults(BehaviorVersion::v2026_01_12()).region(region);
+        aws_config::defaults(BehaviorVersion::v2026_11_17()).region(region);
 
     if let Some(endpoint) = endpoint {
         aws_config = aws_config.endpoint_url(endpoint);
@@ -302,6 +346,19 @@ pub async fn mk_client(
             .build()
     };
     aws_config = aws_config.stalled_stream_protection(stalled_stream);
+
+    match icechunk_storage::tls::tls_ca_bundle() {
+        Ok(None) => {}
+        Ok(Some(pem)) => {
+            aws_config = aws_config.http_client(https_client_with_roots(Some(pem)));
+        }
+        // S3Storage::new rejects a bad file, so only a deserialized storage gets here.
+        // An empty trust store fails every request instead of a silent fallback to system roots.
+        Err(err) => {
+            tracing::error!("{err}");
+            aws_config = aws_config.http_client(https_client_with_roots(None));
+        }
+    }
 
     match credentials {
         S3Credentials::FromEnv => {}
@@ -331,26 +388,38 @@ pub async fn mk_client(
             settings.retries().max_backoff_ms() as u64
         ));
 
-    if let Some(timeouts) = settings.timeouts() {
-        let mut timeout_builder = TimeoutConfig::builder();
-        if let Some(ms) = timeouts.connect_timeout_ms {
-            timeout_builder =
-                timeout_builder.connect_timeout(Duration::from_millis(ms as u64));
-        }
-        if let Some(ms) = timeouts.read_timeout_ms {
-            timeout_builder =
-                timeout_builder.read_timeout(Duration::from_millis(ms as u64));
-        }
-        if let Some(ms) = timeouts.operation_timeout_ms {
-            timeout_builder =
-                timeout_builder.operation_timeout(Duration::from_millis(ms as u64));
-        }
-        if let Some(ms) = timeouts.operation_attempt_timeout_ms {
-            timeout_builder = timeout_builder
-                .operation_attempt_timeout(Duration::from_millis(ms as u64));
-        }
-        aws_config = aws_config.timeout_config(timeout_builder.build());
-    }
+    let timeouts = settings.timeouts().copied().unwrap_or_default();
+    let attempt_timeout = match timeouts.operation_attempt_timeout() {
+        Timeout::Unset => Timeout::After(DEFAULT_OPERATION_ATTEMPT_TIMEOUT),
+        timeout => timeout,
+    };
+    let timeout_builder = TimeoutConfig::builder();
+    let timeout_builder = with_timeout(
+        timeout_builder,
+        timeouts.connect_timeout(),
+        TimeoutConfigBuilder::connect_timeout,
+        TimeoutConfigBuilder::disable_connect_timeout,
+    );
+    let timeout_builder = with_timeout(
+        timeout_builder,
+        timeouts.read_timeout(),
+        TimeoutConfigBuilder::read_timeout,
+        TimeoutConfigBuilder::disable_read_timeout,
+    );
+    let timeout_builder = with_timeout(
+        timeout_builder,
+        timeouts.operation_timeout(),
+        TimeoutConfigBuilder::operation_timeout,
+        TimeoutConfigBuilder::disable_operation_timeout,
+    );
+    let timeout_builder = with_timeout(
+        timeout_builder,
+        attempt_timeout,
+        TimeoutConfigBuilder::operation_attempt_timeout,
+        TimeoutConfigBuilder::disable_operation_attempt_timeout,
+    );
+    // Unset fields keep the SDK defaults.
+    aws_config = aws_config.timeout_config(timeout_builder.build());
 
     let mut s3_builder = Builder::from(&aws_config.load().await)
         .force_path_style(config.force_path_style)
@@ -536,6 +605,7 @@ impl S3Storage {
         extra_write_headers: Vec<(String, String)>,
         legacy_rooted_keys: Option<bool>,
     ) -> Result<S3Storage, StorageError> {
+        icechunk_storage::tls::tls_ca_bundle()?;
         let client = OnceCell::new();
         let prefix = prefix.unwrap_or_default();
         let prefix = prefix.strip_suffix("/").unwrap_or(prefix.as_str()).to_string();
@@ -612,6 +682,13 @@ impl S3Storage {
     /// An interior `//` is left intact.
     fn list_prefix(&self, layout: KeyLayout, relpath: &str) -> String {
         self.key_for(layout, relpath.strip_prefix('/').unwrap_or(relpath))
+    }
+
+    /// S3 Express One Zone directory bucket. AWS reserves this name suffix for directory
+    /// buckets, and the SDK uses the same check to select the S3 Express endpoint.
+    /// <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>
+    fn is_directory_bucket(&self) -> bool {
+        self.bucket.ends_with("--x-s3")
     }
 
     /// Lists the keys that start with `key_prefix`. Ids are relative to `id_root`.
@@ -1054,7 +1131,7 @@ pub fn range_to_header(range: &Range<u64>) -> String {
 
 impl sealed::Sealed for S3Storage {}
 
-#[async_trait]
+#[icechunk_storage::maybe_send_async_trait]
 #[typetag::serde]
 impl Storage for S3Storage {
     fn storage_info(&self) -> StorageInfo {
@@ -1193,7 +1270,11 @@ impl Storage for S3Storage {
         prefix: &str,
     ) -> StorageResult<BoxStream<'a, StorageResult<ListInfo<String>>>> {
         let layout = self.layout(ctx).await?;
-        let prefix = self.list_prefix(layout, prefix);
+        let mut prefix = self.list_prefix(layout, prefix);
+        // Directory buckets reject a list prefix that does not end in `/`.
+        if self.is_directory_bucket() && !prefix.is_empty() && !prefix.ends_with('/') {
+            prefix.push('/');
+        }
         Ok(self.list_keys(ctx, prefix.clone(), prefix).await)
     }
 
@@ -1204,6 +1285,11 @@ impl Storage for S3Storage {
         prefix: &str,
         id_prefixes: &[String],
     ) -> StorageResult<BoxStream<'a, StorageResult<ListInfo<String>>>> {
+        if self.is_directory_bucket() {
+            // An id prefix is never a valid directory bucket list prefix.
+            let listing = self.list_objects(ctx, prefix).await?;
+            return Ok(filter_ids_by_id_prefix(listing, id_prefixes));
+        }
         let layout = self.layout(ctx).await?;
         let prefix = self.list_prefix(layout, prefix);
         let mut listings = Vec::with_capacity(id_prefixes.len());
@@ -1219,7 +1305,7 @@ impl Storage for S3Storage {
     }
 
     fn lists_id_prefixes_natively(&self) -> bool {
-        true
+        !self.is_directory_bucket()
     }
 
     #[instrument(skip(self, ctx, batch))]
@@ -1934,10 +2020,75 @@ pub fn tigris_storage(
 #[cfg(test)]
 mod tests {
     use icechunk_macros::tokio_test;
+    use icechunk_storage::TimeoutSettings;
 
     use super::*;
 
     // Readback classification is unit-tested in `icechunk_storage::readback`.
+
+    async fn client_timeouts(settings: &Settings) -> TimeoutConfig {
+        let options = S3Options::default()
+            .with_region("us-east-1")
+            .with_endpoint_url("http://localhost:4200");
+        let credentials = S3Credentials::Static(S3StaticCredentials {
+            access_key_id: "key".to_string(),
+            secret_access_key: "secret".to_string(),
+            session_token: None,
+            expires_after: None,
+        });
+        let client = mk_client(&options, credentials, vec![], vec![], settings).await;
+        client.config().timeout_config().cloned().expect("timeout config is always set")
+    }
+
+    #[tokio_test]
+    async fn default_timeouts_bound_each_attempt() {
+        let timeouts = client_timeouts(&Settings::default()).await;
+        assert_eq!(
+            timeouts.operation_attempt_timeout(),
+            Some(DEFAULT_OPERATION_ATTEMPT_TIMEOUT)
+        );
+        assert_eq!(timeouts.connect_timeout(), Some(Duration::from_millis(3100)));
+        assert_eq!(timeouts.read_timeout(), None);
+        assert_eq!(timeouts.operation_timeout(), None);
+    }
+
+    #[tokio_test]
+    async fn user_timeouts_override_defaults_field_by_field() {
+        let settings = Settings {
+            timeouts: Some(TimeoutSettings {
+                read_timeout_ms: Some(2_000),
+                operation_attempt_timeout_ms: Some(5_000),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let timeouts = client_timeouts(&settings).await;
+        assert_eq!(timeouts.operation_attempt_timeout(), Some(Duration::from_secs(5)));
+        assert_eq!(timeouts.read_timeout(), Some(Duration::from_secs(2)));
+        assert_eq!(timeouts.connect_timeout(), Some(Duration::from_millis(3100)));
+        assert_eq!(timeouts.operation_timeout(), None);
+    }
+
+    #[tokio_test]
+    async fn zero_disables_timeouts_including_defaults() {
+        let settings = Settings {
+            timeouts: Some(TimeoutSettings {
+                connect_timeout_ms: Some(0),
+                read_timeout_ms: Some(0),
+                operation_timeout_ms: Some(0),
+                operation_attempt_timeout_ms: Some(0),
+            }),
+            ..Default::default()
+        };
+        assert!(!client_timeouts(&settings).await.has_timeouts());
+    }
+
+    const TEST_CA: &[u8] = include_bytes!("../../icechunk-python/tests/data/tls/ca.pem");
+
+    #[test]
+    fn https_client_with_roots_builds() {
+        https_client_with_roots(Some(TEST_CA.to_vec()));
+    }
 
     #[test]
     fn transient_delete_errors_are_throttles() {
@@ -2317,5 +2468,135 @@ mod tests {
         assert!(json.contains(r#""key_layout":"LegacyRoot""#), "got: {json}");
         let restored: S3Storage = serde_json::from_str(&json).unwrap();
         assert_eq!(restored.key_layout.get().copied(), Some(KeyLayout::LegacyRoot));
+    }
+
+    /// Storage at prefix `repo` whose client records the `prefix` of each list
+    /// request and answers with the `keys` that start with it, as S3 does.
+    fn listing_storage(
+        bucket: &str,
+        keys: &'static [&'static str],
+    ) -> (S3Storage, Arc<std::sync::Mutex<Vec<String>>>) {
+        let storage = S3Storage::new(
+            S3Options::default(),
+            bucket.to_string(),
+            Some("repo".to_string()),
+            S3Credentials::FromEnv,
+            true,
+            Vec::new(),
+            Vec::new(),
+            None,
+        )
+        .unwrap();
+        let prefixes = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = Arc::clone(&prefixes);
+        let http = aws_smithy_http_client::test_util::infallible_client_fn(move |req| {
+            let prefix = req
+                .uri()
+                .query()
+                .unwrap_or_default()
+                .split('&')
+                .find_map(|kv| kv.strip_prefix("prefix="))
+                .unwrap_or_default()
+                .replace("%2F", "/");
+            let contents: String = keys
+                .iter()
+                .filter(|k| k.starts_with(&prefix))
+                .map(|k| {
+                    format!(
+                        "<Contents><Key>{k}</Key><LastModified>2026-01-01T00:00:00.000Z\
+                         </LastModified><Size>1</Size></Contents>"
+                    )
+                })
+                .collect();
+            seen.lock().unwrap().push(prefix);
+            http::Response::builder()
+                .status(200)
+                .body(format!(
+                    "<ListBucketResult><IsTruncated>false</IsTruncated>{contents}\
+                     </ListBucketResult>"
+                ))
+                .unwrap()
+        });
+        let config = aws_sdk_s3::Config::builder()
+            .behavior_version(BehaviorVersion::latest())
+            .region(Region::new("us-east-1"))
+            .credentials_provider(aws_sdk_s3::config::Credentials::new(
+                "key", "secret", None, None, "test",
+            ))
+            .disable_s3_express_session_auth(true)
+            .http_client(http)
+            .build();
+        storage.client.set(Arc::new(Client::from_conf(config))).unwrap();
+        (storage, prefixes)
+    }
+
+    async fn sorted_ids(
+        listing: BoxStream<'_, StorageResult<ListInfo<String>>>,
+    ) -> Vec<String> {
+        let mut ids: Vec<String> =
+            listing.map_ok(|li| li.id).try_collect().await.unwrap();
+        ids.sort();
+        ids
+    }
+
+    const SNAPSHOT_KEYS: &[&str] =
+        &["repo/snapshots/0AAA", "repo/snapshots/1BBB", "repo/snapshots/2CCC"];
+
+    /// Directory buckets reject a list prefix that does not end in `/` (#2538).
+    #[tokio_test]
+    async fn directory_bucket_lists_directory_with_trailing_delimiter() {
+        let (s, prefixes) = listing_storage("b--use1-az4--x-s3", SNAPSHOT_KEYS);
+        let settings = Settings::default();
+        let ctx = StorageContext::unattributed(&settings);
+        let ids = sorted_ids(s.list_objects(&ctx, "snapshots").await.unwrap()).await;
+        assert_eq!(*prefixes.lock().unwrap(), ["repo/snapshots/"]);
+        assert_eq!(ids, ["0AAA", "1BBB", "2CCC"]);
+    }
+
+    /// `list_refs` passes `refs/`: the backend must not send `repo/refs//`.
+    #[tokio_test]
+    async fn directory_bucket_keeps_one_trailing_delimiter() {
+        let (s, prefixes) = listing_storage("b--use1-az4--x-s3", &["repo/refs/main"]);
+        let settings = Settings::default();
+        let ctx = StorageContext::unattributed(&settings);
+        let ids = sorted_ids(s.list_objects(&ctx, "refs/").await.unwrap()).await;
+        assert_eq!(*prefixes.lock().unwrap(), ["repo/refs/"]);
+        assert_eq!(ids, ["main"]);
+    }
+
+    /// An id prefix such as `repo/snapshots/0` is never a valid directory
+    /// bucket prefix, so the backend lists the directory and filters ids.
+    #[tokio_test]
+    async fn directory_bucket_filters_id_prefixes_from_one_directory_listing() {
+        let (s, prefixes) = listing_storage("b--use1-az4--x-s3", SNAPSHOT_KEYS);
+        let settings = Settings::default();
+        let ctx = StorageContext::unattributed(&settings);
+        assert!(!s.lists_id_prefixes_natively());
+        let listing = s
+            .list_objects_with_id_prefixes(&ctx, "snapshots", &["0".into(), "2".into()])
+            .await
+            .unwrap();
+        let ids = sorted_ids(listing).await;
+        assert_eq!(*prefixes.lock().unwrap(), ["repo/snapshots/"]);
+        assert_eq!(ids, ["0AAA", "2CCC"]);
+    }
+
+    #[tokio_test]
+    async fn general_purpose_bucket_lists_each_id_prefix() {
+        let (s, prefixes) = listing_storage("bucket", SNAPSHOT_KEYS);
+        let settings = Settings::default();
+        let ctx = StorageContext::unattributed(&settings);
+        assert!(s.lists_id_prefixes_natively());
+        let ids = sorted_ids(s.list_objects(&ctx, "snapshots").await.unwrap()).await;
+        assert_eq!(ids, ["0AAA", "1BBB", "2CCC"]);
+        let listing = s
+            .list_objects_with_id_prefixes(&ctx, "snapshots", &["0".into(), "2".into()])
+            .await
+            .unwrap();
+        let ids = sorted_ids(listing).await;
+        let mut sent = prefixes.lock().unwrap().clone();
+        sent.sort();
+        assert_eq!(sent, ["repo/snapshots", "repo/snapshots/0", "repo/snapshots/2"]);
+        assert_eq!(ids, ["0AAA", "2CCC"]);
     }
 }

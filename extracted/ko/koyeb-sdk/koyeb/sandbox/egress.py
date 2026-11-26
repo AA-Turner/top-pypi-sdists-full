@@ -9,6 +9,8 @@ from typing import List, Optional
 
 from koyeb.api.models.egress_policy import EgressPolicy
 from koyeb.api.models.egress_policy_mode import EgressPolicyMode
+from koyeb.api.models.mesh import Mesh
+from koyeb.api.models.mesh_scope import MeshScope
 from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.network_policy_destination import NetworkPolicyDestination
 
@@ -50,6 +52,7 @@ def _normalize_destination(entry: str) -> str:
 def build_network_policy(
     block_network: bool = False,
     outbound_allowlist: Optional[List[str]] = None,
+    mesh_scope: Optional[MeshScope] = None,
 ) -> Optional[NetworkPolicy]:
     """
     Build a NetworkPolicy from sandbox network policy arguments.
@@ -60,15 +63,39 @@ def build_network_policy(
             destinations; all other outbound traffic is blocked. Bare IPs
             are normalized to /32 (IPv4) or /128 (IPv6). An empty list
             blocks all outbound traffic.
+        mesh_scope: Which services share the mesh with this one. None keeps
+            the organization default. MESH_SCOPE_CUSTOM is not supported here
+            because it needs a mesh name.
 
     Returns:
-        NetworkPolicy, or None when both arguments are unset
-        (block_network=False and outbound_allowlist=None)
+        NetworkPolicy, or None when every argument is unset
 
     Raises:
-        EgressPolicyError: If both arguments are passed, or an allowlist
-            entry is not a valid IP address or CIDR
+        EgressPolicyError: If both egress arguments are passed, or an
+            allowlist entry is not a valid IP address or CIDR
+        ValueError: If mesh_scope is MESH_SCOPE_CUSTOM
     """
+    if mesh_scope == MeshScope.MESH_SCOPE_CUSTOM:
+        raise ValueError(
+            "mesh_scope MESH_SCOPE_CUSTOM needs a mesh name; not supported"
+        )
+    mesh = (
+        Mesh(scope=mesh_scope)
+        if mesh_scope not in (None, MeshScope.MESH_SCOPE_UNSPECIFIED)
+        else None
+    )
+    egress = build_egress_policy(block_network, outbound_allowlist)
+    if egress is None and mesh is None:
+        return None
+    return NetworkPolicy(egress=egress, mesh=mesh)
+
+
+def build_egress_policy(
+    block_network: bool = False,
+    outbound_allowlist: Optional[List[str]] = None,
+) -> Optional[EgressPolicy]:
+    """Build the EgressPolicy part of a NetworkPolicy, or None when both
+    arguments are unset. See build_network_policy for the arguments."""
     if block_network and outbound_allowlist is not None:
         raise EgressPolicyError(
             "block_network and outbound_allowlist are mutually exclusive; "
@@ -83,9 +110,7 @@ def build_network_policy(
             NetworkPolicyDestination(cidr=_normalize_destination(entry))
             for entry in outbound_allowlist
         ]
-    return NetworkPolicy(
-        egress=EgressPolicy(
-            mode=EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL,
-            allow_list=allow_list,
-        )
+    return EgressPolicy(
+        mode=EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL,
+        allow_list=allow_list,
     )

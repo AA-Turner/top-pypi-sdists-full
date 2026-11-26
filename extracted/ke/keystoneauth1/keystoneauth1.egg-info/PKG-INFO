@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keystoneauth1
-Version: 5.19.0
+Version: 5.20.0
 Summary: Authentication Library for OpenStack Identity
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0
@@ -41,7 +41,6 @@ Requires-Dist: osprofiler>=4.0.0; extra == "profiling"
 Provides-Extra: saml2
 Requires-Dist: lxml>=4.2.0; extra == "saml2"
 Dynamic: license-file
-Dynamic: requires-dist
 
 ============
 keystoneauth

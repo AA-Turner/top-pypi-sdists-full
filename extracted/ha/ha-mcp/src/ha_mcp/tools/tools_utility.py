@@ -13,8 +13,10 @@ from pydantic import Field
 
 from ha_mcp._vendor.fastmcp.exceptions import ToolError
 
+from ..client.exceptions import http_failure_status
 from ..client.rest_client import HomeAssistantCommandError, HomeAssistantCommandTimeout
 from ..client.websocket_client import get_websocket_client
+from ..error_wording import render_timed_out
 from ..errors import ErrorCode, create_error_response
 from .coercion import JSON_STRING_COERCION
 from .component_api import (
@@ -23,7 +25,12 @@ from .component_api import (
     invalidate_caps,
     is_unknown_command,
 )
-from .helpers import exception_to_structured_error, log_tool_usage, raise_tool_error
+from .helpers import (
+    core_error_message,
+    exception_to_structured_error,
+    log_tool_usage,
+    raise_tool_error,
+)
 from .tool_hints import read_only_hints
 
 logger = logging.getLogger(__name__)
@@ -42,14 +49,6 @@ CONDITION_ERROR_SUGGESTIONS = [
     "Verify entity_ids exist using ha_get_state() or ha_search()",
     "See ha_get_skill_guide for native condition examples",
 ]
-
-# Core rejects a render that outlives its ``timeout`` with this message (code
-# ``template_error``, which it also uses for other template failures).
-HA_RENDER_TIMEOUT_TEXT = "Exceeded maximum execution time"
-
-
-def _command_error_message(exc: HomeAssistantCommandError) -> str:
-    return str(exc).removeprefix("Command failed: ")
 
 
 def _render_outcome(
@@ -107,10 +106,9 @@ class UtilityTools:
         except ToolError:
             raise
         except Exception as e:
-            error_str = str(e)
             suggestions = ["Check Home Assistant WebSocket connection"]
 
-            if "403" in error_str and "Forbidden" in error_str:
+            if http_failure_status(e) == 403:
                 suggestions = [
                     "The request was blocked (403 Forbidden) - this may be caused by:",
                     "  • Reverse proxy security rules (Apache, Nginx, Traefik)",
@@ -194,7 +192,9 @@ class UtilityTools:
                     suggestions=["Check Home Assistant WebSocket connection"],
                 )
             )
-        if HA_RENDER_TIMEOUT_TEXT in error:
+        if result.get("error_code") == "template_error" and render_timed_out(
+            error, timeout
+        ):
             # A second render would only time out again.
             raise_tool_error(
                 create_error_response(
@@ -299,7 +299,7 @@ class UtilityTools:
             raise_tool_error(
                 create_error_response(
                     ErrorCode.VALIDATION_FAILED,
-                    _command_error_message(exc),
+                    core_error_message(exc),
                     context={"condition": condition, "ha_error_code": exc.code},
                     suggestions=CONDITION_ERROR_SUGGESTIONS,
                 )

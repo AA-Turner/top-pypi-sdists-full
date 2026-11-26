@@ -403,6 +403,8 @@ class TestErrorMapping:
             ("challenge_not_loaded", "recaptcha_not_loaded", False),
             ("token_not_granted", "refused_wording_unescaped", True),
             ("capacity_exhausted", "session_capped", True),
+            ("challenge_not_loaded", "rqdata_rejected", False),
+            ("challenge_not_loaded", "sitekey_not_served", False),
         ],
     )
     def test_uncharged_capacity_and_type_reasons_are_typed(

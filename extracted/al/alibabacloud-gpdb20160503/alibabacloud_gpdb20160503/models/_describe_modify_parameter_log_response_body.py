@@ -13,7 +13,7 @@ class DescribeModifyParameterLogResponseBody(DaraModel):
         changelogs: List[main_models.DescribeModifyParameterLogResponseBodyChangelogs] = None,
         request_id: str = None,
     ):
-        # The queried parameter modification logs.
+        # The change history.
         self.changelogs = changelogs
         # The request ID.
         self.request_id = request_id
@@ -61,15 +61,15 @@ class DescribeModifyParameterLogResponseBodyChangelogs(DaraModel):
         parameter_value_after: str = None,
         parameter_value_before: str = None,
     ):
-        # The effective time.
+        # The effective period.
         self.effect_time = effect_time
-        # The name of the parameter.
+        # The parameter name.
         self.parameter_name = parameter_name
         # Indicates whether the modification takes effect.
         self.parameter_valid = parameter_valid
-        # The original value of the parameter.
+        # The parameter value before the modification.
         self.parameter_value_after = parameter_value_after
-        # The new value of the parameter.
+        # The parameter value after the modification.
         self.parameter_value_before = parameter_value_before
 
     def validate(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepeval
-Version: 4.3.5
+Version: 4.3.6
 Summary: The LLM Evaluation Framework
 License: Apache-2.0
 License-File: LICENSE.md
@@ -14,14 +14,21 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Provides-Extra: claude-code
+Provides-Extra: codex
+Provides-Extra: cursor
 Provides-Extra: inspect
+Provides-Extra: red-team-harnesses
 Requires-Dist: aiohttp
+Requires-Dist: claude-agent-sdk ; extra == "claude-code" or extra == "red-team-harnesses"
 Requires-Dist: click (>=8.0.0,<8.4.0)
 Requires-Dist: confident-trace (>=0.1.14,<0.2.0)
+Requires-Dist: cursor-sdk ; extra == "cursor" or extra == "red-team-harnesses"
 Requires-Dist: grpcio (>=1.67.1,<2.0.0)
 Requires-Dist: jinja2
 Requires-Dist: nest_asyncio
 Requires-Dist: openai
+Requires-Dist: openai-codex ; extra == "codex" or extra == "red-team-harnesses"
 Requires-Dist: opentelemetry-api (>=1.24.0,<2.0.0)
 Requires-Dist: opentelemetry-sdk (>=1.24.0,<2.0.0)
 Requires-Dist: portalocker
@@ -37,6 +44,7 @@ Requires-Dist: pytest-repeat
 Requires-Dist: pytest-rerunfailures
 Requires-Dist: pytest-xdist
 Requires-Dist: python-dotenv (>=1.1.1,<2.0.0)
+Requires-Dist: pyyaml (>=6.0.0)
 Requires-Dist: questionary (>=2.0.0,<3.0.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
 Requires-Dist: rich (>=13.6.0,<15.0.0)

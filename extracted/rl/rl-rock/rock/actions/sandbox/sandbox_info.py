@@ -3,11 +3,20 @@ from typing import Any, TypedDict
 from rock.actions.sandbox.response import State, StateTransitionRecord
 from rock.deployments.status import PhaseStatus
 
+MISSING_HOST_IP_VALUES = ("", "default")
+
+
+def is_missing_host_ip(value: object) -> bool:
+    """Return whether *value* represents an IP that has not been assigned yet."""
+    return value is None or value in MISSING_HOST_IP_VALUES
+
 
 class SandboxInfo(TypedDict, total=False):
     host_ip: str
     host_name: str
     image: str
+    metadata: dict[str, str]
+    env: dict[str, str]
     user_id: str
     experiment_id: str
     namespace: str

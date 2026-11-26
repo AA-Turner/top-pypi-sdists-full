@@ -20,6 +20,21 @@ urlpatterns = [
                     views.callback,
                     name="openid_connect_callback",
                 ),
+                path(
+                    "logout/",
+                    views.logout,
+                    name="openid_connect_logout",
+                ),
+                path(
+                    "logout/callback/",
+                    views.logout_callback,
+                    name="openid_connect_logout_callback",
+                ),
+                path(
+                    "logout/backchannel/",
+                    views.backchannel_logout,
+                    name="openid_connect_backchannel_logout",
+                ),
             ]
         ),
     )

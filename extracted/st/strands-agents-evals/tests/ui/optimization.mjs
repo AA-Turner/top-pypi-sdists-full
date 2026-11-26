@@ -1,6 +1,8 @@
-/* The Optimization section: Runs, Setup, Overview, Progress, Candidates, Tunables, Trade-off.
+/* The Optimization section: Runs, Result, Setup (with its Tunables section), Iterations, Candidates, Trade-off.
    Driven from the generated fixture run, variants of it, and small logs written inline. */
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 import { SAMPLE, page, runner, served, tick } from './harness.mjs';
 
 const { ok, done } = runner('optimization');
@@ -129,8 +131,10 @@ const blockDiff = root => {
 // ── section visibility ──
 {
   const none = await served(SAMPLE);
-  ok(none.$('#sgroup-opt').hidden && none.$$('.tab[data-sec="optimization"]').every(t => t.hidden),
-    'with no optimizer run there is no Optimization section, no Runs view and no tabs of a run');
+  ok(!none.$('#sgroup-opt').hidden && !none.$('.tab[data-view="opt-runs"]').hidden
+    && none.$$('.tab[data-sec="optimization"]:not([data-view="opt-runs"])').every(t => t.hidden),
+    'with no optimizer run the Optimization section and its Runs list still show, as Reports and Experiments do, '
+      + 'but no tabs of a run');
   ok(none.$('#runs-sub').hidden && !none.$('#runs-sub .runrow'),
     'and nothing is listed under the Runs row it does not have');
 }
@@ -210,31 +214,36 @@ eq($$('.tab.on').map(t => t.dataset.view).join(), 'opt-runs', 'which opens the l
 ok($('#pagehead').hidden, 'which is a list, so no page header names anything');
 eq(rows(p, '#opt-runs-rows tr[data-opt-run]').map(r => r.slice(0, 5)),
   [[`${RUN_ID} / support-tuning demo`, '+0.143 held out · clear of zero', 'c10', '10 candidates 6 iterations',
-    'iterations']],
-  'one row: the run, its result, champion, search size and stop reason');
+    'used its iteration cap']],
+  'one row: the run, its result, champion, search size and why it stopped, in the words its own page uses');
+ok(!$('#opt-runs-rows tr.on'), 'no row is marked before the reader has opened a run');
 const delta = $('#opt-runs-rows .delta');
 ok(delta.className === 'delta up' && /\[0\.061, 0\.225\]/.test(delta.title),
   'the result is coloured by its interval, which is on hover', delta.outerHTML);
 
 await click('#opt-runs-rows tr[data-opt-run]');
-ok($('#v-opt-overview').classList.contains('on') && text('#path') === 'demo/events.jsonl',
-  'a run row opens Overview on its event log', text('#path'));
+ok($('#v-opt-overview').classList.contains('on') && text('#path') === p.root,
+  'a run row opens its Result view, and the bar goes on naming the folder', text('#path'));
+eq(p.window.document.title, `${RUN_ID} · Result · Runs · strands-evals`, 'the browser’s tab is named for the run and the view of it');
+await click('.tab[data-view="opt-runs"]');
+eq($$('#opt-runs-rows tr.on').length, 1, 'back on the list, the run that was opened is the one marked');
+await click('#opt-runs-rows tr[data-opt-run]');
 eq([text('#crumbs'), text('#facts'), $$('#opt-tabs .tab:not([hidden])').map(t => t.dataset.view).join(), text('#opt-tabs .tab.on')],
-  [`Runs/${RUN_ID}`, 'stopped: iterations · champion c10', 'opt-setup,opt-overview,opt-progress,opt-candidates,opt-tunables,opt-trade',
-    'Overview'],
-  'the page header names the run and holds its six views as a tab strip, the open one marked');
+  [`Runs/${RUN_ID}`, 'finished · champion c10', 'opt-overview,opt-setup,opt-progress,opt-candidates,opt-trade',
+    'Result'],
+  'the page header names the run and holds its five views as a tab strip, Result first and marked');
 eq([$$('#sections .tab.on').map(t => t.dataset.view).join(), $('.tab[aria-current="page"]').dataset.view], ['opt-runs', 'opt-overview'],
   'while the sidebar stays on Runs, the list the run was opened from');
-eq(text('#opt-sub'), 'reached max_iterations=6',
-  'the header names the run and its status once, and the subtitle adds only what the stop said for itself');
+eq(text('#opt-sub'), 'Stop reason: reached max_iterations=6',
+  'the header names the run and its status once, and the subtitle labels what the stop said for itself');
 eq(text('#opt-method-sum'),
   'Tuned system_prompt, temperature, tool_descriptions, max_tokens · 8 train · 4 validation · 3 test',
   'the method line names the keys the proposals changed and the split sizes');
 
 // ── Setup and Tunables ──
 await go(p, 'setup');
-ok($('#v-opt-setup').classList.contains('on') && text('#path') === 'demo/run.json', 'Setup reads run.json',
-  text('#path'));
+ok($('#v-opt-setup').classList.contains('on') && /as its run\.json records it/.test(text('#opt-setup-sub')), 'Setup reads run.json',
+  text('#opt-setup-sub'));
 ok($('#opt-source').hidden, 'no experiment is named when the folder holds none');
 has(text('#opt-explain'), /built 10 versions .* searched on train, picked the champion once on validation/,
   'the account counts the candidates built, not the 11 proposals, and says what each split was for');
@@ -248,7 +257,7 @@ eq(lines(p, '#opt-space-rows tr'), [
 ], 'the declared space: domain, default, use and condition per key, untouched keys included');
 eq(text('#opt-space-note'), '', 'nothing is flagged for a log that stays inside its space');
 
-// ── Overview: the result card ──
+// ── Result: the result card ──
 eq(flat($('#opt-result .rlabel')), 'Result · held out 3 test cases kept out of the search',
   'the card is headed by the split behind it');
 eq(lines(p, '#opt-result .rtab tbody tr'),
@@ -256,8 +265,8 @@ eq(lines(p, '#opt-result .rtab tbody tr'),
   'a row per goal metric; one with no interval stops at the change');
 ok($$('#opt-result .delta').every(td => td.classList.contains('flat')),
   'no per-metric change is coloured: only the objective states a direction');
-eq(said(p), 'Objective +0.143, 95% interval [0.061, 0.225]: clear of zero on cases the search never saw.',
-  'the verdict is the reading of the objective interval');
+eq(said(p), '95% interval [0.061, 0.225]: clear of zero on cases the search never saw.',
+  'the verdict is the reading of the objective interval, and leaves its size to the card that heads the page');
 eq(strip(p), ['Helpfulness ↑ / good / right of zero'],
   'one bar: the goal with an interval, the objective not drawn twice');
 eq($('#opt-result .rs-row title').textContent,
@@ -292,7 +301,7 @@ ok(/held-out cases/.test(stripNote(p)) && /nothing to draw for tokens \(no inter
     'an ineligible one gives the reason the log recorded');
 }
 
-// ── Overview: case by case, the champion against the baseline ──
+// ── Result: case by case, the champion against the baseline ──
 {
   const q = await openFixture({ tab: 'overview' });
   const marks = () => q.$$('#opt-cases-chart g.bell');
@@ -337,11 +346,12 @@ ok(/held-out cases/.test(stripNote(p)) && /nothing to draw for tokens \(no inter
   const hero = (page, part) => texts(page, `#opt-hero ${part}`).join(' | ');
   eq([q.$('#opt-hero .champ').className, hero(q, '.champ-name'), hero(q, '.champ-from'), hero(q, '.champ-delta'), hero(q, '.champ-read')],
     ['champ won', 'c10', 'against c0, the baseline, on 3 held-out cases', '+0.143', 'clear of zero'],
-    'the Overview opens on the champion: who won, against what, by how much, and how that reads');
+    'the Result view opens on the champion: who won, against what, by how much, and how that reads');
   await pick(q, '#opt-cases-pick', 'm:Helpfulness');
-  eq([q.$$('#opt-hero .win').map(w => w.classList[1]).join(), hero(q, '.win-nums'), hero(q, '.win-delta'), hero(q, '.win-cases')],
-    ['up,down', '0.521 → 0.664 | 3190 → 3340', '▲ +0.143 | ▼ +150', 'better on 11 of 11 cases | better on 0 of 11 cases'],
+  eq([q.$$('#opt-hero .win').map(w => w.classList[1]).join(), hero(q, '.win-nums'), hero(q, '.win-cases')],
+    ['up,down', '0.521 → 0.664 | 3190 → 3340', 'better on 11 of the 11 cases both ran | better on 0 of the 11 cases both ran'],
     'with each goal beside the baseline: a gain the goal wanted is a win, more tokens is not');
+  ok(!q.$('#opt-hero .win-delta'), 'the size of each change is in the table under the card, and is not said twice');
   eq([kept.$('#opt-hero .champ').className, hero(kept, '.champ-name'), kept.$('#opt-hero .champ-gain')],
     ['champ held', 'c0', null], 'a run that kept its baseline says the baseline held, and claims no gain');
   const unshown = await openFixture({ tab: 'overview', events: eventsWith(e => {
@@ -363,7 +373,7 @@ ok(/held-out cases/.test(stripNote(p)) && /nothing to draw for tokens \(no inter
     'train_case_01 · train · baseline 0.332 · champion not run', 'a trial that failed is not charted as a score');
 }
 
-// ── Overview: the champion configuration ──
+// ── Result: the champion configuration ──
 eq([text('#opt-winner .wid'), text('#opt-winner .lineage')], ['c10', 'c10 ← c6 ← c3 ← c1 ← c0'],
   'the champion with its lineage back to the baseline');
 eq(texts(p, '#opt-winner .setting .skey'), ['system_prompt', 'temperature'],
@@ -388,7 +398,7 @@ await click('#opt-winner [data-act="copy-winner"]');
 has(text('#opt-copied'), /could not reach the clipboard/, 'a copy that could not happen says so');
 
 // ── Progress: the figures and the objective chart ──
-eq(stats(p), ['Rollouts | 64 / 240 | spent of the budget',
+eq(stats(p), ['Rollouts | 83 / 240 | spent of the budget',
   'Best on training | 0.67 | the champion, on the cases it searched over'],
   'two figures under the champion; the training best is feasible c10, not infeasible c8');
 eq([text('#opt-search-sum'), text('#opt-cost-sum')], ['11 proposals over 6 iterations', '277k tokens · 82 trials'],
@@ -412,14 +422,18 @@ eq([texts(p, '#opt-series-chart text.itlab').join(), $$('#opt-series-chart line.
   ['iteration,0,1,2,3,4,5', 5], 'the iterations are a second row, divided where the search turned over');
 
 // ── Progress: budget and trial outcomes ──
-eq(titles(p, '#opt-budget-chart circle'), ['iteration 0: +8, 8 total', 'iteration 1: +16, 24 total',
-  'iteration 2: +8, 32 total', 'iteration 3: +16, 48 total', 'iteration 4: +8, 56 total', 'iteration 5: +8, 64 total'],
-  'the budget curve is cumulative, one mark per finished iteration');
+eq(titles(p, '#opt-budget-chart circle'), ['iteration 0: +8, 8 total', 'iteration 1: +17, 25 total',
+  'iteration 2: +8, 33 total', 'iteration 3: +16, 49 total', 'iteration 4: +8, 57 total', 'iteration 5: +8, 65 total',
+  'the end phase: +18, 83 total'],
+  'the budget curve is cumulative, one mark per finished iteration and one for the end phase; c2 ran a case twice');
 ok($('#opt-budget-chart line.cap-line') && /240-rollout budget/.test(text('#opt-budget-cap')),
   'the budget cap is drawn and named', text('#opt-budget-cap'));
 eq($$('#opt-status-chart .legend span').map(flat),
   ['completed 80', 'agent failure 1', 'evaluator invalid 1', 'test 6 · train 64 · validation 12'],
   'trials by how they ended and by split');
+eq($$('#opt-status-chart .bars span').map(part => `${part.className} ${part.style.flexGrow}`),
+  ['completed 80', 'agent_failure 1', 'evaluator_invalid 1'],
+  'the bar has a part for each ending, as wide as its share, in the order the key under it lists them');
 
 // ── Progress: one chart, with a picker over the objective and each metric ──
 const series = () => marks(p, '#opt-series-chart');
@@ -445,7 +459,7 @@ eq($$('#opt-series-chart path.metric-line').map(el => pathPoints(el).length), [4
 await pick(p, '#opt-series-pick', 'm:tokens');
 eq([series()[0].title, series()[6].title, series()[6].cls], ['c0 · tokens 3180', 'c8 · tokens 4210', 'infeasible'],
   'a count keeps its decimals off, and c8 is infeasible here too');
-ok(axis().label === 'tokens, lower is better' && Math.min(...axis().ticks) > 1000,
+ok(axis().label === 'Tokens, lower is better' && Math.min(...axis().ticks) > 1000,
   'the axis follows the picker, direction and units', JSON.stringify(axis()));
 
 // ── Progress: what each iteration cost ──
@@ -482,7 +496,7 @@ eq(texts(p, '#opt-eff-goal button'), ['Helpfulness · higher is better', 'tokens
   'each goal is offered with the direction it wants');
 has(text('#opt-eff-cap'), /for Helpfulness, fitted to 48 observations/,
   'the caption says how much the estimate rests on');
-eq($$('#opt-eff-chart .eff-key').map(flat),
+eq($$('#opt-eff-chart .eff-key > title').map(flat),
   ['system_prompt vs default', 'temperature vs (0.45, 0.75]', 'max_tokens vs (256, 1024]'],
   'a group per key in declared order, each naming its reference level');
 const helpful = effects();
@@ -607,7 +621,7 @@ for (const [filter, ids] of [
   ['feasible', 'c0,c1,c2,c3,c5,c6,c10'], ['infeasible', 'c8'], ['unscored', 'c4,invalid-7,c9'], ['all', ALL],
 ]) {
   await click(`#opt-seg button[data-f="${filter}"]`);
-  eq([shown(p), text('#opt-cand-count')], [ids, `${ids.split(',').length} of 11 candidates, 3 never scored`],
+  eq([shown(p), text('#opt-cand-count')], [ids, `${ids.split(',').length} of 11 candidates, 3 not scored`],
     `filter "${filter}", with the count following it`);
 }
 for (const [query, ids] of [['NW-000000', 'c5,c8,c10'], ['clarifying', 'c2'], ['zzz', '']]) {
@@ -620,8 +634,8 @@ await p.type('#opt-find', '');
 // ── Candidates: open as report ──
 const repDetail = () => flat($('#rep-rows tr.detail'));
 await click('#opt-cands [data-open]');
-eq([$('.view.on').id, text('#path'), text('#rep-count'), text('#r-score')],
-  ['v-report', `${RUN_ID} · c10`, '15 of 15 rows', '0.67'],
+eq([$('.view.on').id, text('#crumbs'), text('#rep-count'), text('#r-score')],
+  ['v-report', `Runs/${RUN_ID}/Candidates/c10`, '15 of 15 rows', '0.67'],
   'a candidate opens in the report page over its trials, named by run and candidate');
 eq(lines(p, '#rep-rows tr.case')[0], 'train_case_01 | Helpfulness | 0.49 | fail',
   'a row per trial: case, evaluator, score, verdict');
@@ -674,9 +688,9 @@ eq(text('#opt-note'), '', 'a clean log raises no warning');
     ['8 train · 4 validation · 3 test', '8 train · 4 validation · 3 test split with seed 0', whole],
     'a split recorded as fractions, with the names under split.cases, is counted and matched by those names');
   await q.click('#opt-source a[data-experiment]');
-  ok(q.$('#v-experiment').classList.contains('on') && q.text('#path') === 'cases/experiment.json'
+  ok(q.$('#v-experiment').classList.contains('on') && q.text('#crumbs') === 'Experiments/cases/experiment.json'
     && q.$$('#case-list li[data-i]').length === 15 && !!q.$('#experiments-rows tr.row.on'),
-    'the named experiment is a link to its cases, with its row marked in Experiments', q.text('#path'));
+    'the named experiment is a link to its cases, with its row marked in Experiments', q.text('#crumbs'));
 }
 
 // ── a candidate's cases take the report page, under the run they came from ──
@@ -716,8 +730,8 @@ eq(text('#opt-note'), '', 'a clean log raises no warning');
   ok(q.$('#v-opt-candidates').classList.contains('on') && !q.$('#opt-tabs').hidden, 'the Candidates crumb goes back to the run’s candidates',
     q.$('.view.on').id);
   await q.openReport();
-  eq([q.text('#rep-count'), q.text('#crumbs'), q.text('#path'), q.$('#reports-rows tr.row').classList.contains('on')],
-    ['2 of 2 rows', 'Reports/evals/report.json', 'evals/report.json', true],
+  eq([q.text('#rep-count'), q.text('#crumbs'), q.$('#reports-rows tr.row').classList.contains('on')],
+    ['2 of 2 rows', 'Reports/evals/report.json', true],
     'opening the folder’s report again shows it, with its path, its row marked and the candidate gone');
 
   const q2 = await openFixture({ files: experiment });
@@ -747,9 +761,9 @@ eq(text('#opt-note'), '', 'a clean log raises no warning');
 {
   const cut = jsonl(EVENTS.slice(0, 40)) + JSON.stringify(EVENTS[40]).slice(0, 30);
   const running = await openFixture({ events: cut, tab: 'overview' });
-  ok(running.text('#opt-note') === '' && running.text('#facts') === 'still running'
+  ok(running.text('#opt-note') === '' && running.text('#facts') === 'not finished'
     && marks(running, '#opt-series-chart').length > 0,
-    'a half-written last line is not damage: the run reads as still running and draws what it has',
+    'a half-written last line is not damage: the run reads as not finished and draws what it has',
     running.text('#opt-note'));
   ok(/No result yet/.test(running.text('#opt-result'))
     && /Best feasible objective so far: 0\.\d+ \(c\d\), on the training split/.test(running.text('#opt-result'))
@@ -763,11 +777,43 @@ eq(text('#opt-note'), '', 'a clean log raises no warning');
     'a broken line in the middle is reported by number, as a warning', broken.text('#opt-note'));
 
   const configOnly = await open({ 'demo/run.json': CONFIG });
-  ok(configOnly.$('.tab[data-view="opt-runs"]').hidden && skips(configOnly).some(s => /demo\/run\.json/.test(s)),
+  ok(!configOnly.$('#opt-runs-rows tr[data-opt-run]') && skips(configOnly).some(s => /demo\/run\.json/.test(s)),
     'a run.json with no event log is not a run, and is reported as unusable', skips(configOnly).join(' | '));
   const logOnly = await open({ 'demo/events.jsonl': jsonl(EVENTS) });
-  ok(logOnly.$('.tab[data-view="opt-runs"]').hidden && skips(logOnly).some(s => /no run\.json beside it/.test(s)),
+  ok(!logOnly.$('#opt-runs-rows tr[data-opt-run]') && skips(logOnly).some(s => /no run\.json beside it/.test(s)),
     'an event log with no run.json is not one either, and says what it lacks', skips(logOnly).join(' | '));
+}
+
+// ── a run is running while a process holds its lock, not while its log lacks a stop ──
+{
+  const unfinished = jsonl(EVENTS.slice(0, 40));
+  const status = q => [q.text('#facts'), flat(q.$('#opt-runs-rows tr[data-opt-run]').children[4])];
+  const halted = await openFixture({
+    events: unfinished + jsonl([{ event: 'proposer_error', iteration: 3, block: 'text', error_type: 'ValueError' }]),
+    files: { 'demo/run.lock': '' }, tab: 'overview',
+  });
+  eq(status(halted), ['halted by a proposer error', 'halted by a proposer error resume it to continue'],
+    'a run a proposer halted says so, and that it can be resumed, though its log has no stop');
+
+  const q = await openFixture({ events: unfinished, files: { 'demo/run.lock': '' }, tab: 'overview' });
+  eq(status(q), ['interrupted', 'interrupted resume it to continue'],
+    'a run no process holds and that did not finish was interrupted, so it can be resumed');
+  if (process.platform !== 'win32') {
+    const locker = spawn(process.env.PYTHON || 'python3', ['-c',
+      'import fcntl, sys\nf = open(sys.argv[1], "a+b")\nfcntl.flock(f, fcntl.LOCK_EX)\nprint("held", flush=True)\nsys.stdin.read()',
+      path.join(q.root, 'demo', 'run.lock')], { stdio: ['pipe', 'pipe', 'inherit'] });
+    await new Promise(resolve => locker.stdout.once('data', resolve));
+    /* Polled as a visible tab is: the fingerprint is what tells the page the run moved. */
+    Object.defineProperty(q.window.document, 'hidden', { value: false, configurable: true });
+    await q.window.pollNow();
+    eq(status(q), ['still running', 'still running'], 'while a process holds the lock, the run is still running');
+    const exited = new Promise(resolve => locker.once('exit', resolve));
+    locker.kill('SIGKILL');
+    await exited;
+    await q.window.pollNow();
+    eq(status(q), ['interrupted', 'interrupted resume it to continue'],
+      'once that process dies, which changes no file, the next poll says the run was interrupted');
+  }
 }
 
 // ── two runs in one tree ──
@@ -784,8 +830,8 @@ eq(text('#opt-note'), '', 'a clean log raises no warning');
   await go(q, 'runs');
   await q.click(q.$$('#opt-runs-rows tr[data-opt-run]')[1]);
   ok(q.text('#crumbs') === 'Runs/second-run' && q.$('#v-opt-overview').classList.contains('on')
-    && same(on(), [false, true]), 'picking the other run opens its Overview and moves the mark', q.text('#crumbs'));
-  eq(q.window.location.pathname, '/optimization/b/overview', 'and the address names that run by its directory');
+    && same(on(), [false, true]), 'picking the other run opens its Result view and moves the mark', q.text('#crumbs'));
+  eq(q.window.location.pathname, '/optimization/b/result', 'and the address names that run by its directory');
   await go(q, 'candidates');
   await openCand(q, 'c0');
   await go(q, 'runs');
@@ -923,7 +969,7 @@ const WRITTEN = configWith(c => {
   const narrowed = configWith(c => {
     c.space = [null, ...c.space.filter(r => !['temperature', 'max_tokens'].includes(r.key))];
   });
-  const partial = await openFixture({ config: narrowed, tab: 'tunables' });
+  const partial = await openFixture({ config: narrowed, tab: 'setup' });
   ok(partial.$$('#opt-space-rows tr').length === 4 && partial.$('#opt-space-note').classList.contains('warn')
     && partial.text('#opt-space-note')
       === 'The log also changed temperature, max_tokens, which this space does not declare.',
@@ -954,9 +1000,22 @@ const WRITTEN = configWith(c => {
     iterationEnd(0, [prop('c0', 0, 0.4)], 4), iterationEnd(1, [prop('c1', 1, 0.9)], 4),
     { event: 'picked', iteration: 2,
       report: { champion_id: 'c0', measured: { c0: { H: { mean: 0.6 } }, c1: { H: { mean: 0.3 } } } } }]);
-  eq(stats(split), ['Rollouts | 8 | spent · no budget declared',
+  eq(stats(split), ['Rollouts | 0 | spent · no budget declared',
     'Best on training | 0.90 | c1 · highest here, not the pick'],
     'when validation picks another candidate, the training best names its own and says it was not the pick');
+
+  // As the optimizer writes a run: no `iteration_end` for the baseline or the end phase.
+  const ran = (candidate_id, case_name, split, iteration, previous_attempts = []) => ({ event: 'trial', iteration,
+    record: { candidate_id, case_name, run_index: 0, split, status: 'completed', rollouts: 1, previous_attempts } });
+  const whole = await openLog({ objective: 'Maximize(H)', budget: { max_rollouts: 500 } }, [START,
+    ...['a', 'b', 'c'].map(name => ran('c0', name, 'train', 0)),
+    ...['a', 'b', 'c'].map(name => ran('c1', name, 'train', 1)),
+    iterationEnd(1, [prop('c1', 1, 0.8)], 3),
+    ran('c0', 'v', 'validation', 1), ran('c1', 'v', 'validation', 1),
+    ran('c0', 't', 'test', 1, [{ status: 'infrastructure_invalid', rollouts: 1 }])]);
+  has(stats(whole)[0], /^Rollouts \| 10 \/ 500 \|/, 'the baseline, the end phase and a re-run count as the optimizer counts them');
+  eq(titles(whole, '#opt-budget-chart circle'), ['iteration 1: +6, 6 total', 'the end phase: +4, 10 total'],
+    'the first iteration carries the baseline, and the end phase gets its own mark');
 }
 
 // ── a run with nothing measured yet, on a Pareto objective ──
@@ -994,6 +1053,20 @@ const WRITTEN = configWith(c => {
   ok(same(titles(q, '#opt-usage-chart rect.col'), ['iteration 0: 400 over 2 trials'])
     && !/excluding/.test(q.text('#opt-usage-cap')),
     'usage is summed over the iteration, with no caveat when nothing follows it', q.text('#opt-usage-cap'));
+}
+
+// ── the cost counts every role and every attempt, as the result's `cost` does ──
+{
+  const q = await openLog({ objective: 'Maximize(H)' }, [START,
+    { event: 'proposer_usage', iteration: 0, block: 'b', usage: { tokens: 7 } },
+    { event: 'trial', iteration: 0, record: { candidate_id: 'c0', case_name: 'a', run_index: 0, split: 'train',
+      status: 'completed', evaluations: { H: { score: 0.8 } }, usage: { tokens: 100 },
+      judge_usage: { H: { tokens: 10 }, K: { tokens: 4 } }, benchmark_usage: { tokens: 20 },
+      previous_attempts: [{ status: 'infrastructure_invalid', usage: { tokens: 30 }, judge_usage: { tokens: 2 },
+        benchmark_usage: { tokens: 5 } }] } },
+    iterationEnd(0, [prop('c0', 0, 0.8)], 1)]);
+  eq(q.text('#opt-cost-sum'), '178 tokens · 1 trial',
+    'the agent, its judges, the other agents and the proposer, earlier attempts included');
 }
 
 // ── a trial recorded again replaces the earlier record ──
@@ -1045,7 +1118,7 @@ const WRITTEN = configWith(c => {
     'labels are thinned by their width so none overlap');
 }
 
-// ── Overview: the verdict is the interval, in the card, the picture and the run list ──
+// ── Result: the verdict is the interval, in the card, the picture and the run list ──
 const proposed = (id, number, prompt) => ({
   event: 'propose', iteration: number, candidate_id: id, number, parent_id: 'c0', values: { prompt, temperature: 0.7 },
 });
@@ -1063,17 +1136,17 @@ const openResult = (report, { objective = 'Maximize(H)', extra, ...config } = {}
 
 for (const [name, objective, verdict, bar, listed, read] of [
   ['straddles zero', interval(0.1, -0.04, 0.24),
-    /\+0\.1, 95% interval \[-0\.04, 0\.24\]: includes zero, so this run has not shown an improvement/,
+    /^95% interval \[-0\.04, 0\.24\]: includes zero, so this run has not shown an improvement/,
     'H ↑ / flat / across zero', '+0.1 held out · includes zero (flat)', 'not shown'],
   ['is below zero', interval(-0.08, -0.19, -0.02),
-    /Objective -0\.08, .* below zero, so shipping the champion would be a regression/,
+    /^95% interval \[-0\.19, -0\.02\]: below zero, so shipping the champion would be a regression/,
     'H ↑ / bad / left of zero', '-0.08 held out · below zero (down)', 'a regression'],
   ['is narrowly clear', interval(0.1071, 0.004, 0.2103), /\[0\.004, 0\.2103\]: clear of zero/,
     'H ↑ / good / right of zero', '+0.1071 held out · clear of zero (up)', 'clear of zero'],
-  ['is absent', { mean_diff: 0.1, n_cases: 6 }, /\+0\.1 against the baseline, with no interval in the report/,
+  ['is absent', { mean_diff: 0.1, n_cases: 6 }, /^The report gives the objective’s change with no interval, so how certain/,
     null, '+0.1 held out · no interval (flat)', 'no interval'],
   ['has no width', interval(0.7, 0.7, 0.7),
-    /\+0\.7 against the baseline, the same on every one of 6 test cases, so its 95% interval has no width/,
+    /^The objective changed by the same amount on every one of 6 test cases, so its 95% interval has no width/,
     null, '+0.7 held out · no width (flat)', 'no width'],
 ]) {
   const q = await openResult(testReport(objective));
@@ -1084,7 +1157,7 @@ for (const [name, objective, verdict, bar, listed, read] of [
   eq(texts(q, '#opt-hero .champ-read').join(), read, `an interval that ${name}: the card`);
 }
 
-// ── Overview: a run with only a validation report ──
+// ── Result: a run with only a validation report ──
 {
   const validated = await openResult(null, { extra: [picked({ measured: MEANS, reason: 'c1 ranked first.' })] });
   has(validated.text('#opt-result .rlabel'), /^Result · validation split/,
@@ -1113,7 +1186,7 @@ for (const [name, objective, verdict, bar, listed, read] of [
   eq(runResult(searching), 'not measured (no figure)', 'a run still searching has no result rather than a zero one');
 }
 
-// ── Overview: metrics the run was not aiming at, and the row format ──
+// ── Result: metrics the run was not aiming at, and the row format ──
 {
   const usage = { tokens: { mean: 420 }, seconds: { mean: 0.002 }, model_calls: { mean: 1 } };
   const means = { c1: { ...MEANS.c1, ...usage }, c0: { ...MEANS.c0, ...usage, tokens: { mean: 470 } } };
@@ -1135,7 +1208,7 @@ for (const [name, objective, verdict, bar, listed, read] of [
     'every figure in a row carries the decimals the widest of them needs');
 }
 
-// ── Overview: the picture takes each direction from the objective expression ──
+// ── Result: the picture takes each direction from the objective expression ──
 {
   const compare = (objective, difference, means) =>
     ({ champion_id: 'c1', baseline_id: 'c0', objective, difference, means });
@@ -1160,7 +1233,7 @@ for (const [name, objective, verdict, bar, listed, read] of [
     'a goal whose interval has no width gets no bar, and is named with that reason', stripNote(oneWide));
 }
 
-// ── Overview: a champion whose configuration the log does not carry ──
+// ── Result: a champion whose configuration the log does not carry ──
 {
   const q = await openLog({ objective: 'Maximize(H)' }, [START, iterationEnd(0, [prop('c0', 0, 0.5)]),
     { event: 'test', iteration: 0, report: testReport(interval(0.1, 0.02, 0.2)) }]);
@@ -1188,6 +1261,32 @@ for (const [name, objective, verdict, bar, listed, read] of [
     has(panel(q).Transcript, pattern, `a ${name} transcript file says what it is instead of rendering nothing`);
   }
   eq(panel(q).Output, 'empty', 'and an empty output is told apart from none recorded');
+}
+
+// ── Candidates: a packed transcript, each message stored once ──
+{
+  const msg = (role, text) => ({ role, content: [{ content_type: 'text', text }] });
+  const inference = ranges => ({ span_type: 'inference', span_info: { session_id: 's' }, messages: ranges });
+  const packed = {
+    messages: [msg('user', 'Where is NW-1?'), msg('assistant', 'Looking it up.'), msg('user', 'Thanks'),
+      msg('assistant', 'Delivered.')],
+    session: { session_id: 's', traces: [{ trace_id: 't', spans: [inference([[0, 2]]), inference([[0, 4]])] }] },
+  };
+  const q = await openLog({ objective: 'Maximize(H)' }, [START, {
+    event: 'trial', iteration: 0,
+    record: { candidate_id: 'c0', case_name: 'packed', split: 'train', status: 'completed', output: 'Delivered.',
+      transcript: { hash: 'packed', format: 'packed_session' } },
+  }, iterationEnd(0, [prop('c0', 0, 0.5)])], { 'r/transcripts/packed.json': packed });
+  await go(q, 'candidates');
+  await openTrial(q, 'c0', 'packed');
+  eq([q.$('#opt-cands .tr-count') && flat(q.$('#opt-cands .tr-count')), speakers(q)],
+    ['2 spans of a recorded session', '#0 inference | user | assistant | #1 inference | user | assistant | user | assistant'],
+    'a packed transcript is drawn as the session it holds, each span with its messages');
+  has(flat(q.$('#opt-cands details.raw')), /"session"/, 'and its file is shown as written, one disclosure away');
+  const slot = () => q.$('#opt-cands .tr-copy') && q.$('#opt-cands .tr-copy').dataset.arg;
+  const first = slot();
+  for (let i = 0; i < 3; i += 1) { await openTrial(q, 'c0', 'packed'); await openTrial(q, 'c0', 'packed'); }
+  eq(slot(), first, 'drawn again, it is the same document to copy, not one more kept each time');
 }
 
 // ── Trade-off ──
@@ -1225,7 +1324,7 @@ const TWO_GOALS = 'Pareto(Maximize(Quality), Minimize(tokens))';
   ok(!two.$('#opt-tradeoff').hidden && !two.$('.tab[data-view="opt-trade"]').hidden && two.$('#opt-to-none').hidden
     && two.$('#opt-to-x').hidden && two.$('#opt-to-y').hidden,
     'two goals: the chart and its tab are there, with no axis pickers');
-  eq([two.text('#opt-to-sum'), two.text('#opt-to-head')], ['Quality ↑ against tokens ↓', 'tokens against Quality'],
+  eq([two.text('#opt-to-sum'), two.text('#opt-to-head')], ['Quality ↑ against tokens ↓', 'Tokens against Quality'],
     'named by its goals and their directions, the first goal across and the second up');
   eq([Object.keys(at).sort().join(), two.text('#opt-to-stats')],
     ['c0,c1,c2,c3', '4 candidates plotted. 1 other was not measured on both goals: c4.'],
@@ -1233,7 +1332,7 @@ const TWO_GOALS = 'Pareto(Maximize(Quality), Minimize(tokens))';
   ok(at.c2.cy < at.c1.cy && at.c1.cx > at.c2.cx && at.c3.cx < at.c2.cx && at.c3.cy > at.c2.cy,
     'both axes are turned so better is up and right: fewer tokens is higher, and c3, worse on both, is below c2',
     JSON.stringify(at));
-  has(two.text('#opt-to-chart'), /fewer tokens is better, upward along this axis/,
+  has(two.text('#opt-to-chart'), /Fewer tokens is better, upward along this axis/,
     'the minimised axis says which way better is');
   eq([ringed(two), at.c0.cls, at.c1.cls], ['c1,c2', 'baseline', 'champion'],
     'the recorded front is ringed, and the baseline and champion are marked');
@@ -1276,7 +1375,7 @@ const TWO_GOALS = 'Pareto(Maximize(Quality), Minimize(tokens))';
     'the front of the pair is computed with each goal\'s direction, and said to be',
     `${ringed(three)}: ${three.text('#opt-to-cap')}`);
   await pick(three, '#opt-to-y', 'seconds');
-  eq([three.text('#opt-to-head'), ringed(three)], ['seconds against Quality', 'c1'],
+  eq([three.text('#opt-to-head'), ringed(three)], ['Seconds against Quality', 'c1'],
     'picking another goal redraws the pair and its front');
 }
 
@@ -1344,6 +1443,24 @@ const TWO_GOALS = 'Pareto(Maximize(Quality), Minimize(tokens))';
   await tick(4);
   eq(saved && saved.modified, 5,
     'reading the tuned-against experiment for a candidate\'s cases leaves the editor\'s save guard on the copy it loaded');
+}
+
+// ── a chart is drawn at the width of the card it sits in, and again when that width changes ──
+{
+  const q = await openFixture({ tab: 'overview' });
+  const widths = () => ['#opt-cases-chart', '#opt-usage-chart', '#opt-series-chart', '#opt-budget-chart']
+    .map(chart => Number(q.$(`${chart} svg`).getAttribute('viewBox').split(' ')[2]));
+  const unlaid = widths();
+  /* jsdom lays nothing out, so the content column is given a width here, as a window would give it one. */
+  Object.defineProperty(q.$('main'), 'clientWidth', { configurable: true, value: 600 });
+  q.window.dispatchEvent(new q.window.Event('resize'));
+  await new Promise(resolve => setTimeout(resolve, 250));
+  const laid = widths();
+  ok(new Set(laid).size === 1 && laid[0] >= 280 && laid[0] < 600 && !unlaid.includes(laid[0]),
+    'every chart of a run is drawn as wide as its card, so none is stretched to fit and their type is one size',
+    `${unlaid.join()} then ${laid.join()}`);
+  ok(q.$$('#opt-series-chart svg, #opt-budget-chart svg').every(svg => !svg.querySelector('rect.plot')),
+    'and a plot has no frame drawn round it: the axis and the grid are enough');
 }
 
 done();

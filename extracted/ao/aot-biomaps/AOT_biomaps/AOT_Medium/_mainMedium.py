@@ -63,7 +63,7 @@ class Medium(ABC):
 
             # Simulation sampling rate: resolved from the CFL condition if AUTO
             if self.params.acoustic['f_AQ'] in (None, "AUTO"):
-                self.kgrid.makeTime(self.params.acoustic['medium']['c0'])
+                self.kgrid.makeTime(self.params.acoustic['medium']['c0'],cfl=self.params.acoustic['cfl'])
                 self.params.acoustic['f_AQ'] = int(1 / self.kgrid.dt)
 
             # Simulation step count: from params if provided, else from geometry

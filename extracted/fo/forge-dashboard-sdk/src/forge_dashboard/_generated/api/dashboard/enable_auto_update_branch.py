@@ -90,7 +90,7 @@ def sync_detailed(
     is a no-op, not an error.
 
     Args:
-        body (WebhookEnsureRequest): Which repo to create or fix up a webhook on.
+        body (WebhookEnsureRequest): Which repo a repo-level action targets.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -128,7 +128,7 @@ def sync(
     is a no-op, not an error.
 
     Args:
-        body (WebhookEnsureRequest): Which repo to create or fix up a webhook on.
+        body (WebhookEnsureRequest): Which repo a repo-level action targets.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -161,7 +161,7 @@ async def asyncio_detailed(
     is a no-op, not an error.
 
     Args:
-        body (WebhookEnsureRequest): Which repo to create or fix up a webhook on.
+        body (WebhookEnsureRequest): Which repo a repo-level action targets.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -199,7 +199,7 @@ async def asyncio(
     is a no-op, not an error.
 
     Args:
-        body (WebhookEnsureRequest): Which repo to create or fix up a webhook on.
+        body (WebhookEnsureRequest): Which repo a repo-level action targets.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

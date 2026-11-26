@@ -15,7 +15,9 @@ __all__ = ["JobCreateParams", "Hyperparameters", "Integration", "IntegrationWand
 
 
 class JobCreateParams(TypedDict, total=False):
-    model: Required[Union[str, Literal["babbage-002", "davinci-002", "gpt-3.5-turbo", "gpt-4o-mini"]]]
+    model: Required[
+        Union[str, Literal["gpt-4.1-mini-2025-04-14", "babbage-002", "davinci-002", "gpt-3.5-turbo", "gpt-4o-mini"]]
+    ]
     """The name of the model to fine-tune.
 
     You can select one of the
@@ -57,7 +59,7 @@ class JobCreateParams(TypedDict, total=False):
     """Set of 16 key-value pairs that can be attached to an object.
 
     This can be useful for storing additional information about the object in a
-    structured format, and querying for objects via API or the dashboard.
+    structured format.
 
     Keys are strings with a maximum length of 64 characters. Values are strings with
     a maximum length of 512 characters.
@@ -80,7 +82,7 @@ class JobCreateParams(TypedDict, total=False):
     name.
 
     For example, a `suffix` of "custom-model-name" would produce a model name like
-    `ft:gpt-4o-mini:openai:custom-model-name:7p4lURel`.
+    `ft:gpt-4.1-mini-2025-04-14:openai:custom-model-name:7p4lURel`.
     """
 
     validation_file: Optional[str]

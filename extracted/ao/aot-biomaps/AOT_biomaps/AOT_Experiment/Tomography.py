@@ -1,25 +1,61 @@
-from AOT_biomaps.AOT_Acoustic.AcousticTools import format_angle, get_angle, get_frequency
+"""Structured-wave tomography orchestration for AOT-biomaps.
+
+This module owns pattern generation, structured-wave field orchestration,
+apodization, and quadrature demodulation. Individual k-Wave simulations are
+streamed by :class:`AcousticField`; this module deliberately keeps only one
+simulation worker per GPU so full output fields do not accumulate in VRAM.
+"""
+
+from __future__ import annotations
+
+import ast
+import concurrent.futures
+import gc
+import os
+import threading
+
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.io import loadmat, savemat
+from tqdm.auto import tqdm, trange
+
+from AOT_biomaps.AOT_Acoustic.AcousticTools import (
+    format_angle,
+    get_angle,
+    get_available_host_memory_bytes,
+    get_frequency,
+    hex_to_binary_profile,
+)
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
 from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Experiment.ExperimentTools import calc_mat_os, convert_to_hex_list, get_phase_deterministic, hex_to_binary_profile, binary_to_hex_profile, load_AOsignal
+from AOT_biomaps.AOT_Experiment.ExperimentTools import (
+    binary_to_hex_profile,
+    calc_mat_os,
+    convert_to_hex_list,
+    get_phase_deterministic,
+    load_AOsignal,
+)
 from AOT_biomaps.AOT_Experiment._mainExperiment import Experiment
-import os
-import gc
-import concurrent.futures
-from tqdm import tqdm
-from tqdm import trange
-import numpy as np
-from scipy.io import loadmat, savemat
-import matplotlib.pyplot as plt
-import h5py
-    
+
 try:
     import cupy as cp
-    CUPY_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - depends on the runtime
     cp = None
-    CUPY_AVAILABLE = False
+
+CUPY_AVAILABLE = cp is not None
+
+
+def _is_memmap_backed(array):
+    """Return True if an array or one of its base objects is a NumPy memmap."""
+    current = array
+    while current is not None:
+        if isinstance(current, np.memmap):
+            return True
+        current = getattr(current, "base", None)
+    return False
+
 
 class Tomography(Experiment):
     """
@@ -37,66 +73,117 @@ class Tomography(Experiment):
 
     # PUBLIC METHODS
     def check(self):
-        """
-        Check if the experiment is correctly initialized.
-        """
-        if self.TypeAcoustic is None or self.TypeAcoustic.value == WaveType.FocusedWave.value:
-           raise ValueError("[AOT-biomaps] acousticType must be provided and cannot be FocusedWave for Tomography experiment")
-        if self.AcousticFields is None:
-            raise ValueError("[AOT-biomaps] AcousticFields is not initialized. Please generate the system matrix first.")
-        if self.AOsignal_withTumor is None:
-            raise ValueError("[AOT-biomaps] AOsignal with tumor is not initialized. Please generate the AO signal with tumor first.")
-        if self.AOsignal_withoutTumor is None:
-            raise ValueError("[AOT-biomaps] AOsignal without tumor is not initialized. Please generate the AO signal without tumor first.")
+        """Validate that all data required by a tomography experiment exists."""
+        if self.TypeAcoustic != WaveType.StructuredWave:
+            raise ValueError("Tomography requires acousticType=WaveType.StructuredWave.")
+        if self.AcousticFields is None or len(self.AcousticFields) == 0:
+            raise ValueError("AcousticFields is empty. Generate or load the system matrix first.")
+        if self.AOsignal_withTumor is None or self.AOsignal_withoutTumor is None:
+            raise ValueError("Both AO signals (with and without tumor) must be initialized.")
         if self.OpticImage is None:
-            raise ValueError("[AOT-biomaps] OpticImage is not initialized. Please generate the optic image first.")
-        if self.AOsignal_withoutTumor.shape != self.AOsignal_withTumor.shape:
-            raise ValueError("[AOT-biomaps] AOsignal with and without tumor must have the same shape.")
-        for field in self.AcousticFields:
-            if field.field.shape[0] != self.AOsignal_withTumor.shape[0]:
-                raise ValueError(f"[AOT-biomaps] Field {field.get_name_field()} has an invalid Time shape: {field.field.shape[0]}. Expected time shape to be {self.AOsignal_withTumor.shape[0]}.")
-        if not all(field.field.shape == self.AcousticFields[0].field.shape for field in self.AcousticFields):
-            raise ValueError("[AOT-biomaps] All AcousticFields must have the same shape.")
-        if self.OpticImage is None:
-            raise ValueError("[AOT-biomaps] OpticImage is not initialized. Please generate the optic image first.")
-        if self.OpticImage.phantom is None:
-            raise ValueError("[AOT-biomaps] OpticImage phantom is not initialized. Please generate the phantom first.")
-        if self.OpticImage.laser is None:
-            raise ValueError("[AOT-biomaps] OpticImage laser is not initialized. Please generate the laser first.")
-        if self.OpticImage.laser.shape != self.OpticImage.phantom.shape:
-            raise ValueError("[AOT-biomaps] OpticImage laser and phantom must have the same shape.")
-        if self.OpticImage.phantom.shape[0] != self.AcousticFields[0].field.shape[1] or self.OpticImage.phantom.shape[1] != self.AcousticFields[0].field.shape[2]:
-            raise ValueError(f"[AOT-biomaps] OpticImage phantom shape {self.OpticImage.phantom.shape} does not match AcousticFields shape {self.AcousticFields[0].field.shape[1:]}.")
+            raise ValueError("OpticImage is not initialized.")
+        if self.OpticImage.phantom is None or self.OpticImage.laser is None:
+            raise ValueError("The optical phantom and laser must both be initialized.")
+        if self.AOsignal_withTumor.shape != self.AOsignal_withoutTumor.shape:
+            raise ValueError("AO signals with and without tumor must have identical shapes.")
+        if self.AOsignal_withTumor.ndim != 2:
+            raise ValueError("AO signals must have shape (time, measurements).")
 
-        print("[AOT-biomaps] Experiment is correctly initialized.")
+        reference_shape = None
+        for acoustic_field in self.AcousticFields:
+            field = acoustic_field.field
+            if field is None or field.ndim != 3:
+                raise ValueError(
+                    f"Field {acoustic_field.get_name_field()} is not loaded as a (Nt, Nz, Nx) array."
+                )
+            if field.shape[0] != self.AOsignal_withTumor.shape[0]:
+                raise ValueError(
+                    f"Field {acoustic_field.get_name_field()} has {field.shape[0]} time samples; "
+                    f"expected {self.AOsignal_withTumor.shape[0]}."
+                )
+            if reference_shape is None:
+                reference_shape = tuple(field.shape)
+            elif tuple(field.shape) != reference_shape:
+                raise ValueError("All acoustic fields must have identical shapes.")
 
-    def generate_acoustic_fields(self, isGPU=None, GPUdevice=None, fieldDataPath=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squared", show_log=True, max_workers=None, backend=None, materialize=False):
-        """
-        Generate the acoustic fields for simulation.
+        if tuple(self.OpticImage.phantom.shape) != reference_shape[1:]:
+            raise ValueError(
+                f"Optical phantom shape {self.OpticImage.phantom.shape} does not match "
+                f"acoustic spatial shape {reference_shape[1:]}."
+            )
+        if tuple(self.OpticImage.laser.shape) != tuple(self.OpticImage.phantom.shape):
+            raise ValueError("Optical laser and phantom images must have identical shapes.")
+        if self.AOsignal_withTumor.shape[1] != len(self.AcousticFields):
+            raise ValueError("AO signal columns must match the number of acoustic fields.")
+        print("[AOT-biomaps] Tomography experiment is correctly initialized.")
 
-        Parameters:
-            isGPU (bool): Whether to use GPU for simulation. (If None, the default setting will be used.)
-            GPUdevice (int): The GPU device to use. (If None, the default GPU will be used.)
-            fieldDataPath (str): Path to save the generated fields.
-            tempFieldName (str): Name for the temporary field files. Mainly used for multithreading to avoid multiple threads writing to the same file.
-            nameBlock (str): Optional name for h5 file.
-            generation_type (str): The type of field generation to perform. Must be one of "envelope_squared", "envelope", or "field".
-            show_log (bool): Whether to show progress logs.
-            max_workers (int): Max PARALLEL GENERATIONS. Default: one worker per GPU (GPU mode) or 4 (CPU mode).
-            backend (str): "python" (default) or "cpp". Use "cpp" with a GPUdevice LIST for true multi-GPU scaling.
-            materialize (bool): If True, promote loaded fields from file-backed memmap (or views over a memmap) to resident anonymous RAM ndarrays, guarded by a RAM budget check (80% of MemAvailable). 
-                The disk cost is paid once, visibly, during the loading step; every downstream pass (e.g. generate_AOsignal) then runs at RAM bandwidth and becomes immune to page-cache eviction by unrelated I/O. Recommended for analysis/reconstruction sessions.
-                Leave False for one-shot passes or oversized SetMixtes.
-
-        Returns:
-            list: List of generated FocusedWave objects.
+    def generate_acoustic_fields(
+        self, isGPU=None, GPUdevice=None, fieldDataPath=None, tempFieldName="Kwave",
+        nameBlock=None, generation_type="envelope_squared", show_log=True,
+        max_workers=None, backend=None, materialize=False, vram_fraction=0.95,
+        accumulate_max_bytes=None, host_staging_fraction=1.0 / 16.0,
+    ):
+        """Generate the structured-wave system matrix.
+    
+        GPU execution is bounded to one active k-Wave simulation per GPU.
+        The streaming acoustic-field implementation sizes its output ring from
+        current free VRAM and overlaps device-to-host transfers when the full
+        field does not fit. Completed fields are returned on the host by
+        default, so generating many patterns never accumulates full matrices
+        in VRAM.
+    
+        Parameters
+        ----------
+        isGPU : bool or None
+            Use GPU execution; ``None`` follows the package configuration.
+        GPUdevice : int, sequence of int, or None
+            One device or an explicit set of devices.
+        fieldDataPath : str or None
+            Optional directory used to load and save individual fields.
+        generation_type : str
+            One of ``"envelope_squared"``, ``"envelope"`` or ``"field"``.
+        max_workers : int or None
+            Maximum concurrent simulations. GPU execution is capped at one
+            worker per selected device.
+        backend : {"python", "cpp"} or None
+            k-Wave backend. The Python backend supports streaming I/Q output.
+        materialize : bool
+            Promote loaded file-backed fields to resident host RAM when the
+            estimated full collection fits the available-memory budget.
+        vram_fraction : float
+            Fraction of currently allocatable VRAM offered to each output ring.
+        accumulate_max_bytes : int or None
+            Optional caller-specified output-ring ceiling.
+        host_staging_fraction : float
+            Fraction of available host RAM offered to pinned transfer buffers.
         """
         if self.medium is None:
-            raise ValueError("[AOT-biomaps] Medium is not initialized. Please generate the medium first.")
-        if self.TypeAcoustic.value == WaveType.StructuredWave.value:
-            self.AcousticFields = self._generate_acousticFields_STRUCT(isGPU=isGPU, GPUdevice=GPUdevice, fieldDataPath=fieldDataPath, tempFieldName=tempFieldName, nameBlock=nameBlock, generation_type=generation_type, show_log=show_log, max_workers=max_workers, backend=backend, materialize=materialize)
-        else:
-            raise ValueError("[AOT-biomaps] Unsupported wave type.")
+            raise ValueError("Medium is not initialized. Generate or load it first.")
+        if self.TypeAcoustic != WaveType.StructuredWave:
+            raise ValueError("Tomography currently supports StructuredWave acquisitions only.")
+        if generation_type not in ("envelope_squared", "envelope", "field"):
+            raise ValueError("generation_type must be 'envelope_squared', 'envelope', or 'field'.")
+        if not (0.0 < float(vram_fraction) <= 1.0):
+            raise ValueError("vram_fraction must be in (0, 1].")
+        if not (0.0 < float(host_staging_fraction) <= 1.0):
+            raise ValueError("host_staging_fraction must be in (0, 1].")
+    
+        self.AcousticFields = self._generate_acousticFields_STRUCT(
+            isGPU=isGPU,
+            GPUdevice=GPUdevice,
+            fieldDataPath=fieldDataPath,
+            tempFieldName=tempFieldName,
+            nameBlock=nameBlock,
+            generation_type=generation_type,
+            show_log=show_log,
+            max_workers=max_workers,
+            backend=backend,
+            materialize=materialize,
+            vram_fraction=vram_fraction,
+            accumulate_max_bytes=accumulate_max_bytes,
+            host_staging_fraction=host_staging_fraction,
+        )
+        return self.AcousticFields
 
     def show_pattern(self,figsize=(5, 4)):
         """
@@ -259,50 +346,66 @@ class Tomography(Experiment):
         plt.show()
 
     def load_activeList(self, fieldParamPath):
-        """
-        Load the active list patterns from a parameter file.
-
-        Parameters:
-            fieldParamPath (str): Path to the file containing pattern parameters.
-
-        Raises:
-            FileNotFoundError: If the file does not exist.
-        """
-        if not os.path.exists(fieldParamPath):
-            raise FileNotFoundError(f"[AOT-biomaps] Field parameter file {fieldParamPath} not found.")
+        """Load filename-based or parameterized structured-wave patterns."""
+        if not os.path.isfile(fieldParamPath):
+            raise FileNotFoundError(f"Field parameter file not found: {fieldParamPath}")
+    
+        self.theta = []
+        self.decimations = []
+        self.ActiveList = []
+        self.DelayLaw = []
         patterns = []
-        with open(fieldParamPath, 'r') as file:
-            lines = file.readlines()
-            for line in lines:
-                line = line.strip()
+        n_elements = int(self.params.acoustic["probe"]["num_elements"])
+        element_width = float(self.params.acoustic["probe"]["element_width"])
+        sound_speed = float(self.params.acoustic["medium"]["c0"])
+        element_index = np.arange(1, n_elements + 1, dtype=np.float64)
+    
+        with open(fieldParamPath, "r", encoding="utf-8") as file:
+            for line_number, raw_line in enumerate(file, start=1):
+                line = raw_line.strip()
                 if not line:
                     continue
                 if "_" in line and all(c in "0123456789abcdefABCDEF" for c in line.split("_")[0]):
+                    angle = get_angle(line)
+                    profile = hex_to_binary_profile(line.split("_")[0], n_elements)
                     patterns.append({"fileName": line})
-                    self.theta.append(get_angle(line))
-                    profile = hex_to_binary_profile(line.split('_')[0], self.params.acoustic['probe']['num_elements'])
+                    self.theta.append(angle)
                     self.ActiveList.append(profile)
-                    new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(self.theta[-1])) * np.arange(1, self.params.acoustic['probe']['num_elements'] + 1) * self.params.acoustic['probe']['element_width']
-                    self.DelayLaw.append(new_Delay - np.min(new_Delay))
-                    self.decimations.append(get_frequency(line, self.params.acoustic['probe']['num_elements'], self.params.acoustic['probe']['element_width']))
+                    delays = (
+                        1000.0 / sound_speed * np.sin(np.deg2rad(angle))
+                        * element_index * element_width
+                    )
+                    self.DelayLaw.append(delays - delays.min())
+                    self.decimations.append(get_frequency(line, n_elements, element_width))
                     continue
+    
                 try:
-                    parsed = eval(line, {"__builtins__": None})
-                    if isinstance(parsed, tuple) and len(parsed) == 2:
-                        coords, angles = parsed
-                        for angle in angles:
-                            patterns.append({
-                                "space_0": coords[0],
-                                "space_1": coords[1],
-                                "move_head_0_2tail": coords[2],
-                                "move_tail_1_2head": coords[3],
-                                "angle": angle
-                            })
-                    else:
-                        raise ValueError("[AOT-biomaps] Unexpected line (not a tuple of two elements)")
-                except Exception as e:
-                    print(f"[AOT-biomaps] Parsing error on line: {line}\n{e}")
+                    parsed = ast.literal_eval(line)
+                    if not (isinstance(parsed, tuple) and len(parsed) == 2):
+                        raise ValueError("Expected a tuple: (four pattern coordinates, angle list).")
+                    coordinates, angles = parsed
+                    if len(coordinates) != 4:
+                        raise ValueError("A parameterized pattern must contain four coordinates.")
+                    for angle in angles:
+                        angle = float(angle)
+                        patterns.append({
+                            "space_0": coordinates[0],
+                            "space_1": coordinates[1],
+                            "move_head_0_2tail": coordinates[2],
+                            "move_tail_1_2head": coordinates[3],
+                            "angle": angle,
+                        })
+                        self.theta.append(angle)
+                        self.ActiveList.append(None)
+                        self.DelayLaw.append(None)
+                        self.decimations.append(None)
+                except (ValueError, SyntaxError, TypeError) as exc:
+                    raise ValueError(
+                        f"Invalid pattern specification on line {line_number}: {line!r}. {exc}"
+                    ) from exc
+    
         self.patterns = patterns
+        return patterns
 
     def save_activeList(self, filePath):
         """
@@ -350,28 +453,62 @@ class Tomography(Experiment):
             raise ValueError("[AOT-biomaps] Either N (>=2) or both decimations and angles must be provided for pattern generation.")
 
     def generate_activeList_from_exp(self):
+        """Build structured-wave metadata from the loaded experimental parameters."""
         if self.expParams is None:
-            raise ValueError("[AOT-biomaps] expParams is not initialized. Please load the experiment data first.")
-        active_elements = convert_to_hex_list(self.expParams['ActiveListMatrix'])
-        self.DelayLaw = []
-        self.theta = []
-        self.decimations = []
-        self.ActiveList = []
+            raise ValueError("expParams is not initialized. Load experiment data first.")
+        active_hex = convert_to_hex_list(self.expParams["ActiveListMatrix"])
+        angles = np.asarray(self.expParams["AngleMatrix"]).reshape(-1)
+        if len(active_hex) != len(angles):
+            raise ValueError(
+                f"Active-list count ({len(active_hex)}) does not match angle count ({len(angles)})."
+            )
+    
+        n_elements = int(self.params.acoustic["probe"]["num_elements"])
+        element_width = float(self.params.acoustic["probe"]["element_width"])
+        sound_speed = float(self.params.acoustic["medium"]["c0"])
+        element_index = np.arange(1, n_elements + 1, dtype=np.float64)
+    
         self.patterns = []
-        for i in range(len(active_elements)):
-            self.patterns.append({"fileName": f"{active_elements[i]}_{format_angle(self.expParams['AngleMatrix'][i])}"})
-            self.theta.append(self.expParams['AngleMatrix'][i])
-            self.ActiveList = active_elements
-            new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(self.theta[-1])) * np.arange(1, self.params.acoustic['probe']['num_elements'] + 1) * self.params.acoustic['probe']['element_width']
-            self.DelayLaw.append(new_Delay - np.min(new_Delay))
-            self.decimations.append(get_frequency(active_elements[i], self.params.acoustic['probe']['num_elements'], self.params.acoustic['probe']['element_width']))
+        self.theta = []
+        self.ActiveList = []
+        self.DelayLaw = []
+        self.decimations = []
+        for pattern_hex, angle in zip(active_hex, angles):
+            angle = float(angle)
+            file_name = f"{pattern_hex}_{format_angle(angle)}"
+            self.patterns.append({"fileName": file_name})
+            self.theta.append(angle)
+            self.ActiveList.append(hex_to_binary_profile(pattern_hex, n_elements))
+            delays = (
+                1000.0 / sound_speed * np.sin(np.deg2rad(angle))
+                * element_index * element_width
+            )
+            self.DelayLaw.append(delays - delays.min())
+            self.decimations.append(get_frequency(pattern_hex, n_elements, element_width))
+        return self.patterns
 
     def check_ActiveList(self, activeList_path):
-        with open(activeList_path, 'r') as f:
-            for i,line in enumerate(f):
-                if line.strip() != self.patterns[i]["fileName"]:
-                    print(f"[AOT-biomaps] Mismatch at line {i+1}: file has '{line.strip()}', but generated list has '{self.patterns[i]['fileName']}'")
-                    return False    
+        """Compare a filename-based active list with the current patterns."""
+        if self.patterns is None:
+            raise ValueError("patterns is not initialized.")
+        expected = [pattern.get("fileName") for pattern in self.patterns]
+        if any(name is None for name in expected):
+            raise ValueError("The current pattern list contains parameterized entries without filenames.")
+        with open(activeList_path, "r", encoding="utf-8") as file:
+            actual = [line.strip() for line in file if line.strip()]
+        if len(actual) != len(expected):
+            print(
+                f"[AOT-biomaps] Active-list length mismatch: file has {len(actual)} entries, "
+                f"current pattern list has {len(expected)}."
+            )
+            return False
+        for index, (found, wanted) in enumerate(zip(actual, expected)):
+            if found != wanted:
+                print(
+                    f"[AOT-biomaps] Active-list mismatch at entry {index + 1}: "
+                    f"file has {found!r}, expected {wanted!r}."
+                )
+                return False
         return True
 
     def save_AOsignals_matlab(self, filePath):
@@ -406,36 +543,44 @@ class Tomography(Experiment):
         self._apply_selection_indices(index)
 
     def select_shifts(self, shifts):
-        """
-        Select patterns based on their phase shift parameters (in radians or degrees).
-        """
+        """Select filename-based patterns by their quadrature phase."""
         if self.patterns is None:
-            raise ValueError("[AOT-biomaps] patterns is not initialized.")
-
-        # Convert shifts to radians if needed
-        shift_rads = []
+            raise ValueError("patterns is not initialized.")
+    
+        phase_map = {
+            "0": 0.0,
+            "0.0": 0.0,
+            "90": np.pi / 2,
+            "180": np.pi,
+            "270": 3 * np.pi / 2,
+            "pi/2": np.pi / 2,
+            "pi": np.pi,
+            "3pi/2": 3 * np.pi / 2,
+            "0rad": 0.0,
+        }
+        target_phases = []
         for shift in shifts:
             if isinstance(shift, str):
-                if shift in ["0", "90", "180", "270"]:
-                    shift_rads.append(np.deg2rad(int(shift)))
-                elif shift in ["0", "pi/2", "pi", "3pi/2"]:
-                    shift_rads.append(float(shift.split('/')[0])/2 if '/' in shift else float(shift))
+                token = shift.strip().lower().replace(" ", "")
+                if token in phase_map:
+                    target_phases.append(phase_map[token])
                 else:
-                    raise ValueError(f"[AOT-biomaps] Invalid shift value: {shift}")
+                    target_phases.append(float(token))
             else:
-                shift_rads.append(shift)
-
-        n_piezos = self.params.acoustic['probe']['num_elements']
-        index = []
-        for i, p in enumerate(self.patterns):
-            hex_part = p["fileName"].split('_')[0] if "fileName" in p else None
-            if hex_part:
-                profile = hex_to_binary_profile(hex_part, n_piezos)
-                phase = get_phase_deterministic(profile)
-                if any(np.isclose(phase, sr, atol=1e-3) for sr in shift_rads):
-                    index.append(i)
-
-        self._apply_selection_indices(index)
+                target_phases.append(float(shift))
+        target_phases = np.asarray(target_phases, dtype=np.float64)
+    
+        n_elements = int(self.params.acoustic["probe"]["num_elements"])
+        indices = []
+        for index, pattern in enumerate(self.patterns):
+            if "fileName" not in pattern:
+                continue
+            profile = hex_to_binary_profile(pattern["fileName"].split("_")[0], n_elements)
+            phase = get_phase_deterministic(profile)
+            if np.any(np.isclose(phase, target_phases, rtol=0.0, atol=1e-8)):
+                indices.append(index)
+        self._apply_selection_indices(indices)
+        return indices
 
     def select_decimations(self, decimations):
         """
@@ -632,11 +777,12 @@ class Tomography(Experiment):
             print(f"[AOT-biomaps] No even divisors found for num_elements = {num_elements}")
             return []
 
-        # 2. Use a set to track unique patterns
+        # Preserve draw order while using a set for constant-time duplicate checks.
         unique_patterns = set()
+        ordered_patterns = []
 
-        # 3. Generate until N unique patterns are found
-        while len(unique_patterns) < N:
+        # Generate until N unique patterns are found.
+        while len(ordered_patterns) < N:
             # Randomly select a divisor (including num_elements)
             block_size = np.random.choice(divs)
 
@@ -658,11 +804,12 @@ class Tomography(Experiment):
             angle = np.random.choice(angle_choices)
             pair = f"{hex_pattern}_{format_angle(angle)}"
 
-            # Add to set (duplicates are automatically ignored)
-            unique_patterns.add(pair)
+            if pair not in unique_patterns:
+                unique_patterns.add(pair)
+                ordered_patterns.append(pair)
 
-        # 4. Convert to list of dictionaries with "fileName" key
-        patterns = [{"fileName": pair} for pair in unique_patterns]
+        # Convert to a stable list of filename-based pattern dictionaries.
+        patterns = [{"fileName": pair} for pair in ordered_patterns]
         for i in range(N):
             self.theta.append(get_angle(patterns[i]["fileName"]))
             profile = hex_to_binary_profile(patterns[i]["fileName"].split('_')[0], self.params.acoustic['probe']['num_elements'])
@@ -732,334 +879,152 @@ class Tomography(Experiment):
         return True
 
     def apply_apodisation(self, alpha=0.3, divergence_deg=0.5):
+        """Apply an angle-aligned Tukey aperture mask to each acoustic field.
+    
+        The mask is built from broadcast 1-D coordinates (no full meshgrid) and
+        stored as float32. Writable fields are multiplied in place, avoiding a
+        second full 3-D field allocation. Read-only memmaps are replaced by one
+        output allocation because their backing file is not writable.
         """
-        Apply dynamic apodization on stored acoustic fields.
-        Apodization follows the emission angle and natural beam divergence to
-        suppress diffraction lobes (edge artifacts) without affecting the useful signal.
-
-        Parameters:
-            alpha (float): Tukey parameter (0.0=rectangle, 1.0=hann). 0.3 is a good compromise.
-            divergence_deg (float): Opening angle of the mask to follow beam broadening. 0.0 = Straight, 0.5 = Slight opening (recommended).
-        """
-        print(f"[AOT-biomaps] Applying apodization (Alpha={alpha}, Div={divergence_deg}°) on {len(self.AcousticFields)} fields...")
-
-        probe_width = self.params.acoustic['probe']['num_elements'] * self.params.acoustic['probe']['element_width']
-
-        for i in trange(len(self.AcousticFields), desc="Apodization"):
-            # 1. Retrieve data and angle
-            field = self.AcousticFields[i].field  # Can be (Z, X) or (Time, Z, X)
-            angle = self.AcousticFields[i].angle  # Plane wave angle
-
-            # 2. Retrieve or create physical axes
-            nz, nx = field.shape[-2:]
-
-            if hasattr(self, 'x_axis') and self.x_axis is not None:
-                x_axis = self.x_axis
+        if self.AcousticFields is None or len(self.AcousticFields) == 0:
+            raise ValueError("AcousticFields is empty.")
+        if not (0.0 <= float(alpha) <= 1.0):
+            raise ValueError("alpha must be in [0, 1].")
+        if float(divergence_deg) < 0.0:
+            raise ValueError("divergence_deg must be non-negative.")
+    
+        probe = self.params.acoustic["probe"]
+        probe_width = float(probe["num_elements"]) * float(probe["element_width"])
+    
+        for acoustic_field in trange(len(self.AcousticFields), desc="[AOT-biomaps] Apodizing acoustic fields"):
+            field_object = self.AcousticFields[acoustic_field]
+            field = field_object.field
+            if field is None or field.ndim not in (2, 3):
+                raise ValueError("Apodization expects a loaded 2-D image or a (time, z, x) field.")
+            nz, nx = map(int, field.shape[-2:])
+            if getattr(self, "x_axis", None) is not None:
+                x_axis = np.asarray(self.x_axis, dtype=np.float32)
             else:
-                # Default generation centered on 0 (e.g., -20mm to +20mm)
-                x_axis = np.linspace(-probe_width/2, probe_width/2, nx)
-
-            if hasattr(self, 'z_axis') and self.z_axis is not None:
-                z_axis = self.z_axis
+                # Preserve the original default: the probe aperture is centered at x=0.
+                x_axis = np.linspace(-probe_width / 2.0, probe_width / 2.0, nx, dtype=np.float32)
+            if getattr(self, "z_axis", None) is not None:
+                z_axis = np.asarray(self.z_axis, dtype=np.float32)
             else:
-                # Default generation (e.g., 0 to 40mm, based on standard pitch or arbitrary)
-                estimated_depth = 40e-3
-                z_axis = np.linspace(0, estimated_depth, nz)
-
-            # 3. Prepare grids for the mask
-            Z, X = np.meshgrid(z_axis, x_axis, indexing='ij')
-
-            # 4. Calculate aligned geometry (Steering)
-            angle_rad = np.deg2rad(angle)
-            X_aligned = X - Z * np.tan(angle_rad)
-
-            # 5. Calculate dynamic mask width (Divergence)
-            div_rad = np.deg2rad(divergence_deg)
-            current_half_width = (probe_width / 2.0) + Z * np.tan(div_rad)
-
-            # 6. Normalization and Tukey mask creation
-            X_norm = np.divide(X_aligned, current_half_width, out=np.zeros_like(X_aligned), where=current_half_width!=0)
-
-            mask = np.zeros_like(X_norm)
-            plateau_threshold = 1.0 * (1 - alpha)
-
-            # Central zone (plateau = 1)
-            mask[np.abs(X_norm) <= plateau_threshold] = 1.0
-
-            # Transition zone (cosine)
-            transition_indices = (np.abs(X_norm) > plateau_threshold) & (np.abs(X_norm) <= 1.0)
-            if np.any(transition_indices):
-                x_trans = np.abs(X_norm[transition_indices]) - plateau_threshold
-                width_trans = 1.0 * alpha
-                mask[transition_indices] = 0.5 * (1 + np.cos(np.pi * x_trans / width_trans))
-
-            # 7. Apply mask (Handle 2D vs 3D)
-            if field.ndim == 3:
-                field_apodized = field * mask[np.newaxis, :, :]
+                # Preserve the historical default depth interval when no explicit axis is supplied.
+                z_axis = np.linspace(0.0, 40e-3, nz, dtype=np.float32)
+            if x_axis.ndim != 1 or z_axis.ndim != 1 or x_axis.size != nx or z_axis.size != nz:
+                raise ValueError("The configured x_axis/z_axis must be 1-D and match the field grid.")
+    
+            angle_tan = np.float32(np.tan(np.deg2rad(float(field_object.angle))))
+            divergence_tan = np.float32(np.tan(np.deg2rad(float(divergence_deg))))
+            half_width = np.float32(probe_width / 2.0) + z_axis[:, None] * divergence_tan
+    
+            normalized = np.zeros((nz, nx), dtype=np.float32)
+            np.subtract(x_axis[None, :], z_axis[:, None] * angle_tan, out=normalized)
+            np.divide(normalized, half_width, out=normalized, where=half_width != 0)
+            zero_width_rows = half_width[:, 0] == 0
+            if np.any(zero_width_rows):
+                normalized[zero_width_rows, :] = 0.0
+            np.abs(normalized, out=normalized)
+    
+            mask = np.zeros((nz, nx), dtype=np.float32)
+            plateau = normalized <= (1.0 - float(alpha))
+            mask[plateau] = 1.0
+            transition = (normalized > (1.0 - float(alpha))) & (normalized <= 1.0)
+            if alpha > 0.0 and np.any(transition):
+                position = (normalized[transition] - (1.0 - float(alpha))) / float(alpha)
+                mask[transition] = 0.5 * (1.0 + np.cos(np.pi * position))
+    
+            if CUPY_AVAILABLE and isinstance(field, cp.ndarray):
+                with cp.cuda.Device(int(field.device.id)):
+                    mask_device = cp.asarray(mask)
+                    broadcast_mask = mask_device[None, :, :] if field.ndim == 3 else mask_device
+                    if bool(getattr(field.flags, "writeable", True)):
+                        cp.multiply(field, broadcast_mask, out=field)
+                    else:
+                        field_object.field = cp.multiply(field, broadcast_mask)
+                    del mask_device, broadcast_mask
             else:
-                field_apodized = field * mask
-
-            # 8. Update object
-            self.AcousticFields[i].field = field_apodized
-
-        print("[AOT-biomaps] Apodization done.")
+                broadcast_mask = mask[None, :, :] if field.ndim == 3 else mask
+                if field.flags.writeable:
+                    np.multiply(field, broadcast_mask, out=field, casting="unsafe")
+                else:
+                    field_object.field = np.multiply(field, broadcast_mask, dtype=np.float32)
+            del normalized, mask, half_width
+    
+        print("[AOT-biomaps] Apodization complete.")
+        return self.AcousticFields
 
     # PRIVATE METHODS
-    def _generate_acousticFields_STRUCT(self, fieldDataPath=None, isGPU=None, GPUdevice=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squared", show_log=False, max_workers=None, backend=None, materialize=False):
-        """
-        Generate acoustic fields for structured waves.
-
-        Concurrency model:
-        - LOADING is cheap (np.memmap) and stays parallel.
-        - GENERATION is VRAM-bound: one k-Wave simulation + fused post-processing peaks at ~10-12 GB VRAM per field (sensor data alone = Nx_sim*Nz_sim*Nt*4 B). An unbounded ThreadPoolExecutor (~32 workers) saturates a 48 GB GPU -> OutOfMemoryError.
-            Default: one generation worker PER GPU.
-        - backend "cpp": the simulation runs as a subprocess -> the GIL is released during the sim -> multiple workers truly scale.
-        - backend "python": the kwave-python time loop is GIL-bound -> multiple GPU workers do NOT scale (each field ~2x slower).
-
-        Memory model (materialize):
-        - load_field(HDR_IMG) returns a np.memmap: the .img file is only MAPPED (zero bytes read). The kernel reads pages on first touch, so the disk cost silently reappears later (e.g. in generate_AOsignal), and the page cache can be evicted at any time by unrelated I/O.
-        - materialize=True promotes every loaded field from page-cache-backed memmap (or any ndarray view whose .base chain reaches a memmap) to an anonymous ndarray (guaranteed resident RAM). The disk cost moves (visibly) into the loading progress bar, and every downstream pass runs at RAM bandwidth.
-        - A safety budget check (80% of MemAvailable, which includes the reclaimable page cache, unlike MemFree) refuses promotion if the estimated total size does not fit.
-
-        Parameters:
-            fieldDataPath (str): Path to save generated fields.
-            isGPU (bool): Whether to use GPU for simulation. (Default: config.)
-            GPUdevice (int or list of int): GPU device index. A LIST pins one worker per GPU (e.g. [0, 1] on a 2-GPU machine); an int pins all workers to one device; None uses the best GPU.
-            tempFieldName (str): Prefix for the per-field temporary scratch dirs (cpp backend). Kept unique per field internally.
-            nameBlock (str): Optional name for the block when saving.
-            generation_type (str): "envelope_squared", "envelope" or "field".
-            show_log (bool): Whether to show progress logs.
-            max_workers (int): Max PARALLEL GENERATIONS. Default: one per GPU (GPU mode) or 4 (CPU mode). Do not raise this above the number of GPUs.
-            backend (str): "python" (default) or "cpp". Use "cpp" with a GPUdevice LIST for true multi-GPU scaling.
-            materialize (bool): If True, promote loaded fields from np.memmap to resident RAM ndarrays (guarded by a RAM budget check).
-                Recommended for analysis/reconstruction sessions that call generate_AOsignal repeatedly. Leave False for one-shot passes or when RAM cannot hold the whole SetMixte.
-
-        Returns:
-            list: List of generated StructuredWave objects.
+    def _generate_acousticFields_STRUCT(
+        self, fieldDataPath=None, isGPU=None, GPUdevice=None, tempFieldName="Kwave",
+        nameBlock=None, generation_type="envelope_squared", show_log=False,
+        max_workers=None, backend=None, materialize=False, vram_fraction=0.95,
+        accumulate_max_bytes=None, host_staging_fraction=1.0 / 16.0,
+    ):
+        """Load existing structured fields and generate only missing fields.
+    
+        Loading and generation are deliberately separate. Existing HDR/IMG
+        files are opened lazily as memmaps unless ``materialize=True`` and the
+        estimated complete collection fits the host-memory budget. Simulation
+        is bounded to one active worker per GPU. Each generated field is
+        returned to host memory, saved, and then reopened lazily when
+        materialization is disabled; this prevents the system matrix from
+        accumulating in VRAM during a multi-pattern run.
         """
         if self.patterns is None:
-            raise ValueError("[AOT-biomaps] patterns is not initialized. Please load or generate the active list first.")
-
+            raise ValueError("patterns is not initialized. Load or generate the active list first.")
+        if not self.patterns:
+            return []
+        if backend is None:
+            backend = "python"
+        if backend not in ("python", "cpp"):
+            raise ValueError("backend must be 'python' or 'cpp'.")
         if isGPU is None:
-            isGPU = True if config.get_process() == 'gpu' else False
-
-        backend = backend or "python"
-
-        # --- Device pool: one generation worker per GPU ---------------------
+            isGPU = config.get_process() == "gpu"
+    
+        # Resolve the worker-device list. The worker count is never allowed to
+        # exceed the number of distinct selected GPUs.
+        if isGPU and not CUPY_AVAILABLE:
+            print("[AOT-biomaps] CuPy is unavailable; acoustic generation will run on CPU.")
+            isGPU = False
+    
         if isGPU:
-            if isinstance(GPUdevice, (list, tuple)) and len(GPUdevice) > 0:
-                gpu_devices = [int(d) for d in GPUdevice]
-            elif isinstance(GPUdevice, int):
-                gpu_devices = [GPUdevice]
+            if isinstance(GPUdevice, (list, tuple, np.ndarray)):
+                gpu_devices = list(dict.fromkeys(int(device) for device in GPUdevice))
+                if not gpu_devices:
+                    raise ValueError("GPUdevice must contain at least one device index.")
+            elif GPUdevice is not None:
+                gpu_devices = [int(GPUdevice)]
             else:
-                gpu_devices = [config.select_best_gpu()]
+                gpu_devices = [int(config.select_best_gpu())]
         else:
             gpu_devices = [None]
-
+    
         if max_workers is None:
             max_workers = len(gpu_devices) if isGPU else min(4, os.cpu_count() or 1)
+        max_workers = int(max_workers)
+        if max_workers < 1:
+            raise ValueError("max_workers must be a positive integer.")
         if isGPU and max_workers > len(gpu_devices):
-            print(f"[AOT-biomaps] Warning: max_workers={max_workers} > number of GPUs "
-                    f"({len(gpu_devices)}). Capping to {len(gpu_devices)} to avoid VRAM OOM.")
+            print(
+                f"[AOT-biomaps] Capping max_workers={max_workers} to {len(gpu_devices)} "
+                "to keep at most one simulation per GPU."
+            )
             max_workers = len(gpu_devices)
-
-        # One-time warning: multi-GPU only pays off with the cpp backend.
-        if isGPU and len(gpu_devices) > 1 and backend == "python":
-            print(f"[AOT-biomaps] Warning: {len(gpu_devices)} GPUs pinned with "
-                    f"backend='python': the kwave-python time loop is GIL-bound, "
-                    f"multiple workers will NOT scale (each field ~2x slower). "
-                    f"Use backend='cpp' for true multi-GPU scaling.")
-
-        # 1. Pre-check step: Instantiation and sorting
+        active_devices = gpu_devices[:max_workers] if isGPU else [None]
+    
+        # Instantiate all field descriptors once and preserve the requested order.
+        fields = [None] * len(self.patterns)
         to_load = []
         to_generate = []
-
-        # Absolute mapping: pre-allocation to guarantee output order
-        listAcousticFields = [None] * len(self.patterns)
-
-        for i, pattern in enumerate(self.patterns):
+        for index, pattern in enumerate(self.patterns):
             if "fileName" in pattern:
-                AcousticField = StructuredWave(fileName=pattern["fileName"], params=self.params, medium=self.medium)
-            else:
-                AcousticField = StructuredWave(
-                    angle_deg=pattern["angle"],
-                    space_0=pattern["space_0"],
-                    space_1=pattern["space_1"],
-                    move_head_0_2tail=pattern["move_head_0_2tail"],
-                    move_tail_1_2head=pattern["move_tail_1_2head"],
-                    params=self.params,
-                    medium=self.medium
+                field_object = StructuredWave(
+                    fileName=pattern["fileName"], params=self.params, medium=self.medium
                 )
-
-            pathField = None
-            if fieldDataPath is not None:
-                pathField = os.path.join(fieldDataPath, AcousticField.get_name_field() + self.FormatSave.value)
-
-            # Sorting: a field file counts as "on disk" only if it is NOT EMPTY. Zero-byte .img files (e.g. from a previously interrupted or truncated save) must be regenerated AND overwritten, not blindly trusted.
-            if pathField is not None and os.path.exists(pathField) and os.path.getsize(pathField) > 0 and self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
-                to_load.append((i, AcousticField, pathField))
             else:
-                to_generate.append((i, AcousticField, pathField))
-
-        print(f"[AOT-biomaps] Pre-check complete: {len(to_load)} fields to load, {len(to_generate)} fields to generate ({max_workers} generation worker(s)).")
-
-        # --- RAM budget, inlined: MemAvailable (includes reclaimable page cache), NOT MemFree (SC_AVPHYS_PAGES). Promoting a cached memmap to an anonymous array mostly re-labels existing page-cache pages, so MemAvailable is the honest budget. sysconf fallback if /proc/meminfo is not readable (non-Linux).
-        ram_available = None
-        try:
-            with open('/proc/meminfo') as f:
-                for line in f:
-                    if line.startswith('MemAvailable:'):
-                        ram_available = int(line.split()[1]) * 1024   # kB -> bytes
-                        break
-        except OSError:
-            pass
-        if ram_available is None:
-            ram_available = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_AVPHYS_PAGES')   # fallback
-
-        # --- Materialization state (closure-shared, GIL-protected) -----------
-        # materialize_enabled[0] may be flipped OFF by the budget check below. bytes_per_field[0] is filled once, on the first successful load.
-        materialize_enabled = [bool(materialize)]
-        bytes_per_field = [None]
-
-        # 2. Loading step (memmap -> cheap, stays parallel)
-        def do_load(task):
-            index, AcousticField, pathField = task
-            try:
-                AcousticField.load_field(fieldDataPath, self.FormatSave, nameBlock)
-                F = AcousticField.field
-
-                # --- File-backed detection, inlined: walk the .base chain; a view over a memmap is still file-backed (evictable page cache) whatever its ndarray subclass. -------------------
-                b = F
-                is_file_backed = False
-                while b is not None:
-                    if isinstance(b, np.memmap):
-                        is_file_backed = True
-                        break
-                    b = b.base
-
-                # --- Materialization: ANY file-backed array (memmap subclass OR ndarray view whose base chain reaches a memmap) is promoted to a fresh ANONYMOUS copy -> guaranteed RAM. ---
-                if materialize_enabled[0] and is_file_backed:
-                    if bytes_per_field[0] is None:
-                        bytes_per_field[0] = F.nbytes
-                        est_total = bytes_per_field[0] * len(to_load)
-                        if est_total > 0.8 * ram_available:
-                            materialize_enabled[0] = False
-                            print(f"[AOT-biomaps] Warning: materialize refused: "
-                                    f"~{est_total / 2**30:.0f} Go needed for {len(to_load)} fields "
-                                    f"vs {ram_available / 2**30:.0f} Go RAM available. "
-                                    f"Falling back to lazy memmap.")
-                        else:
-                            print(f"[AOT-biomaps] Materializing fields to RAM: "
-                                    f"~{est_total / 2**30:.0f} Go for {len(to_load)} fields "
-                                    f"(RAM available: {ram_available / 2**30:.0f} Go).")
-                    if materialize_enabled[0]:
-                        # np.array(copy=True) is the ONLY construct that always forces a real data copy; it also drops any view/memmap subclass -> anonymous pages, base is None.
-                        Fc = np.array(F, dtype=F.dtype, order='C', copy=True)
-                        assert Fc.base is None   # fresh anonymous array, not file-backed
-                        AcousticField.field = Fc
-
-                return index, AcousticField, True
-            except Exception:
-                return index, AcousticField, False
-
-        if to_load:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures_load = [executor.submit(do_load, task) for task in to_load]
-
-                # First distinct progress bar for loading
-                for future in tqdm(concurrent.futures.as_completed(futures_load), total=len(to_load), desc="[AOT-biomaps] Loading fields", mininterval=0.0):
-                    index, AcousticField, success = future.result()
-                    if success:
-                        listAcousticFields[index] = AcousticField
-                    else:
-                        pathField = os.path.join(fieldDataPath, AcousticField.get_name_field() + self.FormatSave.value)
-                        to_generate.append((index, AcousticField, pathField))
-
-        # 3. Generation step (VRAM-bound -> bounded, one worker per GPU)
-        # NOTE: freshly generated fields are already resident ndarrays
-        # (save_field writes a copy to disk, it does not de-materialize the in-memory array), so no materialization is needed on this path.
-        def do_generate(task):
-            index, AcousticField, pathField = task
-            safe_tempFieldName = f"{tempFieldName}_{AcousticField.get_name_field()}"
-
-            # Round-robin device pinning: worker index -> GPU index
-            device = gpu_devices[index % len(gpu_devices)]
-
-            AcousticField.generate_field(
-                isGPU=isGPU, GPUdevice=device, tempFieldName=safe_tempFieldName,
-                generation_type=generation_type, show_log=show_log, backend=backend
-            )
-
-            # Save only if missing or EMPTY
-            if pathField is not None and self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
-                if (not os.path.exists(pathField)) or os.path.getsize(pathField) == 0:
-                    os.makedirs(os.path.dirname(pathField), exist_ok=True)
-                    AcousticField.save_field(fieldDataPath)
-
-            if not materialize_enabled[0] and pathField is not None and os.path.exists(pathField):
-                AcousticField.field = None
-                AcousticField.delayedSignal = None
-                AcousticField.burst = None
-                AcousticField.load_field(fieldDataPath, self.FormatSave, nameBlock)
-
-            if index % 50 == 0:
-                gc.collect()
-
-            return index, AcousticField
-
-        if to_generate:
-            # Progress bar description: built ONCE, then actually used.
-            if len(gpu_devices) > 1:
-                devices_str = "multi-GPU " + ",".join(str(d) for d in gpu_devices)
-            elif gpu_devices[0] is not None:
-                devices_str = f"GPU {gpu_devices[0]}"
-            else:
-                devices_str = "CPU"
-            desc = f"[AOT-biomaps] Generating fields (backend: {backend}, {devices_str})"
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures_gen = [executor.submit(do_generate, task) for task in to_generate]
-
-                # Second distinct progress bar for generation
-                for future in tqdm(concurrent.futures.as_completed(futures_gen), total=len(to_generate), desc=desc):
-                    index, AcousticField = future.result()
-                    listAcousticFields[index] = AcousticField
-
-        return listAcousticFields
-
-    def stream_acoustic_fields(
-        self,
-        isGPU=True,
-        GPUdevice=0,
-        tempFieldName="Kwave",
-        generation_type="envelope_squared",
-        show_log=False,
-        backend="python",
-        start_index=0,
-    ):
-        """
-        Generator that simulates the acoustic fields one by one on the fly,
-        starting from `start_index` (for checkpoint resume).
-        """
-        if self.patterns is None:
-            raise ValueError("[AOT-biomaps] patterns is not initialized. Please load active list first.")
-
-        if isinstance(GPUdevice, (list, tuple)):
-            device = int(GPUdevice[0])
-        elif isinstance(GPUdevice, int):
-            device = GPUdevice
-        else:
-            device = config.select_best_gpu() if isGPU else None
-
-        total_patterns = len(self.patterns)
-        desc = f"[AOT-biomaps] Streaming fields -> SMatrix (backend: {backend}, GPU {device})"
-
-        for i in tqdm(range(start_index, total_patterns), initial=start_index, total=total_patterns, desc=desc):
-            pattern = self.patterns[i]
-            if "fileName" in pattern:
-                AcousticField = StructuredWave(fileName=pattern["fileName"], params=self.params, medium=self.medium)
-            else:
-                AcousticField = StructuredWave(
+                field_object = StructuredWave(
                     angle_deg=pattern["angle"],
                     space_0=pattern["space_0"],
                     space_1=pattern["space_1"],
@@ -1068,26 +1033,251 @@ class Tomography(Experiment):
                     params=self.params,
                     medium=self.medium,
                 )
-
-            safe_tempFieldName = f"{tempFieldName}_{AcousticField.get_name_field()}"
-            AcousticField.generate_field(
+    
+            path_field = None
+            if fieldDataPath is not None:
+                path_field = os.path.join(
+                    fieldDataPath, field_object.get_name_field() + self.FormatSave.value
+                )
+            can_load = (
+                path_field is not None
+                and self.params.acoustic["typeSim"] != TypeSim.SIMPLE_SIM.value
+                and os.path.isfile(path_field)
+                and os.path.getsize(path_field) > 0
+            )
+            task = (index, field_object, path_field)
+            (to_load if can_load else to_generate).append(task)
+    
+        print(
+            f"[AOT-biomaps] Field plan: {len(to_load)} to load, "
+            f"{len(to_generate)} to generate; {max_workers} simulation worker(s)."
+        )
+    
+        available_ram = get_available_host_memory_bytes()
+        if available_ram is None:
+            available_ram = 0
+        materialize_enabled = [bool(materialize and fieldDataPath is not None)]
+        materialization_checked = [False]
+        materialization_lock = threading.Lock()
+        estimated_bytes_per_field = [None]
+    
+        def check_materialization_budget(field_array):
+            """Make one conservative estimate for the complete field set."""
+            if not materialize_enabled[0]:
+                return False
+            if materialization_checked[0]:
+                return materialize_enabled[0]
+            with materialization_lock:
+                if not materialization_checked[0]:
+                    estimated_bytes_per_field[0] = int(field_array.nbytes)
+                    estimated_total = estimated_bytes_per_field[0] * len(fields)
+                    budget = int(0.8 * available_ram) if available_ram else 0
+                    materialization_checked[0] = True
+                    if budget <= 0 or estimated_total > budget:
+                        print(
+                            "[AOT-biomaps] Materialization disabled: estimated resident field set "
+                            f"is {estimated_total / 2**30:.2f} GiB, while the safe available-RAM "
+                            f"budget is {budget / 2**30:.2f} GiB. Fields will remain file-backed."
+                        )
+                        materialize_enabled[0] = False
+                        return False
+                    print(
+                        "[AOT-biomaps] Materializing acoustic fields: estimated "
+                        f"{estimated_total / 2**30:.2f} GiB across {len(fields)} fields."
+                    )
+            return materialize_enabled[0]
+    
+        def load_one(task):
+            index, field_object, path_field = task
+            try:
+                field_object.load_field(fieldDataPath, self.FormatSave, nameBlock)
+                field_array = field_object.field
+                if field_array is None:
+                    raise RuntimeError("The field loader returned no array.")
+                if materialize_enabled[0] and _is_memmap_backed(field_array):
+                    if check_materialization_budget(field_array):
+                        field_object.field = np.array(
+                            field_array, dtype=field_array.dtype, order="C", copy=True
+                        )
+                return index, field_object, None
+            except Exception as exc:
+                return index, field_object, exc
+    
+        if to_load:
+            # Serial materialization avoids several full-field RAM copies being
+            # live simultaneously. Lazy memmap opens are cheap and can be parallel.
+            load_workers = 1 if materialize_enabled[0] else min(8, len(to_load), os.cpu_count() or 1)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=load_workers) as executor:
+                futures = [executor.submit(load_one, task) for task in to_load]
+                for future in tqdm(
+                    concurrent.futures.as_completed(futures),
+                    total=len(futures),
+                    desc="[AOT-biomaps] Loading fields",
+                ):
+                    index, field_object, error = future.result()
+                    if error is None:
+                        fields[index] = field_object
+                    else:
+                        print(
+                            f"[AOT-biomaps] Could not load {field_object.get_name_field()}; "
+                            f"regenerating it ({error})."
+                        )
+                        path_field = os.path.join(
+                            fieldDataPath, field_object.get_name_field() + self.FormatSave.value
+                        )
+                        to_generate.append((index, field_object, path_field))
+    
+        def generate_one(task, device):
+            index, field_object, path_field = task
+            safe_temp_name = f"{tempFieldName}_{field_object.get_name_field()}"
+            field_object.generate_field(
                 isGPU=isGPU,
                 GPUdevice=device,
-                tempFieldName=safe_tempFieldName,
+                tempFieldName=safe_temp_name,
                 generation_type=generation_type,
                 show_log=show_log,
                 backend=backend,
+                keep_on_gpu=False,
+                vram_fraction=vram_fraction,
+                accumulate_max_bytes=accumulate_max_bytes,
+                host_staging_fraction=host_staging_fraction,
             )
-
+    
+            if field_object.field is None:
+                raise RuntimeError(f"Generation returned no field for {field_object.get_name_field()}.")
+    
+            if path_field is not None and self.params.acoustic["typeSim"] != TypeSim.SIMPLE_SIM.value:
+                os.makedirs(fieldDataPath, exist_ok=True)
+                # This task was classified as missing, invalid, or unreadable;
+                # always overwrite the associated file set after regeneration.
+                field_object.save_field(fieldDataPath, formatSave=self.FormatSave)
+    
+                if materialize_enabled[0]:
+                    check_materialization_budget(field_object.field)
+    
+                if not materialize_enabled[0]:
+                    field_object.field = None
+                    field_object.load_field(fieldDataPath, self.FormatSave, nameBlock)
+    
+            fields[index] = field_object
+            return index
+    
+        if to_generate:
+            progress = tqdm(
+                total=len(to_generate),
+                desc=f"[AOT-biomaps] Generating fields ({backend})",
+            )
             try:
-                yield i, AcousticField.field
+                if isGPU:
+                    # One long-lived worker per GPU processes its assigned queue
+                    # sequentially. This is stronger than a thread-pool cap: a
+                    # fast worker can never start a second simulation on a GPU
+                    # while another worker is still using that same device.
+                    tasks_by_device = {device: [] for device in active_devices}
+                    for task_index, task in enumerate(to_generate):
+                        device = active_devices[task_index % len(active_devices)]
+                        tasks_by_device[device].append(task)
+    
+                    def device_worker(device, tasks):
+                        for task in tasks:
+                            generate_one(task, device)
+                            progress.update(1)
+    
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=len(active_devices)) as executor:
+                        futures = [
+                            executor.submit(device_worker, device, tasks)
+                            for device, tasks in tasks_by_device.items() if tasks
+                        ]
+                        for future in concurrent.futures.as_completed(futures):
+                            future.result()
+                else:
+                    worker_count = min(max_workers, len(to_generate))
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+                        futures = [executor.submit(generate_one, task, None) for task in to_generate]
+                        for future in concurrent.futures.as_completed(futures):
+                            future.result()
+                            progress.update(1)
             finally:
-                AcousticField.field = None
-                AcousticField.delayedSignal = None
-                AcousticField.burst = None
-                del AcousticField
-                if i % 50 == 0:
-                    gc.collect()       
+                progress.close()
+    
+        if any(field is None for field in fields):
+            missing = [index for index, field in enumerate(fields) if field is None]
+            raise RuntimeError(f"Acoustic-field generation did not complete for indices: {missing[:10]}.")
+        return fields
+
+    def stream_acoustic_fields(
+        self, isGPU=True, GPUdevice=0, tempFieldName="Kwave",
+        generation_type="envelope_squared", show_log=False, backend="python",
+        start_index=0, vram_fraction=0.95, accumulate_max_bytes=None,
+        host_staging_fraction=1.0 / 16.0, validate_iq=False,
+    ):
+        """Yield generated fields one at a time without retaining a field list.
+    
+        This is the lowest-host-memory route for operators that consume each
+        field immediately. The yielded array remains owned by the caller; the
+        temporary ``StructuredWave`` object releases its other references when
+        iteration advances.
+        """
+        if self.patterns is None:
+            raise ValueError("patterns is not initialized. Load the active list first.")
+        start_index = int(start_index)
+        if start_index < 0 or start_index > len(self.patterns):
+            raise ValueError("start_index is outside the pattern list.")
+        if isinstance(GPUdevice, (list, tuple, np.ndarray)):
+            devices = [int(value) for value in GPUdevice]
+            if not devices:
+                raise ValueError("GPUdevice cannot be an empty sequence.")
+            device = devices[0]
+        elif GPUdevice is not None:
+            device = int(GPUdevice)
+        else:
+            device = int(config.select_best_gpu()) if isGPU else None
+    
+        iterator = tqdm(
+            range(start_index, len(self.patterns)),
+            initial=start_index,
+            total=len(self.patterns),
+            desc=f"[AOT-biomaps] Streaming fields ({backend}, device={device})",
+        )
+        for index in iterator:
+            pattern = self.patterns[index]
+            if "fileName" in pattern:
+                field_object = StructuredWave(
+                    fileName=pattern["fileName"], params=self.params, medium=self.medium
+                )
+            else:
+                field_object = StructuredWave(
+                    angle_deg=pattern["angle"],
+                    space_0=pattern["space_0"],
+                    space_1=pattern["space_1"],
+                    move_head_0_2tail=pattern["move_head_0_2tail"],
+                    move_tail_1_2head=pattern["move_tail_1_2head"],
+                    params=self.params,
+                    medium=self.medium,
+                )
+    
+            try:
+                field_object.generate_field(
+                    isGPU=isGPU,
+                    GPUdevice=device,
+                    tempFieldName=f"{tempFieldName}_{field_object.get_name_field()}",
+                    generation_type=generation_type,
+                    show_log=show_log,
+                    backend=backend,
+                    keep_on_gpu=False,
+                    vram_fraction=vram_fraction,
+                    accumulate_max_bytes=accumulate_max_bytes,
+                    host_staging_fraction=host_staging_fraction,
+                    validate_iq=validate_iq,
+                )
+                yield index, field_object.field
+            finally:
+                field_object.field = None
+                field_object.delayedSignal = None
+                field_object.burst = None
+                del field_object
+                if index and index % 50 == 0:
+                    gc.collect()
 
     def load_experimentalAO(self, pathAO, withTumor=True, h5name='AOsignal'):
         """
@@ -1129,308 +1319,394 @@ class Tomography(Experiment):
             self.AOsignal_withoutTumor = AOsignal
 
     def check_experimentalAO(self, activeListPath, withTumor=True):
-        """
-        Check if the experimental AO signals are correctly initialized.
-
-        Parameters:
-            activeListPath (str): Path to the active list file for validation.
-            withTumor (bool): If True, check signal with tumor. If False, check signal without tumor.
-
-        Raises:
-            ValueError: If signals or fields are not properly initialized.
-        """
-        if withTumor:
-            if self.AOsignal_withTumor is None:
-                raise ValueError("[AOT-biomaps] Experimental AOsignal with tumor is not initialized. Please load the experimental AO signal with tumor first.")
-        else:
-            if self.AOsignal_withoutTumor is None:
-                raise ValueError("[AOT-biomaps] Experimental AOsignal without tumor is not initialized. Please load the experimental AO signal without tumor first.")
-        if self.AcousticFields is not None:
-            if self.AcousticFields[0].field.shape[0] > self.AOsignal_withTumor.shape[0]:
-                self.cutAcousticFields(max_t=self.AOsignal_withTumor.shape[0]/float(self.params.general['ft']))
-            else:
-                min_time_shape = min(field.field.shape[0] for field in self.AcousticFields)
+        """Validate experimental AO columns against their active-list ordering."""
+        signal = self.AOsignal_withTumor if withTumor else self.AOsignal_withoutTumor
+        if signal is None:
+            label = "with tumor" if withTumor else "without tumor"
+            raise ValueError(f"Experimental AO signal {label} is not initialized.")
+    
+        if self.AcousticFields is not None and len(self.AcousticFields):
+            n_fields = len(self.AcousticFields)
+            if signal.shape[1] != n_fields:
+                raise ValueError(
+                    f"AO signal has {signal.shape[1]} columns but {n_fields} acoustic fields are loaded."
+                )
+            min_time = min(int(field.field.shape[0]) for field in self.AcousticFields)
+            if signal.shape[0] > min_time:
+                signal = signal[:min_time]
                 if withTumor:
-                    self.AOsignal_withTumor = self.AOsignal_withTumor[:min_time_shape, :]
+                    self.AOsignal_withTumor = signal
                 else:
-                    self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:min_time_shape, :]
-
-            for field in self.AcousticFields:
-                if activeListPath is not None:
-                    with open(activeListPath, 'r') as file:
-                        lines = file.readlines()
-                        expected_name = lines[self.AcousticFields.index(field)].strip()
-                        nameField = field.get_name_field()
-                        if nameField.startswith("field_"):
-                            nameField = nameField[len("field_"):]
-                        if nameField != expected_name:
-                            raise ValueError(f"[AOT-biomaps] Field name {nameField} does not match the expected name {expected_name} from the active list.")
-        print("Experimental AO signals are correctly initialized.")
+                    self.AOsignal_withoutTumor = signal
+            elif signal.shape[0] < min_time:
+                self.cut_acoustic_fields(max_t=signal.shape[0], min_t=0, show_log=False)
+    
+            if activeListPath is not None:
+                with open(activeListPath, "r", encoding="utf-8") as file:
+                    expected_names = [line.strip() for line in file if line.strip()]
+                if len(expected_names) != n_fields:
+                    raise ValueError(
+                        f"Active-list file contains {len(expected_names)} entries; expected {n_fields}."
+                    )
+                for index, field in enumerate(self.AcousticFields):
+                    actual = field.get_name_field()
+                    if actual.startswith("field_"):
+                        actual = actual[len("field_"):]
+                    if actual != expected_names[index]:
+                        raise ValueError(
+                            f"Field {index} is {actual!r}; expected {expected_names[index]!r}."
+                        )
+        print("[AOT-biomaps] Experimental AO signals are correctly initialized.")
+        return True
 
     def demodulate_AOsignal(self, withTumor=True):
+        """Demodulate quadrature AO measurements by spatial frequency and angle.
+
+        Repeated measurements assigned to the same phase retain the historical
+        pairwise averaging rule. Missing quadrature phases are treated as zero,
+        matching the previous implementation without allocating four separate
+        zero-filled signal arrays for every configuration.
+
+        Parameters
+        ----------
+        withTumor : bool
+            Select the AO signal measured with or without the absorber phantom.
+
+        Returns
+        -------
+        dict
+            Mapping ``(spatial_frequency_mm_inverse, angle_rad)`` to complex64
+            temporal signals.
         """
-        Parse and demodulate AO signals into complex-valued data.
-        Groups signals by (spatial frequency, angle) and applies phase-based demodulation.
+        signal = self.AOsignal_withTumor if withTumor else self.AOsignal_withoutTumor
+        if signal is None:
+            label = "with tumor" if withTumor else "without tumor"
+            raise ValueError(f"AO signal {label} is not initialized.")
+        if signal.ndim != 2:
+            raise ValueError("AO signal must have shape (time, measurements).")
+        if len(self.theta) != signal.shape[1] or len(self.ActiveList) != signal.shape[1]:
+            raise ValueError("Pattern metadata must contain one angle and activation profile per AO trace.")
 
-        Parameters:
-            withTumor (bool): If True, use signals with tumor. If False, use signals without tumor.
+        n_elements = int(self.params.acoustic["probe"]["num_elements"])
+        delta_x = float(self.params.general["dx"])
+        if delta_x <= 0.0:
+            raise ValueError("params.general['dx'] must be positive.")
+        frequency_axis = np.fft.fftfreq(n_elements, d=delta_x)
+        data_by_configuration = {}
 
-        Returns:
-            dict: Dictionary with keys (fs, theta) and values as complex arrays.
-        """
-        if withTumor:
-            AOsignal = self.AOsignal_withTumor
-        else:
-            AOsignal = self.AOsignal_withoutTumor
+        for index in trange(
+            signal.shape[1],
+            desc="[AOT-biomaps] Demodulating AO signals (four-phase quadrature)",
+        ):
+            profile = np.asarray(self.ActiveList[index])
+            if profile.size != n_elements:
+                raise ValueError(f"Activation profile {index} has {profile.size} elements; expected {n_elements}.")
+            angle_rad = float(np.round(np.deg2rad(float(self.theta[index])), 6))
 
-        delta_x = self.params.general['dx']  # in meters
-        n_piezos = self.params.acoustic['probe']['num_elements']
-        demodulated_data = {}
-        structured_buffer = {}
-
-        for i in trange(AOsignal.shape[1], desc="[AOT-biomaps] Demodulating AO signals (4-phases quadrature)"):
-
-            angle_deg = self.theta[i]
-            angle_rad = float(np.round(np.deg2rad(angle_deg), 6))
-
-            if np.all(self.ActiveList[i] == hex_to_binary_profile(int(n_piezos/4)*'f', n_piezos)):
-                fs_key = 0.0
-                phase = 0.0
-            else:
-                profile = self.ActiveList[i]
-                ft_prof = np.fft.fft(profile)
-                idx_max = np.argmax(np.abs(ft_prof[1:n_piezos//2])) + 1
-                freqs = np.fft.fftfreq(n_piezos, d=delta_x)
-                fs_key = float(np.round(abs(freqs[idx_max]) / 1000.0, 6))  # in mm⁻¹
-                phase = get_phase_deterministic(profile)
-
-            if fs_key == 0.0: # plane wave, no demodulation needed
-                demodulated_data[(fs_key, angle_rad)] = np.array(AOsignal[:, i], dtype=np.complex64)
+            if np.all(profile == 1):
+                data_by_configuration[(0.0, angle_rad)] = np.asarray(
+                    signal[:, index], dtype=np.complex64
+                )
                 continue
 
-            key = (fs_key, angle_rad)
-            if key not in structured_buffer:
-                structured_buffer[key] = {}
-
-            sig = np.array(AOsignal[:, i])
-            if phase in structured_buffer[key]:
-                structured_buffer[key][phase] = (structured_buffer[key][phase] + sig) / 2
+            cached_bin = (
+                self.decimations[index]
+                if index < len(self.decimations) else None
+            )
+            if cached_bin is not None:
+                peak_index = int(cached_bin)
+                if not (0 <= peak_index <= n_elements // 2):
+                    raise ValueError(
+                        f"Invalid cached spatial-frequency bin {peak_index} for pattern {index}."
+                    )
             else:
-                structured_buffer[key][phase] = sig
+                spectrum = np.fft.rfft(profile)
+                positive = np.abs(spectrum[1:])
+                peak_index = int(np.argmax(positive) + 1) if positive.size and np.any(positive) else 0
+            frequency_key = (
+                float(np.round(abs(frequency_axis[peak_index]) / 1000.0, 6))
+                if peak_index else 0.0
+            )
+            phase = float(get_phase_deterministic(profile))
+            if frequency_key == 0.0:
+                data_by_configuration[(0.0, angle_rad)] = np.asarray(
+                    signal[:, index], dtype=np.complex64
+                )
+                continue
 
-        for (fs, theta), phases in structured_buffer.items():
-            required_phases = [0.0, np.pi/2, np.pi, 3*np.pi/2]
-            if not all(p in phases for p in required_phases):
-                example = next(iter(phases.values()))
-                s0 = phases.get(0.0, np.zeros_like(example))
-                s_pi_2 = phases.get(np.pi/2, np.zeros_like(example))
-                s_pi = phases.get(np.pi, np.zeros_like(example))
-                s_3pi_2 = phases.get(3*np.pi/2, np.zeros_like(example))
+            key = (frequency_key, angle_rad)
+            phase_map = data_by_configuration.setdefault(key, {})
+            current_trace = signal[:, index]
+            if phase in phase_map:
+                # Preserve the legacy pairwise mean for repeated phase records.
+                phase_map[phase] = (phase_map[phase] + current_trace) * 0.5
             else:
-                s0 = phases[0.0]
-                s_pi_2 = phases[np.pi/2]
-                s_pi = phases[np.pi]
-                s_3pi_2 = phases[3*np.pi/2]
+                # A view is sufficient until a duplicate phase requires a new mean.
+                phase_map[phase] = current_trace
 
-            real = s0 - s_pi
-            imag = s_pi_2 - s_3pi_2
-            demodulated_data[(fs, theta)] = (real - 1j * imag) / (2/np.pi)
+        demodulated = {}
+        phase_order = (0.0, np.pi / 2, np.pi, 3 * np.pi / 2)
+        n_time = signal.shape[0]
+        for key, phase_map in data_by_configuration.items():
+            if key[0] == 0.0:
+                continue
+            real_part = np.zeros(n_time, dtype=np.float32)
+            imag_part = np.zeros(n_time, dtype=np.float32)
+            s0 = phase_map.get(phase_order[0])
+            s90 = phase_map.get(phase_order[1])
+            s180 = phase_map.get(phase_order[2])
+            s270 = phase_map.get(phase_order[3])
+            if s0 is not None:
+                np.add(real_part, s0, out=real_part, casting="unsafe")
+            if s180 is not None:
+                np.subtract(real_part, s180, out=real_part, casting="unsafe")
+            if s90 is not None:
+                np.add(imag_part, s90, out=imag_part, casting="unsafe")
+            if s270 is not None:
+                np.subtract(imag_part, s270, out=imag_part, casting="unsafe")
 
-        return demodulated_data
+            output = np.empty(n_time, dtype=np.complex64)
+            output.real = real_part * np.float32(np.pi / 2.0)
+            output.imag = -imag_part * np.float32(np.pi / 2.0)
+            demodulated[key] = output
+
+        # Preserve direct plane-wave traces in the output dictionary.
+        for key, phase_map in data_by_configuration.items():
+            if key[0] == 0.0 and isinstance(phase_map, np.ndarray):
+                demodulated[key] = phase_map
+        return demodulated
 
     def demodulate_acoustic_fields(self, max_workers=None):
+        """Demodulate stored real fields into complex quadrature fields.
+    
+        Input fields are expected to be host-resident NumPy arrays or memmaps.
+        The routine stores references while grouping phases (no initial field
+        copies), then allocates one complex64 output and one float32 scratch
+        field per active worker. This avoids the several full-volume temporary
+        arrays created by separate real/imaginary expressions.
         """
-        Demodulate acoustic fields into a flat dictionary: {(fs, theta): complex_field}.
-        Identical structure to parse_and_demodulate, optimized with thread-safe multithreading.
-
-        Returns:
-            dict: Dictionary with keys (fs, theta) and values as complex fields.
-        """
-        n_piezos = self.params.acoustic['probe']['num_elements']
-        delta_x = self.params.general['dx']
-
-        # buffer[(fs, theta)][phase] = real field
+        if not self.AcousticFields:
+            raise ValueError("AcousticFields is empty.")
+        n_elements = int(self.params.acoustic["probe"]["num_elements"])
+        delta_x = float(self.params.general["dx"])
+        frequency_axis = np.fft.fftfreq(n_elements, d=delta_x)
         buffer = {}
-
-        # 1. Grouping and Averaging (Sequential to build keys in deterministic order)
-        for i in range(len(self.AcousticFields)):
-            field_obj = self.AcousticFields[i]
-            label = field_obj.get_name_field()
-            parts = label.split("_")
-            hex_pattern = parts[1]
+    
+        for field_object in self.AcousticFields:
+            field = field_object.field
+            if field is None:
+                raise ValueError(f"Field {field_object.get_name_field()} is not loaded.")
+            if field.ndim != 3:
+                raise ValueError(
+                    f"Field {field_object.get_name_field()} has shape {field.shape}; expected (Nt, Nz, Nx)."
+                )
+            if reference_shape is None:
+                reference_shape = tuple(field.shape)
+            elif tuple(field.shape) != reference_shape:
+                raise ValueError("All acoustic fields must have identical shapes for quadrature demodulation.")
+            if CUPY_AVAILABLE and isinstance(field, cp.ndarray):
+                raise ValueError(
+                    "demodulate_acoustic_fields expects host-resident fields. "
+                    "Generate with keep_on_gpu=False to avoid large VRAM intermediates."
+                )
+            parts = field_object.get_name_field().split("_")
+            if len(parts) < 3:
+                raise ValueError(f"Unexpected acoustic-field name: {field_object.get_name_field()!r}.")
+            hex_pattern = parts[-2]
             angle_code = parts[-1]
-
-            # Extract Angle and Frequency
-            angle_deg = -int(angle_code[1:]) if angle_code.startswith("1") else int(angle_code)
+            angle_deg = -int(angle_code[1:]) if angle_code.startswith("1") else int(angle_code[1:] if angle_code.startswith("0") else angle_code)
             angle_rad = float(np.round(np.deg2rad(angle_deg), 5))
-
-            if set(hex_pattern.lower().replace(" ", "")) == {'f'}:
-                fs_key = 0.0
+    
+            if set(hex_pattern.lower().replace(" ", "")) == {"f"}:
+                frequency_key = 0.0
                 phase = 0.0
             else:
-                profile = hex_to_binary_profile(hex_pattern, n_piezos)
-                ft_prof = np.fft.fft(profile)
-                idx_max = np.argmax(np.abs(ft_prof[1:n_piezos//2])) + 1
-                freqs = np.fft.fftfreq(n_piezos, d=delta_x)
-                fs_key = np.round(abs(freqs[idx_max]) / 1000.0, 5)
-                phase = get_phase_deterministic(profile)
-
-            # FLAT KEY (fs, theta)
-            key = (fs_key, angle_rad)
-            if key not in buffer: 
-                buffer[key] = {}
-
-            current_f = field_obj.field
-            if phase in buffer[key]:
-                buffer[key][phase] = (buffer[key][phase] + current_f) / 2
-            else:
-                buffer[key][phase] = current_f
-
-        # 2. Quadrature (Multithreaded with strict order preservation)
-        demodulated_fields = {}
-        keys = list(buffer.keys())
-
-        def process_quadrature(key):
+                profile = hex_to_binary_profile(hex_pattern, n_elements)
+                cached_bin = (
+                    self.decimations[index]
+                    if index < len(self.decimations) else None
+                )
+                if cached_bin is None:
+                    spectrum = np.fft.rfft(profile)
+                    positive = np.abs(spectrum[1:])
+                    frequency_bin = (
+                        int(np.argmax(positive) + 1)
+                        if positive.size and np.any(positive) else 0
+                    )
+                else:
+                    frequency_bin = int(cached_bin)
+                if not (0 <= frequency_bin <= n_elements // 2):
+                    raise ValueError(
+                        f"Invalid spatial-frequency bin {frequency_bin} in field {field_object.get_name_field()!r}."
+                    )
+                frequency_key = (
+                    float(np.round(abs(frequency_axis[frequency_bin]) / 1000.0, 5))
+                    if frequency_bin else 0.0
+                )
+                phase = float(get_phase_deterministic(profile))
+    
+            key = (frequency_key, angle_rad)
+            phase_group = buffer.setdefault(key, {})
+            phase_group.setdefault(phase, []).append(field)
+    
+        def _write_phase_average(destination, arrays):
+            """Write the historical pairwise phase average into destination."""
+            if not arrays:
+                destination.fill(0)
+                return
+            np.copyto(destination, arrays[0], casting="unsafe")
+            for array in arrays[1:]:
+                np.add(destination, array, out=destination, casting="unsafe")
+                destination *= np.float32(0.5)
+    
+        def process_key(key):
             phases = buffer[key]
-            fs = key[0]
+            example = next(iter(phases.values()))[0]
+            complex_output = np.empty(example.shape, dtype=np.complex64)
+            if key[0] == 0.0:
+                _write_phase_average(complex_output.real, next(iter(phases.values())))
+                complex_output.imag.fill(0)
+                return key, complex_output
+    
+            scratch = np.empty(example.shape, dtype=np.float32)
+            _write_phase_average(complex_output.real, phases.get(0.0, []))
+            _write_phase_average(scratch, phases.get(np.pi, []))
+            np.subtract(complex_output.real, scratch, out=complex_output.real)
+    
+            _write_phase_average(complex_output.imag, phases.get(np.pi / 2, []))
+            _write_phase_average(scratch, phases.get(3 * np.pi / 2, []))
+            np.subtract(complex_output.imag, scratch, out=complex_output.imag)
+            complex_output *= np.float32(np.pi / 2.0)
+            del scratch
+            return key, complex_output
+    
+        keys = list(buffer)
+        if not keys:
+            return {}
 
-            if fs == 0.0:
-                return key, next(iter(phases.values())).astype(np.complex64)
+        requested_workers = (
+            min(4, os.cpu_count() or 1) if max_workers is None else int(max_workers)
+        )
+        if requested_workers < 1:
+            raise ValueError("max_workers must be a positive integer or None.")
 
-            s0 = phases.get(0.0)
-            s_pi_2 = phases.get(np.pi/2)
-            s_pi = phases.get(np.pi)
-            s_3pi_2 = phases.get(3*np.pi/2)
-
-            example = next(iter(phases.values()))
-            s0 = s0 if s0 is not None else np.zeros_like(example)
-            s_pi = s_pi if s_pi is not None else np.zeros_like(example)
-            s_pi_2 = s_pi_2 if s_pi_2 is not None else np.zeros_like(example)
-            s_3pi_2 = s_3pi_2 if s_3pi_2 is not None else np.zeros_like(example)
-
-            real = s0 - s_pi
-            imag = s_pi_2 - s_3pi_2
-
-            complex_field = ((real - 1j * imag) / (2/np.pi)).astype(np.complex64)
-            return key, complex_field
-
-        # Execute parallel quadrature computations
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # executor.map processes in parallel but yields in the EXACT order of 'keys'
-            results = executor.map(process_quadrature, keys)
-            
-            for key, complex_field in tqdm(results, total=len(keys), desc="[AOT-biomaps] Demodulating Acoustic Fields", mininterval=0.0):
-                demodulated_fields[key] = complex_field
-
-        print(f"[AOT-biomaps] Acoustic Operator complete: {len(demodulated_fields)} configurations processed.")
-        return demodulated_fields
+        # Each active task needs one complex64 output and one float32 scratch
+        # field (12 bytes per voxel). Bound this transient working set using
+        # current host RAM while retaining the historical parallel execution.
+        example_field = next(iter(next(iter(buffer.values())).values()))[0]
+        bytes_per_task = int(example_field.size) * (np.dtype(np.complex64).itemsize + np.dtype(np.float32).itemsize)
+        available_ram = get_available_host_memory_bytes()
+        if available_ram is not None and bytes_per_task > 0:
+            transient_budget = max(bytes_per_task, int(0.25 * available_ram))
+            memory_workers = max(1, transient_budget // bytes_per_task)
+        else:
+            memory_workers = requested_workers
+        worker_count = max(1, min(requested_workers, len(keys), int(memory_workers)))
+        result = {}
+        if worker_count == 1:
+            for key in tqdm(keys, desc="[AOT-biomaps] Demodulating acoustic fields"):
+                result[key] = process_key(key)[1]
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+                futures = [executor.submit(process_key, key) for key in keys]
+                for future in tqdm(
+                    concurrent.futures.as_completed(futures),
+                    total=len(futures),
+                    desc="[AOT-biomaps] Demodulating acoustic fields",
+                ):
+                    key, complex_field = future.result()
+                    result[key] = complex_field
+    
+        print(f"[AOT-biomaps] Acoustic operator complete: {len(result)} configurations processed.")
+        return result
     
     def flip_probe(self, flipPattern=True, flipAngle=True):
+        """Flip probe activations and/or steering angles consistently.
+    
+        Acoustic-field spatial reversal is a view operation. The AO measurement
+        columns are reindexed in one NumPy operation. A new ``StructuredWave``
+        descriptor is created for each field while its data remains shared.
         """
-        Flip the probe (binary pattern and/or angle) for all acoustic fields and AO signals.
-
-        Parameters:
-            flipPattern (bool): If True, reverse the order of active elements in the binary pattern.
-            flipAngle (bool): If True, invert the sign of the angle.
-        """
-        if self.AcousticFields is None:
-            print("[AOT-biomaps] Warning: AcousticFields is not initialized. No fields to flip, only AO signals.")
-            available_fields = False
-        else:
-            available_fields = True
-
-        num_elements = self.params.acoustic['probe']['num_elements']
-        hex_chars_expected = (num_elements + 3) // 4  # Number of hex chars expected for num_elements bits
-
-        new_AcousticFields = []
-        new_ActiveList = []
-        new_DelayLaw = []
-        new_theta = []
+        if not flipPattern and not flipAngle:
+            return self
+        if self.patterns is None:
+            raise ValueError("patterns is not initialized.")
+    
+        n_patterns = len(self.patterns)
+        if self.AcousticFields is not None and len(self.AcousticFields) != n_patterns:
+            raise ValueError("AcousticFields and patterns have inconsistent lengths.")
+        for attribute in ("AOsignal_withTumor", "AOsignal_withoutTumor"):
+            signal = getattr(self, attribute)
+            if signal is not None and signal.shape[1] != n_patterns:
+                raise ValueError(f"{attribute} has {signal.shape[1]} columns; expected {n_patterns}.")
+    
+        n_elements = int(self.params.acoustic["probe"]["num_elements"])
+        hex_chars = (n_elements + 3) // 4
+        new_fields = []
+        new_patterns = []
+        new_profiles = []
+        new_delays = []
+        new_angles = []
         new_decimations = []
-
-        # Flip AO signals if they exist
-        if self.AOsignal_withTumor is not None:
+        element_index = np.arange(1, n_elements + 1, dtype=np.float64)
+        sound_speed = float(self.params.acoustic["medium"]["c0"])
+        element_width = float(self.params.acoustic["probe"]["element_width"])
+    
+        for index, pattern in enumerate(self.patterns):
+            if "fileName" not in pattern:
+                raise ValueError("flip_probe currently requires filename-based active-list patterns.")
+            current_hex = pattern["fileName"].split("_")[0]
+            current_angle = (
+                float(self.theta[index]) if index < len(self.theta)
+                else float(get_angle(pattern["fileName"]))
+            )
             if flipPattern:
-                self.AOsignal_withTumor = self.AOsignal_withTumor[:, ::-1]  # Reverse column order (N)
-            numScans = self.AOsignal_withTumor.shape[1]
-        if self.AOsignal_withoutTumor is not None:
-            if flipPattern:
-                self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, ::-1]  # Reverse column order (N)
-            numScans = self.AOsignal_withoutTumor.shape[1]
-
-        for i in trange(numScans, desc="Flipping AO signals"):
-            fileName = self.patterns[i]["fileName"].split('_')[0]  # Extract the hex pattern part
-            # Extract the current pattern and angle from the field name
-            angle = self.theta[i]
-
-            # Flip the binary pattern if requested
-            if flipPattern:
-                bits = bin(int(fileName, 16))[2:].zfill(num_elements)
-                flipped_bits = bits[::-1]  # Reverse the bits
-                flipped_hex = f"{int(flipped_bits, 2):0{hex_chars_expected}x}"
+                bits = format(int(current_hex, 16), f"0{n_elements}b")[-n_elements:]
+                flipped_hex = format(int(bits[::-1], 2), f"0{hex_chars}x")
             else:
-                flipped_hex = fileName  # Keep the original pattern
-
-            if flipAngle:
-                new_angle = -angle  # Invert the angle
-            else:
-                new_angle = angle  # Keep the original angle
-
-            # Create a new StructuredWave with the flipped pattern and/or angle
-            if available_fields:
-                new_angle_str = format_angle(new_angle)
-                new_field_name = f"{flipped_hex}_{new_angle_str}"
+                flipped_hex = current_hex
+            new_angle = -current_angle if flipAngle else current_angle
+            new_name = f"{flipped_hex}_{format_angle(new_angle)}"
+    
+            if self.AcousticFields is not None:
                 new_field = StructuredWave(
-                    fileName=new_field_name,
-                    params=self.params,
-                    medium=self.medium
+                    fileName=new_name, params=self.params, medium=self.medium
                 )
-
-            # Copy the field data (flipping columns if flipPattern is True)
-            if flipPattern:
-                if available_fields:
-                    new_field.field = self.AcousticFields[i].field[:, ::-1, :]  # Reverse the order of elements (columns)
-            else:
-                if available_fields:
-                    new_field.field = self.AcousticFields[i].field.copy()  # Keep the original field data
-            if available_fields:
-                new_AcousticFields.append(new_field)
-            new_theta.append(new_angle)
-
-            # Update ActiveList (binary profile)
-            new_profile = hex_to_binary_profile(flipped_hex, num_elements)
-            new_ActiveList.append(new_profile)
-
-            # Update DelayLaw
-            new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(new_angle)) * np.arange(1, num_elements + 1) * self.params.acoustic['probe']['element_width']
-            new_DelayLaw.append(new_Delay - np.min(new_Delay))
-
-            # Update decimations (recalculate if pattern is flipped)
-            if flipPattern:
-                if set(flipped_hex.lower().replace(" ", "")) == {'f'}:
-                    fs_key = 0.0  # fs_key in mm^-1 (0.0 mm^-1 for all elements active)
-                else:
-                    ft_prof = np.fft.fft(new_profile)
-                    idx_max = np.argmax(np.abs(ft_prof[1:len(new_profile)//2])) + 1
-                    freqs = np.fft.fftfreq(len(new_profile), d=self.params.general['dx'])
-                    fs_m_inv = abs(freqs[idx_max])
-                    fs_key = fs_m_inv  # Spatial frequency in mm^-1
-                new_decimations.append(int(fs_key / (1/(len(new_profile)*self.params.general['dx']))))
-            else:
-                new_decimations.append(self.AcousticFields[i].f_s)  # Keep the original decimation
-
-        # Update the attributes
-        if available_fields:
-            self.AcousticFields = new_AcousticFields
-        self.ActiveList = new_ActiveList
-        self.DelayLaw = new_DelayLaw
-        self.theta = new_theta
+                source_field = self.AcousticFields[index].field
+                if source_field is None:
+                    raise ValueError(f"Field {self.AcousticFields[index].get_name_field()} is not loaded.")
+                # The pipeline layout is (Nt, Nz, Nx): reverse x, not z.
+                new_field.field = source_field[:, :, ::-1] if flipPattern else source_field
+                new_fields.append(new_field)
+    
+            new_patterns.append({"fileName": new_name})
+            profile = hex_to_binary_profile(flipped_hex, n_elements)
+            new_profiles.append(profile)
+            delays = (
+                1000.0 / sound_speed * np.sin(np.deg2rad(new_angle))
+                * element_index * element_width
+            )
+            new_delays.append(delays - delays.min())
+            new_angles.append(new_angle)
+            previous_frequency = (
+                self.decimations[index] if index < len(self.decimations) else None
+            )
+            new_decimations.append(
+                get_frequency(new_name, n_elements, element_width)
+                if flipPattern or previous_frequency is None else previous_frequency
+            )
+    
+        if flipPattern:
+            for attribute in ("AOsignal_withTumor", "AOsignal_withoutTumor"):
+                signal = getattr(self, attribute)
+                if signal is not None:
+                    setattr(self, attribute, signal[:, ::-1])
+        if self.AcousticFields is not None:
+            self.AcousticFields = new_fields
+        self.ActiveList = new_profiles
+        self.DelayLaw = new_delays
+        self.theta = new_angles
         self.decimations = new_decimations
-        if flipPattern and flipAngle:
-            print(f"[AOT-biomaps] Flipped both probe and AO signals (pattern and angle).")
-        elif flipPattern and not flipAngle:
-            print(f"[AOT-biomaps] Flipped probe and AO signals (pattern).")
-        elif not flipPattern and flipAngle:
-            print(f"[AOT-biomaps] Flipped probe and AO signals (angle).")
-        else:
-            print(f"[AOT-biomaps] No flipping applied.")
+        self.patterns = new_patterns
+        print("[AOT-biomaps] Probe configuration flip complete.")
+        return self

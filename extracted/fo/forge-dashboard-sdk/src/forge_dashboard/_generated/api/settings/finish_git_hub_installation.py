@@ -16,7 +16,7 @@ from typing import cast
 
 def _get_kwargs(
     *,
-    installation_id: int,
+    installation_id: int | Unset = UNSET,
     setup_action: str | Unset = UNSET,
 
 ) -> dict[str, Any]:
@@ -50,40 +50,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         response_303 = cast(Any, None)
         return response_303
 
-    if response.status_code == 400:
-        response_400 = Error.from_dict(response.json())
-
-
-
-        return response_400
-
     if response.status_code == 401:
         response_401 = Error.from_dict(response.json())
 
 
 
         return response_401
-
-    if response.status_code == 403:
-        response_403 = Error.from_dict(response.json())
-
-
-
-        return response_403
-
-    if response.status_code == 409:
-        response_409 = Error.from_dict(response.json())
-
-
-
-        return response_409
-
-    if response.status_code == 502:
-        response_502 = Error.from_dict(response.json())
-
-
-
-        return response_502
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -103,7 +75,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    installation_id: int,
+    installation_id: int | Unset = UNSET,
     setup_action: str | Unset = UNSET,
 
 ) -> Response[Any | Error]:
@@ -114,11 +86,14 @@ def sync_detailed(
     `installation_id` and `setup_action`. The redirect is not trusted: the
     ID is stored as an installation only when it is in the connected
     user's own `GET /user/installations`, read with the linked account's
-    token. Otherwise nothing is stored (403). Without a linked account
-    nothing is stored either (409).
+    token. Otherwise nothing is stored. Redirects to `/setup`, with
+    `?error=<code>` when nothing was stored. An owner who may not install
+    the App sends a request to the organisation's owners instead, and
+    GitHub then sends the browser here with `setup_action=request` and no
+    `installation_id`: that redirects to `/setup?install=requested`.
 
     Args:
-        installation_id (int):
+        installation_id (int | Unset):
         setup_action (str | Unset):
 
     Raises:
@@ -145,7 +120,7 @@ setup_action=setup_action,
 def sync(
     *,
     client: AuthenticatedClient,
-    installation_id: int,
+    installation_id: int | Unset = UNSET,
     setup_action: str | Unset = UNSET,
 
 ) -> Any | Error | None:
@@ -156,11 +131,14 @@ def sync(
     `installation_id` and `setup_action`. The redirect is not trusted: the
     ID is stored as an installation only when it is in the connected
     user's own `GET /user/installations`, read with the linked account's
-    token. Otherwise nothing is stored (403). Without a linked account
-    nothing is stored either (409).
+    token. Otherwise nothing is stored. Redirects to `/setup`, with
+    `?error=<code>` when nothing was stored. An owner who may not install
+    the App sends a request to the organisation's owners instead, and
+    GitHub then sends the browser here with `setup_action=request` and no
+    `installation_id`: that redirects to `/setup?install=requested`.
 
     Args:
-        installation_id (int):
+        installation_id (int | Unset):
         setup_action (str | Unset):
 
     Raises:
@@ -182,7 +160,7 @@ setup_action=setup_action,
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    installation_id: int,
+    installation_id: int | Unset = UNSET,
     setup_action: str | Unset = UNSET,
 
 ) -> Response[Any | Error]:
@@ -193,11 +171,14 @@ async def asyncio_detailed(
     `installation_id` and `setup_action`. The redirect is not trusted: the
     ID is stored as an installation only when it is in the connected
     user's own `GET /user/installations`, read with the linked account's
-    token. Otherwise nothing is stored (403). Without a linked account
-    nothing is stored either (409).
+    token. Otherwise nothing is stored. Redirects to `/setup`, with
+    `?error=<code>` when nothing was stored. An owner who may not install
+    the App sends a request to the organisation's owners instead, and
+    GitHub then sends the browser here with `setup_action=request` and no
+    `installation_id`: that redirects to `/setup?install=requested`.
 
     Args:
-        installation_id (int):
+        installation_id (int | Unset):
         setup_action (str | Unset):
 
     Raises:
@@ -224,7 +205,7 @@ setup_action=setup_action,
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    installation_id: int,
+    installation_id: int | Unset = UNSET,
     setup_action: str | Unset = UNSET,
 
 ) -> Any | Error | None:
@@ -235,11 +216,14 @@ async def asyncio(
     `installation_id` and `setup_action`. The redirect is not trusted: the
     ID is stored as an installation only when it is in the connected
     user's own `GET /user/installations`, read with the linked account's
-    token. Otherwise nothing is stored (403). Without a linked account
-    nothing is stored either (409).
+    token. Otherwise nothing is stored. Redirects to `/setup`, with
+    `?error=<code>` when nothing was stored. An owner who may not install
+    the App sends a request to the organisation's owners instead, and
+    GitHub then sends the browser here with `setup_action=request` and no
+    `installation_id`: that redirects to `/setup?install=requested`.
 
     Args:
-        installation_id (int):
+        installation_id (int | Unset):
         setup_action (str | Unset):
 
     Raises:

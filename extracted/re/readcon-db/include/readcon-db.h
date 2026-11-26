@@ -18,7 +18,7 @@ extern "C" {
 /** Breaking-change major for the public C ABI. */
 #define RKRDB_ABI_VERSION_MAJOR 1
 /** Additive-change minor for the public C ABI. */
-#define RKRDB_ABI_VERSION_MINOR 1
+#define RKRDB_ABI_VERSION_MINOR 3
 /** Layout revision for exported records and the handle contract. */
 #define RKRDB_ABI_LAYOUT_REVISION 1
 
@@ -28,7 +28,7 @@ uint32_t rkrdb_abi_version_major(void);
 uint32_t rkrdb_abi_version_minor(void);
 /** Layout revision of the loaded library. */
 uint32_t rkrdb_abi_layout_revision(void);
-/** Stable human-readable ABI stamp, e.g. "readcon-db/abi-1.1/layout-1". Static; do not free. */
+/** Stable human-readable ABI stamp, e.g. "readcon-db/abi-1.3/layout-1". Static; do not free. */
 const char *rkrdb_abi_stamp(void);
 /**
  * Nonzero when the loaded library serves a caller built against the given
@@ -106,8 +106,13 @@ int rkrdb_result_count(size_t id);
 int rkrdb_result_key(size_t id, size_t i, uint64_t *out_traj, uint32_t *out_frame);
 int rkrdb_frame_hash(size_t id, uint64_t traj_id, uint32_t frame_idx, uint8_t *out_hash16);
 int rkrdb_get_frame_text(size_t id, uint64_t traj_id, uint32_t frame_idx, char *buf, size_t buflen);
-/** Parsed CON frame (readcon-core RKRConFrame*). Free with free_rkr_frame. */
+/** Parsed CON frame (readcon-core ConFrame*). Free with rkrdb_free_frame. */
 void *rkrdb_get_frame(size_t id, uint64_t traj_id, uint32_t frame_idx);
+/**
+ * Free a frame returned by rkrdb_get_frame. The frame is allocated in
+ * libreadcon_db, so this library frees it. A null pointer does nothing.
+ */
+void rkrdb_free_frame(void *frame);
 /** Canonical multiset formula (Cu:2|H:2) via core index_proj; NUL-terminated into buf. */
 int rkrdb_frame_formula(size_t id, uint64_t traj_id, uint32_t frame_idx, char *buf, size_t buflen);
 /** Opt-in RCSO cook from CON text (frames stays authority). */
@@ -125,6 +130,14 @@ int rkrdb_get_velocities(size_t id, uint64_t traj_id, uint32_t frame_idx, double
                          uint32_t capacity_atoms, uint32_t *out_natoms,
                          uint8_t *out_has_velocities);
 int rkrdb_xxh3_128(const uint8_t *data, size_t len, uint8_t *out_hash16);
+/**
+ * Content hash of the first frame in `len` bytes of UTF-8 CON text: xxh3-128
+ * of that frame's source span, the hash the corpus stores for it from
+ * rkrdb_append_trajectory, rkrdb_append_trajectory_str and
+ * rkrdb_extend_trajectory. No NUL is read. Text that is not UTF-8 or holds
+ * no frame returns RKRDB_ERR.
+ */
+int rkrdb_hash_con_text(const char *text, size_t len, uint8_t *out_hash16);
 /**
  * Dest-ps times from collect_h5md.
  * An invalid handle returns RKRDB_NULL. A collect failure returns

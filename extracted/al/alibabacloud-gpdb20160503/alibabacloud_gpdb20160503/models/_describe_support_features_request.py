@@ -10,9 +10,9 @@ class DescribeSupportFeaturesRequest(DaraModel):
         dbinstance_id: str = None,
         owner_id: int = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the instance IDs of all AnalyticDB for PostgreSQL instances in a specific region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to view the IDs of all AnalyticDB for PostgreSQL instances in the target region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id

@@ -15,8 +15,10 @@ from ..client.rest_client import (
     HomeAssistantAuthError,
     HomeAssistantConnectionError,
 )
+from ..errors import ErrorCode, create_error_response
 from .coercion import parse_string_list_param
 from .component_api import get_component_caps
+from .helpers import exception_to_structured_error, raise_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +127,9 @@ _COMPACT_RESULT_DROP_ATTRIBUTES: frozenset[str] = frozenset(
 
 
 def compact_service_result(
-    result: Any,
+    result: list[dict[str, Any]],
     target_entity_id: str | None,
-) -> Any:
+) -> list[dict[str, Any]]:
     """Trim a ha_call_service ``result`` list to the compact default (issue #1446).
 
     Compact rules:
@@ -141,30 +143,21 @@ def compact_service_result(
     3. Drop known-heavy attribute keys (``effect_list``, ``hue_scenes``) from
        every record's ``attributes`` dict.
 
-    Returns ``result`` unchanged when it is not a list (defensive — every
-    ha_call_service path now projects a changed-state list), or when the list
-    is empty.
+    Returns ``result`` unchanged when the list is empty.
     """
-    if not isinstance(result, list) or not result:
+    if not result:
         return result
 
-    records: list[Any] = result
+    records = result
     if isinstance(target_entity_id, str) and target_entity_id:
         targets = {t.strip() for t in target_entity_id.split(",") if t.strip()}
         if targets:
-            matched = [
-                r
-                for r in records
-                if isinstance(r, dict) and r.get("entity_id") in targets
-            ]
+            matched = [r for r in records if r.get("entity_id") in targets]
             if matched:
                 records = matched
 
-    compacted: list[Any] = []
+    compacted: list[dict[str, Any]] = []
     for record in records:
-        if not isinstance(record, dict):
-            compacted.append(record)
-            continue
         trimmed = {
             k: v for k, v in record.items() if k not in _COMPACT_RESULT_DROP_TOP_LEVEL
         }
@@ -324,27 +317,68 @@ async def fetch_ha_timezone(client: Any) -> tuple[str, bool]:
     when the legacy REST fetch raised, in which case *ha_timezone* is always
     ``"UTC"``.
     """
+    ha_timezone, error = await _ha_timezone_or_error(client)
+    if error is not None:
+        logger.warning(
+            "Could not fetch Home Assistant's time zone, using UTC: %s",
+            error,
+            exc_info=error,
+        )
+    return ha_timezone, error is not None
+
+
+async def _ha_timezone_or_error(client: Any) -> tuple[str, Exception | None]:
+    """The time zone, or ``"UTC"`` with what ``/api/config`` failed with."""
     caps = await get_component_caps(client)
     if caps is not None and caps.timezone:
-        return caps.timezone, False
-
+        return caps.timezone, None
     try:
         config = await client.get_config()
-        return config.get("time_zone", "UTC"), False
     except (
         HomeAssistantConnectionError,
         HomeAssistantAPIError,
         HomeAssistantAuthError,
         TimeoutError,
         OSError,
-    ) as _tz_exc:
-        logger.warning(
-            "add_timezone_metadata: failed to fetch HA timezone config — "
-            "falling back to UTC: %s",
-            _tz_exc,
-            exc_info=True,
+    ) as error:
+        return "UTC", error
+    return config.get("time_zone", "UTC"), None
+
+
+async def require_ha_timezone(
+    client: Any, *, needed_for: str, workaround: str
+) -> _TZInfo:
+    """Home Assistant's time zone, refusing the call when it cannot be fetched
+    or this server has no tzdata entry for it.
+
+    *needed_for* ends the refusal message ("..., which <needed_for>");
+    *workaround* is the suggestion that avoids needing the zone. A failed fetch
+    keeps its own code, so a rejected token is not reported as a lost
+    connection.
+    """
+    ha_timezone, error = await _ha_timezone_or_error(client)
+    if error is not None:
+        refusal = exception_to_structured_error(
+            error, suggestions=[workaround], raise_error=False
         )
-        return "UTC", True
+        refusal["error"]["message"] = (
+            f"Could not get Home Assistant's time zone, which {needed_for}: {error}"
+        )
+        raise_tool_error(refusal)
+    local_tz, resolved = resolve_local_timezone(ha_timezone)
+    if resolved != ha_timezone:
+        raise_tool_error(
+            create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"Could not resolve Home Assistant's time zone, which {needed_for}",
+                context={"home_assistant_timezone": ha_timezone},
+                suggestions=[
+                    "Set a Home Assistant time zone this server's tzdata knows, then retry",
+                    workaround,
+                ],
+            )
+        )
+    return local_tz
 
 
 def resolve_local_timezone(ha_timezone: str) -> tuple[_TZInfo, str]:
@@ -382,7 +416,7 @@ def _convert_timestamp_fields(obj: Any, local_tz: _TZInfo) -> Any:
                     if parsed.tzinfo is None:
                         parsed = parsed.replace(tzinfo=UTC)
                     out[k] = parsed.astimezone(local_tz).isoformat()
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     out[k] = v
             else:
                 out[k] = _convert_timestamp_fields(v, local_tz)

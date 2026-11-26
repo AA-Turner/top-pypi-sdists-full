@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 11.63.1
+Version: 11.65.0
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: apple-symbols>=0.0.2
+Requires-Dist: apple-symbols[remote]>=0.0.4
 Requires-Dist: asn1
 Requires-Dist: IPython
 Requires-Dist: bpylist2>=4.0.1
@@ -35,7 +35,7 @@ Requires-Dist: packaging
 Requires-Dist: typing_extensions>=4.1.0
 Requires-Dist: pygnuutils>=0.0.7
 Requires-Dist: cryptography>=43.0.0
-Requires-Dist: pycrashreport>=2.5.0
+Requires-Dist: pycrashreport>=2.7.0
 Requires-Dist: fastapi>=0.93.0
 Requires-Dist: uvicorn>=0.15.0
 Requires-Dist: wsproto

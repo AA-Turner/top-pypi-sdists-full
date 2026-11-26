@@ -86,7 +86,7 @@ def main():
       + [
           # Due to https://github.com/bazelbuild/bazel/issues/14764, this is not
           # picked up from .bazelrc.
-          "-std=c++17"
+          "-std=c++20"
       ],
       include_directory_map={"./": ""},
       # Only entities whose original source path matches any of these regular
@@ -125,15 +125,21 @@ def main():
       hide_initializers=[
           r"^=\s*(?:(true|false)\s*$|\[)",
       ],
-      # Return types, SFINAE terms, and initializer expressions that match any
-      # of these regular expressions will be elided. Return types will be shown
-      # as `auto`.
+      # Return types, variable/field types, underlying type alias targets,
+      # SFINAE terms, and initializer expressions that match any of these
+      # regular expressions will be elided. Return and variable/field types
+      # will be shown as `auto`.
       hide_types=[
           r"(\b|_)internal(\b|_)",
           r"\bdecltype\b",
           r"\bpoly::",
+          # Hides `serialization::SerializableFunction` and
+          # `serialization::IsSerializableFunctionLike` implementation details
+          # in `virtual_chunked.h`.
+          r"\bserialization::",
           r"\bStaticCastTraitsType\b",
           r"\bDataTypeConversionTraits\b",
+          r"\bIsOption\b",
           r"Impl\b",
       ],
       # Specifies type substitutions.
@@ -144,8 +150,6 @@ def main():
       type_replacements={
           "absl::remove_cvref_t": "std::remove_cvref_t",
           "absl::weak_ordering": "std::weak_ordering",
-          "tensorstore::internal::type_identity_t": "std::type_identity_t",
-          "internal::type_identity_t": "std::type_identity_t",
       },
       verbose=args.verbose,
   )

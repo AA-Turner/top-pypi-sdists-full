@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import AsyncExitStack, aclosing
-from datetime import UTC
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
@@ -47,12 +47,13 @@ from langgraph_api.grpc.ops.runs import Runs, forget_deleted_thread
 from langgraph_api.schema import ThreadUpdateResponse
 from langgraph_api.serde import Fragment, json_dumpb, json_dumpb_optional, json_loads
 from langgraph_api.state import (
-    iter_state_history,
-    narrow_history_reads,
     patch_interrupt,
+    read_state,
+    read_state_history,
     state_snapshot_to_thread_state,
 )
 from langgraph_api.utils import fetchone
+from langgraph_api.utils.uuids import uuid7
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -377,6 +378,10 @@ class Threads(Authenticated):
         select: list[ThreadSelectField] | None = None,
         extract: dict[str, str] | None = None,
         exclude_metadata: list[dict[str, Any]] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        state_updated_after: datetime | None = None,
+        state_updated_before: datetime | None = None,
         raw_values: bool = False,
         ctx: Any = None,
     ) -> tuple[AsyncIterator[Thread], int | None]:
@@ -400,6 +405,10 @@ class Threads(Authenticated):
             "filters": auth_filters,
             "metadata_json": json_dumpb_optional(metadata),
             "values_json": json_dumpb_optional(values),
+            "created_after": created_after,
+            "created_before": created_before,
+            "state_updated_after": state_updated_after,
+            "state_updated_before": state_updated_before,
             "limit": limit,
             "offset": offset,
             "sort_by": _map_threads_sort_by(sort_by),
@@ -455,6 +464,10 @@ class Threads(Authenticated):
         values: MetadataInput,
         status: ThreadStatus | None,
         exclude_metadata: list[dict[str, Any]] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        state_updated_after: datetime | None = None,
+        state_updated_before: datetime | None = None,
         ctx: Any = None,
     ) -> int:
         metadata = metadata or {}
@@ -474,6 +487,10 @@ class Threads(Authenticated):
             "filters": auth_filters,
             "metadata_json": json_dumpb_optional(metadata),
             "values_json": json_dumpb_optional(values),
+            "created_after": created_after,
+            "created_before": created_before,
+            "state_updated_after": state_updated_after,
+            "state_updated_before": state_updated_before,
         }
         if exclude_metadata:
             request_kwargs["exclude_metadata_json"] = json_dumpb(exclude_metadata)
@@ -646,6 +663,8 @@ class Threads(Authenticated):
         conn,  # Not used
         thread_id: UUID | str,
         ctx: Any = None,
+        *,
+        sync_checkpoint_delete: bool = False,
     ) -> AsyncIterator[UUID]:
         auth_filters = await Threads.handle_event(
             ctx,
@@ -658,6 +677,7 @@ class Threads(Authenticated):
         request = pb.DeleteThreadRequest(
             thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
             filters=auth_filters,
+            sync_checkpoint_delete=sync_checkpoint_delete,
         )
 
         client = await get_shared_client()
@@ -683,6 +703,8 @@ class Threads(Authenticated):
         strategy: Literal["delete", "keep_latest"] = "delete",
         batch_size: int = 100,
         ctx: Any = None,
+        *,
+        sync_checkpoint_delete: bool = False,
     ) -> int:
         """Prune threads via gRPC.
 
@@ -691,6 +713,8 @@ class Threads(Authenticated):
             strategy: "delete" to remove entirely, "keep_latest" to prune checkpoints
             batch_size: Batch size for operations
             ctx: Auth context for permission checks
+            sync_checkpoint_delete: Delete checkpoints before returning instead
+                of deferring to the background deletion queue
 
         Returns:
             Number of threads successfully pruned
@@ -737,6 +761,7 @@ class Threads(Authenticated):
                         pb.DeleteThreadRequest(
                             thread_id=pb.UUID(value=_normalize_uuid(tid)),
                             filters=auth_filters,
+                            sync_checkpoint_delete=sync_checkpoint_delete,
                         )
                     )
                 except Exception:
@@ -767,6 +792,7 @@ class Threads(Authenticated):
                     request = checkpointer_pb2.PruneRequest(
                         thread_ids=batch,
                         strategy=checkpointer_pb2.PruneRequest.PruneStrategy.KEEP_LATEST,
+                        sync_checkpoint_delete=sync_checkpoint_delete,
                     )
                     await stub.Prune(request)
                     processed += len(batch)
@@ -880,6 +906,8 @@ class Threads(Authenticated):
         graph_id: str,
         checkpoint: dict[str, Any] | None = None,
         exception: BaseException | dict[str, Any] | None = None,
+        *,
+        refused_resume: bool = False,
     ) -> None:
         """Set thread and run status atomically via gRPC.
 
@@ -896,12 +924,15 @@ class Threads(Authenticated):
             graph_id: Graph ID to store in thread metadata
             checkpoint: Checkpoint payload containing values, next, tasks, etc.
             exception: Exception to store on thread (BaseException or serialized dict)
+            refused_resume: Strict resume refused the run's answer before anything
+                ran, so the thread keeps its error, or lack of one, as it was.
         """
         request_kwargs: dict[str, Any] = {
             "thread_id": pb.UUID(value=_normalize_uuid(thread_id)),
             "run_id": pb.UUID(value=_normalize_uuid(run_id)),
             "run_status": run_status,
             "graph_id": graph_id,
+            "refused_resume": refused_resume,
         }
 
         # Map checkpoint to proto if provided (reuses same helper as set_status)
@@ -1126,8 +1157,15 @@ class Threads(Authenticated):
             config: dict[str, Any],
             subgraphs: bool,
             ctx: Any = None,
+            channels: Sequence[str] | None = None,
         ) -> StateSnapshot:
-            """Get state snapshot for a thread (*internal only*, no auth)."""
+            """Get state snapshot for a thread (*internal only*, no auth).
+
+            ``channels`` names the state keys the caller needs; the rest of
+            the checkpoint's stored state is left unread when the checkpointer
+            supports it. None loads everything, as do reads with ``subgraphs``,
+            since subgraph states are read with the same checkpointer.
+            """
             checkpointer = await api_checkpointer.get_checkpointer(
                 conn=conn, unpack_hook=_msgpack_ext_hook_to_json
             )
@@ -1168,7 +1206,9 @@ class Threads(Authenticated):
                     store=(await api_store.get_store()),
                     access_context="threads.read",
                 ) as graph:
-                    return await graph.aget_state(config, subgraphs=subgraphs)
+                    if subgraphs:
+                        return await graph.aget_state(config, subgraphs=True)
+                    return await read_state(graph, config, channels)
             else:
                 _kwargs: dict[str, Any] = {
                     "values": {},
@@ -1269,6 +1309,8 @@ class Threads(Authenticated):
                         json_dumpb(event_data),
                         thread_id=thread_id,
                         resumable=True,
+                        publisher_id=uuid7().hex,
+                        seq=0,
                     )
 
                     return {
@@ -1374,6 +1416,8 @@ class Threads(Authenticated):
                         json_dumpb(event_data),
                         thread_id=thread_id,
                         resumable=True,
+                        publisher_id=uuid7().hex,
+                        seq=0,
                     )
 
                     return ThreadUpdateResponse(checkpoint=next_config["configurable"])
@@ -1436,24 +1480,19 @@ class Threads(Authenticated):
                     store=(await api_store.get_store()),
                     access_context="threads.read",
                 ) as graph:
-                    graph = narrow_history_reads(graph, config, channels)
                     before_config = (
                         {"configurable": {"checkpoint_id": before}}
                         if isinstance(before, str)
                         else before
                     )
-                    history = (
-                        iter_state_history(
-                            graph,
-                            config,
-                            limit=limit,
-                            filter=metadata,
-                            before=before_config,
-                        )
-                        if incremental
-                        else graph.aget_state_history(
-                            config, limit=limit, filter=metadata, before=before_config
-                        )
+                    history = read_state_history(
+                        graph,
+                        config,
+                        channels,
+                        limit=limit,
+                        filter=metadata,
+                        before=before_config,
+                        incremental=incremental,
                     )
                     async with aclosing(history) as states:
                         async for c in states:

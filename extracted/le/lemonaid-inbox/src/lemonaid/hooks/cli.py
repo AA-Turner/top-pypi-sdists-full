@@ -3,6 +3,7 @@
 import argparse
 import sys
 
+from .. import docs
 from . import install, own_change, session_start, stop_check
 
 
@@ -60,6 +61,13 @@ def setup_parser(subparsers: argparse._SubParsersAction) -> None:
             "SessionStart: start a Claude lemon's push scout, or remind a lemon with an attached "
             "brief which waiters to arm",
             lambda a: session_start.handle(a.harness),
+        ),
+        (
+            "docs",
+            "SessionStart/PreToolUse/PostToolUse/UserPromptSubmit: give the lemon the docs "
+            "under [docs] roots its packages and triggers call for, and log them in "
+            "doc-deliveries.jsonl",
+            lambda a: docs.hook.handle(a.harness),
         ),
     ):
         hp = sub.add_parser(name, help=f"{help_text} (reads the hook's JSON from stdin)")

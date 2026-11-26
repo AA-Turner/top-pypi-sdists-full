@@ -16,7 +16,7 @@ import inspect
 import os
 
 from .factories import get_pip_manager
-from .core import logger as _ascii_logger
+from .core import PackageManager, logger as _ascii_logger
 import logging as stdlib_logging
 
 # Use stdlib logger for tests (assertLogs/caplog compatibility) 
@@ -37,21 +37,55 @@ def _get_caller_info() -> str:
 _default_pm = get_pip_manager()
 
 
-def get_pip_manager_with_venv(venv_path: str, create_if_not_exist: bool = False) -> Any:
+def get_pip_manager_with_venv(
+    venv_path: str,
+    create_if_not_exist: bool = False,
+    use_uv: Optional[bool] = None,
+    uv_executable: Optional[str] = None,
+) -> Any:
     """
     Gets a PackageManager instance targeting a specific virtual environment.
 
     Args:
         venv_path (str): Path to the virtual environment.
         create_if_not_exist (bool, optional): If True, creates the venv if missing.
+        use_uv (bool, optional): True requires uv, False forces pip, and None
+            automatically detects uv-managed environments.
+        uv_executable (str, optional): Explicit uv executable name or path.
 
     Returns:
         PackageManager: An instance configured for the target environment.
     """
-    return get_pip_manager(venv_path=venv_path, create_if_not_exist=create_if_not_exist)
+    return get_pip_manager(
+        venv_path=venv_path,
+        create_if_not_exist=create_if_not_exist,
+        use_uv=use_uv,
+        uv_executable=uv_executable,
+    )
 
 
 # --- Install Functions ---
+
+def install_uv(
+    index_url: Optional[str] = None,
+    force_reinstall: bool = False,
+    upgrade: bool = True,
+    extra_args: Optional[List[str]] = None,
+    dry_run: bool = False,
+    verbose: bool = False,
+) -> bool:
+    """Installs uv into the current environment using pip, never uv itself."""
+    installer = PackageManager(use_uv=False)
+    return installer.install(
+        "uv",
+        index_url=index_url,
+        force_reinstall=force_reinstall,
+        upgrade=upgrade,
+        extra_args=extra_args,
+        dry_run=dry_run,
+        verbose=verbose,
+    )
+
 
 def install(
     package: str,

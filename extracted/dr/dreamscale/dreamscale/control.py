@@ -339,6 +339,21 @@ class ControlPlaneClient:
             raise errors.catalog("session_expired")
         _raise_for_status(resp)
 
+    async def report_latency(
+        self, session_id: str, records: list[dict[str, Any]], *, dropped: int = 0
+    ) -> bool:
+        """Send a session's per-request latency records (latency_report.py). False when the
+        control plane has no such endpoint or the session is gone: stop reporting."""
+        resp = await self._client.post(
+            f"/v1/sessions/{session_id}/latency",
+            json={"records": records, "dropped": dropped},
+        )
+        if resp.status_code in (404, 405):
+            return False
+        _raise_for_auth(resp)
+        _raise_for_status(resp)
+        return True
+
     async def create_session(
         self,
         model: str,

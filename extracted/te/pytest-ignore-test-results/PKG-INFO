@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pytest-ignore-test-results
-Version: 0.3.0
+Version: 0.5.0
 Summary: A pytest plugin to ignore test results.
 Author-email: Fu Hanxi <fuhanxi@espressif.com>
 Requires-Python: >=3.7
@@ -16,6 +16,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+License-File: LICENSE
 Requires-Dist: pytest>=7.0
 Requires-Dist: sphinx ; extra == "doc"
 Requires-Dist: sphinx-rtd-theme ; extra == "doc"
@@ -45,6 +47,7 @@ pip install -U pytest-ignore-test-results
 - Load ignore patterns from files
 - Custom exit codes for different failure scenarios
 - Support for child test cases
+- Mark ignored JUnit failures and errors with `is_ignored="1"`
 - Option to ignore "no tests collected" errors
 
 ## Usage
@@ -76,6 +79,13 @@ test_feature_1  # This is a comment
 test_feature_*
 test_integration_suite::test_case_1
 ```
+
+### Child Test Cases
+
+Failed child cases can be ignored by their names with `--ignore-result-cases` or `--ignore-result-files`.
+When pytest-embedded provides Unity cases, their names are used for matching; ignoring the parent test
+also ignores its failed children. If both the legacy child-case stash and Unity cases exist for one test,
+the legacy cases take precedence. pytest-embedded is optional.
 
 ### Control Exit Codes
 

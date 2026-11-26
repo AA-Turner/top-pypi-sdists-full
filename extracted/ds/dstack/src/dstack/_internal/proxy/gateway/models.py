@@ -1,6 +1,6 @@
 """Things stored in GatewayProxyRepo in addition to those from BaseProxyRepo."""
 
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import AnyHttpUrl
 
@@ -15,11 +15,41 @@ class ModelEntrypoint(ImmutableModel):
     read_timeout: int = DEFAULT_SERVICE_READ_TIMEOUT
 
 
+class ImportedModel(ImmutableModel):
+    """A model that the importer project accesses through an export of the exporter project."""
+
+    importer_project: str
+    export_id: str
+    """Metered with each request to the model, like `Service.id`."""
+    exporter_project: str
+    name: str
+    """The model's name in the exporter project. With `exporter_project`,
+    finds the model and its service."""
+
+
 class ACMESettings(ImmutableModel):
     server: Optional[AnyHttpUrl] = None
     eab_kid: Optional[str] = None
     eab_hmac_key: Optional[str] = None
 
 
+class OTelSettings(ImmutableModel):
+    traces_enabled: bool
+    logs_enabled: bool
+    metrics_enabled: bool
+    endpoint: str
+    headers: dict[str, str]
+    traces_sample_rate: float
+    traces_auth_sample_rate: float
+    resource_attributes: dict[str, Union[str, int]]
+
+    @property
+    def any_enabled(self) -> bool:
+        return self.traces_enabled or self.logs_enabled or self.metrics_enabled
+
+
 class GlobalProxyConfig(ImmutableModel):
     acme_settings: ACMESettings = ACMESettings()
+    otel_settings: Optional[OTelSettings] = None
+    config_hash: Optional[str] = None
+    """Computed by the server. Reported back to detect outdated config"""

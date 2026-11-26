@@ -14,9 +14,12 @@ from av.frame import Frame
 from av.packet import Packet
 from av.video.stream import VideoStream
 
-from ..mediastreams import AUDIO_PTIME, MediaStreamError, MediaStreamTrack
+from ..mediastreams import AUDIO_PTIME, MediaStreamError, MediaStreamTrack, TimeBase
 
 logger = logging.getLogger(__name__)
+
+# The most media time a recorder holds while waiting for video to start, in seconds.
+RECORDER_MAX_HOLD = 3
 
 REAL_TIME_FORMATS = [
     "alsa",
@@ -86,6 +89,39 @@ class MediaBlackhole:
         self.__tracks = {}
 
 
+class PlaybackTimeline:
+    """
+    Make the timestamps of a file's streams start at 0, and keep them
+    increasing when playback loops back to the start of the file.
+
+    All the streams restart from where the longest one ended, so that they
+    stay in sync even if their durations differ.
+    """
+
+    def __init__(self) -> None:
+        self.__end = fractions.Fraction(0)
+        self.__offsets: dict[str, int] = {}
+        self.__start = fractions.Fraction(0)
+
+    def restart(self) -> None:
+        """
+        Continue the next timestamps from where playback ended.
+        """
+        self.__offsets = {}
+        self.__start = self.__end
+
+    def timestamp(self, kind: str, pts: int, duration: int, time_base: TimeBase) -> int:
+        """
+        Return the timestamp to use for a frame or packet of the given kind.
+        """
+        base = fractions.Fraction(time_base.numerator, time_base.denominator)
+        if kind not in self.__offsets:
+            self.__offsets[kind] = round(self.__start / base) - pts
+        pts += self.__offsets[kind]
+        self.__end = max(self.__end, (pts + duration) * base)
+        return pts
+
+
 def player_worker_decode(
     loop: asyncio.AbstractEventLoop,
     container: av.container.InputContainer,
@@ -106,10 +142,10 @@ def player_worker_decode(
         frame_size=int(audio_sample_rate * AUDIO_PTIME),
     )
 
-    video_first_pts = None
+    timeline = PlaybackTimeline()
 
     frame_time = None
-    start_time = time.time()
+    start_time = time.monotonic()
 
     while not quit_event.is_set():
         try:
@@ -118,8 +154,12 @@ def player_worker_decode(
             if isinstance(exc, av.FFmpegError) and exc.errno == errno.EAGAIN:
                 time.sleep(0.01)
                 continue
-            if isinstance(exc, StopIteration) and loop_playback:
+            # At the end of the file, a decoder which held back frames (e.g. H.264)
+            # reports EOF once it has returned them all.
+            if isinstance(exc, (StopIteration, EOFError)) and loop_playback:
                 container.seek(0)
+                audio_samples = 0
+                timeline.restart()
                 continue
             if audio_track:
                 asyncio.run_coroutine_threadsafe(audio_track._queue.put(None), loop)
@@ -127,16 +167,18 @@ def player_worker_decode(
                 asyncio.run_coroutine_threadsafe(video_track._queue.put(None), loop)
             break
 
-        # read up to 1 second ahead
+        # Read up to 1 second ahead.
         if throttle_playback:
-            elapsed_time = time.time() - start_time
+            elapsed_time = time.monotonic() - start_time
             if frame_time and frame_time > elapsed_time + 1:
                 time.sleep(0.1)
 
         if isinstance(frame, AudioFrame) and audio_track:
             for frame in audio_resampler.resample(frame):
-                # fix timestamps
-                frame.pts = audio_samples
+                # Fix timestamps.
+                frame.pts = timeline.timestamp(
+                    "audio", audio_samples, frame.samples, audio_time_base
+                )
                 frame.time_base = audio_time_base
                 audio_samples += frame.samples
 
@@ -149,10 +191,10 @@ def player_worker_decode(
                 )
                 continue
 
-            # video from a webcam doesn't start at pts 0, cancel out offset
-            if video_first_pts is None:
-                video_first_pts = frame.pts
-            frame.pts -= video_first_pts
+            # Video from a webcam doesn't start at pts 0, and looping restarts it.
+            frame.pts = timeline.timestamp(
+                "video", frame.pts, frame.duration, frame.time_base
+            )
 
             frame_time = frame.time
             asyncio.run_coroutine_threadsafe(video_track._queue.put(frame), loop)
@@ -168,9 +210,9 @@ def player_worker_demux(
     throttle_playback: bool,
     loop_playback: bool,
 ) -> None:
-    video_first_pts = None
+    timeline = PlaybackTimeline()
     frame_time = None
-    start_time = time.time()
+    start_time = time.monotonic()
 
     while not quit_event.is_set():
         try:
@@ -183,6 +225,7 @@ def player_worker_demux(
                 continue
             if isinstance(exc, StopIteration) and loop_playback:
                 container.seek(0)
+                timeline.restart()
                 continue
             if audio_track:
                 asyncio.run_coroutine_threadsafe(audio_track._queue.put(None), loop)
@@ -190,9 +233,9 @@ def player_worker_demux(
                 asyncio.run_coroutine_threadsafe(video_track._queue.put(None), loop)
             break
 
-        # read up to 1 second ahead
+        # Read up to 1 second ahead.
         if throttle_playback:
-            elapsed_time = time.time() - start_time
+            elapsed_time = time.monotonic() - start_time
             if frame_time and frame_time > elapsed_time + 1:
                 time.sleep(0.1)
 
@@ -207,16 +250,19 @@ def player_worker_demux(
                 continue
             track = video_track
 
-            # video from a webcam doesn't start at pts 0, cancel out offset
-            if video_first_pts is None:
-                video_first_pts = packet.pts
-            packet.pts -= video_first_pts
-
         if (
             track is not None
             and packet.pts is not None
             and packet.time_base is not None
         ):
+            # Timestamps may not start at 0 (e.g. from a webcam), and looping
+            # restarts them.
+            pts = timeline.timestamp(
+                track.kind, packet.pts, packet.duration or 0, packet.time_base
+            )
+            if packet.dts is not None:
+                packet.dts += pts - packet.pts
+            packet.pts = pts
             frame_time = int(packet.pts * packet.time_base)
             asyncio.run_coroutine_threadsafe(track._queue.put(packet), loop)
 
@@ -250,9 +296,9 @@ class PlayerStreamTrack(MediaStreamTrack):
             and data_time is not None
         ):
             if self._start is None:
-                self._start = time.time() - data_time
+                self._start = time.monotonic() - data_time
             else:
-                wait = self._start + data_time - time.time()
+                wait = self._start + data_time - time.monotonic()
                 await asyncio.sleep(wait)
 
         return data
@@ -403,6 +449,8 @@ class MediaPlayer:
 
 class MediaRecorderContext:
     def __init__(self, stream: _AudioOrVideoStream) -> None:
+        self.dropped = False
+        self.ended = False
         self.started = False
         self.stream = stream
         self.task: Optional[asyncio.Task[None]] = None
@@ -436,6 +484,7 @@ class MediaRecorder:
         self.__container: Optional[av.container.OutputContainer] = av.open(
             file=file, format=format, mode="w", options=options
         )
+        self.__held: Optional[list[Packet]] = []
         self.__tracks: dict[MediaStreamTrack, MediaRecorderContext] = {}
 
     def addTrack(self, track: MediaStreamTrack) -> None:
@@ -483,6 +532,9 @@ class MediaRecorder:
             for track, context in self.__tracks.items():
                 if context.task is not None:
                     context.task.cancel()
+            self.__release_held()
+            for track, context in self.__tracks.items():
+                if context.task is not None:
                     context.task = None
                     for packet in context.stream.encode(None):
                         self.__container.mux(packet)
@@ -491,6 +543,27 @@ class MediaRecorder:
             self.__container.close()
             self.__container = None
 
+    def __mux(self, packet: Packet) -> None:
+        if self.__held is not None and self.__waiting_for_video():
+            first = next((p for p in self.__held if p.stream is packet.stream), packet)
+            # Packets without timestamps cannot be measured, so they end the hold.
+            if packet.pts is not None and first.pts is not None:
+                time_base = fractions.Fraction(
+                    packet.time_base.numerator, packet.time_base.denominator
+                )
+                if (packet.pts - first.pts) * time_base < RECORDER_MAX_HOLD:
+                    self.__held.append(packet)
+                    return
+        self.__release_held()
+        self.__container.mux(packet)
+
+    def __release_held(self) -> None:
+        if self.__held is not None:
+            held = self.__held
+            self.__held = None
+            for packet in held:
+                self.__container.mux(packet)
+
     async def __run_track(
         self, track: MediaStreamTrack, context: MediaRecorderContext
     ) -> None:
@@ -498,22 +571,47 @@ class MediaRecorder:
             try:
                 frame = await track.recv()
             except MediaStreamError:
+                context.ended = True
+                if not self.__waiting_for_video():
+                    self.__release_held()
                 return
             assert isinstance(frame, (AudioFrame, VideoFrame)), (
                 "Only audio or video frames can be recorded"
             )
 
             if not context.started:
-                # Adjust the output size to match the first frame.
                 if isinstance(context.stream, VideoStream) and isinstance(
                     frame, VideoFrame
                 ):
-                    context.stream.width = frame.width
-                    context.stream.height = frame.height
+                    if context.stream.codec_context.is_open:
+                        # The header was written without this track's size.
+                        logger.warning(
+                            "MediaRecorder dropping video track %s, it started "
+                            "more than %d seconds after the other tracks",
+                            track.id,
+                            RECORDER_MAX_HOLD,
+                        )
+                        context.dropped = True
+                    else:
+                        # Adjust the output to the first frame, keeping its time base
+                        # so frames above the nominal rate keep distinct timestamps.
+                        context.stream.width = frame.width
+                        context.stream.height = frame.height
+                        if frame.time_base is not None:
+                            context.stream.codec_context.time_base = frame.time_base
                 context.started = True
 
-            for packet in context.stream.encode(frame):  # type: ignore
-                self.__container.mux(packet)
+            if not context.dropped:
+                for packet in context.stream.encode(frame):  # type: ignore
+                    self.__mux(packet)
+
+    def __waiting_for_video(self) -> bool:
+        # Writing the header opens the video encoders, freezing their size.
+        return any(
+            isinstance(context.stream, VideoStream)
+            and not (context.started or context.ended)
+            for context in self.__tracks.values()
+        )
 
 
 class RelayStreamTrack(MediaStreamTrack):

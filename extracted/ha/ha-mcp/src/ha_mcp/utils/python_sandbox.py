@@ -8,7 +8,10 @@ See SECURITY.md § "MCP clients are trusted principals" for the rationale.
 """
 
 import ast
-from typing import Any, cast
+import json
+from typing import Any
+
+from ..error_wording import line_continuation, single_target_unpack
 
 
 class PythonSandboxError(Exception):
@@ -41,11 +44,12 @@ class PythonSandboxExecutionError(PythonSandboxError):
 # can carry tokens / passwords / device addresses, and Python's default
 # repr happily embeds dict and list values into KeyError/TypeError text.
 # 240 chars is enough to identify the failure (exception type + a short
-# snippet) without pasting the input config back to the caller.
-_EXECUTION_ERROR_TEXT_LIMIT = 240
+# snippet) without pasting the input config back to the caller. Public so
+# tests can check the cap.
+EXECUTION_ERROR_TEXT_LIMIT = 240
 
 
-def _truncate_for_error(text: str, limit: int = _EXECUTION_ERROR_TEXT_LIMIT) -> str:
+def _truncate_for_error(text: str, limit: int = EXECUTION_ERROR_TEXT_LIMIT) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 3] + "..."
@@ -233,8 +237,9 @@ BLOCKED_FUNCTIONS = {
 # transforms — type checks, length, numeric/string coercion, simple
 # collection helpers. Expanding this list is fine if another pure builtin
 # is genuinely needed; adding anything that touches the filesystem, network,
-# or interpreter state is not.
-_SAFE_BUILTINS: dict[str, Any] = {
+# or interpreter state is not. Public, like SAFE_METHODS, so tests can check
+# the security documentation against it.
+SAFE_BUILTINS: dict[str, Any] = {
     "isinstance": isinstance,
     "len": len,
     "range": range,
@@ -383,7 +388,7 @@ def safe_execute_expression(
         )
 
     safe_globals: dict[str, Any] = {
-        "__builtins__": dict(_SAFE_BUILTINS),
+        "__builtins__": dict(SAFE_BUILTINS),
         "__name__": "__main__",
         "__doc__": None,
     }
@@ -391,7 +396,7 @@ def safe_execute_expression(
 
     try:
         exec(expr, safe_globals, safe_locals)
-    except (MemoryError, RecursionError):
+    except MemoryError, RecursionError:
         # Resource exhaustion — let the host decide. Reframing
         # "ran out of memory" as "your transform was bad" would
         # mislead the agent into rewriting an expression that
@@ -428,7 +433,7 @@ def safe_execute(expr: str, config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         The value bound to ``config`` after execution — typically the same
         dict mutated in place, but also supports expressions that reassign
-        ``config`` to a new object.
+        ``config`` to a new dict.
 
     Raises:
         PythonSandboxError: If expression validation fails or execution errors
@@ -438,13 +443,21 @@ def safe_execute(expr: str, config: dict[str, Any]) -> dict[str, Any]:
         >>> safe_execute("config['views'][0]['cards'][0]['icon'] = 'new'", config)
         {'views': [{'cards': [{'icon': 'new'}]}]}
     """
-    # safe_execute_expression returns Any (generic over result_key); at this
-    # call site the result is always the dict bound to `config`, so narrow
-    # for mypy and existing callers that depend on the dict interface.
-    return cast(
-        dict[str, Any],
-        safe_execute_expression(expr, {"config": config}, "config"),
-    )
+    result = safe_execute_expression(expr, {"config": config}, "config")
+    # The callers send the result to Home Assistant as a JSON object, so a
+    # result that is not one is the expression's mistake, reported as such.
+    if not isinstance(result, dict):
+        raise PythonSandboxExecutionError(
+            f"the expression left `config` as {type(result).__name__}; "
+            "it must stay a dict"
+        )
+    try:
+        json.dumps(result, allow_nan=False)
+    except (TypeError, ValueError) as err:
+        raise PythonSandboxExecutionError(
+            f"the expression left a value that cannot be sent as JSON: {err}"
+        ) from err
+    return result
 
 
 def format_sandbox_error(
@@ -479,8 +492,7 @@ def format_sandbox_error(
             "Use .get(key, default) to handle missing keys",
             f"Expression: {preview}",
         ]
-        # Python 3.14 adds ", got N" only for a plain list, tuple or dict.
-        if "unpack (expected 1)" in str(error) or "unpack (expected 1," in str(error):
+        if single_target_unpack(error):
             suggestions.insert(
                 0,
                 "A single-target unpack needs exactly one item. If this is a "
@@ -500,7 +512,7 @@ def format_sandbox_error(
         # line-continuation token followed by an unexpected character.
         # Pinpoint the actual mistake so the agent fixes it on the first
         # retry instead of guessing at "syntax".
-        if "line continuation character" in str(error):
+        if line_continuation(error):
             suggestions.insert(
                 0,
                 'Remove the leading backslash before quotes — write "foo" '

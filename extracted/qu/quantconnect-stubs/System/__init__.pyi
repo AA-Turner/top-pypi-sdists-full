@@ -6910,6 +6910,9 @@ class Type(System.Reflection.MemberInfo, System.Reflection.IReflect, metaclass=a
     def get_interfaces(self) -> typing.List[typing.Type]:
         ...
 
+    def get_interfaces_with_same_metadata_definition_as(self, interface_type: typing.Type) -> typing.List[typing.Type]:
+        ...
+
     @overload
     def get_member(self, name: str) -> typing.List[System.Reflection.MemberInfo]:
         ...

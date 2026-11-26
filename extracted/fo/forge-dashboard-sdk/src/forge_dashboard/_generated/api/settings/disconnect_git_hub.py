@@ -8,6 +8,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
+from ...models.disconnect_git_hub_response_200 import DisconnectGitHubResponse200
 from ...models.error import Error
 from typing import cast
 
@@ -32,7 +33,14 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Any | Error | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Any | DisconnectGitHubResponse200 | Error | None:
+    if response.status_code == 200:
+        response_200 = DisconnectGitHubResponse200.from_dict(response.json())
+
+
+
+        return response_200
+
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -50,7 +58,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Any | Error]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Any | DisconnectGitHubResponse200 | Error]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -63,19 +71,22 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
 
-) -> Response[Any | Error]:
+) -> Response[Any | DisconnectGitHubResponse200 | Error]:
     """ Unlink the GitHub account
 
-     Deletes the stored token pair. Nothing else changes: a saved personal
-    access token, the GitHub App installation and the other settings stay.
-    Passkey sign-in is unaffected.
+     Asks GitHub to revoke the App's grant for the linked user (the access
+    and refresh token both stop working), then deletes the stored token
+    pair. If GitHub is unreachable or refuses, the pair is deleted anyway
+    and the answer is 200 with `revoked: false`; nothing is retried. Nothing
+    else changes: a saved personal access token, the GitHub App
+    installation and the other settings stay. Passkey sign-in is unaffected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | Error]
+        Response[Any | DisconnectGitHubResponse200 | Error]
      """
 
 
@@ -93,19 +104,22 @@ def sync(
     *,
     client: AuthenticatedClient,
 
-) -> Any | Error | None:
+) -> Any | DisconnectGitHubResponse200 | Error | None:
     """ Unlink the GitHub account
 
-     Deletes the stored token pair. Nothing else changes: a saved personal
-    access token, the GitHub App installation and the other settings stay.
-    Passkey sign-in is unaffected.
+     Asks GitHub to revoke the App's grant for the linked user (the access
+    and refresh token both stop working), then deletes the stored token
+    pair. If GitHub is unreachable or refuses, the pair is deleted anyway
+    and the answer is 200 with `revoked: false`; nothing is retried. Nothing
+    else changes: a saved personal access token, the GitHub App
+    installation and the other settings stay. Passkey sign-in is unaffected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | Error
+        Any | DisconnectGitHubResponse200 | Error
      """
 
 
@@ -118,19 +132,22 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
 
-) -> Response[Any | Error]:
+) -> Response[Any | DisconnectGitHubResponse200 | Error]:
     """ Unlink the GitHub account
 
-     Deletes the stored token pair. Nothing else changes: a saved personal
-    access token, the GitHub App installation and the other settings stay.
-    Passkey sign-in is unaffected.
+     Asks GitHub to revoke the App's grant for the linked user (the access
+    and refresh token both stop working), then deletes the stored token
+    pair. If GitHub is unreachable or refuses, the pair is deleted anyway
+    and the answer is 200 with `revoked: false`; nothing is retried. Nothing
+    else changes: a saved personal access token, the GitHub App
+    installation and the other settings stay. Passkey sign-in is unaffected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | Error]
+        Response[Any | DisconnectGitHubResponse200 | Error]
      """
 
 
@@ -148,19 +165,22 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
 
-) -> Any | Error | None:
+) -> Any | DisconnectGitHubResponse200 | Error | None:
     """ Unlink the GitHub account
 
-     Deletes the stored token pair. Nothing else changes: a saved personal
-    access token, the GitHub App installation and the other settings stay.
-    Passkey sign-in is unaffected.
+     Asks GitHub to revoke the App's grant for the linked user (the access
+    and refresh token both stop working), then deletes the stored token
+    pair. If GitHub is unreachable or refuses, the pair is deleted anyway
+    and the answer is 200 with `revoked: false`; nothing is retried. Nothing
+    else changes: a saved personal access token, the GitHub App
+    installation and the other settings stay. Passkey sign-in is unaffected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | Error
+        Any | DisconnectGitHubResponse200 | Error
      """
 
 

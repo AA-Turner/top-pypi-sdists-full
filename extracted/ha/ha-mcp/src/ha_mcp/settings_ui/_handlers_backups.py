@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from .. import backup_manager
 from .._vendor.fastmcp.exceptions import ToolError
 from .._version import is_running_in_addon
 from ..backup_manager import (
@@ -32,15 +33,14 @@ from ..backup_manager import (
     SnapshotInUseError,
     _FlowHelperReadError,
     _snapshot_validation_message,
-    get_backup_manager,
     restore_error_code,
 )
 from ..backup_todo import TodoListNotLoaded
 from ..config import (
     BACKUP_OVERRIDE_FIELDS,
-    _reset_global_settings,
     get_backup_setting_origin,
     get_global_settings,
+    reset_global_settings,
 )
 from ..config_registry import SETTING_BOUNDS
 from ..errors import ErrorCode, create_error_response
@@ -50,12 +50,6 @@ if TYPE_CHECKING:
     from ..server import HomeAssistantSmartMCPServer
 
 logger = logging.getLogger(__name__)
-
-
-def _backup_mgr(server: HomeAssistantSmartMCPServer | None) -> Any:
-    settings = get_global_settings()
-    client = getattr(server, "client", None) or getattr(server, "_client", None)
-    return get_backup_manager(client, settings) if client is not None else None
 
 
 def _bad_request(
@@ -79,7 +73,7 @@ def _not_found(name: str) -> JSONResponse:
 async def _list_backups(
     server: HomeAssistantSmartMCPServer | None, request: Request
 ) -> JSONResponse:
-    mgr = _backup_mgr(server)
+    mgr = backup_manager.backup_manager_for_server(server)
     if mgr is None:
         return _bad_request("Backup manager unavailable")
     params = request.query_params
@@ -112,7 +106,7 @@ async def _list_backups(
 async def _view_backup(
     server: HomeAssistantSmartMCPServer | None, request: Request
 ) -> JSONResponse:
-    mgr = _backup_mgr(server)
+    mgr = backup_manager.backup_manager_for_server(server)
     if mgr is None:
         return _bad_request("Backup manager unavailable")
     name = request.path_params.get("name", "")
@@ -132,7 +126,7 @@ async def _diff_backup(
 
     import yaml  # type: ignore[import-untyped]
 
-    mgr = _backup_mgr(server)
+    mgr = backup_manager.backup_manager_for_server(server)
     if mgr is None:
         return _bad_request("Backup manager unavailable")
     name = request.path_params.get("name", "")
@@ -190,6 +184,7 @@ async def _diff_backup(
             "success": True,
             "diff": "\n".join(diff),
             "backup_present": current is not None,
+            "warnings": snapshot["warnings"],
         }
     )
 
@@ -197,7 +192,7 @@ async def _diff_backup(
 async def _restore_backup(
     server: HomeAssistantSmartMCPServer | None, request: Request
 ) -> JSONResponse:
-    mgr = _backup_mgr(server)
+    mgr = backup_manager.backup_manager_for_server(server)
     if mgr is None:
         return _bad_request("Backup manager unavailable")
     name = request.path_params.get("name", "")
@@ -284,7 +279,7 @@ def _structured_tool_error(err: Exception) -> dict[str, Any] | None:
 async def _delete_backup(
     server: HomeAssistantSmartMCPServer | None, request: Request
 ) -> JSONResponse:
-    mgr = _backup_mgr(server)
+    mgr = backup_manager.backup_manager_for_server(server)
     if mgr is None:
         return _bad_request("Backup manager unavailable")
     name = request.path_params.get("name", "")
@@ -312,7 +307,7 @@ async def _delete_backup(
 async def _delete_backups_bulk(
     server: HomeAssistantSmartMCPServer | None, request: Request
 ) -> JSONResponse:
-    mgr = _backup_mgr(server)
+    mgr = backup_manager.backup_manager_for_server(server)
     if mgr is None:
         return _bad_request("Backup manager unavailable")
     params = request.query_params
@@ -411,7 +406,7 @@ def _coerce_int_field(field_name: str, raw: Any) -> tuple[Any, str | None]:
         return None, f"Invalid integer for {field_name}: {raw!r}"
     try:
         value = int(raw)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None, f"Invalid integer for {field_name}: {raw!r}"
     bounds = SETTING_BOUNDS.get(field_name)
     if bounds is not None and not (bounds[0] <= value <= bounds[1]):
@@ -557,7 +552,7 @@ def _apply_backup_config_file(clean: dict[str, Any]) -> JSONResponse:
     # File-mode auto-backup settings take effect immediately on the next
     # ``get_global_settings()`` read — no restart needed, hence
     # ``restart_required=False``.
-    _reset_global_settings()
+    reset_global_settings()
     return JSONResponse(
         {"success": True, "applied": clean, "mode": "file", "restart_required": False}
     )
@@ -600,7 +595,7 @@ async def _save_backup_config(
     """
     try:
         payload = await request.json()
-    except (ValueError, json.JSONDecodeError):
+    except ValueError, json.JSONDecodeError:
         return _bad_request("Invalid JSON body")
     clean, err = _validate_backup_payload(payload)
     if err is not None:

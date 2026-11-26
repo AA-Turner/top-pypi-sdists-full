@@ -22,8 +22,10 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from uuid import UUID
 from legit_api_client.models.scan_now_limits import ScanNowLimits
+from legit_api_client.models.scan_now_skipped_target import ScanNowSkippedTarget
 from legit_api_client.models.scan_now_status_actor import ScanNowStatusActor
 from legit_api_client.models.scan_now_target_status import ScanNowTargetStatus
+from legit_api_client.models.scan_now_trigger_status import ScanNowTriggerStatus
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -34,14 +36,15 @@ class ScanNowRequestResponse(BaseModel):
     """ # noqa: E501
     scan_request_id: Optional[UUID] = Field(default=None, alias="scanRequestId")
     repository_id: Optional[StrictStr] = Field(default=None, alias="repositoryId")
-    status: Optional[StrictStr] = None
+    status: Optional[ScanNowTriggerStatus] = None
     already_running: Optional[StrictBool] = Field(default=None, alias="alreadyRunning")
     triggered_by: Optional[ScanNowStatusActor] = Field(default=None, alias="triggeredBy")
     requested_at: Optional[datetime] = Field(default=None, alias="requestedAt")
     completed_at: Optional[datetime] = Field(default=None, alias="completedAt")
     targets: Optional[List[ScanNowTargetStatus]] = None
     limits: Optional[ScanNowLimits] = None
-    __properties: ClassVar[List[str]] = ["scanRequestId", "repositoryId", "status", "alreadyRunning", "triggeredBy", "requestedAt", "completedAt", "targets", "limits"]
+    skipped_targets: Optional[List[ScanNowSkippedTarget]] = Field(default=None, alias="skippedTargets")
+    __properties: ClassVar[List[str]] = ["scanRequestId", "repositoryId", "status", "alreadyRunning", "triggeredBy", "requestedAt", "completedAt", "targets", "limits", "skippedTargets"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -94,20 +97,31 @@ class ScanNowRequestResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of limits
         if self.limits:
             _dict['limits'] = self.limits.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in skipped_targets (list)
+        _items = []
+        if self.skipped_targets:
+            for _item_skipped_targets in self.skipped_targets:
+                _items.append(_item_skipped_targets.to_dict() if _item_skipped_targets is not None else None)
+            _dict['skippedTargets'] = _items
+        # set to None if scan_request_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.scan_request_id is None and "scan_request_id" in self.model_fields_set:
+            _dict['scanRequestId'] = None
+
         # set to None if repository_id (nullable) is None
         # and model_fields_set contains the field
         if self.repository_id is None and "repository_id" in self.model_fields_set:
             _dict['repositoryId'] = None
 
-        # set to None if status (nullable) is None
-        # and model_fields_set contains the field
-        if self.status is None and "status" in self.model_fields_set:
-            _dict['status'] = None
-
         # set to None if triggered_by (nullable) is None
         # and model_fields_set contains the field
         if self.triggered_by is None and "triggered_by" in self.model_fields_set:
             _dict['triggeredBy'] = None
+
+        # set to None if requested_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.requested_at is None and "requested_at" in self.model_fields_set:
+            _dict['requestedAt'] = None
 
         # set to None if completed_at (nullable) is None
         # and model_fields_set contains the field
@@ -123,6 +137,11 @@ class ScanNowRequestResponse(BaseModel):
         # and model_fields_set contains the field
         if self.limits is None and "limits" in self.model_fields_set:
             _dict['limits'] = None
+
+        # set to None if skipped_targets (nullable) is None
+        # and model_fields_set contains the field
+        if self.skipped_targets is None and "skipped_targets" in self.model_fields_set:
+            _dict['skippedTargets'] = None
 
         return _dict
 
@@ -144,7 +163,8 @@ class ScanNowRequestResponse(BaseModel):
             "requestedAt": obj.get("requestedAt"),
             "completedAt": obj.get("completedAt"),
             "targets": [ScanNowTargetStatus.from_dict(_item) for _item in obj["targets"]] if obj.get("targets") is not None else None,
-            "limits": ScanNowLimits.from_dict(obj["limits"]) if obj.get("limits") is not None else None
+            "limits": ScanNowLimits.from_dict(obj["limits"]) if obj.get("limits") is not None else None,
+            "skippedTargets": [ScanNowSkippedTarget.from_dict(_item) for _item in obj["skippedTargets"]] if obj.get("skippedTargets") is not None else None
         })
         return _obj
 

@@ -347,11 +347,13 @@ async def get_checkpointer(
         )
 
     from langgraph_api.feature_flags import (  # noqa: PLC0415
+        INMEM_USES_CORE,
         IS_POSTGRES_BACKEND,
         PREFER_GRPC_CHECKPOINTER,
     )
 
-    if IS_POSTGRES_BACKEND and PREFER_GRPC_CHECKPOINTER:
+    # Inmem on Go core has no Python checkpointer.
+    if INMEM_USES_CORE or (IS_POSTGRES_BACKEND and PREFER_GRPC_CHECKPOINTER):
         return cast(
             "FullCheckpointerProtocol",
             GrpcCheckpointer(

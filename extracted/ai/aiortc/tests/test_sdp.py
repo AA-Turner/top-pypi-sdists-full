@@ -6,14 +6,15 @@ from unittest import TestCase
 from aiortc.rtcrtpparameters import (
     RTCRtcpFeedback,
     RTCRtpCodecParameters,
-    RTCRtpHeaderExtensionParameters,
 )
 from aiortc.sdp import (
+    ExtmapDescription,
     GroupDescription,
     H264Level,
     H264Profile,
     SessionDescription,
     SsrcDescription,
+    candidate_from_sdp,
     parse_h264_profile_level_id,
 )
 
@@ -22,6 +23,11 @@ from .utils import lf2crlf
 
 class SdpTest(TestCase):
     maxDiff = None
+
+    def assertParseFails(self, sdp: str, msg: str) -> None:
+        with self.assertRaises(ValueError) as cm:
+            SessionDescription.parse(lf2crlf(sdp))
+        self.assertEqual(str(cm.exception), msg)
 
     def test_audio_chrome(self) -> None:
         d = SessionDescription.parse(
@@ -156,9 +162,9 @@ a=ssrc:1944796561 label:ec1eb8de-8df8-4956-ae81-879e5d062d12"""
             ],
         )
         self.assertEqual(
-            d.media[0].rtp.headerExtensions,
+            d.media[0].extmap,
             [
-                RTCRtpHeaderExtensionParameters(
+                ExtmapDescription(
                     id=1, uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level"
                 )
             ],
@@ -361,14 +367,14 @@ a=ssrc:882128807 cname:{ed463ac5-dabf-44d4-8b9f-e14318427b2b}
             ],
         )
         self.assertEqual(
-            d.media[0].rtp.headerExtensions,
+            d.media[0].extmap,
             [
-                RTCRtpHeaderExtensionParameters(
-                    id=1, uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level"
+                ExtmapDescription(
+                    id=1,
+                    uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+                    direction="sendonly",
                 ),
-                RTCRtpHeaderExtensionParameters(
-                    id=2, uri="urn:ietf:params:rtp-hdrext:sdes:mid"
-                ),
+                ExtmapDescription(id=2, uri="urn:ietf:params:rtp-hdrext:sdes:mid"),
             ],
         )
         self.assertEqual(d.media[0].rtp.muxId, "sdparta_0")
@@ -424,7 +430,7 @@ a=msid-semantic:WMS *
 m=audio 45274 UDP/TLS/RTP/SAVPF 109 9 0 8 101
 c=IN IP4 192.168.99.58
 a=sendrecv
-a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=extmap:1/sendonly urn:ietf:params:rtp-hdrext:ssrc-audio-level
 a=extmap:2 urn:ietf:params:rtp-hdrext:sdes:mid
 a=mid:sdparta_0
 a=msid:{dee771c7-671a-451e-b847-f86f8e87c7d8} {12692dea-686c-47ca-b3e9-48f38fc92b78}
@@ -521,7 +527,7 @@ a=ssrc:2690029308 label:lyNSTe6w2ijnMrDEiqTHFyhqjdAag3ysa0"""
                 ),
             ],
         )
-        self.assertEqual(d.media[0].rtp.headerExtensions, [])
+        self.assertEqual(d.media[0].extmap, [])
         self.assertEqual(d.media[0].rtp.muxId, "")
         self.assertEqual(d.media[0].rtcp_host, "1.2.3.4")
         self.assertEqual(d.media[0].rtcp_port, 16628)
@@ -592,6 +598,33 @@ a=setup:active
             ),
         )
 
+    def test_no_msid_semantic(self) -> None:
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 863426017819471768 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+m=audio 16628 UDP/TLS/RTP/SAVPF 8
+a=rtpmap:8 PCMA/8000
+a=fingerprint:sha-256 35:5A:BC:8E:CD:F8:CD:EB:36:00:BB:C4:C3:33:54:B5:9B:70:3C:E9:C4:33:8F:39:3C:4B:5B:5C:AD:88:12:2B
+a=setup:active
+a=rtcp-mux
+a=rtcp:16628 IN IP4 1.2.3.4
+a=ice-ufrag:75EDuLTEOkEUd3cu
+a=ice-pwd:5dvb9SbfooWc49814CupdeTS
+a=candidate:0560693492 1 udp 659136 1.2.3.4 16628 typ host generation 0
+a=end-of-candidates
+a=msid:stream deprecatedtrack
+"""
+            )
+        )
+
+        self.assertEqual(d.media[0].msid, "stream deprecatedtrack")
+        self.assertEqual(d.webrtc_track_id(d.media[0]), "deprecatedtrack")
+        self.assertFalse("a=msid-semantic:" in str(d))
+
     def test_audio_freeswitch_no_dtls(self) -> None:
         d = SessionDescription.parse(
             lf2crlf(
@@ -653,7 +686,7 @@ a=ssrc:2690029308 label:lyNSTe6w2ijnMrDEiqTHFyhqjdAag3ysa0"""
                 ),
             ],
         )
-        self.assertEqual(d.media[0].rtp.headerExtensions, [])
+        self.assertEqual(d.media[0].extmap, [])
         self.assertEqual(d.media[0].rtp.muxId, "")
         self.assertEqual(d.media[0].rtcp_host, "1.2.3.4")
         self.assertEqual(d.media[0].rtcp_port, 16628)
@@ -766,7 +799,7 @@ a=rtpmap:8 PCMA/8000"""
                 ),
             ],
         )
-        self.assertEqual(d.media[0].rtp.headerExtensions, [])
+        self.assertEqual(d.media[0].extmap, [])
         self.assertEqual(d.media[0].rtp.muxId, "audio")
         self.assertEqual(d.media[0].rtcp_host, "0.0.0.0")
         self.assertEqual(d.media[0].rtcp_port, 9)
@@ -823,6 +856,41 @@ a=setup:actpass
             ),
         )
 
+    def test_audio_extmap_attributes(self) -> None:
+        sdp = lf2crlf(
+            """v=0
+o=- 863426017819471768 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+m=audio 9 UDP/TLS/RTP/SAVPF 0
+c=IN IP4 0.0.0.0
+a=sendrecv
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level vad=on
+a=extmap:2/sendonly urn:ietf:params:rtp-hdrext:encrypt urn:ietf:params:rtp-hdrext:smpte-tc 25@600/24
+a=extmap:3 urn:ietf:params:rtp-hdrext:toffset
+a=rtpmap:0 PCMU/8000
+"""
+        )
+        d = SessionDescription.parse(sdp)
+        self.assertEqual(
+            d.media[0].extmap,
+            [
+                ExtmapDescription(
+                    id=1,
+                    uri="urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+                    attributes="vad=on",
+                ),
+                ExtmapDescription(
+                    id=2,
+                    uri="urn:ietf:params:rtp-hdrext:encrypt",
+                    direction="sendonly",
+                    attributes="urn:ietf:params:rtp-hdrext:smpte-tc 25@600/24",
+                ),
+                ExtmapDescription(id=3, uri="urn:ietf:params:rtp-hdrext:toffset"),
+            ],
+        )
+        self.assertEqual(str(d), sdp)
+
     def test_audio_ice_lite(self) -> None:
         d = SessionDescription.parse(
             lf2crlf(
@@ -874,7 +942,7 @@ a=rtpmap:8 PCMA/8000"""
                 ),
             ],
         )
-        self.assertEqual(d.media[0].rtp.headerExtensions, [])
+        self.assertEqual(d.media[0].extmap, [])
         self.assertEqual(d.media[0].rtp.muxId, "audio")
         self.assertEqual(d.media[0].rtcp_host, "0.0.0.0")
         self.assertEqual(d.media[0].rtcp_port, 9)
@@ -982,7 +1050,7 @@ a=rtpmap:8 PCMA/8000"""
                 ),
             ],
         )
-        self.assertEqual(d.media[0].rtp.headerExtensions, [])
+        self.assertEqual(d.media[0].extmap, [])
         self.assertEqual(d.media[0].rtp.muxId, "audio")
         self.assertEqual(d.media[0].rtcp_host, "0.0.0.0")
         self.assertEqual(d.media[0].rtcp_port, 9)
@@ -1078,7 +1146,7 @@ a=rtpmap:0 PCMU/8000
                 ),
             ],
         )
-        self.assertEqual(d.media[0].rtp.headerExtensions, [])
+        self.assertEqual(d.media[0].extmap, [])
         self.assertEqual(d.media[0].rtp.muxId, "")
         self.assertEqual(d.media[0].rtcp_host, None)
         self.assertEqual(d.media[0].rtcp_port, 9)
@@ -1464,29 +1532,27 @@ a=ssrc:3305256354 label:420c6f28-439d-4ead-b93c-94e14c0a16b4
             ],
         )
         self.assertEqual(
-            d.media[0].rtp.headerExtensions,
+            d.media[0].extmap,
             [
-                RTCRtpHeaderExtensionParameters(
-                    id=2, uri="urn:ietf:params:rtp-hdrext:toffset"
-                ),
-                RTCRtpHeaderExtensionParameters(
+                ExtmapDescription(id=2, uri="urn:ietf:params:rtp-hdrext:toffset"),
+                ExtmapDescription(
                     id=3,
                     uri="http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
                 ),
-                RTCRtpHeaderExtensionParameters(id=4, uri="urn:3gpp:video-orientation"),
-                RTCRtpHeaderExtensionParameters(
+                ExtmapDescription(id=4, uri="urn:3gpp:video-orientation"),
+                ExtmapDescription(
                     id=5,
                     uri="http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
                 ),
-                RTCRtpHeaderExtensionParameters(
+                ExtmapDescription(
                     id=6,
                     uri="http://www.webrtc.org/experiments/rtp-hdrext/playout-delay",
                 ),
-                RTCRtpHeaderExtensionParameters(
+                ExtmapDescription(
                     id=7,
                     uri="http://www.webrtc.org/experiments/rtp-hdrext/video-content-type",
                 ),
-                RTCRtpHeaderExtensionParameters(
+                ExtmapDescription(
                     id=8,
                     uri="http://www.webrtc.org/experiments/rtp-hdrext/video-timing",
                 ),
@@ -1710,18 +1776,14 @@ a=ssrc:3408404552 cname:{6f52d07e-17ef-42c5-932b-3b57c64fe049}
             ],
         )
         self.assertEqual(
-            d.media[0].rtp.headerExtensions,
+            d.media[0].extmap,
             [
-                RTCRtpHeaderExtensionParameters(
-                    id=3, uri="urn:ietf:params:rtp-hdrext:sdes:mid"
-                ),
-                RTCRtpHeaderExtensionParameters(
+                ExtmapDescription(id=3, uri="urn:ietf:params:rtp-hdrext:sdes:mid"),
+                ExtmapDescription(
                     id=4,
                     uri="http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
                 ),
-                RTCRtpHeaderExtensionParameters(
-                    id=5, uri="urn:ietf:params:rtp-hdrext:toffset"
-                ),
+                ExtmapDescription(id=5, uri="urn:ietf:params:rtp-hdrext:toffset"),
             ],
         )
         self.assertEqual(d.media[0].rtp.muxId, "sdparta_0")
@@ -1864,6 +1926,129 @@ a=setup:actpass
                         RTCRtcpFeedback(type="goog-remb"),
                     ],
                     parameters={"max-fs": 12288, "max-fr": 60},
+                ),
+            ],
+        )
+
+    def test_video_bundle_only(self) -> None:
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 0 0 IN IP4 0.0.0.0
+s=-
+t=0 0
+a=group:BUNDLE 0 1
+m=audio 9 UDP/TLS/RTP/SAVPF 0
+c=IN IP4 0.0.0.0
+a=sendrecv
+a=mid:0
+a=rtpmap:0 PCMU/8000
+m=video 0 UDP/TLS/RTP/SAVPF 96
+c=IN IP4 0.0.0.0
+a=sendrecv
+a=mid:1
+a=bundle-only
+a=rtpmap:96 VP8/90000
+"""
+            )
+        )
+
+        # A bundle-only "m=" section has a zero port (RFC 9143 section 6).
+        self.assertFalse(d.media[0].bundle_only)
+        self.assertTrue(d.media[1].bundle_only)
+        self.assertEqual(d.media[1].port, 0)
+        self.assertIn("a=mid:1\r\na=bundle-only\r\n", str(d))
+
+    def test_video_fmtp_without_rtpmap(self) -> None:
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 0 0 IN IP4 0.0.0.0
+s=-
+t=0 0
+m=video 9 UDP/TLS/RTP/SAVPF 96 97
+c=IN IP4 0.0.0.0
+a=sendrecv
+a=mid:0
+a=rtpmap:96 VP8/90000
+a=fmtp:97 apt=96
+"""
+            )
+        )
+
+        # The parameters of a format without an rtpmap line are ignored.
+        self.assertEqual(
+            d.media[0].rtp.codecs,
+            [
+                RTCRtpCodecParameters(
+                    mimeType="video/VP8", clockRate=90000, payloadType=96
+                ),
+            ],
+        )
+
+    def test_video_rtpmap_out_of_order(self) -> None:
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 0 0 IN IP4 0.0.0.0
+s=-
+t=0 0
+m=video 9 UDP/TLS/RTP/SAVPF 96 97 98
+c=IN IP4 0.0.0.0
+a=sendrecv
+a=mid:0
+a=rtpmap:97 rtx/90000
+a=fmtp:97 apt=96
+a=rtpmap:98 H264/90000
+a=rtpmap:96 VP8/90000
+"""
+            )
+        )
+
+        # Codecs follow the order of the "m=" line.
+        self.assertEqual(
+            d.media[0].rtp.codecs,
+            [
+                RTCRtpCodecParameters(
+                    mimeType="video/VP8", clockRate=90000, payloadType=96
+                ),
+                RTCRtpCodecParameters(
+                    mimeType="video/rtx",
+                    clockRate=90000,
+                    payloadType=97,
+                    parameters={"apt": 96},
+                ),
+                RTCRtpCodecParameters(
+                    mimeType="video/H264", clockRate=90000, payloadType=98
+                ),
+            ],
+        )
+
+    def test_video_rtpmap_not_on_m_line(self) -> None:
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 0 0 IN IP4 0.0.0.0
+s=-
+t=0 0
+m=video 9 UDP/TLS/RTP/SAVPF 96
+c=IN IP4 0.0.0.0
+a=sendrecv
+a=mid:0
+a=rtpmap:96 VP8/90000
+a=rtpmap:97 rtx/90000
+a=fmtp:97 apt=96
+a=rtcp-fb:97 nack
+"""
+            )
+        )
+
+        # A format missing from the "m=" line is ignored, with its attributes.
+        self.assertEqual(
+            d.media[0].rtp.codecs,
+            [
+                RTCRtpCodecParameters(
+                    mimeType="video/VP8", clockRate=90000, payloadType=96
                 ),
             ],
         )
@@ -2029,6 +2214,278 @@ a=sctpmap:5000 webrtc-datachannel 1024
         self.assertEqual(d.media[2].profile, "DTLS/SCTP")
         self.assertEqual(d.media[2].direction, None)
         self.assertEqual(d.media[2].msid, None)
+
+    def test_parse_invalid(self) -> None:
+        # The fingerprint mixes cases on purpose: both are accepted.
+        sdp = """v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+c=IN IP4 0.0.0.0
+t=0 0
+a=fingerprint:sha-256 0a:BC
+a=setup:actpass
+m=audio 9 UDP/TLS/RTP/SAVPF 111
+c=IN IP4 0.0.0.0
+a=rtcp:9 IN IP4 0.0.0.0
+a=setup:actpass
+a=candidate:1 1 udp 2122260223 192.168.1.2 54321 typ host
+a=rtpmap:111 opus/48000/2
+"""
+        SessionDescription.parse(lf2crlf(sdp))
+
+        # Invalid connection addresses.
+        self.assertParseFails(
+            sdp.replace("s=-\nc=IN IP4 0.0.0.0", "s=-\nc=IN IP4"),
+            "Invalid connection address: IN IP4",
+        )
+        self.assertParseFails(
+            sdp.replace("SAVPF 111\nc=IN IP4 0.0.0.0", "SAVPF 111\nc=IN IP7 0.0.0.0"),
+            "Invalid connection address: IN IP7 0.0.0.0",
+        )
+        self.assertParseFails(
+            sdp.replace("a=rtcp:9 IN IP4 0.0.0.0", "a=rtcp:9 IN"),
+            "Invalid connection address: IN",
+        )
+
+        # Invalid version.
+        self.assertParseFails(sdp.replace("v=0", "v=1"), "Invalid version: 1")
+
+        # Invalid media descriptions.
+        self.assertParseFails(
+            sdp.replace("m=audio 9 UDP/TLS/RTP/SAVPF 111", "m=audio 9"),
+            "Invalid media description: audio 9",
+        )
+        self.assertParseFails(
+            sdp.replace("m=audio 9 ", "m=audio 65536 "), "Invalid port: 65536"
+        )
+
+        # Invalid payload types.
+        for pt in ["abc", "-1", "+1", "1.0", "1_0", "72", "128", "1000"]:
+            self.assertParseFails(
+                sdp.replace("SAVPF 111", f"SAVPF {pt}"), f"Invalid payload type: {pt}"
+            )
+
+        # Invalid session-level attributes.
+        for line, msg in [
+            ("a=fingerprint", "Invalid fingerprint attribute: "),
+            ("a=fingerprint:sha-256", "Invalid fingerprint attribute: sha-256"),
+            (
+                "a=fingerprint:sha-256 AA BB",
+                "Invalid fingerprint attribute: sha-256 AA BB",
+            ),
+            (
+                "a=fingerprint:sha-256 AA:B",
+                "Invalid fingerprint attribute: sha-256 AA:B",
+            ),
+            ("a=fingerprint:sha-256 ZZ", "Invalid fingerprint attribute: sha-256 ZZ"),
+            ("a=setup", "Invalid setup attribute: "),
+            ("a=setup:holdconn", "Invalid setup attribute: holdconn"),
+        ]:
+            self.assertParseFails(sdp.replace("t=0 0\n", f"t=0 0\n{line}\n"), msg)
+
+        # Invalid media-level attributes.
+        for line, msg in [
+            # Missing values or fields.
+            ("a=candidate", "Invalid candidate attribute: "),
+            (
+                "a=candidate:1 1 udp 2122260223 192.168.1.2 54321 typ",
+                "Invalid candidate attribute: 1 1 udp 2122260223 192.168.1.2 54321 typ",
+            ),
+            ("a=extmap", "Invalid extmap attribute: "),
+            ("a=extmap:1", "Invalid extmap attribute: 1"),
+            ("a=fingerprint", "Invalid fingerprint attribute: "),
+            ("a=fingerprint:sha-256", "Invalid fingerprint attribute: sha-256"),
+            (
+                "a=fingerprint:sha-256 AA BB",
+                "Invalid fingerprint attribute: sha-256 AA BB",
+            ),
+            (
+                "a=fingerprint:sha-256 AA:B",
+                "Invalid fingerprint attribute: sha-256 AA:B",
+            ),
+            ("a=fingerprint:sha-256 ZZ", "Invalid fingerprint attribute: sha-256 ZZ"),
+            ("a=fmtp", "Invalid fmtp attribute: "),
+            ("a=fmtp:111", "Invalid fmtp attribute: 111"),
+            ("a=rtcp", "Invalid rtcp attribute: "),
+            ("a=rtcp-fb", "Invalid rtcp-fb attribute: "),
+            ("a=rtcp-fb:111", "Invalid rtcp-fb attribute: 111"),
+            ("a=rtpmap", "Invalid rtpmap attribute: "),
+            ("a=rtpmap:111", "Invalid rtpmap attribute: 111"),
+            ("a=rtpmap:111 opus", "Invalid rtpmap attribute: opus"),
+            ("a=sctpmap", "Invalid sctpmap attribute: "),
+            ("a=sctpmap:5000", "Invalid sctpmap attribute: 5000"),
+            ("a=setup", "Invalid setup attribute: "),
+            ("a=setup:bogus", "Invalid setup attribute: bogus"),
+            ("a=ssrc", "Invalid ssrc attribute: "),
+            ("a=ssrc:1", "Invalid ssrc attribute: 1"),
+            # Invalid or out of range numbers.
+            ("a=extmap:+1 urn:a", "Invalid extmap attribute: +1"),
+            ("a=extmap:0 urn:a", "Invalid extmap attribute: 0"),
+            ("a=extmap:257 urn:a", "Invalid extmap attribute: 257"),
+            ("a=extmap:4095 urn:a", "Invalid extmap attribute: 4095"),
+            ("a=extmap:4352 urn:a", "Invalid extmap attribute: 4352"),
+            ("a=fmtp:111 minptime=x", "Invalid fmtp attribute: x"),
+            ("a=fmtp:128 minptime=10", "Invalid payload type: 128"),
+            ("a=max-message-size:-1", "Invalid max-message-size attribute: -1"),
+            ("a=rtcp:65536", "Invalid port: 65536"),
+            ("a=rtpmap:111 opus/0/2", "Invalid rtpmap attribute: 0"),
+            ("a=rtpmap:111 opus/48000/0", "Invalid rtpmap attribute: 0"),
+            ("a=rtpmap:128 opus/48000/2", "Invalid payload type: 128"),
+            ("a=sctp-port:65536", "Invalid port: 65536"),
+            ("a=sctpmap:x webrtc-datachannel", "Invalid port: x"),
+            ("a=ssrc:4294967296 cname:foo", "Invalid SSRC: 4294967296"),
+            ("a=ssrc-group:FID 1 -1", "Invalid SSRC: -1"),
+            # Invalid header extension directions.
+            ("a=extmap:1/ urn:a", "Invalid extmap attribute: 1/ urn:a"),
+            ("a=extmap:1/bogus urn:a", "Invalid extmap attribute: 1/bogus urn:a"),
+            (
+                "a=extmap:1/sendonly/x urn:a",
+                "Invalid extmap attribute: 1/sendonly/x urn:a",
+            ),
+        ]:
+            self.assertParseFails(sdp + line + "\n", msg)
+
+    def test_parse_number_bounds(self) -> None:
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+t=0 0
+m=audio 65535 UDP/TLS/RTP/SAVPF 0 127
+a=extmap:256 urn:a
+a=extmap:4096 urn:b
+a=extmap:4351 urn:c
+a=ssrc:4294967295 cname:foo
+"""
+            )
+        )
+        self.assertEqual(d.media[0].port, 65535)
+        self.assertEqual(d.media[0].fmt, [0, 127])
+        self.assertEqual([x.id for x in d.media[0].extmap], [256, 4096, 4351])
+        self.assertEqual(d.media[0].ssrc[0].ssrc, 4294967295)
+
+    def test_parse_application_fmtp(self) -> None:
+        # Formats of non-RTP media are not payload types, as in this offer from
+        # draft-ietf-mmusic-sctp-sdp-07, with an "a=rtpmap" line added.
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+t=0 0
+m=application 9 DTLS/SCTP webrtc-datachannel
+a=fmtp:webrtc-datachannel max-message-size=100000
+a=rtpmap:webrtc-datachannel foo/1
+a=sctp-port:5000
+"""
+            )
+        )
+        self.assertEqual(d.media[0].fmt, ["webrtc-datachannel"])
+        self.assertEqual(d.media[0].rtp.codecs, [])
+        self.assertEqual(d.media[0].sctp_port, 5000)
+
+    def test_parse_fmtp_whitespace(self) -> None:
+        # The example from RFC 7587 section 7, then a space before a semicolon.
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+t=0 0
+m=audio 54312 RTP/AVP 101 102
+a=rtpmap:101 opus/48000/2
+a=fmtp:101 maxplaybackrate=16000; sprop-maxcapturerate=16000; maxaveragebitrate=20000; stereo=1; useinbandfec=1; usedtx=0
+a=rtpmap:102 opus/48000/2
+a=fmtp:102 minptime=10 ;useinbandfec=1
+"""
+            )
+        )
+        self.assertEqual(
+            d.media[0].rtp.codecs[0].parameters,
+            {
+                "maxplaybackrate": 16000,
+                "sprop-maxcapturerate": "16000",
+                "maxaveragebitrate": "20000",
+                "stereo": 1,
+                "useinbandfec": 1,
+                "usedtx": "0",
+            },
+        )
+        self.assertEqual(
+            d.media[0].rtp.codecs[1].parameters, {"minptime": 10, "useinbandfec": 1}
+        )
+
+    def test_parse_ssrc_flag(self) -> None:
+        d = SessionDescription.parse(
+            lf2crlf(
+                """v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+t=0 0
+m=audio 9 UDP/TLS/RTP/SAVPF 111
+a=ssrc:1 foo
+a=ssrc:1 cname:bar
+a=ssrc:2 cname
+"""
+            )
+        )
+        self.assertEqual(
+            d.media[0].ssrc,
+            [SsrcDescription(ssrc=1, cname="bar"), SsrcDescription(ssrc=2)],
+        )
+
+    def test_parse_trailing_whitespace(self) -> None:
+        lines = [
+            "v=0",
+            "o=- 0 0 IN IP4 127.0.0.1",
+            "s=-",
+            "t=0 0",
+            "a=fingerprint:sha-256 AA:BB",
+            "a=setup:actpass",
+            "m=audio 9 UDP/TLS/RTP/SAVPF 111",
+            "a=rtpmap:111 opus/48000/2",
+            "a=fmtp:111 minptime=10",
+            "m=application 9 UDP/DTLS/SCTP webrtc-datachannel",
+            "a=sctp-port:5000",
+            "a=max-message-size:65536",
+        ]
+        d = SessionDescription.parse("".join(f"{line} \r\n" for line in lines))
+        self.assertEqual(d.media[0].dtls.fingerprints[0].value, "AA:BB")
+        self.assertEqual(d.media[0].rtp.codecs[0].parameters, {"minptime": 10})
+        self.assertEqual(d.media[1].sctp_port, 5000)
+        self.assertEqual(d.media[1].sctpCapabilities.maxMessageSize, 65536)
+
+
+class CandidateSdpTest(TestCase):
+    def assertParseFails(self, v: str, msg: str) -> None:
+        with self.assertRaises(ValueError) as cm:
+            candidate_from_sdp(v)
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_parse_invalid(self) -> None:
+        # Fewer than the 8 mandatory fields.
+        self.assertParseFails("", "Invalid candidate attribute: ")
+        self.assertParseFails(
+            "1 1 udp 2122260223 192.168.1.2 54321 typ",
+            "Invalid candidate attribute: 1 1 udp 2122260223 192.168.1.2 54321 typ",
+        )
+
+        # Invalid or out of range numbers.
+        for v, msg in [
+            ("1 0 udp 1 1.2.3.4 5 typ host", "Invalid candidate attribute: 0"),
+            ("1 257 udp 1 1.2.3.4 5 typ host", "Invalid candidate attribute: 257"),
+            ("1 +1 udp 1 1.2.3.4 5 typ host", "Invalid candidate attribute: +1"),
+            ("1 1 udp 0 1.2.3.4 5 typ host", "Invalid candidate attribute: 0"),
+            (
+                "1 1 udp 2147483648 1.2.3.4 5 typ host",
+                "Invalid candidate attribute: 2147483648",
+            ),
+            ("1 1 udp 1 1.2.3.4 abc typ host", "Invalid port: abc"),
+            ("1 1 udp 1 1.2.3.4 65536 typ host", "Invalid port: 65536"),
+            ("1 1 udp 1 1.2.3.4 5 typ srflx rport x", "Invalid port: x"),
+        ]:
+            self.assertParseFails(v, msg)
 
 
 class H264SdpTest(TestCase):

@@ -13,11 +13,11 @@ class DescribeDiagnosisDimensionsResponseBody(DaraModel):
         request_id: str = None,
         user_names: List[str] = None,
     ):
-        # The names of the databases.
+        # The database names.
         self.databases = databases
         # The request ID.
         self.request_id = request_id
-        # The names of the database accounts.
+        # The usernames.
         self.user_names = user_names
 
     def validate(self):

@@ -1,6 +1,8 @@
 """search: ranked retrieval across the corpora search_in names, collapsed per experiment, fitted whole to the budget."""
 
 from __future__ import annotations
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 from ....sdk import errors
@@ -64,6 +66,53 @@ def _echoes_project_scope(response: Any, project_id: str) -> bool:
     return str(response.get("project_id") or "") == str(project_id)
 
 
+#: The marker for a `retrieval` the backend did not echo back.
+_UNECHOED_RETRIEVAL = {
+    BackendRetrieval.DIRECT: MissingMarker.DIRECT_SEARCH_UNSUPPORTED,
+    BackendRetrieval.KEYWORD: MissingMarker.KEYWORD_SEARCH_UNSUPPORTED,
+}
+
+
+def _choose_retrieval(is_semantic: bool, retrieval: str | None) -> BackendRetrieval:
+    """`retrieval` as asked, with the older `semantic=False` read as keyword (kept one release)."""
+    if retrieval is not None and retrieval not in {value.value for value in BackendRetrieval}:
+        # The tool's schema stops this; a Python caller gets the same values in words.
+        raise errors.ValidationError(
+            f"unknown retrieval {retrieval!r}: pass {_describe_values(BackendRetrieval)}", status=422
+        )
+    if is_semantic:
+        return BackendRetrieval(retrieval or BackendRetrieval.AGENTIC)
+    if retrieval in (None, BackendRetrieval.KEYWORD):
+        return BackendRetrieval.KEYWORD
+    raise errors.ValidationError(
+        f'semantic=false means retrieval="keyword", so it cannot go with retrieval="{retrieval}"; '
+        "pass retrieval alone",
+        status=422,
+    )
+
+
+def _describe_values(values) -> str:
+    """`"a", "b" or "c"`: an enum's values (or some of them) as a refusal names them."""
+    quoted = [f'"{value}"' for value in values]
+    return quoted[0] if len(quoted) == 1 else f"{', '.join(quoted[:-1])} or {quoted[-1]}"
+
+
+@contextmanager
+def _say_unsupported_retrieval(retrieval: BackendRetrieval) -> Iterator[None]:
+    """An older server 422s a `retrieval` value it does not know (today: `direct`): said in one line."""
+    try:
+        yield
+    except errors.ValidationError as exc:
+        detail = exc.detail if isinstance(exc.detail, list) else []
+        if not any(isinstance(item, dict) and "retrieval" in (item.get("loc") or ()) for item in detail):
+            raise
+        others = [value for value in BackendRetrieval if value is not retrieval]
+        raise errors.ValidationError(
+            f'this Probe server does not run retrieval="{retrieval.value}" yet; pass {_describe_values(others)}',
+            status=422,
+        ) from None
+
+
 def _get_written_at(row: Any) -> tuple[bool, datetime]:
     """A hit's `updated_at` as a sort key, `(False, min)` when it has none or it does not parse."""
     value = row.get("updated_at") if isinstance(row, dict) else None
@@ -96,17 +145,19 @@ class SearchMixin:
         since: str | None = None,
         until: str | None = None,
         sort: str | None = None,
+        retrieval: str | None = None,
     ) -> dict:
         """Ranked retrieval across the lab.
 
         `owner`, `since`, `until` and `sort="recent"` go to the backend as given (it matches the
         person and reads the dates); who `owner` matched rides the answer as `owner_matched`.
 
-        `semantic=False` is the keyword search: the exact channel plus BM25 over
-        document text (`retrieval="keyword"` on the backend), with no model call
-        anywhere on the path. Its content hits are labelled `keyword`, never
-        `semantic`, and a backend that did not echo the mode is marked rather
-        than trusted (`keyword_search_unsupported`).
+        `retrieval` picks how the semantic leg finds passages: `agentic` (the default; a model picks
+        them), `direct` (embedding + BM25 + id lookup, no model)
+        or `keyword` (the exact channel plus BM25 over document text, no model anywhere). Keyword hits
+        are labelled `keyword`, never `semantic`. A backend that did not echo `direct` / `keyword` is
+        marked rather than trusted (`direct_search_unsupported` / `keyword_search_unsupported`).
+        `semantic=False` is the older spelling of `retrieval="keyword"`, kept one release.
 
         Called `search_knowledge` until 2026-10-08, along with a `curated_only`
         no-op that nothing sent; the tool was renamed outright.
@@ -140,7 +191,9 @@ class SearchMixin:
                 status=422,
             )
         # Read before `semantic` is rebound to the response section below.
-        keyword = not semantic
+        retrieval = _choose_retrieval(semantic, retrieval)
+        # direct and keyword are one bounded lookup: the server has no semantic paging for either.
+        lookup = retrieval is not BackendRetrieval.AGENTIC
         # `relevance` is the backend's default: left off, so an unfiltered search's body is unchanged.
         people = {
             "owner": owner or None,
@@ -170,17 +223,17 @@ class SearchMixin:
             search_in = [v for v in search_in if v not in NON_BACKEND_CORPORA]
         corpus, unsupported = _map_search_in(search_in)
         exact_cursor, semantic_cursor = _split_cursor(cursor)
-        if keyword and semantic_cursor is not None:
-            # A cursor from a semantic=true search: the keyword lookup cannot resume it. Said in this tool's
+        if lookup and semantic_cursor is not None:
+            # A cursor from an agentic search: a direct or keyword lookup cannot resume it. Said in this tool's
             # words; the backend's refusal names `semantic_cursor`, which the caller never saw.
             raise errors.ValidationError(
-                "this cursor continues a semantic=true search: pass semantic=true to "
-                "continue it, or start a new keyword search without a cursor",
+                f'this cursor continues an agentic search: pass retrieval="agentic" to '
+                f"continue it, or start a new {retrieval.value} search without a cursor",
                 status=422,
             )
-        # The keyword lookup returns no cursor, so a later page would repeat page one's keyword hits as
-        # new. A keyword continuation pages the exact channel alone.
-        keyword_page = keyword and cursor is None
+        # The lookup returns no cursor, so a later page would repeat page one's hits as new. A direct or
+        # keyword continuation pages the exact channel alone.
+        lookup_page = lookup and cursor is None
         # `top_k` is a TOTAL, so each channel is asked for all of it. Splitting per channel made
         # `top_k=8` fetch 4 semantic + 4 exact rows, and exact is empty on most searches: a default
         # search showed four results and called it eight. Cost: rows can be left over after the
@@ -208,7 +261,7 @@ class SearchMixin:
         exclude_origin_session = accounting.session_work_to_hide()
         # The API records WHICH session searched (`search_performed`) from the request's session
         # headers; hosted, they name the caller only when bound here, else this server's own.
-        with accounting.caller_session_scope():
+        with accounting.caller_session_scope(), _say_unsupported_retrieval(retrieval):
             response = self.source.search(
                 query,
                 corpus=corpus,
@@ -220,9 +273,9 @@ class SearchMixin:
                 semantic_cursor=semantic_cursor,
                 exclude_agent_session=exclude_agent_session,
                 exclude_origin_session=exclude_origin_session,
-                # Omitted for a semantic search: its body stays byte-identical to earlier clients'.
-                retrieval=BackendRetrieval.KEYWORD.value if keyword_page else None,
-                include_semantic=False if keyword and not keyword_page else None,
+                # Omitted for an agentic search: its body stays byte-identical to earlier clients'.
+                retrieval=retrieval.value if lookup_page else None,
+                include_semantic=False if lookup and not lookup_page else None,
                 **people,
             )
         exact = _section(response, Channel.EXACT)
@@ -248,10 +301,10 @@ class SearchMixin:
         # Keyword hits say so, unless the backend did not run a keyword search: an older backend ignores
         # `retrieval` and answers with the full search, whose hits ARE semantic.
         raw_semantic = response.get(Channel.SEMANTIC.value) if isinstance(response, dict) else None
-        keyword_ran = keyword_page and (
-            isinstance(raw_semantic, dict)
-            and raw_semantic.get("retrieval") == BackendRetrieval.KEYWORD
+        retrieval_ran = lookup_page and (
+            isinstance(raw_semantic, dict) and raw_semantic.get("retrieval") == retrieval
         )
+        keyword_ran = retrieval_ran and retrieval is BackendRetrieval.KEYWORD
         merged = _interleave(
             [(_exact_result(row, api_base_url=self._api_base_url), row) for row in exact["results"]],
             [(_semantic_result(row, keyword=keyword_ran, api_base_url=self._api_base_url), row)
@@ -269,8 +322,8 @@ class SearchMixin:
         results = results[:top_k]
         missing, semantic_lost = self._collect_search_gaps(
             exact=exact, exclude_agent_session=exclude_agent_session,
-            exclude_origin_session=exclude_origin_session, keyword_page=keyword_page,
-            keyword_ran=keyword_ran, raw_semantic=raw_semantic, response=response, results=results,
+            exclude_origin_session=exclude_origin_session, lookup_page=lookup_page, retrieval=retrieval,
+            retrieval_ran=retrieval_ran, raw_semantic=raw_semantic, response=response, results=results,
             semantic=semantic, unsupported=unsupported,
         )
         backend_ok = isinstance(response, dict) and response.get("state") == BackendSearchState.OK
@@ -382,7 +435,7 @@ class SearchMixin:
 
 
     def _collect_search_gaps(
-        self, *, exact, exclude_agent_session, exclude_origin_session, keyword_page, keyword_ran,
+        self, *, exact, exclude_agent_session, exclude_origin_session, lookup_page, retrieval, retrieval_ran,
         raw_semantic, response, results, semantic, unsupported,
     ):
         """What this search could not do, as missing markers, and the semantic channels it lost."""
@@ -421,9 +474,10 @@ class SearchMixin:
         # boundary dropped it, so every fallback answer looked healthy to the agent.
         if semantic.get("degraded"):
             missing.append(MissingMarker.SEMANTIC_ANSWER_DEGRADED)
-        if keyword_page and not keyword_ran:
-            # Asked for keyword and the backend did not say it ran one: it predates the field and answered with the full search.
-            missing.append(MissingMarker.KEYWORD_SEARCH_UNSUPPORTED)
+        if lookup_page and not retrieval_ran:
+            # Asked for direct or keyword and the backend did not say it ran it: it answered with the full search.
+            missing.append(_UNECHOED_RETRIEVAL[retrieval])
+        keyword_ran = retrieval_ran and retrieval is BackendRetrieval.KEYWORD
         if keyword_ran and isinstance(raw_semantic, dict) and raw_semantic.get("more_candidates"):
             # The bounded keyword lookup matched more than it returned: an absent document is not evidence of absence.
             missing.append(MissingMarker.KEYWORD_MATCHES_BEYOND_BACKEND_LIMIT)

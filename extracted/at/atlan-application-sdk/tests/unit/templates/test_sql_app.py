@@ -226,6 +226,40 @@ class TestInitSqlClientGuidRoute:
 
 
 # ---------------------------------------------------------------------------
+# extract_* / transform_* timing — the env defaults reach them (FND-5224)
+# ---------------------------------------------------------------------------
+
+_SCALING_TASKS = tuple(
+    f"{verb}_{entity}"
+    for verb in ("extract", "transform")
+    for entity in ("databases", "schemas", "tables", "columns", "views", "procedures")
+)
+
+
+@pytest.mark.parametrize("name", _SCALING_TASKS)
+def test_scaling_tasks_take_the_process_wide_timing_defaults(name: str) -> None:
+    """Runtime scales with source size, so the operator's env knobs must win.
+
+    A hard-coded value here made ``ATLAN_START_TO_CLOSE_TIMEOUT_SECONDS`` and
+    ``ATLAN_HEARTBEAT_TIMEOUT_SECONDS`` dead settings for every SqlApp, and
+    killed a large ``extract_columns`` at 30 minutes.
+    """
+    from application_sdk.app.task import (
+        _DEFAULT_HEARTBEAT_TIMEOUT_SECONDS,
+        _DEFAULT_TIMEOUT_SECONDS,
+        get_task_metadata,
+    )
+
+    meta = get_task_metadata(getattr(SqlApp, name))
+    assert meta is not None
+    assert meta.timeout_seconds == _DEFAULT_TIMEOUT_SECONDS
+    assert meta.heartbeat_timeout_seconds == _DEFAULT_HEARTBEAT_TIMEOUT_SECONDS
+    # Unlike the two above, the beat interval has no env knob; the bare
+    # ``@task()`` default is what a large source gets.
+    assert meta.auto_heartbeat_seconds == 10
+
+
+# ---------------------------------------------------------------------------
 # extract_* tasks — SQL stream → raw JSONL (no parquet)
 # ---------------------------------------------------------------------------
 
@@ -398,7 +432,7 @@ class TestExtractEmitsRawFileReference:
         # is_durable=False (the activity interceptor flips it after
         # the activity returns), but storage_path is pre-set to the
         # canonical run-scoped key — see the comment in
-        # ``_extract_entity``'s emission site for why we pin the
+        # ``extract_entity``'s emission site for why we pin the
         # storage key here instead of letting the interceptor
         # auto-generate a ``file_refs/<uuid>`` path. The persist
         # mechanism honours the pre-set key.
@@ -443,7 +477,7 @@ class TestExtractEmitsRawFileReference:
 
 
 class TestCanonicalStoragePaths:
-    """Regression guard: ``_extract_entity`` / ``_transform_entity``
+    """Regression guard: ``extract_entity`` / ``transform_entity``
     emit ``FileReference`` objects whose ``storage_path`` resolves to
     the canonical entity-typed key
     (``<run_prefix>/raw/<entity>/records.json`` /
@@ -1461,7 +1495,7 @@ class TestPrepareSql:
             (app.fetch_table_sql, f"AND T.TABLE_NAME NOT REGEXP {regex}"),
             (app.fetch_column_sql, f"AND C.TABLE_NAME NOT REGEXP {regex}"),
         ):
-            # _extract_entity strips the template before rendering.
+            # extract_entity strips the template before rendering.
             rendered = app._prepare_sql(template.strip(), task_input)
             live = self._live_sql(rendered)
             assert clause in live
@@ -3130,7 +3164,7 @@ class TestPrimeFailureClassification:
             return FailureDetails(**kwargs)
 
         with patch(
-            "application_sdk.templates.sql_app.FailureDetails",
+            "application_sdk.errors.wire.FailureDetails",
             side_effect=_rejects_any_evidence,
         ):
             result = await self._probe(
@@ -3257,7 +3291,7 @@ class TestPrimeFailureClassification:
 # Mapper result serialisation (FND-2056)
 # ---------------------------------------------------------------------------
 #
-# ``_transform_entity`` used to probe ``to_nested_dict`` / ``model_dump`` /
+# ``transform_entity`` used to probe ``to_nested_dict`` / ``model_dump`` /
 # ``dict`` on the mapper's return value and, finding none, write the raw source
 # row. A pyatlan_v9 asset — the type ``map_<entity>()`` is annotated to return —
 # has none of those three, so the entity file filled with unmapped SQL rows and
@@ -3486,7 +3520,7 @@ class TestTransformStampsLastSync:
 # Entity envelope (FND-2137)
 # ---------------------------------------------------------------------------
 #
-# ``_transform_entity`` owns three framework injections now: connectionName
+# ``transform_entity`` owns three framework injections now: connectionName
 # (FND-2056), lastSync* (FND-2097), and the envelope the finished line takes.
 # These pin that the declared policy and the per-record hook actually reach
 # ``entity_bytes`` — a seam nothing threads is the same as no seam.
@@ -3647,3 +3681,67 @@ def test_output_template_reexport_is_a_deprecated_alias() -> None:
     with pytest.warns(DeprecationWarning, match="removed in v4.0.0"):
         value = sql_app.WORKFLOW_OUTPUT_PATH_TEMPLATE
     assert value == constants.WORKFLOW_OUTPUT_PATH_TEMPLATE
+
+
+# ---------------------------------------------------------------------------
+# FND-4686: the per-entity engine is public; the underscore names are shims
+# ---------------------------------------------------------------------------
+
+
+class TestPerEntityEngineRename:
+    """``extract_entity`` / ``transform_entity`` / ``resolve_output_path`` are
+    the supported names, and the underscore names connectors call today
+    delegate to them with a ``DeprecationWarning`` until v4.0.0."""
+
+    async def test_extract_tasks_route_through_the_public_name(self, app) -> None:
+        sentinel = ExtractionTaskOutput(typename="database", total_record_count=0)
+        with patch.object(
+            TestSqlApp, "extract_entity", AsyncMock(return_value=sentinel)
+        ) as public:
+            assert await app.extract_databases(_make_task_input()) is sentinel
+        public.assert_awaited_once()
+
+    async def test_transform_tasks_route_through_the_public_name(self, app) -> None:
+        sentinel = TransformOutput(typename="table", total_record_count=0)
+        with patch.object(
+            TestSqlApp, "transform_entity", AsyncMock(return_value=sentinel)
+        ) as public:
+            result = await app.transform_tables(_make_task_input())
+        assert result is sentinel
+        public.assert_awaited_once()
+
+    async def test_extract_entity_shim_warns_and_delegates(self, app) -> None:
+        task_input = _make_task_input()
+        sentinel = ExtractionTaskOutput(typename="table", total_record_count=0)
+        with patch.object(
+            TestSqlApp, "extract_entity", AsyncMock(return_value=sentinel)
+        ) as public:
+            with pytest.warns(DeprecationWarning, match="SqlApp.extract_entity"):
+                result = await app._extract_entity(
+                    entity_type="table", sql_template="SELECT 1", input=task_input
+                )
+        assert result is sentinel
+        public.assert_awaited_once_with(
+            entity_type="table", sql_template="SELECT 1", input=task_input
+        )
+
+    async def test_transform_entity_shim_warns_and_delegates(self, app) -> None:
+        transform_input = _make_task_input()
+        sentinel = TransformOutput(typename="table", total_record_count=0)
+        with patch.object(
+            TestSqlApp, "transform_entity", AsyncMock(return_value=sentinel)
+        ) as public:
+            with pytest.warns(DeprecationWarning, match="SqlApp.transform_entity"):
+                result = await app._transform_entity(
+                    entity_type="table", mapper_fn=app.map_table, input=transform_input
+                )
+        assert result is sentinel
+        public.assert_awaited_once_with(
+            entity_type="table", mapper_fn=app.map_table, input=transform_input
+        )
+
+    def test_resolve_output_path_shim_warns_and_delegates(self) -> None:
+        task_input = _make_task_input(output_path="/tmp/explicit")
+        with pytest.warns(DeprecationWarning, match="SqlApp.resolve_output_path"):
+            assert SqlApp._resolve_output_path(task_input) == "/tmp/explicit"
+        assert SqlApp.resolve_output_path(task_input) == "/tmp/explicit"

@@ -765,10 +765,17 @@ pub enum LimitExceeded {
     #[error("parser fuel exhausted ({0} operations, max {1})")]
     ParserExhausted(usize, usize),
 
-    #[error("session command limit exceeded ({0} total commands)")]
+    // Decision: name the host knob in the message. The cap spans the whole
+    // Bash instance, so only the embedding host can lift it (new instance,
+    // reset, or a higher `SessionLimits`); the script cannot.
+    #[error(
+        "session command limit exceeded ({0} total commands); raise the session limit (host setting) or start a new session"
+    )]
     SessionMaxCommands(u64),
 
-    #[error("session exec() call limit exceeded ({0} calls)")]
+    #[error(
+        "session exec() call limit exceeded ({0} calls); raise the session limit (host setting) or start a new session"
+    )]
     SessionMaxExecCalls(u64),
 
     #[error("memory limit exceeded: {0}")]
@@ -986,6 +993,23 @@ impl ExecutionBudget {
         })
     }
 
+    /// Optional experiment storage may decline without poisoning the request.
+    #[cfg(feature = "experimental_execution_plan")]
+    pub(crate) fn try_lease_plan(
+        &self,
+        bytes: usize,
+    ) -> Result<Option<ExecutionBudgetLease>, LimitExceeded> {
+        self.check()?;
+        let bytes = u64::try_from(bytes).unwrap_or(u64::MAX);
+        if self.reserve_live_bytes(bytes).is_err() {
+            return Ok(None);
+        }
+        Ok(Some(ExecutionBudgetLease {
+            budget: self.clone(),
+            bytes,
+        }))
+    }
+
     fn reserve_live_bytes(&self, bytes: u64) -> Result<(), u64> {
         reserve_atomic(&self.inner.live_bytes, bytes, self.inner.max_live_bytes).map(|_| ())
     }
@@ -1021,21 +1045,11 @@ pub struct ExecutionBudgetLease {
 
 impl ExecutionBudgetLease {
     /// Increase this live-storage reservation before growing its buffer.
-    #[cfg(feature = "jq")]
+    #[cfg(any(feature = "jq", feature = "python", feature = "typescript"))]
     pub(crate) fn grow(&mut self, additional: usize) -> Result<(), LimitExceeded> {
         self.budget.check()?;
         let additional = u64::try_from(additional).unwrap_or(u64::MAX);
-        let previous = self
-            .budget
-            .inner
-            .live_bytes
-            .fetch_add(additional, Ordering::Relaxed);
-        let used = previous.saturating_add(additional);
-        if used > self.budget.inner.max_live_bytes || previous.checked_add(additional).is_none() {
-            self.budget
-                .inner
-                .live_bytes
-                .fetch_sub(additional, Ordering::Relaxed);
+        if let Err(used) = self.budget.reserve_live_bytes(additional) {
             return Err(self.budget.poison(ExecutionBudgetExceeded::LiveBytes {
                 used,
                 limit: self.budget.inner.max_live_bytes,
@@ -1058,6 +1072,22 @@ impl Drop for ExecutionBudgetCompletionGuard {
 }
 
 impl ExecutionBudgetLease {
+    /// Grow an optional plan reservation without poisoning the request when
+    /// compilation should decline and fall back to ordinary execution.
+    #[cfg(feature = "experimental_execution_plan")]
+    pub(crate) fn try_grow_plan_to(&mut self, bytes: usize) -> Result<bool, LimitExceeded> {
+        self.budget.check()?;
+        let bytes = u64::try_from(bytes).unwrap_or(u64::MAX);
+        if bytes <= self.bytes {
+            return Ok(true);
+        }
+        if self.budget.reserve_live_bytes(bytes - self.bytes).is_err() {
+            return Ok(false);
+        }
+        self.bytes = bytes;
+        Ok(true)
+    }
+
     fn try_grow_to(&mut self, bytes: u64) -> Result<(), LimitExceeded> {
         self.budget.check()?;
         if bytes <= self.bytes {
@@ -1108,6 +1138,23 @@ pub(crate) struct BudgetedVec<T> {
 pub(crate) type BudgetedBytes = BudgetedVec<u8>;
 
 impl<T> BudgetedVec<T> {
+    pub(crate) fn adopt(
+        inner: Vec<T>,
+        lease: Option<ExecutionBudgetLease>,
+        budget: &ExecutionBudget,
+    ) -> Result<Self, LimitExceeded> {
+        let lease = match lease {
+            Some(lease) => lease,
+            None => {
+                budget.lease_bytes(inner.capacity().saturating_mul(std::mem::size_of::<T>()))?
+            }
+        };
+        Ok(Self {
+            inner,
+            lease: Some(lease),
+        })
+    }
+
     pub(crate) fn new(budget: Option<&ExecutionBudget>) -> Result<Self, LimitExceeded> {
         Ok(Self {
             inner: Vec::new(),
@@ -1255,6 +1302,21 @@ pub(crate) struct BudgetedString {
 }
 
 impl BudgetedString {
+    pub(crate) fn adopt(
+        inner: String,
+        lease: Option<ExecutionBudgetLease>,
+        budget: &ExecutionBudget,
+    ) -> Result<Self, LimitExceeded> {
+        let lease = match lease {
+            Some(lease) => lease,
+            None => budget.lease_bytes(inner.capacity())?,
+        };
+        Ok(Self {
+            inner,
+            lease: Some(lease),
+        })
+    }
+
     /// Adopt existing storage without copying, retaining its capacity charge.
     pub(crate) fn try_from_string(
         inner: String,
@@ -2076,6 +2138,21 @@ mod tests {
         budget.record_function_insert(1, false, usize::MAX);
         assert_eq!(budget.function_body_bytes, 1);
         assert_eq!(budget.function_count, 1);
+    }
+
+    #[test]
+    #[cfg(feature = "experimental_execution_plan")]
+    fn optional_plan_growth_declines_without_poisoning_or_leaking_bytes() {
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(32);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+        let mut storage = budget.try_lease_plan(8).unwrap().unwrap();
+        assert!(storage.try_grow_plan_to(16).unwrap());
+        assert_eq!(budget.live_bytes_for_test(), 16);
+        assert!(!storage.try_grow_plan_to(64).unwrap());
+        assert_eq!(budget.live_bytes_for_test(), 16);
+        assert!(budget.check().is_ok());
+        drop(storage);
+        assert_eq!(budget.live_bytes_for_test(), 0);
     }
 
     #[test]

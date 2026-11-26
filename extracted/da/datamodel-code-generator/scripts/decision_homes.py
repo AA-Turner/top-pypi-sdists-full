@@ -173,7 +173,7 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             "unless `legacy-ref-branch-without-site-parts`) and `JsonSchemaParser._parse_ref_branch_model` (the class "
             "of a `$ref` branch: with the allOf members beside its union, `parse_all_of` of both, unless that row; a "
             "`$ref` branch a discriminator expanded is one such class per subtype, read from the `$ref` the expansion "
-            "records on each member, `_expanded_variants` over `parser/_origins.py:with_subtype_ref`), "
+            "records on each member, `_expanded_variants` over `types.py:_with_subtype_ref`), "
             "`JsonSchemaParser._parse_all_of_union_parts` and `_all_of_union_combinations` (the union parts of an "
             "allOf, a part at `union_part-<p>` below the site, and a union model per combination of one branch of each "
             "over `branch_combinations` by model, unless `legacy-union-parts-joined`); `parser/_schema_refs.py`: "
@@ -220,7 +220,7 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             Home("parser/jsonschema.py", "JsonSchemaParser._parse_ref_branch_model"),
             Home("parser/jsonschema.py", "JsonSchemaParser.parse_all_of"),
             Home("parser/jsonschema.py", "_expanded_variants"),
-            Home("parser/_origins.py", "with_subtype_ref"),
+            Home("types.py", "_with_subtype_ref"),
             Home("parser/jsonschema.py", "JsonSchemaParser._parse_all_of_union_parts"),
             Home("parser/jsonschema.py", "JsonSchemaParser._all_of_union_combinations"),
             Home("parser/_schema_refs.py", "intersect_ref_siblings_schema"),
@@ -2583,9 +2583,17 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
         core="`types.py`: `_copied_node`, `_copy_data_type`, `DataType.__deepcopy__`",
         adapters=(
             "`types.py:DataTypeManager.copy_data_type` (a leaf prototype takes a node copy, a nested one a deep copy), "
-            "`parser/base.py:Parser._copy_model_type`, `model/msgspec.py:DataModelField._copy_data_type`"
+            "the callers of the overridable `parser/base.py:Parser._copy_model_type` hook "
+            "(`parser/_passes/modules.py:collapse_root_models_in_scope`, `parser/jsonschema.py`: "
+            "`JsonSchemaParser._copy_schema_runtime_validation_for_variant`, "
+            "`JsonSchemaParser._get_inherited_field_type`), `model/msgspec.py:DataModelField._copy_data_type`"
         ),
-        sites=(Home("types.py", "DataTypeManager.copy_data_type"),),
+        sites=(
+            Home("types.py", "DataTypeManager.copy_data_type"),
+            Home("parser/_passes/modules.py", "collapse_root_models_in_scope"),
+            Home("parser/jsonschema.py", "JsonSchemaParser._copy_schema_runtime_validation_for_variant"),
+            Home("parser/jsonschema.py", "JsonSchemaParser._get_inherited_field_type"),
+        ),
     ),
     DecisionHome(
         decision=(
@@ -2749,7 +2757,7 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
         ),
         adapters=(
             "every caller calls the core: the walks of a type tree (`types.py`: `DataType.walk`, `_link_parts`; "
-            "`_parse_memo.py:ParseMemo._references`; `parser/_origins.py:with_type_origin`; `parser/generation.py`: "
+            "`_parse_memo.py:ParseMemo._references`; `types.py:_with_type_origin`; `parser/generation.py`: "
             "`_tree_nodes`, `GenerationIndex.inlined_holders_of`; `parser/_passes/render_prep.py`: "
             "`_contains_model_reference`, `_iter_alias_references`; `parser/_passes/modules.py:_value_positions`; "
             "`parser/_type_overrides.py:apply_override_to_data_type`; "
@@ -2771,7 +2779,7 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             Home("types.py", "DataType.walk"),
             Home("types.py", "_link_parts"),
             Home("_parse_memo.py", "ParseMemo._references"),
-            Home("parser/_origins.py", "with_type_origin"),
+            Home("types.py", "_with_type_origin"),
             Home("parser/generation.py", "_tree_nodes"),
             Home("parser/generation.py", "GenerationIndex.inlined_holders_of"),
             Home("parser/_passes/render_prep.py", "_contains_model_reference"),
@@ -3007,7 +3015,9 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             "error (`_requirements.py`, a leaf that names its ASCII rows), the `AttributeError` of a module "
             "`__getattr__`, which writes the interpreter's own message and runs while modules import, the `repr()` of "
             "bytes, which is ASCII, and the keys that compare values only "
-            "(`parser/_all_of_values.py:schema_signature`, `parser/avro.py`, `_recommend/_signals.py`)"
+            "(`parser/_all_of_values.py:schema_signature`, `parser/avro.py`, `_recommend/_signals.py`); the tool table "
+            "of a client package and the warnings of the operations it leaves out (`_client/render.py:_Tools`, "
+            "`_client/tools.py`), and its MCP server module (`_client/render.py:_Facades.mcp_server`)"
         ),
         sites=(
             Home("python_literal.py", "represent_python_value"),
@@ -3024,6 +3034,9 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             Home("_requirements.py"),
             Home("parser/avro.py"),
             Home("_recommend/_signals.py"),
+            Home("_client/render.py", "_Tools"),
+            Home("_client/tools.py"),
+            Home("_client/render.py", "_Facades.mcp_server"),
         ),
     ),
     DecisionHome(
@@ -4013,8 +4026,17 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             "`escape_docstring`, `format_docstring`, `comment_safe`, `inline_comment_safe` (`model/base.py` keeps "
             "their names, and the Jinja filters `escape_docstring` and `format_docstring`)"
         ),
-        adapters="the docstring of a client codec (`_client/codec_render.py:_description`)",
-        sites=(Home("_client/codec_render.py", "_description"),),
+        adapters=(
+            "the docstring of a client codec (`_client/codec_render.py:_description`), the tool table of a client "
+            "package (`_client/render.py`: `_Tools`, `_Facades.tools`), and its MCP server module "
+            "(`_client/render.py:_Facades.mcp_server`)"
+        ),
+        sites=(
+            Home("_client/codec_render.py", "_description"),
+            Home("_client/render.py", "_Tools"),
+            Home("_client/render.py", "_Facades.tools"),
+            Home("_client/render.py", "_Facades.mcp_server"),
+        ),
     ),
     DecisionHome(
         decision="the line endings of a text read as Python's universal newlines read a file: CRLF and a lone CR as LF",
@@ -4404,7 +4426,8 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             "`_runtime/server/responses.py:_content`; `_runtime/protocols/pagination.py`: `_integer`, `_restored`, "
             "`_runtime/protocols/resume.py:state_count`, `_runtime/protocols/sources.py:_count`, "
             "`_runtime/protocols/uploads.py:_Upload._offered`, `_runtime/protocols/caches.py`, "
-            "`_runtime/client/timing.py:usable_seconds`"
+            "`_runtime/client/timing.py:usable_seconds`, `_runtime/client/tools.py`: `_body`, `_dumped`, "
+            "`_runtime/client/tool_server.py:_result` (the text of a tool's MCP result)"
         ),
         sites=(
             Home("_runtime/protocols/records.py", "plain_copy"),
@@ -4421,6 +4444,9 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             Home("_runtime/protocols/uploads.py", "_Upload._offered"),
             Home("_runtime/client/timing.py", "usable_seconds"),
             Home("_runtime/protocols/caches.py"),
+            Home("_runtime/client/tools.py", "_body"),
+            Home("_runtime/client/tools.py", "_dumped"),
+            Home("_runtime/client/tool_server.py", "_result"),
         ),
     ),
     DecisionHome(
@@ -6559,11 +6585,13 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
         ),
         adapters=(
             "`_client/plan.py:Planner.resolved`, `_fastapi/plan.py:Planner.selected` (each target keeps only its own "
-            "forms and its own rules where they differ)"
+            "forms and its own rules where they differ), `_client/tools.py:plan_tools` (a tool's description, the "
+            "docstring of its method)"
         ),
         sites=(
             Home("_client/plan.py", "Planner.resolved"),
             Home("_fastapi/plan.py", "Planner.selected"),
+            Home("_client/tools.py", "plan_tools"),
         ),
     ),
     DecisionHome(
@@ -6584,7 +6612,7 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
         adapters=(
             "`_client/codec_plan.py:CodecRuntime.modules`, `_client/codec_render.py` (the model bindings' import and "
             "codec arguments), `_client/runtime.py:Capabilities.modules`, `_fastapi/render.py` "
-            "(`ServerRenderer.runtime`, `_declared`)"
+            "(`ServerRenderer.runtime`, `_declared`), `_client/render.py:_Tools.result` (the codec of a tool's result)"
         ),
         sites=(
             Home("_client/codec_plan.py", "CodecRuntime.modules"),
@@ -6592,6 +6620,7 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             Home("_fastapi/render.py", "ServerRenderer.runtime"),
             Home("_fastapi/render.py", "_declared"),
             Home("_client/codec_render.py"),
+            Home("_client/render.py", "_Tools.result"),
         ),
     ),
     DecisionHome(
@@ -6738,7 +6767,9 @@ DECISION_HOMES: Final[tuple[DecisionHome, ...]] = (
             "or an object, unmatched, unevaluated, held as a `JsonSchemaObject` field, definitions); a walker that "
             "visits another set or order than a role gives keeps it as a named view of the table; the keywords that "
             "hold schemas only for references (`DEFINITION_KEYS`) and those whose values are instance data; the "
-            "subschemas one keyword holds, read by its shape, and the walk over every value of a loaded JSON value"
+            "subschemas one keyword holds, read by its shape, and the walk over every value of a loaded JSON value "
+            "(the tool table of a generated client keeps its own copy of the keywords that hold schemas, "
+            "`_runtime/client/tools.py`: `_NAMING` and `_HOLDING`, as the runtime never imports the generator)"
         ),
         homes=(
             Home("_json_schema.py", "SCHEMA_POSITIONS"),

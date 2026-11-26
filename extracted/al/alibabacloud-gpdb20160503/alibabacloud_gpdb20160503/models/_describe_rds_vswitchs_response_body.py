@@ -13,9 +13,9 @@ class DescribeRdsVSwitchsResponseBody(DaraModel):
         request_id: str = None,
         v_switches: main_models.DescribeRdsVSwitchsResponseBodyVSwitches = None,
     ):
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # Details of the vSwitches.
+        # The list of vSwitches.
         self.v_switches = v_switches
 
     def validate(self):
@@ -51,7 +51,7 @@ class DescribeRdsVSwitchsResponseBodyVSwitches(DaraModel):
         self,
         v_switch: List[main_models.DescribeRdsVSwitchsResponseBodyVSwitchesVSwitch] = None,
     ):
-        # Details of the vSwitch.
+        # The vSwitch information.
         self.v_switch = v_switch
 
     def validate(self):
@@ -97,28 +97,28 @@ class DescribeRdsVSwitchsResponseBodyVSwitchesVSwitch(DaraModel):
         v_switch_id: str = None,
         v_switch_name: str = None,
     ):
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated and no value is returned.
         self.ali_uid = ali_uid
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated and no value is returned.
         self.bid = bid
         # The CIDR block of the vSwitch.
         self.cidr_block = cidr_block
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated and no value is returned.
         self.gmt_create = gmt_create
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated and no value is returned.
         self.gmt_modified = gmt_modified
         # Indicates whether the vSwitch is the default vSwitch. Valid values:
         # 
-        # *   **true**
-        # *   **false**
+        # - **true**: Yes.
+        # - **false**: No.
         self.is_default = is_default
-        # The ID of the zone.
+        # The zone ID.
         self.iz_no = iz_no
-        # An invalid parameter. It is no longer returned when you call this operation.
+        # **[Deprecated]** This parameter is deprecated and no value is returned.
         self.region_no = region_no
-        # The state of the vSwitch. If **Available** is returned, the vSwitch is available.
+        # The status of the vSwitch. A value of **Available** indicates that the vSwitch is available.
         self.status = status
-        # The ID of the vSwitch.
+        # The vSwitch ID.
         self.v_switch_id = v_switch_id
         # The name of the vSwitch.
         self.v_switch_name = v_switch_name

@@ -635,7 +635,7 @@ Expected interactions:
   ok(tied.includes('- Experiment: not paired: 2 experiments hold every case of this report and are equally near: tie/left/e.json, tie/right/e.json\n'),
     'a report two experiments tie for says which, and is not called run from code', tied);
   is(tied, await fromServer('/reports/tie/shared.report.json.md'), 'as the server writes it');
-  is(p.text('#facts'), '1.00 overall · 1 row · 0 failing · not paired', 'and its page header says not paired');
+  is(p.text('#facts'), 'not paired', 'and its page header says not paired');
 
   // ── an experiment and one case of it ──
   await p.click('.tab[data-view="experiments"]');
@@ -801,7 +801,7 @@ ${JSON.stringify(LOST, null, 2)}
 
 - Run: support-tuning-20261110-091500-7af3e1
 - Directory: \`${ROOT}/tuning\`
-- Status: stopped: `) && /\n- Champion: c10\n- Derived from: c10 ← [^\n]*c0\n- Compared with: c0, the baseline, on \d+ held-out cases\n- Objective change: \+0\.143, 95% interval \[/.test(result),
+- Status: finished: `) && /\n- Champion: c10\n- Derived from: c10 ← [^\n]*c0\n- Compared with: c0, the baseline, on \d+ held-out cases\n- Objective change: \+0\.143, 95% interval \[/.test(result),
   'the result names the run, the champion, what it descends from and what it gained', result.slice(0, 500));
   ok(/\n## Metrics\n\n\| Metric \| Baseline \| Champion \| Change \|\n\| --- \| --- \| --- \| --- \|\n\| /.test(result)
     && /\n## Changes against c0\n\n### [^\n]+\n\n```diff\n/.test(result) && /\n### temperature\n\n```diff\n- 0\.7\n\+ 0\.2\n```\n/.test(result),
@@ -847,7 +847,7 @@ ${JSON.stringify(LOST, null, 2)}
 
   // ── what only the page holds is sent to be written ──
   const candidates = await p.copy('#actions [data-md="report"]');
-  ok(candidates.startsWith(`# Report: ${p.text('#path')}\n\n- Overall score: `) && !candidates.includes('\n- Experiment: '),
+  ok(candidates.startsWith(`# Report: ${p.$$('#crumbs a')[1].textContent} · ${p.text('#crumbs b')}\n\n- Overall score: `) && !candidates.includes('\n- Experiment: '),
     'a candidate’s cases are written as a report under the name the page gives them, with nothing said of an experiment no scan looked for',
     candidates.slice(0, 300));
 

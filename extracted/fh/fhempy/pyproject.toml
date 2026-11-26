@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "fhempy"
 description = "Python binding for FHEM to support Python modules"
-version = "2.24.7"
+version = "2.24.8"
 authors = [ "Dominik Karall <dominik.karall@gmail.com>",]
 readme = "README.md"
 homepage = "https://github.com/fhempy/fhempy"
@@ -88,9 +88,9 @@ cryptography = [
 ]
 dbus-python = "==1.5.1"
 esphome = "==2026.10.2"
-esphome-device-builder = "==1.27.0"
+esphome-device-builder = "==1.28.1"
 goodwe = "==0.4.10"
-greeclimate = "==4.2.2"
+greeclimate = "==4.3.0"
 habluetooth = "==7.1.2"
 httpx = "==0.28.1"
 huawei-solar = "==3.0.7"

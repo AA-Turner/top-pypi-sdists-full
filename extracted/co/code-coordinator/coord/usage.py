@@ -16,10 +16,11 @@ Usage data is collected from two sources:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 from coord.models import Assignment
 
@@ -404,14 +405,25 @@ def filter_assignments_in_window(assignments: list[Assignment], window) -> list[
 # silently rendering a partial read as if it were complete.
 USAGE_ROWS_MAX_ROWS = 50_000
 
+# #4139: an unbounded `/usage-rows` round-trip makes the daemon read, decode
+# and serialize every row in `assignments` + `assignments_archive`, which on a
+# live fleet with real history routinely takes longer than a plain httpx
+# default (5s) — short enough that `coord usage --issue N` with no window flag
+# fails with a read timeout instead of an answer. This is the default for both
+# `fetch_usage_rows` and `fetch_usage_rows_from_daemon`; callers that know
+# their fetch is cheap (a tightly windowed/issue-filtered read) may still pass
+# a smaller `timeout` explicitly.
+USAGE_ROWS_DEFAULT_TIMEOUT = 30.0
+
 
 def fetch_usage_rows(
     *,
     since: float | None = None,
     until: float | None = None,
+    issue: int | None = None,
     flag_url: str | None = None,
     flag_token: str | None = None,
-    timeout: float = 5.0,
+    timeout: float = USAGE_ROWS_DEFAULT_TIMEOUT,
 ) -> list[dict]:
     """Fetch board assignment rows as plain dicts for :mod:`coord.usage_rollup`.
 
@@ -445,12 +457,29 @@ def fetch_usage_rows(
     **or** ``finished_at`` falls in ``[since, until)``). Leaving both ``None``
     (the default) fetches unbounded all-time history, matching every
     call site's pre-#3313 behaviour.
+
+    *issue* (#4139, optional) narrows the fetch to legs attributed to one
+    GitHub issue (:func:`coord.usage_rollup.row_issue_number` semantics —
+    ``for_issue_number`` when set, else ``issue_number``), pushed down the
+    same way *since*/*until* are: the daemon branch sends it as a query
+    param so a capable daemon filters before serializing the response (the
+    whole point — on a live fleet, serializing every history row is what
+    blows the httpx timeout, not the SQLite scan), and the local branch
+    filters before truncation. An older daemon that doesn't recognize the
+    param simply ignores it and returns the window-filtered set, which the
+    caller (e.g. ``_usage_issue_drill``) must still filter client-side —
+    this is a narrowing optimization, never the only filter applied.
+
+    *timeout* defaults to :data:`USAGE_ROWS_DEFAULT_TIMEOUT`, not the
+    generic httpx default — see that constant's docstring for why.
     """
     from coord.client import fetch_usage_rows_from_daemon, resolve_board_service  # noqa: PLC0415
 
     svc = resolve_board_service(flag_url, flag_token)
     if svc is not None:
-        result = fetch_usage_rows_from_daemon(svc, since=since, until=until, timeout=timeout)
+        result = fetch_usage_rows_from_daemon(
+            svc, since=since, until=until, issue=issue, timeout=timeout
+        )
         rows = list(result.get("rows") or [])
         if result.get("truncated"):
             _log.warning(
@@ -460,7 +489,7 @@ def fetch_usage_rows(
             )
         return rows
 
-    rows, truncated = _local_usage_rows(since=since, until=until)
+    rows, truncated = _local_usage_rows(since=since, until=until, issue=issue)
     if truncated:
         _log.warning(
             "fetch_usage_rows: local usage-rows read was truncated at %d rows "
@@ -471,7 +500,10 @@ def fetch_usage_rows(
 
 
 def _local_usage_rows(
-    *, since: float | None = None, until: float | None = None
+    *,
+    since: float | None = None,
+    until: float | None = None,
+    issue: int | None = None,
 ) -> tuple[list[dict], bool]:
     """Full-history local read spanning ``assignments`` + ``assignments_archive``
     (#3313) — backs both :func:`fetch_usage_rows`'s local branch and the
@@ -485,6 +517,11 @@ def _local_usage_rows(
     that boundary — exactly the "full history, not a retention-capped slice"
     promise this module's docstring already made and ``/board`` couldn't keep.
 
+    *issue* (#4139, optional) filters to legs attributed to one GitHub issue
+    (:func:`coord.usage_rollup.row_issue_number`) before the row-count
+    ceiling below is applied, so a single issue's drill-down never gets
+    truncated by unrelated history sharing the table.
+
     Returns ``(rows, truncated)`` — ``truncated`` is only ``True`` if
     :data:`USAGE_ROWS_MAX_ROWS` was hit, newest-dispatched rows kept. Callers
     must surface that rather than silently rendering a partial total as
@@ -493,7 +530,7 @@ def _local_usage_rows(
     from coord import sql  # noqa: PLC0415
     from coord.board_schema import decode_row  # noqa: PLC0415
     from coord.db import get_connection, rollback_after_driver_error  # noqa: PLC0415
-    from coord.usage_rollup import TimeWindow, leg_in_window  # noqa: PLC0415
+    from coord.usage_rollup import TimeWindow, leg_in_window, row_issue_number  # noqa: PLC0415
 
     conn = get_connection()
     rows: list[dict] = []
@@ -518,6 +555,9 @@ def _local_usage_rows(
         # the identical slim projection live rows do.
         rows.extend(decode_row("assignments", r) for r in result)
 
+    if issue is not None:
+        rows = [r for r in rows if row_issue_number(r) == issue]
+
     if since is not None or until is not None:
         window = TimeWindow(start=since, end=until)
         rows = [r for r in rows if leg_in_window(r, window)]
@@ -527,6 +567,380 @@ def _local_usage_rows(
     if truncated:
         rows = rows[:USAGE_ROWS_MAX_ROWS]
     return rows, truncated
+
+
+# ── Per-repo p90 attention threshold (#4142) ─────────────────────────────────
+#
+# `coord.config.PipelineConfig.attention_threshold_for`'s fixed "work" default
+# (45m) is a fleet-wide guess that doesn't fit every repo — quadraui's own
+# first-work legs normally run 45-69m, so the fixed default fired a false
+# "needs attention" alert on nearly every one of them. This section learns a
+# per-(repo, assignment type) threshold from that repo's own history instead,
+# so attention_threshold_for can replace the guess with "what normal actually
+# looks like here" once there's enough history to trust, and otherwise keep
+# the fixed default unchanged.
+
+#: Terminal leg statuses that count as a *successful* run, for the purpose of
+#: learning a threshold. Deliberately narrower than
+#: `coord.notifier.baseline.SAMPLE_STATUSES` (which also keeps "failed"/
+#: "advisory" — that module is answering "how long does this kind of leg
+#: take", not "how long does it take to succeed"): a failed leg's duration
+#: says nothing about how long a normal, converging run of this type takes,
+#: and mixing it in would pull the threshold toward whatever makes a leg fail
+#: (a timeout, a crash loop) rather than toward what a healthy one looks like.
+SUCCESSFUL_LEG_STATUSES = frozenset({"done", "merged"})
+
+#: Minimum successful-leg samples before a repo/type's learned p90 is trusted
+#: over the fixed default — mirrors `coord.notifier.baseline.MIN_SAMPLES`'s
+#: "never fire off a population of one" rule.
+P90_ATTENTION_MIN_SAMPLES = 5
+
+#: How long the learned-threshold index is cached before being refetched.
+#: `attention_signal` is evaluated for every running assignment on every
+#: `coord notify` sweep, so an unbounded `fetch_usage_rows()` call per check
+#: would turn one sweep into dozens of full-history scans; this amortizes it
+#: to one fetch per TTL window regardless of how many assignments are active.
+P90_ATTENTION_CACHE_TTL = 300.0
+
+#: Only legs dispatched within this trailing window feed the learned p90 — a
+#: repo's recent normal is what matters for "is THIS leg running long", not a
+#: multi-year history the fleet's hardware/model mix has long since outgrown.
+#: Also keeps the underlying fetch bounded rather than scanning full history
+#: (#4139's exact timeout failure mode) on every cache refresh.
+P90_ATTENTION_HISTORY_WINDOW_SECS = 30 * 24 * 3600.0
+
+# (cached-at monotonic time, {(repo_name, assignment_type): [duration_secs]})
+# — module-level memo, mirrors `coord.config._TS_SELF_DNS_MEMO`'s shape.
+_SUCCESSFUL_DURATIONS_CACHE: tuple[float, dict[tuple[str, str], list[float]]] | None = None
+
+
+def reset_p90_attention_cache() -> None:
+    """Forget the memoized successful-leg-duration index (tests only)."""
+    global _SUCCESSFUL_DURATIONS_CACHE
+    _SUCCESSFUL_DURATIONS_CACHE = None
+
+
+def _successful_durations_index(
+    *, now: float | None = None,
+) -> dict[tuple[str, str], list[float]]:
+    """The cached ``(repo_name, assignment_type) -> [duration_secs, ...]``
+    index of successful-leg durations, refetched at most once per
+    :data:`P90_ATTENTION_CACHE_TTL`.
+    """
+    global _SUCCESSFUL_DURATIONS_CACHE
+
+    now = time.monotonic() if now is None else now
+    cached = _SUCCESSFUL_DURATIONS_CACHE
+    if cached is not None:
+        cached_at, index = cached
+        if now - cached_at < P90_ATTENTION_CACHE_TTL:
+            return index
+
+    from coord.usage_rollup import leg_duration  # noqa: PLC0415
+
+    since = time.time() - P90_ATTENTION_HISTORY_WINDOW_SECS
+    rows = fetch_usage_rows(since=since)
+    index: dict[tuple[str, str], list[float]] = {}
+    for row in rows:
+        if str(row.get("status") or "") not in SUCCESSFUL_LEG_STATUSES:
+            continue
+        secs, is_open = leg_duration(row)
+        if is_open or secs <= 0:
+            continue
+        key = (str(row.get("repo_name") or ""), str(row.get("type") or "work"))
+        index.setdefault(key, []).append(secs)
+
+    _SUCCESSFUL_DURATIONS_CACHE = (now, index)
+    return index
+
+
+def p90_attention_threshold(
+    repo_name: str,
+    assignment_type: str,
+    *,
+    min_samples: int = P90_ATTENTION_MIN_SAMPLES,
+    now: float | None = None,
+) -> float | None:
+    """P90 duration (seconds) of *repo_name*'s successful *assignment_type*
+    legs over the trailing history window, or ``None`` when there are fewer
+    than *min_samples* qualifying legs — the caller's signal to fall back to
+    the fixed default instead of trusting a thin population.
+
+    Best-effort: any read failure (daemon unreachable, DB error, ...) is
+    swallowed and reported as ``None``, exactly like a cold/empty population.
+    This feeds an attention-threshold *default*, not a gate — a transient
+    read failure must fall back to the fixed default, never raise and break
+    the `coord notify` needs-attention sweep.
+    """
+    from coord.notifier.baseline import percentile  # noqa: PLC0415
+
+    try:
+        index = _successful_durations_index(now=now)
+    except Exception:  # noqa: BLE001
+        _log.warning(
+            "p90_attention_threshold(%r, %r): usage fetch failed, falling "
+            "back to the fixed default", repo_name, assignment_type,
+            exc_info=True,
+        )
+        return None
+    durations = index.get((repo_name, assignment_type))
+    if not durations or len(durations) < min_samples:
+        return None
+    return percentile(durations, 90.0)
+
+
+# ── Heal/stall signals for `coord stats waste` (#4144) ──────────────────────
+#
+# The #4122 heal/stall/cost tranche (#4139-#4143) each landed a fix with no
+# durable before/after number attached — this section is the read side that
+# turns the audit trail those fixes already write into something `coord
+# stats waste` can print, so a later efficiency change against any of these
+# four shapes can be scored against a real baseline instead of an anecdote.
+# Pure functions over *already-fetched* ``fetch_usage_rows`` rows and
+# ``coord.state.list_audit_log`` entries — exactly the two read seams
+# ``coord.commands.stats.waste`` already composes for
+# :func:`coord.leg_waste.build_waste_report`. `repo_attention_thresholds` is
+# the one exception: it delegates to `config.pipeline.attention_threshold_for`,
+# which can itself fetch usage rows to compute a learned p90 (bounded,
+# cached) — see its own docstring below.
+
+#: `coord.notify._sweep_phantom_rows` audit event for one row #2536's sweep
+#: auto-healed. `coord.diagnose.sweep_dead_running_rows` computes which rows
+#: are dead; `_sweep_phantom_rows` is what actually calls `record_audit`.
+PHANTOM_ROW_HEALED_EVENT = "phantom_row_auto_healed"
+
+#: `coord.notify._sweep_stuck_test_state` audit event for one row #2803's
+#: watchdog cleared for a fresh Test-stage dispatch.
+STUCK_TEST_STATE_HEALED_EVENT = "stuck_test_state_auto_healed"
+
+#: `coord.diagnose.sweep_dead_running_rows`'s heal ``detail`` text always
+#: names how many CONSECUTIVE sweep passes agreed the row was dead before
+#: healing it (#4141's own two-miss confirmation gate — see
+#: ``coord.diagnose.PHANTOM_DEAD_CONFIRM_PASSES``). Parsed back out here
+#: rather than duplicating the gate's own threshold, so a heal event
+#: recorded by an OLDER coordinator build (pre-#4141, no such phrase at all)
+#: reads as "not miss-confirmed" rather than silently miscounted as one —
+#: the exact distinction that makes this number meaningful: it should read
+#: 0 for history before #4141 landed and equal the plain heal count after.
+_PHANTOM_HEAL_MISS_COUNT_RE = re.compile(r"across (\d+) consecutive sweep passes")
+
+
+@dataclass
+class HealCounts:
+    """How many of each #4122 auto-heal kind fired in the reported window —
+    see the module section docstring above for the audit events each counts.
+    """
+
+    phantom_row_healed: int = 0
+    phantom_row_miss_confirmed: int = 0
+    stuck_test_state_healed: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "phantom_row_healed": self.phantom_row_healed,
+            "phantom_row_miss_confirmed": self.phantom_row_miss_confirmed,
+            "stuck_test_state_healed": self.stuck_test_state_healed,
+        }
+
+
+def heal_counts_from_audit(audit_entries: "list[dict] | None") -> HealCounts:
+    """Tally #2536/#2803 auto-heal audit events — see :class:`HealCounts`.
+
+    Best-effort over whatever ``audit_entries`` the caller already fetched
+    (``coord.state.list_audit_log``'s shape); never raises, and an empty/
+    ``None`` list reads as all-zero rather than an error, mirroring
+    :func:`coord.leg_waste.audit_leg_kind_overrides`'s own posture toward
+    the same read seam.
+    """
+    from coord.diagnose import PHANTOM_DEAD_CONFIRM_PASSES  # noqa: PLC0415
+
+    counts = HealCounts()
+    for entry in audit_entries or ():
+        event_type = entry.get("event_type")
+        if event_type == PHANTOM_ROW_HEALED_EVENT:
+            counts.phantom_row_healed += 1
+            detail = str((entry.get("details") or {}).get("detail") or "")
+            m = _PHANTOM_HEAL_MISS_COUNT_RE.search(detail)
+            if m and int(m.group(1)) >= PHANTOM_DEAD_CONFIRM_PASSES:
+                counts.phantom_row_miss_confirmed += 1
+        elif event_type == STUCK_TEST_STATE_HEALED_EVENT:
+            counts.stuck_test_state_healed += 1
+    return counts
+
+
+@dataclass
+class RepoThreshold:
+    """The wall-clock ``attention_threshold_for`` value actually applied to
+    one ``(repo_name, assignment_type)`` pair, and whether that value came
+    from #4142's per-repo learned p90 rather than the fleet-wide fixed
+    default/explicit ``coordinator.yml`` override — see
+    :func:`repo_attention_thresholds`.
+    """
+
+    repo_name: str
+    assignment_type: str
+    threshold_secs: float
+    is_learned: bool
+
+    def to_dict(self) -> dict[str, "float | str | bool"]:
+        return {
+            "repo_name": self.repo_name,
+            "assignment_type": self.assignment_type,
+            "threshold_secs": self.threshold_secs,
+            "is_learned": self.is_learned,
+        }
+
+
+def repo_attention_thresholds(
+    repo_names: Iterable[str],
+    *,
+    assignment_type: str = "work",
+    config: "Config",
+) -> list[RepoThreshold]:
+    """Per-repo #4142 learned-threshold override in effect for
+    *assignment_type*, one :class:`RepoThreshold` per name in *repo_names*
+    (de-duplicated, order preserved).
+
+    Reuses ``config.pipeline.attention_threshold_for`` — the one function
+    that already resolves explicit-override-vs-learned-vs-fixed-default —
+    rather than re-deriving that order here (#2096 "one question, one
+    answer"): comparing the *repo-scoped* call against the exact same call
+    with no ``repo_name`` isolates whether #4142's own per-repo learned
+    step is what's in effect, since that step is the ONLY thing
+    ``repo_name`` changes about the result.
+
+    Unlike the rest of this module, this is not pure: a learned threshold
+    reaches ``p90_attention_threshold``, which does its own (cached,
+    bounded-window) ``fetch_usage_rows`` call.
+    """
+    generic = config.pipeline.attention_threshold_for(assignment_type)
+    seen: set[str] = set()
+    out: list[RepoThreshold] = []
+    for repo_name in repo_names:
+        if not repo_name or repo_name in seen:
+            continue
+        seen.add(repo_name)
+        effective = config.pipeline.attention_threshold_for(
+            assignment_type, repo_name=repo_name,
+        )
+        out.append(RepoThreshold(
+            repo_name=repo_name,
+            assignment_type=assignment_type,
+            threshold_secs=effective,
+            is_learned=effective != generic,
+        ))
+    return out
+
+
+@dataclass
+class FanoutFoldLatency:
+    """How long #3182's fold (``coord.smoke.finalize_smoke_fanout``) took to
+    write the parent's aggregate verdict after the LAST of its fan-out legs
+    actually finished — see :func:`fanout_fold_latencies`.
+    """
+
+    assignment_id: str
+    repo_name: str
+    issue_number: int
+    latency_secs: float
+
+    def to_dict(self) -> dict[str, "str | int | float"]:
+        return {
+            "assignment_id": self.assignment_id,
+            "repo_name": self.repo_name,
+            "issue_number": self.issue_number,
+            "latency_secs": self.latency_secs,
+        }
+
+
+def fanout_fold_latencies(
+    assignment_rows: list[dict],
+    audit_entries: "list[dict] | None",
+) -> list[FanoutFoldLatency]:
+    """Elapsed time, per #3182 fan-out round, between the LAST fan-out leg
+    finishing and :func:`coord.smoke.finalize_smoke_fanout` writing the
+    parent's own aggregate ``test_{state}`` verdict — i.e. how long the
+    fold itself took to catch up once every leg had reported in. #4143
+    fixed the two ``coord.reconcile`` call sites that let this wedge for
+    199-220m instead of folding promptly; this is the number that would
+    have caught that regression instead of 16 separate stuck-row sweeps
+    noticing it after the fact.
+
+    A parent's ``test_{state}`` audit event (recorded by
+    ``coord.state._record_test_verdict_local`` on EVERY terminal verdict
+    write, fan-out or not) carries that write's own ``test_reason`` in its
+    ``details`` — :func:`coord.smoke._parse_fanout_manifest` reads the
+    ``[[smoke-fanout:...]]`` manifest :func:`finalize_smoke_fanout`'s own
+    write always carries at the front of that text, which is how a
+    fan-out fold is told apart from an ordinary single-leg verdict here:
+    only a parsed, non-empty manifest counts. Each leg named in it is then
+    looked up by id in *assignment_rows* for its own ``finished_at``; the
+    round's latency is the fold event's own timestamp minus the LATEST of
+    those (the leg still being waited on when the fold finally ran).
+    A round with no resolvable leg ``finished_at`` (incomplete usage-row
+    history) contributes nothing rather than guessing.
+    """
+    from coord.smoke import TEST_STATE_BLOCKED  # noqa: PLC0415
+    from coord.smoke_tags import _parse_fanout_manifest  # noqa: PLC0415
+    from coord.usage_rollup import parse_timestamp  # noqa: PLC0415
+
+    # Every terminal state `finalize_smoke_fanout` can write for the parent
+    # row, prefixed the way `_record_test_verdict_local` names the event
+    # (`event_type=f"test_{test_state}"`) — "passed", "failed", "skipped",
+    # or TEST_STATE_BLOCKED. A round that folds to blocked is the one this
+    # function exists to catch, so it must not be filtered out here.
+    fold_event_types = (
+        "test_passed",
+        "test_failed",
+        "test_skipped",
+        f"test_{TEST_STATE_BLOCKED}",
+    )
+
+    rows_by_id = {
+        str(row.get("assignment_id")): row
+        for row in assignment_rows or ()
+        if row.get("assignment_id")
+    }
+
+    out: list[FanoutFoldLatency] = []
+    for entry in audit_entries or ():
+        event_type = entry.get("event_type")
+        if event_type not in fold_event_types:
+            continue
+        fold_ts = parse_timestamp(entry.get("ts"))
+        if fold_ts is None:
+            continue
+        details = entry.get("details") or {}
+        legs = _parse_fanout_manifest(details.get("test_reason"))
+        if not legs:
+            continue  # an ordinary (non-fan-out) verdict write
+
+        leg_finished: list[float] = []
+        for leg_id, _caps, _command in legs:
+            leg_row = rows_by_id.get(str(leg_id))
+            if leg_row is None:
+                continue
+            finished = parse_timestamp(leg_row.get("finished_at"))
+            if finished is not None:
+                leg_finished.append(finished)
+        if not leg_finished:
+            continue
+
+        latency_secs = fold_ts - max(leg_finished)
+        if latency_secs < 0:
+            # Clock skew or a `finished_at` written after the fold — a
+            # fabricated zero would still feed avg/max, so skip the round
+            # rather than guess.
+            continue
+
+        assignment_id = str(entry.get("assignment_id") or "")
+        out.append(FanoutFoldLatency(
+            assignment_id=assignment_id,
+            repo_name=str(entry.get("repo") or ""),
+            issue_number=int(entry.get("issue") or 0),
+            latency_secs=latency_secs,
+        ))
+    return out
 
 
 # ── Formatting ────────────────────────────────────────────────────────────────

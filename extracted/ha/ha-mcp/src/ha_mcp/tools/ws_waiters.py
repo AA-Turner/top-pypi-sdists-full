@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 #      is already in the desired shape, we return immediately and never
 #      touch the event loop.
 #   3. Await events for our entity_id, then re-sample. A
-#      ``_POLLING_BACKSTOP_INTERVAL`` REST sample also runs every few seconds
+#      ``POLLING_BACKSTOP_INTERVAL`` REST sample also runs every few seconds
 #      independently of events, so a silent-broken subscription degrades to
 #      a slow-polling REST loop rather than a 10s hang.
 #   4. Drop the subscription and event handler in `finally`.
@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 # subscription itself fails to set up — the helpers' contract (return bool or
 # state dict, never raise on the happy path) is identical to before.
 
-_POLLING_BACKSTOP_INTERVAL = 2.0
+POLLING_BACKSTOP_INTERVAL = 2.0
 """Seconds between independent REST samples while a WS subscription is open.
 
 Bounded slow-poll backstop so a silent-broken WS subscription still
@@ -96,7 +96,7 @@ async def _legacy_poll_until(
                     f"after {time.monotonic() - start:.2f}s"
                 )
                 return result
-        except (HomeAssistantConnectionError, HomeAssistantAuthError):
+        except HomeAssistantConnectionError, HomeAssistantAuthError:
             raise
         await asyncio.sleep(poll_interval)
     logger.warning(
@@ -212,7 +212,7 @@ async def _ws_post_subscribe_check(
                 f"post-subscribe sample after {time.monotonic() - start:.2f}s"
             )
             return result, True
-    except (HomeAssistantConnectionError, HomeAssistantAuthError):
+    except HomeAssistantConnectionError, HomeAssistantAuthError:
         raise
 
     if not ws_client.is_connected:
@@ -248,7 +248,7 @@ async def _ws_run_wait_loop(
     """Event-driven wait loop: nudge on event, backstop polling, REST fallback on disconnect."""
     while time.monotonic() - start < timeout:
         remaining = timeout - (time.monotonic() - start)
-        wait_budget = min(remaining, _POLLING_BACKSTOP_INTERVAL)
+        wait_budget = min(remaining, POLLING_BACKSTOP_INTERVAL)
         try:
             await asyncio.wait_for(nudge.wait(), timeout=wait_budget)
             nudge.clear()
@@ -280,7 +280,7 @@ async def _ws_run_wait_loop(
                     f"after {time.monotonic() - start:.2f}s"
                 )
                 return result
-        except (HomeAssistantConnectionError, HomeAssistantAuthError):
+        except HomeAssistantConnectionError, HomeAssistantAuthError:
             raise
 
     logger.warning(
@@ -427,10 +427,14 @@ async def _ws_wait_for_condition(
         await _ws_cleanup(ws_client, attached_handlers, sub_ids, handler)
 
 
+# How long a write's state wait gives a new entity to become queryable.
+REGISTER_TIMEOUT = 10.0
+
+
 async def wait_for_entity_registered(
     client: Any,
     entity_id: str,
-    timeout: float = 10.0,
+    timeout: float = REGISTER_TIMEOUT,
     poll_interval: float = 0.3,
 ) -> bool:
     """

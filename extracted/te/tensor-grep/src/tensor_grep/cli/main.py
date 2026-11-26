@@ -32,6 +32,8 @@ from tensor_grep.cli import _index_lock as _index_lock
 from tensor_grep.cli import ast_scan as _ast_scan
 from tensor_grep.cli import backend_fallback as _backend_fallback
 from tensor_grep.cli import citations as _citations
+from tensor_grep.cli import compact_payloads as _compact_payloads
+from tensor_grep.cli import detail_tier as _detail_tier
 from tensor_grep.cli import doctor_payload as _doctor_payload
 from tensor_grep.cli import doctor_report as _doctor_report
 from tensor_grep.cli import managed_runtime_upgrade as _managed_runtime_upgrade
@@ -41,23 +43,8 @@ from tensor_grep.cli import terminal_output as _terminal_output
 from tensor_grep.cli import windows_launcher as _windows_launcher
 from tensor_grep.cli._index_lock import atomic_write_bytes_anchored as atomic_write_bytes_anchored
 from tensor_grep.cli.completeness_output import _output_limit_note, coverage_gap_banner
-from tensor_grep.cli.detail_tier import (
-    apply_detail_tier as _apply_detail_tier,
-)
-from tensor_grep.cli.detail_tier import (
-    compact_option as _compact_option,
-)
-from tensor_grep.cli.detail_tier import (
-    detail_option as _detail_option,
-)
-from tensor_grep.cli.detail_tier import (
-    dump_detail_json as _dump_detail_json,
-)
-from tensor_grep.cli.detail_tier import (
-    resolve_compact_detail as _resolve_compact_detail,
-)
 from tensor_grep.cli.formatters.base import OutputFormatter
-from tensor_grep.cli.prepare_service import _build_prepare_payload
+from tensor_grep.cli.prepare_service import _build_prepare_payload as _build_prepare_payload
 from tensor_grep.cli.rg_post_process import post_process_matches as _rg_out
 from tensor_grep.cli.root_app import create_root_app
 from tensor_grep.cli.runtime_paths import _native_tg_version as _native_tg_version
@@ -511,14 +498,9 @@ _MAX_NATIVE_ASSET_DOWNLOAD_BYTES = 512 * 1024 * 1024
 
 
 def _version_detail_lines() -> tuple[str, ...]:
-    return (
-        "",
-        "features:+gpu-cudf,+gpu-torch,+rust-core",
-        "simd(compile):+SSE2,-SSSE3,-AVX2",
-        "simd(runtime):+SSE2,+SSSE3,+AVX2",
-        "",
-        "Arrow Zero-Copy IPC is available",
-    )
+    from tensor_grep.cli.version_info import version_detail_lines
+
+    return version_detail_lines()
 
 
 def _print_version(*, verbose: bool = False) -> None:
@@ -4834,7 +4816,7 @@ def orient(
         help="Accepted for command-surface parity with codemap; a no-op since orient already "
         "defaults to an unbounded --deadline.",
     ),
-    compact: bool = _compact_option(),
+    compact: bool = _detail_tier.compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit the capsule as JSON"),
 ) -> None:
     """Emit a one-call codebase orientation capsule (central files, entry points, AST snippets)."""
@@ -4842,7 +4824,9 @@ def orient(
     # orient_capsule import and the daemon gate, so front-door time counts against --deadline.
     # CLI consistency fix : `--deadline` used to be undefined on `tg orient`
     # (Click "No such option" exit-2).
-    orient_detail = _resolve_compact_detail(compact, "standard", json_output=json_output)
+    orient_detail = _detail_tier.resolve_compact_detail(
+        compact, "standard", json_output=json_output
+    )
     effective_deadline = None if no_deadline else deadline
     deadline_monotonic = _cli_deadline_monotonic(effective_deadline)
 
@@ -4888,7 +4872,7 @@ def orient(
     if json_output:
         # build_orient_capsule_json's exact format (json.dumps(..., indent=2), no
         # ensure_ascii=False) -- match it here so a warm hit is byte-identical to a cold miss.
-        typer.echo(_dump_detail_json(payload, orient_detail))
+        typer.echo(_detail_tier.dump_detail_json(payload, orient_detail))
         return
 
     # `tg orient` has no exit-2 contract by design (see --deadline's help): a truncated scan still
@@ -4933,6 +4917,7 @@ def codemap(
     out: str | None = typer.Option(
         None,
         "--out",
+        "--output",
         help="Output directory for pages + _coverage.json. Defaults to <path>/docs/code-map.",
     ),
     index_file: str = typer.Option(
@@ -5517,9 +5502,11 @@ def context_render(
         help="Accepted for command-surface parity with codemap; a no-op since context-render "
         "already defaults to an unbounded --deadline.",
     ),
+    compact: bool = _detail_tier.compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return a prompt-ready repository context bundle for edit planning."""
+    _compact_payloads.validate_compact_flags(compact, json_output=json_output, citations=citations)
     # Anchor deadline_monotonic at CLI command entry (closes #197/#200): computed BEFORE the lazy
     # repo_map import, path resolution, and daemon gate, so front-door time counts against --deadline.
     # CLI consistency fix : `--deadline` used to be undefined on
@@ -5565,10 +5552,7 @@ def context_render(
             # exit-2-on-scan-truncation contract as the cold path below -- a truncated daemon payload
             # still prints in full, then exits 2, instead of a silent exit 0 that reads as complete.
             if json_output:
-                if daemon_payload.get("render_profile") == "llm":
-                    typer.echo(json.dumps(daemon_payload, separators=(",", ":")))
-                else:
-                    typer.echo(json.dumps(daemon_payload, indent=2))
+                typer.echo(_compact_payloads.dump_render(daemon_payload, compact))
             else:
                 _emit_scan_incompleteness_banner(daemon_payload)
                 typer.echo(str(daemon_payload.get("rendered_context", "")))
@@ -5604,10 +5588,7 @@ def context_render(
     if citations:
         _citations.emit_payload_citations(payload, resolved_path, json_output=json_output)
     elif json_output:
-        if payload.get("render_profile") == "llm":
-            typer.echo(json.dumps(payload, separators=(",", ":")))
-        else:
-            typer.echo(json.dumps(payload, indent=2))
+        typer.echo(_compact_payloads.dump_context_render_json(payload, compact=compact))
     else:
         _emit_scan_incompleteness_banner(payload)
         typer.echo(payload["rendered_context"])
@@ -5796,8 +5777,8 @@ def agent(
     rerank: str = typer.Option(
         "off", "--rerank", help="Native advisory snippet reranking: off, auto, cross-encoder."
     ),
-    detail: str = _detail_option(),
-    compact: bool = _compact_option(),
+    detail: str = _detail_tier.detail_option(),
+    compact: bool = _detail_tier.compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
     citations: bool = typer.Option(False, "--citations", help="Emit citation ranges."),
 ) -> None:
@@ -5827,7 +5808,7 @@ def agent(
         _warn_unavailable_gpu_device_ids(parsed_gpu_device_ids)
         # Daemon misses or unreliable evidence fall through to the cold build. Requests requiring
         # fresh deadlines or new option contracts use the cold path until daemon schema support.
-        effective_detail = _resolve_compact_detail(
+        effective_detail = _detail_tier.resolve_compact_detail(
             compact, detail, json_output=json_output, citations=citations
         )
         daemon_payload = (
@@ -5859,7 +5840,11 @@ def agent(
             else:
                 daemon_payload.pop("dependency_grounding", None)
             if json_output:
-                typer.echo(_dump_detail_json(daemon_payload, effective_detail, ensure_ascii=False))
+                typer.echo(
+                    _detail_tier.dump_detail_json(
+                        daemon_payload, effective_detail, ensure_ascii=False
+                    )
+                )
             else:
                 _emit_scan_incompleteness_banner(daemon_payload)
                 _emit_agent_text(daemon_payload, gpu_device_ids)
@@ -5900,12 +5885,12 @@ def agent(
     # Emit the full capsule before applying the scan-truncation exit contract.
     if citations:
         _citations.emit_payload_citations(
-            _apply_detail_tier(payload, effective_detail) if json_output else payload,
+            _detail_tier.apply_detail_tier(payload, effective_detail) if json_output else payload,
             resolved_path,
             json_output=json_output,
         )
     elif json_output:
-        typer.echo(_dump_detail_json(payload, effective_detail, ensure_ascii=False))
+        typer.echo(_detail_tier.dump_detail_json(payload, effective_detail, ensure_ascii=False))
     else:
         _emit_scan_incompleteness_banner(payload)
         _emit_agent_text(payload, gpu_device_ids)
@@ -5967,7 +5952,7 @@ def edit_plan(
         help="Accepted for command-surface parity with codemap; a no-op since edit-plan already "
         "defaults to an unbounded --deadline.",
     ),
-    compact: bool = _compact_option(),
+    compact: bool = _detail_tier.compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return a machine-readable edit-planning bundle without rendered source text."""
@@ -5991,7 +5976,9 @@ def edit_plan(
         # Skip the warm-daemon fast path entirely when a --deadline was requested (a warm
         # session's cached repo_map cannot honor a fresh per-request scan deadline) -- mirrors
         # refs/callers/impact/blast-radius's own daemon gate.
-        edit_detail = _resolve_compact_detail(compact, "standard", json_output=json_output)
+        edit_detail = _detail_tier.resolve_compact_detail(
+            compact, "standard", json_output=json_output
+        )
         daemon_payload = (
             _maybe_edit_plan_via_running_daemon(
                 path=resolved_path,
@@ -6011,7 +5998,7 @@ def edit_plan(
             # Output-before-exit (Cluster B, 2026-07-06): same exit-2-on-scan-truncation contract as
             # the cold path below -- print the full daemon payload, then exit 2 if it was truncated.
             if json_output:
-                typer.echo(_dump_detail_json(daemon_payload, edit_detail))
+                typer.echo(_detail_tier.dump_detail_json(daemon_payload, edit_detail))
             else:
                 _emit_scan_incompleteness_banner(daemon_payload)
                 payload = daemon_payload
@@ -6046,7 +6033,7 @@ def edit_plan(
     # text branches share the same scan-truncation gate below -- output the full payload FIRST, then
     # exit 2 if the scan itself (not just the output) was capped.
     if json_output:
-        typer.echo(_dump_detail_json(payload, edit_detail))
+        typer.echo(_detail_tier.dump_detail_json(payload, edit_detail))
     else:
         _emit_scan_incompleteness_banner(payload)
         typer.echo(f"Edit plan for {payload['path']}")
@@ -6494,15 +6481,17 @@ def prepare(
         "--no-deadline",
         help="Disable prepare's default 60s --deadline bound; let it run unbounded.",
     ),
+    compact: bool = _detail_tier.compact_option(),
     json_output: bool = typer.Option(
-        True, "--json/--text", help="Emit machine-readable JSON output (default)."
+        False, "--json/--text", help="Emit machine-readable JSON output."
     ),
     out: str | None = typer.Option(
         None,
         "--out",
+        "--output",
         help=(
-            "Also persist the full capsule JSON to FILE, byte-identical to the --json stdout "
-            "payload regardless of --text, so `tg evidence emit --capsule FILE` can reuse it "
+            "Also persist the full capsule JSON to FILE (always full, even when stdout uses "
+            "--text or --json --compact), so `tg evidence emit --capsule FILE` can reuse it "
             "without a manual save. Refuses to write through a pre-existing symlink."
         ),
     ),
@@ -6511,6 +6500,7 @@ def prepare(
     floor, validation commands, and claim/evidence coordination hooks -- the single call meant
     to replace the orient -> search -> agent -> route-test -> callers -> evidence -> ledger loop.
     """
+    _detail_tier.resolve_compact_detail(compact, "standard", json_output=json_output)
     # Anchor deadline_monotonic at CLI command entry (mirrors route-test/agent's #197/#200 fix):
     # computed BEFORE path/query resolution so front-door time counts against the same bound.
     from tensor_grep.cli.agent_capsule import DEFAULT_AGENT_CLI_DEADLINE_SECONDS
@@ -6529,7 +6519,7 @@ def prepare(
             query_option=query,
             command_name="prepare",
         )
-        payload = _build_prepare_payload(
+        payload = _self._build_prepare_payload(
             path=resolved_path,
             query=resolved_query,
             claim=claim,
@@ -6543,61 +6533,15 @@ def prepare(
     # Output-before-exit (mirrors context-render/edit-plan/agent/route-test): print the full
     # payload FIRST, then exit 2 if either the capsule or the blast-radius floor was truncated --
     # never a silent exit 0 that reads as a complete, full-confidence result.
-    if json_output:
-        typer.echo(json.dumps(payload, indent=2))
-    else:
-        primary = payload.get("primary_target", {})
-        floor = payload.get("blast_radius_floor", {})
-        claim_hook = payload.get("coordination", {}).get("claim", {})
-        # `prepare` already ended with `partial=true partial_reason=...`, but only for the
-        # `partial` cause and only AFTER every line it qualifies. The banner covers every cause
-        # and leads. The key=value line stays: it is a structured field in a key=value listing,
-        # not prose duplicating prose (contrast `codemap`, where adding a banner beside its
-        # existing `PARTIAL:` sentence would have said the same thing twice in the same register).
+    from tensor_grep.cli.prepare_format import emit_prepare_output, write_prepare_out
+
+    if not json_output:
         _emit_scan_incompleteness_banner(payload)
-        typer.echo(f"Prepare for {payload['path']}")
-        typer.echo(f"query={payload['query']}")
-        typer.echo(f"primary={primary.get('file')}#L{primary.get('line')} {primary.get('symbol')}")
-        typer.echo(f"confidence={payload.get('confidence', {}).get('overall', 0)}")
-        typer.echo(
-            f"ask_required={bool(payload.get('ask_user_before_editing', {}).get('required'))}"
-        )
-        typer.echo(
-            "blast_radius_floor="
-            f"{floor.get('callers_count', 0)} callers (source={floor.get('source')})"
-        )
-        typer.echo(f"validation={len(payload.get('validation_commands', []))} commands")
-        typer.echo(f"claim_submitted={bool(claim_hook.get('submitted'))}")
-        if payload.get("partial"):
-            typer.echo(f"partial=true partial_reason={payload.get('partial_reason')}")
+    emit_prepare_output(payload, json_output=json_output, compact=compact)
 
     if out is not None:
-        # v1.92.1 dogfood feature 4: persist the FULL capsule JSON regardless of --text, so the
-        # file always works with `tg evidence emit --capsule FILE` (a text-mode summary would
-        # not). Written AFTER stdout above (never before) -- mirrors this command's own
-        # "output-before-exit" contract: an --out failure must not hide the payload that was
-        # already computed. Reuses the house atomic-write helper
-        # (_index_lock.atomic_write_json via session_store._write_json_atomic) with the exact
-        # same symlink-precheck-then-resolve shape `tg evidence emit --out` uses
-        # (main.py's evidence_emit, "audit C4 / CWE-59") rather than a bare open().write().
-        from tensor_grep.cli.session_store import _write_json_atomic
-
         try:
-            # C4/CWE-59: check for a symlink BEFORE `.resolve()` -- resolving first would
-            # follow the symlink to its real target and make `is_symlink()` on the result
-            # always False, silently defeating `_write_json_atomic`'s own symlink guard. This
-            # also refuses a DANGLING symlink (a broken target still makes `is_symlink()` True
-            # regardless of whether the target exists). A destination that is an existing
-            # directory is refused too, via the OSError `atomic_write_bytes`'s own
-            # `os.replace` raises when a file cannot replace a directory -- caught by the same
-            # `except OSError` below, never a raw traceback.
-            expanded_out = Path(out).expanduser()
-            if expanded_out.is_symlink():
-                raise OSError(
-                    f"Refusing to write the prepare capsule through a symlink: {expanded_out}"
-                )
-            resolved_out = expanded_out.resolve()
-            _write_json_atomic(resolved_out, payload)
+            write_prepare_out(out, payload)
         except OSError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=1) from exc
@@ -7066,7 +7010,8 @@ def _emit_symbol_command_result(
     payload["not_found"] = not_found
     from tensor_grep.cli.symbol_suggestions import suggestions_for_payload
 
-    suggestions = suggestions_for_payload(payload) if not_found else []
+    suggest = not_found or (result_key == "definitions" and not payload.get(result_key))
+    suggestions = suggestions_for_payload(payload) if suggest else []
     payload["suggestions"] = suggestions
     if not keep_candidate_symbols:
         payload.pop("candidate_symbols", None)
@@ -7093,7 +7038,7 @@ def _emit_symbol_command_result(
         )
         is_truncation = True
     if json_output:
-        typer.echo(_dump_detail_json(payload, detail))
+        typer.echo(_compact_payloads.dump_cmd(payload, detail, result_key))
     else:
         leading, trailing = _completeness_caveat_lines(caveat, is_truncation=is_truncation)
         if leading is not None:
@@ -7299,7 +7244,7 @@ def defs(
     deadline: float | None = _deadline_option(
         "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
-    detail: str = _detail_option(),
+    detail: str = _detail_tier.detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return exact definition locations for a symbol."""
@@ -7472,7 +7417,7 @@ def impact(
         min=0,
         help="Approximate maximum payload size in tokens (0 = unbounded).",
     ),
-    detail: str = _detail_option(),
+    detail: str = _detail_tier.detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return likely impacted files and tests for a symbol change."""
@@ -7673,7 +7618,7 @@ def refs(
         min=0,
         help="Approximate maximum payload size in tokens (0 = unbounded).",
     ),
-    detail: str = _detail_option(),
+    detail: str = _detail_tier.detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return Python-first symbol references across the inventory root."""
@@ -7776,7 +7721,7 @@ def callers(
         min=0,
         help="Approximate maximum payload size in tokens (0 = unbounded).",
     ),
-    detail: str = _detail_option(),
+    detail: str = _detail_tier.detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return Python-first call sites and likely impacted tests for a symbol."""
@@ -8172,7 +8117,7 @@ def blast_radius(
     deadline: float | None = _deadline_option(
         "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
-    detail: str = _detail_option(),
+    detail: str = _detail_tier.detail_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
     mermaid_output: bool = typer.Option(
         False,
@@ -8279,11 +8224,11 @@ def blast_radius(
         # Embed, don't refuse: fold the rendered mermaid text into the JSON payload so one call
         # returns both the machine graph and the diagram.
         payload["mermaid"] = _render_blast_radius_mermaid(payload)
-        typer.echo(_dump_detail_json(payload, detail))
+        typer.echo(_detail_tier.dump_detail_json(payload, detail))
     elif mermaid_output:
         typer.echo(_render_blast_radius_mermaid(payload))
     elif json_output:
-        typer.echo(_dump_detail_json(payload, detail))
+        typer.echo(_detail_tier.dump_detail_json(payload, detail))
     else:
         # Same leading-banner-vs-trailing-note split as _emit_symbol_command_result: a truncation
         # warning has to be read BEFORE the counts it qualifies (an agent reading
@@ -8367,6 +8312,7 @@ def blast_radius_render(
             "whatever was found so far, instead of running unbounded."
         ),
     ),
+    compact: bool = _detail_tier.compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return a prompt-ready blast-radius bundle for a symbol.
@@ -8375,6 +8321,7 @@ def blast_radius_render(
     (callers/caller_tree/affected_files/blast_radius_score), use
     `tg blast-radius SYMBOL --json` instead -- it is faster and agent-consumable.
     """
+    _compact_payloads.validate_compact_flags(compact, json_output=json_output)
     from tensor_grep.cli.repo_map import (
         _deadline_monotonic_from_seconds,
         build_symbol_blast_radius_render,
@@ -8418,6 +8365,7 @@ def blast_radius_render(
         json_output=json_output,
         emit_text=lambda current: typer.echo(current["rendered_context"]),
         keep_candidate_symbols=True,
+        detail="compact" if compact else "standard",
     )
 
 
@@ -8455,12 +8403,14 @@ def blast_radius_plan(
     deadline: float | None = _deadline_option(
         "Stop the underlying repo scan after N seconds and return partial:true JSON with whatever was found so far, instead of running unbounded."
     ),
+    compact: bool = _detail_tier.compact_option(),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return a machine-readable blast-radius planning bundle without rendered source text.
 
     Like `blast-radius --json` but shaped as an edit/action plan (no source snippets).
     """
+    _compact_payloads.validate_compact_flags(compact, json_output=json_output)
     from tensor_grep.cli.repo_map import build_symbol_blast_radius_plan
 
     try:
@@ -8503,6 +8453,7 @@ def blast_radius_plan(
         json_output=json_output,
         emit_text=_emit_text,
         keep_candidate_symbols=True,
+        detail="compact" if compact else "standard",
     )
 
 
@@ -9428,9 +9379,21 @@ def checkpoint_create(
 
     try:
         payload = create_checkpoint(path, paths=paths, label=label)
-    except Exception as exc:
-        typer.echo(str(exc), err=True)
+    except (ValueError, FileNotFoundError) as exc:
+        code = "path_not_found" if isinstance(exc, FileNotFoundError) else "invalid_input"
+        if json_output:
+            typer.echo(json.dumps({"error": {"code": code, "message": str(exc)}}, indent=2))
+        else:
+            typer.echo(str(exc), err=True)
         raise typer.Exit(2) from exc
+    except Exception as exc:
+        if json_output:
+            typer.echo(
+                json.dumps({"error": {"code": "create_failed", "message": str(exc)}}, indent=2)
+            )
+        else:
+            typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
 
     if json_output:
         typer.echo(json.dumps(_with_schema_version(payload.__dict__, version=1), indent=2))
@@ -9618,10 +9581,6 @@ def checkpoint_undo(
         resolve_latest_checkpoint,
         undo_checkpoint,
     )
-
-    if path == "--json":
-        json_output = True
-        path = "."
 
     try:
         if last:
@@ -9912,6 +9871,11 @@ def scan(
         "--sarif",
         help="Emit findings as a SARIF v2.1.0 log (GitHub code scanning, Azure DevOps, Sonar).",
     ),
+    output_format: str | None = typer.Option(
+        None,
+        "--format",
+        help="Output format ('sarif' aliases --sarif, 'json' aliases --json).",
+    ),
     baseline: str | None = typer.Option(
         None,
         "--baseline",
@@ -9987,6 +9951,18 @@ def scan(
 
     def _scan_err(error: str, detail: str, code: int = 1) -> None:
         _exit_search_error(error, detail, json_mode=bool(json_output), exit_code=code)
+
+    if output_format is not None:
+        fmt = output_format.strip().lower()
+        if fmt == "sarif":
+            sarif = True
+        elif fmt != "json":
+            _scan_err(
+                "invalid_argument",
+                f"Unsupported --format {output_format!r}; expected 'sarif' or 'json'.",
+            )
+        else:
+            json_output = True
 
     inline_source_count = sum(item is not None for item in (ruleset, inline_rules, rule_file))
     if inline_source_count > 1:
@@ -10252,11 +10228,12 @@ def test(
     config: str | None = typer.Option(
         "sgconfig.yml", "--config", "-c", help="Path to ast-grep root config"
     ),
+    json_output: bool = typer.Option(False, "--json", help="Emit structured JSON test results."),
 ) -> None:
     """Test structural rules in tensor-grep's bounded AST workflow slice."""
     from tensor_grep.cli import ast_workflows
 
-    exit_code = ast_workflows.test_command(config)
+    exit_code = ast_workflows.test_command(config, json_output=json_output)
     if exit_code != 0:
         raise typer.Exit(code=exit_code)
 
@@ -11824,6 +11801,7 @@ def review_bundle_create(
     output_path: str | None = typer.Option(
         None,
         "--output",
+        "--out",
         help="Optional file path where the review bundle JSON should be written.",
     ),
     json_output: bool = typer.Option(
@@ -11846,6 +11824,7 @@ def review_bundle_create(
                     previous_manifest=previous_manifest,
                     receipt_paths=receipt,
                     output_path=output_path,
+                    include_change_slice=True,
                 )
             )
             return
@@ -11856,6 +11835,7 @@ def review_bundle_create(
             previous_manifest=previous_manifest,
             receipt_paths=receipt,
             output_path=output_path,
+            include_change_slice=True,
         )
     except FileNotFoundError as exc:
         if json_output:
@@ -11987,6 +11967,16 @@ def review_bundle_verify(
         "required, distinct from --trusted-key which pins which signers are cryptographically "
         "trusted at all.",
     ),
+    require_change_slice: bool = typer.Option(
+        False,
+        "--require-change-slice",
+        help="Fail closed unless change_slice and slice_digest are present and valid.",
+    ),
+    expect_slice_digest: str | None = typer.Option(
+        None,
+        "--expect-slice-digest",
+        help="Expected SHA-256 slice_digest the embedded change_slice must match.",
+    ),
     json_output: bool = typer.Option(
         False,
         "--json",
@@ -12019,6 +12009,8 @@ def review_bundle_verify(
                 require_trusted=require_trusted,
                 min_receipts=min_receipts,
                 expect_key_ids=expect_key,
+                expected_slice_digest=expect_slice_digest,
+                require_change_slice=require_change_slice,
             )
             typer.echo(json_text)
             # Mirror the text path: a tampered/invalid bundle must exit 1 even in
@@ -12034,6 +12026,8 @@ def review_bundle_verify(
             require_trusted=require_trusted,
             min_receipts=min_receipts,
             expect_key_ids=expect_key,
+            expected_slice_digest=expect_slice_digest,
+            require_change_slice=require_change_slice,
         )
     except typer.Exit:
         raise
@@ -12166,7 +12160,10 @@ def evidence_emit(
         "(independent of --sign).",
     ),
     output_path: str | None = typer.Option(
-        None, "--out", help="Optional file path where the receipt JSON should be written."
+        None,
+        "--out",
+        "--output",
+        help="Optional file path where the receipt JSON should be written.",
     ),
     json_output: bool = typer.Option(
         False, "--json", help="Emit the receipt as structured JSON to stdout."
@@ -12381,6 +12378,7 @@ def evidence_keygen(
     out_path: str | None = typer.Option(
         None,
         "--out",
+        "--output",
         help="Where to write the private key. Defaults to TG_EVIDENCE_SIGNING_KEY or "
         "~/.tensor-grep/keys/evidence_ed25519.key.",
     ),
@@ -13205,58 +13203,61 @@ def main_entry() -> None:
     # To act exactly like ripgrep (`rg pattern`), we dynamically inject the `search`
     # subcommand into sys.argv if the user didn't provide any recognized subcommand.
 
-    # Check for version flag first
-    if len(sys.argv) > 1 and sys.argv[1] in ("--version", "-V", "--pcre2-version"):
-        first_arg = sys.argv[1]
+    # Check for --pcre2-version or --version/-V invocations first
+    if len(sys.argv) > 1 and sys.argv[1] == "--pcre2-version":
+        from tensor_grep.cli.frontdoor_hops import child_env_or_refusal
 
-        if first_arg == "--pcre2-version":
-            from tensor_grep.cli.frontdoor_hops import child_env_or_refusal
+        pcre2_env, pcre2_refusal = child_env_or_refusal()
+        if pcre2_env is None:
+            sys.exit(pcre2_refusal)
+        from tensor_grep.cli.subprocess_policy import (
+            decode_diagnostic_output,
+            decode_protocol_output,
+        )
 
-            pcre2_env, pcre2_refusal = child_env_or_refusal()
-            if pcre2_env is None:
-                sys.exit(pcre2_refusal)
-            from tensor_grep.cli.subprocess_policy import (
-                decode_diagnostic_output,
-                decode_protocol_output,
+        # TG_REEXEC_GUARD: never hand back to the native door that spawned us (contract A).
+        native = None if os.environ.get("TG_REEXEC_GUARD") else _self.resolve_native_tg_binary()
+        candidates = [native, _self.resolve_ripgrep_binary()]
+        last_completed: subprocess.CompletedProcess[bytes] | None = None
+        for candidate in candidates:
+            if not candidate or not candidate.exists():
+                continue
+            completed = subprocess.run(
+                [str(candidate), "--pcre2-version"],
+                capture_output=True,
+                text=False,
+                env=pcre2_env,
             )
-
-            # TG_REEXEC_GUARD: never hand back to the native door that spawned us (contract A).
-            native = None if os.environ.get("TG_REEXEC_GUARD") else _self.resolve_native_tg_binary()
-            candidates = [native, _self.resolve_ripgrep_binary()]
-            last_completed: subprocess.CompletedProcess[bytes] | None = None
-            for candidate in candidates:
-                if not candidate or not candidate.exists():
-                    continue
-                completed = subprocess.run(
-                    [str(candidate), "--pcre2-version"],
-                    capture_output=True,
-                    text=False,
-                    env=pcre2_env,
-                )
-                last_completed = completed
-                if completed.returncode == 0:
-                    try:
-                        output = decode_protocol_output(completed.stdout)
-                    except UnicodeDecodeError:
-                        print("PCRE2 version output was not valid UTF-8.", file=sys.stderr)
-                        sys.exit(1)
-                    print(output.strip())
-                    sys.exit(0)
-            if last_completed is not None:
-                output = decode_diagnostic_output(last_completed.stderr).strip() or (
-                    decode_diagnostic_output(last_completed.stdout).strip()
-                )
-                if output:
-                    print(output, file=sys.stderr)
-                sys.exit(last_completed.returncode or 1)
-            print(
-                "PCRE2 version unavailable: no native tg or ripgrep binary found.",
-                file=sys.stderr,
+            last_completed = completed
+            if completed.returncode == 0:
+                try:
+                    output = decode_protocol_output(completed.stdout)
+                except UnicodeDecodeError:
+                    print("PCRE2 version output was not valid UTF-8.", file=sys.stderr)
+                    sys.exit(1)
+                print(output.strip())
+                sys.exit(0)
+        if last_completed is not None:
+            output = decode_diagnostic_output(last_completed.stderr).strip() or (
+                decode_diagnostic_output(last_completed.stdout).strip()
             )
-            sys.exit(1)
+            if output:
+                print(output, file=sys.stderr)
+            sys.exit(last_completed.returncode or 1)
+        print(
+            "PCRE2 version unavailable: no native tg or ripgrep binary found.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
-        _print_version(verbose=any(arg in {"--verbose", "-v"} for arg in sys.argv[2:]))
-        sys.exit(0)
+    argv = sys.argv[1:]
+    if argv and len(argv) <= 3 and ("--version" in argv or "-V" in argv):
+        from tensor_grep.cli.version_info import version_invocation_verbose
+
+        version_verbose = version_invocation_verbose(argv)
+        if version_verbose is not None:
+            _self._print_version(verbose=version_verbose)
+            sys.exit(0)
 
     from tensor_grep.cli.commands import KNOWN_COMMANDS as _KNOWN_COMMANDS
 

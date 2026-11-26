@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snappi_ixnetwork
-Version: 1.65.1
+Version: 1.66.0
 Summary: The Snappi IxNetwork Open Traffic Generator Python Package
 Author-email: Keysight Technologies <andy.balogh@keysight.com>
 License-Expression: MIT
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <4,>=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: ipaddr==2.2.0
-Requires-Dist: netaddr==0.8.0
+Requires-Dist: netaddr>=0.10.1
 Requires-Dist: ipaddress==1.0.23
 Requires-Dist: flake8
 Requires-Dist: dpkt
@@ -28,7 +28,7 @@ Requires-Dist: allure-pytest; python_version > "3.6"
 Requires-Dist: ixnetwork-restpy>=1.7.0
 Requires-Dist: build
 Provides-Extra: testing
-Requires-Dist: snappi==1.65.0; extra == "testing"
+Requires-Dist: snappi==1.66.0; extra == "testing"
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: mock; extra == "testing"
 Requires-Dist: dpkt==1.9.4; extra == "testing"

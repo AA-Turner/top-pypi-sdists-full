@@ -15,13 +15,13 @@ class DescribeDBInstanceDataSkewResponseBody(DaraModel):
         request_id: str = None,
         total_count: int = None,
     ):
-        # Details about data skew.
+        # The list of data skew details.
         self.items = items
-        # The page number of the returned page.
+        # The current page number.
         self.page_number = page_number
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # The total number of entries returned.
+        # The total number of entries.
         self.total_count = total_count
 
     def validate(self):
@@ -91,15 +91,15 @@ class DescribeDBInstanceDataSkewResponseBodyItems(DaraModel):
         self.owner = owner
         # The name of the schema.
         self.schema_name = schema_name
-        # The sequence number of the data skew case. All data skew cases are sorted by severity in descending order.
+        # The sequence number. The entries are sorted in descending order of data skew.
         self.sequence = sequence
         # The name of the table.
         self.table_name = table_name
         # The total number of rows in the table.
         self.table_size = table_size
-        # The skew ratio of the table. Valid values: 0 to 100. Unit: %. A greater value indicates that the table is more severely skewed. A smaller value indicates less impact on query performance. A value of 0 indicates no data skew.
+        # The data skew percentage of the table. Valid values: 0 to 100. Unit: %. A larger value indicates more severe data skew. A smaller value is more beneficial to the query performance of the database. A value of 0 indicates no data skew.
         self.table_skew = table_skew
-        # The time when the table was last deleted, inserted, or updated.
+        # The time when the table was last updated by a DELETE, INSERT, or UPDATE operation.
         self.time_last_updated = time_last_updated
 
     def validate(self):

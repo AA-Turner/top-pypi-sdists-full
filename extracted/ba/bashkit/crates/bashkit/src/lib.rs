@@ -323,7 +323,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.21.1", features = ["git"] }
+//! bashkit = { version = "0.22.0", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -354,7 +354,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.21.1", features = ["python"] }
+//! bashkit = { version = "0.22.0", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -499,7 +499,8 @@ pub use execution::Execution;
 pub use stream::StreamData;
 
 pub use analysis::{
-    AnalyzedCommand, AnalyzedRedirect, CommandPlacement, RedirectMode, ScriptAnalysis,
+    AnalyzedCommand, AnalyzedRedirect, AnalyzedUpload, CommandPlacement, RedirectMode,
+    ScriptAnalysis,
 };
 pub use async_trait::async_trait;
 pub use builtins::git::GitConfig;
@@ -515,12 +516,28 @@ pub use error::{Error, Result};
 pub use execution_capability::{
     CapabilityCleanupReport, ExecutionCapability, ExecutionCapabilityError, ExecutionExtensions,
 };
+
+/// Diagnostic execution selector for benchmarks and differential fuzzing,
+/// passed through [`ExecOptions::extensions`].
+///
+/// Both modes must attach this same type for a matched, same-binary comparison.
+/// It adds no lookup to ordinary builds of the execution-plan experiment.
+#[cfg(feature = "experimental_plan_benchmark_control")]
+#[doc(hidden)]
+#[derive(Clone, Copy)]
+pub enum ExperimentalPlanBenchmarkControl {
+    /// Apply the experiment's ordinary admission policy.
+    Auto,
+    /// Use the AST executor, skipping optional plan construction.
+    InterpreterOnly,
+}
 pub use fs::{
     DirEntry, DirListing, FileSystem, FileSystemExt, FileType, FsBackend, FsLimitExceeded,
     FsLimits, FsUsage, InMemoryFs, LazyLoader, Metadata, MountableFs, NamespaceAccess, NamespaceFs,
-    NamespaceFsBuilder, OverlayFs, PosixFs, ReadOnlyFs, SearchCapabilities, SearchCapable,
-    SearchMatch, SearchProvider, SearchQuery, SearchResults, VfsEntry, VfsEntryKind, VfsSnapshot,
-    WalkOptions, normalize_path, verify_filesystem_requirements, vfs_join, walk_with_read_dir,
+    NamespaceFsBuilder, OverlayFs, PosixFs, ReadCharge, ReadOnlyFs, SearchCapabilities,
+    SearchCapable, SearchMatch, SearchProvider, SearchQuery, SearchResults, VfsEntry, VfsEntryKind,
+    VfsSnapshot, WalkOptions, normalize_path, verify_filesystem_requirements, vfs_join,
+    walk_with_read_dir,
 };
 #[cfg(feature = "realfs")]
 pub use fs::{RealFs, RealFsMode};
@@ -1046,6 +1063,8 @@ impl Bash {
         let _ = extensions.insert(active_limits.clone());
         let _ = extensions.insert(self.interpreter.execution_budget().clone());
         let _ = extensions.insert(builtins::ExecutionDeadline::new(active_limits.timeout));
+        #[cfg(feature = "jq")]
+        let _ = extensions.insert(builtins::JqFilterCache::default());
         #[cfg(feature = "python")]
         let _ = extensions.insert(builtins::PythonInprocessOptIn(self.python_inprocess_opt_in));
         #[cfg(feature = "sqlite")]
@@ -2614,8 +2633,10 @@ impl BashBuilder {
     /// Set a custom SSH handler for transport interception.
     ///
     /// Embedders can implement [`SshHandler`] to mock, proxy, log, or
-    /// rate-limit SSH operations. The allowlist check happens before
-    /// the handler is called.
+    /// rate-limit SSH operations. Bashkit checks the allowlist before
+    /// dispatch. In strict mode, operations require the handler to accept
+    /// the configured host-key policy via
+    /// [`SshHandler::configure_strict_host_key_checking`].
     #[cfg(feature = "ssh")]
     pub fn ssh_handler(mut self, handler: Box<dyn builtins::ssh::SshHandler>) -> Self {
         self.ssh_handler = Some(handler);
@@ -4322,7 +4343,7 @@ pub mod sqlite_guide {}
 /// **Related:** `BashBuilder::network`, `NetworkAllowlist`, [`threat_model`]
 #[cfg(all(
     any(feature = "markkit", feature = "fetchkit"),
-    not(target_arch = "wasm32")
+    not(target_family = "wasm")
 ))]
 #[doc = include_str!("../docs/markkit-fetchkit.md")]
 pub mod markkit_fetchkit_guide {}

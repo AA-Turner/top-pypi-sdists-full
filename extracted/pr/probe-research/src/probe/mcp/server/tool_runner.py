@@ -12,7 +12,7 @@ import anyio.to_thread
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import CallToolResult, TextContent
 from pydantic_core import to_jsonable_python
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, ValidationError as PydanticValidationError, create_model
 from ...sdk import errors
 from ...sdk.settings import workspace_limit
 from ...foundation.request_identity.surface import Surface, tool_scope
@@ -288,12 +288,31 @@ def _get_server_message_text(exc: BaseException) -> str | None:
     return None
 
 
-def _bounded_error_text(exc: BaseException, limit: int = 600) -> str:
+def _describe_bad_arguments(tool: str, exc: BaseException) -> str | None:
+    """FastMCP's refusal of a call's arguments as one line: each field once, its rule (for an enum,
+    pydantic names every value) and what was sent. None for any other error."""
+    refused = exc.__cause__
+    if not isinstance(refused, PydanticValidationError) or not refused.title.endswith("Arguments"):
+        return None
+    said: dict[tuple[str, str], list[str]] = {}
+    for item in refused.errors(include_url=False):
+        field = ".".join(str(part) for part in item["loc"] if not isinstance(part, int)) or "arguments"
+        got = said.setdefault((field, item["msg"]), [])
+        if item.get("type") != "missing":  # a missing field's input is the whole call: nothing to show
+            sent = repr(item.get("input"))
+            got.append(sent if len(sent) <= 60 else sent[:57] + "...")
+    return f"{tool}: " + "; ".join(
+        f"{field}: {rule}" + (f" (got {', '.join(got)})" if got else "") for (field, rule), got in said.items()
+    )
+
+
+def _bounded_error_text(exc: BaseException, limit: int = 600, *, tool: str | None = None) -> str:
     """A tool error's text, at most `limit` characters -- and, when the caller's
     workspace limit hid what was asked for, saying so (kept whole, never the part
     the bound cuts): an agent reads a silent miss as data loss. A refusal from the
-    server's registry is its own sentence, FIRST, so the cut never drops it (A4)."""
-    said = _get_server_message_text(exc)
+    server's registry is its own sentence, FIRST, so the cut never drops it (A4).
+    Refused arguments of `tool` read as one line, not pydantic's dump."""
+    said = _get_server_message_text(exc) or (_describe_bad_arguments(tool, exc) if tool else None)
     if said is not None:
         return said[:limit].encode("utf-8", errors="replace").decode("utf-8")
     message = str(exc)

@@ -1,10 +1,17 @@
 """Which gated skills this person may see (`GET /v1/me/gated-skills`, A24), kept on disk for the session-start
-skill sync (`root_skills_core.load_allowed_gated`): at sign-in, and on the daemon's message poll at most hourly."""
+skill sync (`root_skills_core.load_allowed_gated`): at sign-in, and on the daemon's message poll at most hourly.
+
+Each kept answer also brings every agent's gated copies in line at once (`apply_gated_copies`): Codex lists its
+skills when a session starts, BEFORE its SessionStart hook runs, so a copy only that hook makes reaches the session
+after next (the compute-tests T3 eval: Codex never saw compute-setup); and Claude Code's copy came only with its
+plugin's session-start sync, so a person who signed in during a chat (or has no plugin yet) never got it (T4b)."""
 
 from __future__ import annotations
 
 import json
+import sys
 import time
+from pathlib import Path
 
 from probe.foundation.skills import root_skills_core as core
 
@@ -51,6 +58,61 @@ def fetch_allowed_gated(base_url: str, token: str, timeout: float = FETCH_TIMEOU
     return tuple(s for s in skills if isinstance(s, str))
 
 
+def get_gated_root(harness, env: "dict[str, str] | None" = None) -> "Path | None":
+    """Where `harness` keeps the gated copies alone (Codex's own `skills/`, `CAPABILITY_GATED_SKILLS`): None where
+    its root skills hold them (Claude Code's, copied with the plugin's skills) or it takes none."""
+    from probe.foundation.harness_registry.harness_registry import CAPABILITY_GATED_SKILLS, CAPABILITY_ROOT_SKILLS
+
+    if harness is None or harness.can(CAPABILITY_ROOT_SKILLS) or not harness.can(CAPABILITY_GATED_SKILLS):
+        return None
+    home = harness.home_dir(env)
+    return None if home is None else home / "skills"
+
+
+def get_gated_copies_root(harness, env: "dict[str, str] | None" = None) -> "Path | None":
+    """Where `harness` keeps its gated copies, alone (`get_gated_root`) or beside its root skills (Claude Code's
+    `skills/`, which its plugin's session-start sync keeps too); None where it takes none."""
+    from probe.foundation.harness_registry.harness_registry import CAPABILITY_GATED_SKILLS, CAPABILITY_ROOT_SKILLS
+
+    if harness is None or not harness.can(CAPABILITY_GATED_SKILLS):
+        return None
+    if not harness.can(CAPABILITY_ROOT_SKILLS):
+        return get_gated_root(harness, env)
+    home = harness.home_dir(env)
+    return None if home is None else home / "skills"
+
+
+def find_release_plugin() -> "Path | None":
+    """This CLI release's `probe` plugin folder holding `gated-skills/`: the wheel's shared data (the
+    environment's prefix, its data scheme, or the user base), else the checkout this code runs from. The same
+    folders the Probe service copies Codex's hook routes from (`service.hooks.proxy.copies`)."""
+    import site
+    import sysconfig
+
+    data = [sys.prefix, sysconfig.get_path("data"), site.getuserbase()]
+    found = [Path(d) / "share" / "probe-research" / "plugins" / "probe" for d in dict.fromkeys(data) if d]
+    found.append(Path(__file__).resolve().parents[4] / "plugins" / "probe")
+    return next((folder for folder in found if (folder / core.GATED_SKILLS_DIR).is_dir()), None)
+
+
+def apply_gated_copies(env: "dict[str, str] | None" = None) -> None:
+    """Every installed agent that takes gated copies (Codex, Claude Code) gets exactly the kept answer's, from this
+    release's plugin folder, now; only gated copies are added or pruned. An agent whose home is not on this computer
+    is skipped. Never raises."""
+    try:
+        from probe.foundation.harness_registry import get_registry
+
+        source = find_release_plugin()
+        if source is None:
+            return
+        for harness in get_registry().all():
+            root = get_gated_copies_root(harness, env)
+            if root is not None and root.parent.is_dir():
+                core.apply_gated(root, source)
+    except Exception:  # noqa: BLE001 -- the session-start sync does the same work next time
+        return
+
+
 def keep_gated_skills(base_url: str, token: str, *, is_sign_in: bool = False) -> bool:
     """Ask, and keep the answer for the hook. No answer keeps the last one, except at a sign-in, which may be
     another person's: then the kept answer goes (fail closed). True when an answer was kept. Never raises."""
@@ -59,8 +121,10 @@ def keep_gated_skills(base_url: str, token: str, *, is_sign_in: bool = False) ->
         if allowed is None:
             if is_sign_in:
                 core.clear_allowed_gated()
+                apply_gated_copies()
             return False
         core.save_allowed_gated(allowed)
+        apply_gated_copies()
         return True
     except Exception:  # noqa: BLE001 -- the hook then reads no answer: no gated skill
         return False

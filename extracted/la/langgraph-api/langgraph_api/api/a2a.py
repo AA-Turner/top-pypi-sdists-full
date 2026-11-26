@@ -15,10 +15,11 @@ import base64
 import binascii
 import functools
 import os
+import re
 import uuid
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Literal, NotRequired, Self, cast
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, Self, cast
 
 import orjson
 import structlog
@@ -28,6 +29,7 @@ from starlette.responses import JSONResponse, Response
 from typing_extensions import TypedDict
 
 from langgraph_api import __version__
+from langgraph_api.api.a2a_wire import normalize_parts, to_v1_response
 from langgraph_api.api.a2ui import (
     A2UI_EXTENSION_URI,
     A2UI_MIME_TYPE,
@@ -42,6 +44,7 @@ from langgraph_api.config import (
     A2A_A2UI_TOOL_CALL_RESULTS,
     A2A_ALLOWED_TOOL_CALL_RESULTS,
 )
+from langgraph_api.errors import UserInterrupt, UserRollback
 from langgraph_api.metadata import USER_API_URL
 from langgraph_api.route import ApiRequest, ApiRoute
 from langgraph_api.schema import RunCommand
@@ -49,6 +52,9 @@ from langgraph_api.serde import json_dumpb
 from langgraph_api.sse import EventSourceResponse
 from langgraph_api.utils.cache import LRUCache
 from langgraph_api.utils.uuids import uuid7
+
+if TYPE_CHECKING:
+    from langgraph_sdk.schema import RunCreateMetadata
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -106,6 +112,7 @@ ERROR_CODE_PUSH_NOTIFICATION_NOT_SUPPORTED = -32003
 ERROR_CODE_UNSUPPORTED_OPERATION = -32004
 ERROR_CODE_CONTENT_TYPE_NOT_SUPPORTED = -32005
 ERROR_CODE_INVALID_AGENT_RESPONSE = -32006
+ERROR_CODE_VERSION_NOT_SUPPORTED = -32009
 
 
 # ============================================================================
@@ -551,6 +558,13 @@ def _lg_status_to_a2a_state(lg_status: str) -> str:
         "timeout": "TASK_STATE_FAILED",
     }
     return mapping.get(lg_status, "TASK_STATE_SUBMITTED")
+
+
+_CANCEL_ERROR_NAMES = frozenset({UserInterrupt.__name__, UserRollback.__name__})
+
+
+def _is_cancel_error(error: object) -> bool:
+    return isinstance(error, dict) and error.get("error") in _CANCEL_ERROR_NAMES
 
 
 def _task_state_for_run(
@@ -1389,10 +1403,15 @@ def _tool_result_data(message: dict[str, Any]) -> dict[str, Any] | None:
     return result
 
 
-def _tool_results_data_part(tool_results: list[dict[str, Any]]) -> dict[str, Any]:
+def _tool_results_data_part(
+    tool_results: list[dict[str, Any]], *, v1: bool = False
+) -> dict[str, Any]:
     """Wrap one or more tool results in a single A2A DataPart."""
 
-    return {"kind": "data", "data": {"tool_results": tool_results}}
+    return {
+        "kind": "data",
+        "data": {"toolResults" if v1 else "tool_results": tool_results},
+    }
 
 
 def _tool_result_a2ui_parts(message: object, a2ui: A2UIContext) -> list[dict[str, Any]]:
@@ -1421,6 +1440,7 @@ def _lc_stream_items_to_a2a_message(
     task_id: str,
     context_id: str,
     role: Literal["ROLE_AGENT", "ROLE_USER"] = "ROLE_AGENT",
+    v1: bool = False,
 ) -> dict[str, Any]:
     """Convert LangChain stream "messages/*" items into a valid A2A Message.
 
@@ -1460,7 +1480,7 @@ def _lc_stream_items_to_a2a_message(
     if text_parts:
         parts.append({"kind": "text", "text": "".join(text_parts)})
     if tool_results:
-        parts.append(_tool_results_data_part(tool_results))
+        parts.append(_tool_results_data_part(tool_results, v1=v1))
 
     # Ensure we always produce a minimally valid A2A Message
     if not parts:
@@ -1482,6 +1502,7 @@ def _lc_items_to_status_update_event(
     task_id: str,
     context_id: str,
     state: str = "TASK_STATE_WORKING",
+    v1: bool = False,
 ) -> dict[str, Any]:
     """Build a TaskStatusUpdateEvent embedding a converted A2A Message.
 
@@ -1489,7 +1510,7 @@ def _lc_items_to_status_update_event(
     and keeps message content within the status update per spec.
     """
     message = _lc_stream_items_to_a2a_message(
-        items, task_id=task_id, context_id=context_id, role="ROLE_AGENT"
+        items, task_id=task_id, context_id=context_id, role="ROLE_AGENT", v1=v1
     )
     return {
         "taskId": task_id,
@@ -1580,6 +1601,7 @@ def _convert_messages_to_a2a_format(
     history_scope: HistoryScope = "context",
     a2ui: A2UIContext,
     task_ids_by_start_id: dict[str, str] | None = None,
+    v1: bool = False,
 ) -> list[dict[str, Any]]:
     """Convert LangChain messages to A2A message format.
 
@@ -1649,7 +1671,7 @@ def _convert_messages_to_a2a_format(
             if a2a_role is None:
                 parts = []
                 if (tool_result := _tool_result_data(msg)) is not None:
-                    parts.append(_tool_results_data_part([tool_result]))
+                    parts.append(_tool_results_data_part([tool_result], v1=v1))
                 parts.extend(_tool_result_a2ui_parts(msg, history_a2ui))
                 if not parts:
                     continue
@@ -1696,6 +1718,7 @@ async def _create_task_response(
     history_scope: HistoryScope = "context",
     task_ids_by_start_id: dict[str, str] | None = None,
     turn: list[object] | None = None,
+    v1: bool = False,
 ) -> dict[str, Any]:
     messages = result.get("messages", []) or []
     thread_history = _convert_messages_to_a2a_format(
@@ -1706,6 +1729,7 @@ async def _create_task_response(
         history_scope=history_scope,
         a2ui=a2ui,
         task_ids_by_start_id=task_ids_by_start_id,
+        v1=v1,
     )
 
     base_task: dict[str, Any] = {
@@ -1716,7 +1740,12 @@ async def _create_task_response(
     if history_length != 0:
         base_task["history"] = thread_history
 
-    if "__error__" in result:
+    if _is_cancel_error(result.get("__error__")):
+        base_task["status"] = {
+            "state": "TASK_STATE_CANCELED",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+    elif "__error__" in result:
         base_task["status"] = {
             "state": "TASK_STATE_FAILED",
             "message": {
@@ -1840,6 +1869,20 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
             None,  # Can't echo back invalid id
         )
 
+    version = (request.headers.get("A2A-Version") or "").strip() or "0.3"
+    parsed_version = re.fullmatch(r"([0-9]+)\.([0-9]+)(?:\.[0-9]+)?", version)
+    negotiated_version = (
+        ".".join(parsed_version.groups()) if parsed_version is not None else None
+    )
+    if negotiated_version not in ("0.3", "1.0"):
+        logger.debug("Unsupported A2A version", a2a_version=version[:64])
+        return create_jsonrpc_error_response(
+            ERROR_CODE_VERSION_NOT_SUPPORTED,
+            "Unsupported A2A version. Supported versions: 0.3, 1.0",
+            message.get("id"),
+        )
+    request.state.a2a_v1_format = negotiated_version == "1.0"
+
     # Validate method type: JSON-RPC 2.0 requires method to be a String
     # Per A2A TCK, invalid method type returns "Method Not Found" (-32601)
     if method is not None and not isinstance(method, str):
@@ -1880,6 +1923,23 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
                 "Missing or invalid 'message' in params",
                 id_,
             )
+
+    if method in (
+        "SendMessage",
+        "SendStreamingMessage",
+    ):
+        try:
+            parts = normalize_parts(
+                params["message"].get("parts", []), v1=request.state.a2a_v1_format
+            )
+        except ValueError as exc:
+            return create_jsonrpc_error_response(
+                ERROR_CODE_INVALID_PARAMS, str(exc), id_
+            )
+        message = {
+            **message,
+            "params": {**params, "message": {**params["message"], "parts": parts}},
+        }
 
     accept_header = request.headers.get("Accept") or ""
     if method == "SendStreamingMessage":
@@ -2035,7 +2095,9 @@ async def handle_jsonrpc_request(
         "id": message["id"],
         **result_or_error,
     }
-    if getattr(request.state, "a2a_spec_format", False):
+    if getattr(request.state, "a2a_v1_format", False):
+        response_body = to_v1_response(response_body)
+    elif getattr(request.state, "a2a_spec_format", False):
         response_body = _to_spec_format(response_body)
     return JSONResponse(response_body)
 
@@ -2296,32 +2358,37 @@ async def handle_message_send(
                 task_id=existing_task_id,
             )
 
-        try:
-            run = await client.runs.create(
-                thread_id=context_id,
-                assistant_id=assistant_id,
-                input=input_content,
-                command=command,
-                context=run_context,
-                metadata=_a2a_run_metadata(
-                    assistant,
-                    a2ui,
-                    task_id=task_id,
-                    task_start_id=task_start_id,
-                ),
-                if_not_exists="create",
-                headers=request.headers,
-            )
-        except Exception as e:
-            error_response = _map_runs_create_error_to_rpc(e, assistant_id, context_id)
-            if error_response.get("error", {}).get("code") == ERROR_CODE_INTERNAL_ERROR:
-                raise
-            return error_response
-
-        context_id = str(run["thread_id"])
-        if task_id is None:
-            task_id = _make_task_id(context_id, str(run["run_id"]))
+        run_metadata = _a2a_run_metadata(
+            assistant,
+            a2ui,
+            task_id=task_id,
+            task_start_id=task_start_id,
+        )
         if return_immediately:
+            try:
+                run = await client.runs.create(
+                    thread_id=context_id,
+                    assistant_id=assistant_id,
+                    input=input_content,
+                    command=command,
+                    context=run_context,
+                    metadata=run_metadata,
+                    if_not_exists="create",
+                    headers=request.headers,
+                )
+            except Exception as e:
+                error_response = _map_runs_create_error_to_rpc(
+                    e, assistant_id, context_id
+                )
+                if (
+                    error_response.get("error", {}).get("code")
+                    == ERROR_CODE_INTERNAL_ERROR
+                ):
+                    raise
+                return error_response
+            context_id = str(run["thread_id"])
+            if task_id is None:
+                task_id = _make_task_id(context_id, str(run["run_id"]))
             immediate_task: dict[str, Any] = {
                 "kind": "task",
                 "id": task_id,
@@ -2347,8 +2414,38 @@ async def handle_message_send(
                     history_scope=history_scope,
                     a2ui=a2ui,
                     task_ids_by_start_id=task_ids_by_start_id,
+                    v1=getattr(getattr(request, "state", None), "a2a_v1_format", False),
                 )
             return {"result": {"task": immediate_task}}
+
+        # runs.wait subscribes to the run before creating it, so a cancel that lands
+        # right after the run starts still reaches this call; a create followed by a
+        # join starts listening too late and misses it.
+        created: list[RunCreateMetadata] = []
+        try:
+            result = cast(
+                "dict[str, Any]",
+                await client.runs.wait(
+                    thread_id=context_id,
+                    assistant_id=assistant_id,
+                    input=input_content,
+                    command=command,
+                    context=run_context,
+                    metadata=run_metadata,
+                    if_not_exists="create",
+                    raise_error=False,
+                    on_run_created=created.append,
+                    headers=request.headers,
+                ),
+            )
+        except Exception as e:
+            error_response = _map_runs_create_error_to_rpc(e, assistant_id, context_id)
+            if error_response.get("error", {}).get("code") == ERROR_CODE_INTERNAL_ERROR:
+                raise
+            return error_response
+        run_id = str(created[0]["run_id"])
+        if task_id is None:
+            task_id = _make_task_id(context_id, run_id)
 
         if existing_task_id is None:
             try:
@@ -2367,11 +2464,6 @@ async def handle_message_send(
             if task_start_id:
                 task_ids_by_start_id.setdefault(task_start_id, task_id)
 
-        result = await client.runs.join(
-            thread_id=run["thread_id"],
-            run_id=run["run_id"],
-            headers=request.headers,
-        )
         data_only_input = command is None and "messages" not in input_content
         turn = None
         if data_only_input or (
@@ -2379,9 +2471,7 @@ async def handle_message_send(
             and history_length != 0
             and "messages" not in input_content
         ):
-            run_messages = await _load_run_messages(
-                context_id, str(run["run_id"]), request.headers
-            )
+            run_messages = await _load_run_messages(context_id, run_id, request.headers)
             result = {**result, "messages": run_messages.stamped(task_id)}
             if data_only_input:
                 turn = run_messages.added
@@ -2396,6 +2486,7 @@ async def handle_message_send(
             a2ui=a2ui,
             task_ids_by_start_id=task_ids_by_start_id,
             turn=turn,
+            v1=getattr(getattr(request, "state", None), "a2a_v1_format", False),
         )
 
     except InvalidAgentResponseError as e:
@@ -2569,6 +2660,7 @@ async def handle_tasks_get(
                 history_scope=history_scope,
                 task_ids_by_start_id=task.task_ids_by_start_id,
                 turn=run_messages.added,
+                v1=getattr(getattr(request, "state", None), "a2a_v1_format", False),
             )
             task_response = response["result"]["task"]
             task_response["status"]["timestamp"] = task.status_timestamp
@@ -2589,6 +2681,7 @@ async def handle_tasks_get(
                     history_scope=history_scope,
                     a2ui=_a2ui_context_for_run(run_info),
                     task_ids_by_start_id=task.task_ids_by_start_id,
+                    v1=getattr(getattr(request, "state", None), "a2a_v1_format", False),
                 )
             except A2UIValidationError:
                 raise
@@ -3056,6 +3149,7 @@ async def handle_list_tasks(
                     task_ids_by_start_id=task_ids_by_start_id_by_context.get(
                         task["contextId"]
                     ),
+                    v1=getattr(getattr(request, "state", None), "a2a_v1_format", False),
                 )
 
             await asyncio.gather(*(populate_history(task) for task in page_tasks))
@@ -3896,6 +3990,11 @@ async def handle_message_stream(
                                 task_id=task_id,
                                 context_id=context_id,
                                 state="TASK_STATE_WORKING",
+                                v1=getattr(
+                                    getattr(request, "state", None),
+                                    "a2a_v1_format",
+                                    False,
+                                ),
                             )
                             # Skip emitting events with no meaningful content
                             # (e.g. Anthropic metadata-only chunks).
@@ -3913,7 +4012,7 @@ async def handle_message_stream(
                                         "result": update,
                                     },
                                 )
-                    else:
+                    elif chunk.event != "end":
                         await logger.awarning(
                             "Ignoring unknown event type: " + chunk.event
                         )
@@ -3923,9 +4022,14 @@ async def handle_message_stream(
                     err = {"error": type(e).__name__, "message": str(e)}
                     continue
 
-            # If we exit unexpectedly, send a final status based on error presence
+            # The stream ended: report the final state from the last error or result.
+            canceled = _is_cancel_error(err)
             final_message = None
-            if isinstance(err, dict) and ("__error__" in err or "error" in err):
+            if (
+                not canceled
+                and isinstance(err, dict)
+                and ("__error__" in err or "error" in err)
+            ):
                 msg = (
                     err.get("__error__", {}).get("error")
                     if isinstance(err.get("__error__"), dict)
@@ -3940,8 +4044,10 @@ async def handle_message_stream(
                     "taskId": task_id,
                     "contextId": context_id,
                 }
-            # Determine final state: failed > input-required > completed
-            if err:
+            # Determine final state: canceled > failed > input-required > completed
+            if canceled:
+                fallback_state = "TASK_STATE_CANCELED"
+            elif err:
                 fallback_state = "TASK_STATE_FAILED"
             elif isinstance(result, dict) and "__interrupt__" in result:
                 fallback_state = "TASK_STATE_INPUT_REQUIRED"
@@ -4048,10 +4154,13 @@ async def handle_message_stream(
             )
 
     spec_format = getattr(request.state, "a2a_spec_format", False)
+    v1_format = getattr(request.state, "a2a_v1_format", False)
 
     async def consume_():
         async for event_type, data in stream_body():
-            if spec_format:
+            if v1_format:
+                data = to_v1_response(data)
+            elif spec_format:
                 data = _to_spec_format(data)
             chunk = (event_type, _serialize_a2a_sse_payload(data))
             await logger.adebug("A2A.stream_body: Yielding chunk", chunk=chunk)

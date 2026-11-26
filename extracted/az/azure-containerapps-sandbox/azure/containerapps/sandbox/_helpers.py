@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from azure.core.exceptions import (
@@ -25,6 +25,7 @@ from azure.core.pipeline.policies import (
     RedirectPolicy,
     RequestIdPolicy,
     RetryPolicy,
+    SansIOHTTPPolicy,
     UserAgentPolicy,
 )
 from azure.core.pipeline.transport import RequestsTransport
@@ -35,8 +36,9 @@ from azure.containerapps.sandbox._version import VERSION
 if TYPE_CHECKING:
     from azure.core.credentials import TokenCredential
     from azure.core.credentials_async import AsyncTokenCredential
-    from azure.core.pipeline import AsyncPipeline
+    from azure.core.pipeline import AsyncPipeline, PipelineRequest
     from azure.core.pipeline.transport import AsyncHttpTransport, HttpTransport
+    from azure.containerapps.sandbox._models import RegistryCredentials
 
 logger = logging.getLogger("azure.containerapps.sandbox")
 
@@ -44,13 +46,49 @@ SDK_MONIKER = f"azure-containerapps-sandbox/{VERSION}"
 
 DATA_PLANE_SCOPE = "https://dynamicsessions.io/.default"
 DATA_PLANE_BASE = "https://management.azuredevcompute.io"
-DATA_PLANE_API_VERSION = "2026-02-01-preview"
+DATA_PLANE_API_VERSION = "2026-09-01-preview"
 
 _ERROR_MAP: dict[int, type] = {
     401: ClientAuthenticationError,
     403: ClientAuthenticationError,
     404: ResourceNotFoundError,
 }
+
+
+def _get_json_array(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    nullable: bool = False,
+) -> list[Any]:
+    """Read and validate a JSON array property."""
+    if not isinstance(payload, Mapping):
+        raise TypeError("JSON payload must be an object")
+    if field_name not in payload:
+        return []
+
+    value = payload[field_name]
+    if value is None and nullable:
+        return []
+    if not isinstance(value, list):
+        expected = "a JSON array or null" if nullable else "a JSON array"
+        raise TypeError(f"{field_name} must be {expected}")
+    return value
+
+
+def _get_optional_json_array(
+    payload: Mapping[str, Any],
+    field_name: str,
+) -> list[Any] | None:
+    """Read an optional JSON array while preserving missing/null as ``None``."""
+    if not isinstance(payload, Mapping):
+        raise TypeError("JSON payload must be an object")
+    value = payload.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise TypeError(f"{field_name} must be a JSON array or null")
+    return value
 
 
 def _validate_segment(value: str, name: str) -> str:
@@ -60,6 +98,64 @@ def _validate_segment(value: str, name: str) -> str:
             f"Invalid {name}: must not contain '/', '\\', '..', or null bytes."
         )
     return value
+
+
+def _disk_image_create_body(
+    base_image: str,
+    name: str | None,
+    registry_credentials: "RegistryCredentials | None",
+    managed_identity_client_id: str | None,
+    kwargs: dict[str, Any],
+) -> dict:
+    """Validate registry import options before data-plane I/O."""
+    if "managed_identity_resource_id" in kwargs:
+        raise TypeError(
+            "managed_identity_resource_id is no longer supported. "
+            "Pass managed_identity_client_id='system' or the user-assigned identity's UUID client ID instead."
+        )
+    for key in ("entrypoint", "cmd"):
+        if key in kwargs:
+            raise TypeError(
+                f"{key} is no longer supported for disk-image creation. "
+                "Configure command overrides on the sandbox container instead."
+            )
+    if registry_credentials is not None and managed_identity_client_id is not None:
+        raise ValueError("registry_credentials and managed_identity_client_id are mutually exclusive.")
+    source: dict[str, Any] = {
+        "kind": "registry",
+        "imageUrl": base_image,
+        "isPlatformImage": False,
+    }
+    if registry_credentials is not None:
+        if (
+            not isinstance(registry_credentials.username, str)
+            or not registry_credentials.username.strip()
+            or not isinstance(registry_credentials.token, str)
+            or not registry_credentials.token.strip()
+        ):
+            raise ValueError("registry_credentials requires both a nonempty username and token.")
+        source["registryCredentials"] = registry_credentials.as_dict()
+
+    identity = managed_identity_client_id
+    if identity is not None:
+        if not isinstance(identity, str):
+            raise ValueError("managed_identity_client_id must be 'system' or a canonical UUID client ID.")
+        if identity.lower() == "system":
+            identity = "system"
+            source["managedIdentityClientId"] = identity
+        elif not re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            identity,
+        ):
+            raise ValueError(
+                "managed_identity_client_id must be 'system' or a canonical UUID client ID."
+            )
+        else:
+            source["managedIdentityClientId"] = identity.lower()
+    body: dict[str, Any] = {"source": source}
+    if name:
+        body["labels"] = {"name": name}
+    return body
 
 
 def _validate_endpoint(endpoint: str) -> str:
@@ -88,6 +184,13 @@ def _validate_continuation_token(token: str, endpoint: str) -> None:
         )
 
 
+class _ContinuationUrlPolicy(SansIOHTTPPolicy):
+    def on_request(self, request: PipelineRequest) -> None:
+        endpoint = request.context.options.pop("_continuation_endpoint", None)
+        if endpoint is not None:
+            _validate_continuation_token(request.http_request.url, endpoint)
+
+
 def _build_pipeline(
     credential: "TokenCredential",
     scope: str,
@@ -106,6 +209,7 @@ def _build_pipeline(
         # retry_status=10: covers ~60-100s of 403s for RBAC propagation
         # (default is 3 which only covers ~6s — insufficient for fresh role assignments)
         RetryPolicy(retry_on_status_codes=[403], retry_status=10, **kwargs),
+        _ContinuationUrlPolicy(),
         BearerTokenCredentialPolicy(credential, scope, **kwargs),
         NetworkTraceLoggingPolicy(**kwargs),
         DistributedTracingPolicy(**kwargs),
@@ -124,28 +228,6 @@ def _raise_if_error(response: HttpResponse, error_map: dict | None = None) -> No
     combined = {**_ERROR_MAP, **(error_map or {})}
     map_error(status_code=response.status_code, response=response, error_map=combined)
     raise HttpResponseError(response=response)
-
-
-def get_subscription_id() -> str:
-    """Detect subscription ID from environment or Azure CLI."""
-    sub = os.environ.get("AZURE_SUBSCRIPTION_ID")
-    if sub:
-        return sub
-    try:
-        import subprocess
-        result = subprocess.run(
-            ["az", "account", "show", "--query", "id", "-o", "tsv"],
-            capture_output=True, text=True, check=True,
-        )
-        sub = result.stdout.strip()
-        if sub:
-            return sub
-    except Exception:
-        pass
-    raise ValueError(
-        "subscription_id is required. Pass it to the constructor, set "
-        "the AZURE_SUBSCRIPTION_ID environment variable, or run 'az login'."
-    )
 
 
 def endpoint_for_region(region: str) -> str:
@@ -185,6 +267,7 @@ def _build_async_pipeline(
         # retry_status=10: covers ~60-100s of 403s for RBAC propagation
         # (default is 3 which only covers ~6s — insufficient for fresh role assignments)
         AsyncRetryPolicy(retry_on_status_codes=[403], retry_status=10, **kwargs),
+        _ContinuationUrlPolicy(),
         AsyncBearerTokenCredentialPolicy(credential, scope, **kwargs),
         NetworkTraceLoggingPolicy(**kwargs),
         DistributedTracingPolicy(**kwargs),

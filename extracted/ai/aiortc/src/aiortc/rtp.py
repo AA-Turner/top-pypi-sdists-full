@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 from av import AudioFrame
 
 from .rtcrtpparameters import RTCRtpParameters
+from .utils import uint16_add
 
 # used for NACK and retransmission
 RTP_HISTORY_SIZE = 128
@@ -28,6 +29,8 @@ RTCP_SDES = 202
 RTCP_BYE = 203
 RTCP_RTPFB = 205
 RTCP_PSFB = 206
+
+RTCP_SDES_CNAME = 1
 
 RTCP_RTPFB_NACK = 1
 
@@ -86,14 +89,16 @@ class HeaderExtensionsMap:
                 values.repaired_rtp_stream_id = x_value.decode("ascii")
             elif x_id == self.__ids.rtp_stream_id:
                 values.rtp_stream_id = x_value.decode("ascii")
-            elif x_id == self.__ids.abs_send_time:
+            # A header extension can be ignored without breaking the RTP layer
+            # (RFC 8285 section 4.1), so a value of the wrong length is ignored.
+            elif x_id == self.__ids.abs_send_time and len(x_value) == 3:
                 values.abs_send_time = unpack("!L", b"\00" + x_value)[0]
-            elif x_id == self.__ids.transmission_offset:
+            elif x_id == self.__ids.transmission_offset and len(x_value) == 3:
                 values.transmission_offset = unpack("!l", x_value + b"\00")[0] >> 8
-            elif x_id == self.__ids.audio_level:
-                vad_level = unpack("!B", x_value)[0]
+            elif x_id == self.__ids.audio_level and len(x_value) == 1:
+                vad_level = x_value[0]
                 values.audio_level = (vad_level & 0x80 == 0x80, vad_level & 0x7F)
-            elif x_id == self.__ids.transport_sequence_number:
+            elif x_id == self.__ids.transport_sequence_number and len(x_value) == 2:
                 values.transport_sequence_number = unpack("!H", x_value)[0]
         return values
 
@@ -199,6 +204,8 @@ def unpack_remb_fci(data: bytes) -> tuple[int, list[int]]:
     """
     if len(data) < 8 or data[0:4] != b"REMB":
         raise ValueError("Invalid REMB prefix")
+    if len(data) < 8 + 4 * data[4]:
+        raise ValueError("REMB SSRC list is truncated")
 
     exponent = (data[5] & 0xFC) >> 2
     mantissa = ((data[5] & 0x03) << 16) | (data[6] << 8) | data[7]
@@ -507,9 +514,10 @@ class RtcpRtpfbPacket:
         for pos in range(8, len(data), 4):
             pid, blp = unpack("!HH", data[pos : pos + 4])
             lost.append(pid)
+            # Bit i reports packet PID + i, modulo 2^16 (RFC 4585 section 6.2.1).
             for d in range(0, 16):
                 if (blp >> d) & 1:
-                    lost.append(pid + d + 1)
+                    lost.append(uint16_add(pid, d + 1))
         return cls(fmt=fmt, ssrc=ssrc, media_ssrc=media_ssrc, lost=lost)
 
 
@@ -517,15 +525,27 @@ class RtcpRtpfbPacket:
 class RtcpSdesPacket:
     chunks: list[RtcpSourceInfo] = field(default_factory=list)
 
+    @classmethod
+    def cname(cls, ssrc: int, cname: str) -> "RtcpSdesPacket":
+        """
+        Return an SDES packet carrying the CNAME of a source.
+        """
+        return cls(
+            chunks=[
+                RtcpSourceInfo(ssrc=ssrc, items=[(RTCP_SDES_CNAME, cname.encode())])
+            ]
+        )
+
     def __bytes__(self) -> bytes:
         payload = b""
         for chunk in self.chunks:
             payload += pack("!L", chunk.ssrc)
             for d_type, d_value in chunk.items:
                 payload += pack("!BB", d_type, len(d_value)) + d_value
-            payload += b"\x00\x00"
-        while len(payload) % 4:
+            # End the item list with a null octet, then pad to a 32-bit
+            # boundary (RFC 3550 section 6.5).
             payload += b"\x00"
+            payload += b"\x00" * padl(len(payload))
         return pack_rtcp_packet(RTCP_SDES, len(self.chunks), payload)
 
     @classmethod
@@ -539,18 +559,23 @@ class RtcpSdesPacket:
             pos += 4
 
             items = []
-            while pos < len(data) - 1:
-                d_type, d_length = unpack_from("!BB", data, pos)
+            while pos < len(data):
+                d_type = data[pos]
+                if d_type == 0:
+                    # The null item has no length octet, and the next chunk starts on
+                    # a 32-bit boundary (RFC 3550 section 6.5).
+                    pos += 1
+                    pos += padl(pos)
+                    break
+                if len(data) < pos + 2:
+                    raise ValueError("RTCP SDES item is truncated")
+                d_length = data[pos + 1]
                 pos += 2
 
                 if len(data) < pos + d_length:
                     raise ValueError("RTCP SDES item is truncated")
-                d_value = data[pos : pos + d_length]
+                items.append((d_type, data[pos : pos + d_length]))
                 pos += d_length
-                if d_type == 0:
-                    break
-                else:
-                    items.append((d_type, d_value))
             chunks.append(RtcpSourceInfo(ssrc=ssrc, items=items))
         return cls(chunks=chunks)
 
@@ -641,6 +666,9 @@ class RtcpPacket:
 
 
 class RtpPacket:
+    # The depayloaded media data, set by the receiver for the jitter buffer.
+    _data: bytes
+
     def __init__(
         self,
         payload_type: int = 0,

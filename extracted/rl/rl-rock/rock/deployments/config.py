@@ -75,6 +75,9 @@ class DockerDeploymentConfig(DeploymentConfig):
     image: str = "python:3.11"
     """Docker image name to use for the container."""
 
+    template_id: str | None = None
+    """Template id compatible with the e2b protocol (remote platforms only)."""
+
     image_os: str = "linux"
 
     port: int | None = None
@@ -172,8 +175,14 @@ class DockerDeploymentConfig(DeploymentConfig):
     extended_params: dict[str, str] = Field(default_factory=dict)
     """Generic extension field for storing custom string key-value pairs."""
 
+    metadata: dict[str, str] = Field(default_factory=dict)
+    """Opaque caller-provided metadata persisted with the sandbox."""
+
+    env_vars: dict[str, str] = Field(default_factory=dict)
+    """Environment variables injected into the sandbox at creation time."""
+
     image_os_profile: dict | None = None
-    """Matched image_os profile dict (set by _apply_image_os_profile in sandbox_api.py).
+    """Matched image_os profile dict (set by the shared start-config normalizer).
     When set, DockerDeployment uses ConfigurableRuntimeEnv instead of the ROCK_WORKER_ENV_TYPE env var."""
 
     @model_validator(mode="before")
@@ -222,7 +231,7 @@ class DockerDeploymentConfig(DeploymentConfig):
     @classmethod
     def from_request(cls, request: SandboxStartRequest) -> DeploymentConfig:
         """Create DockerDeploymentConfig from SandboxStartRequest"""
-        data = request.model_dump(exclude={"sandbox_id"})
+        data = request.model_dump(exclude={"sandbox_id"}, exclude_unset=True)
         return cls(**data, container_name=request.sandbox_id)
 
 

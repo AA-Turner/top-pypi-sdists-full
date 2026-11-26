@@ -49,6 +49,7 @@ from datamodel_code_generator._json_pointer import document_part, is_pointer_fra
 from datamodel_code_generator._lazy_exports import module_hooks as _module_hooks
 from datamodel_code_generator._message_text import printable_text
 from datamodel_code_generator._model_keys import MODEL_KEY_ATTRIBUTE
+from datamodel_code_generator._paths import working_directory
 from datamodel_code_generator._python_target_names import target_builtin_type_attributes
 from datamodel_code_generator._records import record
 from datamodel_code_generator._shared_types import Error
@@ -1059,6 +1060,11 @@ class NameRequest(NamedTuple):
     preserve_class_name: bool = False
 
 
+def _name_request_of(reference: object) -> NameRequest | None:
+    """Return the ``NameRequest`` the resolver recorded on a reference when it named its model, if it recorded one."""
+    return reference.__dict__.get(NAME_REQUEST_KEY)
+
+
 class _YieldingName(NamedTuple):
     """A reference whose name moves aside when a reference that does not yield asks for it."""
 
@@ -1231,7 +1237,7 @@ class ModelResolver:  # noqa: PLR0904
             ),
         )
         self.class_name_generator = custom_class_name_generator or self.default_class_name_generator
-        self._base_path: Path = base_path or Path.cwd()
+        self._base_path: Path = base_path or working_directory()
         self._current_base_path: Path | None = self._base_path
         self._resolved_local_file_parts: dict[tuple[Path, str], str] = {}
         self._resolved_base_path_cache: Path | None = None

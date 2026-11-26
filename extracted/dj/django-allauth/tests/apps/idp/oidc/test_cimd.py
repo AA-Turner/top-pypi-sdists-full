@@ -1,11 +1,12 @@
 import json
 import requests
 from http import HTTPStatus
+from typing import Any
 from unittest.mock import patch
 from urllib.parse import urlparse
 
 from django.core.cache import cache
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 
 import pytest
 
@@ -21,6 +22,17 @@ CIMD_CLIENT_ID = "https://app.example.com/client-metadata"
 class CIMDTestAdapter(DefaultOIDCAdapter):
     def is_cimd_url_allowed(self, url: str) -> bool:
         return "disallowed" not in url
+
+
+class CIMDDefaultScopesTestAdapter(DefaultOIDCAdapter):
+    def get_cimd_default_scopes(
+        self,
+        *,
+        client: Client,
+        client_metadata: dict[str, Any],
+        **kwargs: Any,
+    ) -> list[str]:
+        return ["openid", "custom"]
 
 
 @pytest.fixture
@@ -80,6 +92,21 @@ def test_is_cimd_url(client_id, expected):
 
 
 @pytest.mark.parametrize(
+    "allowed_hosts,expected",
+    [
+        ([], False),
+        (["app.example.com"], True),
+        (["other.example.com"], False),
+        (["*"], True),
+    ],
+)
+def test_is_cimd_url_allowed(settings, rf, allowed_hosts, expected):
+    settings.IDP_OIDC_CIMD_ALLOWED_HOSTS = allowed_hosts
+    adapter = DefaultOIDCAdapter(rf.get("/"))
+    assert adapter.is_cimd_url_allowed(CIMD_CLIENT_ID) is expected
+
+
+@pytest.mark.parametrize(
     "client_id,error_match",
     [
         (CIMD_CLIENT_ID, None),
@@ -123,12 +150,45 @@ def test_validate_metadata_defaults(db):
         "redirect_uris": ["https://app.example.com/callback"],
     }
     client = _validate_metadata(metadata)
-    assert client.get_scopes() == ["openid"]
+    assert client.get_scopes() == ["openid", "profile", "email"]
     assert client.get_grant_types() == ["authorization_code"]
     assert client.get_response_types() == ["code"]
     assert client.name == "app.example.com"
     # post_logout_redirect_uris is optional; when omitted, there are none.
     assert client.get_post_logout_redirect_uris() == []
+
+
+def test_validate_metadata_configured_default_scopes(db, settings):
+    settings.IDP_OIDC_CIMD_DEFAULT_SCOPES = ["openid", "email"]
+    metadata = {
+        "client_id": CIMD_CLIENT_ID,
+        "redirect_uris": ["https://app.example.com/callback"],
+    }
+    client = _validate_metadata(metadata)
+    assert client.get_scopes() == ["openid", "email"]
+
+
+def test_validate_metadata_adapter_default_scopes(db, settings):
+    settings.IDP_OIDC_ADAPTER = (
+        "tests.apps.idp.oidc.test_cimd.CIMDDefaultScopesTestAdapter"
+    )
+    settings.IDP_OIDC_SCOPE_CHOICES = ["openid", "custom"]
+    metadata = {
+        "client_id": CIMD_CLIENT_ID,
+        "redirect_uris": ["https://app.example.com/callback"],
+    }
+    client = _validate_metadata(metadata)
+    assert client.get_scopes() == ["openid", "custom"]
+
+
+def test_validate_metadata_invalid_default_scopes(db, settings):
+    settings.IDP_OIDC_CIMD_DEFAULT_SCOPES = ["openid", "unsupported"]
+    metadata = {
+        "client_id": CIMD_CLIENT_ID,
+        "redirect_uris": ["https://app.example.com/callback"],
+    }
+    with pytest.raises(ImproperlyConfigured, match="invalid CIMD default scopes"):
+        _validate_metadata(metadata)
 
 
 @pytest.mark.parametrize(
@@ -137,6 +197,8 @@ def test_validate_metadata_defaults(db):
         ([1, 2, 3], "JSON object"),
         (_metadata_factory(client_id="https://other.com/app"), "does not match"),
         (_metadata_factory(scope=["openid"]), "scope"),
+        (_metadata_factory(scope=None), "scope"),
+        (_metadata_factory(scope="openid unsupported"), "Unsupported scope"),
         (_metadata_factory(redirect_uris=[123]), "redirect_uris"),
         (_metadata_factory(redirect_uris=NotImplemented), "redirect_uris"),
         (

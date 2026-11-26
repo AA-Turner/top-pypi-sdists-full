@@ -29,9 +29,13 @@ repeat the `POINTER_VERSION` mistake: a file no release can reach goes stale the
 day the wording changes and stays stale forever.
 
 GATED SKILLS (A24, compute-backend-gaps T14) sit in the plugin's `gated-skills/`, which no manifest
-names, so Codex, Cursor, Kimi and pi never read them. One is copied only when the server's per-user
+names, so no agent reads them from the plugin. One is copied only when the server's per-user
 answer, kept on disk (`get_gated_cache_path`), names it; no answer, an unreadable or stale one, or a skill
-it leaves out means the skill is absent, and a copy of ours already there is pruned.
+it leaves out means the skill is absent, and a copy of ours already there is pruned. Claude Code gets it
+with its root skills (`apply`); Codex, which reads the rest from the plugin by manifest, gets ONLY the gated
+copies in its own `skills/` (`apply_gated`), each marked gated so nothing else of ours there is touched. The CLI
+also runs `apply_gated` on both folders each time it keeps an answer (`gated_skills.apply_gated_copies`): a
+sign-in during a chat starts no session.
 
 WE NEVER TOUCH A FOLDER WE CANNOT PROVE IS OURS. `probe`, `track-work` and
 `edit-notes` are generic names in a namespace someone else may already use
@@ -71,6 +75,16 @@ GATED_SKILLS_DIR = "gated-skills"
 GATED_CACHE_NAME = "gated-skills.json"
 #: An answer older than this is no answer: a person whose flag went off loses the skill within it.
 GATED_FRESH_S = 7 * 24 * 3600.0
+
+
+def is_gated_copy(folder: Path) -> bool:
+    """Ours, and copied from a plugin's `gated-skills/` (its marker says so): what `apply_gated` may prune."""
+    if not is_ours(folder):
+        return False
+    try:
+        return json.loads((folder / MARKER).read_text(encoding="utf-8")).get("gated") is True
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 def is_ours(folder: Path) -> bool:
@@ -228,8 +242,11 @@ def _write(dst: Path, src: Path, slug: str, plugin: str) -> None:
     # Links in the plugin's copy stay links: never followed out of it (service-only ROOT 3).
     shutil.copytree(src, staging, symlinks=True)
     marker = os.open(staging / MARKER, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0), 0o644)
+    mark = {"source": plugin, "skill": slug, "edit": str(src)}
+    if src.parent.name == GATED_SKILLS_DIR:
+        mark["gated"] = True
     with os.fdopen(marker, "w", encoding="utf-8") as handle:
-        handle.write(json.dumps({"source": plugin, "skill": slug, "edit": str(src)}) + "\n")
+        handle.write(json.dumps(mark) + "\n")
     if dst.exists():
         # Only a folder `apply` already proved is ours, or one being replaced by rename.
         shutil.rmtree(dst)
@@ -325,6 +342,24 @@ def apply(
                           plugin_name(Path(plugin_root)), still_installed)
 
 
+def apply_gated(
+    skills_root: Path,
+    plugin_root: Path,
+    still_installed: "Callable[[], bool] | None" = None,
+    allowed_gated: "frozenset | set | None" = None,
+) -> dict:
+    """Make `skills_root` hold exactly the gated skills the kept answer allows (`allowed_gated`, None reads it
+    now), from `plugin_root`'s `gated-skills/`, for an agent that reads the plugin's other skills by manifest
+    (Codex). Prunes only our gated copies (`is_gated_copy`): the folder is the agent's own, shared with its
+    other skills and Runs only's copies."""
+    root = Path(plugin_root)
+    allowed = load_allowed_gated() if allowed_gated is None else allowed_gated
+    wanted = {slug: root / GATED_SKILLS_DIR / slug for slug in list_gated_slugs(root) if slug in allowed}
+    if not wanted and not Path(skills_root).is_dir():
+        return _make_report()  # nothing to copy or prune: no folder (or lock) made for it
+    return _apply_sources(skills_root, wanted, plugin_name(root), still_installed, prunable=is_gated_copy)
+
+
 def _make_report() -> dict:
     return {"installed": [], "refreshed": [], "removed": [], "renamed": [], "notes": []}
 
@@ -335,10 +370,13 @@ def apply_from(
     plugin: str,
     wanted: "tuple[str, ...] | list[str]",
     still_installed: "Callable[[], bool] | None" = None,
+    prunable: "Callable[[Path], bool] | None" = None,
 ) -> dict:
     """`apply`, from a folder of skills (`<src_root>/<slug>/SKILL.md`) named `plugin` in each marker: a
-    plugin's `agent-skills/`, or the CLI wheel's own skills for Runs only (no plugin there to copy from)."""
-    return _apply_sources(skills_root, {slug: Path(src_root) / slug for slug in wanted}, plugin, still_installed)
+    plugin's `agent-skills/`, or the CLI wheel's own skills for Runs only (no plugin there to copy from).
+    `prunable`: which of ours it may remove (default any)."""
+    return _apply_sources(skills_root, {slug: Path(src_root) / slug for slug in wanted}, plugin, still_installed,
+                          prunable=prunable)
 
 
 def _apply_sources(
@@ -346,8 +384,10 @@ def _apply_sources(
     wanted: dict,
     plugin: str,
     still_installed: "Callable[[], bool] | None" = None,
+    prunable: "Callable[[Path], bool] | None" = None,
 ) -> dict:
-    """`apply`'s work for `wanted` (slug -> its source folder): exactly these of ours in `skills_root`."""
+    """`apply`'s work for `wanted` (slug -> its source folder): exactly these of ours in `skills_root` (of those
+    `prunable` accepts, when given)."""
     out = _make_report()
     root = Path(skills_root)
     with _one_writer(root) as mine:
@@ -390,12 +430,13 @@ def _apply_sources(
                 out["installed"].append(slug)
             keep.add(dst.name)
 
-        out["removed"] = list(prune(root, keep))
+        out["removed"] = list(prune(root, keep, only=prunable))
     return out
 
 
-def prune(skills_root: Path, keep: "set[str] | frozenset[str]") -> tuple[str, ...]:
-    """Delete OUR folders under `skills_root` that `keep` does not name."""
+def prune(skills_root: Path, keep: "set[str] | frozenset[str]",
+          only: "Callable[[Path], bool] | None" = None) -> tuple[str, ...]:
+    """Delete OUR folders under `skills_root` that `keep` does not name (and `only`, when given, accepts)."""
     root = Path(skills_root)
     if not root.is_dir():
         return ()
@@ -406,7 +447,7 @@ def prune(skills_root: Path, keep: "set[str] | frozenset[str]") -> tuple[str, ..
             # swallowed -- one symlinked folder stopped the sync on that machine
             # for good, with no signal anywhere (reproduced).
             continue
-        if folder.name not in keep and is_ours(folder):
+        if folder.name not in keep and is_ours(folder) and (only is None or only(folder)):
             shutil.rmtree(folder)
             gone.append(folder.name)
     return tuple(gone)

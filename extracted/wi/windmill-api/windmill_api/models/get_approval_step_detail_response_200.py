@@ -34,8 +34,9 @@ class GetApprovalStepDetailResponse200:
         hide_cancel (bool):
         continue_on_disapprove_timeout (bool):
         skin (GetApprovalStepDetailResponse200Skin):
-        approvals (List['GetApprovalStepDetailResponse200ApprovalsItem']): approvals received. approved, value and
-            created_at are known only while the run is live; a finished run keeps approver names alone.
+        approvals (List['GetApprovalStepDetailResponse200ApprovalsItem']): approvals received. approved and value are
+            known only while the run is live; a finished run keeps approver names and, for approvals recorded since it was
+            kept, created_at.
         step_job (Union[Unset, str]): the job of the approval step, once it ran
         step_summary (Union[Unset, str]):
         timeout (Union[Unset, int]): seconds the run waits for approvals

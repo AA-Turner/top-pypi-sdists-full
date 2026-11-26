@@ -11,7 +11,7 @@ class CreateServiceLinkedRoleRequest(DaraModel):
         region_id: str = None,
     ):
         self.owner_id = owner_id
-        # The ID of the region.
+        # The region ID. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/86912.html) operation to query available region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id

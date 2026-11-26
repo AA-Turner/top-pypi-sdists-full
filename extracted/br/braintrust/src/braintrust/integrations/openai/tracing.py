@@ -13,11 +13,11 @@ from typing import Any
 from braintrust.env import BraintrustEnv
 from braintrust.integrations.question import _question_span_input, _question_span_output
 from braintrust.integrations.utils import (
-    _extract_audio_output,
     _image_attachment_from_base64,
     _infer_audio_mime_type,
     _is_not_given,
     _materialize_attachment,
+    _parse_openai_audio_usage_metrics,
     _parse_openai_usage_metrics,
     _prettify_response_params,
     _serialize_response_format,
@@ -28,6 +28,8 @@ from braintrust.integrations.utils import (
 )
 from braintrust.logger import Span
 from braintrust.logger import start_span as _bt_start_span
+
+from ._speech import _response_headers, speech_filename, speech_input, speech_mime_type, speech_output, trace_stream
 
 
 _INSTRUMENTATION = "openai-auto"
@@ -138,15 +140,6 @@ _EMBEDDING_METADATA_PARAMS = (
 
 _MODERATION_METADATA_PARAMS = ("model",)
 
-_SPEECH_METADATA_PARAMS = (
-    "model",
-    "voice",
-    "response_format",
-    "speed",
-    "instructions",
-    "stream_format",
-)
-
 _AUDIO_FILE_METADATA_PARAMS = (
     "model",
     "language",
@@ -256,6 +249,18 @@ def log_headers(response: Any, span: Span):
         )
 
 
+def _log_audio_headers(response: Any, span: Span) -> None:
+    log_headers(response, span)
+    span.log(metadata=_audio_request_metadata(response))
+
+
+def _audio_request_metadata(response: Any) -> dict[str, str]:
+    request_id = getattr(response, "_request_id", None)
+    if not request_id and (headers := _response_headers(response)) is not None:
+        request_id = headers.get("x-request-id")
+    return {"contrib.openai.request_id": request_id} if isinstance(request_id, str) and request_id else {}
+
+
 def _responses_event_served_tier(event: Any) -> Any:
     # Lifecycle events (created/in_progress/completed/...) carry the response.
     return _get_attr_or_item(_get_attr_or_item(event, "response"), "service_tier")
@@ -266,18 +271,25 @@ def _extract_moderation_metadata(response: Any) -> dict[str, Any]:
     return {"moderation": moderation} if moderation is not None else {}
 
 
-def _raw_response_requested(kwargs: dict[str, Any]) -> bool:
+def _raw_response_mode(kwargs: dict[str, Any]) -> str | None:
+    """Return ``"stream"`` (with_streaming_response), ``"raw"`` (with_raw_response),
+    or ``None`` when the raw-response header is absent or falsy."""
     extra_headers = kwargs.get("extra_headers")
     if not isinstance(extra_headers, dict):
-        return False
+        return None
 
     for key, value in extra_headers.items():
         if isinstance(key, str) and key.lower() == RAW_RESPONSE_HEADER:
             if isinstance(value, str):
-                return value.lower() in {"true", "stream"}
-            return bool(value)
+                value = value.lower()
+                return "stream" if value == "stream" else ("raw" if value == "true" else None)
+            return "raw" if value else None
 
-    return False
+    return None
+
+
+def _raw_response_requested(kwargs: dict[str, Any]) -> bool:
+    return _raw_response_mode(kwargs) is not None
 
 
 def _materialize_logged_file_input(value: Any) -> Any:
@@ -1953,6 +1965,8 @@ def _extract_images_output(response: dict[str, Any]) -> dict[str, Any]:
 
 
 class BaseWrapper(abc.ABC):
+    _log_headers = staticmethod(log_headers)
+
     def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None, name: str):
         self._create_fn = create_fn
         self._acreate_fn = acreate_fn
@@ -1972,7 +1986,7 @@ class BaseWrapper(abc.ABC):
             create_response = self._create_fn(*args, **kwargs)
             if hasattr(create_response, "parse"):
                 raw_response = create_response.parse()
-                log_headers(create_response, span)
+                self._log_headers(create_response, span)
             else:
                 raw_response = create_response
 
@@ -1990,7 +2004,7 @@ class BaseWrapper(abc.ABC):
                 raw_response = create_response.parse()
                 if inspect.isawaitable(raw_response):
                     raw_response = await raw_response
-                log_headers(create_response, span)
+                self._log_headers(create_response, span)
             else:
                 raw_response = create_response
             self.process_output(raw_response, span)
@@ -2325,24 +2339,34 @@ class ModerationWrapper(BaseWrapper):
 
 
 class SpeechWrapper(BaseWrapper):
-    _metadata_params = _SPEECH_METADATA_PARAMS
+    _log_headers = staticmethod(_log_audio_headers)
 
     def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
         super().__init__(create_fn, acreate_fn, "Speech")
 
     def process_output(self, response: Any, span: Span):
-        output = (
-            _extract_audio_output(response, prefix="generated_speech")
-            if BraintrustEnv.CAPTURE_AGENT_AUDIO_ATTACHMENTS.get(False)
-            else {"type": "audio"}
+        data = getattr(response, "content", b"")
+        span.log(
+            output=speech_output(data, speech_mime_type(response), speech_filename(response)),
+            metadata=_audio_request_metadata(response),
         )
-        span.log(output=output)
+
+    @classmethod
+    def _parse_params(cls, params: dict[str, Any]) -> dict[str, Any]:
+        return merge_dicts(
+            params.pop("span_info", {}),
+            {
+                "input": speech_input(params),
+                "metadata": {"model": params.get("model"), "provider": "openai"},
+            },
+        )
 
 
 class _AudioFileWrapper(BaseWrapper):
     """Base for transcription/translation wrappers that accept audio file input."""
 
     _metadata_params = _AUDIO_FILE_METADATA_PARAMS
+    _log_headers = staticmethod(_log_audio_headers)
 
     @classmethod
     def _parse_params(cls, params: dict[str, Any]) -> dict[str, Any]:
@@ -2369,6 +2393,18 @@ class _AudioFileWrapper(BaseWrapper):
         if isinstance(response, str):
             return response.strip()
         return getattr(response, "text", None)
+
+    def process_output(self, response: Any, span: Span):
+        metrics, metadata = _audio_file_usage(_get_attr_or_item(response, "usage"))
+        metadata.update(_audio_request_metadata(response))
+        span.log(metrics=metrics, metadata=metadata, output=self._extract_text(response))
+
+
+def _audio_file_usage(usage: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+    usage = _try_to_dict(usage)
+    if not isinstance(usage, dict):
+        return {}, {}
+    return _parse_openai_audio_usage_metrics(usage), {"contrib.openai.usage": usage}
 
 
 class TranscriptionWrapper(_AudioFileWrapper):
@@ -2428,8 +2464,9 @@ class TranscriptionWrapper(_AudioFileWrapper):
             output = "".join(segments)
 
         metrics = _timing_metrics(start, end, first_token_time)
-        metrics.update(_parse_metrics_from_usage(usage))
-        result: dict[str, Any] = {"metrics": metrics}
+        usage_metrics, metadata = _audio_file_usage(usage)
+        metrics.update(usage_metrics)
+        result: dict[str, Any] = {"metrics": metrics, "metadata": metadata}
         if output:
             result["output"] = output
         return result
@@ -2447,6 +2484,8 @@ class TranscriptionWrapper(_AudioFileWrapper):
         try:
             start = time.time()
             raw_response = self._create_fn(*args, **kwargs)
+            if (http_response := getattr(raw_response, "response", None)) is not None:
+                self._log_headers(http_response, span)
             all_results = []
             first_token_time = None
             last_event_time = None
@@ -2502,6 +2541,8 @@ class TranscriptionWrapper(_AudioFileWrapper):
         try:
             start = time.time()
             raw_response = await self._acreate_fn(*args, **kwargs)
+            if (http_response := getattr(raw_response, "response", None)) is not None:
+                self._log_headers(http_response, span)
             all_results = []
             first_token_time = None
             last_event_time = None
@@ -2544,23 +2585,31 @@ class TranscriptionWrapper(_AudioFileWrapper):
             if should_end:
                 span.end()
 
-    def process_output(self, response: Any, span: Span):
-        metrics = {}
-        usage = _get_attr_or_item(response, "usage")
-        if usage:
-            metrics = _parse_metrics_from_usage(usage)
-        span.log(metrics=metrics, output=self._extract_text(response))
-
 
 class TranslationWrapper(_AudioFileWrapper):
     def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
         super().__init__(create_fn, acreate_fn, "Translation")
 
-    def process_output(self, response: Any, span: Span):
-        span.log(output=self._extract_text(response))
+
+_audio_speech_base_wrapper = _make_base_wrapper_callback(SpeechWrapper)
 
 
-_audio_speech_create_wrapper = _make_base_wrapper_callback(SpeechWrapper)
+def _audio_speech_create_wrapper(wrapped, instance, args, kwargs):
+    # with_streaming_response sets this header before invoking create; trace it
+    # here instead of letting the base callback skip raw-response calls.
+    if _raw_response_mode(kwargs) == "stream":
+        return trace_stream(
+            wrapped,
+            args,
+            kwargs,
+            is_async=_is_async_callable(wrapped),
+            start_span=start_span,
+            log_headers=_log_audio_headers,
+            params=SpeechWrapper._parse_params(kwargs),
+        )
+    return _audio_speech_base_wrapper(wrapped, instance, args, kwargs)
+
+
 _audio_transcription_create_wrapper = _make_base_wrapper_callback(TranscriptionWrapper)
 _audio_translation_create_wrapper = _make_base_wrapper_callback(TranslationWrapper)
 

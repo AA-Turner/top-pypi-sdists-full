@@ -88,7 +88,7 @@ class DescribeDataSharePerformanceResponseBodyPerformanceKeys(DaraModel):
     ):
         # The name of the performance metric.
         self.name = name
-        # The performance metric series.
+        # The series of the performance metric.
         self.series = series
         # The unit of the performance metric.
         self.unit = unit
@@ -141,7 +141,7 @@ class DescribeDataSharePerformanceResponseBodyPerformanceKeysSeries(DaraModel):
     ):
         # The name of the performance metric.
         self.name = name
-        # The list of performance metric values, which consists of one or more values.
+        # The list of performance metric values. The list contains one or more values.
         self.values = values
 
     def validate(self):
@@ -183,7 +183,7 @@ class DescribeDataSharePerformanceResponseBodyPerformanceKeysSeriesValues(DaraMo
         self,
         point: List[str] = None,
     ):
-        # The performance metric value.
+        # The value of the performance metric.
         self.point = point
 
     def validate(self):

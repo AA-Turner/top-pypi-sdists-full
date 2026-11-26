@@ -163,13 +163,16 @@ else:
             TLS based, and non-empty ``channel_id_type`` is requested, ``None`` will be returned. If the transport
             is indeed TLS based, an empty ``channel_id_type`` of ``None`` is requested, 32 NUL bytes will be returned.
         :param is_server: Flag indicating that the transport is a server transport.
-        :param channel_id_type: TLS channel ID type, if set currently only ``"tls-unique"`` is supported.
+        :param channel_id_type: TLS channel ID type: ``"tls-unique"`` (RFC 5929, TLS
+            <= 1.2) or ``"tls-exporter"`` (RFC 9266, TLS 1.3). Both are supported on the
+            Twisted backend (pyOpenSSL). See :ref:`tls-channel-binding` for the full
+            support matrix.
         :returns: The TLS channel ID (32 bytes).
         """
         if channel_id_type is None:
             return b"\x00" * 32
 
-        if channel_id_type not in ["tls-unique"]:
+        if channel_id_type not in ["tls-unique", "tls-exporter"]:
             raise RuntimeError(
                 f'invalid TLS channel ID type "{channel_id_type}" requested'
             )
@@ -193,6 +196,23 @@ else:
         is_resumed = False
 
         if channel_id_type == "tls-unique":
+            # tls-unique (RFC 5929) is only defined for TLS <= 1.2: it is built from the TLS
+            # Finished message, whose role changes in TLS 1.3, where tls-exporter (RFC 9266)
+            # is the channel binding instead. OpenSSL still returns *a* Finished value on TLS
+            # 1.3, so a non-standard binding would otherwise be formed silently; reject it
+            # explicitly once the negotiated version is known to be TLS 1.3 (#2078). Before
+            # the opening handshake completes the version is not yet negotiated
+            # (get_protocol_version_name() is not "TLSv1.3"), so the pre-handshake placeholder
+            # in create_transport_details() is unaffected.
+            try:
+                negotiated_version = connection.get_protocol_version_name()
+            except Exception:
+                negotiated_version = None
+            if negotiated_version == "TLSv1.3":
+                raise RuntimeError(
+                    "tls-unique channel binding (RFC 5929) is not defined for TLS 1.3; "
+                    "use tls-exporter (RFC 9266) on TLS 1.3"
+                )
             # see also: https://bugs.python.org/file22646/tls_channel_binding.patch
             if is_resumed != (not is_server):
                 # a client in a full handshake, or a server in a resumed one: the TLS Finished
@@ -213,6 +233,17 @@ else:
                 m = hashlib.sha256()
                 m.update(tls_finished_msg)
                 return m.digest()
+        elif channel_id_type == "tls-exporter":
+            # tls-exporter (RFC 9266) is exported keying material for the label
+            # "EXPORTER-Channel-Binding". Unlike tls-unique it is symmetric (client and
+            # server derive the same value) and independent of session resumption, and it
+            # is the channel binding defined for TLS 1.3. The 32-octet result is used as
+            # the channel ID directly (no hashing). export_keying_material() raises if the
+            # TLS handshake has not completed, which cannot happen on this code path (it is
+            # reached only after handshakeCompleted / a completed opening handshake).
+            return connection.export_keying_material(
+                b"EXPORTER-Channel-Binding", 32, b""
+            )
         else:
             raise NotImplementedError(
                 f'should not arrive here (unhandled channel_id_type "{channel_id_type}")'
@@ -289,10 +320,25 @@ def create_transport_details(
     own_fd = -1
 
     if _HAS_TLS and ISSLTransport.providedBy(transport):
-        channel_id = {
-            # this will only be filled when the TLS opening handshake is complete (!)
-            "tls-unique": transport_channel_id(transport, is_server, "tls-unique"),
-        }
+        # This is a pre-handshake placeholder: the real channel-binding map is (re-)computed
+        # after the TLS opening handshake completes (create_tls_channel_id, called from the
+        # WAMP transport's handshake-complete hook). The negotiated TLS version is already
+        # known here, but no channel binding is derivable yet - tls-unique's Finished is not
+        # available (returns NUL) and tls-exporter's keying material is not derived - so on
+        # TLS 1.3, where tls-unique is not a valid binding anyway (#2078), leave the map
+        # empty; on TLS <= 1.2 keep the tls-unique placeholder.
+        negotiated_version = None
+        if isinstance(transport, TLSMemoryBIOProtocol):
+            try:
+                negotiated_version = transport.getHandle().get_protocol_version_name()
+            except Exception:
+                negotiated_version = None
+        if negotiated_version == "TLSv1.3":
+            channel_id = {}
+        else:
+            channel_id = {
+                "tls-unique": transport_channel_id(transport, is_server, "tls-unique"),
+            }
         channel_type = TransportDetails.CHANNEL_TYPE_TLS
         peer_cert = extract_peer_certificate(transport)
         is_secure = True
@@ -319,3 +365,37 @@ def create_transport_details(
     )
 
     return td
+
+
+def create_tls_channel_id(transport, is_server: bool) -> dict[str, bytes | None]:
+    """
+    Build the TLS channel-binding map for a transport whose TLS opening handshake has
+    completed: always ``tls-unique`` (RFC 5929), plus ``tls-exporter`` (RFC 9266) on a
+    TLS 1.3 connection so a peer can select the binding by negotiated version.
+
+    Call this only *after* the TLS opening handshake is complete: ``tls-exporter`` export
+    requires the key schedule to be derived and errors otherwise, unlike ``tls-unique``
+    which tolerates an incomplete handshake (returning NUL bytes). See
+    :ref:`tls-channel-binding` for the per-backend / per-version support matrix.
+
+    :param transport: The Twisted TLS transport (post-handshake).
+    :param is_server: Flag indicating this transport side is a server.
+    :return: Channel-binding map: ``{"tls-unique": ...}`` on TLS <= 1.2 or
+        ``{"tls-exporter": ...}`` on TLS 1.3 (hard split by negotiated version, #2078).
+    """
+    negotiated_version = None
+    if _HAS_TLS and isinstance(transport, TLSMemoryBIOProtocol):
+        try:
+            negotiated_version = transport.getHandle().get_protocol_version_name()
+        except Exception:
+            negotiated_version = None
+    if negotiated_version == "TLSv1.3":
+        # TLS 1.3: tls-exporter (RFC 9266) is the only valid binding; tls-unique
+        # (RFC 5929) is not defined for TLS 1.3 and must not be populated (version guard).
+        return {
+            "tls-exporter": transport_channel_id(transport, is_server, "tls-exporter"),
+        }
+    # TLS <= 1.2 (or version not yet known): tls-unique only.
+    return {
+        "tls-unique": transport_channel_id(transport, is_server, "tls-unique"),
+    }

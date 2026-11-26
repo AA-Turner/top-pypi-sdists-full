@@ -1199,12 +1199,6 @@ class BaseCompose(InvocationRngOwner, Serializable):
             else compiled_child.parent_finalizes_keypoints
         )
 
-    def _may_change_bboxes(self, transform: TransformType) -> bool:
-        """Determine whether a node can change bbox alignment so bound masks and keypoints resynchronize
-        only after geometry-capable execution.
-        """
-        return self._transform_may_change_target(transform, Targets.BBOXES)
-
     @staticmethod
     def _leaf_skip_status(transform: BasicTransform, invocation: InvocationContext | None = None) -> str:
         """Choose trace skip status from leaf policy, distinguishing replay suppression from probability
@@ -2409,6 +2403,8 @@ class Compose(BaseCompose, HubMixin):
         known_targets = set(data) | self._available_keys | set(AVAILABLE_KEYS)
         unknown_targets = set(options.snapshot_targets).difference(known_targets)
         if unknown_targets:
+            # This rejection happens before _execute_root clears completed observations.
+            clear_completed_observation()
             unknown = ", ".join(sorted(unknown_targets))
             raise ValueError(f"Unknown trace snapshot targets: {unknown}")
 

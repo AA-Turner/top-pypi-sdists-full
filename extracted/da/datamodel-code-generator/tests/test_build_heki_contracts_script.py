@@ -17,16 +17,28 @@ import sysconfig
 from dataclasses import replace
 from fnmatch import fnmatchcase
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import tomllib
 
 from scripts import build_heki_contracts, check_ratchets
 from scripts.decision_homes import BuilderHome, DecisionHome, Home, Mark
-from scripts.fact_tables import ATTRIBUTE_FACTS, DecisionAccessor, LedgerWriter, MemberUse, StoreMember
-from scripts.pass_decls import DECISION_DECLS
+from scripts.fact_tables import (
+    ATTRIBUTE_FACTS,
+    DecisionAccessor,
+    Fact,
+    LedgerWriter,
+    MemberUse,
+    RenderFact,
+    StoreMember,
+)
+from scripts.pass_decls import DECISION_DECLS, PASS_DECLS, PassDecl, PassKind, Scope
 from tests.capabilities import needs
+from tests.conftest import assert_output
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "build_heki_contracts.py"
@@ -138,6 +150,13 @@ builds ``results``, the store and the model's own initialization call ``set_base
 the store, and ``Reference.__init__`` builds its bookkeeping: heki allows them all. ``seeded_env.py`` holds
 `SEEDED_ENVIRONMENT`, which the environment boundary forbids in functions and module bodies.
 """
+
+
+def _contracts_file(path: Path, contracts: Iterable[str]) -> None:
+    """Write ``contracts`` under the fail-on of scripts/heki.toml, so their findings fail the run as they do there."""
+    path.write_text(
+        "\n".join(["[lint]", f'fail-on = "{build_heki_contracts.FAIL_ON}"', "", *contracts]), encoding="utf-8"
+    )
 
 
 def _heki(*args: str, cwd: Path, config: Path = CONTRACTS) -> subprocess.CompletedProcess[str]:
@@ -291,7 +310,7 @@ def test_heki_reports_the_import_cycles_of_every_import(tmp_path: Path) -> None:
     for name, text in SEEDED_CYCLES.items():
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_text(text, encoding="utf-8")
-    (tmp_path / BASELINE.name).write_text("version = 2\n", encoding="utf-8")
+    (tmp_path / BASELINE.name).write_text("version = 3\n", encoding="utf-8")
     (config := tmp_path / "module_level_cycles.toml").write_text(MODULE_LEVEL_CYCLES, encoding="utf-8")
 
     result = _heki("--baseline", BASELINE.name, "--output-format", "json", cwd=tmp_path)
@@ -307,6 +326,151 @@ def test_heki_reports_the_import_cycles_of_every_import(tmp_path: Path) -> None:
         ],
     ), result.stderr
     assert (module_level.returncode, _cycle_reports(module_level)) == (1, [body]), module_level.stderr
+
+
+LAYER_FIXTURES = Path(__file__).parent / "data" / "architecture_boundaries"
+SEEDED_LAYERS = {
+    "entrypoint/forbidden.py": "_facade.py",
+    "parser/forbidden.py": "parser/seeded.py",
+    "parser_passes/forbidden.py": "parser/_passes/seeded.py",
+    "parser_core/forbidden.py": "parser/_intersection.py",
+    "facts/forbidden.py": "parser/_facts.py",
+    "schema_graph/forbidden.py": "parser/_schema_graph.py",
+    "config/forbidden.py": "config.py",
+    "input_model/forbidden.py": "input_model.py",
+    "reference/forbidden.py": "reference.py",
+    "output_model/forbidden.py": "model/pydantic_v2/seeded.py",
+    "shared_model/forbidden.py": "model/union.py",
+    "shared_model/allowed.py": "model/types.py",
+    "shared_model_dynamic_import/forbidden.py": "model/base.py",
+    "shared_model_dynamic_import/allowed.py": "model/enum.py",
+    "model_composition/allowed.py": "model/__init__.py",
+    "shared/forbidden.py": "seeded_shared.py",
+    "target/forbidden.py": "_target_config.py",
+    "requirements/forbidden.py": "_requirements.py",
+    "constraints/forbidden.py": "_constraint_applicability.py",
+    "regex/forbidden.py": "_regex_syntax.py",
+    "runtime/forbidden.py": "_runtime/seeded.py",
+}
+"""The fixtures of the layers (``tests/data/architecture_boundaries``), each placed at a module of its layer."""
+SEEDED_LAYER_STUBS = (
+    "__init__.py",
+    "_api_generation.py",
+    "_api_types.py",
+    "_json_schema.py",
+    "_runtime/__init__.py",
+    "_runtime/client.py",
+    "_source.py",
+    "_target_documents.py",
+    "enums.py",
+    "format.py",
+    "imports.py",
+    "model/dataclass.py",
+    "model/field_name.py",
+    "model/msgspec.py",
+    "model/output.py",
+    "model/pydantic_base.py",
+    "model/pydantic_v2/__init__.py",
+    "model/pydantic_v2/base_model.py",
+    "model/typed_dict.py",
+    "parser/__init__.py",
+    "parser/_graph.py",
+    "parser/_passes/__init__.py",
+    "parser/base.py",
+    "parser/generation.py",
+    "parser/jsonschema.py",
+    "parser/mcp.py",
+    "parser/openapi.py",
+    "types.py",
+)
+"""The empty modules the fixtures import: heki judges an import of a module the package has."""
+
+
+@needs("heki")
+def test_heki_reports_the_imports_that_cross_a_layer(tmp_path: Path) -> None:
+    """Each import a layer may not make is a finding, however it is written; an import heki cannot name is one too.
+
+    The import boundaries come from the layers of `check_architecture_boundaries._classify_source_path`. An import
+    counts in a function, under ``TYPE_CHECKING``, guarded and by name (``importlib.import_module`` with a constant,
+    an alias, a relative name and its package, ``__import__``); a by-name import of a name the code does not fix is
+    ``IMP202``. The ``allowed.py`` fixtures and the composition root give none; a name bound to ``importlib`` on one
+    branch and to another module on the other is no import heki can name.
+    """
+    found = _layer_import_reports(tmp_path, SEEDED_LAYER_STUBS, SEEDED_LAYERS)
+
+    assert_output(found)
+
+
+ROOT_IMPORT_FIXTURES = {
+    "__init__.py": "__init__.py",
+    "__main__.py": "__main__.py",
+    "errors.py": "errors.py",
+    "leaf.py": "_caches.py",
+    "shadowed.py": "shadowed.py",
+    "star.py": "_scc.py",
+    "sub/__init__.py": "parser/__init__.py",
+    "sub/module.py": "parser/module.py",
+}
+"""The package of the ``root_import`` fixture, each module at a module the root-import boundary names as importer."""
+
+
+@needs("heki")
+def test_heki_reports_every_import_of_the_package_root_and_main(tmp_path: Path) -> None:
+    """No module below the root imports the root or ``__main__``, in any import form; its submodules may be read.
+
+    The fixture is the package of the former checker rule: relative imports two levels up, a star import, a name the
+    root binds to shadow a submodule, a name its ``__getattr__`` serves and by-name imports. Each import of a name of
+    the root or of ``__main__`` is ``IMP201`` or ``IMP202``; ``__main__`` and the root's own re-exports give none.
+    """
+    places = {
+        f"root_import/datamodel_code_generator/{fixture}": place for fixture, place in ROOT_IMPORT_FIXTURES.items()
+    }
+    found = _layer_import_reports(tmp_path, (), places)
+
+    assert_output(found)
+
+
+def test_the_import_boundaries_raise_where_the_layer_table_is_out_of_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A layer the check does not classify, or a rule no module of the package is subject to, is an error."""
+    (tmp_path / PACKAGE).mkdir(parents=True)
+    (tmp_path / PACKAGE / "__init__.py").write_text("", encoding="utf-8")
+    repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
+
+    with pytest.raises(
+        ValueError, match=r"^import boundaries without a module of the package to judge: root-import, facts-import,"
+    ):
+        build_heki_contracts.import_boundary_contracts(repo)
+    build_heki_contracts.import_boundary_contracts(repo, partial=True)
+    monkeypatch.setitem(build_heki_contracts._LEAF_IMPORTS, "no-such-layer", ((), "why"))
+    with pytest.raises(ValueError, match=r"classify: no-such-layer$"):
+        build_heki_contracts.import_boundary_contracts(repo, partial=True)
+
+
+def _layer_import_reports(tmp_path: Path, stubs: tuple[str, ...], places: dict[str, str]) -> str:
+    """Place the fixtures at modules of their layers and return the import boundaries' findings as stored text."""
+    package = tmp_path / PACKAGE
+    for stub in stubs:
+        (package / stub).parent.mkdir(parents=True, exist_ok=True)
+        (package / stub).write_text("", encoding="utf-8")
+    for fixture, place in places.items():
+        (package / place).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(LAYER_FIXTURES / fixture, package / place)
+    (tmp_path / "scripts").mkdir()
+    repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
+    contracts = tmp_path / "contracts.toml"
+    _contracts_file(contracts, build_heki_contracts.import_boundary_contracts(repo, partial=True))
+
+    result = _heki("--output-format", "json", cwd=tmp_path, config=contracts)
+
+    found = sorted(
+        (Path(item["path"]).relative_to(PACKAGE).as_posix(), item["line"], item["rule_code"], item["target"])
+        for item in json.loads(result.stdout)
+    )
+    return f"exit: {result.returncode}\n" + "".join(
+        f"{path}:{line}: {rule} {target}\n" for path, line, rule, target in found
+    )
 
 
 SEEDED_SHARED = {
@@ -343,7 +507,7 @@ def test_heki_reports_a_write_of_an_object_the_schema_graph_shares(tmp_path: Pat
     for name, text in SEEDED_SHARED.items():
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_text(text, encoding="utf-8")
-    (tmp_path / BASELINE.name).write_text("version = 2\n", encoding="utf-8")
+    (tmp_path / BASELINE.name).write_text("version = 3\n", encoding="utf-8")
 
     result = _heki("--baseline", BASELINE.name, "--output-format", "json", cwd=tmp_path)
 
@@ -451,6 +615,92 @@ def test_heki_reports_every_form_of_a_fact_write_outside_the_store(tmp_path: Pat
             ("rebase_in_a_callback", "MUT207", "set_base_class", 30),
             ("set_base_class", "MUT201", "DataModel.fields", 34),
             ("clear_untyped", "MUT205", "fields", 39),
+        ],
+    ), result.stderr
+
+
+SEEDED_CACHED_PROPERTIES = """\
+from functools import cached_property
+
+from datamodel_code_generator.model.base import DataModel, DataModelFieldBase
+from datamodel_code_generator.reference import Reference
+from datamodel_code_generator.types import DataType
+
+
+class Model(DataModel):
+    @cached_property
+    def label(self) -> str:
+        return ""
+
+
+class Type(DataType):
+    @cached_property
+    def label(self) -> str:
+        return ""
+
+
+class Field(DataModelFieldBase):
+    @cached_property
+    def label(self) -> str:
+        return ""
+
+
+class Link(Reference):
+    @cached_property
+    def label(self) -> str:
+        return ""
+
+
+class Helper:
+    @cached_property
+    def label(self) -> str:
+        return ""
+"""
+"""Cached properties of classes deriving from owners of fact rows, and of a class the table does not describe."""
+SEEDED_CACHES = {
+    "pyproject.toml": SEEDED_PACKAGE["pyproject.toml"],
+    f"{PACKAGE}/__init__.py": "",
+    f"{PACKAGE}/model/__init__.py": "",
+    f"{PACKAGE}/model/base.py": (
+        "from functools import cached_property\n\n\n"
+        'class DataModel:\n    @cached_property\n    def path(self) -> str:\n        return ""\n\n\n'
+        "class DataModelFieldBase:\n    pass\n"
+    ),
+    f"{PACKAGE}/types.py": "class DataType:\n    pass\n",
+    f"{PACKAGE}/reference.py": "class Reference:\n    pass\n",
+    f"{PACKAGE}/model/cached.py": SEEDED_CACHED_PROPERTIES,
+}
+"""A package whose ``DataModel`` has the cached property of the cache row ``DataModel.path``, and whose
+``model/cached.py`` holds `SEEDED_CACHED_PROPERTIES`; ``DataType``, ``DataModelFieldBase`` and ``Reference`` own rows
+of other kinds."""
+
+
+@needs("heki")
+@pytest.mark.allow_direct_assert("the findings heki gives on a seeded package are its verdict, not a stored output")
+def test_heki_reports_a_cached_property_on_a_class_the_table_describes(tmp_path: Path) -> None:
+    """A ``cached_property`` on an owner of a fact row or a class deriving from one is a finding, a cache row's too.
+
+    A cached property writes its own name outside the store, so the baseline holds the ones of today's cache rows; the
+    one of a class the table does not describe is none.
+    """
+    for name, text in SEEDED_CACHES.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text, encoding="utf-8")
+
+    result = _heki("--output-format", "json", cwd=tmp_path)
+
+    found = [
+        (Path(item["path"]).name, item["qualname"], item["rule_code"], item["line"])
+        for item in json.loads(result.stdout)
+    ]
+    assert (result.returncode, found) == (
+        1,
+        [
+            ("base.py", "DataModel.path", "MUT201", 5),
+            ("cached.py", "Model.label", "MUT201", 9),
+            ("cached.py", "Type.label", "MUT201", 15),
+            ("cached.py", "Field.label", "MUT201", 21),
+            ("cached.py", "Link.label", "MUT201", 27),
         ],
     ), result.stderr
 
@@ -564,9 +814,7 @@ def test_heki_reports_reads_of_a_home_outside_its_modules_and_sites(tmp_path: Pa
     (tmp_path / "scripts").mkdir()
     repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
     contracts = tmp_path / "contracts.toml"
-    contracts.write_text(
-        "\n".join(build_heki_contracts.decision_home_contracts(repo, [SEEDED_HOME_RECORD])), encoding="utf-8"
-    )
+    _contracts_file(contracts, build_heki_contracts.decision_home_contracts(repo, [SEEDED_HOME_RECORD]))
     heki = shutil.which("heki", path=sysconfig.get_path("scripts")) or "heki"
 
     result = subprocess.run(
@@ -732,9 +980,7 @@ def test_heki_reports_what_bypasses_a_builder_home(tmp_path: Path) -> None:
     (tmp_path / "scripts").mkdir()
     repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
     contracts = tmp_path / "contracts.toml"
-    contracts.write_text(
-        "\n".join(build_heki_contracts.builder_contracts(repo, SEEDED_BUILDER_RECORDS)), encoding="utf-8"
-    )
+    _contracts_file(contracts, build_heki_contracts.builder_contracts(repo, SEEDED_BUILDER_RECORDS))
     heki = shutil.which("heki", path=sysconfig.get_path("scripts")) or "heki"
 
     result = subprocess.run(
@@ -851,7 +1097,7 @@ def test_heki_reports_private_access_of_the_concern_modules(tmp_path: Path) -> N
     (tmp_path / "scripts").mkdir()
     repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
     contracts = tmp_path / "contracts.toml"
-    contracts.write_text("\n".join(build_heki_contracts.host_contracts(repo)), encoding="utf-8")
+    _contracts_file(contracts, build_heki_contracts.host_contracts(repo))
     heki = shutil.which("heki", path=sysconfig.get_path("scripts")) or "heki"
 
     result = subprocess.run(
@@ -1053,9 +1299,7 @@ def test_heki_reports_a_decision_that_calls_the_write_of_another(tmp_path: Path)
     (tmp_path / "scripts").mkdir()
     repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
     contracts = tmp_path / "contracts.toml"
-    contracts.write_text(
-        "\n".join(build_heki_contracts.decision_writer_contracts(repo, SEEDED_DECISION_DECLS)), encoding="utf-8"
-    )
+    _contracts_file(contracts, build_heki_contracts.decision_writer_contracts(repo, SEEDED_DECISION_DECLS))
     heki = shutil.which("heki", path=sysconfig.get_path("scripts")) or "heki"
 
     result = subprocess.run(
@@ -1190,11 +1434,8 @@ def test_heki_reports_a_decision_that_reads_a_render_fact(tmp_path: Path) -> Non
         DecisionAccessor("types.py", "DataType", "admits_none", "the rendered nullability"),
         DecisionAccessor("model/base.py", "DataModelFieldBase", "has_default_factory", "the default factory entry"),
     ]
-    contracts.write_text(
-        "\n".join(
-            build_heki_contracts.decision_contracts(repo, SEEDED_DECISION_DECLS, accessors, SEEDED_DECISION_ROWS)
-        ),
-        encoding="utf-8",
+    _contracts_file(
+        contracts, build_heki_contracts.decision_contracts(repo, SEEDED_DECISION_DECLS, accessors, SEEDED_DECISION_ROWS)
     )
     heki = shutil.which("heki", path=sysconfig.get_path("scripts")) or "heki"
 
@@ -1257,11 +1498,12 @@ SEEDED_IMPORT_WRITES = {
         "def direct(ctx: ModuleContext) -> None:\n    ctx.imports.append('os')\n\n\n"
         "def _add(imports: Imports) -> None:\n    imports.append('os')\n\n\n"
         "def through_a_helper(ctx: ModuleContext) -> None:\n    _add(ctx.imports)\n\n\n"
-        "def untyped(ctx: ModuleContext) -> None:\n    cast('Any', ctx).imports.append('os')\n"
+        "def through_a_cast(ctx: ModuleContext) -> None:\n    cast('Any', ctx).imports.append('os')\n\n\n"
+        "def untyped(ctx: Any) -> None:\n    ctx.imports.append('os')\n"
     ),
 }
 """The ledger and the imports module change an ``Imports``, and so does a ``LEDGER_WRITERS`` def; another def of the
-writer's module, a pass directly and through a helper, and a pass on an untyped value change it too."""
+writer's module, a pass directly, through a helper or a ``cast``, and a pass on an untyped value change it too."""
 
 
 @needs("heki")
@@ -1270,7 +1512,8 @@ def test_heki_reports_imports_written_outside_the_ledger(tmp_path: Path) -> None
     """A method that changes an ``Imports`` is called only in the ledger, the ``imports`` module and the writers.
 
     A call in another def, also of a writer's module, is a finding in the scope that makes it, a helper's included;
-    one on a value heki cannot type is not seen (a gap of heki, which a write-owners form would close).
+    a ``cast`` keeps the class heki knows; one on a value only ``Any`` types is not seen (a gap of heki, which a
+    write-owners form would close).
     """
     for name, text in SEEDED_IMPORT_WRITES.items():
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
@@ -1279,9 +1522,7 @@ def test_heki_reports_imports_written_outside_the_ledger(tmp_path: Path) -> None
     repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
     contracts = tmp_path / "contracts.toml"
     writers = [LedgerWriter("parser/_init_exports.py", "build_all_exports_code", "re-exports")]
-    contracts.write_text(
-        "\n".join(build_heki_contracts.import_ledger_contracts(repo, ("append",), writers)), encoding="utf-8"
-    )
+    _contracts_file(contracts, build_heki_contracts.import_ledger_contracts(repo, ("append",), writers))
     heki = shutil.which("heki", path=sysconfig.get_path("scripts")) or "heki"
 
     result = subprocess.run(
@@ -1302,6 +1543,7 @@ def test_heki_reports_imports_written_outside_the_ledger(tmp_path: Path) -> None
             ("_init_exports.py", "beside_the_writer", "MUT204", "append"),
             ("passes.py", "_add", "MUT204", "append"),
             ("passes.py", "direct", "MUT204", "append"),
+            ("passes.py", "through_a_cast", "MUT204", "append"),
         ],
     ), result.stderr
 
@@ -1349,12 +1591,13 @@ SEEDED_STORE_CALLS = {
         "def direct(store: GenerationStore) -> None:\n    store.omit_field_default(1)\n\n\n"
         "def _helper(store: GenerationStore) -> None:\n    store.omit_field_default(1)\n\n\n"
         "def through_a_helper(store: GenerationStore) -> None:\n    _helper(store)\n\n\n"
-        "def untyped(store: GenerationStore) -> None:\n    cast('Any', store).omit_field_default(1)\n\n\n"
+        "def through_a_cast(store: GenerationStore) -> None:\n    cast('Any', store).omit_field_default(1)\n\n\n"
+        "def untyped(store: Any) -> None:\n    store.omit_field_default(1)\n\n\n"
         "def own_builder(store: GenerationStore) -> GraphBuilder:\n    return GraphBuilder(store)\n"
     ),
 }
 """A pass that changes the graph through the store's builder, and one that calls a store operation directly, in a
-helper, on an untyped value, or that makes a builder of its own."""
+helper, through a ``cast``, on an untyped value, or that makes a builder of its own."""
 
 
 @needs("heki")
@@ -1370,9 +1613,7 @@ def test_heki_reports_store_operations_called_outside_the_builder(tmp_path: Path
     (tmp_path / "scripts").mkdir()
     repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
     contracts = tmp_path / "contracts.toml"
-    contracts.write_text(
-        "\n".join(build_heki_contracts.store_operation_contracts(repo, ("omit_field_default",))), encoding="utf-8"
-    )
+    _contracts_file(contracts, build_heki_contracts.store_operation_contracts(repo, ("omit_field_default",)))
     heki = shutil.which("heki", path=sysconfig.get_path("scripts")) or "heki"
 
     result = subprocess.run(
@@ -1393,6 +1634,7 @@ def test_heki_reports_store_operations_called_outside_the_builder(tmp_path: Path
             ("passes.py", "_helper", "MUT204", "omit_field_default"),
             ("passes.py", "direct", "MUT204", "omit_field_default"),
             ("passes.py", "own_builder", "MUT204", "generation:GraphBuilder"),
+            ("passes.py", "through_a_cast", "MUT204", "omit_field_default"),
             ("passes.py", "untyped", "MUT207", "omit_field_default"),
         ],
     ), result.stderr
@@ -1420,3 +1662,225 @@ def test_pipeline_contracts_name_scopes_the_package_defines(monkeypatch: pytest.
         build_heki_contracts.pipeline_contracts(repo)
 
     assert str(stopped.value) == "parser/base.py defines no NeverDefined"
+
+
+SEEDED_PASSES = {
+    "pyproject.toml": '[project]\nname = "seeded"\nrequires-python = ">=3.11"\n',
+    f"{PACKAGE}/__init__.py": "",
+    f"{PACKAGE}/model/__init__.py": "",
+    f"{PACKAGE}/model/base.py": (
+        "class DataModelFieldBase:\n    def __init__(self) -> None:\n        self.read_only = False\n"
+        "        self.extras: dict[str, object] = {}\n"
+    ),
+    f"{PACKAGE}/parser/__init__.py": "",
+    f"{PACKAGE}/parser/_pipeline.py": (
+        "from collections.abc import Callable\n\n\n"
+        "def late(function: Callable[..., None]) -> Callable[..., None]:\n    return function\n\n\n"
+        "class PassSpec:\n    def __init__(self, name: str, run: Callable[..., None]) -> None:\n"
+        "        self.name, self.run = name, run\n\n\n"
+        "class HookCall:\n    def __init__(self, name: str, run: Callable[..., None]) -> None:\n"
+        "        self.name, self.run = name, run\n"
+    ),
+    f"{PACKAGE}/parser/generation.py": (
+        "from datamodel_code_generator.model.base import DataModelFieldBase\n\n\n"
+        "class GenerationStore:\n    def __init__(self) -> None:\n        self.phase = 0\n\n"
+        "    def enter_phase(self, phase: int) -> None:\n        self.phase = phase\n\n"
+        "    def set_field_extra(self, field: DataModelFieldBase, key: str, value: object) -> None:\n"
+        "        field.extras[key] = value\n"
+    ),
+    f"{PACKAGE}/parser/base.py": (
+        "from datamodel_code_generator.model.base import DataModelFieldBase\n"
+        "from datamodel_code_generator.parser.generation import GenerationStore\n\n\n"
+        "class Parser:\n    def __init__(self) -> None:\n"
+        "        self.fields: list[DataModelFieldBase] = []\n        self.store = GenerationStore()\n\n"
+        "    def _process_single_module(self) -> None:\n        for field in self.fields:\n"
+        "            field.read_only = True\n"
+    ),
+    f"{PACKAGE}/parser/_passes/__init__.py": "",
+    f"{PACKAGE}/parser/_passes/steps.py": (
+        "from datamodel_code_generator.model.base import DataModelFieldBase\n"
+        "from datamodel_code_generator.parser.base import Parser\n\n\n"
+        "def parse_raw(parser: Parser, state: object) -> None:\n"
+        "    for field in parser.fields:\n        field.read_only = True\n\n\n"
+        "def declared(parser: Parser, state: object) -> None:\n"
+        "    for field in parser.fields:\n        field.read_only = True\n\n\n"
+        "def _flip(field: DataModelFieldBase) -> None:\n    field.read_only = not field.read_only\n\n\n"
+        "def undeclared(parser: Parser) -> None:\n    for field in parser.fields:\n        _flip(field)\n\n\n"
+        "def keyed(parser: Parser, state: object) -> None:\n    for field in parser.fields:\n"
+        '        parser.store.set_field_extra(field, "init", False)\n'
+        '        parser.store.set_field_extra(field, "kw_only", True)\n\n\n'
+        "def enters_phase(parser: Parser, state: object) -> None:\n    parser.store.enter_phase(9)\n\n\n"
+        "def process_each_module(parser: Parser, state: object) -> None:\n    parser._process_single_module()\n"
+    ),
+    f"{PACKAGE}/parser/_passes/_tables.py": (
+        "from datamodel_code_generator.parser._passes import steps\n"
+        "from datamodel_code_generator.parser._pipeline import HookCall, PassSpec, late\n\n"
+        "PIPELINE = (\n"
+        '    PassSpec("parse_raw", late(steps.parse_raw)),\n'
+        '    PassSpec("declared", steps.declared),\n'
+        '    PassSpec("undeclared", lambda self, _: steps.undeclared(self)),\n'
+        '    PassSpec("after_final", late(steps.declared)),\n'
+        '    PassSpec("keyed", late(steps.keyed)),\n'
+        '    PassSpec("frozen_key", late(steps.keyed)),\n'
+        '    PassSpec("enters_phase", late(steps.enters_phase)),\n'
+        '    HookCall("process_single_module", late(steps.process_each_module)),\n'
+        ")\n"
+    ),
+}
+"""A pipeline whose passes write a field's ``read_only`` (``METADATA``, final after ``MODULES``) and two entries of
+its ``extras`` through a store operation given the key: ``init`` (``REQUIRED``) and ``kw_only`` (a presentation row of
+``KEYWORD_ONLY``, final at B2); one enters a phase, and the parser method the module hook calls writes a fact."""
+
+
+PHASES = {decl.phase.name: decl.phase for decl in PASS_DECLS}
+"""The phases of the pipeline by name, as the declarations name them."""
+
+
+def _seeded_pass(name: str, phase: str, *writes: Fact | RenderFact) -> PassDecl:
+    return PassDecl(name, PHASES[phase], Scope.MODULE, PassKind.TRANSFORM, writes=frozenset(writes))
+
+
+SEEDED_PASS_DECLS = (
+    _seeded_pass("parse_raw", "PARSE"),
+    _seeded_pass("declared", "MODULES", Fact.METADATA),
+    _seeded_pass("undeclared", "MODULES", Fact.REQUIRED),
+    _seeded_pass("after_final", "CROSS_MODULE", Fact.METADATA),
+    _seeded_pass("keyed", "MODULES", Fact.REQUIRED),
+    _seeded_pass("frozen_key", "IMPORTS", Fact.REQUIRED, RenderFact.KEYWORD_ONLY),
+    _seeded_pass("enters_phase", "MODULES"),
+)
+"""``parse_raw`` is a pass of L1 and ``declared`` declares what it writes. ``undeclared`` writes ``METADATA`` through a
+helper and declares ``REQUIRED``; ``after_final`` writes ``read_only`` after ``MODULES``; ``frozen_key`` writes the
+``kw_only`` entry after B2 (and the ``init`` entry after its ``final_after``); ``enters_phase`` changes the phase."""
+SEEDED_PASS_ROWS = [
+    row
+    for row in ATTRIBUTE_FACTS
+    if (row.owner, row.attribute)
+    in {
+        ("DataModelFieldBase", "read_only"),
+        ("DataModelFieldBase", "extras"),
+        ("DataModelFieldBase", 'extras["init"]'),
+        ("DataModelFieldBase", 'extras["kw_only"]'),
+    }
+]
+
+
+@needs("heki")
+@pytest.mark.allow_direct_assert("the findings heki gives on a seeded package are its verdict, not a stored output")
+def test_heki_reports_a_pass_that_writes_beyond_its_declaration(tmp_path: Path) -> None:
+    """A pass after L1 writes only the facts it declares, before they are final, and the glue between passes none.
+
+    A write through a helper counts for the pass, an entry a store operation writes is the entry its key names, and the
+    phase is the pipeline's to enter.
+    """
+    for name, text in SEEDED_PASSES.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    (tmp_path / "scripts").mkdir()
+    repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
+    contracts = tmp_path / "contracts.toml"
+    _contracts_file(contracts, build_heki_contracts.finality_contracts(repo, SEEDED_PASS_DECLS, {}, SEEDED_PASS_ROWS))
+
+    result = _heki("--output-format", "json", cwd=tmp_path, config=contracts)
+
+    found = sorted((item["qualname"], item["target"]) for item in json.loads(result.stdout))
+    assert (result.returncode, found) == (
+        1,
+        [
+            ("Parser._process_single_module", "pass-glue:DataModelFieldBase.read_only"),
+            ("declared", "pass:after_final:DataModelFieldBase.read_only"),
+            ("enters_phase", "pass:enters_phase:GenerationStore.phase"),
+            ("keyed", 'pass:frozen_key:DataModelFieldBase.extras["init"]'),
+            ("keyed", 'pass:frozen_key:DataModelFieldBase.extras["kw_only"]'),
+            ("undeclared", "pass:undeclared:DataModelFieldBase.read_only"),
+        ],
+    ), result.stderr
+
+
+@pytest.mark.parametrize(
+    ("tables", "message"),
+    [
+        (
+            'PIPELINE = (PassSpec("declared", lambda self, run: run.rows.clear()),)\n',
+            f"{build_heki_contracts.TABLES}: cannot tell which function `run.rows.clear` calls",
+        ),
+        (
+            'PIPELINE = (PassSpec("declared", late(steps.never_defined)),)\n',
+            (
+                f"{build_heki_contracts.TABLES}: datamodel_code_generator.parser._passes.steps.never_defined is no "
+                "function or class of the package"
+            ),
+        ),
+        (
+            'PIPELINE = (PassSpec("other", late(steps.declared)),)\n',
+            f"declared: no step of {build_heki_contracts.TABLES} and no decision runs it",
+        ),
+    ],
+    ids=["unknown-callee", "undefined-function", "undeclared-step"],
+)
+@pytest.mark.allow_direct_assert("a table the builder cannot read must stop the build, not be stored as an output")
+def test_pass_boundaries_name_the_functions_each_step_runs(tmp_path: Path, tables: str, message: str) -> None:
+    """The builder reads the function every pass of the tables runs; one it cannot tell stops the build."""
+    for name, text in SEEDED_PASSES.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    (tmp_path / f"{PACKAGE}/parser/_passes/_tables.py").write_text(
+        "from datamodel_code_generator.parser._passes import steps\n"
+        "from datamodel_code_generator.parser._pipeline import PassSpec, late\n\n" + tables,
+        encoding="utf-8",
+    )
+    (tmp_path / "scripts").mkdir()
+    repo = build_heki_contracts.Repo(tmp_path, build_heki_contracts.Page([], [], [], []))
+
+    with pytest.raises(SystemExit) as stopped:
+        build_heki_contracts.finality_contracts(repo, SEEDED_PASS_DECLS[1:2], {}, SEEDED_PASS_ROWS)
+
+    assert str(stopped.value) == message
+
+
+@pytest.mark.allow_direct_assert("a stale decision must stop the build, not be stored as an expected output")
+def test_pass_boundaries_name_the_function_each_decision_runs() -> None:
+    """Each decision of ``DECISION_DECLS`` is a ``DecisionPass`` of the module it declares."""
+    repo = build_heki_contracts.Repo(build_heki_contracts.ROOT, build_heki_contracts.Page([], [], [], []))
+    decls = {"omit_held_null": replace(DECISION_DECLS["omit_held_null"], module="parser/_unique_sets.py")}
+
+    with pytest.raises(SystemExit) as stopped:
+        build_heki_contracts.finality_contracts(repo, (), decls)
+
+    assert str(stopped.value) == "DECISION_DECLS: parser/_unique_sets.py makes no DecisionPass named omit_held_null"
+
+
+@pytest.mark.allow_direct_assert("a boundary without the help of its kind must fail, not be stored as an output")
+def test_each_effect_boundary_carries_the_help_its_ratchet_prints() -> None:
+    """Each effect boundary's message is the help of its kind, which the rise of its baseline sites prints too."""
+    boundaries = tomllib.loads(CONTRACTS.read_text(encoding="utf-8"))["effect-boundaries"]
+    targets = [
+        entry["target"]
+        for entry in tomllib.loads(BASELINE.read_text(encoding="utf-8"))["entries"]
+        if entry["rule_code"] in check_ratchets.HEKI_OWN_KEY_RULES
+    ]
+    kinds = {check_ratchets.boundary_kind(boundary["name"]) for boundary in boundaries}
+
+    assert {
+        boundary["name"]: boundary.get("message")
+        for boundary in boundaries
+        if boundary.get("message") != check_ratchets.BOUNDARY_ADVICE.get(check_ratchets.boundary_kind(boundary["name"]))
+    } == {}
+    assert kinds == set(check_ratchets.BOUNDARY_ADVICE)
+    assert {check_ratchets.boundary_kind(target) for target in targets} <= kinds
+
+
+@pytest.mark.allow_direct_assert("a finding the baseline keeps without a reason must fail, not be stored as an output")
+def test_the_baseline_keeps_the_known_pass_findings_only() -> None:
+    """The findings of the pass boundaries in the baseline are those ``KNOWN_FINDINGS`` lists with what removes them.
+
+    A new finding needs its entry there, and a finding the code no longer makes leaves both (heki shrinks the baseline).
+    """
+    entries = tomllib.loads(BASELINE.read_text(encoding="utf-8"))["entries"]
+    kept = sorted(
+        entry["target"]
+        for entry in entries
+        if entry["rule_code"] == "EFF201" and entry["target"].startswith(("pass:", "pass-glue:"))
+    )
+
+    assert kept == sorted(finding.target for finding in build_heki_contracts.KNOWN_FINDINGS)

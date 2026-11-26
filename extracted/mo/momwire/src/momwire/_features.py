@@ -21,11 +21,15 @@ On outside its reach, a feature is handled by its KIND:
 
 The standalone executables run only the features their C++ route carries
 and whose reach covers their level (``EXE_FEATURES`` in
-``standalone/momwire_razor2p.cpp``; today momwire#1860's four levers, reach
-9, so every executable but nec42-sinusoidal's, and razor_pair_reuse, reach 8,
-which only nec5-razor2p's route carries, so nec5-bs2 refuses it by
-basis, ``EXE_FEATURE_BASES``). One started with any other ``MOMWIRE_X_``
-variable on refuses before it reads a deck (:data:`EXE_REFUSAL`).
+``standalone/momwire_razor2p.cpp``; among them momwire#1860's four levers,
+reach 9, so every executable but nec42-sinusoidal's, razor_pair_reuse, reach
+8, which only nec5-razor2p's route carries, so nec5-bs2 refuses it by basis,
+``EXE_FEATURE_BASES``, offset_reuse, reach 9, which only the bs2 routes
+carry, so nec5-razor2p refuses it by basis, and the whole ``pair_reuse``,
+reach 11, which every executable accepts and maps to its own route's reuse,
+``EXE_PARTS``). One
+started with any other ``MOMWIRE_X_`` variable on refuses before it reads a
+deck (:data:`EXE_REFUSAL`).
 
 A feature may be a PART of another (``part_of``): one user-facing switch
 that turns on what each solver supports of it. Today that is ``pair_reuse``,
@@ -81,6 +85,9 @@ __all__ = [
     "context_scope",
     "in_context",
     "current_level",
+    "pragma_note",
+    "pragma_scope",
+    "deck_pragmas",
     "default_on",
     "enabled",
     "honours",
@@ -225,6 +232,14 @@ class Feature:
     # set ignores the variable and the kwarg, and line 2 does not name it
     # (`stamp`). tests/test_feature_solvers_1980.py holds it to the code.
     solvers: tuple[str, ...] = ()
+    # Whether a deck may ask for it in a comment card (`CM momwire: <name>`,
+    # :func:`deck_pragmas`): the drop-ins and the executables then read the
+    # pragma as if this feature's variable were set on for that deck alone.
+    # Only for a feature that cannot change the printed answer (`drift` <=
+    # DEFAULT_DRIFT_MAX) and that a route declines rather than refuses
+    # where it cannot serve the deck; never a thread, path or approximate
+    # one. The maintainer marks it, in its own PR.
+    pragma: bool = False
 
     @property
     def stable(self) -> bool:
@@ -234,14 +249,17 @@ class Feature:
 FEATURES: dict[str, Feature] = {
     f.name: f
     for f in (
-        # Each congruent pair's fill once, the rest copied. BSplineSolver: a
-        # front end's hint that edge pairs share a pose, one block filled per
-        # pose (PRs #1810, #1811), Python's plan over the copy the Sommerfeld
-        # remainder kernel shipped in 0.87.0; the hint is DATA, so there the
-        # variable alone reuses nothing. SinusoidalSolver (momwire#1911): the
-        # point-matched fill finds its own classes of (observer, source)
-        # pairs and evaluates each one's field tensors once with the shipped
-        # kernel, free space and PEC image; there the variable alone is on.
+        # Each congruent pair's fill once, the rest copied. BSplineSolver
+        # (momwire#2063): the Galerkin fill finds its own classes of
+        # (observer segment, source segment) pairs on the common core
+        # (`_bspline_pair_reuse_core.h`) and evaluates each class's moments
+        # once with the shipped off-edge kernel, its Sommerfeld remainder
+        # copying the blocks those classes make congruent through the
+        # plane; a front end's edge-pair hint (PRs #1810, #1811) is read as
+        # on. SinusoidalSolver (momwire#1911): the point-matched fill finds
+        # its own classes of (observer, source) pairs and evaluates each
+        # one's field tensors once with the shipped kernel, free space and
+        # PEC image. On every solver the variable alone is on.
         #
         # The one user-facing pair-reuse switch (momwire#1982): its parts,
         # `offset_reuse` (bspline, within one edge) and `razor_pair_reuse`
@@ -249,27 +267,23 @@ FEATURES: dict[str, Feature] = {
         # takes `pair_reuse=` and MOMWIRE_X_PAIR_REUSE turns on the reuse it
         # supports. Their own keywords and variables are kept as aliases.
         #
-        # The sinusoidal part's plan is one C++ copy on the common reuse core
+        # The sinusoidal plan is one C++ copy on the common reuse core
         # (`_sin_pair_reuse_core.h`, momwire#2063), which the Python route
-        # and the C++ fill (the nec42-sinusoidal executable) both run. It has
-        # no EXE_FEATURES row, so the shipped executables refuse it; a
-        # certification build (MW_EXE_CERTIFY=pair_reuse) runs it for the
-        # gates.
+        # and the C++ fill (the nec42-sinusoidal and nec2c-sinusoidal
+        # executables) both run.
         #
-        # Reach 4, `dropin-linux-windows` (Steve, 2026-11-19; it was reach 1,
-        # the hosted app only, from 11-04): certified for every Python route
-        # but macOS, the hosted app, Linux sse2, Windows installs and the
-        # drop-in on Linux and Windows, so MOMWIRE_X_PAIR_REUSE=1 with the
-        # Windows NEC-2 drop-in (`momwire-nec2c-sinusoidal`) is a certified
-        # use. Python-kind, so the macOS drop-in (level 5) still runs it,
-        # stamped uncertified. Still off by default and not offered. No
-        # executable carries it: reach 4 is short of the first executable
-        # level (6), and there is no EXE_FEATURES row, so they refuse it.
-        # Its bspline part `offset_reuse` moves with it; its razor2p part
-        # `razor_pair_reuse` already reaches 8.
+        # Reach 11, every level: every Python route and drop-in, and every
+        # executable, each of which accepts MOMWIRE_X_PAIR_REUSE and runs its
+        # own basis's reuse (`EXE_FEATURES` and `EXE_PARTS` in
+        # standalone/momwire_razor2p.cpp): nec5-razor2p its part
+        # `razor_pair_reuse`, the two sinusoidal executables this plan, and
+        # nec5-bs2 and nec42-bs2 the census and their part `offset_reuse`,
+        # both in bs2's C++ fill (momwire#2063), at the launcher's bytes.
+        # Where it runs, a part is certified only as far as its own reach,
+        # and line 2 says so (`stamp`). Still off by default and not offered.
         Feature(
             name="pair_reuse",
-            reach=4,
+            reach=11,
             env="MOMWIRE_X_PAIR_REUSE",
             solvers=("bspline", "razor", "sinusoidal"),
             kind="python",
@@ -278,6 +292,8 @@ FEATURES: dict[str, Feature] = {
             kwarg="pair_reuse",
             paths=(
                 "src/momwire/_sin_pair_reuse.py",
+                "src/momwire/_bspline_pair_reuse_core.cpp",
+                "src/momwire/_bspline_pair_reuse_core.h",
                 "tests/test_pair_reuse_1809.py",
                 "tests/test_sin_pair_reuse_1911.py",
                 "tests/test_sin_pair_reuse_ground_1970.py",
@@ -289,21 +305,27 @@ FEATURES: dict[str, Feature] = {
                 "tests/test_sin_pair_reuse_cxx_1911.py",
                 "tests/test_sin_pair_reuse_1916.py",
                 "tests/test_sin_pair_reuse_shared_1916.py",
-                "tests/test_sin_pair_reuse_budget_2019.py",
+                "tests/test_sin_pair_reuse_allowance_2123.py",
                 "tests/test_sin_pair_reuse_keys_1982.py",
             ),
             label="pair reuse",
             summary=(
-                "Fills each repeated pose of a pair of wires or segments once and "
-                "copies the rest. nec5-bs2 and nec42-bs2 need the front "
-                "end's hint of which edge pairs share a pose, and also fill a "
-                "uniform wire's own entries once per segment offset; the "
-                "sinusoidal solver and nec5-razor2p find their own classes, in "
-                "free space and over a perfect or finite ground, on decks large "
-                "enough to pay for the search."
+                "Fills each repeated pose of a pair of segments once and copies "
+                "the rest. Every solver finds its own classes, in free space and "
+                "over a perfect or finite ground, on decks large enough to pay "
+                "for the search; nec5-bs2 and nec42-bs2 also fill a uniform "
+                "wire's own entries once per segment offset."
             ),
             # |dZin|/|Zin|, the registry's measure, against the flag-off fill.
-            # bspline: 1e-12. sinusoidal: the class map moves Z itself by
+            # bspline (the census, momwire#2063, with `offset_reuse` on and
+            # off): 6.8e-14 worst over the reuse tests' decks and the stage's
+            # set (Yagis of one and two edges, parallel dipoles, a vertical
+            # stack, a line grid; free, PEC, Sommerfeld; EK on and off), and
+            # 3.1e-12 on antennaknobs' 10-element Yagi (both layouts, free,
+            # PEC, Sommerfeld), where the hint route moved it 3.2e-12: the
+            # offset part's. A 0.3 m loop at 137 kHz moves 1.4e-8, where
+            # its off fill moves 5e-7 translated 3.7 m (and `offset_reuse`
+            # alone 3e-7). sinusoidal: the class map moves Z itself by
             # ~1e-12 relative to its largest entry, and the solve amplifies
             # that at the feed. Measured over every frequency of the 11-16
             # reuse ladders (13 each; gsfd_* 101), dense:
@@ -318,6 +340,7 @@ FEATURES: dict[str, Feature] = {
             # DEFAULT_DRIFT_MAX (antennaknobs' LAST_DIGITS_DRIFT, 1e-6).
             drift=5e-10,
             offer=False,
+            pragma=True,
         ),
         # A uniform edge's same-edge reg moments filled by segment offset
         # (PR #1815): the shipped kernels, summed in another order. A part of
@@ -328,9 +351,13 @@ FEATURES: dict[str, Feature] = {
         # Reach 4 with the whole (Steve, 2026-11-19): it is what
         # MOMWIRE_X_PAIR_REUSE turns on for bspline, so a certified whole
         # never stamps a bspline drop-in printout uncertified through it.
+        # Reach 9 since bs2's C++ fill carries it (momwire#2063 stage 4): the
+        # nec5-bs2 and nec42-bs2 executables (levels 6 to 9) run it, with the
+        # whole's census, at the launcher's bytes (`EXE_PARTS`); it also
+        # certifies the macOS drop-in (Steve, 2026-11-25).
         Feature(
             name="offset_reuse",
-            reach=4,
+            reach=9,
             env="MOMWIRE_X_OFFSET_REUSE",
             solvers=("bspline",),
             kind="python",
@@ -343,7 +370,11 @@ FEATURES: dict[str, Feature] = {
                 "Fills a uniform edge's same-edge moments once per segment offset;"
                 " turned on with pair reuse, alongside its copies between edges."
             ),
-            drift=1e-12,
+            # Measured on the 821-deck exe corpus (momwire#2063 stage 4):
+            # worst 2.5e-11 (WA7ARK-OCF), Python's own offset fill, so the
+            # 1e-12 the unit decks show understated it. Still far under
+            # DEFAULT_DRIFT_MAX.
+            drift=5e-11,
             offer=False,
             part_of="pair_reuse",
         ),
@@ -724,6 +755,7 @@ FEATURES: dict[str, Feature] = {
                 "src/momwire/_pair_reuse_core.cpp",
                 "src/momwire/_pair_reuse_core.h",
                 "tests/test_razor_pair_reuse_1971.py",
+                "tests/test_razor_reuse_rows_2144.py",
             ),
             label="razor pair reuse",
             summary=(
@@ -951,6 +983,149 @@ FEATURES: dict[str, Feature] = {
             drift=1e-3,
             offer=True,
         ),
+        # The dense port solve by complex64 LU and complex128 iterative
+        # refinement (momwire#2125): `_lapack.solve` / `solve_transposed` /
+        # `factor_and_solve` under `mixed_lu_scope`, which each family sets
+        # around its one-shot solve: sinusoidal (`compute_port_solution`, the
+        # swept impedance), bs2 / bs1 (`_solve_with_kcl*`'s `_lu_solve` and
+        # the KCL-reduced solve; hmatrix and arrayblock only on their dense
+        # fallback), razor2p (its three `_lu_solve`s) and sg
+        # (`_solve_constrained`). Not the factors a solver keeps for later
+        # solves (`lu_factor_strict`), the stacked swept solves, or the
+        # rotational-symmetry sectors.
+        # Shipped LAPACK and BLAS routines only (cgetrf, cgetrs, the complex128
+        # residual product), so python-kind: on the drop-in it runs,
+        # uncertified, and the NEC-2 launcher's nec2c-layout printout does
+        # not name it. The refinement must reach a normwise backward error of
+        # u64 (2**-53), or the floor of a complex128 residual under zcgesv's
+        # sqrt(n) u64, after at least two corrections, contracting
+        # by 2**-6 each sweep, within five; anything else -- no contraction,
+        # the cap, an inf or NaN, a singular complex64 factor, a matrix whose
+        # range complex64 cannot hold -- falls back to the ordinary complex128
+        # factor on the untouched Z and returns the flag-off bits. Memory:
+        # Z stays intact for the residuals, plus its complex64 copy, 1.5 Z
+        # (the allowance with the flag on is 1.5 * 16 N^2 + 512 MB). No host
+        # LAPACK route: the executables' table carries no cgetrf, so they
+        # refuse the variable (no EXE_FEATURES row).
+        #
+        # `drift`, |dZin|/|Zin| flag on against off (Rocketlake, 2026-11-23,
+        # 8 threads). Sinusoidal, the NEC-2 launcher route:
+        #   W8IO ELT whip, n = 4392, 13 frequencies              2.5e-13
+        #     (the same off at 4 threads against 8: 2.1e-13)
+        # bs2 / bs1 / sg (momwire#2125 follow-up), the size rule forced off so
+        # every solve is tried: the 71 nec_portal decks and every deck of
+        # scripts/nightly/corpus.txt (nec4 dialect), 628 per engine:
+        #   bs2 5.2e-13, bs1 2.1e-12, sg 7.1e-12 (a buried sg deck whose
+        #   second complex128 factor itself moves Zin 1.1e-11; sg's worst
+        #   such scatter is 2.4e-11)
+        # razor2p, on the solution, through the NEC-5 drop-in: 4.9e-12.
+        # Against an 80-bit reference (n <= 700, about 800 solves per engine)
+        # the refined answer's worst error is no larger than the ordinary
+        # route's: bs2 3.0e-12 (ordinary 3.1e-12), bs1 1.7e-12 (6.0e-12), sg
+        # 2.6e-13 (5.5e-12), razor2p 1.1e-12 (1.1e-12). 2e-11 covers the
+        # worst with 2.8x margin, far under DEFAULT_DRIFT_MAX. Large decks
+        # (n 2404 to 10442, bs2 / sg / razor2p / bs2 with kcl_nullspace)
+        # print byte-identically bar timing and line 2.
+        #
+        # Speed (5 paired runs, medians, AVX-512 off; one frequency of the
+        # NEC-5 whip): sinusoidal whip, 13 frequencies, 8 threads 1.19x, 1
+        # thread 1.37x (with pair_reuse 1.23x / 1.54x); razor2p whip (n 6372)
+        # 1.13x / 1.40x; bs2 whip with kcl_nullspace (n 10442) 1.15x / 1.42x;
+        # a free-space bs2 array (n 4818) 1.05x / 1.28x; over Sommerfeld
+        # ground (n 3614) and buried (n 2404), where the fill dominates,
+        # 1.00x at 8 threads and 1.05x / 1.03x at one. The bs2 whip itself
+        # declines: its Schur solve carries 2095 right-hand sides.
+        # A stall fallback costs the complex64 factor and a sweep: 0.86x on
+        # an over-segmented free-space pair (n 5204, kΔ 1e-3).
+        # Peak RSS: sinusoidal whip 582 -> 737 MiB, razor2p whip 806 -> 1080
+        # MiB, bs2 whip with kcl_nullspace 3252 -> 3635 MiB, each under its
+        # 1.5 Z + 512 MB allowance.
+        Feature(
+            name="mixed_lu",
+            reach=1,
+            env="MOMWIRE_X_MIXED_LU",
+            solvers=("bspline", "razor", "sinusoidal", "sinusoidal_galerkin"),
+            kind="python",
+            issue=2125,
+            since="2026-11-23",
+            kwarg="mixed_lu",
+            paths=("tests/test_mixed_lu_2125.py",),
+            label="mixed-precision solve",
+            summary=(
+                "Factors the moment matrix in single precision, about twice as "
+                "fast, then refines the answer against the double-precision "
+                "matrix until it is as accurate as the ordinary solve; any "
+                "solve that does not converge cleanly is redone the ordinary "
+                "way. Memory: the matrix plus a half-size copy."
+            ),
+            drift=2e-11,
+            offer=True,
+        ),
+        # The sector (block-circulant) route for a deck that is N identical
+        # sectors about one vertical axis (momwire#1029 bspline, #1897 off-
+        # axis verticals, #1912 sinusoidal): one sector's rows filled, one
+        # block solved per harmonic. Its keyword is older than this entry,
+        # and keeps its contract: True refuses a deck the route does not
+        # serve. The variable is the drop-ins' way in (Steve, 2026-11-24, on
+        # momwire#1338: "Lets just do it for the dropin. We want it optin."):
+        # with the keyword unset it TRIES the route and, on a deck or a
+        # solver it does not serve, solves densely and says why
+        # (`rotational_symmetry_declined`, the fill report's
+        # `sector.declined`, a RotationalSymmetryDeclined warning). Never
+        # auto-selected and off by default.
+        #
+        # bs2 / bs1 and the point-matched sinusoidal solver honour it. razor2p
+        # has no sector route yet (momwire#1251), so it is not in `solvers`:
+        # there the variable is accepted, unread and unstamped, and the deck
+        # is solved as with it off. Nor is the Galerkin subclass, whose
+        # keyword refuses by name.
+        #
+        # Reach 4, `dropin-linux-windows`, as pair_reuse: the drop-in on
+        # Linux and Windows is the route asked for, and the levels above it
+        # are every Python route but macOS. Python-kind (shipped fills and
+        # LAPACK on one sector's rows), so the macOS drop-in (level 5) runs it
+        # stamped uncertified. No executable carries it: there is no C++
+        # sector route and no EXE_FEATURES row, so they refuse the variable.
+        #
+        # `drift`, |dZin|/|Zin| on against off through the drop-ins (laptop,
+        # avx2, 2026-11-24; the port admittance at full precision), on
+        # radial screens generated as each dialect writes them: a vertical on
+        # the axis fed on the axis over N = 2 to 24 radials, flat or drooping,
+        # rotated off the axes, free space, PEC and Sommerfeld (above the
+        # ground, and buried through the portal and NEC-4.2), one to three
+        # frequencies:
+        #   NEC-5 bs2 / bs1, NEC-4.2 bs2, portal bs2 and sinusoidal, with
+        #     N = 2-24 at 7-11 segments a wire: 1.4e-11 or less, except
+        #     drooping and rotated N = 5 over Sommerfeld 2.3e-10 (sinusoidal)
+        #     and N = 7 rotated 1.1 rad at 21-31 segments a wire 4.3e-10.
+        #   The 80 EZNEC capture decks through NEC-5 bs2: 3 take the route
+        #     (0013, 0033, 0034; 1.3e-12 at most), the other 77 decline and
+        #     print the flag-off printout bar line 2.
+        # The 4.3e-10 is the dense fill's own rounding, not the route: the
+        # same deck solved densely moves 6.2e-10 when it is rotated 1.1 rad
+        # about the axis. 1e-9, the route's own acceptance bar (its tests'
+        # TOL), is 2.3x the worst; far under DEFAULT_DRIFT_MAX.
+        Feature(
+            name="rotational_symmetry",
+            reach=4,
+            env="MOMWIRE_X_ROTATIONAL_SYMMETRY",
+            solvers=("bspline", "sinusoidal"),
+            kind="python",
+            issue=1338,
+            since="2026-11-24",
+            kwarg="rotational_symmetry",
+            paths=("tests/test_rotational_symmetry_dropin_1338.py",),
+            label="rotational symmetry (radial screens)",
+            summary=(
+                "Solves a deck that is N identical sectors about one vertical "
+                "axis (a vertical over a radial screen) from one sector's rows, "
+                "one block per harmonic, instead of the whole matrix. A deck "
+                "that is not built that way is solved as usual."
+            ),
+            drift=1e-9,
+            offer=False,
+            pragma=True,
+        ),
     )
 }
 
@@ -992,13 +1167,149 @@ class FeatureNotCertified(RuntimeError):
     """A native feature was asked for outside its reach."""
 
 
+# --- per-deck pragmas --------------------------------------------------------
+#
+# A deck may turn on a `pragma` feature for itself in a comment card, one
+# feature a line:
+#
+#     CM momwire: pair_reuse
+#
+# The card is CM (either case) after any blanks or tabs; its text, after
+# blanks or tabs, starts with "momwire:" (any case), and the name is the run
+# of ASCII letters, digits and underscores after it (blanks or tabs between),
+# lowered; the rest of the line is ignored. Lines end at CR or LF. EZNEC
+# copies a model's description into the deck's CM lines, one line of it a
+# card, so a user types the pragma there. The deck readers never see this:
+# a pragma card is an ordinary comment, echoed as before.
+#
+# A pragma acts as the feature's VARIABLE would for that deck, never as its
+# keyword True: the variable set either way wins (MOMWIRE_X_<NAME>=0 is the
+# user's kill switch), and a route that cannot serve the deck declines as it
+# does under the variable. A name that is not a pragma feature here (unknown,
+# not marked `pragma`, or one this process withholds, `withhold_pragmas`) is
+# ignored and named on line 2 (`pragma_note`). The executables' copy of the
+# reader and the rule is `deck_pragmas` in standalone/momwire_razor2p.cpp;
+# tests/test_deck_pragma.py holds the two to one table.
+
+PRAGMA_PREFIX = "momwire:"
+_PRAGMA_BLANKS = " \t"
+_PRAGMA_NAME_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+)
+
+
+def deck_pragmas(text: str) -> list[str]:
+    """The feature names `text`'s ``CM momwire: <name>`` cards ask for, in
+    the order they first appear, each once. Not checked against the
+    registry (:func:`pragma_scope` sorts them)."""
+    names: list[str] = []
+    for line in text.replace("\r", "\n").split("\n"):
+        card = line.lstrip(_PRAGMA_BLANKS)
+        if card[:2].upper() != "CM":
+            continue
+        rest = card[2:].lstrip(_PRAGMA_BLANKS)
+        if rest[: len(PRAGMA_PREFIX)].lower() != PRAGMA_PREFIX:
+            continue
+        rest = rest[len(PRAGMA_PREFIX) :].lstrip(_PRAGMA_BLANKS)
+        end = 0
+        while end < len(rest) and rest[end] in _PRAGMA_NAME_CHARS:
+            end += 1
+        name = rest[:end].lower()
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+# The pragma features this process never takes from a deck: set by an
+# executable's embedded launcher (standalone/momwire_razor2p.cpp's fallback)
+# to the ones the executable does not carry, so its Python answer ignores
+# them as the C++ route does.
+_PRAGMA_WITHHELD: frozenset[str] = frozenset()
+
+
+def withhold_pragmas(names) -> None:
+    """Ignore a pragma for each of `names` from now on in this process."""
+    global _PRAGMA_WITHHELD
+    _PRAGMA_WITHHELD = frozenset(names)
+
+
+def pragma_eligible(name: str) -> bool:
+    """Whether a deck's pragma may turn `name` on here."""
+    feature = FEATURES.get(name)
+    return (
+        feature is not None
+        and feature.pragma
+        and feature.drift <= DEFAULT_DRIFT_MAX
+        and not feature.default
+        and name not in _PRAGMA_WITHHELD
+    )
+
+
+# (the pragma features on, the names ignored) for the deck being answered,
+# or None outside a deck's scope.
+_PRAGMAS: contextvars.ContextVar[tuple[frozenset[str], tuple[str, ...]] | None] = (
+    contextvars.ContextVar("momwire_feature_pragmas", default=None)
+)
+
+
+@contextlib.contextmanager
+def pragma_scope(text: str):
+    """Answer one deck under its own pragmas (:func:`deck_pragmas`): each
+    eligible one reads as its variable set on (:func:`_env_value`) unless
+    the variable is set; the rest are named by :func:`pragma_note`. A scope
+    inside another is the outer one's (a chain's structures share their
+    file's), and a deck with no pragma card changes nothing."""
+    if _PRAGMAS.get() is not None:
+        yield
+        return
+    names = deck_pragmas(text)
+    on = frozenset(n for n in names if pragma_eligible(n))
+    ignored = tuple(n for n in names if n not in on)
+    token = _PRAGMAS.set((on, ignored))
+    try:
+        yield
+    finally:
+        _PRAGMAS.reset(token)
+
+
+def pragma_scoped(fn):
+    """Decorate a drop-in entry whose first argument is the deck's text so
+    its body runs under :func:`pragma_scope`."""
+
+    @functools.wraps(fn)
+    def wrapper(text, *args, **kwargs):
+        with pragma_scope(text):
+            return fn(text, *args, **kwargs)
+
+    return wrapper
+
+
+def pragmas_on() -> frozenset[str]:
+    """The pragma features the deck being answered turns on (before the
+    variables, which win), or none."""
+    scope = _PRAGMAS.get()
+    return frozenset() if scope is None else scope[0]
+
+
+def pragma_note() -> str:
+    """Line 2's note for the deck's ignored pragmas: ``""`` when there are
+    none, else ``"(pragma ignored: a, b)"``."""
+    scope = _PRAGMAS.get()
+    if scope is None or not scope[1]:
+        return ""
+    return f"(pragma ignored: {', '.join(scope[1])})"
+
+
 def _env_value(feature: Feature) -> bool | None:
     """What the environment says of `feature`: True (on), False (set to
-    anything else, "0" say) or None (unset or empty: the default)."""
+    anything else, "0" say) or None (unset or empty: the default). Unset, a
+    pragma of the deck being answered (:func:`pragma_scope`) reads as on."""
     for var in (feature.env, *feature.aliases):
         value = os.environ.get(var)
         if value is not None and value.strip():
             return value.strip().lower() in _ON
+    if feature.name in pragmas_on():
+        return True
     return None
 
 
@@ -1372,10 +1683,11 @@ def stamp(context: str | None = None, solver: str | None = None) -> str:
     """What a printout's line 2 adds for the features the environment turns
     on where their default is off: ``""`` when there are none (the line is
     then byte-identical to one without features), else ``"+a+b"``, followed
-    by ``" uncertified on this platform"`` when any of them is outside its
-    reach here (`context` defaulting to the running one). A default-on
-    feature is never named: on, it is the stable path; turned off, the
-    printout is the one before it was promoted.
+    by ``" uncertified on this platform"`` when any of them, or a part of
+    one that runs (:func:`_certified_as_run`), is outside its reach here
+    (`context` defaulting to the running one). A default-on feature is never
+    named: on, it is the stable path; turned off, the printout is the one
+    before it was promoted.
 
     `solver` is the running solver's family (:data:`SOLVERS`, or ``""`` for
     one that honours none; :func:`basis_solver`): only the features that run
@@ -1392,6 +1704,23 @@ def stamp(context: str | None = None, solver: str | None = None) -> str:
     if not names:
         return ""
     text = "".join(f"+{n}" for n in names)
-    if not all(certified(n, context) for n in names):
+    if not all(_certified_as_run(n, solver, context) for n in names):
         text += " uncertified on this platform"
     return text
+
+
+def _certified_as_run(name: str, solver: str | None, context: str) -> bool:
+    """Whether `name`, on in the environment, runs certified here: it is
+    certified, and so is each of its parts that runs on family `solver`
+    (every family when None). A whole reaches as far as its widest family,
+    and on a family it acts on through a part, what runs is the part."""
+    if not certified(name, context):
+        return False
+    for part in FEATURES.values():
+        if part.part_of != name or (solver is not None and solver not in part.solvers):
+            continue
+        on, through_whole = _resolve(part.name, None, None, context)
+        if on and not (through_whole and _withheld_here(part.name, context)):
+            if not certified(part.name, context):
+                return False
+    return True

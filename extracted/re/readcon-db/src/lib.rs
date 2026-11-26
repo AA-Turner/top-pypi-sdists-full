@@ -1,11 +1,17 @@
 //! Embedded CON/convel corpus on LMDB (Heed) with non-SQL selection and xxHash3 exact match.
 //!
-//! Optional `python` feature builds PyO3 bindings. C ABI is always compiled into
-//! `cdylib`/`staticlib` (`src/ffi.rs`).
+//! Optional `python` feature builds PyO3 bindings. The optional `capi` feature
+//! compiles the C ABI (`src/ffi.rs`) into the `cdylib`/`staticlib`. Without it no
+//! unmangled `rkrdb_*` symbols are exported.
 //!
 //! The usage guide for creating a corpus, streaming appends, and `StoredFrame`
 //! reads lives in `docs/orgmode/howto/streaming.org`.
 #![deny(missing_docs)]
+
+// Pulls mimalloc into this crate so local_dynamic_tls is unified onto
+// the global allocator installed by readcon-core.
+#[allow(unused_imports)]
+use mimalloc as _mimalloc_local_dynamic_tls;
 
 pub mod archive;
 mod canonical;
@@ -59,6 +65,7 @@ pub use topology::{
 };
 pub use units_canon::{canonicalize_unit, canonicalize_units_object, NATURAL_TIME_UNIT};
 
+#[cfg(feature = "capi")]
 pub mod ffi;
 
 #[cfg(feature = "python")]

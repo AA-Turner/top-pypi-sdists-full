@@ -340,7 +340,10 @@ class PruneRequest(_message.Message):
 
     THREAD_IDS_FIELD_NUMBER: _builtins.int
     STRATEGY_FIELD_NUMBER: _builtins.int
+    SYNC_CHECKPOINT_DELETE_FIELD_NUMBER: _builtins.int
     strategy: Global___PruneRequest.PruneStrategy.ValueType
+    sync_checkpoint_delete: _builtins.bool
+    """Delete checkpoints synchronously, bypassing deferred deletion."""
     @_builtins.property
     def thread_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     def __init__(
@@ -348,10 +351,11 @@ class PruneRequest(_message.Message):
         *,
         thread_ids: _abc.Iterable[_builtins.str] | None = ...,
         strategy: Global___PruneRequest.PruneStrategy.ValueType = ...,
+        sync_checkpoint_delete: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["strategy", b"strategy", "thread_ids", b"thread_ids"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["strategy", b"strategy", "sync_checkpoint_delete", b"sync_checkpoint_delete", "thread_ids", b"thread_ids"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -383,19 +387,27 @@ class GetTupleRequest(_message.Message):
 
     CONFIG_FIELD_NUMBER: _builtins.int
     ENCRYPTION_CONTEXT_JSON_FIELD_NUMBER: _builtins.int
+    CHANNELS_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
     @_builtins.property
     def encryption_context_json(self) -> _containers.ScalarMap[_builtins.str, _builtins.bytes]: ...
+    @_builtins.property
+    def channels(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """When set, only these channels' stored values are returned. Other channels
+        keep their entries in channel_versions but have no value. Empty loads all.
+        """
+
     def __init__(
         self,
         *,
         config: _engine_common_pb2.EngineRunnableConfig | None = ...,
         encryption_context_json: _abc.Mapping[_builtins.str, _builtins.bytes] | None = ...,
+        channels: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["config", b"config"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["config", b"config", "encryption_context_json", b"encryption_context_json"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["channels", b"channels", "config", b"config", "encryption_context_json", b"encryption_context_json"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

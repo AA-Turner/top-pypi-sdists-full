@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-ai-backend
-Version: 0.2.39
+Version: 0.2.40
 Summary: File storage and sandbox backends for AI agents
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-ai-backend
 Project-URL: Documentation, https://vstorm-co.github.io/pydantic-ai-backend/
@@ -28,7 +28,7 @@ Provides-Extra: console
 Requires-Dist: chardet>=5.2.0; extra == 'console'
 Requires-Dist: pydantic-ai-slim>=2.52.0; extra == 'console'
 Provides-Extra: daytona
-Requires-Dist: daytona>=0.220.0; extra == 'daytona'
+Requires-Dist: daytona<1,>=0.220.0; extra == 'daytona'
 Provides-Extra: dev
 Requires-Dist: build>=1.0.0; extra == 'dev'
 Requires-Dist: coverage>=7.0.0; extra == 'dev'

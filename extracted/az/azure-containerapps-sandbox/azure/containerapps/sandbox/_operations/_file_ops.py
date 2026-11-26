@@ -4,11 +4,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from azure.core.rest import HttpRequest, HttpResponse
 from azure.core.tracing.decorator import distributed_trace
 
-from azure.containerapps.sandbox._helpers import _raise_if_error
+from azure.containerapps.sandbox._helpers import _ERROR_MAP
 from azure.containerapps.sandbox._models import DirListing, FileInfo
+from azure.containerapps.sandbox._response_helpers import _normalize_response
 
 if TYPE_CHECKING:
     pass
@@ -19,8 +19,7 @@ logger = logging.getLogger("azure.containerapps.sandbox")
 class FileOperationsMixin:
     """File operations for sandboxes (list, read, write, stat, delete, mkdir).
 
-    Requires the host class to expose a ``_sbx_path`` property that returns the
-    URL path for the sandbox (e.g. ``/subscriptions/.../sandboxes/{id}``).
+    Uses the host's private generated client and sandbox identifier.
     """
 
     @distributed_trace
@@ -28,39 +27,34 @@ class FileOperationsMixin:
                    container_name: str | None = None,
                    **kwargs: Any) -> DirListing:
         """List directory contents in a sandbox."""
-        params: dict = {"path": path, "api-version": self._api_version}
-        if container_name:
-            params["containerName"] = container_name
-        result = self._dp_get(f"{self._sbx_path}/files/list", params=params)
-        return DirListing._from_dict(result)
+        return self._generated.sandboxes.list_files(
+            self._sandbox_id,
+            path=path,
+            container_name=container_name,
+            **{"error_map": _ERROR_MAP, "cls": _normalize_response, **kwargs},
+        )
 
     @distributed_trace
     def stat_file(self, path: str, *,
                   container_name: str | None = None,
                   **kwargs: Any) -> FileInfo:
         """Get file/directory metadata."""
-        params: dict = {"path": path, "api-version": self._api_version}
-        if container_name:
-            params["containerName"] = container_name
-        result = self._dp_get(f"{self._sbx_path}/files/stat", params=params)
-        return FileInfo._from_dict(result)
+        return self._generated.sandboxes.get_file_info(
+            self._sandbox_id,
+            path=path,
+            container_name=container_name,
+            **{"error_map": _ERROR_MAP, **kwargs},
+        )
 
     @distributed_trace
     def read_file(self, path: str, *,
                   container_name: str | None = None,
                   **kwargs: Any) -> bytes:
         """Read a file from a sandbox (returns bytes)."""
-        params: dict = {"path": path, "api-version": self._api_version}
-        if container_name:
-            params["containerName"] = container_name
-        request = HttpRequest("GET", f"{self._endpoint}{self._sbx_path}/files", params=params)
-        pipeline_response = self._pipeline.run(request, stream=True)
-        response = pipeline_response.http_response
-        if response.status_code >= 400:
-            response.read()
-            _raise_if_error(response)
-        response.read()
-        return response.content
+        chunks = self._generated.sandboxes.read_file(
+            self._sandbox_id, path=path, container_name=container_name, **{"error_map": _ERROR_MAP, **kwargs},
+        )
+        return b"".join(chunks)
 
     @distributed_trace
     def write_file(self, path: str, content: str | bytes, *,
@@ -70,16 +64,11 @@ class FileOperationsMixin:
                    **kwargs: Any) -> None:
         """Write a file to a sandbox."""
         data = content.encode("utf-8") if isinstance(content, str) else content
-        params: dict = {"path": path, "createDirs": str(create_dirs).lower(), "api-version": self._api_version}
-        if mode:
-            params["mode"] = mode
-        if container_name:
-            params["containerName"] = container_name
-        request = HttpRequest(
-            "PUT", f"{self._endpoint}{self._sbx_path}/files", content=data,
-            headers={"Content-Type": "application/octet-stream"}, params=params,
+        self._generated.sandboxes.write_file(
+            self._sandbox_id, data, path=path, create_dirs=create_dirs,
+            mode=int(mode, 8) if isinstance(mode, str) and mode else mode or None,
+            container_name=container_name, **{"error_map": _ERROR_MAP, **kwargs},
         )
-        self._send_request(request)
 
     @distributed_trace
     def delete_file(self, path: str, *,
@@ -87,24 +76,16 @@ class FileOperationsMixin:
                     container_name: str | None = None,
                     **kwargs: Any) -> None:
         """Delete a file or directory from a sandbox."""
-        params: dict = {"path": path, "recursive": str(recursive).lower(), "api-version": self._api_version}
-        if container_name:
-            params["containerName"] = container_name
-        request = HttpRequest("DELETE", f"{self._endpoint}{self._sbx_path}/files", params=params)
-        pipeline_response = self._pipeline.run(request)
-        response = pipeline_response.http_response
-        if response.status_code not in (200, 204):
-            _raise_if_error(response)
+        self._generated.sandboxes.delete_file(
+            self._sandbox_id, path=path, recursive=recursive,
+            container_name=container_name, **{"error_map": _ERROR_MAP, **kwargs},
+        )
 
     @distributed_trace
     def mkdir(self, path: str, *,
               container_name: str | None = None,
               **kwargs: Any) -> None:
         """Create a directory in a sandbox."""
-        params: dict = {"api-version": self._api_version}
-        if container_name:
-            params["containerName"] = container_name
-        request = HttpRequest(
-            "POST", f"{self._endpoint}{self._sbx_path}/files/mkdir", json={"path": path}, params=params,
+        self._generated.sandboxes.create_directory(
+            self._sandbox_id, {"path": path}, container_name=container_name, **{"error_map": _ERROR_MAP, **kwargs},
         )
-        self._send_request(request)

@@ -11,11 +11,11 @@ class CreateSaasServiceResponseBody(DaraModel):
         request_id: str = None,
         service_id: str = None,
     ):
-        # The order ID.
+        # The ID of the order.
         self.order_id = order_id
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The service ID.
+        # The ID of the service.
         self.service_id = service_id
 
     def validate(self):

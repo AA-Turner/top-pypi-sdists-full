@@ -20,11 +20,11 @@ class DescribeDBInstancePerformanceResponseBody(DaraModel):
         self.dbinstance_id = dbinstance_id
         # The end time of the query.
         self.end_time = end_time
-        # The database engine of the instance.
+        # The database engine.
         self.engine = engine
-        # The queried performance metrics.
+        # The list of performance metric values for the instance.
         self.performance_keys = performance_keys
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The start time of the query.
         self.start_time = start_time

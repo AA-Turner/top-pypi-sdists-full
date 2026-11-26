@@ -15,22 +15,21 @@ class ModifyDBInstanceNetworkTypeRequest(DaraModel):
     ):
         # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The new network type of the instance. Valid values:
-        # 
-        # *   VPC
-        # *   Classic
+        # The network type. Valid values:
+        # - VPC: VPC.
+        # - Classic: classic network.
         # 
         # This parameter is required.
         self.instance_network_type = instance_network_type
-        # The internal IP address of the instance.
+        # The internal IP address.
         self.private_ip_address = private_ip_address
-        # The virtual private cloud (VPC) ID of the instance.
+        # The VPC ID.
         self.vpcid = vpcid
-        # The vSwitch ID of the instance. This parameter must be specified when VPCId is specified.
+        # The vSwitch ID. This parameter is required if you specify a VPC ID.
         self.v_switch_id = v_switch_id
 
     def validate(self):

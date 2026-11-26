@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -30,6 +31,8 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "riegeli/base/byte_fill.h"
+#include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
@@ -54,13 +57,17 @@ using ::tensorstore::internal_ocdbt::DecodeBtreeNode;
 using ::tensorstore::internal_ocdbt::EncodedNode;
 using ::tensorstore::internal_ocdbt::IndirectDataReference;
 using ::tensorstore::internal_ocdbt::InteriorNodeEntry;
+using ::tensorstore::internal_ocdbt::kMaxDecodedNodeBytes;
+using ::tensorstore::internal_ocdbt::kMaxKeyLength;
 using ::tensorstore::internal_ocdbt::kMaxNodeArity;
 using ::tensorstore::internal_ocdbt::LeafNodeEntry;
 using ::tensorstore::internal_ocdbt::LeafNodeValueReference;
+using ::tensorstore::internal_ocdbt::ValidateBtreeNodeReference;
 using ::testing::HasSubstr;
 
 Result<std::vector<EncodedNode>> EncodeExistingNode(const Config& config,
-                                                    const BtreeNode& node) {
+                                                    const BtreeNode& node,
+                                                    bool may_be_root = false) {
   return std::visit(
       [&](const auto& entries) {
         using Entry = typename std::decay_t<decltype(entries)>::value_type;
@@ -70,7 +77,7 @@ Result<std::vector<EncodedNode>> EncodeExistingNode(const Config& config,
           encoder.AddEntry(/*existing=*/true, Entry(entry));
         }
 
-        return encoder.Finalize(/*may_be_root=*/false);
+        return encoder.Finalize(may_be_root);
       },
       node.entries);
 }
@@ -313,7 +320,7 @@ TEST(BtreeNodeTest, EncodeExistingPrefixPlusKeyTooLong) {
 TEST(BtreeNodeTest, LargeInteriorNodeSameFileChildren) {
   Config config;
   config.compression = Config::NoCompression{};
-  config.max_decoded_node_bytes = 1000000000;
+  config.max_decoded_node_bytes = kMaxDecodedNodeBytes;
   BtreeNode node;
   node.height = 1;
   auto& entries = node.entries.emplace<BtreeNode::InteriorNodeEntries>();
@@ -345,7 +352,7 @@ TEST(BtreeNodeTest, LargeInteriorNodeSameFileChildren) {
 TEST(BtreeNodeTest, MaxArity) {
   Config config;
   config.compression = Config::NoCompression{};
-  config.max_decoded_node_bytes = 1000000000;
+  config.max_decoded_node_bytes = kMaxDecodedNodeBytes;
   BtreeNode node;
   node.height = 0;
   auto& entries = node.entries.emplace<BtreeNode::LeafNodeEntries>();
@@ -413,6 +420,334 @@ TEST(BtreeFormatTest, AbslStringify) {
       "statistics={num_indirect_value_bytes=10, num_tree_bytes=200, "
       "num_keys=30}}}",
       absl::StrCat(interior_entry));
+}
+
+TEST(BtreeNodeTest, GetBtreeNodeLocalStatisticsSaturatesOnOverflow) {
+  using ::tensorstore::internal_ocdbt::GetBtreeNodeLocalStatistics;
+  constexpr uint64_t kMax = std::numeric_limits<uint64_t>::max();
+  BtreeNode node;
+  node.height = 0;
+  auto& entries = node.entries.emplace<BtreeNode::LeafNodeEntries>();
+  entries.push_back(
+      {"a", IndirectDataReference{DataFileId{"", "d/f"}, 0, kMax - 10}});
+  entries.push_back({"b", IndirectDataReference{DataFileId{"", "d/f"}, 0, 20}});
+  auto stats = GetBtreeNodeLocalStatistics(node, /*own_size=*/100);
+  EXPECT_EQ(stats.num_indirect_value_bytes, kMax);
+  EXPECT_EQ(stats.num_tree_bytes, 100);
+  EXPECT_EQ(stats.num_keys, 2);
+}
+
+TEST(BtreeNodeTest, EncoderStatisticsSaturateOnOverflow) {
+  constexpr uint64_t kMax = std::numeric_limits<uint64_t>::max();
+  Config config;
+  config.compression = Config::NoCompression{};
+  BtreeNode node;
+  node.height = 1;
+  auto& entries = node.entries.emplace<BtreeNode::InteriorNodeEntries>();
+  DataFileId file_id{"", "d/f"};
+  entries.push_back(
+      {"a", 0,
+       BtreeNodeReference{{file_id, 0, 10}, {kMax - 5, kMax - 5, kMax - 5}}});
+  entries.push_back(
+      {"b", 0, BtreeNodeReference{{file_id, 10, 10}, {20, 20, 20}}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_nodes,
+                                   EncodeExistingNode(config, node));
+  ASSERT_EQ(encoded_nodes.size(), 1);
+  EXPECT_EQ(encoded_nodes[0].info.statistics.num_indirect_value_bytes, kMax);
+  EXPECT_EQ(encoded_nodes[0].info.statistics.num_tree_bytes, kMax);
+  EXPECT_EQ(encoded_nodes[0].info.statistics.num_keys, kMax);
+}
+
+TEST(BtreeNodeTest, ValidateBtreeNodeReferenceMaxKeyLength) {
+  Config config;
+  config.compression = Config::NoCompression{};
+
+  // Entries share node-local `key_prefix` "k_" (length 2), and the middle
+  // entry suffix ("b_longest_middle_key", length 20) is strictly longer than
+  // front ("a", length 1) and back ("c", length 1).
+  constexpr std::string_view kNodeKeyPrefix = "k_";
+  constexpr std::string_view kMiddleKey = "k_b_longest_middle_key";
+  constexpr std::string_view kMiddleSuffix =
+      kMiddleKey.substr(kNodeKeyPrefix.size());
+  constexpr size_t kMaxValidPrefix = kMaxKeyLength - kMiddleKey.size();
+
+  BtreeNode raw_leaf;
+  raw_leaf.height = 0;
+  raw_leaf.entries.emplace<BtreeNode::LeafNodeEntries>({
+      LeafNodeEntry{"k_a", absl::Cord("v0")},
+      LeafNodeEntry{kMiddleKey, absl::Cord("v1")},
+      LeafNodeEntry{"k_c", absl::Cord("v2")},
+  });
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded_leaves,
+      EncodeExistingNode(config, raw_leaf, /*may_be_root=*/true));
+  ASSERT_EQ(encoded_leaves.size(), 1);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decoded_leaf,
+      DecodeBtreeNode(encoded_leaves[0].encoded_node, /*base_path=*/{}));
+  EXPECT_EQ(decoded_leaf.key_prefix, kNodeKeyPrefix);
+  EXPECT_EQ(decoded_leaf.max_entry_key_length, kMiddleSuffix.size());
+  TENSORSTORE_EXPECT_OK(ValidateBtreeNodeReference(
+      decoded_leaf, /*height=*/0, /*inclusive_min_key=*/"k_a", kMaxValidPrefix,
+      /*exclusive_max_key=*/"k_d"));
+  EXPECT_THAT(ValidateBtreeNodeReference(decoded_leaf, /*height=*/0,
+                                         /*inclusive_min_key=*/"k_a",
+                                         kMaxValidPrefix + 1,
+                                         /*exclusive_max_key=*/"k_d"),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Full key length 65536 exceeds limit of "
+                                 "65535")));
+
+  DataFileId file_id{"", "d/node_file"};
+  BtreeNode raw_interior;
+  raw_interior.height = 1;
+  raw_interior.entries.emplace<BtreeNode::InteriorNodeEntries>({
+      InteriorNodeEntry{"k_a", 2, {{file_id, 0, 64}, {0, 64, 1}}},
+      InteriorNodeEntry{kMiddleKey, 2, {{file_id, 64, 64}, {0, 64, 1}}},
+      InteriorNodeEntry{"k_c", 2, {{file_id, 128, 64}, {0, 64, 1}}},
+  });
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded_interiors,
+      EncodeExistingNode(config, raw_interior, /*may_be_root=*/true));
+  ASSERT_EQ(encoded_interiors.size(), 1);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decoded_interior,
+      DecodeBtreeNode(encoded_interiors[0].encoded_node, /*base_path=*/{}));
+  EXPECT_EQ(decoded_interior.key_prefix, kNodeKeyPrefix);
+  EXPECT_EQ(decoded_interior.max_entry_key_length, kMiddleSuffix.size());
+  TENSORSTORE_EXPECT_OK(ValidateBtreeNodeReference(
+      decoded_interior, /*height=*/1, /*inclusive_min_key=*/"k_a",
+      kMaxValidPrefix, /*exclusive_max_key=*/"k_d"));
+  EXPECT_THAT(ValidateBtreeNodeReference(decoded_interior, /*height=*/1,
+                                         /*inclusive_min_key=*/"k_a",
+                                         kMaxValidPrefix + 1,
+                                         /*exclusive_max_key=*/"k_d"),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Full key length 65536 exceeds limit of "
+                                 "65535")));
+}
+
+TEST(BtreeNodeTest, ExcessiveTotalInlineValueLengthRejected) {
+  using ::tensorstore::internal_ocdbt::kBtreeNodeFormatVersion;
+  using ::tensorstore::internal_ocdbt::kBtreeNodeMagic;
+  using ::tensorstore::internal_ocdbt::kInlineValue;
+  using ::tensorstore::internal_ocdbt::kMaxInlineValueLength;
+  using ::tensorstore::internal_ocdbt::WriteVarint;
+  Config config;
+  config.compression = Config::NoCompression{};
+  constexpr uint32_t kNumEntries = 600;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded,
+      EncodeWithOptionalCompression(
+          config, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+          [&](riegeli::Writer& writer) -> bool {
+            // height = 0 (leaf), empty DataFileTable (num_files = 0)
+            if (!writer.WriteByte(0) || !WriteVarint<uint64_t>(writer, 0) ||
+                !WriteVarint<uint32_t>(writer, kNumEntries)) {
+              return false;
+            }
+            // key_prefix_lengths (kNumEntries - 1 zeros)
+            for (uint32_t i = 1; i < kNumEntries; ++i) {
+              if (!WriteVarint<uint16_t>(writer, 0)) return false;
+            }
+            // key_suffix_lengths (each 4 bytes)
+            for (uint32_t i = 0; i < kNumEntries; ++i) {
+              if (!WriteVarint<uint16_t>(writer, 4)) return false;
+            }
+            // key_suffixes (strictly increasing 4-byte keys)
+            for (uint32_t i = 0; i < kNumEntries; ++i) {
+              if (!writer.Write(absl::StrFormat("%04d", i))) return false;
+            }
+            // value_lengths (each kMaxInlineValueLength = 1 MiB)
+            for (uint32_t i = 0; i < kNumEntries; ++i) {
+              if (!WriteVarint<uint64_t>(writer, kMaxInlineValueLength)) {
+                return false;
+              }
+            }
+            // value_kinds (all kInlineValue)
+            for (uint32_t i = 0; i < kNumEntries; ++i) {
+              if (!writer.WriteByte(kInlineValue)) return false;
+            }
+            return true;
+          }));
+  EXPECT_THAT(DecodeBtreeNode(encoded, {}),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Total inline value length exceeds maximum")));
+}
+
+TEST(BtreeNodeTest, ZstdDecompressionLimitExceeded) {
+  using ::tensorstore::internal_ocdbt::DecodeWithOptionalCompression;
+  using ::tensorstore::internal_ocdbt::kBtreeNodeFormatVersion;
+  using ::tensorstore::internal_ocdbt::kBtreeNodeMagic;
+  using ::tensorstore::internal_ocdbt::kInlineValue;
+  using ::tensorstore::internal_ocdbt::kMaxDecodedObjectSize;
+  using ::tensorstore::internal_ocdbt::kMaxInlineValueLength;
+  using ::tensorstore::internal_ocdbt::WriteVarint;
+  Config config;
+  config.compression = Config::ZstdCompression{1};
+  constexpr uint32_t kNumEntries =
+      kMaxDecodedObjectSize / kMaxInlineValueLength;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded,
+      EncodeWithOptionalCompression(
+          config, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+          [&](riegeli::Writer& writer) -> bool {
+            // 512 inline values of 1 MiB each equal kMaxDecodedObjectSize, so
+            // together with the node header and keys the decompressed stream
+            // exceeds kMaxDecodedObjectSize during value decoding.
+            if (!writer.WriteByte(0) || !WriteVarint<uint64_t>(writer, 0) ||
+                !WriteVarint<uint32_t>(writer, kNumEntries)) {
+              return false;
+            }
+            for (uint32_t i = 1; i < kNumEntries; ++i) {
+              if (!WriteVarint<uint16_t>(writer, 0)) return false;
+            }
+            for (uint32_t i = 0; i < kNumEntries; ++i) {
+              if (!WriteVarint<uint16_t>(writer, 4)) return false;
+            }
+            for (uint32_t i = 0; i < kNumEntries; ++i) {
+              if (!writer.Write(absl::StrFormat("%04d", i))) return false;
+            }
+            for (uint32_t i = 0; i < kNumEntries; ++i) {
+              if (!WriteVarint<uint64_t>(writer, kMaxInlineValueLength)) {
+                return false;
+              }
+            }
+            for (uint32_t i = 0; i < kNumEntries; ++i) {
+              if (!writer.WriteByte(kInlineValue)) return false;
+            }
+            return writer.Write(riegeli::ByteFill(kMaxDecodedObjectSize));
+          }));
+  EXPECT_THAT(DecodeBtreeNode(encoded, {}),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Unexpected end of data")));
+  EXPECT_THAT(DecodeWithOptionalCompression(
+                  encoded, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+                  [](riegeli::Reader& reader, uint32_t) -> bool {
+                    return reader.Skip(kMaxDecodedObjectSize);
+                  }),
+              StatusIs(absl::StatusCode::kResourceExhausted,
+                       HasSubstr("Position limit exceeded")));
+  // Multi-byte Pull straddling kMaxDecodedObjectSize leaves pos() < limit.
+  EXPECT_THAT(DecodeWithOptionalCompression(
+                  encoded, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+                  [](riegeli::Reader& reader, uint32_t) -> bool {
+                    return reader.Skip(kMaxDecodedObjectSize - 1000) &&
+                           reader.Pull(65535);
+                  }),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Unexpected end of data")));
+}
+
+TEST(BtreeNodeTest, ZstdDecompressionLimitExceededDuringReadKeysPull) {
+  using ::tensorstore::internal_ocdbt::kBtreeNodeFormatVersion;
+  using ::tensorstore::internal_ocdbt::kBtreeNodeMagic;
+  using ::tensorstore::internal_ocdbt::kMaxDecodedObjectSize;
+  using ::tensorstore::internal_ocdbt::WriteVarint;
+  Config config;
+  config.compression = Config::ZstdCompression{1};
+  // 8193 keys of length kMaxKeyLength (65535 bytes) exceed 512 MiB during
+  // ReadKeys' reader.Pull(suffix_length), which stops at kMaxDecodedObjectSize.
+  constexpr uint32_t kNumEntries = kMaxDecodedObjectSize / kMaxKeyLength + 1;
+  const std::string key_padding(kMaxKeyLength - 5, 'x');
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded, EncodeWithOptionalCompression(
+                        config, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+                        [&](riegeli::Writer& writer) -> bool {
+                          if (!writer.WriteByte(0) ||
+                              !WriteVarint<uint64_t>(writer, 0) ||
+                              !WriteVarint<uint32_t>(writer, kNumEntries)) {
+                            return false;
+                          }
+                          for (uint32_t i = 1; i < kNumEntries; ++i) {
+                            if (!WriteVarint<uint16_t>(writer, 0)) return false;
+                          }
+                          for (uint32_t i = 0; i < kNumEntries; ++i) {
+                            if (!WriteVarint<uint16_t>(writer, kMaxKeyLength))
+                              return false;
+                          }
+                          for (uint32_t i = 0; i < kNumEntries; ++i) {
+                            if (!writer.Write(absl::StrFormat("%05d", i)) ||
+                                !writer.Write(key_padding)) {
+                              return false;
+                            }
+                          }
+                          return true;
+                        }));
+  EXPECT_THAT(DecodeBtreeNode(encoded, {}),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Unexpected end of data")));
+}
+
+TEST(BtreeNodeTest, ZstdDecompressionExactLimit) {
+  using ::tensorstore::internal_ocdbt::DecodeWithOptionalCompression;
+  using ::tensorstore::internal_ocdbt::kBtreeNodeFormatVersion;
+  using ::tensorstore::internal_ocdbt::kBtreeNodeMagic;
+  using ::tensorstore::internal_ocdbt::kMaxDecodedObjectSize;
+  Config config;
+  config.compression = Config::ZstdCompression{1};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded,
+      EncodeWithOptionalCompression(
+          config, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+          [](riegeli::Writer& writer) -> bool {
+            return writer.Write(riegeli::ByteFill(kMaxDecodedObjectSize));
+          }));
+  // Reading exact kMaxDecodedObjectSize succeeds.
+  TENSORSTORE_EXPECT_OK(DecodeWithOptionalCompression(
+      encoded, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+      [](riegeli::Reader& reader, uint32_t) -> bool {
+        return reader.Skip(kMaxDecodedObjectSize);
+      }));
+  // Truncation at exact kMaxDecodedObjectSize reports Unexpected end of data.
+  EXPECT_THAT(DecodeWithOptionalCompression(
+                  encoded, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+                  [](riegeli::Reader& reader, uint32_t) -> bool {
+                    return reader.Skip(kMaxDecodedObjectSize + 1);
+                  }),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Unexpected end of data")));
+  // Multi-byte Pull hitting real EOF at exact kMaxDecodedObjectSize reports
+  // Unexpected end of data.
+  EXPECT_THAT(DecodeWithOptionalCompression(
+                  encoded, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+                  [](riegeli::Reader& reader, uint32_t) -> bool {
+                    return reader.Skip(kMaxDecodedObjectSize - 100) &&
+                           reader.Pull(200);
+                  }),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("Unexpected end of data")));
+  // Semantic failure at exact kMaxDecodedObjectSize is preserved.
+  EXPECT_THAT(DecodeWithOptionalCompression(
+                  encoded, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+                  [](riegeli::Reader& reader, uint32_t) -> bool {
+                    if (!reader.Skip(kMaxDecodedObjectSize)) return false;
+                    reader.Fail(absl::DataLossError("custom semantic error"));
+                    return false;
+                  }),
+              StatusIs(absl::StatusCode::kDataLoss,
+                       HasSubstr("custom semantic error")));
+}
+
+TEST(BtreeNodeTest, MaxDecodedNodeBytesZeroCapped) {
+  Config config;
+  config.compression = Config::ZstdCompression{1};
+  config.max_decoded_node_bytes = 0;
+  BtreeNode node;
+  node.height = 0;
+  auto& entries = node.entries.emplace<BtreeNode::LeafNodeEntries>();
+  constexpr size_t kNumEntries =
+      kMaxDecodedNodeBytes / kMaxKeyLength + 200;  // ~4296 entries > 256 MiB
+  std::vector<std::string> keys(kNumEntries);
+  entries.reserve(kNumEntries);
+  std::string suffix(kMaxKeyLength - 6, 'x');
+  for (size_t i = 0; i < kNumEntries; ++i) {
+    keys[i] = absl::StrFormat("%06d%s", i, suffix);
+    entries.push_back({keys[i], absl::Cord()});
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_nodes,
+                                   EncodeExistingNode(config, node));
+  EXPECT_EQ(encoded_nodes.size(), 2);
 }
 
 }  // namespace

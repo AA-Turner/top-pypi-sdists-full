@@ -18,7 +18,7 @@ class ListSupabaseProjectTagsResponseBody(DaraModel):
         self.next_token = next_token
         # Id of the request
         self.request_id = request_id
-        # The details.
+        # The tag resource details.
         self.tag_resources = tag_resources
 
     def validate(self):

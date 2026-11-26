@@ -10,11 +10,11 @@ class RestartSupabaseProjectRequest(DaraModel):
         project_id: str = None,
         region_id: str = None,
     ):
-        # The Supabase project ID.
+        # The ID of the Supabase project.
         # 
         # This parameter is required.
         self.project_id = project_id
-        # The region ID. Specifies the region in which to query or perform the operation.
+        # The region ID. Specifies the region for the query or operation.
         self.region_id = region_id
 
     def validate(self):

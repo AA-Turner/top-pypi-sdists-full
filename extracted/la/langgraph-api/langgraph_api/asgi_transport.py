@@ -9,7 +9,7 @@ import asyncio
 import typing
 
 from httpx import ASGITransport as ASGITransportBase
-from httpx import AsyncByteStream, Request, Response
+from httpx import AsyncByteStream, RemoteProtocolError, Request, Response
 
 if typing.TYPE_CHECKING:  # pragma: no cover
     import trio  # type: ignore[unresolved-import]
@@ -272,10 +272,12 @@ class ASGITransport(ASGITransportBase):
                     # The consumer drains queued chunks then sees the
                     # error. Bound unconditionally — this is an ASGI
                     # protocol error, not an app error, so it's not
-                    # gated on raise_app_exceptions.
+                    # gated on raise_app_exceptions. A socket raises
+                    # RemoteProtocolError for a truncated body, and the SDK
+                    # reconnects a stream only on httpx errors.
                     if not app_complete.done():
                         app_complete.set_exception(
-                            RuntimeError("Response not complete")
+                            RemoteProtocolError("Response not complete")
                         )
                 else:
                     # 3. Clean completion (send saw more_body=False).

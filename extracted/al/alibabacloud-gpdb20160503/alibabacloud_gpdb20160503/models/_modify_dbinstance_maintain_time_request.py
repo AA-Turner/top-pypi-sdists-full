@@ -12,19 +12,19 @@ class ModifyDBInstanceMaintainTimeRequest(DaraModel):
         resource_group_id: str = None,
         start_time: str = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
-        # The end time of the maintenance window. The end time must be later than the start time. Specify the time in the HH:mmZ format. The time must be in UTC.
+        # The end time of the maintenance window, which must be later than the start time. Format: HH:mmZ (UTC time).
         # 
         # This parameter is required.
         self.end_time = end_time
-        # This parameter is no longer used.
+        # **[Deprecated]** This parameter is deprecated. You do not need to specify this parameter.
         self.resource_group_id = resource_group_id
-        # The start time of the maintenance window. Specify the time in the HH:mmZ format. The time must be in UTC.
+        # The start time of the maintenance window. Format: HH:mmZ (UTC time).
         # 
         # This parameter is required.
         self.start_time = start_time

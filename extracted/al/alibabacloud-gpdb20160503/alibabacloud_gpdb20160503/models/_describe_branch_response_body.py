@@ -13,7 +13,7 @@ class DescribeBranchResponseBody(DaraModel):
         branch: main_models.DescribeBranchResponseBodyBranch = None,
         request_id: str = None,
     ):
-        # The branch information. Each element represents a Supabase branch.
+        # The list of branches. Each element represents a Supabase branch.
         self.branch = branch
         # The request ID.
         self.request_id = request_id
@@ -70,51 +70,47 @@ class DescribeBranchResponseBodyBranch(DaraModel):
     ):
         # The branch ID, which uniquely identifies a Supabase branch.
         self.branch_id = branch_id
-        # The branch name.
+        # The name of the branch.
         self.branch_name = branch_name
         # The connection information of the compute node associated with the branch.
         self.compute_endpoint = compute_endpoint
         # The time when the branch was created, in ISO 8601 UTC format.
         self.create_time = create_time
-        # The branch description.
+        # The description of the branch.
         self.description = description
-        # The time when the branch expires and is automatically deleted, in ISO 8601 UTC format.
+        # The time when the branch is automatically deleted upon expiration, in ISO 8601 UTC format.
         self.expires_at = expires_at
-        # The initialization source of the branch.
-        # 
-        # Valid values:
+        # The initialization source of the branch. Valid values:
         # - ParentData: Copies the schema and data from the parent branch. This is the default value.
         # - SchemaOnly: Copies only the schema structure.
         self.init_source = init_source
-        # Indicates whether this is the default branch.
+        # Indicates whether the branch is the default branch.
         self.is_default = is_default
-        # The parent branch ID, which specifies the parent branch of a new branch or a query condition.
+        # The ID of the parent branch, which is used to specify the parent branch for a new branch or a query condition.
         self.parent_branch_id = parent_branch_id
-        # The parent branch name. This value is empty or displayed as - for the primary branch.
+        # The name of the parent branch. For a primary branch, this value is empty or displayed as a hyphen (-).
         self.parent_branch_name = parent_branch_name
-        # The LSN of the parent branch at the time this branch was created.
+        # The LSN of the parent branch when the branch was created.
         self.parent_lsn = parent_lsn
-        # The data synchronization point in time selected from the parent branch when this branch was created, in ISO 8601 UTC format.
+        # The data synchronization point in time selected when the branch was created from the parent branch, in ISO 8601 UTC format.
         # 
-        # Description:
-        # - For child branches, this value indicates the point in time of the parent branch selected during creation.
-        # - If no parent branch exists, the value 1970-01-01T00:00:00.000Z is returned.
+        # Note:
+        # - For a child branch, the point in time of the parent branch selected during creation is returned.
+        # - If the branch has no parent branch, 1970-01-01T00:00:00.000Z is returned.
         self.parent_timestamp = parent_timestamp
-        # The Supabase project ID that corresponds to the primary branch.
+        # The ID of the Supabase project that corresponds to the primary branch.
         self.project_id = project_id
-        # Indicates whether branch protection is enabled. A value of true indicates that branch protection is enabled. A value of false indicates that branch protection is disabled.
+        # Indicates whether branch protection is enabled. A value of true indicates that branch protection is enabled, and a value of false indicates that branch protection is disabled.
         self.protected = protected
-        # The service type.
-        # 
-        # Valid values:
-        # - Supabase: Supabase service.
-        # - Memory: Memory service.
+        # The service type. Valid values:
+        # - Supabase: Supabase service
+        # - Memory: Memory service
         self.service_type = service_type
-        # The Supabase project ID that corresponds to the current branch.
+        # The ID of the Supabase project that corresponds to the current branch.
         self.spb_project_id = spb_project_id
-        # The branch status.
+        # The status of the branch.
         self.status = status
-        # The list of branch tags.
+        # The list of tags for the branch.
         self.tags = tags
 
     def validate(self):

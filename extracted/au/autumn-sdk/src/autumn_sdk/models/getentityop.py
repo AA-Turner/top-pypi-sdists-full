@@ -1309,6 +1309,7 @@ GetEntityProcessorType = Union[
     Literal[
         "stripe",
         "revenuecat",
+        "quartz",
     ],
     UnrecognizedStr,
 ]

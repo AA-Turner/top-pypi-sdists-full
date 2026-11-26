@@ -140,6 +140,32 @@ def normalize_protocol_event(
     return f"{method}{ns_suffix}", event
 
 
+_STREAM_MODE_CHANNELS = frozenset({"custom", "updates", "checkpoints"})
+"""Channels whose native v3 events carry the graph's stream-mode payload as it is."""
+
+
+def _stream_mode_payload(event: dict[str, Any]) -> Any:
+    """The payload the session's stream-mode intake takes for a ``_STREAM_MODE_CHANNELS`` event.
+
+    That intake shapes ``custom`` and ``updates`` as it does for any v2 run,
+    and takes a checkpoint as the protocol's ``Checkpoint`` envelope, which
+    langgraph's snapshot becomes here.
+    """
+    data = event["params"].get("data")
+    if event["method"] != "checkpoints":
+        return data
+    metadata = data.get("metadata") or {}
+    envelope = {
+        "id": data["config"]["configurable"]["checkpoint_id"],
+        "step": metadata.get("step"),
+        "source": metadata.get("source"),
+    }
+    parent = (data.get("parent_config") or {}).get("configurable") or {}
+    if parent.get("checkpoint_id"):
+        envelope["parent_id"] = parent["checkpoint_id"]
+    return envelope
+
+
 def is_v2_messages_chunk(chunk: Any) -> bool:
     """Heuristically detect a ``StreamMessagesHandlerV2`` chunk.
 
@@ -183,6 +209,22 @@ async def astream_state_v2(
     from langgraph.stream._types import (  # noqa: PLC0415
         StreamTransformer,
     )
+
+    class ProtocolStreamModes(StreamTransformer):
+        """Asks the graph for the protocol's custom, updates and checkpoints modes.
+
+        The graph streams only the modes its transformers ask for, and the
+        built-ins ask for values, messages and tasks. This owns no projection
+        key, so it can't clash with a transformer the graph registers itself.
+        """
+
+        required_stream_modes = ("custom", "updates", "checkpoints")
+
+        def init(self) -> dict[str, Any]:
+            return {}
+
+        def process(self, event: Any) -> bool:
+            return True
 
     # Local import to avoid a circular ``stream <-> stream_v2`` cycle and
     # keep this module's import graph small.
@@ -234,7 +276,7 @@ async def astream_state_v2(
         input,
         config,
         version="v3",
-        transformers=user_transformers,
+        transformers=[ProtocolStreamModes, *(user_transformers or [])],
         **kwargs,
     )
     async with stack, run_stream:
@@ -249,5 +291,10 @@ async def astream_state_v2(
                 on_checkpoint=on_checkpoint,
                 on_task_result=on_task_result,
             )
-            if normalized is not None:
+            if normalized is None:
+                continue
+            name, protocol_event = normalized
+            if protocol_event["method"] in _STREAM_MODE_CHANNELS:
+                yield name, _stream_mode_payload(protocol_event)
+            else:
                 yield normalized

@@ -22,15 +22,17 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from azure.core.exceptions import HttpResponseError
-from azure.core.rest import HttpRequest, HttpResponse
 from azure.core.tracing.decorator import distributed_trace
 
 from azure.containerapps.sandbox._api_version import ApiVersion
+from azure.containerapps.sandbox._generated._client import SandboxGroupClient as _GeneratedClient
+from azure.containerapps.sandbox._port_forward import PortForwardSession, _open_port_forward
+from azure.containerapps.sandbox._port_forward_helpers import _port_forward_url
 from azure.containerapps.sandbox._helpers import (
     DATA_PLANE_BASE,
     DATA_PLANE_SCOPE,
+    _ERROR_MAP,
     _build_pipeline,
-    _raise_if_error,
     _validate_endpoint,
     _validate_segment,
 )
@@ -48,6 +50,8 @@ from azure.containerapps.sandbox._operations import (
     FileOperationsMixin,
     PortOperationsMixin,
 )
+from azure.containerapps.sandbox.models import AddVolumeMountContent
+from azure.containerapps.sandbox._response_helpers import _normalize_response
 
 if TYPE_CHECKING:
     from azure.core.credentials import TokenCredential
@@ -103,7 +107,7 @@ class SandboxClient(
         sandbox_group: str,
         sandbox_id: str,
         audience: str | None = None,
-        api_version: str | ApiVersion = ApiVersion.V2026_02_01_PREVIEW,
+        api_version: str | ApiVersion = ApiVersion.V2026_09_01_PREVIEW,
         transport: "HttpTransport | None" = None,
         _pipeline: "Pipeline | None" = None,
         **kwargs: Any,
@@ -135,8 +139,13 @@ class SandboxClient(
         self._scope = audience or DATA_PLANE_SCOPE
         self._api_version = api_version.value if isinstance(api_version, ApiVersion) else api_version
         self._owns_pipeline = _pipeline is None
-        self._pipeline = _pipeline or _build_pipeline(
+        self._pipeline = _pipeline if _pipeline is not None else _build_pipeline(
             credential, self._scope, transport=transport, **kwargs
+        )
+        self._generated = _GeneratedClient(
+            self._endpoint, credential, subscription_id, resource_group, sandbox_group,
+            api_version=self._api_version, credential_scopes=[self._scope],
+            pipeline=self._pipeline,
         )
 
     # -------------------------------------------------------------------------
@@ -160,50 +169,55 @@ class SandboxClient(
         """URL path to this specific sandbox."""
         return f"{self._group_path}/sandboxes/{self._sandbox_id}"
 
-    # -------------------------------------------------------------------------
-    # Internal HTTP
-    # -------------------------------------------------------------------------
+    def start_port_forward(
+        self,
+        port: int,
+        *,
+        container_name: str | None = None,
+        connect_timeout: float = 10,
+        handshake_timeout: float = 10,
+        close_timeout: float = 5,
+    ) -> PortForwardSession:
+        """Open an owned binary TCP tunnel to an ACA Sandboxes container port.
 
-    def _send_request(self, request: HttpRequest, *, stream: bool = False) -> HttpResponse:
-        pipeline_response = self._pipeline.run(request, stream=stream)
-        response = pipeline_response.http_response
-        _raise_if_error(response)
-        return response
+        Uses this client's regional management endpoint, ARM sandbox scope,
+        configured API version, credential, and data-plane audience. Waits for
+        TCP connection confirmation; creates no ingress or local listener.
 
-    def _dp_get(self, path: str, *, params: dict | None = None) -> dict | list:
-        all_params = {"api-version": self._api_version, **(params or {})}
-        request = HttpRequest("GET", f"{self._endpoint}{path}", params=all_params)
-        response = self._send_request(request)
-        return response.json() if response.status_code != 204 else {}
-
-    def _dp_put(self, path: str, body: dict | bytes | None = None, *, headers: dict | None = None, params: dict | None = None) -> dict:
-        all_params = {"api-version": self._api_version, **(params or {})}
-        kwargs: dict[str, Any] = {"params": all_params}
-        if headers:
-            kwargs["headers"] = headers
-        if isinstance(body, bytes):
-            kwargs["content"] = body
-        elif body is not None:
-            kwargs["json"] = body
-        request = HttpRequest("PUT", f"{self._endpoint}{path}", **kwargs)
-        response = self._send_request(request)
-        return response.json()
-
-    def _dp_post(self, path: str, body: dict | None = None) -> dict:
-        params = {"api-version": self._api_version}
-        if body is not None:
-            request = HttpRequest("POST", f"{self._endpoint}{path}", json=body, params=params)
-        else:
-            request = HttpRequest("POST", f"{self._endpoint}{path}", params=params)
-        response = self._send_request(request)
-        return response.json() if response.status_code != 204 else {}
-
-    def _dp_delete(self, path: str) -> None:
-        request = HttpRequest("DELETE", f"{self._endpoint}{path}", params={"api-version": self._api_version})
-        pipeline_response = self._pipeline.run(request)
-        response = pipeline_response.http_response
-        if response.status_code not in (200, 202, 204):
-            _raise_if_error(response)
+        :param int port: Target TCP port, from 1 through 65535.
+        :keyword str container_name: Optional target container; omitted selects
+            the default container.
+        :keyword float connect_timeout: WebSocket upgrade timeout in seconds.
+        :keyword float handshake_timeout: TCP connected response timeout.
+        :keyword float close_timeout: Bounded graceful close timeout.
+        :returns: A binary session; use ``with`` or call ``close()``.
+        :rtype: ~azure.containerapps.sandbox.PortForwardSession
+        :raises ValueError: On invalid inputs, before authentication/network.
+        :raises PortForwardError: On upgrade refusal or protocol/server errors.
+        :raises TimeoutError: If a handshake times out.
+        """
+        url = _port_forward_url(
+            self._endpoint,
+            self._subscription_id,
+            self._resource_group,
+            self._sandbox_group,
+            self._sandbox_id,
+            self._api_version,
+            port,
+            container_name,
+            connect_timeout=connect_timeout,
+            handshake_timeout=handshake_timeout,
+            close_timeout=close_timeout,
+        )
+        token = self._credential.get_token(self._scope)
+        return _open_port_forward(
+            url,
+            token.token,
+            port,
+            connect_timeout=connect_timeout,
+            handshake_timeout=handshake_timeout,
+            close_timeout=close_timeout,
+        )
 
     # -------------------------------------------------------------------------
     # Sandbox lifecycle
@@ -215,12 +229,17 @@ class SandboxClient(
     @distributed_trace
     def get(self, **kwargs: Any) -> Sandbox:
         """Get this sandbox's current state."""
-        return Sandbox._from_dict(self._dp_get(self._sbx_path))
+        return self._generated.sandboxes.get(
+            self._sandbox_id,
+            **{"error_map": _ERROR_MAP, "cls": _normalize_response, **kwargs},
+        )
 
     @distributed_trace
     def delete(self, **kwargs: Any) -> None:
         """Delete this sandbox (returns immediately; does not wait for tombstone)."""
-        self._dp_delete(self._sbx_path)
+        self._generated.sandboxes.delete(
+            self._sandbox_id, **{"error_map": _ERROR_MAP, **kwargs},
+        )
 
     @distributed_trace
     def begin_delete(
@@ -230,7 +249,7 @@ class SandboxClient(
         from azure.core.polling import LROPoller
         from azure.containerapps.sandbox._polling import DeletionPoller
 
-        self._dp_delete(self._sbx_path)
+        self.delete(**kwargs)
         polling_method = DeletionPoller(
             getter=self.get,
             timeout=polling_timeout,
@@ -242,7 +261,7 @@ class SandboxClient(
     @distributed_trace
     def stop(self, **kwargs: Any) -> None:
         """Stop (suspend) this sandbox (returns immediately)."""
-        self._dp_post(f"{self._sbx_path}/stop")
+        self._generated.sandboxes.stop(self._sandbox_id, **{"error_map": _ERROR_MAP, **kwargs})
 
     @distributed_trace
     def begin_stop(
@@ -252,7 +271,7 @@ class SandboxClient(
         from azure.core.polling import LROPoller
         from azure.containerapps.sandbox._polling import ResourceStatePoller
 
-        self._dp_post(f"{self._sbx_path}/stop")
+        self.stop(**kwargs)
         polling_method = ResourceStatePoller(
             getter=self.get,
             state_fn=lambda s: s.state,
@@ -267,7 +286,7 @@ class SandboxClient(
     @distributed_trace
     def resume(self, **kwargs: Any) -> None:
         """Resume this sandbox (returns immediately)."""
-        self._dp_post(f"{self._sbx_path}/resume")
+        self._generated.sandboxes.resume(self._sandbox_id, **{"error_map": _ERROR_MAP, **kwargs})
 
     @distributed_trace
     def begin_resume(
@@ -277,7 +296,7 @@ class SandboxClient(
         from azure.core.polling import LROPoller
         from azure.containerapps.sandbox._polling import ResourceStatePoller
 
-        self._dp_post(f"{self._sbx_path}/resume")
+        self.resume(**kwargs)
         polling_method = ResourceStatePoller(
             getter=self.get,
             state_fn=lambda s: s.state,
@@ -354,7 +373,7 @@ class SandboxClient(
 
         if state in self._RESUMABLE_STATES:
             # Check if administratively disabled via state_details
-            if sbx.state_details and not sbx.state_details.is_auto_resume_allowed():
+            if sbx.state_details is not None and sbx.state_details.stopped_reason == "Disabled":
                 raise RuntimeError(
                     f"Sandbox {self._sandbox_id} is administratively disabled "
                     "(stopped_reason='Disabled') and cannot be auto-resumed. "
@@ -392,7 +411,11 @@ class SandboxClient(
         body: dict = {"command": command}
         if working_directory:
             body["workingDirectory"] = working_directory
-        return ExecResult._from_dict(self._dp_post(f"{self._sbx_path}/executeShellCommand", body))
+        return self._generated.sandboxes.execute_shell_command(
+            self._sandbox_id,
+            body,
+            **{"error_map": _ERROR_MAP, **kwargs},
+        )
 
     # -------------------------------------------------------------------------
     # Snapshot
@@ -405,7 +428,11 @@ class SandboxClient(
         For build completion, prefer :meth:`begin_create_snapshot`.
         """
         body = {"labels": {"name": name}} if name else {}
-        return Snapshot._from_dict(self._dp_post(f"{self._sbx_path}/snapshot", body))
+        return self._generated.sandboxes.create_snapshot(
+            self._sandbox_id,
+            body,
+            **{"error_map": _ERROR_MAP, **kwargs},
+        )
 
     @distributed_trace
     def begin_create_snapshot(
@@ -427,7 +454,7 @@ class SandboxClient(
         from azure.core.polling import LROPoller
         from azure.containerapps.sandbox._polling import ResourceExistsPoller
 
-        initial = self.create_snapshot(name=name)
+        initial = self.create_snapshot(name=name, **kwargs)
         group_client = self._group_client_for_polling()
         polling_method = ResourceExistsPoller(
             getter=lambda: group_client.get_snapshot(initial.id),
@@ -464,7 +491,7 @@ class SandboxClient(
     @distributed_trace
     def get_stats(self, **kwargs: Any) -> SandboxStats:
         """Get sandbox resource stats."""
-        return SandboxStats._from_dict(self._dp_get(f"{self._sbx_path}/stats"))
+        return self._generated.sandboxes.get_stats(self._sandbox_id, **{"error_map": _ERROR_MAP, **kwargs})
 
     # -------------------------------------------------------------------------
     # Lifecycle policy
@@ -473,9 +500,12 @@ class SandboxClient(
     @distributed_trace
     def set_lifecycle_policy(self, policy: LifecyclePolicy, **kwargs: Any) -> LifecyclePolicy:
         """Set lifecycle policy (auto-suspend, auto-delete)."""
-        wire = policy._to_dict()
-        result = self._dp_post(f"{self._sbx_path}/lifecycle", wire)
-        return LifecyclePolicy._from_dict(result if isinstance(result, dict) else None) or LifecyclePolicy()
+        result = self._generated.sandboxes.set_lifecycle_policy(
+            self._sandbox_id,
+            policy,
+            **{"error_map": _ERROR_MAP, **kwargs},
+        )
+        return result.lifecycle if result.lifecycle is not None else LifecyclePolicy()
 
     # -------------------------------------------------------------------------
     # Commit (save sandbox as disk image)
@@ -488,10 +518,10 @@ class SandboxClient(
         For build completion, prefer :meth:`begin_commit`.
         """
         body = {"labels": {"name": name}} if name else {}
-        resp = self._dp_post(f"{self._sbx_path}/commit", body)
-        # The dataplane wraps the result as ``{"diskImage": {...}}``.
-        if isinstance(resp, dict) and "diskImage" in resp:
-            resp = resp["diskImage"]
+        result = self._generated.sandboxes.commit(self._sandbox_id, body, **{"error_map": _ERROR_MAP, **kwargs})
+        if "diskImage" in result:
+            return result.disk_image
+        resp = dict(result)
         # Legacy variant: top-level ``diskImageId`` without ``id``.
         if isinstance(resp, dict) and "diskImageId" in resp and "id" not in resp:
             resp = dict(resp)
@@ -499,7 +529,7 @@ class SandboxClient(
             if name:
                 resp.setdefault("name", name)
                 resp.setdefault("labels", {}).setdefault("name", name)
-        return DiskImage._from_dict(resp)
+        return DiskImage(resp)
 
     @distributed_trace
     def begin_commit(
@@ -514,7 +544,7 @@ class SandboxClient(
         from azure.core.polling import LROPoller
         from azure.containerapps.sandbox._polling import ResourceStatePoller
 
-        initial = self.commit(name=name)
+        initial = self.commit(name=name, **kwargs)
         group_client = self._group_client_for_polling()
         polling_method = ResourceStatePoller(
             getter=lambda: group_client.get_disk_image(initial.id),
@@ -535,7 +565,11 @@ class SandboxClient(
     @distributed_trace
     def add_volume_mount(self, volume_mount: AddVolumeMountRequest, **kwargs: Any) -> None:
         """Add a volume mount to this sandbox."""
-        self._dp_post(f"{self._sbx_path}/volumes/add", volume_mount._to_dict())
+        self._generated.sandboxes.add_volume_mount(
+            self._sandbox_id,
+            AddVolumeMountContent(volume_mount=volume_mount),
+            **{"error_map": _ERROR_MAP, **kwargs},
+        )
 
     # -------------------------------------------------------------------------
     # Cleanup

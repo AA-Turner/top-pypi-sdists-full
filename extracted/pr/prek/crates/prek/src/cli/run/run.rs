@@ -157,12 +157,12 @@ pub(crate) async fn run(
 
     let reporter = HookInitReporter::new(printer);
     let hooks = {
-        let store = store.lock().await?;
-        store.track_configs(workspace.config_files())?;
+        let write_guard = store.write_lock().await?;
+        write_guard.track_configs(workspace.config_files())?;
 
         workspace
             .init_hooks(
-                &store,
+                &write_guard,
                 HookInitFilters::new(Some(&selectors), Some(&group_filters)),
                 Some(&reporter),
             )
@@ -277,7 +277,14 @@ pub(crate) async fn run(
             )
         })?;
 
-        let file_index = RunFileIndex::new(&input, workspace.all_projects());
+        let file_index = RunFileIndex::new(
+            &input,
+            workspace.all_projects(),
+            selected_hooks
+                .iter()
+                .filter_map(HookPlan::as_run)
+                .map(AsRef::as_ref),
+        );
         let installed_hooks = ensure_hooks_installed(
             store,
             printer,
@@ -413,8 +420,8 @@ fn set_env_vars(
             std::env::set_var("PRE_COMMIT_CHECKOUT_TYPE", checkout);
         }
 
-        if args.is_squash_merge {
-            std::env::set_var("PRE_COMMIT_SQUASH_MERGE", "1");
+        if let Some(is_squash_merge) = &args.is_squash_merge {
+            std::env::set_var("PRE_COMMIT_IS_SQUASH_MERGE", is_squash_merge);
         }
 
         if let Some(command) = &args.rewrite_command {
@@ -440,8 +447,8 @@ async fn ensure_hooks_installed<'paths>(
     let mut installed_by_hook = FxHashMap::default();
 
     if !runnable_env_hooks.is_empty() {
-        let store = store.lock().await?;
-        let installed_hooks = install_hooks(runnable_env_hooks, &store, printer).await?;
+        let installed_hooks =
+            install_hooks(runnable_env_hooks, &store.write_lock().await?, printer).await?;
 
         for installed_hook in installed_hooks {
             installed_by_hook.insert(installed_hook.key(), installed_hook);

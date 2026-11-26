@@ -60,7 +60,7 @@ if (!getEnv("ANTHROPIC_API_KEY")) {
 }
 
 const puppeteer = resolvePuppeteerModule();
-const { execFileSync } = require("child_process");
+const { spawnSync } = require("child_process");
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
@@ -133,20 +133,12 @@ async function moveNewDownloads(downloadsDir, outputDir, previousFiles) {
  * Take a screenshot of the page via CDP and return as base64 PNG.
  */
 async function takeScreenshot(page, options = {}) {
-  const timeoutMs = options.timeoutMs || 30000;
-  const attempts = options.attempts || 2;
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      return await captureViewportScreenshot(page, options.captureOptions, timeoutMs);
-    } catch (error) {
-      lastError = error;
-      if (attempt < attempts) await sleep(500);
-    }
-  }
-
-  throw lastError;
+  return captureViewportScreenshot(
+    page,
+    options.captureOptions,
+    options.timeoutMs ?? 30_000,
+    options.attempts ?? 2
+  );
 }
 
 /**
@@ -385,7 +377,7 @@ function callAnthropicAPI(body, options = {}) {
   fs.writeFileSync(tmpFile, bodyJson);
 
   try {
-    const result = execFileSync(
+    const result = spawnSync(
       "curl",
       [
         "-s",
@@ -413,7 +405,12 @@ function callAnthropicAPI(body, options = {}) {
       }
     );
 
-    const response = JSON.parse(result);
+    if (result.error || result.status !== 0) {
+      // execFileSync errors include the full command, including the API key.
+      const reason = result.error?.code || result.signal || `exit ${result.status}`;
+      throw new Error(`curl request failed (${reason})`);
+    }
+    const response = JSON.parse(result.stdout);
     if (response.type === "error") {
       throw new Error(`${response.error.type}: ${response.error.message}`);
     }
@@ -449,7 +446,11 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
   let screenshotAvailable = false;
   let lastScreenshot;
   try {
-    initialScreenshot = await takeScreenshot(page, { captureOptions });
+    // A slow first frame must leave time for both a retry and the API call.
+    initialScreenshot = await takeScreenshot(page, {
+      captureOptions,
+      timeoutMs: Math.min(30_000, Math.floor(timeout * 1000 / 3)),
+    });
     lastScreenshot = initialScreenshot;
     screenshotAvailable = true;
   } catch (error) {
@@ -553,11 +554,9 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
 
   for (let iteration = 0; iteration < maxActions; iteration++) {
     if (Date.now() - startTime > timeout * 1000) {
-      console.error(`[!] Timeout reached after ${iteration} iterations`);
-      conversation.push({
-        role: "system",
-        text: `Timeout after ${iteration} iterations`,
-      });
+      error = `Timeout after ${iteration} iterations`;
+      console.error(`[!] ${error}`);
+      conversation.push({ role: "error", text: error });
       break;
     }
 
@@ -667,8 +666,16 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
 
   }
 
-  // Take final screenshot
-  const finalScreenshot = await takeScreenshot(page);
+  // Keep the last real screenshot if the optional final capture runs out of time.
+  const finalCaptureMs = Math.min(30_000, timeout * 1000 - (Date.now() - startTime));
+  let finalScreenshot = lastScreenshot;
+  if (finalCaptureMs > 0) {
+    try {
+      finalScreenshot = await takeScreenshot(page, { timeoutMs: finalCaptureMs, attempts: 1 });
+    } catch (captureError) {
+      console.error(`[!] Final screenshot unavailable: ${captureError.message}`);
+    }
+  }
   fs.writeFileSync(
     path.join(OUTPUT_DIR, "screenshot_final.png"),
     Buffer.from(finalScreenshot, "base64")

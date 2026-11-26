@@ -387,6 +387,9 @@ class ElementNode(XmlNode):
     def bind_text(self, params: dict, text: str | None) -> bool:
         """Bind the element text content.
 
+        Missing text binds as empty only if the text var accepts it,
+        otherwise the field is left unset.
+
         Args:
             params: The class parameters
             text: The element text content
@@ -397,8 +400,14 @@ class ElementNode(XmlNode):
         """
         var = self.meta.text
 
-        if not var or (text is None and not self.xsi_nil):
+        if not var:
             return False
+
+        if text is None and not self.xsi_nil:
+            if not ParserUtils.accepts_empty_text(var):
+                return False
+
+            text = ""
 
         if self.xsi_nil and not text:
             value = None
@@ -570,7 +579,7 @@ class ElementNode(XmlNode):
             )
 
         if not var.any_type and not var.is_wildcard:
-            return nodes.PrimitiveNode(self.meta, var, ns_map, self.config)
+            return nodes.PrimitiveNode(self.meta, var, ns_map, self.config, xsi_nil)
 
         datatype = DataType.from_qname(xsi_type) if xsi_type else None
         derived = var.is_wildcard

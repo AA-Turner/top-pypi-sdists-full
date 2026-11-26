@@ -3,6 +3,7 @@ import time
 start = time.time()
 
 from sys import stderr, stdout  # noqa: E402
+from io import StringIO  # noqa: E402
 from textwrap import dedent, fill  # noqa: E402
 
 import click  # noqa: E402
@@ -12,8 +13,9 @@ from twisted.python.failure import Failure  # noqa: E402
 
 from . import public_relay  # noqa: E402
 from .. import __version__  # noqa: E402
+from .._hints import parse_hint_argv  # noqa: E402
 from ..errors import (KeyFormatError, NoTorError,  # noqa: E402
-                      ServerConnectionError,
+                      ServerConnectionError, ServerError,
                       TransferError, UnsendableFileError, WelcomeError,
                       WrongPasswordError)
 from ..timing import DebugTiming  # noqa: E402
@@ -84,6 +86,19 @@ class AliasedGroup(click.Group):
         return click.Group.get_command(self, ctx, cmd_name)
 
 
+def _validate_transit_helper(ctx, param, value):
+    """Reject malformed relay settings before starting a command."""
+    if value:
+        errors = StringIO()
+        if parse_hint_argv(value, stderr=errors) is None:
+            raise click.BadParameter(
+                f"{errors.getvalue().strip()}; expected tcp:HOST:PORT",
+                ctx=ctx,
+                param=param,
+            )
+    return value
+
+
 # top-level command ("wormhole ...")
 @click.group(cls=AliasedGroup)
 @click.option("--appid", default=None, metavar="APPID", help="appid to use")
@@ -101,6 +116,7 @@ class AliasedGroup(click.Group):
     envvar='WORMHOLE_TRANSIT_HELPER',
     show_envvar=True,
     metavar="tcp:HOST:PORT",
+    callback=_validate_transit_helper,
     help="transit relay to use",
 )
 @click.option(
@@ -160,6 +176,20 @@ def _dispatch_command(reactor, cfg, command):
         msg = fill("ERROR: " + dedent(e.__doc__)) + "\n"
         msg += f"(relay URL was {e.url})\n"
         msg += str(e)
+        print(msg, file=cfg.stderr)
+        raise SystemExit(1)
+    except ServerError as e:
+        code = str(e) if e.args else ""
+        if code == "crowded":
+            msg = fill(
+                "ERROR: Too many peers have attempted to connect to this"
+                " mailbox. Try again with your intended peer, making sure"
+                " you get a brand-new code and that it is transcribed"
+                " correctly. If this keeps happening, it may be due to an"
+                " attack."
+            )
+        else:
+            msg = f"ERROR: server error: {code}"
         print(msg, file=cfg.stderr)
         raise SystemExit(1)
     except Exception as e:

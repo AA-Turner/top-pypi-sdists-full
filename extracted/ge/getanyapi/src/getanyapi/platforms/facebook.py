@@ -2937,7 +2937,7 @@ class FacebookNamespace:
         Search the Meta Ad Library by keyword and get matching ads (advertiser,
         creative text, CTA, platforms, and run dates) with cursor pagination.
 
-        Price: $0.0008 per request.
+        Price: $0.00078 per request.
 
         Example:
             res = client.facebook.ads_search(country="US", query="nike", searchType="keyword_exact_phrase")
@@ -3199,7 +3199,7 @@ class FacebookNamespace:
         Fetch recent posts from any public Facebook group by URL: text, author,
         reactions, and comment counts.
 
-        Price: $0.00072 per request.
+        Price: $0.00071 per request.
 
         Example:
             res = client.facebook.group_posts(url="https://www.facebook.com/groups/instantpotcommunity/")
@@ -3419,7 +3419,7 @@ class FacebookNamespace:
         Fetch a single Facebook post by URL with its text and engagement counts
         (likes, comments, shares, views).
 
-        Price: $0.00072 per request.
+        Price: $0.00071 per request.
 
         Example:
             res = client.facebook.post(url="https://www.facebook.com/reel/2166091230582141/")
@@ -3792,7 +3792,7 @@ class AsyncFacebookNamespace:
         Search the Meta Ad Library by keyword and get matching ads (advertiser,
         creative text, CTA, platforms, and run dates) with cursor pagination.
 
-        Price: $0.0008 per request.
+        Price: $0.00078 per request.
 
         Example:
             res = client.facebook.ads_search(country="US", query="nike", searchType="keyword_exact_phrase")
@@ -4054,7 +4054,7 @@ class AsyncFacebookNamespace:
         Fetch recent posts from any public Facebook group by URL: text, author,
         reactions, and comment counts.
 
-        Price: $0.00072 per request.
+        Price: $0.00071 per request.
 
         Example:
             res = client.facebook.group_posts(url="https://www.facebook.com/groups/instantpotcommunity/")
@@ -4274,7 +4274,7 @@ class AsyncFacebookNamespace:
         Fetch a single Facebook post by URL with its text and engagement counts
         (likes, comments, shares, views).
 
-        Price: $0.00072 per request.
+        Price: $0.00071 per request.
 
         Example:
             res = client.facebook.post(url="https://www.facebook.com/reel/2166091230582141/")

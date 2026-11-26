@@ -19,24 +19,21 @@ class CreateDBInstancePlanRequest(DaraModel):
     ):
         # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances within a region.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the IDs of all AnalyticDB for PostgreSQL instances in a specific region.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         self.owner_id = owner_id
-        # The execution information of the plan. Specify the parameter in the JSON format. The parameter value varies based on the values of **PlanType** and **PlanScheduleType**. The following section describes the PlanConfig parameter.
+        # The detailed information about the execution plan. The value must be in JSON format. The content must be adjusted based on the values of the **PlanType** and **PlanScheduleType** parameters. For more information, see the following supplementary instructions.
         # 
         # This parameter is required.
         self.plan_config = plan_config
         # The description of the plan.
         self.plan_desc = plan_desc
-        # The end time of the plan. Specify the time in the ISO 8601 standard in the *yyyy-MM-dd*T*HH:mm:ss*Z format. The time must be in UTC. The end time must be later than the start time.
+        # The end time of the plan. The end time must be later than the start time. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         # 
-        # > 
-        # 
-        # *   This parameter must be specified only when **PlanScheduleType** is set to **Regular**.
-        # 
-        # *   If you do not specify this parameter, the plan stops until the plan is deleted.
+        # > - This parameter is required only when **PlanScheduleType** is set to **Regular**.
+        # > - This parameter is optional. If you do not specify an end time, the plan stops when the cycle ends.
         self.plan_end_date = plan_end_date
         # The name of the plan.
         # 
@@ -44,27 +41,26 @@ class CreateDBInstancePlanRequest(DaraModel):
         self.plan_name = plan_name
         # The execution mode of the plan. Valid values:
         # 
-        # *   **Postpone**: The plan is executed later.
-        # *   **Regular**: The plan is executed periodically.
+        # - **Postpone**: execute later.
+        # - **Regular**: periodic execution.
         # 
         # This parameter is required.
         self.plan_schedule_type = plan_schedule_type
-        # The start time of the plan. Specify the time in the ISO 8601 standard in the *yyyy-MM-dd*T*HH:mm:ss*Z format. The time must be in UTC.
+        # The start time of the plan. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm:ss</i>Z format. The time must be in UTC.
         # 
-        # > 
-        # 
-        # *   This parameter must be specified only when **PlanScheduleType** is set to **Regular**.
-        # 
-        # *   If you do not specify this parameter, the current time is used.
+        # > - This parameter is required only when **PlanScheduleType** is set to **Regular**.
+        # > - If you do not specify this parameter, the current time is used by default.
         self.plan_start_date = plan_start_date
         # The type of the plan. Valid values:
         # 
-        # *   **PauseResume**: pauses and resumes an instance.
-        # *   **Resize**: changes the number of compute nodes.
-        # *   **ModifySpec**: changes compute node specifications.
+        # - **PauseResume**: automatic start and stop.
+        # - **Resize**: instance upgrade/downgrade, which increases or decreases the number of compute nodes.
+        # - **ModifySpec**: specification change, which changes the node specifications.
+        # - **InPlaceModifySpec**: in-place elastic scaling, which scales the compute resources on the local node without changing the base specifications.
         # 
-        # > - You can specify the value to ModifySpec only for instances in elastic storage mode.
-        # >- You can specify the value to ModifySpec only for instances in elastic storage mode.
+        # > - Instance upgrade/downgrade is supported only for instances in Serverless mode.
+        # > - Specification changes are supported only for instances in elastic storage mode.
+        # > - In-place elastic scaling is supported only for high availability (HA) instances in elastic storage mode.
         # 
         # This parameter is required.
         self.plan_type = plan_type

@@ -23,7 +23,6 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-import accelerate
 import torch
 import transformers
 from accelerate.logging import get_logger
@@ -48,6 +47,7 @@ from transformers.utils import is_peft_available
 
 from ..chat_template_utils import (
     clone_chat_template,
+    get_chat_template_end_of_turn_token_id,
     get_training_chat_template,
     is_chat_template_stop_token_trained,
 )
@@ -76,9 +76,13 @@ from .utils import (
 )
 
 
+# peft<0.22 remaps MoE LoRA `target_modules` only for Mixtral and models mapped to it or to Qwen2-MoE (#8427)
+if Version(transformers.__version__) >= Version("5.0.0"):
+    from transformers.conversion_mapping import _MODEL_TO_CONVERSION_PATTERN
+
 if is_peft_available():
     import peft
-    from peft import LoraConfig, PeftConfig, PeftModel, PrefixTuningConfig, get_peft_model
+    from peft import LoraConfig, PeftConfig, PeftModel, get_peft_model
     from peft.tuners.tuners_utils import BaseTunerLayer
 
 
@@ -97,11 +101,13 @@ class DataCollatorForLanguageModeling(DataCollatorMixin):
     following keys:
     - `"input_ids"`: Tensor of input IDs, padded to the maximum length of the batch.
     - `"labels"`: Tensor of labels, padded with `-100` to the maximum length of the batch. If `padding_free` is set
-    to `False`, the following key is also returned:
+    to `False` and the examples are not packed, the following key is also returned:
     - `"attention_mask"`: Tensor of attention masks, padded to the maximum length of the batch.
-    If `padding_free` is set to `True`, the following keys are also returned:
-    - `"position_ids"`: Tensor of position IDs, padded to the maximum length of the batch.
-    - `"cu_seq_lens_q"`, `"cu_seq_lens_k"`: Cumulative sequence lengths of the flattened sequence.
+    If `padding_free` is set to `True` or the examples are packed (they have a `"seq_lengths"` key, as produced by BFD
+    packing), the following keys are returned instead:
+    - `"position_ids"`: Tensor of position IDs, restarting at each sequence, padded to the maximum length of the batch.
+    - `"cu_seq_lens_q"`, `"cu_seq_lens_k"`: Cumulative sequence lengths over the flattened rows, padded with empty
+      sequences to a multiple of 16.
     - `"max_length_q"`, `"max_length_k"`: Length of the longest sequence.
     - `"seq_idx"`: Tensor of the sequence index of each token.
 
@@ -110,7 +116,8 @@ class DataCollatorForLanguageModeling(DataCollatorMixin):
             Token ID to use for padding.
         padding_free (`bool`, *optional*, defaults to `False`):
             If set to `True`, the sequences will be flattened into a single sequence, and the position IDs will be
-            generated accordingly and returned instead of the attention mask.
+            generated accordingly and returned instead of the attention mask. Packed examples get position IDs instead
+            of the attention mask either way, but stay as rows unless this is set.
         return_position_ids (`bool`, *optional*, defaults to `False`):
             If set to `True`, position IDs are returned alongside the attention mask in the padded (non-padding-free)
             mode. Required by sequence parallelism (Ulysses/ALST), which shards batches along the sequence dimension
@@ -153,8 +160,8 @@ class DataCollatorForLanguageModeling(DataCollatorMixin):
     {'input_ids': tensor([[ 1, 2, 3, 4, 5]]),
      'position_ids': tensor([[0, 1, 2, 0, 1]]),
      'labels': tensor([[-100, 2, 3, -100, 5]]),
-     'cu_seq_lens_q': tensor([0, 3, 5], dtype=torch.int32),
-     'cu_seq_lens_k': tensor([0, 3, 5], dtype=torch.int32),
+     'cu_seq_lens_q': tensor([0, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5], dtype=torch.int32),
+     'cu_seq_lens_k': tensor([0, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5], dtype=torch.int32),
      'max_length_q': 3,
      'max_length_k': 3,
      'seq_idx': tensor([[0, 0, 0, 1, 1]], dtype=torch.int32)}
@@ -176,14 +183,15 @@ class DataCollatorForLanguageModeling(DataCollatorMixin):
         input_ids = [torch.tensor(ids) for ids in input_ids]
         labels = [torch.tensor(lbl) for lbl in labels]
 
-        # For padding-free, we should NOT create attention_mask as it causes FlashAttention to ignore position_ids and
-        # compute wrong cu_seq_lens from the all-1s mask
-        if self.padding_free or self.return_position_ids:
+        # Packed examples hold several sequences per row. Like padding-free batches, they get per-sequence position IDs
+        # and sequence boundaries instead of an attention mask, which would let the sequences of a row see each other
+        per_sequence = self.padding_free or batch_seq_lengths is not None
+        if per_sequence or self.return_position_ids:
             if batch_seq_lengths is not None:
                 position_ids = self.get_position_ids_from_packed_seq_lengths(batch_seq_lengths)
             else:
                 position_ids = [torch.arange(len(ids)) for ids in input_ids]
-        if not self.padding_free:
+        if not per_sequence:
             attention_mask = [torch.ones_like(ids) for ids in input_ids]
 
         # If padding_free, flatten everything into a single sequence
@@ -203,21 +211,27 @@ class DataCollatorForLanguageModeling(DataCollatorMixin):
         output["labels"] = pad(
             labels, padding_value=-100, padding_side="right", pad_to_multiple_of=self.pad_to_multiple_of
         )
-        if self.padding_free:
+        if per_sequence:
             output["position_ids"] = pad(
                 position_ids, padding_value=0, padding_side="right", pad_to_multiple_of=self.pad_to_multiple_of
             )
+            # The padding of each row is one sequence, not one per padding token
+            for row, ids in zip(output["position_ids"], position_ids, strict=True):
+                row[len(ids) :] = torch.arange(row.numel() - len(ids))
             output["labels"][output["position_ids"] == 0] = -100
-            # Sequence boundaries for the varlen kernels (flash attention, linear attention). Computed here, on CPU,
-            # since the model would otherwise derive them from `position_ids` with device-to-host syncs in every layer.
-            seq_starts = (output["position_ids"][0] == 0).nonzero().flatten()
-            cu_seq_lens = torch.cat([seq_starts, torch.tensor([output["position_ids"].size(1)])]).to(torch.int32)
+            # Sequence boundaries for the varlen kernels (flash attention, linear attention), indexing the flattened
+            # rows. Computed here, on CPU, since the model would otherwise derive them from `position_ids` with
+            # device-to-host syncs in every layer.
+            seq_starts = (output["position_ids"].flatten() == 0).nonzero().flatten()
+            cu_seq_lens = torch.cat([seq_starts, torch.tensor([output["position_ids"].numel()])]).to(torch.int32)
+            # Rounded up to a multiple of 16 with empty sequences, so that a compiled model only sees a few shapes
+            cu_seq_lens = torch.cat([cu_seq_lens, cu_seq_lens[-1:].repeat(-cu_seq_lens.numel() % 16)])
             output["cu_seq_lens_q"] = output["cu_seq_lens_k"] = cu_seq_lens
             output["max_length_q"] = output["max_length_k"] = int(cu_seq_lens.diff().max())
             # Sequence index of each token, for the short convolutions of linear-attention layers
             output["seq_idx"] = torch.repeat_interleave(
                 torch.arange(cu_seq_lens.numel() - 1, dtype=torch.int32), cu_seq_lens.diff()
-            )[None]
+            ).view_as(output["position_ids"])
         else:
             if self.return_position_ids:
                 output["position_ids"] = pad(
@@ -419,11 +433,6 @@ class DataCollatorForVisionLanguageModeling(DataCollatorMixin):
         return output
 
     def _collate_prompt_completion(self, examples: list[dict[str, Any]]) -> dict[str, Any]:
-        if self.pad_to_multiple_of is not None:
-            raise NotImplementedError(
-                "Padding to a multiple of a value is not yet implemented for vision-language modeling and "
-                "prompt-completion data."
-            )
         if "image" in examples[0]:
             for example in examples:
                 example["images"] = [example.pop("image")]
@@ -495,6 +504,38 @@ class DataCollatorForVisionLanguageModeling(DataCollatorMixin):
                 token_type_ids = token_type_ids[:, : self.max_length]
             if "mm_token_type_ids" in processed_prompts:
                 mm_token_type_ids = mm_token_type_ids[:, : self.max_length]
+
+        # Pad to a multiple of `pad_to_multiple_of` if necessary
+        if self.pad_to_multiple_of is not None:
+            input_ids = pad(
+                list(input_ids),
+                padding_value=self.processor.tokenizer.pad_token_id,
+                padding_side="right",
+                pad_to_multiple_of=self.pad_to_multiple_of,
+            )
+            attention_mask = pad(
+                list(attention_mask), padding_value=0, padding_side="right", pad_to_multiple_of=self.pad_to_multiple_of
+            )
+            completion_mask = pad(
+                list(completion_mask),
+                padding_value=0,
+                padding_side="right",
+                pad_to_multiple_of=self.pad_to_multiple_of,
+            )
+            if "token_type_ids" in processed_prompts:
+                token_type_ids = pad(
+                    list(token_type_ids),
+                    padding_value=0,
+                    padding_side="right",
+                    pad_to_multiple_of=self.pad_to_multiple_of,
+                )
+            if "mm_token_type_ids" in processed_prompts:
+                mm_token_type_ids = pad(
+                    list(mm_token_type_ids),
+                    padding_value=0,
+                    padding_side="right",
+                    pad_to_multiple_of=self.pad_to_multiple_of,
+                )
 
         # Create labels and mask padding tokens
         labels = input_ids.clone()
@@ -791,7 +832,7 @@ class SFTTrainer(_BaseTrainer):
         if (
             self._is_vision_dataset
             and args.assistant_only_loss
-            and Version(transformers.__version__) < Version("5.18.0.dev0")
+            and Version(transformers.__version__) < Version("5.18.0")
         ):
             raise ValueError(
                 "Assistant-only loss for vision datasets requires transformers>=5.18.0. Please upgrade transformers "
@@ -858,25 +899,16 @@ class SFTTrainer(_BaseTrainer):
             get_peft_model_kwargs = {}
             if args.deepspeed_plugin is not None and args.deepspeed_plugin.zero_stage == 3 and not _is_quantized_model:
                 get_peft_model_kwargs["autocast_adapter_dtype"] = False
-            # Prefix tuning moves the cache onto the model's device map, which reads `Cache.key_cache`, removed
-            # from transformers. Fixed in PEFT 0.18.0 (peft#2821).
-            if (
-                isinstance(peft_config, PrefixTuningConfig)
-                and Version(peft.__version__) <= Version("0.17.1")
-                and hasattr(model, "hf_device_map")
-            ):
-                raise ValueError(
-                    "Prefix tuning requires `peft>=0.18.0` when the model is loaded with a device map. Upgrade "
-                    "peft, or load the model with `device_map=None`. See "
-                    "https://github.com/huggingface/peft/issues/2821."
-                )
             # With transformers v5, peft<0.19 doesn't apply `target_modules` to the fused MoE routed experts (#7765)
             if (
                 isinstance(peft_config, LoraConfig)
                 and Version(transformers.__version__) >= Version("5.0.0")
                 and Version(peft.__version__) < Version("0.19.0")
                 and not peft_config.target_parameters
-                and any(param.ndim == 3 for name, param in model.named_parameters() if ".experts." in name)
+                and (
+                    model.config.model_type == "mixtral"
+                    or _MODEL_TO_CONVERSION_PATTERN.get(model.config.model_type) in ("mixtral", "qwen2_moe")
+                )
                 and (
                     peft_config.target_modules == "all-linear"
                     or any(
@@ -891,12 +923,15 @@ class SFTTrainer(_BaseTrainer):
                     "(e.g. `target_parameters=['mlp.experts.gate_up_proj', 'mlp.experts.down_proj']`). See "
                     "https://github.com/huggingface/trl/issues/7765."
                 )
-            # With transformers v5, peft 0.19 to 0.21.3 skip the MoE dense and shared layers (#7767)
+            # With transformers v5, peft 0.19 to 0.21 skip the MoE dense and shared layers (#7767)
             if (
                 isinstance(peft_config, LoraConfig)
                 and Version(transformers.__version__) >= Version("5.0.0")
-                and Version("0.19.0") <= Version(peft.__version__) < Version("0.21.4.dev0")
-                and any(param.ndim == 3 for name, param in model.named_parameters() if ".experts." in name)
+                and Version("0.19.0") <= Version(peft.__version__) < Version("0.22.0")
+                and (
+                    model.config.model_type == "mixtral"
+                    or _MODEL_TO_CONVERSION_PATTERN.get(model.config.model_type) in ("mixtral", "qwen2_moe")
+                )
                 and any(
                     isinstance(module, torch.nn.Linear)
                     and name.rsplit(".", 1)[-1] in {"gate_proj", "up_proj", "down_proj", "w1", "w2", "w3"}
@@ -911,9 +946,9 @@ class SFTTrainer(_BaseTrainer):
                 )
             ):
                 logger.warning(
-                    "With transformers v5 and peft>=0.19.0,<0.21.4, LoRA `target_modules` skip the dense and shared "
-                    "expert layers of MoE models, so only the routed experts are trained. Install peft from main to "
-                    "train them too. See https://github.com/huggingface/trl/issues/7767."
+                    "With transformers v5 and peft>=0.19.0,<0.22.0, LoRA `target_modules` skip the dense and shared "
+                    "expert layers of MoE models, so only the routed experts are trained. This is fixed on peft main, "
+                    "not yet released. See https://github.com/huggingface/trl/issues/7767."
                 )
             model = get_peft_model(model, peft_config, **get_peft_model_kwargs)
 
@@ -970,12 +1005,18 @@ class SFTTrainer(_BaseTrainer):
                     param.data = param.data.to(torch.bfloat16)
 
         # Data collator
-        # BFD packing requires padding-free mode; otherwise, the collator outputs padded attention masks, causing
-        # FlashAttention to ignore position_ids and recompute them incorrectly from the padded attention mask.
-        self.padding_free = args.padding_free or (args.packing and args.packing_strategy in {"bfd", "bfd_split"})
+        # Recurrent and convolutional layers (e.g. gated DeltaNet) pass the packed rows as they are to varlen kernels
+        # that only take a single row, so BFD-packed batches are flattened for these models
+        # (huggingface/transformers#50185)
+        text_config = model.config.get_text_config()
+        layer_types = set(getattr(text_config, "layer_types", None) or []) - {"full_attention", "sliding_attention"}
+        bfd_packing = args.packing and args.packing_strategy in {"bfd", "bfd_split"}
+        self.padding_free = args.padding_free or (bfd_packing and bool(layer_types))
+        # Only this collator gives the sequences of a BFD-packed row their own position IDs; any other would let them
+        # attend to each other
+        if data_collator is not None and (self.padding_free or bfd_packing):
+            raise ValueError("Passing a custom data collator is not supported when using padding-free or BFD packing.")
         if self.padding_free:
-            if data_collator is not None:
-                raise ValueError("Passing a custom data collator is not supported when using padding-free.")
             if args.packing and args.packing_strategy == "wrapped":
                 logger.warning(
                     "You are passing `padding_free=True` with the 'wrapped' packing strategy, which is not "
@@ -1013,6 +1054,19 @@ class SFTTrainer(_BaseTrainer):
                 "or edit the chat template so the end-of-turn token falls inside "
                 "`{% generation %}...{% endgeneration %}`."
             )
+
+        # Stop generation on the chat template's end-of-turn token (#8564)
+        if (is_conversational(dataset_sample) or is_conversational_from_value(dataset_sample)) and (
+            self.chat_template or processing_class.chat_template
+        ):
+            end_of_turn_id = get_chat_template_end_of_turn_token_id(processing_class, chat_template=self.chat_template)
+            eos_token_ids = model.generation_config.eos_token_id
+            if eos_token_ids is None:
+                eos_token_ids = []
+            elif isinstance(eos_token_ids, int):
+                eos_token_ids = [eos_token_ids]
+            if end_of_turn_id is not None and end_of_turn_id not in eos_token_ids:
+                model.generation_config.eos_token_id = [*eos_token_ids, end_of_turn_id]
 
         # Decide whether to use completion-only loss: if not specified, then it is set to True if the dataset format
         # is prompt-completion, and False if the dataset format is language modeling.
@@ -1213,11 +1267,9 @@ class SFTTrainer(_BaseTrainer):
             )
 
         # Sequence parallelism (Ulysses/ALST) shards batches along the sequence dimension and requires
-        # `position_ids` in every batch to preserve each token's global position. Sequence parallelism was added in
-        # accelerate 1.12.0.
+        # `position_ids` in every batch to preserve each token's global position.
         if (
-            Version(accelerate.__version__) >= Version("1.12.0")
-            and self.accelerator.parallelism_config is not None
+            self.accelerator.parallelism_config is not None
             and self.accelerator.parallelism_config.sp_enabled
             and isinstance(self.data_collator, DataCollatorForLanguageModeling)
         ):
@@ -1226,8 +1278,7 @@ class SFTTrainer(_BaseTrainer):
         # Under DeepSpeed sequence parallelism (Ulysses/ALST), `Trainer` reduces the model's own loss across ranks,
         # which is the fused LM head's negative log-likelihood
         if (
-            Version(accelerate.__version__) >= Version("1.12.0")
-            and self.accelerator.parallelism_config is not None
+            self.accelerator.parallelism_config is not None
             and self.accelerator.parallelism_config.sp_backend == "deepspeed"
             and self.accelerator.parallelism_config.sp_enabled
             and (args.loss_type == "dft" or self.compute_loss_func is not None or args.label_smoothing_factor > 0)
@@ -1619,9 +1670,7 @@ class SFTTrainer(_BaseTrainer):
 
         weighted_aux_loss = None
         try:
-            parallelism_config = (
-                self.accelerator.parallelism_config if Version(accelerate.__version__) >= Version("1.12.0") else None
-            )
+            parallelism_config = self.accelerator.parallelism_config
             if (
                 parallelism_config is not None
                 and parallelism_config.sp_backend == "deepspeed"
@@ -1695,7 +1744,7 @@ class SFTTrainer(_BaseTrainer):
             if "attention_mask" in inputs:
                 num_tokens_in_batch = self.accelerator.gather_for_metrics(inputs["attention_mask"].sum()).sum().item()
             elif "position_ids" in inputs:
-                local_num_tokens = torch.tensor(inputs["position_ids"].size(1), device=inputs["position_ids"].device)
+                local_num_tokens = torch.tensor(inputs["position_ids"].numel(), device=inputs["position_ids"].device)
                 num_tokens_in_batch = self.accelerator.gather_for_metrics(local_num_tokens).sum().item()
             else:
                 raise ValueError("Expected 'attention_mask' or 'position_ids' in inputs.")

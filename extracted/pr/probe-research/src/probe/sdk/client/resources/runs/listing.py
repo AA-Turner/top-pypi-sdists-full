@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from .... import errors
@@ -23,6 +24,30 @@ RUN_LIST_QUERY_FEATURE = "run_list_query"
 _VIEWS = ("full", "light")
 #: `order="recent"`: newest activity first, a people-and-time-filters order (`people_filters`, not `run_list_query`).
 RECENT_ORDER = "recent"
+#: `latest_metrics=["*"]`: the page's key metrics (each run's project pins, else its run type's defaults).
+KEY_METRICS = "*"
+#: Where `GET /v1/runs` names the keys `*` resolved to, as a JSON list (the body is the bare list of rows).
+LATEST_METRICS_KEYS_HEADER = "X-Probe-Latest-Metrics-Keys"
+
+
+@dataclass
+class RunsPage(Page):
+    """A `GET /v1/runs` page, plus the keys `latest_metrics=["*"]` resolved to: None when `*` was not asked
+    (or the server did not say), [] when the page has no key metrics."""
+
+    latest_metrics_keys: list[str] | None = None
+
+
+def _get_resolved_keys(headers: Mapping[str, str]) -> list[str] | None:
+    """The header's keys, or None when it is absent or not a JSON list of strings."""
+    raw = headers.get(LATEST_METRICS_KEYS_HEADER)
+    if raw is None:
+        return None
+    try:
+        keys = json.loads(raw)
+    except ValueError:
+        return None
+    return keys if isinstance(keys, list) and all(isinstance(key, str) for key in keys) else None
 
 
 class RunListingMixin:
@@ -103,7 +128,7 @@ class RunListingMixin:
         since: str | None = None,
         until: str | None = None,
         query: str | None = None,
-    ) -> Page:
+    ) -> RunsPage:
         """One page of ``GET /v1/runs``, newest first. ``project_id`` returns ALL the project's runs --
         project-direct AND experiment-attached (0054); ``direct=True`` narrows to experiment-less runs.
 
@@ -111,7 +136,8 @@ class RunListingMixin:
         {"$lt": 0.5}}``; grammar: the server's ``app/runs/listing/DESIGN.md``, which answers a bad one with a
         422). ``order`` (``"-metric.loss"``, ``"config.lr"``, ``"name"``) other than ``-created_at`` answers
         ONE page of up to ``limit`` runs and no cursor (``iter_runs`` sorts every run). ``latest_metrics``
-        (up to 50 keys) adds each row's final values. ``view="light"`` leaves config, metadata, notes,
+        (up to 50 keys) adds each row's final values; ``["*"]`` (``KEY_METRICS``) asks for the page's key metrics
+        and the page's ``latest_metrics_keys`` names the keys that resolved to. ``view="light"`` leaves config, metadata, notes,
         description, foreign keys and summary off the rows. A server without these (``run_list_query``)
         raises ``CapabilityUnavailable`` rather than answer an unfiltered list.
 
@@ -133,7 +159,10 @@ class RunListingMixin:
             parameters["cursor"] = cursor
         page = self.transport.get_page("/v1/runs", params=parameters or None)
         self._check_run_rows(page.items, parameters)
-        return page
+        return RunsPage(
+            items=page.items, next_cursor=page.next_cursor, headers=page.headers,
+            latest_metrics_keys=_get_resolved_keys(page.headers),
+        )
 
     def iter_runs(
         self,

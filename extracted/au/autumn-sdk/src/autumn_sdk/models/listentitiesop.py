@@ -1389,6 +1389,7 @@ ListEntitiesProcessorType = Union[
     Literal[
         "stripe",
         "revenuecat",
+        "quartz",
     ],
     UnrecognizedStr,
 ]

@@ -4,12 +4,13 @@
 
 from setuptools import setup
 
-PACKAGE_VERSION = "1.2.3"
+PACKAGE_VERSION = "2.0.0"
 
 # dependencies
 deps = [
     "distro >= 1.4.0",
     "mozfile >= 0.12",
+    "pyyaml >= 6.0",
 ]
 
 setup(
@@ -18,9 +19,8 @@ setup(
     description="Library to get system information for use in Mozilla testing",
     long_description="see https://firefox-source-docs.mozilla.org/mozbase/index.html",
     classifiers=[
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3 :: Only",
         "Development Status :: 5 - Production/Stable",
     ],
     # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
@@ -30,6 +30,7 @@ setup(
     url="https://wiki.mozilla.org/Auto-tools/Projects/Mozbase",
     license="MPL",
     packages=["mozinfo"],
+    package_data={"mozinfo": ["android_os_to_api_map.yaml"]},
     include_package_data=True,
     zip_safe=False,
     install_requires=deps,
@@ -38,4 +39,5 @@ setup(
       [console_scripts]
       mozinfo = mozinfo:main
       """,
+    python_requires=">=3.9",
 )

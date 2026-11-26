@@ -5,11 +5,15 @@ from starlette.responses import JSONResponse, PlainTextResponse
 
 from langgraph_api import __version__, config, metadata
 from langgraph_api.api.mcp import MCP_SERVED
-from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
+from langgraph_api.feature_flags import (
+    IS_POSTGRES_OR_GRPC_BACKEND,
+    STRICT_RESUME_SUPPORT,
+)
 from langgraph_api.go_prometheus_metrics import merge_go_prometheus_text
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
 from langgraph_api.route import ApiRequest
 from langgraph_api.schema import PoolStats, PostgresPoolStats, RedisPoolStats
+from langgraph_api.tracing_session import ADDRESS_SUPPORT
 from langgraph_runtime.database import connect, pool_stats
 from langgraph_runtime.metrics import get_metrics
 
@@ -87,7 +91,12 @@ async def meta_info(request: ApiRequest):
                 and bool(config.TRACING),
                 "langsmith_tracing_replicas": True,
                 "langsmith_tracing_session_on_runs": True,
+                "langsmith_tracing_address": ADDRESS_SUPPORT,
                 "mcp": MCP_SERVED,
+                "stream_namespaces": IS_POSTGRES_OR_GRPC_BACKEND,
+                "stream_lifecycle": True,
+                "cron_stream_lifecycle": True,
+                "strict_resume": STRICT_RESUME_SUPPORT,
             },
             "host": {
                 "kind": metadata.HOST,

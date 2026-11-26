@@ -70,9 +70,9 @@ class DescribeDownloadSQLLogsResponseBodyRecords(DaraModel):
         # The file name.
         self.file_name = file_name
         # The task status. Valid values:
-        # - **running**: Downloading.
-        # - **finished**: Completed.
-        # - **failed**: Download failed.
+        # - **running**: The download is in progress.
+        # - **finished**: The download is completed.
+        # - **failed**: The download failed.
         self.status = status
 
     def validate(self):

@@ -89,6 +89,7 @@ from .enums import (  # noqa: F401 - re-exported
     Role3,
     Decision1,
     Status,
+    AccountMismatch,
     CaptureSource,
     Status1,
     Status2,
@@ -108,6 +109,8 @@ from .enums import (  # noqa: F401 - re-exported
     EffortWindow,
     Ending,
     DisabledFilter,
+    EntitySortColumn,
+    EntitySortDirection,
     EntityType,
     EpisodeGrouping,
     EpisodeState,
@@ -432,6 +435,7 @@ class AgentSessionOut(BaseModel):
     session_id: str = Field(..., title='Session Id')
     src_id: UUID | None = Field(None, title='Src Id')
     src_type: str | None = Field(None, title='Src Type')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
     title: str | None = Field(None, title='Title')
 
 
@@ -1865,6 +1869,14 @@ class DeviceInstanceId(RootModel[str]):
     )
 
 
+class ExpectedEmail(RootModel[str]):
+    root: str = Field(..., max_length=320, min_length=3, title='Expected Email')
+
+
+class ExpectedTeam(RootModel[str]):
+    root: str = Field(..., max_length=128, min_length=1, title='Expected Team')
+
+
 class DeviceAuthorizationStartOut(BaseModel):
     device_code: str = Field(..., title='Device Code')
     expires_in: int = Field(..., title='Expires In')
@@ -1932,6 +1944,17 @@ class DeviceClientContext(BaseModel):
     prior_email: PriorEmail | None = Field(None, title='Prior Email')
     prior_team_id: str | None = Field(None, title='Prior Team Id')
     surface: ClientSurface | None = None
+
+
+class DeviceExpectedAccount(BaseModel):
+    """
+    Who a device authorization must be approved by (control/098): the wrong-account guard.
+    """
+
+    email: str | None = Field(None, title='Email')
+    is_verified: bool = Field(..., title='Is Verified')
+    team_id: str | None = Field(None, title='Team Id')
+    team_name: str | None = Field(None, title='Team Name')
 
 
 class DeviceTokenExchange(BaseModel):
@@ -2231,6 +2254,10 @@ class EnrollmentTokenOut(BaseModel):
 
 class Project(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Project')
+
+
+class Cursor(RootModel[str]):
+    root: str = Field(..., max_length=8192, title='Cursor')
 
 
 class EntryRefOut(BaseModel):
@@ -3053,7 +3080,7 @@ class HostedUploadsOut(BaseModel):
 
 class IdleActionOut(BaseModel):
     """
-    The team's choice. `email` mails only teams inside the rollout until the wording is signed off.
+    The team's choice: `email` (the default) or `off`.
     """
 
     action: IdleActionKind
@@ -9804,16 +9831,39 @@ class WorkspaceDigestOut(BaseModel):
     workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
+class WorkspaceIcon(BaseModel):
+    """
+    Display metadata only. Object locations stay on the server.
+    """
+
+    emoji: str | None = Field(None, title='Emoji')
+    image_sha256: str | None = Field(None, title='Image Sha256')
+
+
+class Emoji(RootModel[str]):
+    root: str = Field(..., max_length=32, title='Emoji')
+
+
+class Image(RootModel[str]):
+    root: str = Field(..., max_length=32768, title='Image')
+
+
+class WorkspaceIconEdit(BaseModel):
+    """
+    One emoji or a base64-encoded PNG no larger than 64x64 px.
+    """
+
+    emoji: Emoji | None = Field(None, title='Emoji')
+    image: Image | None = Field(None, title='Image')
+
+
 class WorkspacePatch(BaseModel):
     """
-    The one user-editable workspace field.
-
-    Slugs are stable identity; legacy member metadata is retained for compatibility. Names are display
-    labels, trimmed at the API boundary so whitespace-only values never reach
-    the database.
+    Update the display name, the icon, or both. A null icon removes it.
     """
 
-    name: str = Field(..., max_length=120, min_length=1, title='Name')
+    icon: WorkspaceIconEdit | None = None
+    name: Name24 | None = Field(None, title='Name')
 
 
 class WriteOut(BaseModel):
@@ -10815,10 +10865,12 @@ class DerivedProvenance(BaseModel):
 
 
 class DeviceAuthorizationOut(BaseModel):
+    account_mismatch: AccountMismatch | None = Field(None, title='Account Mismatch')
     capture_source: CaptureSource | None = Field('claude_code', title='Capture Source')
     capture_sources: list[CaptureSource] | None = Field(None, title='Capture Sources')
     client_context: DeviceClientContext | None = None
     client_name: str = Field(..., title='Client Name')
+    expected_account: DeviceExpectedAccount | None = None
     expires_at: AwareDatetime = Field(..., title='Expires At')
     grants: list[str] | None = Field(None, title='Grants')
     onboarding_url: str | None = Field(None, title='Onboarding Url')
@@ -10850,6 +10902,8 @@ class DeviceAuthorizationStart(BaseModel):
     device_instance_id: DeviceInstanceId | None = Field(
         None, title='Device Instance Id'
     )
+    expected_email: ExpectedEmail | None = Field(None, title='Expected Email')
+    expected_team: ExpectedTeam | None = Field(None, title='Expected Team')
     grants: list[Grant] | None = Field(None, min_length=1, title='Grants')
     scopes: Scopes | None = Field(None, title='Scopes')
     token_name: str | None = Field(
@@ -11034,23 +11088,13 @@ class EntitySearchPlan(BaseModel):
     semantic_query: str | None = Field('', title='Semantic Query')
 
 
-class EntitySearchRequest(BaseModel):
-    disabled_filters: list[DisabledFilter] | None = Field(
-        None, max_length=10, title='Disabled Filters'
-    )
-    entity_types: list[EntityType] | None = Field(
-        None, min_length=1, title='Entity Types'
-    )
-    filters: EntityFilters | None = None
-    include_semantic: bool | None = Field(True, title='Include Semantic')
-    limit: int | None = Field(30, ge=1, le=50, title='Limit')
-    project_id: UUID | None = Field(None, title='Project Id')
-    query: str = Field(..., max_length=500, min_length=1, title='Query')
-    timezone: str | None = Field('UTC', title='Timezone')
-    workspace_id: UUID | None = Field(None, title='Workspace Id')
-
-
 class EntitySearchResult(BaseModel):
+    created_at: AwareDatetime | None = Field(None, title='Created At')
+    created_by: str | None = Field(
+        None,
+        description="The human creator's user actor, when recorded.",
+        title='Created By',
+    )
     entity_type: EntityType
     exact_match: bool | None = Field(False, title='Exact Match')
     experiment_id: UUID | None = Field(None, title='Experiment Id')
@@ -11058,12 +11102,18 @@ class EntitySearchResult(BaseModel):
     id: UUID = Field(..., title='Id')
     match_sources: list[MatchSource] | None = Field(None, title='Match Sources')
     name: str = Field(..., title='Name')
-    project_id: UUID = Field(..., title='Project Id')
-    project_name: str = Field(..., title='Project Name')
+    project_id: UUID | None = Field(..., title='Project Id')
+    project_name: str | None = Field(..., title='Project Name')
+    ref: str | None = Field(None, title='Ref')
     score: float | None = Field(0, title='Score')
     slug: str | None = Field(None, title='Slug')
     snippet: str | None = Field('', title='Snippet')
     status: str | None = Field(None, title='Status')
+
+
+class EntitySort(BaseModel):
+    column: EntitySortColumn
+    direction: EntitySortDirection
 
 
 class EnvironmentIn(BaseModel):
@@ -11757,6 +11807,16 @@ class HintRecord(BaseModel):
         title='Score',
     )
     snippet: str = Field(..., title='Snippet')
+    source_id: str | None = Field(
+        None,
+        description="That record's whole id, as the hint's `[n] - ... (id:<id>)` line shows it.",
+        title='Source Id',
+    )
+    source_kind: str | None = Field(
+        None,
+        description='The Probe record the hint cites it as, which `<kind>:<id>` opens: `run`, `project` (an experiment or an Overview page too), `group`, `trial`, `artifact` (a file) or `session`; null for a record with no id Probe opens (GitHub, the team note, a Google doc, a paper).',
+        title='Source Kind',
+    )
     title: str | None = Field(None, title='Title')
     via: Via
     who: str = Field(..., title='Who')
@@ -14263,6 +14323,7 @@ class WorkspaceOut(BaseModel):
     )
     customer_id: str = Field(..., title='Customer Id')
     home_eligible: bool | None = Field(False, title='Home Eligible')
+    icon: WorkspaceIcon | None = None
     id: UUID = Field(..., title='Id')
     is_default: bool | None = Field(False, title='Is Default')
     kind: WorkspaceKind
@@ -14859,7 +14920,26 @@ class EffectivePublicAccessOut(BaseModel):
     publication: PublicAccessOut | None = None
 
 
+class EntitySearchRequest(BaseModel):
+    cursor: Cursor | None = Field(None, title='Cursor')
+    disabled_filters: list[DisabledFilter] | None = Field(
+        None, max_length=10, title='Disabled Filters'
+    )
+    entity_types: list[EntityType] | None = Field(
+        None, min_length=1, title='Entity Types'
+    )
+    filters: EntityFilters | None = None
+    include_semantic: bool | None = Field(True, title='Include Semantic')
+    limit: int | None = Field(30, ge=1, le=50, title='Limit')
+    project_id: UUID | None = Field(None, title='Project Id')
+    query: str = Field(..., max_length=500, min_length=1, title='Query')
+    sort: EntitySort | None = None
+    timezone: str | None = Field('UTC', title='Timezone')
+    workspace_id: UUID | None = Field(None, title='Workspace Id')
+
+
 class EntitySearchResponse(BaseModel):
+    next_cursor: str | None = Field(None, title='Next Cursor')
     notices: list[str] | None = Field(None, title='Notices')
     plan: EntitySearchPlan | None = None
     query: str = Field(..., title='Query')
@@ -15677,6 +15757,7 @@ class PublicPageInfo(BaseModel):
 
     allow_downloads: bool = Field(..., title='Allow Downloads')
     created_at: AwareDatetime = Field(..., title='Created At')
+    has_description: bool | None = Field(False, title='Has Description')
     include_children: bool = Field(..., title='Include Children')
     kind: ResourceKind
     resource: PublicPageResource
@@ -16139,6 +16220,7 @@ class SemanticHit(BaseModel):
     people: list[Person] | None = Field(None, title='People')
     ref: SemanticRef | None = None
     score: float = Field(..., title='Score')
+    session_id: str | None = Field(None, title='Session Id')
     snippet: str = Field(..., title='Snippet')
     source_system: str | None = Field(None, title='Source System')
     source_url: str | None = Field(None, title='Source Url')

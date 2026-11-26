@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import pytest
 import typer
-from apple_symbols import KernelSymbols
+from apple_symbols import DeviceSupportSymbols, KernelImage, KernelSymbols, SymbolImage
+from pycrashreport.symbols import SymbolServerError
 
 from pymobiledevice3.cli.developer.dvt import core_profile_session
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
@@ -179,3 +180,152 @@ def test_stackshot_exits_nonzero_when_the_kernelcache_cannot_be_read(
         core_profile_session.stackshot(service_provider=SERVICE_PROVIDER, kernelcache=tmp_path / "kernelcache")
 
     assert exc_info.value.exit_code == 1
+
+
+class _ServerSymbols:
+    """Symbols of a symbol server, which names one function of one image of the shared cache."""
+
+    has_shared_cache_images = True
+    shared_cache_base = 0x180000000
+
+    def __init__(self) -> None:
+        self.images = [SymbolImage("/usr/lib/libfoo.dylib", "11111111-2222-3333-4444-555555555555", 0x180000000, 0x18)]
+
+    def image_by_uuid(self, image_uuid: str) -> Optional[SymbolImage]:
+        return next((image for image in self.images if image.uuid == image_uuid), None)
+
+    def image_by_address(self, address: int) -> Optional[SymbolImage]:
+        return next((image for image in self.images if image.vmaddr <= address < image.vmaddr + image.vmsize), None)
+
+    def symbolicate(self, image: SymbolImage, address: int) -> Optional[tuple[str, int]]:
+        return ("foo", address - image.vmaddr)
+
+
+class _ServerKernelSymbols:
+    """Kernel symbols of a symbol server, which names one function of the kernel."""
+
+    has_symbols = True
+
+    def __init__(self) -> None:
+        self.images = [KernelImage("com.apple.kernel", KERNEL_UUID, 0xFFFFFFF007004000)]
+
+    def image_by_uuid(self, image_uuid: str) -> Optional[KernelImage]:
+        return next((image for image in self.images if image.uuid == image_uuid), None)
+
+    def symbolicate(self, address: int) -> Optional[tuple[str, int]]:
+        return ("panic", address - self.images[0].text_exec)
+
+
+SERVER = "http://server.invalid:3993"
+KERNEL_UUID = "99999999-8888-7777-6666-555555555555"
+
+
+@pytest.fixture
+def symbol_server(monkeypatch: pytest.MonkeyPatch) -> list[tuple[object, ...]]:
+    asked: list[tuple[object, ...]] = []
+
+    def connect(server: str) -> str:
+        asked.append((server,))
+        return server
+
+    def userland_symbols(client: object, product_type: str, build_version: str) -> _ServerSymbols:
+        asked.append((client, product_type, build_version))
+        return _ServerSymbols()
+
+    monkeypatch.setattr(core_profile_session.symbol_server_client, "connect", connect)
+
+    def kernel_symbols_of_build(
+        client: object, product_type: str, build_version: str, image_uuids: list[str]
+    ) -> Optional[_ServerKernelSymbols]:
+        asked.append((client, product_type, build_version, image_uuids))
+        return _ServerKernelSymbols() if KERNEL_UUID in image_uuids else None
+
+    monkeypatch.setattr(core_profile_session.symbol_server_client, "userland_symbols", userland_symbols)
+    monkeypatch.setattr(core_profile_session.symbol_server_client, "kernel_symbols_of_build", kernel_symbols_of_build)
+    return asked
+
+
+def test_stackshot_symbolicates_with_a_symbol_server(
+    capsys: pytest.CaptureFixture[str], caplog: Any, symbol_server: list[tuple[object, ...]]
+) -> None:
+    core_profile_session.stackshot(service_provider=SERVICE_PROVIDER, symbol_server=SERVER)
+
+    assert symbol_server == [(SERVER,), (SERVER, "iPhone15,2", "20A362"), (SERVER, "iPhone15,2", "20A362", [])]
+    assert capsys.readouterr().out.splitlines() == [
+        "launchd [1]  1 threads",
+        "  Thread 7",
+        "      0  libfoo.dylib  foo + 0x10",
+        "",
+        "SpringBoard [42]  1 threads",
+        "  Thread 8",
+        # outside what the server holds
+        "      0  dyld_shared_cache  0x20",
+        "",
+    ]
+    # the device support of this host is not missed once the server names the frames
+    assert "fetch-symbols download" not in caplog.text
+
+
+def test_stackshot_leaves_what_the_symbol_server_does_not_name_to_this_host(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    symbol_server: list[tuple[object, ...]],
+    tmp_path: Path,
+) -> None:
+    host_image = SymbolImage("/usr/lib/libbar.dylib", "66666666-7777-8888-9999-aaaaaaaaaaaa", 0x180000018, 0x100)
+
+    class HostSymbols(_ServerSymbols):
+        def __init__(self) -> None:
+            self.images = [host_image]
+
+        def symbolicate(self, image: SymbolImage, address: int) -> Optional[tuple[str, int]]:
+            return ("bar", address - image.vmaddr)
+
+    monkeypatch.setattr(
+        core_profile_session.DeviceSupportSymbols,
+        "load",
+        classmethod(lambda cls, root: cast(DeviceSupportSymbols, HostSymbols())),
+    )
+
+    core_profile_session.stackshot(service_provider=SERVICE_PROVIDER, symbols=tmp_path, symbol_server=SERVER)
+
+    out = capsys.readouterr().out
+    assert "      0  libfoo.dylib  foo + 0x10" in out
+    assert "      0  libbar.dylib  bar + 0x8" in out
+
+
+def test_stackshot_exits_nonzero_when_the_symbol_server_cannot_be_reached(monkeypatch: pytest.MonkeyPatch) -> None:
+    def connect(server: str) -> object:
+        raise SymbolServerError(f"Reaching {server} failed")
+
+    monkeypatch.setattr(core_profile_session.symbol_server_client, "connect", connect)
+
+    with pytest.raises(typer.Exit) as exc_info:
+        core_profile_session.stackshot(service_provider=SERVICE_PROVIDER, symbol_server=SERVER)
+
+    assert exc_info.value.exit_code == 1
+
+
+def test_stackshot_symbolicates_kernel_frames_with_a_symbol_server(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, symbol_server: list[tuple[object, ...]]
+) -> None:
+    # a stackshot tells its kernel images, by which the server finds the kernelcache of the device
+    monkeypatch.setitem(
+        cast(dict[int, Any], STACKSHOT["task_snapshots"]),
+        0,
+        {
+            "task_snapshot": {"ts_pid": 0, "ts_p_comm": "kernel_task"},
+            "dyld_load_info_text_exec": [{"imageLoadAddress": 0xFFFFFFF010000000, "imageUUID": KERNEL_UUID}],
+            "thread_snapshots": {3: {"kernel_stack_frames": [{"lr": 0xFFFFFFF010000020}]}},
+        },
+    )
+
+    core_profile_session.stackshot(service_provider=SERVICE_PROVIDER, symbol_server=SERVER, process="kernel_task")
+
+    assert symbol_server[-1] == (SERVER, "iPhone15,2", "20A362", [KERNEL_UUID])
+    assert capsys.readouterr().out.splitlines() == [
+        "kernel_task [0]  1 threads",
+        "  Thread 3",
+        "      0  com.apple.kernel  panic + 0x20  (kernel)",
+        "",
+    ]

@@ -1,6 +1,6 @@
 [package]
 name = "icechunk-storage"
-version = "2.3.1"
+version = "2.4.0"
 description = "Storage trait and shared types for icechunk"
 readme = "README.md"
 repository = "https://github.com/earth-mover/icechunk"
@@ -14,6 +14,7 @@ publish = true
 rust-version.workspace = true
 
 [dependencies]
+icechunk-macros.workspace = true
 icechunk-types.workspace = true
 
 async-trait.workspace = true
@@ -22,6 +23,8 @@ chrono.workspace = true
 futures.workspace = true
 itertools.workspace = true
 percent-encoding.workspace = true
+rustls-pki-types.workspace = true
+rustls-webpki.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros"] }
@@ -29,6 +32,9 @@ tokio-util.workspace = true
 tracing.workspace = true
 typetag.workspace = true
 url.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

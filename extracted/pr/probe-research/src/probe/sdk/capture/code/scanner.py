@@ -9,6 +9,7 @@ from ....foundation.compat.compat import StrEnum
 from ....foundation.transcripts.credential_scan.credential_scan import Finding
 from .scanners.patterns import PatternScanner
 from .scanners.quick import QuickScanner
+from .scanners.vendor import VendorScanner
 
 
 class SecretScanner(Protocol):
@@ -24,9 +25,12 @@ class ScanDepth(StrEnum):
 
     FULL = "full"  # every rule, with the decoding layer (base64, %xx, \uXXXX)
     QUICK = "quick"  # every rule near its keywords, no decoding: for text past FULL_SCAN_MAX_BYTES
+    VENDOR = "vendor"  # only the vendor-shaped rules, no decoding: source files and output files (T51)
 
 
-_SCANNERS: dict[ScanDepth, SecretScanner] = {ScanDepth.FULL: PatternScanner(), ScanDepth.QUICK: QuickScanner()}
+_SCANNERS: dict[ScanDepth, SecretScanner] = {
+    ScanDepth.FULL: PatternScanner(), ScanDepth.QUICK: QuickScanner(), ScanDepth.VENDOR: VendorScanner(),
+}
 
 
 def get_scanner(depth: ScanDepth) -> SecretScanner:

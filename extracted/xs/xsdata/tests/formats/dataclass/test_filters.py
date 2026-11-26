@@ -3,7 +3,7 @@ from unittest import mock
 
 from tests.fixtures.datatypes import Telephone
 from xsdata.codegen.models import Restrictions
-from xsdata.formats.dataclass.filters import Filters
+from xsdata.formats.dataclass.filters import Code, Filters
 from xsdata.models.config import (
     DocstringStyle,
     ExtensionType,
@@ -113,6 +113,71 @@ class FiltersTests(FactoryTestCase):
         target.extensions.clear()
         expected = self.filters.class_bases(target, "FooBar")
         self.assertEqual(["d", "c", "b"], expected)
+
+    def test_enum_base_with_str_members(self) -> None:
+        obj = ClassFactory.create(
+            attrs=[
+                AttrFactory.native(DataType.STRING, tag=Tag.ENUMERATION),
+                AttrFactory.native(DataType.TOKEN, tag=Tag.ENUMERATION),
+            ]
+        )
+        self.assertEqual("StrEnum", self.filters.enum_base(obj))
+
+    def test_enum_base_with_int_members(self) -> None:
+        obj = ClassFactory.create(
+            attrs=[
+                AttrFactory.native(DataType.INT, tag=Tag.ENUMERATION),
+                AttrFactory.native(DataType.POSITIVE_INTEGER, tag=Tag.ENUMERATION),
+            ]
+        )
+        self.assertEqual("IntEnum", self.filters.enum_base(obj))
+
+    def test_enum_base_with_other_native_members(self) -> None:
+        for datatype in (DataType.BOOLEAN, DataType.DECIMAL, DataType.QNAME):
+            obj = ClassFactory.create(
+                attrs=[AttrFactory.native(datatype, tag=Tag.ENUMERATION)]
+            )
+            self.assertEqual("Enum", self.filters.enum_base(obj))
+
+    def test_enum_base_with_mixed_members(self) -> None:
+        obj = ClassFactory.create(
+            attrs=[
+                AttrFactory.native(DataType.STRING, tag=Tag.ENUMERATION),
+                AttrFactory.native(DataType.INT, tag=Tag.ENUMERATION),
+            ]
+        )
+        self.assertEqual("Enum", self.filters.enum_base(obj))
+
+    def test_enum_base_with_tokens_member(self) -> None:
+        obj = ClassFactory.create(
+            attrs=[
+                AttrFactory.native(
+                    DataType.STRING,
+                    tag=Tag.ENUMERATION,
+                    restrictions=Restrictions(tokens=True),
+                )
+            ]
+        )
+        self.assertEqual("Enum", self.filters.enum_base(obj))
+
+    def test_enum_base_with_union_member(self) -> None:
+        obj = ClassFactory.create(
+            attrs=[
+                AttrFactory.enumeration(
+                    types=[
+                        AttrTypeFactory.native(DataType.STRING),
+                        AttrTypeFactory.native(DataType.INT),
+                    ]
+                )
+            ]
+        )
+        self.assertEqual("Enum", self.filters.enum_base(obj))
+
+    def test_enum_base_with_user_type_member(self) -> None:
+        obj = ClassFactory.create(
+            attrs=[AttrFactory.enumeration(types=[AttrTypeFactory.create()])]
+        )
+        self.assertEqual("Enum", self.filters.enum_base(obj))
 
     def test_class_annotations(self) -> None:
         etp = ExtensionType.DECORATOR
@@ -461,6 +526,11 @@ class FiltersTests(FactoryTestCase):
         expected = {"name": "attr_B", "type": "Element"}
         self.assertEqual(expected, self.filters.field_metadata(self.obj, attr, None))
 
+    def test_field_metadata_empty(self) -> None:
+        attr = AttrFactory.element(empty_value="")
+        expected = {"name": "attr_B", "type": "Element", "empty_value": ""}
+        self.assertEqual(expected, self.filters.field_metadata(self.obj, attr, None))
+
     def test_field_metadata_namespace(self) -> None:
         attr = AttrFactory.element(namespace="foo")
         expected = {"name": "attr_B", "namespace": "foo", "type": "Element"}
@@ -541,8 +611,8 @@ class FiltersTests(FactoryTestCase):
         attr = AttrFactory.create(choices=AttrFactory.list(2, tag=Tag.ELEMENT))
         actual = self.filters.field_metadata(self.obj, attr, "foo")
         expected = (
-            {"name": "attr_B", "type": "Type[str]"},
-            {"name": "attr_C", "type": "Type[str]"},
+            {"name": "attr_B", "type": Code("str")},
+            {"name": "attr_C", "type": Code("str")},
         )
 
         self.assertEqual(expected, actual["choices"])
@@ -566,26 +636,26 @@ class FiltersTests(FactoryTestCase):
                 ),
                 AttrFactory.element(namespace="bar"),
                 AttrFactory.any(namespace="##other"),
-                AttrFactory.element(name="bar", default="aa"),
+                AttrFactory.element(name="bar", default="aa", empty_value="bb"),
                 AttrFactory.element(name="tok", restrictions=Restrictions(tokens=True)),
             ]
         )
 
         actual = self.filters.field_choices(self.obj, attr, "foo")
         expected = (
-            {"name": "$", "type": "Type[float]", "max_exclusive": 10.0},
-            {"name": "attr_B", "namespace": "bar", "type": "Type[str]"},
+            {"name": "$", "type": Code("float"), "max_exclusive": 10.0},
+            {"name": "attr_B", "namespace": "bar", "type": Code("str")},
             {
                 "namespace": "##other",
                 "wildcard": True,
-                "type": "Type[object]",
+                "type": Code("object"),
             },
-            {"name": "bar", "type": "Type[str]"},
+            {"name": "bar", "type": Code("str"), "empty_value": "bb"},
             {
                 "default_factory": "list",
                 "name": "tok",
                 "tokens": True,
-                "type": "Type[list[str]]",
+                "type": Code("list[str]"),
             },
         )
 
@@ -668,6 +738,21 @@ class FiltersTests(FactoryTestCase):
             "tuple[tuple[FooBar, ...], ...]", self.filters.field_type(self.obj, attr)
         )
 
+    def test_field_type_with_nillable_array_type(self) -> None:
+        attr = AttrFactory.create(
+            types=AttrTypeFactory.list(1, qname="foo_bar"),
+            restrictions=Restrictions(max_occurs=2, nillable=True),
+        )
+        self.assertEqual("list[None | FooBar]", self.filters.field_type(self.obj, attr))
+
+        attr.restrictions.tokens = True
+        self.assertEqual(
+            "list[None | list[FooBar]]", self.filters.field_type(self.obj, attr)
+        )
+
+        attr.restrictions.max_occurs = 1
+        self.assertEqual("None | list[FooBar]", self.filters.field_type(self.obj, attr))
+
     def test_field_type_with_alias(self) -> None:
         attr = AttrFactory.create(
             types=AttrTypeFactory.list(1, qname="b", forward=True, alias="Boss:Life")
@@ -749,7 +834,7 @@ class FiltersTests(FactoryTestCase):
         choice = AttrFactory.create(types=[AttrTypeFactory.create("foobar")])
         target = ClassFactory.create()
         actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[Foobar]", actual)
+        self.assertEqual(Code("Foobar"), actual)
 
     def test_choice_type_with_forward_reference(self) -> None:
         choice = AttrFactory.create(
@@ -761,36 +846,36 @@ class FiltersTests(FactoryTestCase):
         target.parent = parent
 
         actual = self.filters.choice_type(parent, choice)
-        self.assertEqual('ForwardRef("A.Foobar")', actual)
+        self.assertEqual(Code('ForwardRef("A.Foobar")'), actual)
 
     def test_choice_type_with_circular_reference(self) -> None:
         choice = AttrFactory.create(types=[AttrTypeFactory.create("c", circular=True)])
         actual = self.filters.choice_type(self.obj_nested_nested_nested, choice)
-        self.assertEqual('ForwardRef("C")', actual)
+        self.assertEqual(Code('ForwardRef("C")'), actual)
 
     def test_choice_type_with_multiple_types(self) -> None:
         choice = AttrFactory.create(types=[type_str, type_bool])
         target = ClassFactory.create()
         actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[str | bool]", actual)
+        self.assertEqual(Code("str | bool"), actual)
 
     def test_choice_type_with_list_types_are_ignored(self) -> None:
         choice = AttrFactory.create(types=[type_str, type_bool])
         choice.restrictions.max_occurs = 200
         target = ClassFactory.create()
         actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[str | bool]", actual)
+        self.assertEqual(Code("str | bool"), actual)
 
     def test_choice_type_with_restrictions_tokens_true(self) -> None:
         choice = AttrFactory.create(types=[type_str, type_bool])
         choice.restrictions.tokens = True
         target = ClassFactory.create()
         actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[list[str | bool]]", actual)
+        self.assertEqual(Code("list[str | bool]"), actual)
 
         self.filters.format.frozen = True
         actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[tuple[str | bool, ...]]", actual)
+        self.assertEqual(Code("tuple[str | bool, ...]"), actual)
 
     def test_default_imports_with_decimal(self) -> None:
         expected = "from decimal import Decimal"
@@ -818,6 +903,10 @@ class FiltersTests(FactoryTestCase):
         output = " (Enum) "
 
         expected = "from enum import Enum"
+        self.assertIn(expected, self.filters.default_imports(output))
+
+        output = " (StrEnum) (IntEnum) "
+        expected = "from enum import IntEnum, StrEnum"
         self.assertIn(expected, self.filters.default_imports(output))
 
     def test_default_imports_with_dataclasses(self) -> None:
@@ -991,18 +1080,24 @@ class FiltersTests(FactoryTestCase):
         result = self.filters.format_docstring(doc, level=1)
         self.assertEqual('"""\nLine one and line two.\n"""', result)
 
+    def test_quote(self) -> None:
+        self.assertEqual(
+            '"urn:x\\"; a\\\\ #\\n"', self.filters.quote('urn:x"; a\\ #\n')
+        )
+
     def test_format_metadata(self) -> None:
         data = {
             "num": 1,
             "text": "foo",
             "text_two": "fo'o",
             "text_three": 'fo"o',
+            "text_four": 'Literal["a"]',
             "pattern": "foo",
             "custom": Telephone(30, 123, 4567),
             "level_two": {"a": 1},
             "list": [
-                {"type": "Type[object]"},
-                {"type": 'ForwardRef("something")'},
+                {"type": Code("object")},
+                {"type": Code('ForwardRef("something")')},
             ],
             "default": "1",
             "default_factory": "list",
@@ -1014,6 +1109,7 @@ class FiltersTests(FactoryTestCase):
             '    "text": "foo",\n'
             '    "text_two": "fo\'o",\n'
             '    "text_three": "fo\\"o",\n'
+            '    "text_four": "Literal[\\"a\\"]",\n'
             "    \"pattern\": r'foo',\n"
             '    "custom": Telephone(country_code=30, area_code=123, number=4567),\n'
             '    "level_two": {\n'

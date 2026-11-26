@@ -173,7 +173,7 @@ async def _get_pending(queue: ApprovalQueue) -> JSONResponse:
 async def _post_approve(queue: ApprovalQueue, request: Request) -> JSONResponse:
     try:
         body = await request.json()
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return JSONResponse({"error": "invalid JSON body"}, status_code=400)
     if not isinstance(body, dict):
         return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
@@ -201,7 +201,7 @@ async def _post_approve(queue: ApprovalQueue, request: Request) -> JSONResponse:
 async def _post_deny(queue: ApprovalQueue, request: Request) -> JSONResponse:
     try:
         body = await request.json()
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return JSONResponse({"error": "invalid JSON body"}, status_code=400)
     if not isinstance(body, dict):
         return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
@@ -227,7 +227,7 @@ async def _get_decision_pin(data_dir: Path) -> JSONResponse:
 async def _post_decision_pin(data_dir: Path, request: Request) -> JSONResponse:
     try:
         body = await request.json()
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return JSONResponse({"error": "invalid JSON body"}, status_code=400)
     if not isinstance(body, dict):
         return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
@@ -354,12 +354,10 @@ async def _get_tool_schema(server: Any | None, request: Request) -> JSONResponse
             {"error": "tool schema introspection unavailable in this mode"},
             503,
         )
-    # `local_provider._list_tools()` is a private FastMCP API but the
-    # public ``mcp.list_tools()`` filters out tools the operator has
-    # disabled via the Tools tab — the same disabled tools the user
-    # may still want to author gating rules for.
+    # The provider's public list includes disabled tools, unlike the server's
+    # client-facing list. Operators can still author rules for disabled tools.
     try:
-        tools = await server.mcp.local_provider._list_tools()
+        tools = await server.mcp.local_provider.list_tools()
     except Exception as e:
         logger.exception("tool-schema: failed to list tools")
         return JSONResponse({"error": f"tool list failed: {e}"}, 500)

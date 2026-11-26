@@ -17,17 +17,17 @@ class DescribeDataBackupsResponseBody(DaraModel):
         total_backup_size: int = None,
         total_count: int = None,
     ):
-        # The instance ID.
+        # The list of backup sets.
         self.items = items
         # The page number.
         self.page_number = page_number
-        # The number of entries per page.
+        # The number of backup sets on the current page.
         self.page_size = page_size
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The total backup set size. Unit: Byte.
+        # The total size of the backup sets. Unit: bytes.
         self.total_backup_size = total_backup_size
-        # The total number of entries returned.
+        # The total number of entries.
         self.total_count = total_count
 
     def validate(self):
@@ -105,53 +105,52 @@ class DescribeDataBackupsResponseBodyItems(DaraModel):
         dbinstance_id: str = None,
         data_type: str = None,
     ):
-        # The UTC time when the backup ended. The time is in the yyyy-MM-ddTHH:mmZ format. The time is displayed in UTC.
+        # The end time of the backup. The time is displayed in the yyyy-MM-ddTHH:mm:ssZ format and in UTC.
         self.backup_end_time = backup_end_time
-        # The local time when the backup ended. The time is in the yyyy-MM-dd HH:mm:ss format. The time is your local time.
+        # The end time of the backup in local time.
         self.backup_end_time_local = backup_end_time_local
-        # The method that is used to generate the backup set. Valid values:
+        # The backup method. Valid values:
         # 
-        # *   **Logical**: logical backup
-        # *   **Physical**: physical backup
-        # *   **Snapshot**: snapshot backup
+        # * **Physical**: physical backup.
+        # * **Snapshot**: snapshot backup.
         self.backup_method = backup_method
         # The backup mode.
         # 
-        # Valid values for full backup:
+        # Valid values for full backups:
         # 
-        # *   Automated: automatic backup
-        # *   Manual: manual backup
+        # - **Automated**: automatic backup performed by the system.
+        # - **Manual**: manual backup.
         # 
-        # Valid values for point-in-time backup:
+        # Valid values for restorable points:
         # 
-        # *   Automated: point-in-time backup after full backup
-        # *   Manual: manual point-in-time backup
-        # *   Period: point-in-time backup that is triggered by a backup policy
+        # - **Automated**: restorable point generated after a full backup.
+        # - **Manual**: restorable point manually triggered by the user.
+        # - **Period**: restorable point periodically triggered by the backup policy.
         self.backup_mode = backup_mode
         # The ID of the backup set.
         self.backup_set_id = backup_set_id
         # The size of the backup file. Unit: bytes.
         self.backup_size = backup_size
-        # The UTC time when the backup started. The time is in the yyyy-MM-ddTHH:mmZ format. The time is displayed in UTC.
+        # The start time of the backup. The time is displayed in the yyyy-MM-ddTHH:mm:ssZ format and in UTC.
         self.backup_start_time = backup_start_time
-        # The local time when the backup started. The time is in the yyyy-MM-dd HH:mm:ss format. The time is your local time.
+        # The start time of the backup in local time.
         self.backup_start_time_local = backup_start_time_local
         # The status of the backup set. Valid values:
         # 
-        # *   Success
-        # *   Failure
+        # - **Success**: successful.
+        # - **Failure**: failed.
         self.backup_status = backup_status
-        # The name of a point-in-time backup set or the full backup set.
+        # The name of the restorable point or the full backup set.
         self.bakset_name = bakset_name
-        # *   For full backup, this parameter indicates the point in time at which the data in the data backup file is consistent.
-        # *   For point-in-time backup, this parameter indicates that the returned point in time is a timestamp.
+        # - Full backup: the timestamp of the consistency point in time.
+        # - Restorable point: the timestamp of the restorable point in time.
         self.consistent_time = consistent_time
-        # The ID of the instance.
+        # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The type of the backup. Valid values:
+        # The backup type. Valid values:
         # 
-        # *   DATA: full backup
-        # *   RESTOREPOI: point-in-time backup
+        # - **DATA**: full backup.
+        # - **RESTOREPOI**: restorable point.
         self.data_type = data_type
 
     def validate(self):

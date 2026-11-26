@@ -168,6 +168,41 @@ class RtcpPacketTest(TestCase):
         )
         self.assertEqual(bytes(packet), data)
 
+    def test_sdes_chunk_alignment(self) -> None:
+        # Each chunk ends with one to four null octets (RFC 3550 section 6.5).
+        for value, nulls in ((b"a", 1), (b"abcd", 2), (b"abc", 3), (b"ab", 4)):
+            with self.subTest(nulls=nulls):
+                first = b"\x00\x00\x00\x01" + bytes([1, len(value)]) + value
+                first += b"\x00" * nulls
+                self.assertEqual(len(first) % 4, 0)
+                second = b"\x00\x00\x00\x02" + b"\x01\x05cname" + b"\x00"
+                payload = first + second
+                data = bytes([0x82, 0xCA, 0, len(payload) // 4]) + payload
+
+                packets = RtcpPacket.parse(data)
+                self.assertEqual(len(packets), 1)
+                packet = self.ensureIsInstance(packets[0], RtcpSdesPacket)
+                self.assertEqual([c.ssrc for c in packet.chunks], [1, 2])
+                self.assertEqual(packet.chunks[0].items, [(1, value)])
+                self.assertEqual(packet.chunks[1].items, [(1, b"cname")])
+
+                # Check the packet is written back identically.
+                self.assertEqual(bytes(packet), data)
+
+    def test_sdes_cname(self) -> None:
+        packet = RtcpSdesPacket.cname(
+            1831097322, "{63f459ea-41fe-4474-9d33-9707c9ee79d1}"
+        )
+        self.assertEqual(bytes(packet), load("rtcp_sdes.bin"))
+
+    def test_sdes_item_length_truncated(self) -> None:
+        # The last octet holds an item type, but no length octet.
+        data = bytes.fromhex("81ca00020000000101016102")
+
+        with self.assertRaises(ValueError) as cm:
+            RtcpPacket.parse(data)
+        self.assertEqual(str(cm.exception), "RTCP SDES item is truncated")
+
     def test_sdes_item_truncated(self) -> None:
         data = load("rtcp_sdes_item_truncated.bin")
 
@@ -224,6 +259,20 @@ class RtcpPacketTest(TestCase):
             [12, 32, 39, 54, 76, 110, 123, 142, 183, 187, 223, 236, 271, 292],
         )
         self.assertEqual(bytes(packet), data)
+
+    def test_rtpfb_sequence_number_wrap(self) -> None:
+        # The bitmask reports the packets after PID, modulo 2^16
+        # (RFC 4585 section 6.2.1).
+        data = (
+            b"\x81\xcd\x00\x03"
+            + b"\x00\x00\x04\xd2\x00\x00\x08\xae"
+            + b"\xff\xff\x00\x03"
+        )
+        packets = RtcpPacket.parse(data)
+        self.assertEqual(len(packets), 1)
+
+        packet = self.ensureIsInstance(packets[0], RtcpRtpfbPacket)
+        self.assertEqual(packet.lost, [65535, 0, 1])
 
     def test_rtpfb_invalid(self) -> None:
         data = load("rtcp_rtpfb_invalid.bin")
@@ -385,6 +434,24 @@ class RtpPacketTest(TestCase):
         self.assertEqual(len(packet.payload), 54)
         self.assertEqual(packet.serialize(extensions_map), data)
 
+    def test_with_sdes_mid_invalid(self) -> None:
+        extensions_map = rtp.HeaderExtensionsMap()
+        extensions_map.configure(
+            RTCRtpParameters(
+                headerExtensions=[
+                    RTCRtpHeaderExtensionParameters(
+                        id=9, uri="urn:ietf:params:rtp-hdrext:sdes:mid"
+                    )
+                ]
+            )
+        )
+
+        # A MID which is not UTF-8 matches no "m=" section, so the packet is
+        # discarded rather than routed without it (RFC 9143 sections 9.2 and 15.2).
+        data = load("rtp_with_sdes_mid.bin").replace(b"\x900", b"\x90\xff")
+        with self.assertRaises(ValueError):
+            RtpPacket.parse(data, extensions_map)
+
     def test_with_sdes_mid_truncated(self) -> None:
         data = load("rtp_with_sdes_mid.bin")
 
@@ -486,6 +553,11 @@ class RtpUtilTest(TestCase):
         bitrate, ssrcs = unpack_remb_fci(b"REMB\x01\xff\xff\xff\x96\xbe\x96\xcf")
         self.assertEqual(bitrate, 0x3FFFF << 63)
         self.assertEqual(ssrcs, [2529072847])
+
+    def test_unpack_remb_fci_truncated(self) -> None:
+        # Num SSRC is 2, but the FCI carries one SSRC.
+        with self.assertRaises(ValueError):
+            unpack_remb_fci(b"REMB\x02\x00\x00\x00\x96\xbe\x96\xcf")
 
     def test_unpack_header_extensions(self) -> None:
         # none
@@ -652,6 +724,57 @@ class RtpUtilTest(TestCase):
 
         # TODO: check
         packet.serialize(extensions_map)
+
+    def test_map_header_extensions_bad_length(self) -> None:
+        for uri, attribute, value in [
+            (
+                "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
+                "abs_send_time",
+                b"\x12\x34",
+            ),
+            (
+                "urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+                "audio_level",
+                b"\xda\x00",
+            ),
+            (
+                "urn:ietf:params:rtp-hdrext:toffset",
+                "transmission_offset",
+                b"\x01\x56\xce\x00",
+            ),
+            (
+                "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
+                "transport_sequence_number",
+                b"\xce",
+            ),
+        ]:
+            with self.subTest(attribute=attribute):
+                extensions_map = rtp.HeaderExtensionsMap()
+                extensions_map.configure(
+                    RTCRtpParameters(
+                        headerExtensions=[
+                            RTCRtpHeaderExtensionParameters(id=1, uri=uri),
+                            RTCRtpHeaderExtensionParameters(
+                                id=2, uri="urn:ietf:params:rtp-hdrext:sdes:mid"
+                            ),
+                        ]
+                    )
+                )
+                profile, extension_value = pack_header_extensions(
+                    [(1, value), (2, b"0")]
+                )
+                data = (
+                    b"\x90\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04\xd2"
+                    + profile.to_bytes(2, "big")
+                    + (len(extension_value) // 4).to_bytes(2, "big")
+                    + extension_value
+                )
+
+                # A header extension can be ignored without breaking the RTP
+                # layer (RFC 8285 section 4.1), so only the bad element is.
+                packet = RtpPacket.parse(data, extensions_map)
+                self.assertIsNone(getattr(packet.extensions, attribute))
+                self.assertEqual(packet.extensions.mid, "0")
 
     def test_rtx(self) -> None:
         extensions_map = rtp.HeaderExtensionsMap()

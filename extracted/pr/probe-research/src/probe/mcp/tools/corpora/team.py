@@ -258,6 +258,8 @@ def _semantic_result(row: dict, *, keyword: bool = False, api_base_url: str | No
             # apart from a transcript meant parsing a doc id.
             "updated_at",
             "corpus",
+            # A transcript hit's whole session id: the engine's title holds only 8 hex characters of it.
+            "session_id",
         )
         if row.get(key) is not None
     }

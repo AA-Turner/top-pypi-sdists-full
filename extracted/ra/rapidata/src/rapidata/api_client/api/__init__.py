@@ -3,6 +3,7 @@
 # import apis into api package
 from rapidata.api_client.api.asset_api import AssetApi
 from rapidata.api_client.api.audience_api import AudienceApi
+from rapidata.api_client.api.auto_top_up_api import AutoTopUpApi
 from rapidata.api_client.api.batch_upload_api import BatchUploadApi
 from rapidata.api_client.api.benchmark_api import BenchmarkApi
 from rapidata.api_client.api.billing_api import BillingApi
@@ -29,6 +30,7 @@ from rapidata.api_client.api.flow_api import FlowApi
 from rapidata.api_client.api.flow_item_api import FlowItemApi
 from rapidata.api_client.api.global_text_api import GlobalTextApi
 from rapidata.api_client.api.hugging_face_sync_api import HuggingFaceSyncApi
+from rapidata.api_client.api.iam_api import IamApi
 from rapidata.api_client.api.identity_api import IdentityApi
 from rapidata.api_client.api.invoice_api import InvoiceApi
 from rapidata.api_client.api.invoice_recipient_api import InvoiceRecipientApi

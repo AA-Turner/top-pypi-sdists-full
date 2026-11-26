@@ -10,7 +10,7 @@ class DeleteApiKeyRequest(DaraModel):
         key_id: str = None,
         region_id: str = None,
     ):
-        # API KEY ID。
+        # The API key ID.
         # 
         # This parameter is required.
         self.key_id = key_id

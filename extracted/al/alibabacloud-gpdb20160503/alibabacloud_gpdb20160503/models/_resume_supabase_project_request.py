@@ -10,7 +10,7 @@ class ResumeSupabaseProjectRequest(DaraModel):
         project_id: str = None,
         region_id: str = None,
     ):
-        # The instance ID of the Supabase instance.
+        # The Supabase instance ID.
         # 
         # This parameter is required.
         self.project_id = project_id

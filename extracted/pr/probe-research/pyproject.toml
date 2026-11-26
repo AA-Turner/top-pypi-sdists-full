@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.651.0"
+version = "0.661.0"
 description = "Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -135,6 +135,8 @@ dev = [
     "jsonschema>=4.18",
     # The importer's Codex archives (the `cli` extra's zstandard, below), read in tests too.
     "zstandard>=0.23",
+    # Workspace icon images (the `cli` extra's pillow, below), cropped in tests too.
+    "pillow>=10.3",
 ]
 # Extra needed only to RUN the hosted HTTP MCP service (not for stdio/CLI users).
 mcp-http = ["uvicorn>=0.30"]
@@ -155,7 +157,12 @@ mcp-http = ["uvicorn>=0.30"]
 # path is stdlib-only). 3.4: pyjwt[crypto]'s floor; Ed25519 itself is older.
 # zstandard: the importer reads Codex 0.166+'s compressed rollouts (`.jsonl.zst`,
 # cli/imports/transcripts/archive.py, D82); imported lazily, never by core.
-cli = ["probe-research-cli==0.651.0", "typer>=0.12,<0.29", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4", "zstandard>=0.23"]
+# pillow: `probe workspace create|icon --image` crops a local image to the 64x64 PNG icon
+# (cli/commands/account/workspace_icon.py); imported lazily, never by core.
+cli = ["probe-research-cli==0.661.0", 
+    "typer>=0.12,<0.29", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4", "zstandard>=0.23",
+    "pillow>=10.3",
+]
 mcp = ["mcp>=1.30,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
 all = ["probe-research[cli,mcp]"]
 # `probe.integrations.lightning.ProbeLogger` (plan (a)). Brings torch: never a
@@ -169,7 +176,7 @@ huggingface = ["transformers[torch]>=4.46"]
 # exactly (R3.4). Installed by the wizard when the researcher turns daemon mode
 # on, into the CLI's own uv tool environment; without
 # it capture keeps running and daemon mode reports itself unavailable.
-daemon = ["probe-research-cli==0.651.0", 
+daemon = ["probe-research-cli==0.661.0", 
     "pydantic-ai-slim[openai,mcp]==2.53.0",
     "pydantic-ai-harness[skills]==0.36.0",
     "pydantic-ai-skills==2.0.0",
@@ -185,7 +192,7 @@ daemon = ["probe-research-cli==0.651.0",
 # Upper bound = the line verify_harbor_contract() is pinned against. NB: never
 # cap litellm (a harbor dep) below 1.100.4, the server's security pin; it ships
 # abi3 wheels, so only a platform without one builds the sdist (rustc>=1.86).
-harbor = ["probe-research-cli==0.651.0", "harbor>=0.20,<0.26; python_version >= '3.12'"]
+harbor = ["probe-research-cli==0.661.0", "harbor>=0.20,<0.26; python_version >= '3.12'"]
 
 [project.urls]
 Homepage = "https://www.useprobe.ai"
@@ -217,10 +224,12 @@ path = "hatch_build.py"
 # The hook routes the Probe service runs for a frozen hook shim (`probe.service.hooks.proxy.copies`
 # PARTS, which tests/test_service_hooks_proxy.py holds equal to these lines).
 "plugins/probe/hooks" = "share/probe-research/plugins/probe/hooks"
+"plugins/probe/gated-skills" = "share/probe-research/plugins/probe/gated-skills"
 "plugins/probe/.claude-plugin" = "share/probe-research/plugins/probe/.claude-plugin"
 "plugins/probe/.codex-plugin" = "share/probe-research/plugins/probe/.codex-plugin"
 "plugins/probe/.kimi-plugin" = "share/probe-research/plugins/probe/.kimi-plugin"
 "plugins/probe-daemon/hooks" = "share/probe-research/plugins/probe-daemon/hooks"
+"plugins/probe-daemon/gated-skills" = "share/probe-research/plugins/probe-daemon/gated-skills"
 "plugins/probe-daemon/inline" = "share/probe-research/plugins/probe-daemon/inline"
 "plugins/probe-daemon/.claude-plugin" = "share/probe-research/plugins/probe-daemon/.claude-plugin"
 "plugins/probe-daemon/.codex-plugin" = "share/probe-research/plugins/probe-daemon/.codex-plugin"
@@ -232,7 +241,7 @@ path = "hatch_build.py"
 "plugins/probe-tap/.kimi-plugin" = "share/probe-research/plugins/probe-tap/.kimi-plugin"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/probe", "skills", "plugins/probe/hooks", "plugins/probe/.claude-plugin", "plugins/probe/.codex-plugin", "plugins/probe/.kimi-plugin", "plugins/probe-daemon/hooks", "plugins/probe-daemon/inline", "plugins/probe-daemon/.claude-plugin", "plugins/probe-daemon/.codex-plugin", "plugins/probe-daemon/.kimi-plugin", "plugins/probe-tap/hooks", "plugins/probe-tap/tap", "plugins/probe-tap/.claude-plugin", "plugins/probe-tap/.codex-plugin", "plugins/probe-tap/.kimi-plugin", "README.md", "pyproject.toml", "hatch_build.py"]
+include = ["src/probe", "skills", "plugins/probe/hooks", "plugins/probe/gated-skills", "plugins/probe/.claude-plugin", "plugins/probe/.codex-plugin", "plugins/probe/.kimi-plugin", "plugins/probe-daemon/hooks", "plugins/probe-daemon/gated-skills", "plugins/probe-daemon/inline", "plugins/probe-daemon/.claude-plugin", "plugins/probe-daemon/.codex-plugin", "plugins/probe-daemon/.kimi-plugin", "plugins/probe-tap/hooks", "plugins/probe-tap/tap", "plugins/probe-tap/.claude-plugin", "plugins/probe-tap/.codex-plugin", "plugins/probe-tap/.kimi-plugin", "README.md", "pyproject.toml", "hatch_build.py"]
 
 [tool.hatch.build.targets.sdist.hooks.custom]
 path = "hatch_build.py"
@@ -297,3 +306,8 @@ markers = [
 # bare `pytest` (CI, editors, `make test`) and not only under `python -m pytest`, which
 # adds the cwd implicitly. Without this, collection fails before a single test runs.
 pythonpath = ["."]
+
+[tool.uv]
+# The lock covers Python 3.11+ only (SOC 2: filelock 4.2.1 and dnspython 2.9.2 need 3.11).
+# The package floor stays requires-python >= 3.10; CI tests 3.10 with pip, not this lock.
+environments = ["python_version >= '3.11'"]

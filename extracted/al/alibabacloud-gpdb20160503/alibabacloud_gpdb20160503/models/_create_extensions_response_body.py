@@ -10,7 +10,7 @@ class CreateExtensionsResponseBody(DaraModel):
         extensions: str = None,
         request_id: str = None,
     ):
-        # The name of the extension that you want to install. Multiple extension names are separated with commas (,).
+        # The extensions to install. Separate multiple extensions with commas (,).
         self.extensions = extensions
         # The request ID.
         self.request_id = request_id

@@ -47,7 +47,7 @@ def main():
 
     # Fail loudly if a scenario number has no example, so the runner
     # itself cannot silently skip coverage.
-    expected_numbers = {f"{number:02d}" for number in range(1, 32)}
+    expected_numbers = {f"{number:02d}" for number in range(1, 33)}
     present_numbers = {example.name[:2] for example in all_example_files}
     missing_numbers = sorted(expected_numbers - present_numbers)
     if missing_numbers:

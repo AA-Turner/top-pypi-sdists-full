@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: harlequin
-Version: 2.17.0
+Version: 2.18.0
 Summary: The SQL IDE for Your Terminal.
 Project-URL: Homepage, https://harlequin.sh
 Project-URL: Documentation, https://harlequin.sh/docs/getting-started/index
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: click==8.5.0
+Requires-Dist: click==8.5.1
 Requires-Dist: duckdb>=1.1.1; python_version < '3.14'
 Requires-Dist: duckdb>=1.4.2; python_version >= '3.14'
 Requires-Dist: msgspec<1,>=0.19
@@ -30,7 +30,7 @@ Requires-Dist: pyperclip<2,>=1.9
 Requires-Dist: questionary==2.1.1
 Requires-Dist: rich-click==1.9.9
 Requires-Dist: shandy-sqlfmt>=0.28.2
-Requires-Dist: textual-fastdatatable==0.19.3
+Requires-Dist: textual-fastdatatable==0.19.5
 Requires-Dist: textual-textarea==0.18.5
 Requires-Dist: textual==8.2.8
 Requires-Dist: tomli>=2.0.1; python_version < '3.11'
@@ -57,7 +57,7 @@ Requires-Dist: harlequin-odbc; extra == 'odbc'
 Provides-Extra: postgres
 Requires-Dist: harlequin-postgres; extra == 'postgres'
 Provides-Extra: s3
-Requires-Dist: boto3==1.43.118; extra == 's3'
+Requires-Dist: boto3==1.44.9; extra == 's3'
 Provides-Extra: trino
 Requires-Dist: harlequin-trino; extra == 'trino'
 Description-Content-Type: text/markdown

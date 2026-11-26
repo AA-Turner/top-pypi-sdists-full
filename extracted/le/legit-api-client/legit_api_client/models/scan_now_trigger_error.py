@@ -17,9 +17,10 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
 from uuid import UUID
+from legit_api_client.models.scan_now_trigger_error_reason import ScanNowTriggerErrorReason
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -29,7 +30,7 @@ class ScanNowTriggerError(BaseModel):
     ScanNowTriggerError
     """ # noqa: E501
     scan_request_id: Optional[UUID] = Field(default=None, alias="scanRequestId")
-    reason: Optional[StrictStr] = None
+    reason: Optional[ScanNowTriggerErrorReason] = None
     __properties: ClassVar[List[str]] = ["scanRequestId", "reason"]
 
     model_config = ConfigDict(
@@ -71,10 +72,10 @@ class ScanNowTriggerError(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if reason (nullable) is None
+        # set to None if scan_request_id (nullable) is None
         # and model_fields_set contains the field
-        if self.reason is None and "reason" in self.model_fields_set:
-            _dict['reason'] = None
+        if self.scan_request_id is None and "scan_request_id" in self.model_fields_set:
+            _dict['scanRequestId'] = None
 
         return _dict
 

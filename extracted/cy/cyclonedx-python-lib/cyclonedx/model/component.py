@@ -17,7 +17,7 @@
 
 import re
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from enum import Enum
 from typing import Any, Optional, Union
 from warnings import warn
@@ -69,6 +69,7 @@ from .crypto import CryptoProperties
 from .dependency import Dependable
 from .issue import IssueType
 from .license import License, LicenseRepository, _LicenseRepositorySerializationHelper
+from .model_card import ModelCard
 from .release_note import ReleaseNotes
 
 
@@ -1001,6 +1002,7 @@ class Component(Dependable):
         external_references: Optional[Iterable[ExternalReference]] = None,
         properties: Optional[Iterable[Property]] = None,
         release_notes: Optional[ReleaseNotes] = None,
+        model_card: Optional[ModelCard] = None,
         cpe: Optional[str] = None,
         swid: Optional[Swid] = None,
         pedigree: Optional[Pedigree] = None,
@@ -1042,6 +1044,7 @@ class Component(Dependable):
         self.components = components or []
         self.evidence = evidence
         self.release_notes = release_notes
+        self.model_card = model_card
         self.crypto_properties = crypto_properties
         self.tags = tags or []
         # spec-deprecated properties below
@@ -1622,16 +1625,25 @@ class Component(Dependable):
     def release_notes(self, release_notes: Optional[ReleaseNotes]) -> None:
         self._release_notes = release_notes
 
-    # @property
-    # ...
-    # @serializable.view(SchemaVersion1Dot5)
-    # @serializable.xml_sequence(22)
-    # def model_card(self) -> ...:
-    #     ...  # TODO since CDX1.5
-    #
-    # @model_card.setter
-    # def model_card(self, ...) -> None:
-    #     ...  # TODO since CDX1.5
+    @property
+    @serializable.view(SchemaVersion1Dot5)
+    @serializable.view(SchemaVersion1Dot6)
+    @serializable.view(SchemaVersion1Dot7)
+    @serializable.xml_sequence(26)
+    @serializable.json_name('modelCard')
+    @serializable.xml_name('modelCard')
+    def model_card(self) -> Optional[ModelCard]:
+        """
+        Specifies the model card for components of type `machine-learning-model`.
+
+        Returns:
+            `ModelCard` or `None`
+        """
+        return self._model_card
+
+    @model_card.setter
+    def model_card(self, model_card: Optional[ModelCard]) -> None:
+        self._model_card = model_card
 
     # @property
     # ...
@@ -1684,15 +1696,29 @@ class Component(Dependable):
     def tags(self, tags: Iterable[str]) -> None:
         self._tags = SortedSet(tags)
 
+    def iter_all_nested_components(self, include_self: bool = False) -> Iterator['Component']:
+        """
+        Iterate over this component and all its nested components (assemblies), recursively.
+
+        Components are deduplicated by object identity — NOT by equality.
+        This never calls the (costly) ``Component.__hash__``/``__eq__``,
+        which makes it dramatically faster than :func:`get_all_nested_components`
+        for large component trees. Safe against cyclic component graphs.
+
+        Order of iteration is not guaranteed.
+        """
+        seen: dict[int, 'Component'] = {}
+        stack: list['Component'] = [self] if include_self else list(self.components)
+        while stack:
+            current = stack.pop()
+            current_id = id(current)
+            if current_id not in seen:
+                seen[current_id] = current
+                stack.extend(current.components)
+        return iter(seen.values())
+
     def get_all_nested_components(self, include_self: bool = False) -> set['Component']:
-        components = set()
-        if include_self:
-            components.add(self)
-
-        for c in self.components:
-            components.update(c.get_all_nested_components(include_self=True))
-
-        return components
+        return set(self.iter_all_nested_components(include_self=include_self))
 
     def get_pypi_url(self) -> str:
         if self.version:
@@ -1714,8 +1740,7 @@ class Component(Dependable):
             _ComparableTuple(self.external_references), _ComparableTuple(self.properties),
             _ComparableTuple(self.components), self.evidence, self.release_notes, self.modified,
             _ComparableTuple(self.authors), _ComparableTuple(self.omnibor_ids), self.manufacturer,
-            self.crypto_properties, _ComparableTuple(self.tags),
-            self.is_external,
+            self.crypto_properties, _ComparableTuple(self.tags), self.model_card, self.is_external,
         ))
 
     def __eq__(self, other: object) -> bool:

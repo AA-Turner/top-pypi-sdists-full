@@ -16,6 +16,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::{compat::MaybeSend, rt::JoinError};
 use chrono::{DateTime, Utc};
 use futures::{
     Stream, StreamExt as _, TryStreamExt as _,
@@ -25,7 +26,7 @@ use itertools::Itertools as _;
 use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{sync::AcquireError, task::JoinError, try_join};
+use tokio::{join, sync::AcquireError};
 use tracing::{Instrument as _, debug, error, instrument, trace, warn};
 
 use crate::{
@@ -39,8 +40,10 @@ use crate::{
     display::AncestryGraph,
     error::ICError,
     feature_flags::{
-        CREATE_TAG_FLAG, DELETE_TAG_FLAG, FEATURE_FLAGS, FeatureFlag, MOVE_NODE_FLAG,
-        find_feature_flag_id, raise_if_feature_flag_disabled,
+        COMMIT_FLAG, CREATE_BRANCH_FLAG, CREATE_TAG_FLAG, DELETE_BRANCH_FLAG,
+        DELETE_TAG_FLAG, FEATURE_FLAGS, FeatureFlag, MOVE_NODE_FLAG, RESET_BRANCH_FLAG,
+        UPDATE_CONFIG_FLAG, UPDATE_REPOSITORY_METADATA_FLAG, find_feature_flag_id,
+        raise_if_feature_flag_disabled,
     },
     format::{
         IcechunkFormatError, IcechunkFormatErrorKind, ManifestId, NodeId, Path,
@@ -253,12 +256,31 @@ impl Repository {
 
     /// Set the HTTP transport for sessions opened after this call. The callback
     /// is runtime-only and is not persisted or serialized with the repository.
+    #[deprecated(
+        note = "register a `Storage` for the container instead, with `Repository::set_virtual_chunk_storage`"
+    )]
+    #[expect(deprecated)]
     pub fn set_http_virtual_chunk_fetcher(
         &mut self,
         fetcher: Arc<dyn crate::virtual_chunks::HttpVirtualChunkFetcher>,
     ) {
         self.virtual_resolver =
             Arc::new(self.virtual_resolver.with_http_fetcher(fetcher));
+    }
+
+    /// Read the virtual chunks of the container with `url_prefix` from `storage`
+    /// in sessions opened after this call, instead of the container's configured
+    /// backend. A chunk at `{url_prefix}{path}` is read as `path` from `storage`.
+    /// The container must still be authorized when opening the repository.
+    /// Runtime-only: not persisted or serialized with the repository.
+    pub fn set_virtual_chunk_storage(
+        &mut self,
+        url_prefix: &str,
+        storage: Arc<dyn Storage + Send + Sync>,
+    ) -> Result<(), crate::format::manifest::VirtualReferenceError> {
+        self.virtual_resolver =
+            Arc::new(self.virtual_resolver.with_container_storage(url_prefix, storage)?);
+        Ok(())
     }
 
     #[instrument(skip_all)]
@@ -321,14 +343,17 @@ impl Repository {
             );
 
             let res = temp_asset_manager.fetch_repo_info().await;
-            Ok(res.and_then(|(ri, _)| {
+            res.and_then(|(ri, _)| {
                 let version = ri.spec_version().inject()?;
                 Ok((version, ri))
-            }))
+            })
         }
         .in_current_span();
 
-        let (is_v1, after_v1) = try_join!(is_v1, after_v1).inject()?;
+        // Use join! (not try_join!) so that an error from the V1 check doesn't
+        // fail the detection of a V2+ repo. Without list permissions, S3 and GCS
+        // answer a missing V1 ref with 403 instead of 404.
+        let (is_v1, after_v1) = join!(is_v1, after_v1);
         match after_v1 {
             // if we have both configuration, this is an unfinished migration
             // but still a V2+ repo
@@ -339,7 +364,7 @@ impl Repository {
                 kind: RepositoryErrorKind::RepositoryDoesntExist,
                 ..
             }) => {
-                if is_v1 {
+                if is_v1.inject()? {
                     Ok(Some(DetectedSpecVersion::V1))
                 } else {
                     Ok(None)
@@ -437,6 +462,12 @@ impl Repository {
             let num_updates = self.config.num_updates_per_repo_info_file();
             let spec_version = self.spec_version();
             let do_update = move |repo_info: Arc<RepoInfo>, backup_path: &str, _| {
+                raise_if_feature_flag_disabled(
+                    repo_info.as_ref(),
+                    UPDATE_CONFIG_FLAG,
+                    "config update",
+                )
+                .inject()?;
                 Ok(Arc::new(
                     repo_info
                         .set_config(spec_version, &config, backup_path, num_updates)
@@ -488,6 +519,12 @@ impl Repository {
         let mut final_metadata = Default::default();
         let num_updates = self.config().num_updates_per_repo_info_file();
         let do_update = |repo_info: Arc<RepoInfo>, backup_path: &str, _| {
+            raise_if_feature_flag_disabled(
+                repo_info.as_ref(),
+                UPDATE_REPOSITORY_METADATA_FLAG,
+                "repository metadata update",
+            )
+            .inject()?;
             final_metadata = repo_info.metadata().inject()?;
             final_metadata.extend(metadata.clone());
             Ok(Arc::new(
@@ -518,6 +555,12 @@ impl Repository {
 
         let num_updates = self.config().num_updates_per_repo_info_file();
         let do_update = |repo_info: Arc<RepoInfo>, backup_path: &str, _| {
+            raise_if_feature_flag_disabled(
+                repo_info.as_ref(),
+                UPDATE_REPOSITORY_METADATA_FLAG,
+                "repository metadata update",
+            )
+            .inject()?;
             Ok(Arc::new(
                 repo_info
                     .set_metadata(self.spec_version(), metadata, backup_path, num_updates)
@@ -735,8 +778,9 @@ impl Repository {
     pub async fn ancestry(
         &self,
         version: &VersionInfo,
-    ) -> RepositoryResult<impl Stream<Item = RepositoryResult<SnapshotInfo>> + Send + use<>>
-    {
+    ) -> RepositoryResult<
+        impl Stream<Item = RepositoryResult<SnapshotInfo>> + MaybeSend + use<>,
+    > {
         self.ancestry_using(version, None).await
     }
 
@@ -803,8 +847,9 @@ impl Repository {
         &self,
         version: &VersionInfo,
         repo_info: Option<Arc<RepoInfo>>,
-    ) -> RepositoryResult<impl Stream<Item = RepositoryResult<SnapshotInfo>> + Send + use<>>
-    {
+    ) -> RepositoryResult<
+        impl Stream<Item = RepositoryResult<SnapshotInfo>> + MaybeSend + use<>,
+    > {
         match self.spec_version {
             SpecVersionBin::V1 => Ok(self.ancestry_v1(version).await?.left_stream()),
             SpecVersionBin::V2 => {
@@ -824,8 +869,9 @@ impl Repository {
     async fn ancestry_v1(
         &self,
         version: &VersionInfo,
-    ) -> RepositoryResult<impl Stream<Item = RepositoryResult<SnapshotInfo>> + Send + use<>>
-    {
+    ) -> RepositoryResult<
+        impl Stream<Item = RepositoryResult<SnapshotInfo>> + MaybeSend + use<>,
+    > {
         let snapshot_id = self.resolve_version(version).await?;
         self.snapshot_info_ancestry_v1(&snapshot_id).await
     }
@@ -834,8 +880,9 @@ impl Repository {
     async fn ancestry_ref_v1(
         &self,
         version: &RefVersionInfo,
-    ) -> RepositoryResult<impl Stream<Item = RepositoryResult<SnapshotInfo>> + Send + use<>>
-    {
+    ) -> RepositoryResult<
+        impl Stream<Item = RepositoryResult<SnapshotInfo>> + MaybeSend + use<>,
+    > {
         let snapshot_id = self.resolve_ref_version_v1(version).await?;
         self.snapshot_info_ancestry_v1(&snapshot_id).await
     }
@@ -848,7 +895,7 @@ impl Repository {
         &self,
     ) -> RepositoryResult<(
         impl Stream<Item = RepositoryResult<(DateTime<Utc>, UpdateType, Option<String>)>>
-        + Send
+        + MaybeSend
         + use<>,
         Arc<RepoInfo>,
         storage::VersionInfo,
@@ -916,6 +963,12 @@ impl Repository {
     ) -> RepositoryResult<()> {
         let num_updates = self.config.num_updates_per_repo_info_file();
         let do_update = |repo_info: Arc<RepoInfo>, backup_path: &str, _| {
+            raise_if_feature_flag_disabled(
+                repo_info.as_ref(),
+                CREATE_BRANCH_FLAG,
+                "branch creation",
+            )
+            .inject()?;
             raise_if_invalid_snapshot_id_v2(repo_info.as_ref(), snapshot_id)?;
             Ok(Arc::new(
                 repo_info
@@ -1129,6 +1182,12 @@ impl Repository {
         from_snapshot_id: Option<&SnapshotId>,
     ) -> RepositoryResult<()> {
         let do_update = |repo_info: Arc<RepoInfo>, backup_path: &str, _| {
+            raise_if_feature_flag_disabled(
+                repo_info.as_ref(),
+                RESET_BRANCH_FLAG,
+                "branch reset",
+            )
+            .inject()?;
             if let Some(from_snapshot_id) = from_snapshot_id {
                 let actual_parent = repo_info.resolve_branch(branch).inject()?;
                 if &actual_parent != from_snapshot_id {
@@ -1200,6 +1259,12 @@ impl Repository {
     async fn delete_branch_v2(&self, branch: &str) -> RepositoryResult<()> {
         let num_updates = self.config.num_updates_per_repo_info_file();
         let do_update = |repo_info: Arc<RepoInfo>, backup_path: &str, _| {
+            raise_if_feature_flag_disabled(
+                repo_info.as_ref(),
+                DELETE_BRANCH_FLAG,
+                "branch delete",
+            )
+            .inject()?;
             let new_repo = repo_info
                 .delete_branch(self.spec_version(), branch, backup_path, num_updates)
                 .map_err(|err| match err {
@@ -1318,13 +1383,13 @@ impl Repository {
     ) -> RepositoryResult<()> {
         let num_updates = self.config.num_updates_per_repo_info_file();
         let do_update = |repo_info: Arc<RepoInfo>, backup_path: &str, _| {
-            raise_if_invalid_snapshot_id_v2(repo_info.as_ref(), snapshot_id)?;
             raise_if_feature_flag_disabled(
                 repo_info.as_ref(),
                 CREATE_TAG_FLAG,
                 "tag creation",
             )
             .inject()?;
+            raise_if_invalid_snapshot_id_v2(repo_info.as_ref(), snapshot_id)?;
             let new_repo = repo_info
                 .add_tag(
                     self.spec_version(),
@@ -1739,7 +1804,19 @@ impl Repository {
 
         self.fail_unless_online_status("Cannot create writable session").await?;
 
-        let snapshot_id = self.lookup_branch(branch).await?;
+        let snapshot_id = match self.spec_version() {
+            SpecVersionBin::V1 => self.lookup_branch(branch).await?,
+            SpecVersionBin::V2 => {
+                let (ri, _) = self.asset_manager().fetch_repo_info().await?;
+                raise_if_feature_flag_disabled(
+                    ri.as_ref(),
+                    COMMIT_FLAG,
+                    "create writable session",
+                )
+                .inject()?;
+                self.lookup_branch_v2(branch, Some(&ri)).await?
+            }
+        };
 
         let session = Session::create_writable_session(
             self.config.clone(),
@@ -1767,14 +1844,21 @@ impl Repository {
         self.fail_unless_online_status("Cannot create rearrange session").await?;
 
         let (ri, _) = self.asset_manager().fetch_repo_info().await?;
-        let snapshot_id = self.lookup_branch_v2(branch, Some(&ri)).await?;
 
+        raise_if_feature_flag_disabled(
+            ri.as_ref(),
+            COMMIT_FLAG,
+            "create rearrange session",
+        )
+        .inject()?;
         raise_if_feature_flag_disabled(
             ri.as_ref(),
             MOVE_NODE_FLAG,
             "create rearrange session",
         )
         .inject()?;
+
+        let snapshot_id = self.lookup_branch_v2(branch, Some(&ri)).await?;
 
         let session = Session::create_rearrange_session(
             self.config.clone(),
@@ -1803,7 +1887,7 @@ impl Repository {
         {
             return;
         }
-        tokio::spawn(async move {
+        crate::rt::spawn(async move {
             let mut loaded_manifests: HashSet<ManifestId> = HashSet::new();
             let mut loaded_refs: u32 = 0;
             let futures = FuturesUnordered::new();
@@ -4633,6 +4717,32 @@ mod tests {
 
         assert_eq!(diff.moved_nodes.len(), 2);
 
+        Ok(())
+    }
+
+    /// Without list permission, S3 and GCS answer a read of the missing V1 ref with
+    /// 403 instead of 404. Any error from the V1 check must not fail the open of a
+    /// V2 repo whose `repo` object reads fine.
+    #[tokio_test]
+    async fn test_open_ignores_v1_check_error() -> Result<(), Box<dyn Error>> {
+        let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        Repository::create(Arc::clone(&storage)).execute().await?;
+
+        let settings = storage.default_settings().await?;
+        let labels = AttributionLabels::from(&Attribution::default());
+        storage
+            .put_object(
+                &StorageContext::without_node(&settings, &labels),
+                "refs/branch.main/ref.json",
+                Bytes::from_static(b"unreadable"),
+                None,
+                Vec::new(),
+                None,
+            )
+            .await?;
+
+        let repo = Repository::open(storage).execute().await?;
+        assert_eq!(repo.spec_version(), SpecVersionBin::V2);
         Ok(())
     }
 }

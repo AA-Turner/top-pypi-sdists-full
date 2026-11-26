@@ -75,7 +75,6 @@ class Proxy(proxy.Proxy):
     def _extract_name(
         cls,
         url: str,
-        service_type: str | None = None,
         project_id: str | None = None,
     ) -> list[str]:
         url_path = parse.urlparse(url).path.strip()
@@ -708,7 +707,7 @@ class Proxy(proxy.Proxy):
         filename: str,
         headers: dict[str, str],
         file_size: int,
-        segment_size: int | float,
+        segment_size: float,
         use_slo: bool,
     ) -> None:
         # If the object is big, we need to break it up into segments that
@@ -853,7 +852,7 @@ class Proxy(proxy.Proxy):
         endpoint: str,
         filename: str,
         file_size: int,
-        segment_size: int | float,
+        segment_size: float,
     ) -> collections.OrderedDict[str, Any]:
         # Use an ordered dict here so that testing can replicate things
         segments = collections.OrderedDict()
@@ -1016,7 +1015,7 @@ class Proxy(proxy.Proxy):
         redirect_url: str,
         max_file_size: int,
         max_upload_count: int,
-        timeout: int | float,
+        timeout: float,
         temp_url_key: str | bytes | None = None,
     ) -> tuple[int, str]:
         """Generate a signature for a FormPost upload.
@@ -1073,7 +1072,7 @@ class Proxy(proxy.Proxy):
     def generate_temp_url(
         self,
         path: str | bytes,
-        seconds: int | float | str,
+        seconds: float | str,
         method: str,
         absolute: bool = False,
         prefix: bool = False,
@@ -1263,7 +1262,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         status: str,
         failures: list[str] | None = None,
-        interval: int | float | None = 2,
+        interval: float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
         callback: Callable[[int], None] | None = None,
@@ -1300,7 +1299,7 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int | float | None = 2,
+        interval: float | None = 2,
         wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:

@@ -10,6 +10,7 @@ import structlog.stdlib
 from starlette.types import Message, Receive, Scope, Send
 
 from langgraph_api.asyncio import aclosing
+from langgraph_api.errors import StreamCutError
 from langgraph_api.serde import json_dumpb
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -21,6 +22,10 @@ USE_PUBLIC_SSE = hasattr(sse_starlette.EventSourceResponse, "listen_for_disconne
 # Long enough to flush one 28 MB event over a 2 Mbit/s link.
 SEND_TIMEOUT_SECS = 120
 HEARTBEAT_SECS = 5
+# A BaseHTTPMiddleware sends the closing chunk of a response its app abandoned,
+# so behind one an aborted stream reads as a finished run. server.py turns this
+# off when the custom app registers one, and a cut sends an error event instead.
+ABORT_CUT_STREAMS = True
 
 
 class EventSourceResponse(sse_starlette.EventSourceResponse):
@@ -51,7 +56,11 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
                     # noinspection PyAsyncCall
                     task_group.cancel_scope.cancel()
 
-                task_group.start_soon(wrap, partial(self.stream_response, send))
+                async def stream(*, task_status: anyio.abc.TaskStatus[None]) -> None:
+                    await self.stream_response(send, task_status=task_status)
+                    task_group.cancel_scope.cancel()
+
+                await task_group.start(stream)
                 if USE_PUBLIC_SSE:
                     task_group.start_soon(wrap, self.listen_for_exit_signal)
                 else:
@@ -66,9 +75,9 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
                     await wrap(partial(self._listen_for_disconnect, receive))
         except* sse_starlette.sse.SendTimeoutError:
             await logger.awarning("Closing a stream whose client stopped reading")
+        except* StreamCutError:
+            await logger.awarning("Aborting a cut stream so its client reconnects")
         finally:
-            # The body never starts when the headers can't be sent, so a stream
-            # an endpoint opened before building the response is released here.
             if self._on_close is not None:
                 with anyio.CancelScope(shield=True):
                     await self._on_close()
@@ -76,22 +85,21 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
         if self.background is not None:  # pragma: no cover, tested in StreamResponse
             await self.background()
 
-    async def stream_response(self, send: Send) -> None:
-        await self._send(
-            send,
-            {
-                "type": "http.response.start",
-                "status": self.status_code,
-                "headers": self.raw_headers,
-            },
-        )
-        # A heartbeat that times out must end the response too: on an idle
-        # thread stream it is the only send.
-        async with anyio.create_task_group() as heartbeat:
-            heartbeat.start_soon(self._heartbeat, send)
+    async def stream_response(
+        self,
+        send: Send,
+        *,
+        task_status: anyio.abc.TaskStatus[None] = anyio.TASK_STATUS_IGNORED,
+    ) -> None:
+        headers_sent = anyio.Event()
+        body_finished = anyio.Event()
+
+        async def stream_body(*, task_status: anyio.abc.TaskStatus[None]) -> None:
             async with aclosing(self.body_iterator) as body:
+                task_status.started()
                 try:
                     async for data in body:
+                        await headers_sent.wait()
                         await self._send(
                             send,
                             {
@@ -107,7 +115,10 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
                 except sse_starlette.sse.SendTimeoutError:
                     raise
                 except Exception as exc:
+                    if ABORT_CUT_STREAMS and isinstance(exc, StreamCutError):
+                        raise
                     await logger.aexception("Error streaming response", exc_info=exc)
+                    await headers_sent.wait()
                     await self._send(
                         send,
                         {
@@ -116,6 +127,24 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
                             "more_body": True,
                         },
                     )
+            body_finished.set()
+
+        async with anyio.create_task_group() as heartbeat:
+            await heartbeat.start(stream_body)
+            task_status.started()
+            await self._send(
+                send,
+                {
+                    "type": "http.response.start",
+                    "status": self.status_code,
+                    "headers": self.raw_headers,
+                },
+            )
+            headers_sent.set()
+            # A heartbeat that times out must end the response too: on an idle
+            # thread stream it is the only send.
+            heartbeat.start_soon(self._heartbeat, send)
+            await body_finished.wait()
             heartbeat.cancel_scope.cancel()
 
         async with self._send_lock:

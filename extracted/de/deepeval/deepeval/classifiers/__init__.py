@@ -5,11 +5,18 @@ from .base_classifier import BaseClassifier, Label
 from .clarification import ClarificationClassifier
 from .classifier import (
     AgentProfile,
+    ClassificationReview,
+    ClassificationStep,
     Classifier,
+    ClassifierSteps,
     ClassifierTemplate,
     EvidenceConfig,
     LabelDiscoveryConfig,
+    LabelDiscoveryStep,
     ReviewConfig,
+    ReviewStep,
+    a_classify_with_decision_model,
+    classify_with_decision_model,
 )
 from .data_leakage import DataLeakageClassifier
 from .escalation import EscalationClassifier
@@ -33,10 +40,17 @@ __all__ = [
     "Label",
     "BaseClassifier",
     "ClassifierTemplate",
+    "ClassifierSteps",
+    "ClassificationStep",
+    "LabelDiscoveryStep",
+    "ReviewStep",
+    "ClassificationReview",
     "AgentProfile",
     "EvidenceConfig",
     "LabelDiscoveryConfig",
     "ReviewConfig",
+    "classify_with_decision_model",
+    "a_classify_with_decision_model",
     "IssueClassifier",
     "IssueClassifierTemplate",
     "TopicClassifier",

@@ -87,6 +87,102 @@ def _has_conditional_comment(text):
         return False
     return _conditional_comment_close_re.search(text, opening.end()) is not None
 
+
+# HTML elements whose content a browser parses as raw text (or escapable
+# raw text) instead of markup.  Inside them ``<!--`` is literal text and an
+# end tag such as ``</noscript>`` closes the element, so a comment that
+# libxml2 preserved inside one of these can "break out" of it and introduce
+# live markup once the cleaned output is rendered by a browser.  This is the
+# same parser differential as GHSA-5jfw-gq64-q45f (which was only addressed
+# for ``<style>`` text).
+_breakout_raw_text_elements = frozenset((
+    'noscript', 'noembed', 'noframes', 'iframe', 'xmp',
+    'title', 'textarea', 'style', 'script', 'plaintext',
+))
+
+_find_end_tag_names = re.compile(r'</([a-zA-Z][a-zA-Z0-9:_-]*)').findall
+
+
+def _comment_breaks_out_of_raw_text_ancestor(el):
+    """Return True if comment ``el`` contains an end tag that would close a
+    raw-text ancestor element when rendered by a browser.
+
+    libxml2 parses the content of elements like ``<noscript>`` as markup, so
+    ``<!--</noscript><img src=x onerror=...>-->`` becomes a single, seemingly
+    inert comment node.  A browser with scripting enabled instead treats the
+    ``<noscript>`` body as raw text, closes it at the literal ``</noscript>``
+    inside the comment and then runs the following markup.  Such comments must
+    be dropped even when comments are otherwise kept.
+    """
+    text = el.text
+    if not text or '</' not in text:
+        return False
+    end_tags = {name.lower() for name in _find_end_tag_names(text)}
+    if not end_tags:
+        return False
+    parent = el.getparent()
+    while parent is not None:
+        tag = parent.tag
+        if isinstance(tag, str):
+            tag = tag.lower()
+            if tag in _breakout_raw_text_elements and tag in end_tags:
+                return True
+        parent = parent.getparent()
+    return False
+
+
+# SVG animation elements can set another attribute at runtime.  When the
+# target is a link attribute, their value attributes carry a URL that
+# rewrite_links() never sees (they are not in defs.link_attrs).
+_svg_animation_tags = frozenset(('set', 'animate', 'animatetransform'))
+_svg_animation_value_attrs = frozenset(('to', 'from', 'by', 'values'))
+
+
+def _local_name(name):
+    """'{ns}href', 'xlink:href', 'q:HREF' -> 'href'."""
+    return name.rsplit('}', 1)[-1].rsplit(':', 1)[-1].lower()
+
+
+def _remove_attrs_that_bypass_link_cleaning(doc):
+    """Remove script-bearing attributes that ``rewrite_links`` cannot clean.
+
+    ``rewrite_links`` only visits attributes listed in
+    ``lxml.html.defs.link_attrs``, so these two script vectors would
+    otherwise survive ``safe_attrs_only=False``:
+
+    * ``srcdoc`` on ``<iframe>`` holds a whole HTML document that the browser
+      renders inside the frame, and it takes priority over ``src`` -- so a
+      whitelisted ``src`` does not make it safe. It is removed from every
+      element.
+    * ``to``/``from``/``by``/``values`` on ``<set>``/``<animate>``/
+      ``<animateTransform>`` whose ``attributeName`` is ``href`` (or
+      ``xlink:href``) set a URL on the enclosing SVG ``<a>`` at runtime.
+      They are dropped rather than scheme-checked because ``values`` is a
+      ``;``-separated list, so a check on the whole string would miss
+      individual items.
+
+    Attribute and tag names are matched case-insensitively and without any
+    namespace or prefix, and every match on an element is handled. XHTML
+    trees distinguish ``srcdoc`` from ``SRCDOC`` and may carry a second
+    ``attributeName``; neither can hide a dangerous attribute.
+    """
+    for el in doc.iter(etree.Element):
+        attrib = el.attrib
+        for aname in attrib.keys():
+            if _local_name(aname) == 'srcdoc':
+                del attrib[aname]
+        if _local_name(el.tag) not in _svg_animation_tags:
+            continue
+        animates_href = any(
+            _local_name(attrib[aname].strip()) == 'href'
+            for aname in attrib.keys()
+            if _local_name(aname) == 'attributename')
+        if animates_href:
+            for aname in attrib.keys():
+                if _local_name(aname) in _svg_animation_value_attrs:
+                    del attrib[aname]
+
+
 def _remove_css_comments(style):
     """Remove CSS /* ... */ comments in O(n) time using str.find()."""
     parts = []
@@ -389,6 +485,7 @@ class Cleaner:
                             del attrib[aname]
             doc.rewrite_links(self._remove_javascript_link,
                               resolve_base_href=False)
+            _remove_attrs_that_bypass_link_cleaning(doc)
             # If we're deleting style then we don't have to remove JS links
             # from styles, otherwise...
             if not self.inline_style:
@@ -601,9 +698,16 @@ class Cleaner:
         IE conditional comments basically embed HTML that the parser
         doesn't normally see.  We can't allow anything like that, so
         we'll kill any comments that could be conditional.
+
+        We also kill comments that would "break out" of a raw-text
+        ancestor element (e.g. a ``</noscript>`` smuggled inside a comment
+        nested in ``<noscript>``), because browsers reinterpret those as
+        live markup even though libxml2 treats them as inert comments.
         """
         self._kill_elements(
-            doc, lambda el: _has_conditional_comment(el.text),
+            doc,
+            lambda el: (_has_conditional_comment(el.text)
+                        or _comment_breaks_out_of_raw_text_ancestor(el)),
             etree.Comment)
 
     def _kill_elements(self, doc, condition, iterate=None):

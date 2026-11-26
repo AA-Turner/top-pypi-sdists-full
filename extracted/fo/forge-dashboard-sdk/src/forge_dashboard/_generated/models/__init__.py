@@ -1,7 +1,6 @@
 """ Contains all the data models used in inputs/outputs """
 
 from .action_error import ActionError
-from .action_error_code import ActionErrorCode
 from .advisories import Advisories
 from .advisory_cvss import AdvisoryCVSS
 from .advisory_epss import AdvisoryEPSS
@@ -48,6 +47,7 @@ from .details_body import DetailsBody
 from .details_body_format import DetailsBodyFormat
 from .details_comment import DetailsComment
 from .details_comment_format import DetailsCommentFormat
+from .disconnect_git_hub_response_200 import DisconnectGitHubResponse200
 from .error import Error
 from .failed_installation import FailedInstallation
 from .filter_state import FilterState
@@ -58,6 +58,8 @@ from .forge_api_stats import ForgeApiStats
 from .forge_capabilities import ForgeCapabilities
 from .forge_error_kind import ForgeErrorKind
 from .forge_health import ForgeHealth
+from .forge_health_cause import ForgeHealthCause
+from .forgejo_instance_check import ForgejoInstanceCheck
 from .get_image_forge import GetImageForge
 from .get_image_kind import GetImageKind
 from .get_image_width import GetImageWidth
@@ -134,6 +136,10 @@ from .settings_response import SettingsResponse
 from .settings_response_theme import SettingsResponseTheme
 from .settings_summary import SettingsSummary
 from .settings_summary_theme import SettingsSummaryTheme
+from .setup_forgejo import SetupForgejo
+from .setup_git_hub import SetupGitHub
+from .setup_installation import SetupInstallation
+from .setup_response import SetupResponse
 from .stack_position import StackPosition
 from .stack_ref import StackRef
 from .start_forgejo_connection_request import StartForgejoConnectionRequest
@@ -146,13 +152,13 @@ from .timezone_request import TimezoneRequest
 from .timezone_response import TimezoneResponse
 from .update_request import UpdateRequest
 from .update_request_phase import UpdateRequestPhase
+from .verify_forgejo_instance_request import VerifyForgejoInstanceRequest
 from .version import Version
 from .web_authn_ceremony_options import WebAuthnCeremonyOptions
 from .webhook_ensure_request import WebhookEnsureRequest
 
 __all__ = (
     "ActionError",
-    "ActionErrorCode",
     "Advisories",
     "AdvisoryCVSS",
     "AdvisoryEPSS",
@@ -199,6 +205,7 @@ __all__ = (
     "DetailsBodyFormat",
     "DetailsComment",
     "DetailsCommentFormat",
+    "DisconnectGitHubResponse200",
     "Error",
     "FailedInstallation",
     "FilterState",
@@ -209,6 +216,8 @@ __all__ = (
     "ForgeCapabilities",
     "ForgeErrorKind",
     "ForgeHealth",
+    "ForgeHealthCause",
+    "ForgejoInstanceCheck",
     "GetImageForge",
     "GetImageKind",
     "GetImageWidth",
@@ -285,6 +294,10 @@ __all__ = (
     "SettingsResponseTheme",
     "SettingsSummary",
     "SettingsSummaryTheme",
+    "SetupForgejo",
+    "SetupGitHub",
+    "SetupInstallation",
+    "SetupResponse",
     "StackPosition",
     "StackRef",
     "StartForgejoConnectionRequest",
@@ -297,6 +310,7 @@ __all__ = (
     "TimezoneResponse",
     "UpdateRequest",
     "UpdateRequestPhase",
+    "VerifyForgejoInstanceRequest",
     "Version",
     "WebAuthnCeremonyOptions",
     "WebhookEnsureRequest",

@@ -2,7 +2,12 @@ from typing import Optional
 
 from ....utils.types.identifier import StrObjectId
 from ....messages.chatty_messages import ChattyMessage
-from .metadata import ChatAssignedMetadata, IncomingMessageMetadata, ChatEscalatedMetadata
+from .metadata import (
+    ChatAssignedMetadata,
+    IncomingMessageMetadata,
+    ChatEscalatedMetadata,
+    AsistenteRespuestaListaMetadata,
+)
 
 
 def build_chat_assigned_metadata() -> ChatAssignedMetadata:
@@ -20,3 +25,7 @@ def build_chat_escalated_metadata(
     reason: str,
 ) -> ChatEscalatedMetadata:
     return ChatEscalatedMetadata(reason=reason)
+
+
+def build_asistente_respuesta_lista_metadata() -> AsistenteRespuestaListaMetadata:
+    return AsistenteRespuestaListaMetadata()

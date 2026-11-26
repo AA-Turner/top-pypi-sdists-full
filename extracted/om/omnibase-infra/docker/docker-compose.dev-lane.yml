@@ -1171,7 +1171,7 @@ services:
       # other reader in the container sees a config root it never had. The root
       # holds only config/lab, mounted read-only below, where the lane declaration
       # the broker address is resolved from lives.
-      ONEX_LEDGER_BUS_READ_COMMAND: env ONEX_WORKSPACE_CONFIG_ROOT=/etc/onex/workspace-config OMNIBASE_PATH=/app python -m omnibase_core.cli.cli_commands ledger query --bus-lane dev --stdin
+      ONEX_LEDGER_BUS_READ_COMMAND: env ONEX_CLI_SHOW_ALL_COMMANDS=1 ONEX_WORKSPACE_CONFIG_ROOT=/etc/onex/workspace-config OMNIBASE_PATH=/app python -m omnibase_core.cli.cli_commands ledger query --bus-lane dev --stdin
       ONEX_LEDGER_BUS_APPEND_COMMAND: env ONEX_WORKSPACE_CONFIG_ROOT=/etc/onex/workspace-config python -m omnimarket.work_ledger_bus.cli append --bus-lane dev --omnibase-path /app
       ONEX_LEDGER_HOST_NAME: ${DEV_LANE_LEDGER_HOST_NAME:-dev-runtime}
       # OMN-25901: the product clones below are read-only, so the verifier cannot fetch
@@ -1181,6 +1181,10 @@ services:
       # longer contains its pin, a check run in the clone stays refused
       # PRODUCT_CLONE_NOT_FRESH.
       DOD_VERIFY_PRODUCT_CLONE_PIN_FILE: /etc/onex/product-clone-pin/pins.json
+      # OMN-25856: total time limit, in seconds, for one hosted dod-verify-start command. omnimarket
+      # has no code default and refuses to start a hosted run without it. Above 0 and below the 600 s
+      # dispatch deadline, so the verdict is written and published inside it.
+      DOD_VERIFY_START_BUDGET_S: "540"
     volumes:
       # Read-only; names OMNIDASH_ANALYTICS_DB_URL, rendered above as role_omnidash.
       - ./projection-runtime-binding/runtime-read.yaml:/etc/onex/projection-read-binding.yaml:ro

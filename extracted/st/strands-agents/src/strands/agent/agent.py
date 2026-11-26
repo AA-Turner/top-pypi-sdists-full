@@ -280,8 +280,9 @@ class Agent(AgentBase, LocalAgent):
                 May also be a ``ModelRouter``, whose first candidate is resolved to a concrete model and
                 exposed as ``agent.model``. Defaults to strands.models.BedrockModel if None.
             aux_model: Optional model for auxiliary side calls the SDK makes outside the main agent loop:
-                context summarization, memory extraction, the HITL risk classifier, LLM steering, the
-                goal judge, and the ``web_fetch`` analyst. Defaults to ``model``, so leaving it unset
+                conversation-manager summarization, memory extraction, the HITL risk classifier, LLM
+                steering, the goal judge, and the ``web_fetch`` analyst. The context manager's summarize
+                strategy does not use it; it resolves ``model=`` > ``model``. Defaults to ``model``, so leaving it unset
                 changes nothing; set it (typically to a smaller, cheaper model) to move every side call
                 off the main model at once. Each side call resolves its model as: the component's own
                 ``model=`` > ``aux_model`` > ``model``. Accepts a ``Model`` or a Bedrock model id string,
@@ -333,10 +334,10 @@ class Agent(AgentBase, LocalAgent):
                 Defaults to an empty AgentState object.
             context_manager: Context management strategy.
                 ``"auto"``: Proactive truncation of tool results + summarization at 85% utilization.
-                ``"agentic"``: Model-driven context management via injected tools.
-                A :class:`~strands._context_manager.types.ContextManagerConfig` dict for custom
+                ``"agentic"``: (Experimental) Model-driven context management via injected tools.
+                A :class:`~strands.context_manager.ContextManagerConfig` dict for custom
                 strategy pipelines.
-                A :class:`~strands._context_manager.context_manager.ContextManager` instance
+                A :class:`~strands.context_manager.ContextManager` instance
                 for full control.
                 ``False``: Disable all context management.
                 When set (except ``False``), any co-provided ``conversation_manager`` is ignored.

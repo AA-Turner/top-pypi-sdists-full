@@ -23,7 +23,7 @@ import zipfile
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
-from . import install_info, workflow_skills
+from . import client_config, install_info, workflow_skills
 from .install_hook import CLAUDE_CONTINUATION_CLIENT_ARG
 from .kbdir import managed_root
 
@@ -61,9 +61,13 @@ def release_version() -> str:
         return RELEASE_PLACEHOLDER
 
 
-def render_shipped_markdown(text: str) -> str:
-    """Fill the release placeholder in shipped skill markdown."""
-    return text.replace(RELEASE_PLACEHOLDER, release_version())
+def render_shipped_markdown(text: str, release: str | None = None) -> str:
+    """Fill the release placeholder in shipped skill markdown.
+
+    A template that is rendered again at run time passes ``RELEASE_PLACEHOLDER``
+    as its release, so it keeps the placeholder.
+    """
+    return text.replace(RELEASE_PLACEHOLDER, release or release_version())
 
 
 def copy_shipped_file(src: Path, dest: Path) -> None:
@@ -151,17 +155,21 @@ def ensure_personalized_output(path: Path, *, vault: Path) -> Path:
     return target
 
 
-def _core_payload(vault: Path | None) -> dict[str, str]:
-    """Files for the core `exomem` skill archive, keyed by archive-relative path."""
-    workflow_skills.validate_contract_projection("exomem", _SKILL_SRC, core=True)
+def _core_payload(vault: Path | None, release: str | None = None) -> dict[str, str]:
+    """Files for the core skill archive, keyed by archive-relative path."""
+    workflow_skills.validate_contract_projection(
+        workflow_skills.CORE_SKILL_NAME, _SKILL_SRC, core=True
+    )
     payload: dict[str, str] = {
-        "SKILL.md": render_shipped_markdown((_SKILL_SRC / "SKILL.md").read_text(encoding="utf-8"))
+        "SKILL.md": render_shipped_markdown(
+            (_SKILL_SRC / "SKILL.md").read_text(encoding="utf-8"), release
+        )
     }
 
     for folder in _CORE_EXTRAS:
         for ref in sorted((_SKILL_SRC / folder).glob("*.md")):
             payload[f"{folder}/{ref.name}"] = render_shipped_markdown(
-                ref.read_text(encoding="utf-8")
+                ref.read_text(encoding="utf-8"), release
             )
 
     for name in _CORE_FILES:
@@ -186,22 +194,30 @@ def _core_payload(vault: Path | None) -> dict[str, str]:
     return payload
 
 
-def _workflow_payload(name: str) -> dict[str, str]:
+def _workflow_payload(name: str, release: str | None = None) -> dict[str, str]:
     source = workflow_skills.source_dir(name)
     workflow_skills.validate_contract_projection(name, source)
     payload = {
-        "SKILL.md": render_shipped_markdown((source / "SKILL.md").read_text(encoding="utf-8"))
+        "SKILL.md": render_shipped_markdown(
+            (source / "SKILL.md").read_text(encoding="utf-8"), release
+        )
     }
     for reference in sorted((_SKILL_SRC / "references").glob("*.md")):
         payload[f"references/{reference.name}"] = render_shipped_markdown(
-            reference.read_text(encoding="utf-8")
+            reference.read_text(encoding="utf-8"), release
         )
     return payload
 
 
-def skill_payload(name: str, *, vault: Path | None = None) -> dict[str, str]:
+def skill_payload(
+    name: str, *, vault: Path | None = None, release: str | None = None
+) -> dict[str, str]:
     """Return the complete canonical payload for a core or workflow skill."""
-    return _core_payload(vault) if name == "exomem" else _workflow_payload(name)
+    return (
+        _core_payload(vault, release)
+        if name == workflow_skills.CORE_SKILL_NAME
+        else _workflow_payload(name, release)
+    )
 
 
 def _write_zip(path: Path, payload: dict[str, str]) -> int:
@@ -223,22 +239,23 @@ def _write_zip(path: Path, payload: dict[str, str]) -> int:
 # The skills/ and hooks/ trees are GENERATED from the same package sources and
 # guarded by a sync test rather than hand-maintained.
 
-_PLUGIN_HOOK_EVENTS: tuple[tuple[str, str | None], ...] = (
-    ("Stop", None),
-    ("UserPromptSubmit", None),
-    ("PreCompact", "manual|auto"),
-    ("SessionEnd", None),
-    ("SessionStart", "compact|resume"),
+#: The plugin's name. Claude Code stores an HTTP server's sign-in under the plugin and server
+#: names, so the rename from `exomem` signs each user of the plugin's URL out once. The
+#: marketplace's `renames` map moves the install, and the notice hook names the sign-in step.
+PLUGIN_NAME = "evermatter"
+
+# Each hook the plugin registers: its event, the event's matcher (None for every firing) and the
+# wrapper that serves it. Mirrors install_hook._HOOK_SPECS and _CONTINUATION_EVENTS so the plugin
+# and the CLI installer stay behaviourally identical. The checkpoint serves `compact|resume`; the
+# notice has its own `startup` entry, so it does not widen the checkpoint's.
+_PLUGIN_HOOKS: tuple[tuple[str, str | None, str], ...] = (
+    ("Stop", None, "exomem-capture-nudge.sh"),
+    ("UserPromptSubmit", None, "exomem-retrieve-nudge.sh"),
+    ("PreCompact", "manual|auto", "exomem-continuation-checkpoint.sh"),
+    ("SessionEnd", None, "exomem-continuation-checkpoint.sh"),
+    ("SessionStart", "compact|resume", "exomem-continuation-checkpoint.sh"),
+    ("SessionStart", "startup", "evermatter-sign-in-notice.sh"),
 )
-# Which wrapper serves which event. Mirrors install_hook._HOOK_SPECS and
-# _CONTINUATION_EVENTS so the plugin and the CLI installer stay behaviourally identical.
-_PLUGIN_HOOK_SCRIPTS: dict[str, str] = {
-    "Stop": "exomem-capture-nudge.sh",
-    "UserPromptSubmit": "exomem-retrieve-nudge.sh",
-    "PreCompact": "exomem-continuation-checkpoint.sh",
-    "SessionEnd": "exomem-continuation-checkpoint.sh",
-    "SessionStart": "exomem-continuation-checkpoint.sh",
-}
 # The checkpoint core requires --client; the nudge cores infer it, so only this wrapper
 # needs it. The value comes from the installer's own continuation command.
 _PLUGIN_HOOK_ARGS: dict[str, str] = {
@@ -261,12 +278,13 @@ def _package_version() -> str:
 
 def _plugin_manifest() -> dict:
     return {
-        "name": "exomem",
+        "name": PLUGIN_NAME,
         "description": (
-            "Governed long-term memory over a markdown vault: raw sources stay "
-            "immutable, conclusions are compiled with provenance, and nothing is "
-            "deleted - it is superseded. Requires EXOMEM_VAULT_PATH to point at "
-            "your vault; run `exomem setup` if you do not have one yet."
+            "Evermatter (formerly Exomem): governed long-term memory over a markdown "
+            "vault. Raw sources stay immutable, conclusions are compiled with "
+            "provenance, and nothing is deleted - it is superseded. Requires "
+            "EXOMEM_VAULT_PATH to point at your vault; run `evermatter setup` if "
+            "you do not have one yet."
         ),
         "version": _package_version(),
         # Listing metadata. A curated marketplace entry shows author, homepage,
@@ -297,7 +315,8 @@ def _plugin_manifest() -> dict:
             }
         },
         "mcpServers": {
-            "exomem": {
+            # Claude Code stores the sign-in under the plugin and server names: both `evermatter`.
+            client_config.SERVER_NAME: {
                 "type": "http",
                 "url": "${user_config.mcp_url}",
             }
@@ -317,11 +336,10 @@ def _plugin_hooks() -> dict:
     install path, which on Windows and macOS routinely contains spaces.
     """
     events: dict[str, list] = {}
-    for event, matcher in _PLUGIN_HOOK_EVENTS:
+    for event, matcher, script in _PLUGIN_HOOKS:
         entry: dict = {}
         if matcher is not None:
             entry["matcher"] = matcher
-        script = _PLUGIN_HOOK_SCRIPTS[event]
         command = f'bash "${{CLAUDE_PLUGIN_ROOT}}/hooks/{script}"'
         if script in _PLUGIN_HOOK_ARGS:
             command += f" {_PLUGIN_HOOK_ARGS[script]}"
@@ -345,7 +363,9 @@ def sync_plugin(plugin_root: Path) -> dict:
     hooks_dir = plugin_root / "hooks"
     manifest_dir = plugin_root / ".claude-plugin"
 
-    workflow_skills.validate_contract_projection("exomem", _SKILL_SRC, core=True)
+    workflow_skills.validate_contract_projection(
+        workflow_skills.CORE_SKILL_NAME, _SKILL_SRC, core=True
+    )
     for skill in workflow_skills.list_skills():
         name = str(skill["name"])
         workflow_skills.validate_contract_projection(
@@ -360,18 +380,18 @@ def sync_plugin(plugin_root: Path) -> dict:
     # nested would expose every SKILL.md at two paths at once.
     shutil.copytree(
         _SKILL_SRC,
-        skills_dir / "exomem",
+        skills_dir / workflow_skills.CORE_SKILL_NAME,
         ignore=shutil.ignore_patterns("workflow-skills", "__pycache__", "relation-reviews"),
     )
     # The copytree ships the scaffold byte-for-byte except release placeholders,
     # which pin the release this plugin was synced from.
-    for document in (skills_dir / "exomem").rglob("*.md"):
+    for document in (skills_dir / workflow_skills.CORE_SKILL_NAME).rglob("*.md"):
         document.write_text(
             render_shipped_markdown(document.read_text(encoding="utf-8")),
             encoding="utf-8",
             newline="\n",
         )
-    names = ["exomem"]
+    names = [workflow_skills.CORE_SKILL_NAME]
     for skill in workflow_skills.list_skills():
         name = str(skill["name"])
         target = skills_dir / name
@@ -434,7 +454,8 @@ def package_skills(out_dir: Path | None = None, *, vault: Path | None = None) ->
     if vault is not None:
         out_dir = ensure_personalized_output(out_dir, vault=vault)
 
-    builds: list[tuple[str, dict[str, str]]] = [("exomem", skill_payload("exomem", vault=vault))]
+    core = workflow_skills.CORE_SKILL_NAME
+    builds: list[tuple[str, dict[str, str]]] = [(core, skill_payload(core, vault=vault))]
     for skill in workflow_skills.list_skills():
         name = str(skill["name"])
         builds.append((name, skill_payload(name)))

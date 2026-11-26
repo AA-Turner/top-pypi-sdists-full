@@ -145,7 +145,9 @@ class SlidingWindowLog(LogAlgorithm):
 
         # +1 clears the inclusive lower bound: landing exactly on it leaves the
         # entry still counted, so the re-put fails and the limiter spins at 0.
-        return blocking_timestamp + rate.interval - now + 1
+        # An entry already past its window but not yet leaked owes no wait; the
+        # floor keeps that from reading as waiting()'s -1, "can never fit".
+        return max(0, blocking_timestamp + rate.interval - now + 1)
 
 
 class FixedWindow(LogAlgorithm):
@@ -241,7 +243,9 @@ class GCRA(StateAlgorithm):
         Rounded up, so a rate that does not divide evenly errs on the strict
         side rather than admitting marginally faster than configured.
         """
-        return max(1, ceil(rate.interval * 1000 / rate.limit))
+        # Integer ceiling division: exact, and skips the float round trip.
+        emission = -(rate.interval * -1000 // rate.limit)
+        return emission if emission > 1 else 1
 
     def initial(self, rates: List[Rate]) -> State:
         # 0 reads as "long past", so step() clamps it up to `now`.
@@ -252,6 +256,22 @@ class GCRA(StateAlgorithm):
 
     def step(self, rates: List[Rate], state: State, now: int, weight: int) -> Tuple[State, Decision]:
         now_us = now * 1000
+
+        if len(rates) == len(state) == 1:
+            # Single rate, the common case: decide without the zip/list/tuple
+            # bookkeeping. Weights over the burst fall through to the loop below.
+            rate = rates[0]
+            if weight <= rate.burst:
+                emission = self._emission_us(rate)
+                start = int(state[0])
+                if start < now_us:
+                    start = now_us
+                # Backlog beyond the burst left after `weight`, in microseconds.
+                wait = start - now_us - (rate.burst - weight) * emission
+                if wait <= 0:
+                    return (start + weight * emission,), ADMITTED
+                return state, Decision(failing_rate=rate, retry_after_ms=ceil(wait / 1000))
+
         advanced = []
 
         for rate, tat in zip(rates, state, strict=True):

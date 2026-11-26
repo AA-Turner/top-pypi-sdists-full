@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 
 
 
@@ -23,9 +24,14 @@ class StartForgejoConnectionRequest:
     """ 
         Attributes:
             instance_url (str):  Example: https://git.example.com.
+            client_id (str | Unset): The Client ID of a public OAuth client (Confidential client unticked,
+                PKCE, no secret) the owner created on their own Forgejo. Required
+                when the server has no Forgejo OAuth client configured. The id is
+                public, and is kept so refreshes can name it.
      """
 
     instance_url: str
+    client_id: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -35,12 +41,16 @@ class StartForgejoConnectionRequest:
     def to_dict(self) -> dict[str, Any]:
         instance_url = self.instance_url
 
+        client_id = self.client_id
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "instanceUrl": instance_url,
         })
+        if client_id is not UNSET:
+            field_dict["clientId"] = client_id
 
         return field_dict
 
@@ -51,8 +61,11 @@ class StartForgejoConnectionRequest:
         d = dict(src_dict)
         instance_url = d.pop("instanceUrl")
 
+        client_id = d.pop("clientId", UNSET)
+
         start_forgejo_connection_request = cls(
             instance_url=instance_url,
+            client_id=client_id,
         )
 
 

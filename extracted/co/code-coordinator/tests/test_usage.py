@@ -1084,6 +1084,109 @@ class TestUsageCommandByIssueAndDrillFlags:
         assert "invalid 'since' spec" in result.output
         assert "--since" in result.output
 
+    def test_issue_drill_without_since_narrows_fetch_by_issue_not_by_window(
+        self, coord_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, valid_config_yaml: str
+    ) -> None:
+        """#4139: a bare ``--issue N`` (no --today/--week/--month/--since)
+        must stay unbounded in time — an issue's first leg can be arbitrarily
+        old, so a default window would answer ``No usage data`` for it. The
+        fetch is made cheap by pushing ``issue`` down (so the daemon filters
+        before serializing) and by the longer default timeout, not by
+        silently clipping history."""
+        import coord.usage as usage_mod
+
+        calls: list[dict] = []
+
+        def fake_fetch(*, since=None, until=None, issue=None, timeout=None, **_kw):
+            calls.append({"since": since, "until": until, "issue": issue, "timeout": timeout})
+            return []
+
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", fake_fetch)
+        cfg_path = tmp_path / "coordinator.yml"
+        cfg_path.write_text(valid_config_yaml)
+
+        result = CliRunner().invoke(main, ["usage", "--config", str(cfg_path), "--issue", "5"])
+        assert result.exit_code == 0, result.output
+        assert len(calls) == 1
+        assert calls[0]["since"] is None, "a default window would hide older legs"
+        assert calls[0]["until"] is None
+        assert calls[0]["issue"] == 5, "unfiltered fetch — the #4139 regression"
+        assert calls[0]["timeout"] == usage_mod.USAGE_ROWS_DEFAULT_TIMEOUT
+
+    def test_issue_drill_without_since_still_renders_a_leg_older_than_any_window(
+        self, coord_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, valid_config_yaml: str
+    ) -> None:
+        """The user-visible half of the rule above: a leg dispatched a year
+        ago is still rendered by a bare ``--issue N``. Drives the real
+        ``_usage_issue_drill`` window/filter logic over a row the fetch
+        returns; only the transport is faked."""
+        import coord.usage as usage_mod
+
+        old = time.time() - 365 * 86400
+        row = {
+            "assignment_id": "old-leg", "issue_number": 5, "issue_title": "x",
+            "repo_name": "demo", "type": "work", "model": "sonnet",
+            "status": "done", "cost_usd": 0.25,
+            "input_tokens": 10, "output_tokens": 20, "cache_read_tokens": 30,
+            "cache_creation_tokens": 0,
+            "dispatched_at": old, "finished_at": old + 60,
+        }
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: [dict(row)])
+        cfg_path = tmp_path / "coordinator.yml"
+        cfg_path.write_text(valid_config_yaml)
+
+        result = CliRunner().invoke(main, ["usage", "--config", str(cfg_path), "--issue", "5"])
+        assert result.exit_code == 0, result.output
+        assert "No usage data" not in result.output
+        assert "work" in result.output
+
+    def test_issue_drill_usage_timeout_flag_overrides_default(
+        self, coord_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, valid_config_yaml: str
+    ) -> None:
+        import coord.usage as usage_mod
+
+        calls: list[float | None] = []
+
+        def fake_fetch(*, since=None, until=None, issue=None, timeout=None, **_kw):
+            calls.append(timeout)
+            return []
+
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", fake_fetch)
+        cfg_path = tmp_path / "coordinator.yml"
+        cfg_path.write_text(valid_config_yaml)
+
+        result = CliRunner().invoke(
+            main,
+            ["usage", "--config", str(cfg_path), "--issue", "5", "--usage-timeout", "90"],
+        )
+        assert result.exit_code == 0, result.output
+        assert calls == [90.0]
+
+    def test_issue_drill_explicit_since_still_respected(
+        self, coord_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, valid_config_yaml: str
+    ) -> None:
+        """An explicit --since must still win over the #4139 default window,
+        not be layered on top of it (which would spuriously look like two
+        window flags and raise)."""
+        import coord.usage as usage_mod
+
+        calls: list[dict] = []
+
+        def fake_fetch(*, since=None, until=None, issue=None, timeout=None, **_kw):
+            calls.append({"since": since, "until": until})
+            return []
+
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", fake_fetch)
+        cfg_path = tmp_path / "coordinator.yml"
+        cfg_path.write_text(valid_config_yaml)
+
+        result = CliRunner().invoke(
+            main, ["usage", "--config", str(cfg_path), "--issue", "5", "--since", "3d"]
+        )
+        assert result.exit_code == 0, result.output
+        assert len(calls) == 1
+        assert calls[0]["since"] is not None
+
     def test_bad_since_spec_raises_clean_usage_error_for_issue_drill(
         self, coord_dir: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, valid_config_yaml: str
     ) -> None:
@@ -1704,6 +1807,22 @@ class TestLocalUsageRows:
         rows, _truncated = _local_usage_rows(since=now - 86400, until=None)
         assert [r["assignment_id"] for r in rows] == ["recent"]
 
+    def test_issue_filter_narrows_before_window_and_truncation(self, coord_db) -> None:
+        """#4139: ``issue=`` filters to one GitHub issue's legs — the
+        server-side half of ``coord usage --issue N`` no longer serializing
+        every row in the table before the client can filter."""
+        from coord.usage import _local_usage_rows
+
+        now = time.time()
+        _insert_assignment_row(coord_db, "assignments", "for-1", dispatched_at=now, issue_number=1)
+        _insert_assignment_row(coord_db, "assignments", "for-2", dispatched_at=now, issue_number=2)
+
+        rows, _truncated = _local_usage_rows(issue=1)
+        assert [r["assignment_id"] for r in rows] == ["for-1"]
+
+        rows_none, _truncated = _local_usage_rows(issue=999)
+        assert rows_none == []
+
     def test_wider_window_never_returns_fewer_rows_than_narrower_one(self, coord_db) -> None:
         """The exact non-monotonicity #3313 reported: a longer --since must
         never yield fewer rows than a shorter one."""
@@ -1778,7 +1897,7 @@ class TestFetchUsageRowsRoutesToUsageRowsNotBoard:
 
         calls: list[tuple] = []
 
-        def fake_fetch(svc, *, since=None, until=None, timeout=5.0):
+        def fake_fetch(svc, *, since=None, until=None, issue=None, timeout=5.0):
             calls.append((since, until))
             return {"rows": [{"assignment_id": "r-1"}], "truncated": False}
 
@@ -1792,6 +1911,28 @@ class TestFetchUsageRowsRoutesToUsageRowsNotBoard:
         rows = usage_mod.fetch_usage_rows(since=100.0, until=200.0)
         assert rows == [{"assignment_id": "r-1"}]
         assert calls == [(100.0, 200.0)]
+
+    def test_remote_branch_forwards_issue_to_daemon(self, monkeypatch) -> None:
+        """#4139: ``issue=`` reaches the daemon call so a capable daemon can
+        filter server-side before serializing the response."""
+        from coord import usage as usage_mod
+        from coord.client import ServiceConfig
+
+        monkeypatch.setattr(
+            "coord.client.resolve_board_service",
+            lambda *a, **k: ServiceConfig(url="http://daemon:7435", token=None),
+        )
+
+        calls: list[int | None] = []
+
+        def fake_fetch(svc, *, since=None, until=None, issue=None, timeout=5.0):
+            calls.append(issue)
+            return {"rows": [], "truncated": False}
+
+        monkeypatch.setattr("coord.client.fetch_usage_rows_from_daemon", fake_fetch)
+
+        usage_mod.fetch_usage_rows(issue=42)
+        assert calls == [42]
 
     def test_remote_branch_warns_when_daemon_reports_truncation(
         self, monkeypatch, caplog
@@ -1829,3 +1970,414 @@ class TestFetchUsageRowsRoutesToUsageRowsNotBoard:
 
         assert len(rows) == 1
         assert any("truncated" in rec.message for rec in caplog.records)
+
+
+# ── #4142: per-repo p90 attention threshold ──────────────────────────────────
+
+
+def _usage_row(
+    *, repo_name: str, leg_type: str, status: str, dispatched_at: float, duration_secs: float,
+) -> dict:
+    return {
+        "repo_name": repo_name,
+        "type": leg_type,
+        "status": status,
+        "dispatched_at": dispatched_at,
+        "finished_at": dispatched_at + duration_secs,
+    }
+
+
+class TestP90AttentionThreshold:
+    @pytest.fixture(autouse=True)
+    def _reset_cache(self):
+        from coord import usage as usage_mod
+
+        usage_mod.reset_p90_attention_cache()
+        yield
+        usage_mod.reset_p90_attention_cache()
+
+    def test_too_few_samples_returns_none(self, monkeypatch) -> None:
+        """#4142: a population under MIN_SAMPLES is cold — never trusted,
+        same "never fire off a population of one" rule as
+        coord.notifier.baseline.
+        """
+        from coord import usage as usage_mod
+
+        now = time.time()
+        rows = [
+            _usage_row(
+                repo_name="quadraui", leg_type="work", status="done",
+                dispatched_at=now - i * 100, duration_secs=3000.0,
+            )
+            for i in range(usage_mod.P90_ATTENTION_MIN_SAMPLES - 1)
+        ]
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: rows)
+
+        assert usage_mod.p90_attention_threshold("quadraui", "work") is None
+
+    def test_enough_samples_returns_p90(self, monkeypatch) -> None:
+        """Once a repo/type clears MIN_SAMPLES, the p90 of its successful
+        legs' durations is returned (#4142's whole point: quadraui
+        first-work legs normally run 45-69m, so the learned threshold
+        should sit up near the slow end, not the fixed 45m guess).
+        """
+        from coord import usage as usage_mod
+
+        now = time.time()
+        # 10 successful legs: 9 at 50m, 1 outlier at 69m. Linear-interpolated
+        # p90 of 10 sorted values sits 90% of the way from the 9th to the
+        # 10th (coord.notifier.baseline.percentile's interpolation), well
+        # above the fixed 45m default either way.
+        durations = [50 * 60.0] * 9 + [69 * 60.0]
+        rows = [
+            _usage_row(
+                repo_name="quadraui", leg_type="work", status="done",
+                dispatched_at=now - i * 100, duration_secs=d,
+            )
+            for i, d in enumerate(durations)
+        ]
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: rows)
+
+        result = usage_mod.p90_attention_threshold("quadraui", "work")
+        assert result == pytest.approx(3000.0 + (4140.0 - 3000.0) * 0.1)
+        assert result > 45 * 60.0
+
+    def test_failed_legs_excluded_from_population(self, monkeypatch) -> None:
+        """A failed leg's duration doesn't belong in the "how long does a
+        successful run take" population (#4142) — only "done"/"merged" rows
+        count, unlike coord.notifier.baseline's broader SAMPLE_STATUSES.
+        """
+        from coord import usage as usage_mod
+
+        now = time.time()
+        # 5 successful legs at 10m, plus a pile of failed legs at 1000m that
+        # must NOT drag the p90 up even though there are more of them.
+        rows = [
+            _usage_row(
+                repo_name="quadraui", leg_type="work", status="done",
+                dispatched_at=now - i * 100, duration_secs=10 * 60.0,
+            )
+            for i in range(5)
+        ] + [
+            _usage_row(
+                repo_name="quadraui", leg_type="work", status="failed",
+                dispatched_at=now - i * 100, duration_secs=1000 * 60.0,
+            )
+            for i in range(20)
+        ]
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: rows)
+
+        result = usage_mod.p90_attention_threshold("quadraui", "work")
+        assert result == pytest.approx(10 * 60.0)
+
+    def test_other_repo_or_type_not_mixed_in(self, monkeypatch) -> None:
+        """The population is scoped to (repo_name, assignment_type) — a
+        different repo's or a different type's history must not count
+        toward this repo/type's sample size or p90 (#4142's stratification
+        requirement).
+        """
+        from coord import usage as usage_mod
+
+        now = time.time()
+        min_samples = usage_mod.P90_ATTENTION_MIN_SAMPLES
+        # Only 2 real samples for (quadraui, work); the rest are a different
+        # repo or a different type and must not count toward MIN_SAMPLES.
+        rows = [
+            _usage_row(
+                repo_name="quadraui", leg_type="work", status="done",
+                dispatched_at=now - i * 100, duration_secs=3000.0,
+            )
+            for i in range(2)
+        ] + [
+            _usage_row(
+                repo_name="other-repo", leg_type="work", status="done",
+                dispatched_at=now - i * 100, duration_secs=5.0,
+            )
+            for i in range(min_samples)
+        ] + [
+            _usage_row(
+                repo_name="quadraui", leg_type="review", status="done",
+                dispatched_at=now - i * 100, duration_secs=5.0,
+            )
+            for i in range(min_samples)
+        ]
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: rows)
+
+        assert usage_mod.p90_attention_threshold("quadraui", "work") is None
+
+    def test_cache_amortizes_repeated_calls(self, monkeypatch) -> None:
+        """#4142: the underlying fetch happens at most once per TTL window —
+        attention_signal is evaluated per running assignment on every
+        coord-notify tick, so an unbounded fetch per check (rather than per
+        sweep) would reintroduce the #4139 unbounded-scan cost on a much
+        tighter loop.
+        """
+        from coord import usage as usage_mod
+
+        now = time.time()
+        rows = [
+            _usage_row(
+                repo_name="quadraui", leg_type="work", status="done",
+                dispatched_at=now - i * 100, duration_secs=3000.0,
+            )
+            for i in range(usage_mod.P90_ATTENTION_MIN_SAMPLES)
+        ]
+        calls = []
+
+        def fake_fetch(**kw):
+            calls.append(kw)
+            return rows
+
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", fake_fetch)
+
+        usage_mod.p90_attention_threshold("quadraui", "work")
+        usage_mod.p90_attention_threshold("quadraui", "review")
+        usage_mod.p90_attention_threshold("other-repo", "work")
+
+        assert len(calls) == 1
+
+    def test_fetch_failure_falls_back_to_none(self, monkeypatch) -> None:
+        """A read failure (daemon down, DB error) must degrade to "no
+        learned threshold", never raise — this feeds a default, not a gate,
+        and attention_threshold_for must never break on a transient read
+        failure.
+        """
+        from coord import usage as usage_mod
+
+        def boom(**_kw):
+            raise RuntimeError("daemon unreachable")
+
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", boom)
+
+        assert usage_mod.p90_attention_threshold("quadraui", "work") is None
+
+
+def _audit_entry(event_type: str, *, repo="quadraui", issue=1, ts=1000.0, details=None):
+    return {
+        "event_type": event_type,
+        "repo": repo,
+        "issue": issue,
+        "ts": ts,
+        "assignment_id": "a1",
+        "details": details or {},
+    }
+
+
+class TestHealCountsFromAudit:
+    """#4144: `coord stats waste`'s read of the #2536/#2803 auto-heal audit
+    trail, including #4141's two-consecutive-miss confirmation gate."""
+
+    def test_empty_or_none_reads_as_all_zero(self) -> None:
+        from coord import usage as usage_mod
+
+        assert usage_mod.heal_counts_from_audit(None).to_dict() == {
+            "phantom_row_healed": 0,
+            "phantom_row_miss_confirmed": 0,
+            "stuck_test_state_healed": 0,
+        }
+        assert usage_mod.heal_counts_from_audit([]).to_dict() == {
+            "phantom_row_healed": 0,
+            "phantom_row_miss_confirmed": 0,
+            "stuck_test_state_healed": 0,
+        }
+
+    def test_counts_phantom_and_stuck_test_state_heals(self) -> None:
+        from coord import usage as usage_mod
+
+        entries = [
+            _audit_entry(
+                "phantom_row_auto_healed",
+                details={
+                    "detail": (
+                        "work row running 70m ... session confirmed dead on "
+                        "machine 'laptop' and by its own agent across 2 "
+                        "consecutive sweep passes"
+                    ),
+                },
+            ),
+            _audit_entry("stuck_test_state_auto_healed"),
+            _audit_entry("test_passed"),  # unrelated event — ignored
+        ]
+        counts = usage_mod.heal_counts_from_audit(entries)
+        assert counts.phantom_row_healed == 1
+        assert counts.phantom_row_miss_confirmed == 1
+        assert counts.stuck_test_state_healed == 1
+
+    def test_pre_4141_heal_with_no_miss_phrase_not_counted_as_confirmed(self) -> None:
+        """A heal event recorded before #4141 landed (no "consecutive sweep
+        passes" phrase at all) must read as NOT miss-confirmed — the whole
+        point of tracking this separately from the plain heal count."""
+        from coord import usage as usage_mod
+
+        entries = [
+            _audit_entry(
+                "phantom_row_auto_healed",
+                details={"detail": "work row finalized as dead on machine 'laptop'"},
+            ),
+        ]
+        counts = usage_mod.heal_counts_from_audit(entries)
+        assert counts.phantom_row_healed == 1
+        assert counts.phantom_row_miss_confirmed == 0
+
+
+class TestRepoAttentionThresholds:
+    """#4144: surfacing which repos are actually running #4142's learned
+    per-repo threshold rather than the fleet-wide fixed default."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_cache(self):
+        from coord import usage as usage_mod
+
+        usage_mod.reset_p90_attention_cache()
+        yield
+        usage_mod.reset_p90_attention_cache()
+
+    def test_no_history_reports_fixed_not_learned(self, monkeypatch) -> None:
+        from coord import usage as usage_mod
+
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: [])
+        config = Config(repos=[], machines=[])
+
+        result = usage_mod.repo_attention_thresholds(["quadraui"], config=config)
+        assert len(result) == 1
+        assert result[0].repo_name == "quadraui"
+        assert result[0].is_learned is False
+        assert result[0].threshold_secs == config.pipeline.attention_threshold_for("work")
+
+    def test_enough_history_reports_learned(self, monkeypatch) -> None:
+        from coord import usage as usage_mod
+
+        now = time.time()
+        durations = [50 * 60.0] * 9 + [69 * 60.0]
+        rows = [
+            _usage_row(
+                repo_name="quadraui", leg_type="work", status="done",
+                dispatched_at=now - i * 100, duration_secs=d,
+            )
+            for i, d in enumerate(durations)
+        ]
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: rows)
+        config = Config(repos=[], machines=[])
+
+        result = usage_mod.repo_attention_thresholds(["quadraui"], config=config)
+        assert len(result) == 1
+        assert result[0].is_learned is True
+        assert result[0].threshold_secs > 45 * 60.0
+
+    def test_dedupes_repo_names_preserving_order(self, monkeypatch) -> None:
+        from coord import usage as usage_mod
+
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: [])
+        config = Config(repos=[], machines=[])
+
+        result = usage_mod.repo_attention_thresholds(
+            ["b", "a", "b", "", "a"], config=config,
+        )
+        assert [t.repo_name for t in result] == ["b", "a"]
+
+    def test_learn_attention_thresholds_off_never_reports_learned(self, monkeypatch) -> None:
+        from coord import usage as usage_mod
+
+        now = time.time()
+        durations = [50 * 60.0] * 9 + [69 * 60.0]
+        rows = [
+            _usage_row(
+                repo_name="quadraui", leg_type="work", status="done",
+                dispatched_at=now - i * 100, duration_secs=d,
+            )
+            for i, d in enumerate(durations)
+        ]
+        monkeypatch.setattr(usage_mod, "fetch_usage_rows", lambda **_kw: rows)
+        config = Config(repos=[], machines=[])
+        config.pipeline.learn_attention_thresholds = False
+
+        result = usage_mod.repo_attention_thresholds(["quadraui"], config=config)
+        assert result[0].is_learned is False
+
+
+class TestFanoutFoldLatencies:
+    """#4144: #3182 fan-out fold latency — the elapsed time between the
+    last fan-out leg finishing and `finalize_smoke_fanout` writing the
+    parent's aggregate verdict."""
+
+    def test_no_audit_entries_returns_empty(self) -> None:
+        from coord import usage as usage_mod
+
+        assert usage_mod.fanout_fold_latencies([], []) == []
+        assert usage_mod.fanout_fold_latencies([], None) == []
+
+    def test_ordinary_single_leg_verdict_ignored(self) -> None:
+        """A `test_passed` write with no `[[smoke-fanout:...]]` manifest in
+        its `test_reason` is an ordinary single-leg verdict, not a fold —
+        must never be mistaken for one."""
+        from coord import usage as usage_mod
+
+        entries = [
+            _audit_entry(
+                "test_passed",
+                details={"test_reason": "Test stage passed."},
+            ),
+        ]
+        assert usage_mod.fanout_fold_latencies([], entries) == []
+
+    def test_computes_latency_from_last_leg_to_fold(self) -> None:
+        from coord import usage as usage_mod
+        from coord.smoke_tags import _encode_fanout_manifest
+
+        manifest = _encode_fanout_manifest(
+            [("leg1", ("gtk",), None), ("leg2", ("windows",), None)],
+        )
+        rows = [
+            {"assignment_id": "leg1", "finished_at": 1000.0},
+            {"assignment_id": "leg2", "finished_at": 1200.0},  # the last to finish
+        ]
+        entries = [
+            _audit_entry(
+                "test_passed", repo="quadraui", issue=42, ts=1250.0,
+                details={"test_reason": f"{manifest}\nTest stage passed (#3182)."},
+            ),
+        ]
+
+        result = usage_mod.fanout_fold_latencies(rows, entries)
+        assert len(result) == 1
+        assert result[0].repo_name == "quadraui"
+        assert result[0].issue_number == 42
+        assert result[0].latency_secs == pytest.approx(50.0)  # 1250 - 1200
+
+    def test_blocked_fold_is_not_dropped(self) -> None:
+        """A round that folds to `test_blocked` (`TEST_STATE_BLOCKED`,
+        `coord/smoke.py:2258`) is the pathological, longest-wedged case
+        this metric exists to catch — it must count the same as
+        `test_passed`/`test_failed`/`test_skipped`, not vanish."""
+        from coord import usage as usage_mod
+        from coord.smoke_tags import _encode_fanout_manifest
+
+        manifest = _encode_fanout_manifest([("leg1", ("gtk",), None)])
+        rows = [{"assignment_id": "leg1", "finished_at": 1000.0}]
+        entries = [
+            _audit_entry(
+                "test_blocked", repo="quadraui", issue=7, ts=1100.0,
+                details={"test_reason": f"{manifest}\nTest stage blocked (#3182)."},
+            ),
+        ]
+
+        result = usage_mod.fanout_fold_latencies(rows, entries)
+        assert len(result) == 1
+        assert result[0].repo_name == "quadraui"
+        assert result[0].issue_number == 7
+        assert result[0].latency_secs == pytest.approx(100.0)  # 1100 - 1000
+
+    def test_missing_leg_rows_contribute_nothing(self) -> None:
+        """A fold round whose legs can't be found in assignment_rows at all
+        (incomplete usage-row history) must be skipped, not guessed at."""
+        from coord import usage as usage_mod
+        from coord.smoke_tags import _encode_fanout_manifest
+
+        manifest = _encode_fanout_manifest([("leg1", ("gtk",), None)])
+        entries = [
+            _audit_entry(
+                "test_failed", ts=1250.0,
+                details={"test_reason": f"{manifest}\nTest stage failed (#3182)."},
+            ),
+        ]
+        assert usage_mod.fanout_fold_latencies([], entries) == []

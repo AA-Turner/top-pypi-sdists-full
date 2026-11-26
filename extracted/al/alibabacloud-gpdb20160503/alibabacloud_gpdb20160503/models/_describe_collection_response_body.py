@@ -27,18 +27,18 @@ class DescribeCollectionResponseBody(DaraModel):
         self.dbinstance_id = dbinstance_id
         # The vector dimensions.
         self.dimension = dimension
-        # The full-text index fields. Separate multiple fields with commas (,).
+        # The fields used for full-text retrieval. Multiple fields are separated by commas (,).
         self.full_text_retrieval_fields = full_text_retrieval_fields
         # The detailed information returned by the API operation.
         self.message = message
         # The metadata of the vector data, which is a JSON string in MAP format. The key represents the field name, and the value represents the data type.
-        # >Warning: The id, vector, and to_tsvector fields are reserved and cannot be used.</warning>
+        # >Warning: The id, vector, and to_tsvector fields are reserved and cannot be used.
         self.metadata = metadata
         # The distance metrics.
         self.metrics = metrics
         # The namespace.
         self.namespace = namespace
-        # The tokenizer used for full-text index.
+        # The tokenizer used for full-text retrieval.
         self.parser = parser
         # The region ID.
         self.region_id = region_id
@@ -47,10 +47,10 @@ class DescribeCollectionResponseBody(DaraModel):
         # The method used to build indexes for sparse vectors.
         self.sparse_vector_metrics = sparse_vector_metrics
         # The execution status of the API operation. Valid values:
-        # - **success**: The execution is successful.
-        # - **fail**: The execution fails.
+        # - **success**: The execution succeeded.
+        # - **fail**: The execution failed.
         self.status = status
-        # Specifies whether sparse vectors are supported.
+        # Indicates whether sparse vectors are supported.
         self.support_sparse = support_sparse
 
     def validate(self):

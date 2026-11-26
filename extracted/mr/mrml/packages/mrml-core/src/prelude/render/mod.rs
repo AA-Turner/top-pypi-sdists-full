@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicU16, Ordering};
 
 use crate::helper::size::{Pixel, Size};
@@ -103,17 +103,17 @@ pub(crate) trait Render<'root> {
 
     fn attribute_as_pixel(&self, name: &str) -> Option<Pixel> {
         self.attribute(name)
-            .and_then(|value| Pixel::try_from(value).ok())
+            .and_then(|value| Pixel::from_str(value).ok())
     }
 
     fn attribute_as_size(&self, name: &str) -> Option<Size> {
         self.attribute(name)
-            .and_then(|value| Size::try_from(value).ok())
+            .and_then(|value| Size::from_str(value).ok())
     }
 
     fn attribute_as_spacing(&self, name: &str) -> Option<Spacing> {
         self.attribute(name)
-            .and_then(|value| Spacing::try_from(value).ok())
+            .and_then(|value| Spacing::from_str(value).ok())
     }
 
     fn attribute_equals(&self, key: &str, value: &str) -> bool {
@@ -143,39 +143,33 @@ pub(crate) trait Render<'root> {
     }
 
     fn get_inner_border_left(&self) -> Option<Pixel> {
-        self.attribute_as_pixel("inner-border-left").or_else(|| {
-            self.attribute_as_spacing("inner-border")
-                .map(|s| s.into_left())
-        })
+        self.attribute_as_pixel("inner-border-left")
+            .or_else(|| self.attribute_as_spacing("inner-border").map(|s| s.left()))
     }
 
     fn get_inner_border_right(&self) -> Option<Pixel> {
-        self.attribute_as_pixel("inner-border-right").or_else(|| {
-            self.attribute_as_spacing("inner-border")
-                .map(|s| s.into_right())
-        })
+        self.attribute_as_pixel("inner-border-right")
+            .or_else(|| self.attribute_as_spacing("inner-border").map(|s| s.right()))
     }
 
     fn get_padding_top(&self) -> Option<Pixel> {
         self.attribute_as_pixel("padding-top")
-            .or_else(|| self.attribute_as_spacing("padding").map(|s| s.into_top()))
+            .or_else(|| self.attribute_as_spacing("padding").map(|s| s.top()))
     }
 
     fn get_padding_bottom(&self) -> Option<Pixel> {
-        self.attribute_as_pixel("padding-bottom").or_else(|| {
-            self.attribute_as_spacing("padding")
-                .map(|s| s.into_bottom())
-        })
+        self.attribute_as_pixel("padding-bottom")
+            .or_else(|| self.attribute_as_spacing("padding").map(|s| s.bottom()))
     }
 
     fn get_padding_left(&self) -> Option<Pixel> {
         self.attribute_as_pixel("padding-left")
-            .or_else(|| self.attribute_as_spacing("padding").map(|s| s.into_left()))
+            .or_else(|| self.attribute_as_spacing("padding").map(|s| s.left()))
     }
 
     fn get_padding_right(&self) -> Option<Pixel> {
         self.attribute_as_pixel("padding-right")
-            .or_else(|| self.attribute_as_spacing("padding").map(|s| s.into_right()))
+            .or_else(|| self.attribute_as_spacing("padding").map(|s| s.right()))
     }
 
     fn get_padding_horizontal(&self) -> Pixel {

@@ -23,7 +23,6 @@
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
@@ -52,7 +51,7 @@ namespace tensorstore {
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 Result<TensorStore<Element, Rank, ReadWriteMode::read>> Downsample(
     TensorStore<Element, Rank, Mode> store,
-    internal::type_identity_t<tensorstore::span<const Index, Rank>>
+    std::type_identity_t<tensorstore::span<const Index, Rank>>
         downsample_factors,
     DownsampleMethod downsample_method) {
   static_assert(Mode != ReadWriteMode::write,
@@ -66,9 +65,6 @@ Result<TensorStore<Element, Rank, ReadWriteMode::read>> Downsample(
       TensorStore<Element, Rank, ReadWriteMode::read>>(
       std::move(transformed_driver));
 }
-
-// Overload that allows `downsample_factors` to be specified as a braced list,
-// e.g. `Downsample(store, {2, 3}, DownsampleMethod::kMean)`.
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode,
           DimensionIndex FactorsRank>
 std::enable_if_t<RankConstraint::Implies(FactorsRank, Rank),
@@ -76,6 +72,8 @@ std::enable_if_t<RankConstraint::Implies(FactorsRank, Rank),
 Downsample(TensorStore<Element, Rank, Mode> store,
            const Index (&downsample_factors)[FactorsRank],
            DownsampleMethod downsample_method) {
+  // Overload that allows `downsample_factors` to be specified as a braced list,
+  // e.g. `Downsample(store, {2, 3}, DownsampleMethod::kMean)`.
   return Downsample(std::move(store), tensorstore::span(downsample_factors),
                     downsample_method);
 }
@@ -94,13 +92,12 @@ Downsample(TensorStore<Element, Rank, Mode> store,
 Result<Spec> Downsample(const Spec& base_spec,
                         tensorstore::span<const Index> downsample_factors,
                         DownsampleMethod downsample_method);
-
-// Overload that allows `downsample_factors` to be specified as a braced
-// list, e.g. `Downsample(spec, {2, 3}, DownsampleMethod::kMean)`.
 template <DimensionIndex FactorsRank>
 Result<Spec> Downsample(const Spec& base_spec,
                         const Index (&downsample_factors)[FactorsRank],
                         DownsampleMethod downsample_method) {
+  // Overload that allows `downsample_factors` to be specified as a braced
+  // list, e.g. `Downsample(spec, {2, 3}, DownsampleMethod::kMean)`.
   return tensorstore::Downsample(
       base_spec, tensorstore::span<const Index>(downsample_factors),
       downsample_method);

@@ -10,7 +10,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, NamedTuple
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..case import Case
 from ..evaluators.evaluator import Evaluator
@@ -19,6 +19,7 @@ from ..types.evaluation_report import EvaluationReport
 from ..types.optimization import (
     LABEL_OUTCOMES,
     SPLIT_NAMES,
+    AttemptRecord,
     CandidateLabel,
     CaseSplit,
     IterationRecord,
@@ -33,13 +34,18 @@ from ..types.optimization import (
     ValidationReport,
     Value,
 )
+from ..types.trace import Session
 from .candidate import Candidate, changed_keys, changed_values, diff
 from .declaration.files import _write_text_atomically
 from .declaration.space import Space
 from .end_phase import TEST_LEVEL
+from .record.run_directory import read_transcript
 from .scoring.metrics import USAGE_METRICS
 
 Grain = Literal["iteration", "proposal", "case"]
+
+_AGENT_FAILED = (TrialStatus.AGENT_FAILURE, TrialStatus.INFRASTRUCTURE_INVALID)
+_JUDGED = (TrialStatus.COMPLETED, TrialStatus.EVALUATOR_INVALID)  # statuses of an attempt whose judges ran
 
 
 class CandidateView(BaseModel):
@@ -95,10 +101,11 @@ class CandidateView(BaseModel):
         )
 
     def diff(self) -> str:
-        """Unified diff of every changed text against the baseline, for review.
+        """Unified diff of every changed file and text value against the baseline, for review.
 
         File-backed values on their real paths (relative to the run's working directory), then non-file
-        text values headed by their key. Numbers and choices are in `changed_values()`.
+        text values headed by their key. Numbers and choices are in `changed_values()`; one in a JSON
+        file (a `JsonField`) also shows in that file's hunk.
         """
         return self.diff_text
 
@@ -127,12 +134,85 @@ class CandidateView(BaseModel):
         return path
 
 
+class Spend(BaseModel):
+    """What one role spent in one phase (`RunCost`).
+
+    Attributes:
+        usage: The model usage, summed; `usage.model_calls` counts its model calls (chat spans, or a proposer
+            agent's event-loop cycles), not its attempts.
+        failed: How many of its attempts failed; what an attempt and a failure are depends on the role (each
+            `RunCost` field says).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    usage: Usage
+    failed: int
+
+
+class AgentSpend(Spend):
+    """The agent's `Spend` on one split, with what it ran.
+
+    Attributes:
+        trials: The split's trials (candidate x case x run), each once.
+        attempts: The attempts to run the agent: one per trial (its last, or the one whose output a judge-only
+            re-run judged again), plus each earlier attempt that ended `infrastructure_invalid` (one a re-run
+            pass replaced, or one `Experiment` retried on throttling). `attempts - trials` is how many times the
+            agent was run again.
+    """
+
+    trials: int
+    attempts: int
+
+
+class RunCost(BaseModel):
+    """What the run spent in model usage, by role and phase; nothing is priced.
+
+    Built from every saved trial and every event, so a killed iteration's trials and proposer calls count, as its
+    trials count in `rollouts_spent`. Every attempt counts once: a judge-only re-run keeps the agent's usage on
+    the new record and leaves the replaced attempt only its failed judges' spend.
+
+    Attributes:
+        agent: Split -> the agent's usage on that split's trials (train = the search, validation and test = the
+            end phase): `TrialRecord.usage` plus every earlier attempt's (`previous_attempts`). `failed` is its
+            attempts that failed: `agent_failure`, or `infrastructure_invalid` (throttling, a lost sandbox), run
+            again or left so.
+        judges: Split -> the evaluators' usage on those trials: `TrialRecord.judge_usage` plus every earlier
+            attempt's failed judges. `failed` is the trial attempts with at least one failed evaluator (an earlier
+            attempt keeps one judge total, not which evaluators failed).
+        proposers: Block name -> what its proposer reported spending (`OptimizationResult.proposers` holds each
+            block's proposer class), all of it in the search: the `usage` of
+            the patches each successful `propose` request returned, and its own `proposer_usage` events. Every
+            block of the search, zero when its proposer reported nothing. `failed` is the failures its proposer
+            retried (`proposer_retry` events) and the `propose` requests that failed (`proposer_error` events: the
+            proposer raised, or the optimizer rejected what it returned).
+        benchmark: Split -> the usage of the rollouts' other agents on those trials (`TrialRecord.benchmark_usage`:
+            a simulated user, an agent the environment built), every attempt included; never in `agent`. Zero when
+            the agents can't be told apart (the `build_task` path, a factory that returned something else).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    agent: dict[SplitName, AgentSpend]
+    judges: dict[SplitName, Spend]
+    proposers: dict[str, Spend]
+    benchmark: dict[SplitName, Usage]
+
+    @property
+    def total(self) -> Usage:
+        """Everything the run spent: every role in every phase. `seconds` sums rollout, judge, and proposer
+        durations, which overlap under concurrency; it is not wall time."""
+        spends = [*self.agent.values(), *self.judges.values(), *self.proposers.values()]
+        return sum((spend.usage for spend in spends), sum(self.benchmark.values(), Usage.zero()))
+
+
 class OptimizationResult(BaseModel):
     """What a run returns, saved and reloaded whole (`to_file` / `from_file`; the run writes `<run>/result.json`).
 
     Attributes:
         run_id: The run folder's name.
-        run_dir: The run folder; it may not exist on another machine, and nothing here reads it.
+        run_dir: The run folder; it may not exist on another machine. Only `load_transcript` reads it: the
+            trajectories that `reports` and the case rows name by hash are in its `transcripts/`.
         baseline_id: The baseline's id.
         candidates: Every candidate of the run's closed iterations by id, in display-number order (a killed
             iteration's candidate that the resumed run didn't propose again is left out).
@@ -166,18 +246,15 @@ class OptimizationResult(BaseModel):
             one more candidate), `iterations` (the cap), or `exhausted` (the schedule had nothing left). The end
             phase runs after any of them. Never `setup`: a setup stop raises instead of returning, and so does a
             proposer that raises (`ProposerError`, before the end phase).
-        agent_cost: The agent's own usage per split (each trial's last attempt): train = the search,
-            validation and test = the end phase.
-        search_cost: Total proposer usage.
-        judge_cost: Judge usage per trial's last attempt, as `agent_cost` counts the agent's.
-        retry_cost: Agent and judge usage in earlier attempts (`TrialRecord.previous_attempts`).
-        benchmark_cost: Usage of the other agents in the rollouts (`TrialRecord.benchmark_usage`: a
-            simulated user, an agent the environment built), in every attempt; never counted in
-            `agent_cost` or `retry_cost`. Zero when the agents can't be told apart (the `build_task` path, a
-            factory that returned something else).
+        cost: What the run spent: the agent's, the judges', and the rollouts' other agents' usage per split, every
+            attempt included, and each proposer block's, with their failed attempts.
         reports: Candidate id -> split -> the `EvaluationReport` `Experiment` would have returned for those
-            trials (every run's rows, each tagged with `run_index`; failed trials as `Experiment`'s score-0
-            rows), for every candidate and split it has trials on. Display only: nothing in the run reads it.
+            trials (every run's rows, each tagged with `run_index` and `transcript`; failed trials as
+            `Experiment`'s score-0 rows), for every candidate and split it has trials on. Trajectories are
+            referenced, not inlined: `actual_trajectory` is None (a failed trial's row has no such key), and
+            `transcript` is the hash the case rows give, None when the row's trial record holds no trajectory;
+            `load_transcript(row["transcript"])` reads one back. So `display(include_actual_trajectory=True)`
+            shows None. Display only: nothing in the run reads it.
         rows: Every grain's rows (`to_rows`), computed when the result was built.
     """
 
@@ -201,14 +278,22 @@ class OptimizationResult(BaseModel):
     rollouts_spent: int
     max_rollouts: int | None = None
     stop_reason: StopReason
-    agent_cost: dict[SplitName, Usage]
-    search_cost: Usage
-    judge_cost: Usage
-    retry_cost: Usage
-    benchmark_cost: Usage = Field(default_factory=Usage.zero)
+    cost: RunCost
     # Left out of the repr: every trial's rows and evaluation data, hundreds of kilobytes on a real run.
     reports: dict[str, dict[SplitName, EvaluationReport]] = Field(repr=False)
     rows: dict[Grain, list[dict[str, Any]]] = Field(repr=False)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_the_old_cost_fields(cls, data: Any) -> Any:
+        """A result saved before `cost` replaced the five cost fields can't be split by role; resuming rewrites it."""
+        if isinstance(data, Mapping) and "cost" not in data and "agent_cost" in data:
+            raise ValueError(
+                "this result was written before `cost` replaced `agent_cost`, `search_cost`, `judge_cost`, "
+                "`retry_cost`, and `benchmark_cost`; resume the run to rewrite it (`Optimizer.resume`, or "
+                "`strands-evals optimize resume` after moving result.json aside)"
+            )
+        return data
 
     @property
     def baseline(self) -> CandidateView:
@@ -454,18 +539,27 @@ class OptimizationResult(BaseModel):
         return _columns(table, right=())
 
     def _tokens_table(self) -> list[str]:
-        """Tokens per role and phase (train is the search), from the cost fields: the agent per split, the
-        proposers, who run only in the search, and the judges, the retried attempts, and the rollouts' other
-        agents, whose fields hold run totals only ("-" for each phase)."""
-        agent = [self.agent_cost[split].tokens for split in SPLIT_NAMES]
-        proposers = [self.search_cost.tokens, 0, 0]
-        table = [["Tokens", "search", "validation", "test", "total"]]
-        table.append(["agent", *(f"{n:,}" for n in agent), f"{sum(agent):,}"])
-        table.append(["proposers", *(f"{n:,}" for n in proposers), f"{sum(proposers):,}"])
-        totals = [("judges", self.judge_cost), ("retries", self.retry_cost), ("other agents", self.benchmark_cost)]
-        for role, usage in totals:
-            table.append([role, "-", "-", "-", f"{usage.tokens:,}"])
-        return _columns(table, right=range(1, 5))
+        """Tokens per role and phase (train is the search), every attempt included: the agent and the judges per
+        split, each proposer block, which runs only in the search, and the rollouts' other agents per split; with
+        each role's failed attempts, then the total."""
+        cost = self.cost
+        roles: list[tuple[str, Mapping[SplitName, Usage], str]] = [
+            ("agent", {s: a.usage for s, a in cost.agent.items()}, str(sum(a.failed for a in cost.agent.values()))),
+            ("judges", {s: j.usage for s, j in cost.judges.items()}, str(sum(j.failed for j in cost.judges.values()))),
+        ]
+        for block, spend in cost.proposers.items():
+            in_search: dict[SplitName, Usage] = {"train": spend.usage}
+            roles.append((f"proposer {block}", in_search, str(spend.failed)))
+        roles.append(("other agents", cost.benchmark, "-"))
+        table = [["Tokens", "search", "validation", "test", "total", "failed"]]
+        totals = dict.fromkeys(SPLIT_NAMES, 0)
+        for role, usage, failed in roles:
+            tokens = {split: usage[split].tokens if split in usage else 0 for split in SPLIT_NAMES}
+            for split, n in tokens.items():
+                totals[split] += n
+            table.append([role, *(f"{n:,}" for n in tokens.values()), f"{sum(tokens.values()):,}", failed])
+        table.append(["total", *(f"{n:,}" for n in totals.values()), f"{sum(totals.values()):,}", "-"])
+        return _columns(table, right=range(1, 6))
 
     def _notes(self, tables: Sequence[Sequence[str]], *, width: int) -> list[str]:
         """What the columns hold, for the tables shown, wrapped to `width`."""
@@ -486,8 +580,10 @@ class OptimizationResult(BaseModel):
                 f"{_LEVEL}% interval) are over the n cases both measured; reported only."
             )
         notes.append(
-            "Tokens: search is the train split; retries are the agent's and the judges' tokens in attempts run "
-            "again; other agents are the rollouts' agents the factory didn't build (a simulated user)."
+            "Tokens: search is the train split; every attempt counts, the ones run again included; failed: the "
+            "agent's attempts that failed, infrastructure failures such as throttling included; the judges' attempts "
+            "with a failed evaluator; a proposer's retried failures and requests that failed; other agents are the "
+            "rollouts' agents the factory didn't build (a simulated user)."
         )
         lines = ["Notes:"]
         for i, note in enumerate(notes, 1):
@@ -500,8 +596,8 @@ class OptimizationResult(BaseModel):
         Every row of one grain has the same keys; a value that doesn't apply is None. Per-metric columns
         are named `<prefix>.<metric>`, e.g. `train.HelpfulnessEvaluator`. `pandas.DataFrame(rows)` works.
         Iteration rows cover the closed iterations only, so after a kill and resume their `rollouts_total`
-        and `search_tokens` can sum to less than `rollouts_spent` and `search_cost` (which count the killed
-        iteration's spend too).
+        and `search_tokens` can sum to less than `rollouts_spent` and the proposers' tokens in `cost` (which
+        count the killed iteration's spend too).
 
         Args:
             grain: What one row is: `proposal` (every proposal, the baseline included, with its label at
@@ -529,15 +625,37 @@ class OptimizationResult(BaseModel):
         return cls.model_validate(data)
 
     def to_file(self, path: str | Path) -> Path:
-        """Write `to_dict()` as JSON to `path`; returns `path`."""
+        """Write `to_dict()` as compact JSON (no indentation) to `path`; returns `path`."""
         path = Path(path)
-        _write_text_atomically(path, json.dumps(self.to_dict(), indent=2, ensure_ascii=False, allow_nan=False) + "\n")
+        text = json.dumps(self.to_dict(), separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        _write_text_atomically(path, text + "\n")
         return path
 
     @classmethod
     def from_file(cls, path: str | Path) -> OptimizationResult:
         """The result `to_file` wrote."""
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
+
+    def load_transcript(
+        self, transcript: str | None, *, run_dir: str | Path | None = None
+    ) -> list[Any] | Session | None:
+        """The trajectory a report row or a case row names by its `transcript` hash, read from the run folder.
+
+        A `Session` comes back as one (its file stores each distinct message once); a trajectory the rollout
+        returned comes back as that list. None when `transcript` is None (the trial kept no trajectory).
+
+        Args:
+            transcript: A row's `transcript`.
+            run_dir: The run folder, when it isn't at `self.run_dir` (moved, or on another machine).
+
+        Raises:
+            FileNotFoundError: The run folder has no such transcript.
+            ValueError: `transcript` isn't 16 lowercase hex digits, the form the run names transcripts by (so a
+                `result.json` from elsewhere can't point it at another file).
+        """
+        if transcript is None:
+            return None
+        return read_transcript(Path(self.run_dir if run_dir is None else run_dir), transcript)
 
 
 _LEVEL = round(TEST_LEVEL * 100)
@@ -638,6 +756,64 @@ def _columns(rows: Sequence[Sequence[str]], *, right: Iterable[int]) -> list[str
         "  ".join(cell.rjust(widths[i]) if i in right else cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip()
         for row in rows
     ]
+
+
+def _run_cost(
+    trials: Iterable[Mapping[str, Any]], events: Sequence[Mapping[str, Any]], *, blocks: Sequence[str]
+) -> RunCost:
+    """What the run spent (`RunCost`), from its saved trials and every event.
+
+    Args:
+        trials: Every saved trial record as JSON, the last per (candidate, run, case).
+        events: Every event of the run, a killed iteration's included.
+        blocks: The search's block names, in order; a block only the events name is added after them.
+    """
+    agent = dict.fromkeys(SPLIT_NAMES, Usage.zero())
+    judges = dict.fromkeys(SPLIT_NAMES, Usage.zero())
+    benchmark = dict.fromkeys(SPLIT_NAMES, Usage.zero())
+    counts: dict[str, Counter[str]] = {split: Counter() for split in SPLIT_NAMES}
+    for saved in trials:
+        split, count = saved["split"], counts[saved["split"]]
+        attempts = [AttemptRecord.model_validate(attempt) for attempt in saved["previous_attempts"]]
+        agent[split] += Usage.model_validate(saved["usage"])
+        for usage in saved["judge_usage"].values():
+            judges[split] += Usage.model_validate(usage)
+        for attempt in attempts:
+            agent[split] += attempt.usage
+            judges[split] += attempt.judge_usage
+        # Absent from trials saved before benchmark usage was recorded.
+        for spent in (saved, *saved["previous_attempts"]):
+            if spent.get("benchmark_usage") is not None:
+                benchmark[split] += Usage.model_validate(spent["benchmark_usage"])
+        statuses = [a.status for a in attempts] + [TrialStatus(saved["status"])]
+        count["trials"] += 1
+        count["attempts"] += 1 + sum(a.status is TrialStatus.INFRASTRUCTURE_INVALID for a in attempts)
+        count["agent_failed"] += sum(status in _AGENT_FAILED for status in statuses)
+        # Only a judge-only re-run replaces a judged attempt, and only when one of its evaluators failed.
+        count["judges_failed"] += sum(a.status in _JUDGED for a in attempts) + bool(saved["evaluator_errors"])
+    proposers = dict.fromkeys(blocks, Usage.zero())
+    proposers_failed: Counter[str] = Counter()
+    for event in events:
+        if event["event"] == "proposer_usage":
+            block = event["block"]
+            proposers[block] = proposers.get(block, Usage.zero()) + Usage.model_validate(event["usage"])
+        elif event["event"] in ("proposer_retry", "proposer_error"):
+            proposers.setdefault(event["block"], Usage.zero())
+            proposers_failed[event["block"]] += 1
+    return RunCost(
+        agent={
+            split: AgentSpend(
+                usage=agent[split],
+                failed=counts[split]["agent_failed"],
+                trials=counts[split]["trials"],
+                attempts=counts[split]["attempts"],
+            )
+            for split in SPLIT_NAMES
+        },
+        judges={split: Spend(usage=judges[split], failed=counts[split]["judges_failed"]) for split in SPLIT_NAMES},
+        proposers={block: Spend(usage=usage, failed=proposers_failed[block]) for block, usage in proposers.items()},
+        benchmark=benchmark,
+    )
 
 
 def _proposal_rows(
@@ -856,6 +1032,7 @@ def _iteration_rows(
 def _case_rows(
     events: Sequence[Mapping[str, Any]],
     records: Mapping[str, Mapping[tuple[str, int], TrialRecord]],
+    transcripts: Mapping[str, Mapping[tuple[str, int], Mapping[str, str] | None]],
     *,
     candidates: Mapping[str, CandidateView],
     split: CaseSplit,
@@ -864,22 +1041,17 @@ def _case_rows(
     """One row per trial (candidate x case x run), the last attempt per key (API.md section 10, "Result rows").
 
     Args:
-        events: The closed events (`closed_events`), for each trial's objective and transcript.
+        events: The closed events (`closed_events`), for each trial's objective.
         records: Candidate id -> (case name, run index) -> its last trial record.
+        transcripts: The same keys -> that record's transcript (`{hash, format}`), None without a trajectory.
         candidates: Every saved candidate's view, for the order (display number) and numbers.
         split: The run's split, for the case order.
         evaluators: Every evaluator's name, for the per-evaluator columns.
     """
     scores: dict[tuple[str, str], Mapping[str, Any]] = {}
-    transcripts: dict[tuple[str, int, str], str | None] = {}
     for event in events:
         if event["event"] == "score":
             scores[(event["candidate_id"], event["split"])] = event
-        elif event["event"] == "trial":
-            saved = event["record"]
-            transcript = saved.get("transcript")
-            key = (saved["candidate_id"], saved["run_index"], saved["case_name"])
-            transcripts[key] = None if transcript is None else transcript["hash"]
     rows = []
     for candidate_id, view in candidates.items():
         trials = records.get(candidate_id, {})
@@ -921,15 +1093,27 @@ def _case_rows(
                         **{metric: getattr(usage, metric) for metric in USAGE_METRICS},
                         judge_tokens=sum(u.tokens for u in record.judge_usage.values()),
                         output=record.output,
-                        transcript=transcripts.get((candidate_id, index, case_name)),
+                        transcript=_transcript_hash(transcripts, candidate_id, case_name, index),
                     )
                     row["models"] = list(usage.models)  # a copy, not the record's list
                     rows.append(row)
     return rows
 
 
+def _transcript_hash(
+    transcripts: Mapping[str, Mapping[tuple[str, int], Mapping[str, str] | None]],
+    candidate_id: str,
+    case_name: str,
+    run_index: int,
+) -> str | None:
+    """The hash of the kept record's transcript; None when it has no trajectory."""
+    transcript = transcripts.get(candidate_id, {}).get((case_name, run_index))
+    return None if transcript is None else transcript["hash"]
+
+
 def _reports(
     records: Mapping[str, Mapping[tuple[str, int], TrialRecord]],
+    transcripts: Mapping[str, Mapping[tuple[str, int], Mapping[str, str] | None]],
     *,
     cases: Sequence[Case],
     evaluators: Sequence[Evaluator],
@@ -943,11 +1127,16 @@ def _reports(
     any other trial with `error` set (`Experiment` failed on its case after the task returned, or in a
     re-judge, which keeps the first pass's scores); an evaluator in `evaluator_errors` gets a score-0 row
     with "Evaluator error: <exception type>" (the record keeps only the type). Each row is tagged
-    `evaluator`, `evaluator_type`, and `run_index`. So `overall_score` is what a plain eval run of the same
-    trials reports.
+    `evaluator`, `evaluator_type`, `run_index`, and `transcript`. So `overall_score` is what a plain eval
+    run of the same trials reports.
+
+    Trajectories are referenced, not inlined: `actual_trajectory` is None (a failed trial's row has no such
+    key, as in `Experiment`), and `transcript` is the hash of the trial's `<run>/transcripts/<hash>.json`
+    (None when the record holds no trajectory), as in the case rows.
 
     Args:
         records: Candidate id -> (case name, run index) -> its last trial record.
+        transcripts: The same keys -> that record's transcript (`{hash, format}`), None without a trajectory.
         cases: The experiment's cases.
         evaluators: The experiment's evaluators, in its order.
         split: The run's split, for the case order.
@@ -972,7 +1161,12 @@ def _reports(
                 name, type_name = evaluator.get_name(), evaluator.get_type_name()
                 for record in ordered:
                     case = by_name[record.case_name]
-                    tag = {"evaluator": name, "evaluator_type": type_name, "run_index": record.run_index}
+                    tag = {
+                        "evaluator": name,
+                        "evaluator_type": type_name,
+                        "run_index": record.run_index,
+                        "transcript": _transcript_hash(transcripts, candidate_id, record.case_name, record.run_index),
+                    }
                     raised = record.status in (TrialStatus.AGENT_FAILURE, TrialStatus.INFRASTRUCTURE_INVALID)
                     if raised or (record.error is not None and name not in record.evaluations):
                         rows.append({**case.model_dump(), **tag})
@@ -988,7 +1182,7 @@ def _reports(
                         expected_output=case.expected_output,
                         expected_assertion=case.expected_assertion,
                         expected_trajectory=case.expected_trajectory,
-                        actual_trajectory=record.trajectory,
+                        actual_trajectory=None,  # referenced by the `transcript` tag
                         metadata=case.metadata,
                         actual_interactions=record.interactions,
                         expected_interactions=case.expected_interactions,

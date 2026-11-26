@@ -26,7 +26,7 @@ from . import core_api_pb2 as core__api__pb2
 from . import encryption_pb2 as encryption__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12orchestrator.proto\x12\x0corchestrator\x1a\x0e\x63ore-api.proto\x1a\x10\x65ncryption.proto\"\xa6\x01\n\x13OrchestratorMessage\x12/\n\x07\x65xecute\x18\x01 \x01(\x0b\x32\x1c.orchestrator.ExecuteRequestH\x00\x12-\n\x06\x63\x61ncel\x18\x02 \x01(\x0b\x32\x1b.orchestrator.CancelRequestH\x00\x12(\n\x07release\x18\x03 \x01(\x0b\x32\x15.orchestrator.ReleaseH\x00\x42\x05\n\x03msg\"\t\n\x07Release\"\x90\x01\n\x0e\x45xecuteRequest\x12\x19\n\x03run\x18\x01 \x01(\x0b\x32\x0c.coreApi.Run\x12\x0f\n\x07\x61ttempt\x18\x02 \x01(\x05\x12\x17\n\x0f\x66\x61iled_attempts\x18\x03 \x01(\x05\x12\x39\n\x12\x65ncryption_context\x18\x04 \x01(\x0b\x32\x1d.encryption.EncryptionContext\"\x1f\n\rCancelRequest\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\"b\n\x0f\x45xecutorMessage\x12$\n\x05\x63hunk\x18\x01 \x01(\x0b\x32\x13.orchestrator.ChunkH\x00\x12\"\n\x04\x64one\x18\x02 \x01(\x0b\x32\x12.orchestrator.DoneH\x00\x42\x05\n\x03msg\"%\n\x05\x43hunk\x12\x0c\n\x04mode\x18\x01 \x01(\t\x12\x0e\n\x06packet\x18\x02 \x01(\x0c\"X\n\x04\x44one\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x17\n\x0f\x63heckpoint_json\x18\x03 \x01(\x0c\x12\x16\n\x0e\x65xception_json\x18\x04 \x01(\x0c\x32`\n\x0cOrchestrator\x12P\n\x08\x44ispatch\x12\x1d.orchestrator.ExecutorMessage\x1a!.orchestrator.OrchestratorMessage(\x01\x30\x01\x42\x42Z@github.com/langchain-ai/langgraph-api/core/internal/executors/pbb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12orchestrator.proto\x12\x0corchestrator\x1a\x0e\x63ore-api.proto\x1a\x10\x65ncryption.proto\"\xa6\x01\n\x13OrchestratorMessage\x12/\n\x07\x65xecute\x18\x01 \x01(\x0b\x32\x1c.orchestrator.ExecuteRequestH\x00\x12-\n\x06\x63\x61ncel\x18\x02 \x01(\x0b\x32\x1b.orchestrator.CancelRequestH\x00\x12(\n\x07release\x18\x03 \x01(\x0b\x32\x15.orchestrator.ReleaseH\x00\x42\x05\n\x03msg\"\t\n\x07Release\"\x90\x01\n\x0e\x45xecuteRequest\x12\x19\n\x03run\x18\x01 \x01(\x0b\x32\x0c.coreApi.Run\x12\x0f\n\x07\x61ttempt\x18\x02 \x01(\x05\x12\x17\n\x0f\x66\x61iled_attempts\x18\x03 \x01(\x05\x12\x39\n\x12\x65ncryption_context\x18\x04 \x01(\x0b\x32\x1d.encryption.EncryptionContext\"\x1f\n\rCancelRequest\x12\x0e\n\x06\x61\x63tion\x18\x01 \x01(\t\"b\n\x0f\x45xecutorMessage\x12$\n\x05\x63hunk\x18\x01 \x01(\x0b\x32\x13.orchestrator.ChunkH\x00\x12\"\n\x04\x64one\x18\x02 \x01(\x0b\x32\x12.orchestrator.DoneH\x00\x42\x05\n\x03msg\"%\n\x05\x43hunk\x12\x0c\n\x04mode\x18\x01 \x01(\t\x12\x0e\n\x06packet\x18\x02 \x01(\x0c\"p\n\x04\x44one\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x17\n\x0f\x63heckpoint_json\x18\x03 \x01(\x0c\x12\x16\n\x0e\x65xception_json\x18\x04 \x01(\x0c\x12\x16\n\x0erefused_resume\x18\x05 \x01(\x08\x32`\n\x0cOrchestrator\x12P\n\x08\x44ispatch\x12\x1d.orchestrator.ExecutorMessage\x1a!.orchestrator.OrchestratorMessage(\x01\x30\x01\x42\x42Z@github.com/langchain-ai/langgraph-api/core/internal/executors/pbb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -47,7 +47,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CHUNK']._serialized_start=530
   _globals['_CHUNK']._serialized_end=567
   _globals['_DONE']._serialized_start=569
-  _globals['_DONE']._serialized_end=657
-  _globals['_ORCHESTRATOR']._serialized_start=659
-  _globals['_ORCHESTRATOR']._serialized_end=755
+  _globals['_DONE']._serialized_end=681
+  _globals['_ORCHESTRATOR']._serialized_start=683
+  _globals['_ORCHESTRATOR']._serialized_end=779
 # @@protoc_insertion_point(module_scope)

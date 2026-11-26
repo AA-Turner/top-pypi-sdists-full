@@ -14,7 +14,7 @@ import opentelemetry.trace as trace_api
 import pytest
 from botocore.exceptions import CredentialRetrievalError, EndpointConnectionError, ProfileNotFound
 from pydantic import BaseModel
-from strands import Agent
+from strands import Agent, tool
 from strands.types.exceptions import ModelThrottledException
 
 from strands_evals import Case
@@ -30,7 +30,7 @@ from strands_evals.types import EvaluationOutput
 from strands_evals.types.evaluation import NOT_APPLICABLE, EnvironmentState, EvaluationData
 from strands_evals.types.optimization import TrialRecord, TrialStatus
 from strands_evals.types.trace import Session
-from tests.strands_evals.optimization.scripted_model import ScriptedModel
+from tests.strands_evals.optimization.scripted_model import ScriptedModel, ToolUse
 
 
 @pytest.fixture(autouse=True)
@@ -574,6 +574,33 @@ async def test_a_score_that_isnt_finite_doesnt_fail_the_save(traces, tmp_path):
 
     assert [r.status for r in records] == [TrialStatus.EVALUATOR_INVALID] * 2
     assert RunDirectory.open(run.root).load_trial("cand", 0, "b") == records[1]
+
+
+@tool
+def lookup(query: str) -> str:
+    """Look the query up."""
+    return f"result for {query}"
+
+
+async def test_a_captured_session_is_saved_with_each_message_once(traces, tmp_path):
+    async def task(case):
+        turns = [ToolUse("lookup", {"query": f"q{i}"}) for i in range(5)] + ["done"]
+        agent = Agent(model=ScriptedModel(turns), tools=[lookup], callback_handler=None)
+        return {"output": str(await agent.invoke_async(case.input))}
+
+    run = RunDirectory.create(tmp_path, {"cases": []})
+    (record,), _ = await _runner(traces, run, _cases("a"), [], rerun_passes=0).run(
+        "cand", task, ["a"], runs=1, allowance=0
+    )
+
+    (path,) = (run.root / "transcripts").iterdir()
+    saved = json.loads(path.read_text())
+    assert len(saved["messages"]) == 12  # the question, 5 tool calls and their results, the answer
+    chats = [s for t in saved["session"]["traces"] for s in t["spans"] if s["span_type"] == "inference"]
+    # Each model call's messages are the conversation so far and its reply: one range of the list.
+    assert [s["messages"] for s in chats] == [[[0, 2 * i + 2]] for i in range(5)] + [[[0, 12]]]
+    loaded = RunDirectory.open(run.root).load_trial("cand", 0, "a")
+    assert loaded.trajectory == Session.model_validate(json.loads(record.trajectory.model_dump_json()))
 
 
 async def test_one_evaluator_failing_leaves_the_trial_completed(traces):
@@ -1121,7 +1148,7 @@ async def test_a_re_judge_keeps_each_cost_with_what_it_bought(traces):
     record = records[0]
     assert record.judge_usage["Kept"].tokens == 500  # carried over with its score
     assert record.judge_usage["Flaky"].tokens == 400  # the re-judge's own spend
-    assert record.previous_attempts[-1].judge_usage.tokens == 400  # only the failed judge's spend: retry cost
+    assert record.previous_attempts[-1].judge_usage.tokens == 400  # only the failed judge's spend
     assert record.usage.tokens == 15
 
 
@@ -1264,6 +1291,24 @@ async def test_a_cancelled_trial_saves_nothing_and_keeps_no_spans(traces):
     # workers, it does, and its judge must not register the released trace again.
     await asyncio.sleep(0.3)
 
+    assert cache.saved == []
+    assert _kept(traces) == before
+
+
+async def test_an_error_reading_an_attempt_raises_unjudged_and_saves_nothing(traces, monkeypatch):
+    before = _kept(traces)
+    cache = MemoryCache()
+    judge = Fixed()
+
+    def unreadable(trace_id, attempt_span_id):
+        raise ValueError("unreadable span")
+
+    monkeypatch.setattr(traces, "usage", unreadable)  # a `Session` that can't be built is unmeasured instead
+
+    with pytest.raises(ValueError, match="unreadable span"):
+        await _runner(traces, cache, _cases("a"), [judge]).run("cand", _agent_task(), ["a"], runs=1, allowance=0)
+
+    assert judge.calls == 0
     assert cache.saved == []
     assert _kept(traces) == before
 

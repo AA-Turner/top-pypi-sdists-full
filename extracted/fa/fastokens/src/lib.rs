@@ -186,7 +186,33 @@ mod hf_hub_support {
         TokenizerConfig, TokenizerJson, TokenizerOptions, tiktoken::parse_tiktoken_model,
     };
     use hf_hub::api::sync::{Api, ApiBuilder, ApiRepo};
-    use std::{collections::HashMap, fs};
+    use std::{
+        collections::HashMap,
+        fs,
+        path::PathBuf,
+        time::{Duration, Instant},
+    };
+
+    /// How long [`get`] waits for another download of the same file.
+    const LOCK_WAIT: Duration = Duration::from_secs(120);
+
+    /// `repo.get(file)`, waiting for another thread or process that is
+    /// downloading the same file. hf-hub gives up on a file's lock after ~5 s
+    /// (`ApiError::LockAcquisition`), so concurrent first loads of one model
+    /// (parallel tests, workers starting together) failed while one download
+    /// was still running; once it finishes, the file is cached and a retry
+    /// returns it at once.
+    pub(crate) fn get(repo: &ApiRepo, file: &str) -> Result<PathBuf, ApiError> {
+        let deadline = Instant::now() + LOCK_WAIT;
+        loop {
+            match repo.get(file) {
+                Err(ApiError::LockAcquisition(_)) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(250));
+                }
+                result => return result,
+            }
+        }
+    }
 
     /// Build an `hf-hub` [`Api`] client, optionally overriding the token that
     /// would otherwise be read from the local HuggingFace credential cache
@@ -228,7 +254,7 @@ mod hf_hub_support {
         // Only a genuinely absent file falls through to the tiktoken layout —
         // a transport or auth failure must propagate, not be misread as
         // "this repo must be tiktoken".
-        let json_path = match repo.get("tokenizer.json") {
+        let json_path = match get(&repo, "tokenizer.json") {
             Ok(path) => path,
             Err(e) => {
                 let json_err = Error::from(e);
@@ -257,7 +283,7 @@ mod hf_hub_support {
             .iter()
             .any(|sibling| sibling.rfilename == "tokenizer_config.json")
         {
-            let config_path = repo.get("tokenizer_config.json")?;
+            let config_path = get(&repo, "tokenizer_config.json")?;
             Some(serde_json::from_str(&fs::read_to_string(config_path)?)?)
         } else {
             None
@@ -273,7 +299,7 @@ mod hf_hub_support {
     /// that is present but unusable is an error, not a `None` — silently
     /// reporting "no tokenizer.json" would hide the real cause.
     fn from_tiktoken_repo(repo: &ApiRepo) -> Result<Option<Tokenizer>, Error> {
-        let ranks_path = match repo.get("tiktoken.model") {
+        let ranks_path = match get(repo, "tiktoken.model") {
             Ok(path) => path,
             Err(e) => {
                 let err = Error::from(e);
@@ -290,7 +316,7 @@ mod hf_hub_support {
         let config_raw = if config_path.exists() {
             fs::read_to_string(config_path)?
         } else {
-            fs::read_to_string(repo.get("tokenizer_config.json").map_err(|e| {
+            fs::read_to_string(get(repo, "tokenizer_config.json").map_err(|e| {
                 let err = Error::from(e);
                 if err.is_not_found() {
                     Error::Tiktoken(
@@ -371,7 +397,7 @@ mod hf_hub_support {
         validate_model_id(model)?;
         let api = make_api(None)?;
         let repo = api.model(model.to_string());
-        let json_path = repo.get("tokenizer.json")?;
+        let json_path = get(&repo, "tokenizer.json")?;
         Ok(fs::read_to_string(json_path)?)
     }
 }
@@ -1870,10 +1896,39 @@ impl Tokenizer {
         //     any vocab token. This is provably output-preserving and provides
         //     fine-grained word-level chunking for models that don't use
         //     ByteLevel (whose regex Split already chunks at word boundaries).
+        //     The pieces are cut while tokenizing, in the pool's jobs, instead of
+        //     being materialized one by one up front: only long splits are cut
+        //     beforehand, so the pool can share them out.
         if self.needs_vocab_splitting
             && let Some(table) = self.model.bigram_bridge_table()
         {
-            split_on_unbridgeable_bigrams(&mut pts, table);
+            cut_long_splits_at_bigrams(&mut pts, table);
+            // In an input short enough to tokenize on one thread, a split is
+            // also cached whole, so a repeat costs one lookup rather than one
+            // per piece: Gemma's splits are the lines between its newline
+            // tokens. Its pieces' ids are what the model gives for it, the cut
+            // being output-preserving. A long input's lines would only churn the
+            // pool threads' caches.
+            let cache_splits = pts.buffer().len() < SPLIT_CACHE_MAX_INPUT;
+            let char_pairs = self.model.char_pairs();
+            return pts
+                .tokenize(|text, out| {
+                    let cache_whole = cache_splits && text.len() <= SPLIT_CACHE_MAX_BYTES;
+                    if cache_whole && self.model.cached_into(text, out) {
+                        return Ok(());
+                    }
+                    let (start, mut pieces) = (out.len(), 0);
+                    for_each_bigram_piece(text, table, char_pairs, |piece| {
+                        pieces += 1;
+                        self.model.tokenize_into(piece, out)
+                    })?;
+                    // A split that is one piece was cached (or is one token).
+                    if cache_whole && pieces > 1 {
+                        self.model.insert_cached(text, &out[start..]);
+                    }
+                    Ok(())
+                })
+                .map_err(Error::Model);
         }
 
         // 3. Tokenize each text split with the model.
@@ -2115,38 +2170,88 @@ impl Tokenizer {
             return self.build_pre_tokenized_ordinary(text);
         }
 
-        let mut buffer = String::with_capacity(input.len());
-        let mut splits = Vec::new();
-
-        for seg in &segments {
-            match seg {
-                Segment::Token(id) => {
-                    let start = buffer.len();
-                    splits.push(PtSplit {
-                        range: start..start,
-                        token_id: Some(*id),
-                    });
+        // A long input's segments are normalized on the pool, in runs of about
+        // NORMALIZE_CHUNK_BYTES of text, and joined in order: Gemma's added
+        // tokens match every run of newlines, so its input arrives as thousands
+        // of short segments that each normalize on their own.
+        if input.len() >= NORMALIZE_PARALLEL_MIN
+            && self.normalizer.is_some()
+            && fanout::threads() > 1
+        {
+            let mut runs = Vec::new();
+            let (mut run_start, mut run_bytes) = (0, 0);
+            for (i, seg) in segments.iter().enumerate() {
+                if let Segment::Text(text) = seg {
+                    run_bytes += text.len();
                 }
-                Segment::Text(text) => {
-                    if text.is_empty() {
-                        continue;
+                if run_bytes >= NORMALIZE_CHUNK_BYTES {
+                    runs.push(run_start..i + 1);
+                    (run_start, run_bytes) = (i + 1, 0);
+                }
+            }
+            if run_start < segments.len() {
+                runs.push(run_start..segments.len());
+            }
+            if runs.len() > 1 {
+                let parts = fanout::map(runs.len(), |r| {
+                    let mut buffer = String::new();
+                    let mut splits = Vec::new();
+                    for seg in &segments[runs[r].clone()] {
+                        self.push_segment(seg, &mut buffer, &mut splits);
                     }
-                    let normalized = match &self.normalizer {
-                        Some(n) => n.normalize(text),
-                        None => std::borrow::Cow::Borrowed(*text),
-                    };
-                    let start = buffer.len();
-                    buffer.push_str(&normalized);
-                    let end = buffer.len();
-                    splits.push(PtSplit {
-                        range: start..end,
-                        token_id: None,
-                    });
+                    (buffer, splits)
+                });
+                let mut buffer = String::with_capacity(parts.iter().map(|p| p.0.len()).sum());
+                let mut splits = Vec::with_capacity(parts.iter().map(|p| p.1.len()).sum());
+                for (part, part_splits) in parts {
+                    let offset = buffer.len();
+                    buffer.push_str(&part);
+                    splits.extend(part_splits.into_iter().map(|s| PtSplit {
+                        range: s.range.start + offset..s.range.end + offset,
+                        token_id: s.token_id,
+                    }));
                 }
+                return PreTokenizedString::new(buffer, splits);
             }
         }
 
+        let mut buffer = String::with_capacity(input.len());
+        let mut splits = Vec::new();
+        for seg in &segments {
+            self.push_segment(seg, &mut buffer, &mut splits);
+        }
+
         PreTokenizedString::new(buffer, splits)
+    }
+
+    /// Append an added-token segment to `buffer` and `splits`: a token as an empty
+    /// split carrying its id, text normalized (empty text adds nothing).
+    fn push_segment(&self, seg: &Segment<'_>, buffer: &mut String, splits: &mut Vec<PtSplit>) {
+        match seg {
+            Segment::Token(id) => {
+                let start = buffer.len();
+                splits.push(PtSplit {
+                    range: start..start,
+                    token_id: Some(*id),
+                });
+            }
+            Segment::Text(text) => {
+                if text.is_empty() {
+                    return;
+                }
+                let normalized = match &self.normalizer {
+                    Some(n) => n.normalize(text),
+                    None => std::borrow::Cow::Borrowed(*text),
+                };
+                let start = buffer.len();
+                buffer.push_str(&normalized);
+                let end = buffer.len();
+                splits.push(PtSplit {
+                    range: start..end,
+                    token_id: None,
+                });
+            }
+        }
     }
 
     /// [`Self::build_pre_tokenized_with`] under HF's two-stage added-token matching
@@ -2227,8 +2332,10 @@ fn ids_capacity(len: usize) -> usize {
     (len / 3).max((len * 3 / 4).min(models::bpe::SPAN_CHUNK_RESERVE)) + 8
 }
 
-/// Split each text chunk at unbridgeable byte-pair boundaries using the
-/// vocab-derived bigram bridge table.
+/// Cut each text split of at least [`BIGRAM_PARALLEL_MIN`] bytes at the first
+/// unbridgeable byte pair after every [`BIGRAM_CHUNK_BYTES`], so a long split
+/// (Gemma's whole input, when it has no newline) can be shared between the
+/// pool's jobs; [`for_each_bigram_piece`] then makes the remaining cuts.
 ///
 /// A byte pair (prev, cur) is "unbridgeable" if no vocabulary token contains
 /// that adjacent byte sequence. Splitting at such boundaries is provably
@@ -2238,46 +2345,113 @@ fn ids_capacity(len: usize) -> usize {
 /// This generalizes newline splitting and enables fine-grained word-level
 /// chunking even in metaspace tokenizers like Gemma, where the pre-tokenizer
 /// is effectively a no-op after normalization.
-fn split_on_unbridgeable_bigrams(
+fn cut_long_splits_at_bigrams(
     pts: &mut PreTokenizedString,
     bigram_table: &models::bpe::BigramBridgeTable,
 ) {
+    if !pts
+        .splits()
+        .iter()
+        .any(|s| s.token_id.is_none() && s.range.len() >= BIGRAM_PARALLEL_MIN)
+    {
+        return;
+    }
     let bytes = pts.buffer().as_bytes();
-    let mut new_splits = Vec::with_capacity(pts.splits().len() * 2);
-
+    let mut new_splits = Vec::with_capacity(pts.splits().len() + bytes.len() / BIGRAM_CHUNK_BYTES);
     for split in pts.splits() {
-        if split.token_id.is_some() || split.range.is_empty() {
+        if split.token_id.is_some() || split.range.len() < BIGRAM_PARALLEL_MIN {
             new_splits.push(split.clone());
             continue;
         }
-
         let end = split.range.end;
         let mut start = split.range.start;
-
-        for i in (start + 1)..end {
-            let prev = bytes[i - 1];
-            let cur = bytes[i];
-
-            // Split here if:
-            // 1. This byte pair never appears in vocab, AND
-            // 2. Position i is a UTF-8 char boundary (cur is not a continuation byte)
-            if !bigram_table.is_bridgeable(prev, cur) && (cur & 0xC0) != 0x80 {
-                new_splits.push(PtSplit {
-                    range: start..i,
-                    token_id: None,
-                });
-                start = i;
-            }
+        let mut target = start + BIGRAM_CHUNK_BYTES;
+        while target < end {
+            let Some(i) = (target..end).find(|&i| bigram_cut(bytes, i, bigram_table)) else {
+                break;
+            };
+            new_splits.push(PtSplit {
+                range: start..i,
+                token_id: None,
+            });
+            start = i;
+            target = i + BIGRAM_CHUNK_BYTES;
         }
-
-        // Push the final segment
         new_splits.push(PtSplit {
             range: start..end,
             token_id: None,
         });
     }
-
     pts.refine_splits(new_splits);
+}
+
+/// Call `f` on each piece of `text` between its unbridgeable byte pairs, in
+/// order (see [`cut_long_splits_at_bigrams`]), and with `char_pairs`, also
+/// between non-ASCII chars that no token holds side by side: the byte test
+/// alone hardly ever cuts Chinese, leaving lines of it to one heap merge each.
+#[inline]
+fn for_each_bigram_piece<E>(
+    text: &str,
+    bigram_table: &models::bpe::BigramBridgeTable,
+    char_pairs: Option<&models::bpe::CharPairs>,
+    mut f: impl FnMut(&str) -> Result<(), E>,
+) -> Result<(), E> {
+    let bytes = text.as_bytes();
+    let mut start = 0;
+    // Start of the char that ends at the boundary being tested.
+    let mut prev_char = 0;
+    for i in 1..bytes.len() {
+        let (prev, cur) = (bytes[i - 1], bytes[i]);
+        if cur & 0xC0 == 0x80 {
+            continue;
+        }
+        let cut = !bigram_table.is_bridgeable(prev, cur)
+            || ((prev | cur) >= 0x80
+                && char_pairs.is_some_and(|pairs| {
+                    !pairs.bridges(decode_char(bytes, prev_char), decode_char(bytes, i))
+                }));
+        prev_char = i;
+        if cut {
+            f(&text[start..i])?;
+            start = i;
+        }
+    }
+    f(&text[start..])
+}
+
+/// The code point of the char starting at `bytes[at]`, of valid UTF-8.
+#[inline(always)]
+fn decode_char(bytes: &[u8], at: usize) -> u32 {
+    let b0 = bytes[at] as u32;
+    let cont = |k: usize| bytes[at + k] as u32 & 0x3F;
+    match b0 {
+        0..0x80 => b0,
+        0x80..0xE0 => (b0 & 0x1F) << 6 | cont(1),
+        0xE0..0xF0 => (b0 & 0x0F) << 12 | cont(1) << 6 | cont(2),
+        _ => (b0 & 0x07) << 18 | cont(1) << 12 | cont(2) << 6 | cont(3),
+    }
+}
+
+/// An input of at least this many bytes has its segments normalized on the pool.
+const NORMALIZE_PARALLEL_MIN: usize = 128 * 1024;
+/// About how many bytes of text each run of segments normalized on the pool holds.
+const NORMALIZE_CHUNK_BYTES: usize = 64 * 1024;
+
+/// Longest text split cached whole on the vocab-splitting path.
+const SPLIT_CACHE_MAX_BYTES: usize = 4096;
+/// Inputs shorter than this (tokenized on one thread) cache their splits whole.
+const SPLIT_CACHE_MAX_INPUT: usize = 64 * 1024;
+
+/// A text split of at least this many bytes is cut up front for the pool.
+const BIGRAM_PARALLEL_MIN: usize = 64 * 1024;
+/// About how many bytes each up-front cut of a long split leaves.
+const BIGRAM_CHUNK_BYTES: usize = 32 * 1024;
+
+/// Whether to split before byte `i`: the pair `bytes[i - 1]`, `bytes[i]` never
+/// appears in the vocab, and `i` is a char boundary.
+#[inline]
+fn bigram_cut(bytes: &[u8], i: usize, table: &models::bpe::BigramBridgeTable) -> bool {
+    !table.is_bridgeable(bytes[i - 1], bytes[i]) && (bytes[i] & 0xC0) != 0x80
 }
 
 // ---------------------------------------------------------------------------
@@ -2938,9 +3112,12 @@ mod tests {
         // Same tokenizer, assembled by hand from the repo's raw files.
         let api = make_api(None).unwrap();
         let repo = api.model(MODEL.to_string());
-        let ranks_path = repo.get("tiktoken.model").unwrap();
+        let ranks_path = crate::hf_hub_support::get(&repo, "tiktoken.model").unwrap();
         let config: TokenizerConfig = serde_json::from_str(
-            &fs::read_to_string(repo.get("tokenizer_config.json").unwrap()).unwrap(),
+            &fs::read_to_string(
+                crate::hf_hub_support::get(&repo, "tokenizer_config.json").unwrap(),
+            )
+            .unwrap(),
         )
         .unwrap();
         let ranks =
@@ -3659,7 +3836,8 @@ mod tests {
         let model = "Qwen/Qwen2-VL-2B-Instruct";
         let api = make_api(None).unwrap();
         let repo = api.model(model.to_string());
-        let tokenizer_config_path = repo.get("tokenizer_config.json").unwrap();
+        let tokenizer_config_path =
+            crate::hf_hub_support::get(&repo, "tokenizer_config.json").unwrap();
         let tokenizer_config: TokenizerConfig =
             serde_json::from_str(&fs::read_to_string(tokenizer_config_path).unwrap()).unwrap();
 
@@ -3794,7 +3972,7 @@ mod tests {
 
             // LongBench-v2: first 100 samples
             let lb_repo = api.dataset("zai-org/LongBench-v2".to_string());
-            let lb_path = lb_repo.get("data.json").unwrap();
+            let lb_path = crate::hf_hub_support::get(&lb_repo, "data.json").unwrap();
             let lb_data: Vec<serde_json::Value> =
                 serde_json::from_str(&fs::read_to_string(lb_path).unwrap()).unwrap();
             let longbench: Vec<String> = lb_data
@@ -3811,7 +3989,7 @@ mod tests {
 
             // ShareGPT52K: first 1000 samples
             let sg_repo = api.dataset("RyokoAI/ShareGPT52K".to_string());
-            let sg_path = sg_repo.get("sg_90k_part1.json").unwrap();
+            let sg_path = crate::hf_hub_support::get(&sg_repo, "sg_90k_part1.json").unwrap();
             let sg_data: Vec<serde_json::Value> =
                 serde_json::from_str(&fs::read_to_string(sg_path).unwrap()).unwrap();
             let sharegpt: Vec<String> = sg_data

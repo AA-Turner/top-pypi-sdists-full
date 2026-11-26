@@ -12,13 +12,13 @@ class DescribeHealthStatusResponseBody(DaraModel):
         request_id: str = None,
         status: main_models.DescribeHealthStatusResponseBodyStatus = None,
     ):
-        # The ID of instance.
+        # The instance ID.
         self.dbcluster_id = dbcluster_id
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # The queried performance metrics. Each performance metric consists of the parameter name, status, and metric value. The metric information is returned only for the performance parameters specified by **Key**. For example, if you set **Key** to **adbpg_status**, only the metric information of **adbpg_status** is returned.
+        # The detailed performance monitoring information, which consists of the metric name, status, and metric value. Monitoring information is returned only for the metrics specified in the **Key** request parameter. For example, if the **Key** parameter contains only **adbpg_status**, only the monitoring information for **adbpg_status** is returned.
         # 
-        # For more information about performance parameters, see [Performance parameters](https://help.aliyun.com/document_detail/86943.html).
+        # For more information about performance metrics, see [Performance metrics](https://help.aliyun.com/document_detail/86943.html).
         self.status = status
 
     def validate(self):
@@ -74,45 +74,45 @@ class DescribeHealthStatusResponseBodyStatus(DaraModel):
         node_segment_connection_status: main_models.DescribeHealthStatusResponseBodyStatusNodeSegmentConnectionStatus = None,
         node_segment_disk_status: main_models.DescribeHealthStatusResponseBodyStatusNodeSegmentDiskStatus = None,
     ):
-        # The information of maximum compute node storage usage.
+        # The maximum storage usage of compute nodes in the instance, which is the maximum storage usage among all segment nodes in the instance.
         # 
-        # >  This parameter value is returned only for instances in elastic storage mode.
+        # > This value is returned only for instances in elastic storage mode.
         self.adbgp_segment_disk_usage_percent_max = adbgp_segment_disk_usage_percent_max
-        # The information of instance connection health status.
+        # The connection status of the instance.
         self.adbpg_connection_status = adbpg_connection_status
-        # The information of instance storage status.
+        # The instance storage status.
         # 
-        # >  This parameter value is returned only for instances in elastic storage mode.
+        # > This value is returned only for instances in the elastic storage pattern.
         self.adbpg_disk_status = adbpg_disk_status
-        # The information of instance storage usage.
+        # The instance storage usage.
         # 
-        # >  This parameter value is returned only for instances in elastic storage mode.
+        # > This value is returned only for instances in the elastic storage pattern.
         self.adbpg_disk_usage_percent = adbpg_disk_usage_percent
-        # The total amount of cold data storage.
+        # The total amount of cold data stored.
         self.adbpg_instance_cold_data_gb = adbpg_instance_cold_data_gb
-        # The total amount of hot data storage.
+        # The total amount of hot data stored.
         self.adbpg_instance_hot_data_gb = adbpg_instance_hot_data_gb
-        # The total amount of data storage of the instance.
+        # The total amount of instance storage data.
         self.adbpg_instance_total_data_gb = adbpg_instance_total_data_gb
-        # The information of maximum coordinator node storage usage.
+        # The maximum storage usage of coordinator nodes in the instance, which is the maximum storage usage among all master nodes in the instance.
         # 
-        # >  This parameter value is returned only for instances in elastic storage mode.
+        # > This value is returned only for instances in elastic storage mode.
         self.adbpg_master_disk_usage_percent_max = adbpg_master_disk_usage_percent_max
-        # The information of coordinator node availability status.
+        # The status of coordinator nodes, namely the availability status of master nodes.
         self.adbpg_master_status = adbpg_master_status
-        # The information of compute node availability status.
+        # The status of compute nodes, namely the availability status of segment nodes.
         self.adbpg_segment_status = adbpg_segment_status
-        # The information of instance health status.
+        # The health status of the instance.
         self.adbpg_status = adbpg_status
-        # The information of coordinator node connection health status.
+        # The connection health status of coordinator nodes, namely master nodes.
         self.node_master_connection_status = node_master_connection_status
-        # The information of coordinator node health status.
+        # The health status of coordinator nodes, namely master nodes.
         self.node_master_status = node_master_status
-        # The information of compute node connection health status.
+        # The connection health status of compute nodes, namely segment nodes.
         self.node_segment_connection_status = node_segment_connection_status
-        # The information of compute node storage status.
+        # The storage status of compute nodes, namely segment nodes.
         # 
-        # >  This parameter value is returned only for instances in elastic storage mode.
+        # > This value is returned only for instances in elastic storage mode.
         self.node_segment_disk_status = node_segment_disk_status
 
     def validate(self):
@@ -269,15 +269,15 @@ class DescribeHealthStatusResponseBodyStatusNodeSegmentDiskStatus(DaraModel):
         status: str = None,
         value: float = None,
     ):
-        # The storage status of compute nodes. Valid values:
+        # Instance storage status of segment nodes. Valid values:
         # 
-        # *   **critical**: The compute node storage usage is greater than or equal to 90%. In this case, this metric is marked in red in the console and the instance is locked.
-        # *   **warning**: The compute node storage usage is greater than or equal to 80% and less than 90%. In this case, this metric is marked in yellow in the console.
-        # *   **healthy**: The compute node storage usage is less than 80%. In this case, this metric is marked in green in the console.
+        # - **critical**: Instance storage usage of segment nodes is greater than or equal to 90%. The status is displayed in red in the console, and the instance will be locked.
+        # - **warning**: Instance storage usage of segment nodes is greater than or equal to 80% and less than 90%. The status is displayed in yellow in the console.
+        # - **healthy**: Instance storage usage of segment nodes is less than 80%. The status is displayed in green in the console, indicating a healthy storage status.
         # 
-        # >  The compute node storage usage is the maximum storage usage among all compute nodes.
+        # > Instance storage usage of segment nodes is the maximum storage usage among all segment nodes.
         self.status = status
-        # The metric value of maximum compute node storage usage.
+        # The metric value of the maximum storage usage of segment nodes.
         # 
         # Unit: %.
         self.value = value
@@ -314,15 +314,15 @@ class DescribeHealthStatusResponseBodyStatusNodeSegmentConnectionStatus(DaraMode
         status: str = None,
         value: float = None,
     ):
-        # The connection health status of compute nodes. Valid values:
+        # The connection health status of segment nodes. Valid values:
         # 
-        # *   **critical**: The compute node connection usage is greater than or equal to 95%. In this case, this metric is marked in red in the console.
-        # *   **warning**: The compute node connection usage is greater than or equal to 90% and less than 95%. In this case, this metric is marked in yellow in the console.
-        # *   **healthy**: The compute node connection usage is less than 90%. In this case, this metric is marked in green in the console.
+        # - **critical**: The connection usage of segment nodes is greater than or equal to 95%. The status is displayed in red in the console.
+        # - **warning**: The connection usage of segment nodes is greater than or equal to 90% and less than 95%. The status is displayed in yellow in the console.
+        # - **healthy**: The connection usage of segment nodes is less than 90%. The status is displayed in green in the console.
         # 
-        # >  The compute node connection usage is the maximum connection usage among all compute nodes.
+        # > The connection usage of segment nodes is the maximum connection usage among all segment nodes.
         self.status = status
-        # The metric value of maximum compute node connection usage.
+        # The metric value of the connection usage of segment nodes, which is the maximum connection usage among all segment nodes.
         # 
         # Unit: %.
         self.value = value
@@ -359,15 +359,15 @@ class DescribeHealthStatusResponseBodyStatusNodeMasterStatus(DaraModel):
         status: str = None,
         value: float = None,
     ):
-        # The health status of the coordinator node. Valid values:
+        # The health status of master nodes. Valid values:
         # 
-        # *   **critical**: The primary or standby coordinator node is unavailable. In this case, this metric is marked in red in the console.
-        # *   **healthy**: Both the primary and standby coordinator nodes are available. In this case, this metric is marked in green in the console.
+        # - **critical**: At least one primary or secondary master node is unavailable. The status is displayed in red in the console.
+        # - **healthy**: All master nodes are available. The status is displayed in green in the console.
         self.status = status
-        # The metric value of coordinator node health status. Valid values:
+        # The metric value of the master node health status. Valid values:
         # 
-        # *   **1**: healthy
-        # *   **0**: critical
+        # - **1**: healthy.
+        # - **0**: critical.
         self.value = value
 
     def validate(self):
@@ -402,15 +402,15 @@ class DescribeHealthStatusResponseBodyStatusNodeMasterConnectionStatus(DaraModel
         status: str = None,
         value: float = None,
     ):
-        # The connection health status of the coordinator node. Valid values:
+        # The connection health status of master nodes. Valid values:
         # 
-        # *   **critical**: The coordinator node connection usage is greater than 95%. In this case, this metric is marked in red in the console.
-        # *   **warning**: The coordinator node connection usage is greater than or equal to 90% and less than 95%. In this case, this metric is marked in yellow in the console.
-        # *   **healthy**: The coordinator node connection usage is less than 90%. In this case, this metric is marked in green in the console.
+        # - **critical**: The connection usage of master nodes is greater than or equal to 95%. The status is displayed in red in the console.
+        # - **warning**: The connection usage of master nodes is greater than or equal to 90% and less than 95%. The status is displayed in yellow in the console.
+        # - **healthy**: The connection usage of master nodes is less than 90%. The status is displayed in green in the console.
         # 
-        # >  The coordinator node connection usage is the maximum connection usage of the coordinator node.
+        # > The connection usage of master nodes is the maximum connection usage among all master nodes.
         self.status = status
-        # The metric value of coordinator node connection usage.
+        # The metric value of the connection usage of master nodes, which is the maximum connection usage among all master nodes.
         # 
         # Unit: %.
         self.value = value
@@ -449,13 +449,13 @@ class DescribeHealthStatusResponseBodyStatusAdbpgStatus(DaraModel):
     ):
         # The health status of the instance. Valid values:
         # 
-        # *   **critical**: The coordinator node or a compute node is unavailable. In this case, this metric is marked in red in the console.
-        # *   **healthy**: All nodes are available. In this case, this metric is marked in green in the console.
+        # - **critical**: At least one master node or segment node is unavailable. The status is displayed in red in the console.
+        # - **healthy**: All nodes are available. The status is displayed in green in the console.
         self.status = status
-        # The metric value of instance health status. Valid values:
+        # The metric value of the instance health status. Valid values:
         # 
-        # *   **1**: healthy
-        # *   **0**: critical
+        # - **1**: healthy.
+        # - **0**: critical.
         self.value = value
 
     def validate(self):
@@ -490,13 +490,13 @@ class DescribeHealthStatusResponseBodyStatusAdbpgSegmentStatus(DaraModel):
         status: str = None,
         value: float = None,
     ):
-        # The availability status of compute nodes. Valid values:
+        # The availability status of segment nodes. Valid values:
         # 
-        # *   **critical**: All the primary and secondary compute nodes are unavailable. In this case, this metric is marked in red in the console.
-        # *   **warning**: Fifty percent or more than fifty percent of compute nodes are unavailable. In this case, this metric is marked in yellow in the console.
-        # *   **healthy**: All compute nodes are available. In this case, this metric is marked in green in the console.
+        # - **critical**: Both the primary and secondary nodes are unavailable. The status is displayed in red in the console.
+        # - **warning**: 50% or more of the nodes are unavailable. The status is displayed in yellow in the console.
+        # - **healthy**: All nodes are available. The status is displayed in green in the console.
         self.status = status
-        # The metric value of compute node availability status.
+        # The metric value of the availability status of segment nodes.
         self.value = value
 
     def validate(self):
@@ -531,13 +531,13 @@ class DescribeHealthStatusResponseBodyStatusAdbpgMasterStatus(DaraModel):
         status: str = None,
         value: float = None,
     ):
-        # The availability status of the coordinator node. Valid values:
+        # The availability status of master nodes. Valid values:
         # 
-        # *   **critical**: Both the primary and standby coordinator nodes are unavailable. In this case, this metric is marked in red in the console.
-        # *   **warning**: The primary or standby coordinator node is unavailable. In this case, this metric is marked in yellow in the console.
-        # *   **healthy**: Both the primary and standby coordinator nodes are available. In this case, this metric is marked in green in the console.
+        # - **critical**: Both the primary and secondary nodes are unavailable. The status is displayed in red in the console.
+        # - **warning**: The primary or secondary node is unavailable. The status is displayed in yellow in the console.
+        # - **healthy**: All nodes are available. The status is displayed in green in the console.
         self.status = status
-        # The metric value of coordinator node availability status. Valid values:
+        # The metric value of the availability status of master nodes. Valid values:
         self.value = value
 
     def validate(self):
@@ -572,13 +572,13 @@ class DescribeHealthStatusResponseBodyStatusAdbpgMasterDiskUsagePercentMax(DaraM
         status: str = None,
         value: float = None,
     ):
-        # The status corresponding to the maximum storage usage of the coordinator node. Valid values:
+        # The maximum storage usage status of master nodes. Valid values:
         # 
-        # *   **critical**: The coordinator node storage usage is greater than or equal to 90%. In this case, the instance is locked.
-        # *   **warning**: The coordinator node storage usage is greater than or equal to 70% and less than 90%.
-        # *   **healthy**: The coordinator node storage usage is less than 70%.
+        # - **critical**: Instance storage usage is greater than or equal to 90%, and the instance will be locked.
+        # - **warning**: Instance storage usage is greater than or equal to 70% and less than 90%.
+        # - **healthy**: Instance storage usage is less than 70%, indicating a healthy storage status.
         self.status = status
-        # The metric value of maximum coordinator node storage usage.
+        # The metric value of the maximum storage usage of master nodes.
         # 
         # Unit: %.
         self.value = value
@@ -614,7 +614,7 @@ class DescribeHealthStatusResponseBodyStatusAdbpgInstanceTotalDataGb(DaraModel):
         self,
         value: float = None,
     ):
-        # The total amount of data storage of the instance. Unit: GB.
+        # The total amount of instance storage data. Unit: GB.
         self.value = value
 
     def validate(self):
@@ -642,7 +642,7 @@ class DescribeHealthStatusResponseBodyStatusAdbpgInstanceHotDataGb(DaraModel):
         self,
         value: float = None,
     ):
-        # The total amount of hot data storage. Unit: GB.
+        # The total amount of hot data stored. Unit: GB.
         self.value = value
 
     def validate(self):
@@ -670,7 +670,7 @@ class DescribeHealthStatusResponseBodyStatusAdbpgInstanceColdDataGb(DaraModel):
         self,
         value: float = None,
     ):
-        # The total amount of cold data storage. Unit: GB.
+        # The total amount of cold data stored. Unit: GB.
         self.value = value
 
     def validate(self):
@@ -699,15 +699,15 @@ class DescribeHealthStatusResponseBodyStatusAdbpgDiskUsagePercent(DaraModel):
         status: str = None,
         value: float = None,
     ):
-        # The status corresponding to the storage usage of the instance. Valid values:
+        # Instance storage usage status of the instance. Valid values:
         # 
-        # *   **critical**: The instance storage usage is greater than or equal to 90%. In this case, the instance is locked.
-        # *   **warning**: The instance storage usage is greater than or equal to 70% and less than 90%.
-        # *   **healthy**: The instance storage usage is less than 70%.
+        # - **critical**: Instance storage usage of the instance is greater than or equal to 90%, and the instance will be locked.
+        # - **warning**: Instance storage usage of the instance is greater than or equal to 70% and less than 90%.
+        # - **healthy**: Instance storage usage of the instance is less than 70%, indicating a healthy storage status.
         # 
-        # >  The instance storage usage is the average storage usage of all compute nodes.
+        # > Instance storage usage of the instance is the average storage usage of all segment nodes.
         self.status = status
-        # The metric value of instance storage usage.
+        # The metric value of the instance storage usage, which is the average storage usage of all segment nodes.
         # 
         # Unit: %.
         self.value = value
@@ -744,15 +744,15 @@ class DescribeHealthStatusResponseBodyStatusAdbpgDiskStatus(DaraModel):
         status: str = None,
         value: float = None,
     ):
-        # The storage status of the instance. Valid values:
+        # Instance storage status of the instance. Valid values:
         # 
-        # *   **critical**: The instance storage usage is greater than or equal to 90%. In this case, this metric is marked in red in the console and the instance is locked.
-        # *   **warning**: The instance storage usage is greater than or equal to 70% and less than 90%. In this case, this metric is marked in yellow in the console.
-        # *   **healthy**: The instance storage usage is less than 70%. In this case, this metric is marked in green in the console.
+        # - **critical**: Instance storage usage of the instance is greater than or equal to 90%. The status is displayed in red in the console, and the instance will be locked.
+        # - **warning**: Instance storage usage of the instance is greater than or equal to 70% and less than 90%. The status is displayed in yellow in the console.
+        # - **healthy**: Instance storage usage of the instance is less than 70%. The status is displayed in green in the console, indicating a healthy storage status.
         # 
-        # >  The instance storage usage is the average storage usage of all compute nodes.
+        # > Instance storage usage of the instance is the average storage usage of all segment nodes.
         self.status = status
-        # The metric value of instance storage usage.
+        # The metric value of the instance storage usage, which is the average storage usage of all segment nodes.
         # 
         # Unit: %.
         self.value = value
@@ -789,15 +789,15 @@ class DescribeHealthStatusResponseBodyStatusAdbpgConnectionStatus(DaraModel):
         status: str = None,
         value: float = None,
     ):
-        # The connection health status of the instance. Valid values:
+        # The connection status of the instance. Valid values:
         # 
-        # *   **critical**: The instance connection usage is greater than 95%. In this case, this metric is marked in red in the console.
-        # *   **warning**: The instance connection usage is greater than 90% and less than or equal to 95%. In this case, this metric is marked in yellow in the console.
-        # *   **healthy**: The instance connection usage is less than or equal to 90%. In this case, this metric is marked in green in the console.
+        # - **critical**: The connection usage of the instance is greater than 95%. The status is displayed in red in the console.
+        # - **warning**: The connection usage of the instance is greater than 90% and less than or equal to 95%. The status is displayed in yellow in the console.
+        # - **healthy**: The connection usage of the instance is less than or equal to 90%. The status is displayed in green in the console.
         # 
-        # >  The instance connection usage is the maximum connection usage among all the coordinator and compute nodes.
+        # > The connection usage of the instance is the maximum connection usage among all master nodes and segment nodes.
         self.status = status
-        # The metric value of instance connection usage.
+        # The metric value of the instance connection usage, which is the maximum connection usage among all master nodes and segment nodes.
         # 
         # Unit: %.
         self.value = value
@@ -834,13 +834,13 @@ class DescribeHealthStatusResponseBodyStatusAdbgpSegmentDiskUsagePercentMax(Dara
         status: str = None,
         value: float = None,
     ):
-        # The status corresponding to the maximum storage usage among all compute nodes. Valid values:
+        # The maximum storage usage status of segment nodes. Valid values:
         # 
-        # *   **critical**: The compute node storage usage is greater than or equal to 90%. In this case, the instance is locked.
-        # *   **warning**: The compute node storage usage is greater than or equal to 80% and less than 90%.
-        # *   **healthy**: The compute node storage usage is less than 80%.
+        # - **critical**: Instance storage usage is greater than or equal to 90%, and the instance will be locked.
+        # - **warning**: Instance storage usage is greater than or equal to 80% and less than 90%.
+        # - **healthy**: Instance storage usage is less than 80%, indicating a healthy storage status.
         self.status = status
-        # The metric value of maximum compute node storage usage.
+        # The metric value of the maximum storage usage of segment nodes.
         # 
         # Unit: %.
         self.value = value

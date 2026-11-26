@@ -15,23 +15,16 @@
 #ifndef TENSORSTORE_DATA_TYPE_CONVERSION_H_
 #define TENSORSTORE_DATA_TYPE_CONVERSION_H_
 
-#include <array>
+#include <stdint.h>
+
 #include <complex>
 #include <limits>
 #include <type_traits>
 
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
-
-template <typename From, typename To>
-struct ConvertDataType {
-  void operator()(const From* from, To* to, void* arg) const {
-    *to = static_cast<To>(*from);
-  }
-};
 
 template <typename From, typename To>
 struct DataTypeConversionTraits {
@@ -77,12 +70,6 @@ constexpr inline bool
 
 namespace internal {
 
-/// Outer array is indexed by source type.  Inner array is indexed by target
-/// type.
-extern const std::array<DataTypeOperations::CanonicalConversionOperations,
-                        kNumDataTypeIds>
-    canonical_data_type_conversions;
-
 /// Returns the data type converter.
 ///
 /// If `from == to`, `flags` is set to
@@ -116,49 +103,91 @@ DataTypeConversionLookupResult GetDataTypeConverter(DataType from, DataType to);
 Result<DataTypeConversionLookupResult> GetDataTypeConverterOrError(
     DataType from, DataType to, DataTypeConversionFlags required_flags = {});
 
+/// Converts a floating-point value to an integer data type `T` (`int8_t` ..
+/// `uint64_t`, `int2_t`, `int4_t`), mapping NaN to 0 and clamping out-of-range
+/// values (including +/-infinity) to `[lowest(), max()]` of `T` so that
+/// conversion is well-defined for all inputs (including in `constexpr`
+/// evaluation).
+///
+/// `double` inputs are range-checked in `double` precision; all other
+/// floating-point types (`float`, `float16_t`, `bfloat16_t`, and the 1-byte
+/// float types) are first converted losslessly to `float`.
+template <typename T, typename From>
+constexpr T SaturatedFloatToInt(From x) {
+  static_assert(!std::numeric_limits<From>::is_integer &&
+                sizeof(From) <= sizeof(double));
+  using F = std::conditional_t<std::is_same_v<From, double>, double, float>;
+  using FLimits = std::numeric_limits<F>;
+  using TLimits = std::numeric_limits<T>;
+  const F f = static_cast<F>(x);
+#if defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__
+  constexpr bool kUseBitcastNanCheck = true;
+#else
+  // GCC enables `-ftrapping-math` by default, which rejects ordered relational
+  // comparisons (`>`, `<`, `>=`, `<=`) on `NaN` in `constexpr` evaluation.
+  const bool kUseBitcastNanCheck = std::is_constant_evaluated();
+#endif
+  if (kUseBitcastNanCheck) {
+    using UInt =
+        std::conditional_t<std::is_same_v<F, double>, uint64_t, uint32_t>;
+    constexpr UInt kAbsMask =
+        std::is_same_v<F, double> ? 0x7fffffffffffffffULL : 0x7fffffffU;
+    constexpr UInt kInfBits =
+        std::is_same_v<F, double> ? 0x7ff0000000000000ULL : 0x7f800000U;
+    if ((__builtin_bit_cast(UInt, f) & kAbsMask) > kInfBits) return T{0};
+  }
+  if constexpr (std::is_unsigned_v<T> && TLimits::digits <= FLimits::digits) {
+    // Unsigned integers whose `max()` is exact in `F` (`uint8_t`, `uint16_t`
+    // from `float`/`double`; plus `uint32_t` from `double`): `f > 0` maps both
+    // `NaN` and negatives to `0` in a single `vmax` instruction. Casting via
+    // `int32_t` when `sizeof(T) < sizeof(int32_t)` enables AVX2
+    // `vcvttps2dq`/`vcvttpd2dq`.
+    static_assert(!std::is_same_v<T, bool>);
+    using ConvInt =
+        std::conditional_t<(sizeof(T) < sizeof(int32_t)), int32_t, T>;
+    constexpr F kMax = static_cast<F>(TLimits::max());
+    const F pos = (f > F{0}) ? f : F{0};
+    const F clamped = (pos < kMax) ? pos : kMax;
+    return static_cast<T>(static_cast<ConvInt>(clamped));
+  } else if constexpr (TLimits::digits <= FLimits::digits) {
+    // Narrow signed (`int2_t`, `int4_t`, `int8_t`, `int16_t` from
+    // `float`/`double`; plus `int32_t` from `double`): both `lowest()` and
+    // `max()` are exact in `F` and fit in `int32_t`, allowing branchless
+    // `vmax` + `vmin` + `NaN` zero-masking.
+    static_assert(TLimits::is_integer && TLimits::is_signed);
+    constexpr F kLowest =
+        static_cast<F>(static_cast<int32_t>(TLimits::lowest()));
+    constexpr F kMax = static_cast<F>(static_cast<int32_t>(TLimits::max()));
+    const F lo = (f > kLowest) ? f : kLowest;
+    const F clamped = (lo < kMax) ? lo : kMax;
+    const int32_t conv = (f == f) ? static_cast<int32_t>(clamped) : 0;
+    if constexpr (!std::is_integral_v<T>) {
+      return T(typename T::bitcast_construct_t{}, static_cast<int8_t>(conv));
+    } else {
+      return static_cast<T>(conv);
+    }
+  } else if constexpr (std::is_unsigned_v<T>) {
+    // Wide unsigned (`uint32_t` from `float`; `uint64_t` from
+    // `float`/`double`): `!(f > 0)` folds `NaN -> 0` and `<= 0 -> 0` into a
+    // single comparison, and `>=` catches `max()` rounded up to `2^k`.
+    static_assert(!std::is_same_v<T, bool>);
+    constexpr F kMaxRounded = static_cast<F>(TLimits::max());
+    if (!(f > F{0})) return T{0};
+    if (f >= kMaxRounded) return TLimits::max();
+    return static_cast<T>(f);
+  } else {
+    // Wide signed (`int32_t` from `float`; `int64_t` from `float`/`double`).
+    static_assert(std::is_integral_v<T> && std::is_signed_v<T>);
+    constexpr F kLowest = static_cast<F>(TLimits::lowest());
+    constexpr F kMaxRounded = static_cast<F>(TLimits::max());
+    if (f != f) return T{0};
+    if (f >= kMaxRounded) return TLimits::max();
+    if (f <= kLowest) return TLimits::lowest();
+    return static_cast<T>(f);
+  }
+}
+
 }  // namespace internal
-
-namespace internal_data_type {
-
-template <typename From, typename To>
-std::enable_if_t<((DataTypeConversionTraits<From, To>::flags &
-                   (DataTypeConversionFlags::kSupported |
-                    DataTypeConversionFlags::kCanReinterpretCast)) ==
-                      DataTypeConversionFlags::kSupported &&
-                  !std::is_same_v<From, To>),
-                 internal::ElementwiseFunction<2, void*>>
-GetConvertFunction() {
-  return internal::SimpleElementwiseFunction<
-      ConvertDataType<From, To>(From, const To), void*>();
-}
-
-template <typename From, typename To>
-std::enable_if_t<((DataTypeConversionTraits<From, To>::flags &
-                   (DataTypeConversionFlags::kSupported |
-                    DataTypeConversionFlags::kCanReinterpretCast)) !=
-                      DataTypeConversionFlags::kSupported ||
-                  std::is_same_v<From, To>),
-                 internal::ElementwiseFunction<2, void*>>
-GetConvertFunction() {
-  return {};
-}
-
-template <typename From>
-constexpr internal::DataTypeOperations::CanonicalConversionOperations
-GetConvertToCanonicalOperations() {
-  return {
-      /*.convert=*/MapCanonicalDataTypes([](auto dtype) {
-        using X = typename decltype(dtype)::Element;
-        return GetConvertFunction<From, X>();
-      }),
-      /*.flags=*/MapCanonicalDataTypes([](auto dtype) {
-        using X = typename decltype(dtype)::Element;
-        return DataTypeConversionTraits<From, X>::flags;
-      }),
-  };
-}
-
-}  // namespace internal_data_type
 
 // Define conversion traits between canonical data types.
 
@@ -201,10 +230,17 @@ struct FloatFloatDataTypeConversionTraits {
       // float -> float conversions are always supported.
       DataTypeConversionFlags::kSupported |
       // `kSafeAndImplicit` if there is no reduction in mantissa or exponent
-      // bits.
+      // bits. For unsigned formats with no subnormals (such as E8M0), the
+      // minimum value 2^(min_exponent - 1) is still exact in `To` if it fits
+      // in `To`'s subnormal range.
       ((std::numeric_limits<From>::digits <= std::numeric_limits<To>::digits &&
-        std::numeric_limits<From>::min_exponent >=
-            std::numeric_limits<To>::min_exponent &&
+        (std::numeric_limits<From>::min_exponent >=
+             std::numeric_limits<To>::min_exponent ||
+         (!std::numeric_limits<From>::is_signed &&
+          std::numeric_limits<From>::min_exponent -
+                  std::numeric_limits<From>::digits >=
+              std::numeric_limits<To>::min_exponent -
+                  std::numeric_limits<To>::digits)) &&
         std::numeric_limits<From>::max_exponent <=
             std::numeric_limits<To>::max_exponent)
            ? DataTypeConversionFlags::kSafeAndImplicit
@@ -243,7 +279,7 @@ struct IntegerJsonDataTypeConversionTraits {
 template <typename From, typename To>
 struct FloatJsonDataTypeConversionTraits {
   // float -> json conversion is always supported, and has `kSafeAndImplicit`
-  // flag iff the conversion from `From` to `double` does.
+  // flag if and only if the conversion from `From` to `double` does.
   constexpr static DataTypeConversionFlags flags =
       DataTypeConversionTraits<From, double>::flags &
       (DataTypeConversionFlags::kSupported |
@@ -259,8 +295,6 @@ struct DataTypeConversionTraits<std::complex<T>, ::tensorstore::dtypes::json_t>
 #define TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(FROM, TO, ...) \
   template <>                                                     \
   struct DataTypeConversionTraits<FROM, TO> {                     \
-    using From = FROM;                                            \
-    using To = TO;                                                \
     constexpr static DataTypeConversionFlags flags = __VA_ARGS__; \
   };                                                              \
   /**/

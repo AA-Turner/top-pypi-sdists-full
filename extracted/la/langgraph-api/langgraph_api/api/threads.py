@@ -1,5 +1,6 @@
 import re
 from contextlib import aclosing
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, get_args
 
 from starlette.exceptions import HTTPException
@@ -121,6 +122,32 @@ def _exclude_metadata_kwargs(payload: dict) -> dict:
     return {"exclude_metadata": exclude_metadata}
 
 
+_THREAD_TIME_RANGE_FIELDS = (
+    "created_after",
+    "created_before",
+    "state_updated_after",
+    "state_updated_before",
+)
+
+
+def _time_range_kwargs(payload: dict) -> dict:
+    """Parse ISO 8601 time-range bounds into ops kwargs. Naive values are UTC."""
+    kwargs = {}
+    for field in _THREAD_TIME_RANGE_FIELDS:
+        raw = payload.get(field)
+        if raw is None:
+            continue
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid {field}: must be an ISO 8601 datetime",
+            ) from None
+        kwargs[field] = parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    return kwargs
+
+
 @retry_db
 async def search_threads(
     request: ApiRequest,
@@ -158,7 +185,7 @@ async def search_threads(
     # it would extract from ciphertext (wrong) and we'll redo it anyway.
     storage_extract = None if needs_python_extract else extract
 
-    exclude_kwargs = _exclude_metadata_kwargs(payload)
+    filter_kwargs = {**_exclude_metadata_kwargs(payload), **_time_range_kwargs(payload)}
     async with connect() as conn:
         threads_iter, next_offset = await Threads.search(
             conn,
@@ -174,7 +201,7 @@ async def search_threads(
             extract=storage_extract,
             # Python-side extraction reads the values, so it needs them decoded.
             **_raw_values_kwargs(not (extract and needs_python_extract)),
-            **exclude_kwargs,
+            **filter_kwargs,
         )
     threads, response_headers = await get_pagination_headers(
         threads_iter, next_offset, offset
@@ -203,13 +230,14 @@ async def count_threads(
 ):
     """Count threads."""
     payload = await request.json(ThreadCountRequest)
+    filter_kwargs = {**_exclude_metadata_kwargs(payload), **_time_range_kwargs(payload)}
     async with connect() as conn:
         count = await Threads.count(
             conn,
             status=payload.get("status"),
             values=payload.get("values"),
             metadata=payload.get("metadata"),
-            **_exclude_metadata_kwargs(payload),
+            **filter_kwargs,
         )
     return ApiResponse(count)
 
@@ -222,6 +250,7 @@ async def get_thread_state(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     subgraphs = request.query_params.get("subgraphs") in ("true", "True")
+    select = _validate_history_select(request.query_params.getlist("select"))
     async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         config = {
             "configurable": {
@@ -229,9 +258,7 @@ async def get_thread_state(
                 "thread_id": thread_id,
             }
         }
-        state = state_snapshot_to_thread_state(
-            await Threads.State.get(conn, config=config, subgraphs=subgraphs)
-        )
+        state = await _thread_state(conn, select, config=config, subgraphs=subgraphs)
     return ApiResponse(state)
 
 
@@ -243,6 +270,7 @@ async def get_thread_state_at_checkpoint(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     checkpoint_id = request.path_params["checkpoint_id"]
+    select = _validate_history_select(request.query_params.getlist("select"))
     async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         config = {
             "configurable": {
@@ -251,12 +279,11 @@ async def get_thread_state_at_checkpoint(
                 "checkpoint_id": checkpoint_id,
             }
         }
-        state = state_snapshot_to_thread_state(
-            await Threads.State.get(
-                conn,
-                config=config,
-                subgraphs=request.query_params.get("subgraphs") in ("true", "True"),
-            )
+        state = await _thread_state(
+            conn,
+            select,
+            config=config,
+            subgraphs=request.query_params.get("subgraphs") in ("true", "True"),
         )
     return ApiResponse(state)
 
@@ -269,6 +296,7 @@ async def get_thread_state_at_checkpoint_post(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadStateCheckpointRequest)
+    select = _validate_history_select(payload.get("select"))
     async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         config = {
             "configurable": {
@@ -277,14 +305,23 @@ async def get_thread_state_at_checkpoint_post(
                 "thread_id": thread_id,
             }
         }
-        state = state_snapshot_to_thread_state(
-            await Threads.State.get(
-                conn,
-                config=config,
-                subgraphs=payload.get("subgraphs", False),
-            )
+        state = await _thread_state(
+            conn,
+            select,
+            config=config,
+            subgraphs=payload.get("subgraphs", False),
         )
     return ApiResponse(state)
+
+
+async def _thread_state(
+    conn: Any, select: list[str] | None, **kwargs: Any
+) -> "Mapping[str, Any]":
+    value_keys = _selected_value_keys(select)
+    if value_keys is not None:
+        kwargs["channels"] = value_keys
+    state = state_snapshot_to_thread_state(await Threads.State.get(conn, **kwargs))
+    return _project_thread_state(state, select, value_keys) if select else state
 
 
 @retry_db
@@ -414,7 +451,7 @@ def _validate_history_select(select: list[str] | None) -> list[str] | None:
 
 
 def _selected_value_keys(select: list[str] | None) -> list[str] | None:
-    """State keys history entries return, or None when they return all of them."""
+    """State keys a state or history read returns, or None when it returns all."""
     if not select or "values" in select:
         return None
     return [f.removeprefix("values.") for f in select if f.startswith("values.")]
@@ -543,8 +580,13 @@ async def delete_thread(request: ApiRequest):
     """Delete a thread by ID."""
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
+    sync_checkpoint_delete = (
+        request.query_params.get("sync_checkpoint_delete", "").lower() == "true"
+    )
     async with connect() as conn:
-        tid = await Threads.delete(conn, thread_id)
+        tid = await Threads.delete(
+            conn, thread_id, sync_checkpoint_delete=sync_checkpoint_delete
+        )
     await fetchone(tid)
     return Response(status_code=204)
 
@@ -574,6 +616,7 @@ async def prune_threads(request: ApiRequest):
     pruned_count = await Threads.prune(
         thread_ids=thread_ids,
         strategy=strategy,
+        sync_checkpoint_delete=payload.get("sync_checkpoint_delete", False),
     )
 
     return ApiResponse({"pruned_count": pruned_count})
@@ -614,12 +657,15 @@ async def join_thread_stream(request: ApiRequest):
         if mode not in get_args(ThreadStreamMode):
             raise HTTPException(status_code=422, detail=f"Invalid stream mode: {mode}")
 
+    # Clients reconnect to Location as-is, so it keeps the request's query.
+    query = f"?{request.url.query}" if request.url.query else ""
     return EventSourceResponse(
         Threads.Stream.join(
             thread_id,
             last_event_id=last_event_id,
             stream_modes=stream_modes,
         ),
+        headers={"Location": f"/threads/{thread_id}/stream{query}"},
     )
 
 

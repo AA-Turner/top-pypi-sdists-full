@@ -18,7 +18,7 @@ class ListSchemasRequest(DaraModel):
     ):
         # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in the target region, including the instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
@@ -26,20 +26,20 @@ class ListSchemasRequest(DaraModel):
         # 
         # This parameter is required.
         self.database = database
-        # The maximum number of entries per page. Valid values: 1 to 100.
+        # The maximum number of entries to return per page. Valid values: 1 to 100.
         self.max_results = max_results
-        # The pagination token that is used in the next request to retrieve a new page of results. You do not need to specify this parameter for the first request. You must specify the token that is obtained from the previous query as the value of NextToken.
+        # The paging token used to start the next paged query.
         self.next_token = next_token
         self.owner_id = owner_id
         # The region ID of the instance.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The schema name pattern for matching. For example, `ab%` specifies to match schema names that start with ab.
+        # The pattern used to match schema names. For example, ```ab%``` indicates a name that starts with ab.
         self.schema_pattern = schema_pattern
-        # The Alibaba Cloud Resource Name (ARN) of the access credential for the created Data API account. You can call the CreateSecret operation to create an access credential.
+        # The access credential. You can create it by calling the CreateSecret operation.
         # 
-        # >  To call the ListSchemas operation as a Resource Access Management (RAM) user, the RAM user must have the permissions to call the UseSecret or GetSecretValue operation on the ARN of the access credential.
+        # > If you call this operation as a RAM user, you must have the UseSecret or GetSecretValue permissions on the SecretArn.
         # 
         # This parameter is required.
         self.secret_arn = secret_arn

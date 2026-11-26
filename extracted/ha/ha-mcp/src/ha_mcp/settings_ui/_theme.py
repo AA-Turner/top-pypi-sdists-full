@@ -41,8 +41,7 @@ _THEME_PREF_VALUES: dict[str, tuple[str, ...]] = {
 _CUSTOM_COLOR_PARTS = ("bg", "text", "accent")
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
-# Same single-loop rationale as ``_OVERRIDE_FILE_LOCK`` in _persistence;
-# separate lock because it serializes a different file (``theme_prefs.json``).
+# Process-wide; the save under it never awaits, so it never binds to a loop.
 _THEME_PREFS_LOCK: asyncio.Lock | None = None
 
 # Keys already warned about by ``_load_theme_prefs`` — it runs on every
@@ -117,7 +116,7 @@ def _load_theme_prefs() -> dict[str, str]:
         raw = json.loads(path.read_text())
     except FileNotFoundError:
         return {}
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         logger.warning("Cannot read theme prefs at %s", path, exc_info=True)
         return {}
     sanitized = _sanitize_theme_prefs(raw) or {}
@@ -125,7 +124,7 @@ def _load_theme_prefs() -> dict[str, str]:
         # Hand-edited values outside the offered sets are dropped on load
         # AND overwritten by the next save's RMW merge — leave a trail so
         # the edit's author can see why their value never sticks. Warn
-        # once per key per process: _render_settings_html() calls this on
+        # once per key per process: render_settings_html() calls this on
         # every page view, and a permanently stale key (e.g. left behind
         # by a future version) must not spam the log forever (#1574
         # review).

@@ -34,7 +34,6 @@ from .rtp import (
     RtcpRtpfbPacket,
     RtcpSdesPacket,
     RtcpSenderInfo,
-    RtcpSourceInfo,
     RtcpSrPacket,
     RtpPacket,
     unpack_remb_fci,
@@ -72,6 +71,49 @@ class RTCEncodedFrame:
         self.audio_level = audio_level
 
 
+class RtpTimeline:
+    """
+    Map encoder timestamps to RTP timestamps, which must increase monotonically
+    and linearly in time (RFC 3550 section 5.1), even when the source changes.
+    """
+
+    def __init__(self, clock_rate: int) -> None:
+        self.__clock_rate = clock_rate
+        self.__frame_duration = 0
+        self.__last_time = 0.0
+        self.__last_timestamp: Optional[int] = None
+        self.__origin = random32()
+        self.__restart = False
+
+    def restart(self) -> None:
+        """
+        Start a new source, whose timestamps are unrelated to the previous ones.
+        """
+        self.__restart = True
+
+    def timestamp(self, encoder_timestamp: int) -> int:
+        """
+        Return the RTP timestamp of a frame.
+        """
+        now = time.monotonic()
+        if self.__restart and self.__last_timestamp is not None:
+            # Carry on from the previous frame, after the elapsed time but
+            # without overlapping it.
+            elapsed = int((now - self.__last_time) * self.__clock_rate)
+            target = uint32_add(
+                self.__last_timestamp, max(elapsed, self.__frame_duration)
+            )
+            self.__origin = uint32_add(target, -encoder_timestamp)
+
+        timestamp = uint32_add(self.__origin, encoder_timestamp)
+        if self.__last_timestamp is not None and not self.__restart:
+            self.__frame_duration = uint32_add(timestamp, -self.__last_timestamp)
+        self.__last_time = now
+        self.__last_timestamp = timestamp
+        self.__restart = False
+        return timestamp
+
+
 class RTCRtpSender:
     """
     The :class:`RTCRtpSender` interface provides the ability to control and
@@ -89,6 +131,7 @@ class RTCRtpSender:
         if transport.state == "closed":
             raise InvalidStateError
 
+        self.__track_replaced = asyncio.Event()
         if isinstance(trackOrKind, MediaStreamTrack):
             self.__kind = trackOrKind.kind
             self.replaceTrack(trackOrKind)
@@ -96,6 +139,7 @@ class RTCRtpSender:
             self.__kind = trackOrKind
             self.replaceTrack(None)
         self.__cname: Optional[str] = None
+        self.__codec: Optional[RTCRtpCodecParameters] = None
         self._ssrc = random32()
         self._rtx_ssrc = random32()
         # FIXME: how should this be initialised?
@@ -117,16 +161,33 @@ class RTCRtpSender:
         self.__rtx_sequence_number = random_sequence_number()
         self.__started = False
         self.__stats = RTCStatsReport()
+        # SSRCs are only unique within an RTP session (RFC 3550 section 3), so
+        # stats IDs are scoped to this sender.
+        self.__stats_id = str(id(self))
+        self.__stopped = False
         self.__transport = transport
 
-        # stats
+        # RTCP sender reports and round-trip time.
         self.__lsr: Optional[int] = None
         self.__lsr_time: Optional[float] = None
-        self.__ntp_timestamp = 0
+        # The RTP timestamp and clock rate of the last frame sent, and the local
+        # time at which it was sent.
+        self.__rtp_clock_rate = 0
+        self.__rtp_time = 0.0
         self.__rtp_timestamp = 0
         self.__octet_count = 0
         self.__packet_count = 0
         self.__rtt: Optional[float] = None
+        # Retransmissions sent on the stream itself rather than on the RTX stream.
+        self.__stream_retransmitted_bytes_sent = 0
+        self.__stream_retransmitted_packets_sent = 0
+
+        # Frames, NACKs and retransmissions are counted for stats, not RTCP reports.
+        self.__frames_encoded = 0
+        self.__frames_sent = 0
+        self.__nack_count = 0
+        self.__retransmitted_bytes_sent = 0
+        self.__retransmitted_packets_sent = 0
 
         # logging
         self.__log_debug: Callable[..., None] = lambda *args: None
@@ -140,9 +201,10 @@ class RTCRtpSender:
         return self.__kind
 
     @property
-    def track(self) -> MediaStreamTrack:
+    def track(self) -> Optional[MediaStreamTrack]:
         """
-        The :class:`MediaStreamTrack` which is being handled by the sender.
+        The :class:`MediaStreamTrack` which is being handled by the sender, or
+        `None`.
         """
         return self.__track
 
@@ -170,21 +232,36 @@ class RTCRtpSender:
 
         :rtype: :class:`RTCStatsReport`
         """
+        # Link the local and remote statistics, once an RTCP RR was received.
+        local_id = self.__stats_object_id("outbound-rtp", self._ssrc)
+        remote = self.__stats.get(
+            self.__stats_object_id("remote-inbound-rtp", self._ssrc)
+        )
+        if remote is not None:
+            remote.localId = local_id
+
+        # Frame counters MUST NOT exist for audio (webrtc-stats, framesEncoded).
+        is_video = self.__kind == "video"
+
         self.__stats.add(
             RTCOutboundRtpStreamStats(
                 # RTCStats
                 timestamp=clock.current_datetime(),
                 type="outbound-rtp",
-                id="outbound-rtp_" + str(id(self)),
+                id=local_id,
                 # RTCStreamStats
                 ssrc=self._ssrc,
                 kind=self.__kind,
                 transportId=self.transport._stats_id,
                 # RTCSentRtpStreamStats
-                packetsSent=self.__packet_count,
-                bytesSent=self.__octet_count,
+                packetsSent=self.__packet_count + self.__retransmitted_packets_sent,
+                bytesSent=self.__octet_count + self.__retransmitted_bytes_sent,
                 # RTCOutboundRtpStreamStats
                 trackId=str(id(self.track)),
+                nackCount=self.__nack_count,
+                framesEncoded=self.__frames_encoded if is_video else None,
+                framesSent=self.__frames_sent if is_video else None,
+                remoteId=remote.id if remote is not None else None,
             )
         )
         self.__stats.update(self.transport._get_stats())
@@ -192,7 +269,21 @@ class RTCRtpSender:
         return self.__stats
 
     def replaceTrack(self, track: Optional[MediaStreamTrack]) -> None:
+        """
+        Replace the track being sent, without renegotiation.
+
+        The new track is sent on the same RTP stream, whose timestamps carry
+        on. With `None`, or once a track has ended, nothing is sent until the
+        track is replaced.
+
+        :param track: A :class:`MediaStreamTrack` of the sender's kind, or `None`.
+        :raises TypeError: If the track's kind differs from the sender's.
+        """
+        if track is not None and track.kind != self.__kind:
+            raise TypeError(f"Expected a track of kind '{self.__kind}'")
+
         self.__track = track
+        self.__track_replaced.set()
         if track is not None:
             self._track_id = track.id
         else:
@@ -207,24 +298,37 @@ class RTCRtpSender:
 
         :param parameters: The :class:`RTCRtpSendParameters` for the sender.
         """
+        if self.__stopped:
+            return
+
+        self.__cname = parameters.rtcp.cname
+        self.__mid = parameters.muxId
+
+        # Send with the first codec that is not RTX, which only repairs
+        # the codec being sent (RFC 9429 section 5.11).
+        codec = next(c for c in parameters.codecs if not is_rtx(c))
+        if codec != self.__codec:
+            # Keep the SSRC even if the clock rate changes, unlike RFC 7160 section
+            # 4.1, as receivers routing by signalled SSRCs would drop a new one.
+            self.__codec = codec
+
+        # Make note of the RTX payload type that repairs this codec.
+        self.__rtx_payload_type = next(
+            (
+                c.payloadType
+                for c in parameters.codecs
+                if is_rtx(c) and c.parameters["apt"] == codec.payloadType
+            ),
+            None,
+        )
+
+        # Receive RTCP through the transport, and use the RTP header extension
+        # IDs of the latest negotiation.
+        self.__transport._register_rtp_sender(self, parameters)
+        self.__rtp_header_extensions_map.configure(parameters)
+
         if not self.__started:
-            self.__cname = parameters.rtcp.cname
-            self.__mid = parameters.muxId
-
-            # make note of the RTP header extension IDs
-            self.__transport._register_rtp_sender(self, parameters)
-            self.__rtp_header_extensions_map.configure(parameters)
-
-            # make note of RTX payload type
-            for codec in parameters.codecs:
-                if (
-                    is_rtx(codec)
-                    and codec.parameters["apt"] == parameters.codecs[0].payloadType
-                ):
-                    self.__rtx_payload_type = codec.payloadType
-                    break
-
-            self.__rtp_task = asyncio.ensure_future(self._run_rtp(parameters.codecs[0]))
+            self.__rtp_task = asyncio.ensure_future(self._run_rtp())
             self.__rtcp_task = asyncio.ensure_future(self._run_rtcp())
             self.__started = True
 
@@ -232,10 +336,11 @@ class RTCRtpSender:
         """
         Irreversibly stop the sender.
         """
+        self.__stopped = True
         if self.__started:
             self.__transport._unregister_rtp_sender(self)
 
-            # shutdown RTP and RTCP tasks
+            # Shut down the RTP and RTCP tasks.
             await asyncio.gather(self.__rtp_started.wait(), self.__rtcp_started.wait())
             self.__rtp_task.cancel()
             self.__rtcp_task.cancel()
@@ -246,7 +351,7 @@ class RTCRtpSender:
             for report in filter(lambda x: x.ssrc == self._ssrc, packet.reports):
                 # estimate round-trip time
                 if self.__lsr == report.lsr and report.dlsr:
-                    rtt = time.time() - self.__lsr_time - (report.dlsr / 65536)
+                    rtt = time.monotonic() - self.__lsr_time - (report.dlsr / 65536)
                     if self.__rtt is None:
                         self.__rtt = rtt
                     else:
@@ -257,21 +362,22 @@ class RTCRtpSender:
                         # RTCStats
                         timestamp=clock.current_datetime(),
                         type="remote-inbound-rtp",
-                        id="remote-inbound-rtp_" + str(id(self)),
+                        id=self.__stats_object_id("remote-inbound-rtp", report.ssrc),
                         # RTCStreamStats
-                        ssrc=packet.ssrc,
+                        ssrc=report.ssrc,
                         kind=self.__kind,
                         transportId=self.transport._stats_id,
                         # RTCReceivedRtpStreamStats
                         packetsReceived=self.__packet_count - report.packets_lost,
                         packetsLost=report.packets_lost,
-                        jitter=report.jitter,
+                        jitter=report.jitter / self.__codec.clockRate,
                         # RTCRemoteInboundRtpStreamStats
                         roundTripTime=self.__rtt,
-                        fractionLost=report.fraction_lost,
+                        fractionLost=report.fraction_lost / 256,
                     )
                 )
         elif isinstance(packet, RtcpRtpfbPacket) and packet.fmt == RTCP_RTPFB_NACK:
+            self.__nack_count += 1
             for seq in packet.lost:
                 await self._retransmit(seq)
         elif isinstance(packet, RtcpPsfbPacket) and packet.fmt in (
@@ -292,10 +398,10 @@ class RTCRtpSender:
                 pass
 
     async def _next_encoded_frame(
-        self, codec: RTCRtpCodecParameters
+        self, codec: RTCRtpCodecParameters, track: MediaStreamTrack
     ) -> Optional[RTCEncodedFrame]:
         # Get [Frame|Packet].
-        data = await self.__track.recv()
+        data = await track.recv()
 
         # If the sender is disabled, drop the frame instead of encoding it.
         # We still want to read from the track in order to avoid frames
@@ -335,10 +441,12 @@ class RTCRtpSender:
         """
         packet = self.__rtp_history.get(sequence_number % RTP_HISTORY_SIZE)
         if packet and packet.sequence_number == sequence_number:
-            if self.__rtx_payload_type is not None:
+            payload_size = len(packet.payload)
+            rtx_payload_type = self.__rtx_payload_type
+            if rtx_payload_type is not None:
                 packet = wrap_rtx(
                     packet,
-                    payload_type=self.__rtx_payload_type,
+                    payload_type=rtx_payload_type,
                     sequence_number=self.__rtx_sequence_number,
                     ssrc=self._rtx_ssrc,
                 )
@@ -348,31 +456,88 @@ class RTCRtpSender:
             packet_bytes = packet.serialize(self.__rtp_header_extensions_map)
             await self.transport._send_rtp(packet_bytes)
 
+            # Retransmissions count towards the stream's stats (webrtc-stats,
+            # "outbound-rtp"), and RTX ones are not part of its RTCP sender reports.
+            self.__retransmitted_bytes_sent += payload_size
+            self.__retransmitted_packets_sent += 1
+            if rtx_payload_type is None:
+                self.__stream_retransmitted_bytes_sent += payload_size
+                self.__stream_retransmitted_packets_sent += 1
+
     def _send_keyframe(self) -> None:
         """
         Request the next frame to be a keyframe.
         """
         self.__force_keyframe = True
 
-    async def _run_rtp(self, codec: RTCRtpCodecParameters) -> None:
+    async def _run_rtp(self) -> None:
         self.__log_debug("- RTP started")
         self.__rtp_started.set()
 
+        codec = self.__codec
         sequence_number = random_sequence_number()
-        timestamp_origin = random32()
+        timeline = RtpTimeline(codec.clockRate)
+        sending_resumed = True
+        source = None
+        track_ended = False
         try:
             while True:
-                if not self.__track:
-                    await asyncio.sleep(0.02)
+                # A new codec needs a new encoder, and a new clock rate a new
+                # timeline.
+                if self.__codec is not codec:
+                    if self.__codec.clockRate != codec.clockRate:
+                        timeline = RtpTimeline(self.__codec.clockRate)
+                    codec = self.__codec
+                    self.__encoder = None
+                    source = None
+
+                track = self.__track
+                if not track or track_ended:
+                    sending_resumed = True
+                    source = None
+
+                    # Nothing to send until the track is replaced. There is no
+                    # await since reading the track, so no replacement is missed.
+                    self.__track_replaced.clear()
+                    await self.__track_replaced.wait()
+                    track_ended = False
                     continue
+
+                # Frames from a new track may differ in format, and their
+                # timestamps are unrelated to those of the previous track.
+                if track is not source:
+                    source = track
+                    if self.__encoder is not None:
+                        self.__encoder.reset()
+                    timeline.restart()
 
                 # Fetch the next encoded frame. This can be `None` if the sender
                 # is disabled, in which case we just continue the loop.
-                enc_frame = await self._next_encoded_frame(codec)
+                try:
+                    enc_frame = await self._next_encoded_frame(codec, track)
+                except MediaStreamError:
+                    # An ended track remains the sender's track, but is not sent
+                    # until it is replaced (W3C webrtc-pc, RTCRtpSender.track).
+                    self.__log_debug("- track ended")
+                    track_ended = True
+                    continue
                 if enc_frame is None:
+                    if not self._enabled:
+                        sending_resumed = True
+                    continue
+                self.__frames_encoded += 1
+
+                # A frame encoded while the codec changed is dropped.
+                if self.__codec is not codec:
                     continue
 
-                timestamp = uint32_add(timestamp_origin, enc_frame.timestamp)
+                timestamp = timeline.timestamp(enc_frame.timestamp)
+
+                # Sender reports extrapolate the RTP timestamp from this frame's,
+                # recorded before any of its packets can be retransmitted.
+                self.__rtp_clock_rate = codec.clockRate
+                self.__rtp_time = time.monotonic()
+                self.__rtp_timestamp = timestamp
 
                 for i, payload in enumerate(enc_frame.payloads):
                     packet = RtpPacket(
@@ -382,7 +547,14 @@ class RTCRtpSender:
                     )
                     packet.ssrc = self._ssrc
                     packet.payload = payload
-                    packet.marker = (i == len(enc_frame.payloads) - 1) and 1 or 0
+                    if self.__kind == "audio":
+                        # For audio, the first packet after a gap in transmission
+                        # starts a talkspurt and is marked (RFC 3551 section 4.1).
+                        packet.marker = int(sending_resumed and i == 0)
+                    else:
+                        # For video, the marker bit flags the last packet of a
+                        # frame (RFC 7741 section 4.1).
+                        packet.marker = int(i == len(enc_frame.payloads) - 1)
 
                     # set header extensions
                     packet.extensions.abs_send_time = (
@@ -400,12 +572,13 @@ class RTCRtpSender:
                     packet_bytes = packet.serialize(self.__rtp_header_extensions_map)
                     await self.transport._send_rtp(packet_bytes)
 
-                    self.__ntp_timestamp = clock.current_ntp_time()
-                    self.__rtp_timestamp = packet.timestamp
                     self.__octet_count += len(payload)
                     self.__packet_count += 1
                     sequence_number = uint16_add(sequence_number, 1)
-        except (asyncio.CancelledError, ConnectionError, MediaStreamError):
+
+                self.__frames_sent += 1
+                sending_resumed = False
+        except (asyncio.CancelledError, ConnectionError):
             pass
         except Exception:
             # we *need* to set __rtp_exited, otherwise RTCRtpSender.stop() will hang,
@@ -427,39 +600,56 @@ class RTCRtpSender:
         self.__log_debug("- RTCP started")
         self.__rtcp_started.set()
 
+        # Packet counts when the previous two reports were sent.
+        report_packet_counts = [0, 0]
+
         try:
             while True:
                 # The interval between RTCP packets is varied randomly over the
                 # range [0.5, 1.5] times the calculated interval.
                 await asyncio.sleep(0.5 + random.random())
 
-                # RTCP SR
-                packets: list[AnyRtcpPacket] = [
-                    RtcpSrPacket(
-                        ssrc=self._ssrc,
-                        sender_info=RtcpSenderInfo(
-                            ntp_timestamp=self.__ntp_timestamp,
-                            rtp_timestamp=self.__rtp_timestamp,
-                            packet_count=self.__packet_count & 0xFFFFFFFF,
-                            octet_count=self.__octet_count & 0xFFFFFFFF,
-                        ),
-                    )
-                ]
-                self.__lsr = ((self.__ntp_timestamp) >> 16) & 0xFFFFFFFF
-                self.__lsr_time = time.time()
+                # Retransmissions sent on the stream itself count as packets
+                # sent, unlike those sent on the RTX stream (RFC 3550 section 6.4.1).
+                packet_count = (
+                    self.__packet_count + self.__stream_retransmitted_packets_sent
+                )
+                octet_count = (
+                    self.__octet_count + self.__stream_retransmitted_bytes_sent
+                )
+
+                # An SR is only sent if data was sent since the report before
+                # last, otherwise an RR is sent (RFC 3550 section 6.4).
+                packets: list[AnyRtcpPacket]
+                if packet_count != report_packet_counts[0]:
+                    # The SR carries the time it is sent, and the RTP timestamp
+                    # extrapolated to that time (RFC 3550 section 6.4.1). The local
+                    # clock measures the elapsed time, as the wall clock can step.
+                    ntp_timestamp = clock.current_ntp_time()
+                    elapsed = time.monotonic() - self.__rtp_time
+                    packets = [
+                        RtcpSrPacket(
+                            ssrc=self._ssrc,
+                            sender_info=RtcpSenderInfo(
+                                ntp_timestamp=ntp_timestamp,
+                                rtp_timestamp=uint32_add(
+                                    self.__rtp_timestamp,
+                                    round(elapsed * self.__rtp_clock_rate),
+                                ),
+                                packet_count=packet_count & 0xFFFFFFFF,
+                                octet_count=octet_count & 0xFFFFFFFF,
+                            ),
+                        )
+                    ]
+                    self.__lsr = (ntp_timestamp >> 16) & 0xFFFFFFFF
+                    self.__lsr_time = time.monotonic()
+                else:
+                    packets = [RtcpRrPacket(ssrc=self._ssrc)]
+                report_packet_counts = [report_packet_counts[1], packet_count]
 
                 # RTCP SDES
                 if self.__cname is not None:
-                    packets.append(
-                        RtcpSdesPacket(
-                            chunks=[
-                                RtcpSourceInfo(
-                                    ssrc=self._ssrc,
-                                    items=[(1, self.__cname.encode("utf8"))],
-                                )
-                            ]
-                        )
-                    )
+                    packets.append(RtcpSdesPacket.cname(self._ssrc, self.__cname))
 
                 await self._send_rtcp(packets)
         except asyncio.CancelledError:
@@ -485,3 +675,6 @@ class RTCRtpSender:
 
     def __log_warning(self, msg: str, *args: object) -> None:
         logger.warning(f"RTCRtpsender(%s) {msg}", self.__kind, *args)
+
+    def __stats_object_id(self, stats_type: str, ssrc: int) -> str:
+        return f"{stats_type}_{self.__stats_id}_{ssrc}"

@@ -55,6 +55,8 @@ class TiktokAdLibrarySearchInput(TypedDict, total=False):
     """Keyword to search ad titles and content (e.g. spotify). Provide query or advertiserName, never both."""
     region: NotRequired[str]
     """Two-letter region code for TikTok's Commercial Content Library, such as DE, FR, GB or IT. Each region holds a different set of ads. Omit it to take the library's own default region, DE. Coverage is the EU and EEA; a non-EU code such as US is not served."""
+    requireFields: NotRequired[list[Literal["format", "status"]]]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `status`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on an ad that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
@@ -874,7 +876,7 @@ class TiktokAdLibrarySearchAd(BaseModel):
     )
     format: str | None = Field(
         default=None,
-        description="TikTok's creative format code for the ad, as the ad library reports it.",
+        description="TikTok's creative format code for the ad, as the ad library reports it. Null when the serving source does not report it.",
     )
     last_shown_utc: int | None = Field(
         default=None,
@@ -883,7 +885,7 @@ class TiktokAdLibrarySearchAd(BaseModel):
     )
     status: str | None = Field(
         default=None,
-        description="TikTok's audit status code for the ad, as the ad library reports it.",
+        description="TikTok's audit status code for the ad, as the ad library reports it. Null when the serving source does not report it.",
     )
     url: str | None = Field(
         default=None,
@@ -3263,7 +3265,7 @@ class TiktokNamespace:
         Search TikTok's public Ads Library by keyword or advertiser (advertiser,
         title, audience band, run dates, library link, and video).
 
-        Price: $0.0012 per request.
+        Price: $0.0008 per request.
 
         Example:
             res = client.tiktok.ad_library_search(query="spotify")
@@ -3631,7 +3633,7 @@ class TiktokNamespace:
         Fetch a TikTok creator's public profile (followers, likes, bio,
         verification) by handle.
 
-        Price: $0.00031 per request.
+        Price: $0.0003 per request.
 
         Example:
             res = client.tiktok.profile(handle="zachking")
@@ -3871,7 +3873,7 @@ class TiktokNamespace:
         Search TikTok by keyword and get matching videos (caption, views, likes,
         comments, shares) as normalized JSON.
 
-        Price: $0.00039 per request.
+        Price: $0.00035 per request.
 
         Example:
             res = client.tiktok.search_keyword(datePosted=0, query="cooking", sortBy="relevance")
@@ -3916,7 +3918,7 @@ class TiktokNamespace:
         in each post plus view, like and comment counts. tiktok.search_keyword
         returns videos and drops these.
 
-        Price: $0.0012 per request.
+        Price: $0.0018 per request.
 
         Example:
             res = client.tiktok.search_photos(query="latte art")
@@ -3981,7 +3983,7 @@ class TiktokNamespace:
         Search TikTok's top results for a keyword (caption, views, likes, comments,
         shares) with cursor pagination.
 
-        Price: $0.0006 per request.
+        Price: $0.00059 per request.
 
         Example:
             res = client.tiktok.search_top(query="funny")
@@ -4221,7 +4223,7 @@ class TiktokNamespace:
         Fetch a single TikTok video by URL with its caption and engagement counts
         (views, likes, comments, shares, saves).
 
-        Price: $0.00037 per request.
+        Price: $0.00036 per request.
 
         Example:
             res = client.tiktok.video(url="https://www.tiktok.com/@mrbeast/video/7654638524729216287?_r=1&u_code=elgjf3ff8cajhk&preview_pb=0&sharer_language=en&_d=elh6737j6kjl71&share_item_id=7654638524729216287&source=h5_m")
@@ -4396,7 +4398,7 @@ class AsyncTiktokNamespace:
         Search TikTok's public Ads Library by keyword or advertiser (advertiser,
         title, audience band, run dates, library link, and video).
 
-        Price: $0.0012 per request.
+        Price: $0.0008 per request.
 
         Example:
             res = client.tiktok.ad_library_search(query="spotify")
@@ -4764,7 +4766,7 @@ class AsyncTiktokNamespace:
         Fetch a TikTok creator's public profile (followers, likes, bio,
         verification) by handle.
 
-        Price: $0.00031 per request.
+        Price: $0.0003 per request.
 
         Example:
             res = client.tiktok.profile(handle="zachking")
@@ -5004,7 +5006,7 @@ class AsyncTiktokNamespace:
         Search TikTok by keyword and get matching videos (caption, views, likes,
         comments, shares) as normalized JSON.
 
-        Price: $0.00039 per request.
+        Price: $0.00035 per request.
 
         Example:
             res = client.tiktok.search_keyword(datePosted=0, query="cooking", sortBy="relevance")
@@ -5049,7 +5051,7 @@ class AsyncTiktokNamespace:
         in each post plus view, like and comment counts. tiktok.search_keyword
         returns videos and drops these.
 
-        Price: $0.0012 per request.
+        Price: $0.0018 per request.
 
         Example:
             res = client.tiktok.search_photos(query="latte art")
@@ -5114,7 +5116,7 @@ class AsyncTiktokNamespace:
         Search TikTok's top results for a keyword (caption, views, likes, comments,
         shares) with cursor pagination.
 
-        Price: $0.0006 per request.
+        Price: $0.00059 per request.
 
         Example:
             res = client.tiktok.search_top(query="funny")
@@ -5354,7 +5356,7 @@ class AsyncTiktokNamespace:
         Fetch a single TikTok video by URL with its caption and engagement counts
         (views, likes, comments, shares, saves).
 
-        Price: $0.00037 per request.
+        Price: $0.00036 per request.
 
         Example:
             res = client.tiktok.video(url="https://www.tiktok.com/@mrbeast/video/7654638524729216287?_r=1&u_code=elgjf3ff8cajhk&preview_pb=0&sharer_language=en&_d=elh6737j6kjl71&share_item_id=7654638524729216287&source=h5_m")

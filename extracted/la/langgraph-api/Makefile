@@ -122,6 +122,9 @@ test-watch: test-watch-oss
 unit-test:
 	LANGGRAPH_RUNTIME_EDITION="inmem" DATABASE_URI="test" REDIS_URI="test" uv run pytest $(PYTEST_ROOT_ARGS) tests/unit_tests
 
+unit-test-embedded-core:
+	LANGGRAPH_RUNTIME_EDITION="inmem" DATABASE_URI="test" REDIS_URI="test" uv run pytest $(PYTEST_ROOT_ARGS) tests/unit_tests/test_embedded_core.py
+
 unit-test-watch:
 	LANGGRAPH_RUNTIME_EDITION="inmem" DATABASE_URI="test" REDIS_URI="test" uv run ptw . -- -x -vv --ff --capture=no tests/unit_tests
 
@@ -196,7 +199,8 @@ test-auth-langsmith-api-keys:
 	uv run pytest -v $(PYTEST_ROOT_ARGS) tests/integration_tests/test_langsmith_parallel_auth.py
 
 # dev commands
-LANGGRAPH_DISABLE_FILE_PERSISTENCE ?= true
+# Go core runs on the file-backed SQLite that `langgraph dev` uses by default.
+LANGGRAPH_DISABLE_FILE_PERSISTENCE ?= $(if $(filter true True TRUE 1 yes Yes YES,$(FF_INMEM_CORE)),false,true)
 LANGSMITH_TRACING ?= false
 
 start:
@@ -336,9 +340,10 @@ VERSION_KIND ?= patch
 bump-version:
 	uv run --with hatch hatch version $(VERSION_KIND)
 
-sync-runtime-inmem-dep:
-	@python3 -c 'import pathlib,re; v=pathlib.Path("../runtime_inmem/langgraph_runtime_inmem/__init__.py").read_text(); m=re.search(r"__version__\s*=\s*\"(\d+)\.(\d+)", v); major,minor=map(int,m.groups()); p=pathlib.Path("pyproject.toml"); text,n=re.subn(r"\"langgraph-runtime-inmem>=[^\"]+\",", f"\"langgraph-runtime-inmem>={major}.{minor}.0.dev0,<{major}.{minor + 1}.0.dev0\",", p.read_text(), count=1); \
-	assert n==1, "langgraph-runtime-inmem dep not found in pyproject.toml"; p.write_text(text)'
+# langgraph-api-core-bin ships at the api's version; [inmem] accepts the current minor.
+sync-core-bin-dep:
+	@python3 -c 'import pathlib,re; v=pathlib.Path("langgraph_api/__init__.py").read_text(); m=re.search(r"__version__\s*=\s*\"(\d+)\.(\d+)", v); major,minor=map(int,m.groups()); p=pathlib.Path("pyproject.toml"); text,n=re.subn(r"\"langgraph-api-core-bin>=[^\"]+\",", f"\"langgraph-api-core-bin>={major}.{minor}.0.dev0,<{major}.{minor + 1}.0.dev0\",", p.read_text(), count=1); \
+	assert n==1, "langgraph-api-core-bin dep not found in pyproject.toml"; p.write_text(text)'
 
 # A2A TCK (Test Compatibility Kit) targets
 # Requires a running server: make start (in another terminal)

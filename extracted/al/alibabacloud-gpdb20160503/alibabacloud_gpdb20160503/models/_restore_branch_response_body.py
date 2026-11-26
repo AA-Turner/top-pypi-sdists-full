@@ -10,7 +10,7 @@ class RestoreBranchResponseBody(DaraModel):
         branch_id: str = None,
         request_id: str = None,
     ):
-        # The branch ID that uniquely identifies a Supabase branch.
+        # The branch ID, which uniquely identifies a Supabase branch.
         self.branch_id = branch_id
         # The request ID.
         self.request_id = request_id

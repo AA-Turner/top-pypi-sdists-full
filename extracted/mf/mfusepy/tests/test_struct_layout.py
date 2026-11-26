@@ -1,254 +1,170 @@
 import ctypes
 import os
-import platform
-import pprint
-import shutil
 import subprocess
-import tempfile
-from pathlib import Path
+import sys
 
 import pytest
 
-import mfusepy
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from struct_layout_utils import (  # noqa: E402
+    KERNEL_MEMBER_SIZE_SKIPS,
+    KERNEL_STRUCTS,
+    SKIP_MEMBERS,
+    StructSpec,
+    build_checks,
+    c_probe,
+    compile_and_run,
+    find_compiler,
+    function_prototype_checks,
+    parse_c_output,
+    python_layout,
+)
+
+import mfusepy  # noqa: E402
 
 pytestmark = pytest.mark.order(0)
 
 
-# Only check the struct members that are present on all supported platforms.
-STRUCT_NAMES = {
-    'stat': [
-        'st_atimespec',
-        'st_blksize',
-        'st_blocks',
-        'st_ctimespec',
-        'st_dev',
-        'st_gid',
-        'st_ino',
-        'st_mode',
-        'st_mtimespec',
-        'st_nlink',
-        'st_rdev',
-        'st_size',
-        'st_uid',
-    ],
-    'statvfs': [
-        'f_bavail',
-        'f_bfree',
-        'f_blocks',
-        'f_bsize',
-        'f_favail',
-        'f_ffree',
-        'f_files',
-        'f_flag',
-        'f_frsize',
-        'f_fsid',
-        'f_namemax',
-    ],
-    'fuse_context': ['fuse', 'uid', 'gid', 'pid', 'umask'],
-    'fuse_conn_info': [
-        'proto_major',
-        'proto_minor',
-        'max_write',
-        'max_readahead',
-        'capable',
-        'want',
-        'max_background',
-        'congestion_threshold',
-    ],
-    'fuse_operations': [
-        'getattr',
-        'readlink',
-        'mknod',
-        'mkdir',
-        'unlink',
-        'rmdir',
-        'symlink',
-        'rename',
-        'link',
-        'chmod',
-        'chown',
-        'truncate',
-        'open',
-        'read',
-        'write',
-        'statfs',
-        'flush',
-        'release',
-        'fsync',
-        'setxattr',
-        'getxattr',
-        'listxattr',
-        'removexattr',
-    ],
-}
-
-if platform.system() != 'NetBSD':
-    STRUCT_NAMES['fuse_file_info'] = ['flags', 'fh', 'lock_owner']
-
-if mfusepy.fuse_version_major == 3:
-    STRUCT_NAMES['fuse_config'] = [
-        'set_gid',
-        'gid',
-        'set_uid',
-        'uid',
-        'set_mode',
-        'umask',
-        'entry_timeout',
-        'negative_timeout',
-        'attr_timeout',
-        'intr',
-        'intr_signal',
-        'remember',
-        'hard_remove',
-        'use_ino',
-        'readdir_ino',
-        'direct_io',
-        'kernel_cache',
-        'auto_cache',
+def fuse_struct_names() -> list[str]:
+    names = [
+        name
+        for name in dir(mfusepy)
+        if name.startswith('fuse_')
+        and isinstance(getattr(mfusepy, name), type)
+        and issubclass(getattr(mfusepy, name), ctypes.Structure)
     ]
+    if mfusepy.fuse_version_major == 2:
+        names = [name for name in names if name != 'fuse_config']
+        if mfusepy.fuse_version_minor < 9 or mfusepy._librefuse:
+            names = [name for name in names if name not in ('fuse_buf', 'fuse_bufvec')]
+    return names
 
 
-C_CHECKER = r'''
-#include <stdio.h>
-#include <stddef.h>
-#include <sys/stat.h>
-#include <sys/statvfs.h>
-#include <fuse.h>
-
-#define PRINT_STAT_MEMBER_OFFSET(NAME) \
-    printf("stat.%s offset:%zu\n", #NAME, offsetof(struct stat, NAME));
-
-#define PRINT_STATVFS_MEMBER_OFFSET(NAME) \
-    printf("statvfs.%s offset:%zu\n", #NAME, offsetof(struct statvfs, NAME));
-
-#define PRINT_FUSE_FILE_INFO_MEMBER_OFFSET(NAME) \
-    printf("fuse_file_info.%s offset:%zu\n", #NAME, offsetof(struct fuse_file_info, NAME));
-
-int main()
-{
-'''
-
-PY_INFOS = {}
-for struct_name, member_names in STRUCT_NAMES.items():
-    fusepy_struct = getattr(mfusepy, struct_name, getattr(mfusepy, 'c_' + struct_name, None))
-    assert fusepy_struct is not None
-
-    PY_INFOS[struct_name + " size"] = ctypes.sizeof(fusepy_struct)
-    C_CHECKER += f"""\n    printf("{struct_name} size:%zu\\n", sizeof(struct {struct_name}));\n"""
-
-    for name in member_names:
-        PY_INFOS[f'{struct_name}.{name} offset'] = getattr(fusepy_struct, name).offset
-        # This naming discrepancy is not good but would be an API change, I think.
-        c_name = name.replace('timespec', 'time') if name.endswith('timespec') else name
-        C_CHECKER += f'    printf("{struct_name}.{name} offset:%zu\\n", offsetof(struct {struct_name}, {c_name}));\n'
-
-C_CHECKER += """
-    return 0;
-}
-"""
-
-print(C_CHECKER)
+def struct_specs() -> list[StructSpec]:
+    specs = [
+        StructSpec(
+            python_name=python_name,
+            c_name=c_name,
+            key=c_name,
+            skip_members=tuple(SKIP_MEMBERS.get(c_name, ())),
+            skip_member_sizes=KERNEL_MEMBER_SIZE_SKIPS.get(c_name, ()),
+            member_sizes=True,
+            member_types=True,
+        )
+        for python_name, c_name in KERNEL_STRUCTS
+    ]
+    specs += [
+        StructSpec(python_name=name, c_name=name, member_sizes=True, member_types=True) for name in fuse_struct_names()
+    ]
+    return specs
 
 
-def get_compiler():
-    compiler = os.environ.get('CC')
-    if not compiler:
-        for cc in ['cc', 'gcc', 'clang']:
-            if shutil.which(cc):
-                compiler = cc
-                break
-        else:
-            compiler = 'cc'
-    return compiler
+CHECKS = build_checks(mfusepy, struct_specs())
+PY_INFOS = python_layout(CHECKS)
+PROTOTYPE_CHECKS = function_prototype_checks(mfusepy, fuse_prefix=mfusepy._system == 'Windows')
+C_CHECKER = c_probe(
+    ('sys/stat.h', 'sys/statvfs.h', 'fcntl.h', 'time.h', 'utime.h', 'fuse.h'),
+    CHECKS,
+    PROTOTYPE_CHECKS,
+    ('    (void) check_fuse_operations;',) if PROTOTYPE_CHECKS else (),
+)
 
 
-def c_run(name: str, source: str) -> str:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        c_file = os.path.join(tmpdir, name + '.c')
-        exe_file = os.path.join(tmpdir, name)
-        preprocessed_file = os.path.join(tmpdir, name + '.preprocessed.c')
+def build_cflags() -> list[str]:
+    # Common include locations for different OSes
+    include_paths = [
+        '/usr/local/include/osxfuse/fuse',
+        '/usr/local/include/macfuse/fuse',
+        '/usr/include/libfuse',
+        '/usr/gnu/include/fuse',
+    ]
+    if os.environ.get('FUSE_INCLUDE_DIR'):
+        include_paths.insert(0, os.environ['FUSE_INCLUDE_DIR'])
+    if mfusepy.fuse_version_major == 3:
+        include_paths += ['/usr/local/include/fuse3', '/usr/include/fuse3']
+    else:
+        include_paths += ['/usr/local/include/fuse', '/usr/include/fuse']
 
-        with open(c_file, 'w', encoding='utf-8') as f:
-            f.write(source)
-
-        print(f"FUSE version: {mfusepy.fuse_version_major}.{mfusepy.fuse_version_minor}")
-
-        # Common include locations for different OSes
-        include_paths = [
-            '/usr/local/include/osxfuse/fuse',
-            '/usr/local/include/macfuse/fuse',
-            '/usr/include/libfuse',
-        ]
-        if mfusepy.fuse_version_major == 3:
-            include_paths += ['/usr/local/include/fuse3', '/usr/include/fuse3']
-        else:
-            include_paths += ['/usr/local/include/fuse', '/usr/include/fuse']
-
-        cflags = [
-            f'-DFUSE_USE_VERSION={mfusepy.fuse_version_major}{mfusepy.fuse_version_minor}',
-            '-D_FILE_OFFSET_BITS=64',
-        ]
+    cflags = [
+        f'-DFUSE_USE_VERSION={mfusepy.fuse_version_major}{mfusepy.fuse_version_minor}',
+        '-D_FILE_OFFSET_BITS=64',
+        # Older GCC and Clang only warn about incompatible callback pointer types.
+        '-Werror=incompatible-pointer-types',
+    ]
+    # librefuse's fuse.h is in the default include path, do not pick up the headers of a libfuse package.
+    if not mfusepy._librefuse:
         cflags += [f'-I{path}' for path in include_paths if os.path.exists(path)]
 
-        # Add possible pkg-config flags if available
-        for fuse_lib in ("fuse", "fuse3"):
-            try:
-                pkg_config_flags = subprocess.check_output(['pkg-config', '--cflags', fuse_lib], text=True).split()
-                cflags.extend(pkg_config_flags)
-                break
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                pass
-
-        cmd = [get_compiler(), *cflags, c_file, '-o', exe_file]
-        print(f"Compiling with: {' '.join(cmd)}")
+    # Add possible pkg-config flags if available. Prefer the pkg-config package matching the loaded library
+    # because this system may have both libfuse 2 and libfuse 3 development headers installed.
+    fuse_libraries = ("fuse3", "fuse") if mfusepy.fuse_version_major == 3 else ("fuse", "fuse3")
+    for fuse_lib in () if mfusepy._librefuse else fuse_libraries:
         try:
-            subprocess.run(cmd, capture_output=True, text=True, check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Compiler return code: {e.returncode}")
-            print(f"Compiler stdout:\n{e.stdout}")
-            print(f"Compiler stderr:\n{e.stderr}")
-            assert e.returncode == 0, "Could not compile C program to verify sizes."
+            pkg_config_flags = subprocess.check_output(['pkg-config', '--cflags', fuse_lib], text=True).split()
+            cflags.extend(pkg_config_flags)
+            break
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
 
-        cmd = [get_compiler(), '-E', *cflags, c_file, '-o', preprocessed_file]
-        print(f"Preprocessing with: {' '.join(cmd)}")
-        try:
-            subprocess.run(cmd, capture_output=True, text=True, check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Compiler return code: {e.returncode}")
-            print(f"Compiler stdout:\n{e.stdout}")
-            print(f"Compiler stderr:\n{e.stderr}")
-            assert e.returncode == 0, "Could not compile C program to verify sizes."
-
-        for line in Path(preprocessed_file).read_text().split('\n'):
-            if not line.startswith('#') and line:
-                print(line)
-        print(preprocessed_file)
-
-        output = subprocess.check_output([exe_file], text=True)
-        return output
+    return cflags
 
 
-@pytest.mark.skipif(os.name == 'nt', reason="C compiler check not implemented for Windows")
-def test_struct_layout():
-    output = c_run("verify_structs", C_CHECKER)
-    c_infos = {line.split(':', 1)[0]: int(line.split(':', 1)[1]) for line in output.strip().split('\n')}
-    pprint.pprint(c_infos)
+@pytest.fixture(scope='module')
+def c_output():
+    if os.name == 'nt':
+        pytest.skip("C compiler check not implemented for Windows")
+
+    compiler = find_compiler()
+    if compiler is None:
+        pytest.skip("No C compiler available to verify struct layouts.")
+
+    print(f"FUSE version: {mfusepy.fuse_version_major}.{mfusepy.fuse_version_minor}")
+    try:
+        return compile_and_run(C_CHECKER, compiler=compiler, cflags=build_cflags(), verbose=False)
+    except subprocess.CalledProcessError as error:
+        raise AssertionError(f"Could not compile C program to verify sizes:\n{error.stderr}") from error
+
+
+def test_struct_layout(c_output):
+    c_infos = parse_c_output(c_output)
 
     fail = False
-    for struct_name, member_names in STRUCT_NAMES.items():
-        key = f"{struct_name} size"
-        if c_infos[key] == PY_INFOS[key]:
+    for key, python_value in PY_INFOS.items():
+        if key.endswith(' bit'):
+            continue
+        if c_infos[key] == python_value:
             print(f"OK: {key} = {c_infos[key]}")
         else:
-            print(f"Mismatch for {key}: C={c_infos[key]}, Python={PY_INFOS[key]}")
+            print(f"Mismatch for {key}: C={c_infos[key]}, Python={python_value}")
             fail = True
 
-        for name in member_names:
-            key = f"{struct_name}.{name} offset"
-            if c_infos[key] == PY_INFOS[key]:
-                print(f"OK: {key} = {c_infos[key]}")
-            else:
-                print(f"Mismatch for {key}: C={c_infos[key]}, Python={PY_INFOS[key]}")
-                fail = True
-
     assert not fail, "Struct layout mismatch, see stdout output for details!"
+
+
+def test_flock_is_a_structure():
+    assert issubclass(mfusepy.c_flock_t, ctypes.Structure)
+    assert mfusepy.c_flock_t._fields_
+    assert ctypes.sizeof(mfusepy.c_flock_t) > ctypes.sizeof(ctypes.c_void_p)
+
+
+def test_lock_callback_uses_flock_pointer():
+    lock_field = next(field for field in mfusepy.fuse_operations._fields_ if field[0] == 'lock')
+    lock_argtypes = getattr(lock_field[1], '_argtypes_', None)
+    assert lock_argtypes is not None
+    assert lock_argtypes[-1] == ctypes.POINTER(mfusepy.c_flock_t)
+
+
+@pytest.mark.skipif(sys.byteorder != 'little', reason="Bit numbering in the C test assumes little endian.")
+def test_file_info_bitfields(c_output):
+    c_infos = parse_c_output(c_output)
+    fail = False
+    for key, python_bit in PY_INFOS.items():
+        if not key.endswith(' bit'):
+            continue
+        if c_infos[key] == python_bit:
+            print(f"OK: {key} = {c_infos[key]}")
+        else:
+            print(f"Mismatch for {key}: C={c_infos[key]}, Python={python_bit}")
+            fail = True
+    assert not fail, "Bitfield layout mismatch, see stdout output for details!"

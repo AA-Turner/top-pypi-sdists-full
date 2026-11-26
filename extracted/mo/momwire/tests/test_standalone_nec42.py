@@ -397,18 +397,12 @@ def test_the_ground_store_is_kept_and_moves_no_byte(deck, tmp_path):
     assert warm["ground_disk"] >= 1, warm
 
 
-# --- momwire#1911: the sinusoidal fill's pair reuse (reach 4) ---------------
+# --- momwire#1911: the one fill-reuse switch, MOMWIRE_X_PAIR_REUSE --------------
 #
-# The C++ route carries `pair_reuse` (`_sin_pair_reuse_core.h`), but its reach
-# stops at the drop-in (level 4), so a shipped nec42-sinusoidal executable
-# refuses it. A
-# CERTIFICATION build (CMake MW_EXE_CERTIFY=pair_reuse) runs it, and is then
-# held to the launcher with the feature on. Which one is under test is
-# declared, never guessed from its behaviour: MOMWIRE_NEC42_SIN_CERTIFIES
-# names the features the build was built to certify (comma-separated).
-CERTIFIES = set(
-    filter(None, os.environ.get("MOMWIRE_NEC42_SIN_CERTIFIES", "").split(","))
-)
+# Every executable accepts it (reach 11, `EXE_PARTS`): nec42-sinusoidal runs
+# the point-matched fill's plan (`_sin_pair_reuse_core.h`), nec42-bs2 bs2's
+# census and its part `offset_reuse` (momwire#2063), and each is held to the
+# launcher with it on.
 _REUSE_ENV = "MOMWIRE_X_PAIR_REUSE"
 
 
@@ -431,37 +425,6 @@ def _reuse_curtain(ground: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-@pytest.mark.skipif(BASIS != "sinusoidal", reason="the nec42-sinusoidal executable's")
-@pytest.mark.skipif("pair_reuse" in CERTIFIES, reason="a certification build runs it")
-def test_pair_reuse_is_refused_by_name(tmp_path):
-    """Asked on, the shipped executable refuses the feature in the registry's
-    sentence before reading the deck, and writes nothing; at 0 it answers."""
-    from momwire import _features
-
-    env = {k: v for k, v in _env().items() if not k.startswith(_features.ENV_PREFIX)}
-    shutil.copy(DIPOLE, tmp_path / DIPOLE.name)
-    r = subprocess.run(
-        [EXE, DIPOLE.name, "reuse.out"],
-        cwd=tmp_path,
-        env=dict(env, **{_REUSE_ENV: "1"}),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert r.returncode == 2, (r.stdout, r.stderr)
-    assert r.stderr == _features.EXE_REFUSAL.format(name="pair_reuse") + "\n"
-    assert not (tmp_path / "reuse.out").exists()
-    r = subprocess.run(
-        [EXE, DIPOLE.name, "reuse.out"],
-        cwd=tmp_path,
-        env=dict(env, **{_REUSE_ENV: "0"}),
-        capture_output=True,
-        check=False,
-    )
-    assert r.returncode == 0, r.stderr
-    assert (tmp_path / "reuse.out").read_bytes()
-
-
 def _reuse_decks():
     return [
         *sorted((FIXTURES / "transmitted_mixed").glob("*.nec")),
@@ -471,18 +434,16 @@ def _reuse_decks():
     ]
 
 
-@pytest.mark.skipif(BASIS != "sinusoidal", reason="the nec42-sinusoidal executable's")
-@pytest.mark.skipif(
-    "pair_reuse" not in CERTIFIES, reason="not a pair_reuse certification build"
-)
 @pytest.mark.parametrize(
     "deck", _reuse_decks(), ids=lambda p: p if isinstance(p, str) else p.name
 )
 def test_pair_reuse_answers_as_the_launcher(deck, tmp_path):
     """With the feature on both sides: the launcher's bytes under the time
-    mask, line 2 naming +pair_reuse on both. The curtains serve the reuse
-    (MW_EXE_TIMES's last-fill line says so); the fixtures, all below the
-    small-deck thresholds or mixed, decline it, as Python's route does."""
+    mask, line 2 naming +pair_reuse on both. The curtains serve the reuse (a
+    plan built that did not decline; on nec42-sinusoidal MW_EXE_TIMES's
+    last-fill line says so too); the fixtures, all below the small-deck
+    thresholds or mixed, decline it, as Python's route does (on nec42-bs2
+    the part `offset_reuse` still runs on their long edges)."""
     if isinstance(deck, str):
         path = tmp_path / f"{deck.replace(':', '_')}.nec"
         path.write_text(_reuse_curtain(deck.split(":")[1]), encoding="latin-1")
@@ -510,4 +471,102 @@ def test_pair_reuse_answers_as_the_launcher(deck, tmp_path):
     assert _mask(exe) == _mask(ref_out.read_bytes())
     assert b"+pair_reuse" in exe.split(b"\n")[1]
     if isinstance(deck, str):
-        assert b"cxx: reuse last fill served" in r.stderr, r.stderr
+        if BASIS == "sinusoidal":
+            assert b"cxx: reuse last fill served" in r.stderr, r.stderr
+        m = re.search(
+            rb"cxx: reuse plans built (\d+), declined (\d+), found (\d+)", r.stderr
+        )
+        assert m and int(m[1]) - int(m[2]) >= 1, r.stderr
+        # On against off in the executable itself: every byte but line 2
+        # (the reuse moves Zin ~1e-10 at most, under a printed digit).
+        off_out = tmp_path / "off.out"
+        off_env = {k: v for k, v in env.items() if k != _REUSE_ENV}
+        r3 = subprocess.run(
+            [EXE, str(path), str(off_out)], env=off_env, capture_output=True
+        )
+        assert r3.returncode == 0, r3
+        on_lines = _mask(exe)[0].split(b"\n")
+        off_lines = _mask(off_out.read_bytes())[0].split(b"\n")
+        assert on_lines[:1] + on_lines[2:] == off_lines[:1] + off_lines[2:]
+        assert on_lines[1] != off_lines[1]
+
+
+# --- per-deck pragmas: `CM momwire: <name>` (`_features.deck_pragmas`) --------
+#
+# The card reads as the variable set on for its deck alone, the way the
+# variable goes on each executable (`DeckPragmas`): nec42-sinusoidal runs its
+# plan, nec42-bs2 withholds it, and the variable at "0" beats the card.
+# Rotational symmetry is the drop-ins' alone: its card is ignored here, never
+# refused, and named on line 2.
+_PRAGMA = "CM momwire: pair_reuse\n"
+
+
+def _no_feature_env(**extra) -> dict:
+    from momwire import _features
+
+    env = {k: v for k, v in _env().items() if not k.startswith(_features.ENV_PREFIX)}
+    return dict(env, **extra)
+
+
+def _reuse_totals(stderr: bytes) -> tuple[int, int]:
+    m = re.search(rb"cxx: reuse plans built (\d+), declined (\d+), found (\d+)", stderr)
+    assert m, stderr
+    return int(m[1]) - int(m[2]), int(m[3])
+
+
+@pytest.mark.parametrize("ground", ["free", "somm"])
+def test_the_pair_reuse_pragma_goes_the_variables_way(ground, tmp_path):
+    """The card alone, on nec42-sinusoidal and nec42-bs2 (which runs bs2's
+    reuse, momwire#2063): the launcher's bytes under the time mask, line 2
+    naming +pair_reuse, the plan served. The card's printout is the
+    variable's, and "0" beats it."""
+    deck = tmp_path / "pragma.nec"
+    deck.write_text(_PRAGMA + _reuse_curtain(ground), encoding="latin-1")
+    outs, ran = {}, {}
+    for state in (None, "1", "0"):
+        env = _no_feature_env(MW_EXE_TIMES="1")
+        if state is not None:
+            env[_REUSE_ENV] = state
+        out = tmp_path / f"{state}.out"
+        r = subprocess.run([EXE, str(deck), str(out)], env=env, capture_output=True)
+        assert r.returncode == 0 and r.stdout == b"", r
+        outs[state] = _mask(out.read_bytes())
+        ran[state] = _reuse_totals(r.stderr)[0] >= 1
+    assert b"NEC ERROR" not in outs[None][0]
+    assert outs[None] == outs["1"]
+    assert not ran["0"]
+    assert b"+" not in outs["0"][0].split(b"\n")[1]
+    assert ran[None]
+    assert b"+pair_reuse" in outs[None][0].split(b"\n")[1]
+    ref_out = tmp_path / "launcher.out"
+    r2 = subprocess.run(
+        [_launcher(), str(deck), str(ref_out)],
+        env=_no_feature_env(),
+        capture_output=True,
+    )
+    assert r2.returncode == 0 and r2.stdout == b"", r2
+    assert _mask(ref_out.read_bytes()) == outs[None]
+
+
+def test_a_rotational_symmetry_pragma_is_ignored_not_refused(tmp_path):
+    """No executable carries rotational symmetry: its card is ignored, exit 0
+    with a printout whose line 2 says so, every other byte the deck's with
+    the card spelled as prose."""
+    body = DIPOLE.read_text(encoding="latin-1")
+    outs = {}
+    for key, head in (
+        ("card", "CM momwire: rotational_symmetry\n"),
+        ("prose", "CM momwire- rotational_symmetry\n"),
+    ):
+        deck = tmp_path / f"{key}.nec"
+        deck.write_text(head + body, encoding="latin-1", newline="")
+        out = tmp_path / f"{key}.out"
+        r = subprocess.run(
+            [EXE, str(deck), str(out)], env=_no_feature_env(), capture_output=True
+        )
+        assert r.returncode == 0 and r.stdout == b"" and r.stderr == b"", r
+        outs[key] = _mask(out.read_bytes())[0].split(b"\n")
+    card, prose = outs["card"], outs["prose"]
+    note = b" (pragma ignored: rotational_symmetry)"
+    assert card[1].rstrip(b"\r") == prose[1].rstrip(b"\r") + note
+    assert [x.replace(b"momwire:", b"momwire-") for x in card[2:]] == prose[2:]

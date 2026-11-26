@@ -86,7 +86,7 @@ from bitfab.mock_override import (
 )
 from bitfab.organization_members import OrganizationMembersClient
 from bitfab.payload_budget import MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES
-from bitfab.recorded_states import trace_finished
+from bitfab.recorded_states import recorded_state_versions, trace_finished
 from bitfab.replay import (  # noqa: F401 - re-export
     _CONCURRENCY_UNSET,
     AdaptContext,
@@ -6179,6 +6179,9 @@ class Bitfab:
             payload["testRunId"] = experiment_id
         if dropped:
             payload["dropped"] = True
+        sandbox_store_versions = recorded_state_versions(trace_id)
+        if sandbox_store_versions:
+            payload["sandboxStoreVersions"] = sandbox_store_versions
 
         self.http_client.send_trace(payload)
 

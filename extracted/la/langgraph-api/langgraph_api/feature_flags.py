@@ -20,7 +20,14 @@ USE_DURABILITY = LANGGRAPH_PY_MINOR >= (0, 6)
 _RUNTIME_EDITION = os.getenv("LANGGRAPH_RUNTIME_EDITION", "inmem")
 IS_POSTGRES_BACKEND = _RUNTIME_EDITION == "postgres"
 IS_INMEM_BACKEND = _RUNTIME_EDITION == "inmem"
-IS_POSTGRES_OR_GRPC_BACKEND = IS_POSTGRES_BACKEND
+# The in-memory runtime runs on Go core with SQLite;
+# FF_INMEM_CORE=false falls back to the Python runtime.
+INMEM_USES_CORE = IS_INMEM_BACKEND and os.getenv("FF_INMEM_CORE", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+IS_POSTGRES_OR_GRPC_BACKEND = IS_POSTGRES_BACKEND or INMEM_USES_CORE
 # Server-side kill switch for the Protocol v2 event-streaming surface
 # (#3296). When false, the v2 routes are not registered (clients hit a
 # 404), and ``_create_or_resume_run`` rejects any direct call with a
@@ -58,7 +65,7 @@ def _resolve_prefer_grpc_checkpointer(
 
 
 # When true on the postgres runtime, use ``GrpcCheckpointer``.
-# Inmem edition is unaffected (``IS_POSTGRES_BACKEND`` is false there).
+# Inmem on Go core always uses it; Python inmem never does.
 # Custom checkpointer (``backend=custom`` in ``LANGGRAPH_CHECKPOINTER``) and
 # Mongo (``backend=mongo``) is also unaffected.
 # langgraph < 0.5 keeps Send() packets in checkpoint["pending_sends"], which only
@@ -91,3 +98,11 @@ DELTA_CHANNEL_SUPPORT = LANGGRAPH_PY_MINOR >= (1, 2)
 # (langchain-ai/langgraph#9281). Earlier versions drain in front of a
 # breakpoint, and the resume then runs past it.
 DRAIN_RESUME_SUPPORT = LANGGRAPH_PY_PATCH >= (1, 2, 15)
+
+# v1 runs stream `tools` events from langgraph 1.2.19. Before it, a tool that
+# pauses on `interrupt()` is reported as failed, and an awaited `@task` in a
+# subgraph returns None while the tools handler runs.
+TOOLS_STREAM_SUPPORT = LANGGRAPH_PY_PATCH >= (1, 2, 19)
+
+# A run's `strict_resume` works only on langgraph >= 1.2.20, which has the check.
+STRICT_RESUME_SUPPORT = LANGGRAPH_PY_PATCH >= (1, 2, 20)

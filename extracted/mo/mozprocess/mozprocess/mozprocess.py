@@ -6,6 +6,7 @@ import os
 import subprocess
 import threading
 import time
+from queue import Empty, Queue
 
 
 def run_and_wait(
@@ -42,29 +43,6 @@ def run_and_wait(
     :param output_line_handler: function to be called for every line of process output
     """
     is_win = os.name == "nt"
-    context = {"output_timer": None, "proc_timer": None, "timed_out": False}
-
-    def base_timeout_handler():
-        context["timed_out"] = True
-        if context["output_timer"]:
-            context["output_timer"].cancel()
-        if timeout_handler:
-            timeout_handler(proc)
-
-    def base_output_timeout_handler():
-        seconds_since_last_output = time.time() - output_time
-        next_possible_output_timeout = output_timeout - seconds_since_last_output
-        if next_possible_output_timeout <= 0:
-            context["timed_out"] = True
-            if context["proc_timer"]:
-                context["proc_timer"].cancel()
-            if output_timeout_handler:
-                output_timeout_handler(proc)
-        else:
-            context["output_timer"] = threading.Timer(
-                next_possible_output_timeout, base_output_timeout_handler
-            )
-            context["output_timer"].start()
 
     if env is None:
         env = os.environ.copy()
@@ -78,6 +56,28 @@ def run_and_wait(
             "preexec_fn": os.setsid,
         }
 
+    deadline = None if timeout is None else time.monotonic() + timeout
+
+    queue = Queue()
+
+    def get_line():
+        nonlocal pending_handler
+        queue_timeout = pending_handler = None
+        if not reader_thread.is_alive():
+            return queue.get()
+        if deadline is not None:
+            queue_timeout = deadline - time.monotonic()
+            pending_handler = timeout_handler
+            if queue_timeout <= 0:
+                return None
+        if output_timeout and (queue_timeout is None or output_timeout < queue_timeout):
+            queue_timeout = output_timeout
+            pending_handler = output_timeout_handler
+        try:
+            return queue.get(timeout=queue_timeout)
+        except Empty:
+            return None
+
     proc = subprocess.Popen(
         args,
         cwd=cwd,
@@ -85,35 +85,43 @@ def run_and_wait(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=text,
-        **kwargs
+        errors="replace" if text else None,
+        **kwargs,
     )
 
-    if timeout:
-        context["proc_timer"] = threading.Timer(timeout, base_timeout_handler)
-        context["proc_timer"].start()
+    def reader(fh, queue):
+        try:
+            for line in iter(fh.readline, "" if text else b""):
+                queue.put(line)
+        finally:
+            # Give a chance to the reading loop to exit without a timeout.
+            queue.put(b"")
 
-    if output_timeout:
-        output_time = time.time()
-        context["output_timer"] = threading.Timer(
-            output_timeout, base_output_timeout_handler
-        )
-        context["output_timer"].start()
+    reader_thread = threading.Thread(
+        name="reader",
+        target=reader,
+        args=(
+            proc.stdout,
+            queue,
+        ),
+        daemon=True,
+    )
+    reader_thread.start()
 
-    for line in proc.stdout:
-        output_time = time.time()
+    for line in iter(get_line, b""):
+        if line is None:
+            break
         if output_line_handler:
             output_line_handler(proc, line)
         else:
             print(line)
-        if context["timed_out"]:
-            break
-
-    if not context["timed_out"]:
-        proc.wait()
-
-    if timeout:
-        context["proc_timer"].cancel()
-    if output_timeout:
-        context["output_timer"].cancel()
+    else:
+        pending_handler = None
+        try:
+            proc.wait(None if deadline is None else max(0, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            pending_handler = timeout_handler
+    if pending_handler:
+        pending_handler(proc)
 
     return proc

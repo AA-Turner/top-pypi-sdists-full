@@ -20,52 +20,51 @@ class DescribeDatabaseResponseBody(DaraModel):
         size: str = None,
         table_space: str = None,
     ):
-        # The permission control information.
+        # The access control information.
         self.access_privilege = access_privilege
         # The character set.
         # 
-        # For more information about the value range, see Document https://www.postgresql.org/docs/current/multibyte.html.
+        # For the valid values, refer to the References at https://www.postgresql.org/docs/current/multibyte.html.
         self.character_set_name = character_set_name
-        # Database locale parameter that specifies string comparison and sorting rules.
-        # 
-        # > 
-        # 
-        # *   The locale must be compatible with the character set specified by the CharacterSetName parameter.
-        # 
-        # *   Collate: You can query available collations using the command SELECT DISTINCT collname FROM pg_collation;. If not specified, the default value is en_US.utf8.
+        # The locale setting of the database, which specifies the string comparison and sorting rules.
+        # >
+        # > - The locale must be compatible with the character set specified by the CharacterSetName parameter.
+        # > - Valid values: You can run the SELECT DISTINCT collname FROM pg_collation; command to query the valid values. If this parameter is not specified, the default value is en_US.utf8.
         self.collate = collate
-        # Limits the number of concurrent connections. -1 indicates unlimited.
+        # The maximum number of concurrent connections. A value of -1 indicates no limit.
         self.conn_limit = conn_limit
-        # Database locale parameter that specifies character classification and case conversion rules.
-        # 
+        # The locale setting of the database, which specifies the character classification and case conversion rules.
         # > 
-        # 
-        # *   The locale must be compatible with the character set specified by the CharacterSetName parameter.
-        # 
-        # *   You can execute the SELECT DISTINCT collctype FROM pg_collation; statement to obtain the field value. The default value is en_US.utf8.
+        # > - The locale must be compatible with the character set specified by the CharacterSetName parameter.
+        # > - You can run the SELECT DISTINCT collctype FROM pg_collation; command to query the valid values. If this parameter is not specified, the default value is en_US.utf8.
         self.ctype = ctype
-        # The cluster ID.
+        # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The database name.
+        # The name of the database.
         # 
-        # *   Only contain letters, digits, and underscores (_).
-        # *   Must start with a letter.
-        # *   Up to 63 characters in length.
+        # - It can contain only letters, digits, and underscores (_).
+        # 
+        # - It must start with a letter.
+        # 
+        # - It cannot exceed 63 characters in length.
         self.database_name = database_name
-        # The database comment.
+        # The description of the database.
         self.description = description
-        # The owner of the table.
+        # The owner of the database.
         # 
-        # *   Contain lowercase letters, digits, and underscores (_).
-        # *   Must start with a lowercase letter and end with a lowercase letter or a digit.
-        # *   Cannot start with gp.
-        # *   Must be 2 to 16 characters in length.
+        # - It can contain only lowercase letters, digits, and underscores (_).
+        # 
+        # - It must start with a lowercase letter and end with a lowercase letter or a digit.
+        # 
+        # - It cannot start with gp.
+        # 
+        # - It must be 2 to 16 characters in length.
         self.owner = owner
-        # The unique ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # The database size.
+        # The size of the database.
         self.size = size
-        # The database tablespace.
+        # The tablespace of the database.
         self.table_space = table_space
 
     def validate(self):

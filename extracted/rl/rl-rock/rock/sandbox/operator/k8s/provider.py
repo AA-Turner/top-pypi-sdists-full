@@ -2,18 +2,21 @@
 
 import base64
 import fnmatch
+import hashlib
 import json
 import os
 import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, Protocol
 
-import yaml
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from kubernetes import client
 from kubernetes import config as k8s_config
 
+from rock import InternalServerRockError
 from rock.actions.sandbox.config import RemoteSandboxRuntimeConfig
+from rock.sdk.common.exceptions import BadRequestRockError
 from rock.actions.sandbox.sandbox_info import SandboxInfo
 from rock.config import K8sConfig, PoolConfig, TemplateSelectorRule
 from rock.deployments.config import DockerDeploymentConfig
@@ -25,6 +28,50 @@ from rock.sandbox.operator.k8s.template_loader import K8sTemplateLoader
 from rock.sandbox.remote_sandbox import RemoteSandboxRuntime
 
 logger = init_logger(__name__)
+
+
+@dataclass
+class TemplateSpec:
+    """Template creation spec, maps to API camelCase fields.
+
+    Capacity (poolMin/poolMax/bufferMin/bufferMax) is intentionally excluded
+    because it does not affect template identity. Use the Scale API to adjust
+    capacity after creation.
+    """
+
+    from_image: str
+    cpu_count: int
+    memory_mb: int
+    disk_gb: int | None = None
+    num_gpus: float | None = None
+    accelerator_type: str | None = None
+    os: str | None = None
+
+
+def generate_template_id(spec: TemplateSpec) -> str:
+    """Generate template ID from all non-null TemplateSpec fields.
+
+    The ID is a hash of every provided field, so any difference in
+    from_image, cpu_count, memory_mb, disk_gb, num_gpus, accelerator_type,
+    or os produces a distinct templateID. Capacity is excluded from identity.
+    """
+    parts: list[str] = [
+        f"from_image={spec.from_image}",
+        f"cpu_count={spec.cpu_count}",
+        f"memory_mb={spec.memory_mb}",
+    ]
+    if spec.disk_gb is not None:
+        parts.append(f"disk_gb={spec.disk_gb}")
+    if spec.num_gpus is not None:
+        parts.append(f"num_gpus={spec.num_gpus}")
+    if spec.accelerator_type is not None:
+        parts.append(f"accelerator_type={spec.accelerator_type}")
+    if spec.os is not None:
+        parts.append(f"os={spec.os}")
+
+    raw = "|".join(parts)
+    digest = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    return f"{K8sConstants.TEMPLATE_ID_PREFIX}{digest}"
 
 
 class PoolSelector(ABC):
@@ -274,14 +321,16 @@ class BatchSandboxProvider(K8sProvider):
         self._k8s_config = k8s_config
         self._api_client = None
         self._k8s_api: K8sApiClient | None = None
+        self._pool_api: K8sApiClient | None = None
         self._initialized = False
         self._nacos_provider = None
         self._image_auth_key = self._load_image_auth_key(k8s_config)
 
-        # Initialize template loader with config templates
+        # Initialize template loader with config templates and pool template
         self._template_loader = K8sTemplateLoader(
             templates=k8s_config.templates,
             default_namespace=k8s_config.namespace,
+            pool_templates=k8s_config.pool_templates,
         )
         logger.info(f"Available K8S templates: {', '.join(self._template_loader.available_templates)}")
 
@@ -347,9 +396,7 @@ class BatchSandboxProvider(K8sProvider):
             if nacos_config and K8sConstants.NACOS_TEMPLATE_RULES_KEY in nacos_config:
                 rules_data = nacos_config[K8sConstants.NACOS_TEMPLATE_RULES_KEY]
                 if not isinstance(rules_data, dict):
-                    logger.warning(
-                        f"Invalid template_rules config: expected dict, got {type(rules_data).__name__}"
-                    )
+                    logger.warning(f"Invalid template_rules config: expected dict, got {type(rules_data).__name__}")
                     return {}
 
                 rules: dict[str, TemplateSelectorRule] = {}
@@ -429,8 +476,8 @@ class BatchSandboxProvider(K8sProvider):
 
         This method fetches the sandbox resource from K8s and checks if the sandbox
         is alive by calling its is_alive endpoint. The state is determined by:
-        - RUNNING: IP allocated AND is_alive returns true
-        - PENDING: IP not allocated OR is_alive returns false
+        - RUNNING: alive check disabled OR IP allocated AND is_alive returns true
+        - PENDING: alive check enabled AND (IP not allocated OR is_alive returns false)
 
         Args:
             sandbox_id: Sandbox identifier
@@ -444,9 +491,16 @@ class BatchSandboxProvider(K8sProvider):
         # Get host_ip, port_mapping and resource_version
         host_ip, port_mapping, resource_version = await self._get_sandbox_runtime_info(sandbox_id)
 
-        # Check is_alive through runtime
-        is_alive = False
-        if host_ip:
+        # Check is_alive through runtime unless disabled by Nacos
+        check_alive_enabled = True
+        if self._nacos_provider:
+            check_alive_enabled = await self._nacos_provider.get_switch_status(
+                K8sConstants.K8S_ALIVE_CHECK_SWITCH,
+                True,
+            )
+
+        is_alive = not check_alive_enabled
+        if check_alive_enabled and host_ip:
             runtime = self._build_runtime(host_ip, port_mapping)
             try:
                 is_alive_response = await runtime.is_alive()
@@ -522,6 +576,19 @@ class BatchSandboxProvider(K8sProvider):
                 resync_period=self._k8s_config.resync_period,
             )
             await self._k8s_api.start()
+
+            # Pool CRD informer for Template API (Warm path)
+            self._pool_api = K8sApiClient(
+                api_client=self._api_client,
+                group=K8sConstants.CRD_GROUP,
+                version=K8sConstants.CRD_VERSION,
+                plural=K8sConstants.CRD_PLURAL_POOL,
+                namespace=self.namespace,
+                qps=self._k8s_config.api_qps,
+                resync_period=self._k8s_config.resync_period,
+            )
+            await self._pool_api.start()
+
             self._initialized = True
 
             logger.info("Initialized K8s provider with informer")
@@ -535,6 +602,7 @@ class BatchSandboxProvider(K8sProvider):
         Priority:
         1. Check extended_params for explicit pool name
         2. Use ResourceMatchingPoolSelector to find best matching pool
+        3. Use config.template_id as the pool name
 
         Args:
             config: Docker deployment configuration
@@ -550,7 +618,11 @@ class BatchSandboxProvider(K8sProvider):
         # Priority 2: Use pool selector to find best match
         pools = await self._get_pools()
         logger.info(f"Available pools from Nacos: {list(pools.keys())}")
-        return ResourceMatchingPoolSelector().select_pool(config, pools)
+        pool_name = ResourceMatchingPoolSelector().select_pool(config, pools)
+        if pool_name:
+            return pool_name
+
+        return config.template_id
 
     async def _get_template_name(self, config: DockerDeploymentConfig) -> str:
         """Get template name from extended_params or Nacos template_rules.
@@ -706,11 +778,14 @@ class BatchSandboxProvider(K8sProvider):
             accelerator_type=config.accelerator_type,
             limit_cpus=config.limit_cpus,
             encrypted_image_auth=self._encrypt_image_auth(config),
+            env_vars=config.env_vars,
         )
 
         logger.info(
-            f"Built BatchSandbox manifest for {sandbox_id} in namespace '{self.namespace}' "
-            f"using template '{template_name}':\n{yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True)}"
+            "Built BatchSandbox manifest for %s in namespace '%s' using template '%s'",
+            sandbox_id,
+            self.namespace,
+            template_name,
         )
         return manifest
 
@@ -865,3 +940,245 @@ class BatchSandboxProvider(K8sProvider):
             port=proxy_port,
         )
         return RemoteSandboxRuntime.from_config(runtime_config)
+
+    # ========================================================================
+    # Template API (Warm path) — create / get / delete Pool CRD
+    # ========================================================================
+
+    async def create_template(self, spec: TemplateSpec) -> dict:
+        """Create or reuse a template (Pool CRD).
+
+        Idempotent: same non-null TemplateSpec fields produce the same templateID.
+        Capacity is excluded from identity. Returns a dict with template_id and status.
+        """
+        await self._ensure_initialized()
+        template_id = generate_template_id(spec)
+
+        try:
+            # _create_pool handles creation and 409 (already exists), returning
+            # the created or existing Pool object. Map it to template status.
+            pool = await self._create_pool(template_id, spec)
+            return self._map_pool_to_template_status(pool)
+        except InternalServerRockError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to create template {template_id}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to create template {template_id}: {e}") from e
+
+    async def get_template_status(self, template_id: str) -> dict | None:
+        """Get template (Pool) status.
+
+        Args:
+            template_id: Template identifier (= Pool name)
+
+        Returns:
+            Status dict or None if not found
+        """
+        await self._ensure_initialized()
+        try:
+            pool = await self._get_pool(template_id)
+            if pool is None:
+                return None
+            return self._map_pool_to_template_status(pool)
+        except InternalServerRockError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get template status {template_id}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to get template status {template_id}: {e}") from e
+
+    async def delete_template(self, template_id: str) -> bool:
+        """Delete template (Pool CRD).
+
+        Args:
+            template_id: Template identifier (= Pool name)
+
+        Returns:
+            True if deleted or not found. Raises on K8s error.
+
+        Note:
+            We do NOT check whether the pool is referenced by running BatchSandboxes.
+            The Pool controller / K8s finalizer is responsible for protecting an
+            in-use pool. Listing all BatchSandboxes here is too expensive and couples
+            Template API to sandbox lifecycle details.
+        """
+        await self._ensure_initialized()
+
+        try:
+            # Check if pool exists
+            pool = await self._get_pool(template_id)
+            if pool is None:
+                logger.info(f"Template {template_id} not found, already deleted")
+                return True
+
+            await self._delete_pool(template_id)
+            return True
+        except InternalServerRockError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to delete template {template_id}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to delete template {template_id}: {e}") from e
+
+    async def scale_template(self, template_id: str, capacity: dict[str, Any]) -> dict:
+        """Scale a template's Pool capacity.
+
+        Args:
+            template_id: Template identifier (= Pool name).
+            capacity: Snake-case capacity fields to update. Only provided keys
+                are sent to K8s (PATCH semantics). Supported keys:
+                pool_min, pool_max, buffer_min, buffer_max.
+
+        Returns:
+            Updated template status dict.
+
+        Raises:
+            BadRequestRockError: If the pool does not exist or capacity is invalid.
+            InternalServerRockError: On unexpected K8s errors.
+        """
+        await self._ensure_initialized()
+
+        if not capacity:
+            raise BadRequestRockError("No capacity fields provided")
+
+        valid_keys = {"pool_min", "pool_max", "buffer_min", "buffer_max"}
+        invalid_keys = set(capacity.keys()) - valid_keys
+        if invalid_keys:
+            raise BadRequestRockError(f"Invalid capacity fields: {sorted(invalid_keys)}")
+
+        key_map = {
+            "pool_min": "poolMin",
+            "pool_max": "poolMax",
+            "buffer_min": "bufferMin",
+            "buffer_max": "bufferMax",
+        }
+        capacity_spec_patch: dict[str, Any] = {}
+        for key, value in capacity.items():
+            if value is not None:
+                capacity_spec_patch[key_map[key]] = int(value)
+
+        try:
+            pool = await self._get_pool(template_id)
+            if pool is None:
+                raise BadRequestRockError(f"Template {template_id} not found")
+
+            patch_body = {"spec": {"capacitySpec": capacity_spec_patch}}
+            updated = await self._pool_api.update_custom_object(
+                name=template_id,
+                body=patch_body,
+            )
+            return self._map_pool_to_template_status(updated)
+        except BadRequestRockError:
+            raise
+        except InternalServerRockError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to scale template {template_id}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to scale template {template_id}: {e}") from e
+
+    async def _create_pool(self, pool_name: str, spec: TemplateSpec) -> dict[str, Any]:
+        """Create Pool CRD from template.
+
+        Returns:
+            The created Pool object, or the existing Pool object if it already
+            existed (409).
+        """
+        manifest = self._template_loader.build_pool_manifest(pool_name, spec, template_name="default")
+        try:
+            pool = await self._pool_api.create_custom_object(body=manifest)
+            logger.info(f"Created Pool {pool_name} for template")
+            return pool
+        except client.exceptions.ApiException as e:
+            if e.status == 409:
+                # Idempotent: another request created it concurrently
+                logger.info(f"Pool {pool_name} already exists, reusing")
+                existing = await self._get_pool(pool_name)
+                if existing is None:
+                    raise InternalServerRockError(
+                        f"Pool {pool_name} returned 409 but could not be fetched"
+                    ) from e
+                return existing
+            logger.error(f"Failed to create Pool {pool_name}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to create Pool {pool_name}: {e.reason}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error creating Pool {pool_name}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to create Pool {pool_name}: {e}") from e
+
+    async def _get_pool(self, pool_name: str) -> dict | None:
+        """Get Pool CRD from cache.
+
+        Returns None if not found.
+        """
+        try:
+            return await self._pool_api.get_custom_object(name=pool_name)
+        except client.exceptions.ApiException as e:
+            if e.status == 404:
+                return None
+            logger.error(f"Failed to get Pool {pool_name}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to get Pool {pool_name}: {e.reason}") from e
+        except Exception as e:
+            logger.error(f"Failed to get Pool {pool_name}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to get Pool {pool_name}: {e}") from e
+
+    async def _delete_pool(self, pool_name: str) -> None:
+        """Delete Pool CRD."""
+        try:
+            await self._pool_api.delete_custom_object(name=pool_name)
+            logger.info(f"Deleted Pool {pool_name}")
+        except client.exceptions.ApiException as e:
+            if e.status == 404:
+                logger.info(f"Pool {pool_name} not found, treating as deleted")
+                return
+            logger.error(f"Failed to delete Pool {pool_name}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to delete Pool {pool_name}: {e.reason}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error deleting Pool {pool_name}: {e}", exc_info=True)
+            raise InternalServerRockError(f"Failed to delete Pool {pool_name}: {e}") from e
+
+    def _map_pool_to_template_status(self, pool: dict) -> dict:
+        """Map Pool CRD to template status dict (design doc format)."""
+        pool_name = pool.get("metadata", {}).get("name", "")
+        status = pool.get("status", {})
+        metadata = pool.get("metadata", {})
+
+        ready_replicas = status.get("available", 0)
+        total_replicas = status.get("total", 0)
+
+        # If the pool is configured with zero capacity, it is immediately ready
+        # because no standby pods are required.
+        capacity_spec = pool.get("spec", {}).get("capacitySpec", {})
+        pool_min = capacity_spec.get("poolMin", 1)
+        buffer_min = capacity_spec.get("bufferMin", 1)
+        zero_capacity = pool_min == 0 and buffer_min == 0
+
+        # Determine template status
+        if ready_replicas > 0 or zero_capacity:
+            template_status = "ready"
+        elif total_replicas > 0:
+            template_status = "building"
+        else:
+            template_status = "building"
+
+        reason = None
+
+        created_at = metadata.get("creationTimestamp", "")
+        updated_at = created_at
+
+        return {
+            "template_id": pool_name,
+            "status": template_status,
+            "reason": reason,
+            "created_at": created_at,
+            "updated_at": updated_at,
+            "capacity": {
+                "spec": {
+                    "pool_min": capacity_spec.get("poolMin"),
+                    "pool_max": capacity_spec.get("poolMax"),
+                    "buffer_min": capacity_spec.get("bufferMin"),
+                    "buffer_max": capacity_spec.get("bufferMax"),
+                },
+                "status": {
+                    "available": status.get("available"),
+                    "total": status.get("total"),
+                    "allocated": status.get("allocated"),
+                },
+            },
+        }

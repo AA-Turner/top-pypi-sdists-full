@@ -5,6 +5,7 @@ What a serving stack calls, with ids materialized as Python lists:
 
   long   one ``encode`` per LongBench-v2 context (long-context prompts, ~0.1-10 MB)
   chat   one ``encode`` per ShareGPT conversation (chat-sized prompts)
+  zh     one ``encode`` per Chinese web page (mC4 ``zh``, its first shard)
   batch  ``encode_batch`` over ShareGPT conversations, 256 per call
 
 Libraries (``--libs``, the first is the reference for parity and speedups):
@@ -30,7 +31,7 @@ each library's against the reference's. For Kimi, whose HF tokenizer is converte
 from its tiktoken model (see ``kimi_hf.py``), any disagreement is settled by the
 model's own tokenizer (tiktoken).
 
-    pip install "tokenizers==1.0.0rc2" tiktoken huggingface_hub
+    pip install "tokenizers==1.0.0rc5" tiktoken huggingface_hub
     maturin develop --release    # the fastokens extension, from the repo root
     python bench/serving.py
     python bench/serving.py --repeat 3      # medians over 3 runs per library
@@ -42,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import array
+import gzip
 import hashlib
 import json
 import os
@@ -59,8 +61,15 @@ MODELS = {
     "GLM-5.3": "zai-org/GLM-5.3",
     "Kimi-K3": "moonshotai/Kimi-K3",
     "DeepSeek-V4.1-Flash": "deepseek-ai/DeepSeek-V4.1-Flash",
+    "Kimi-K3.1-Pro": "moonshotai/Kimi-K3.1-Pro",
+    "Inkling-2-Small": "thinkingmachines/Inkling-2-Small",
+    # SentencePiece BPEs (byte fallback, "▁" for spaces), from ungated mirrors.
+    "Llama-2": "NousResearch/Llama-2-7b-hf",
+    "Gemma-2": "unsloth/gemma-2-2b",
 }
-TIKTOKEN_ONLY = {"moonshotai/Kimi-K3"}
+#: What runs without ``--models``; the others are run by name.
+DEFAULT_MODELS = ["GLM-5.3", "Kimi-K3", "DeepSeek-V4.1-Flash"]
+TIKTOKEN_ONLY = {"moonshotai/Kimi-K3", "moonshotai/Kimi-K3.1-Pro"}
 
 #: ``--libs`` name -> label prefix in the tables.
 LIBS = {"hf": "HF", "gt": "gigatoken", "ft": "fastokens"}
@@ -74,6 +83,11 @@ def hf_json(repo: str) -> str:
     return hf_hub_download(repo, "tokenizer.json")
 
 
+#: The ``zh`` scenario's documents: mC4's first Chinese shard (53k pages, median
+#: 1.4 KB), which ``bulk_corpus.py`` also reads.
+ZH_SHARD = "multilingual/c4-zh.tfrecord-00000-of-01024.json.gz"
+
+
 def load_data(args):
     from huggingface_hub import hf_hub_download
 
@@ -85,6 +99,13 @@ def load_data(args):
             t = "\n\n".join(m["value"] for m in item.get("conversations") or [] if m.get("value"))
             if t:
                 chats.append(t)
+    zh = []
+    with gzip.open(hf_hub_download("allenai/c4", ZH_SHARD, repo_type="dataset"), "rt", encoding="utf-8") as fh:
+        for line in fh:
+            if len(zh) == args.zh_n + args.zh_warm:
+                break
+            if t := json.loads(line)["text"]:
+                zh.append(t)
     # Timed sets first; the warm-up sets are disjoint slices after them.
     return {
         "long": long_docs[: args.long_n],
@@ -92,6 +113,8 @@ def load_data(args):
         "chat": chats[: args.chat_n],
         "batch": chats[args.chat_n : args.chat_n + args.batch_n],
         "chat_warm": chats[args.chat_n + args.batch_n :][: args.chat_warm],
+        "zh": zh[: args.zh_n],
+        "zh_warm": zh[args.zh_n :],
     }
 
 
@@ -107,6 +130,9 @@ def load_lib(lib: str, repo: str):
         import tokenizers
 
         tok = tokenizers.Tokenizer.from_file(hf_json(repo))
+        # From 1.0.0rc3 on, encoding goes through the compiled tokenizer.
+        if hasattr(tok, "compile"):
+            tok = tok.compile()
         version = tokenizers.__version__
         enc = lambda s: tok.encode(s, add_special_tokens=False).ids  # noqa: E731
         enc_batch = lambda b: [e.ids for e in tok.encode_batch(b, add_special_tokens=False)]  # noqa: E731
@@ -133,7 +159,7 @@ def load_lib(lib: str, repo: str):
 def worker(lib: str, model: str, args) -> dict:
     data = load_data(args)
     version, enc, enc_batch = load_lib(lib, MODELS[model])
-    for t in data["long_warm"] + data["chat_warm"]:
+    for t in data["long_warm"] + data["chat_warm"] + data["zh_warm"]:
         enc(t)
     enc_batch(data["chat_warm"][:256])
 
@@ -160,6 +186,7 @@ def worker(lib: str, model: str, args) -> dict:
 
     out["long"] = per_request(data["long"])
     out["chat"] = per_request(data["chat"])
+    out["zh"] = per_request(data["zh"])
 
     batches = [data["batch"][i : i + 256] for i in range(0, len(data["batch"]), 256)]
     results = []
@@ -182,7 +209,7 @@ def print_table(hdr, rows):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--models", default=",".join(MODELS))
+    ap.add_argument("--models", default=",".join(DEFAULT_MODELS))
     ap.add_argument(
         "--libs",
         default="hf,ft",
@@ -194,6 +221,8 @@ def main():
     ap.add_argument("--chat-n", type=int, default=5000)
     ap.add_argument("--batch-n", type=int, default=20000)
     ap.add_argument("--chat-warm", type=int, default=2000)
+    ap.add_argument("--zh-n", type=int, default=2000)
+    ap.add_argument("--zh-warm", type=int, default=500)
     ap.add_argument("--gap-ms", type=float, default=0.0, help="idle gap before each timed request")
     ap.add_argument("--repeat", type=int, default=1, help="run each worker N times (alternating libraries) and report medians")
     ap.add_argument("--json", help="also write raw results here")
@@ -213,7 +242,8 @@ def main():
         libs.append((name, python or sys.executable))
     passthru = [
         f"--long-n={args.long_n}", f"--long-warm={args.long_warm}", f"--chat-n={args.chat_n}",
-        f"--batch-n={args.batch_n}", f"--chat-warm={args.chat_warm}", f"--gap-ms={args.gap_ms}",
+        f"--batch-n={args.batch_n}", f"--chat-warm={args.chat_warm}", f"--zh-n={args.zh_n}",
+        f"--zh-warm={args.zh_warm}", f"--gap-ms={args.gap_ms}",
     ]
     results = {}
     for model in models:
@@ -229,7 +259,7 @@ def main():
             # Parity from the first run; speed as the median over runs (the host's
             # noise hits each run differently).
             merged = rs[0]
-            for sc in ("long", "chat", "batch"):
+            for sc in ("long", "chat", "zh", "batch"):
                 for key in ("mb_s", "p50_ms", "p90_ms"):
                     if key in merged[sc]:
                         merged[sc][key] = statistics.median(r[sc][key] for r in rs)
@@ -242,7 +272,7 @@ def main():
     rows, lat_rows, notes, ok, data = [], [], [], True, None
     for model in models:
         repo = MODELS[model]
-        for sc in ("long", "chat", "batch"):
+        for sc in ("long", "chat", "zh", "batch"):
             ref = results[(model, 0)][sc]["digests"]
             status = []
             for k in range(1, len(libs)):

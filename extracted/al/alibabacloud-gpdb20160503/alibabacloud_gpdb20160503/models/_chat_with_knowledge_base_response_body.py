@@ -25,8 +25,8 @@ class ChatWithKnowledgeBaseResponseBody(DaraModel):
         # The request ID.
         self.request_id = request_id
         # The status. Valid values:
-        # - **success**: The operation is successful.
-        # - **fail**: The operation fails.
+        # - **success**: Successful.
+        # - **fail**: Failed.
         self.status = status
 
     def validate(self):
@@ -98,12 +98,12 @@ class ChatWithKnowledgeBaseResponseBodyMultiCollectionRecallResult(DaraModel):
         # The request ID.
         self.request_id = request_id
         # The API execution status. Valid values:
-        # - **success**: The execution is successful.
-        # - **fail**: The execution fails.
+        # - **success**: The execution was successful.
+        # - **fail**: The execution failed.
         self.status = status
         # The number of tokens consumed.
         self.tokens = tokens
-        # The number of tokens or entries consumed for document understanding or embedding.
+        # The number of tokens or items consumed for document understanding or embedding.
         self.usage = usage
 
     def validate(self):
@@ -180,7 +180,7 @@ class ChatWithKnowledgeBaseResponseBodyMultiCollectionRecallResultUsage(DaraMode
     ):
         # The number of tokens used for vectorization.
         # 
-        # > A token is the smallest unit into which the input text is split. A token can be a word, a phrase, a punctuation mark, or a character.
+        # > A token is the smallest unit into which input text is divided. A token can be a word, a phrase, a punctuation mark, or a character.
         self.embedding_tokens = embedding_tokens
 
     def validate(self):
@@ -221,7 +221,7 @@ class ChatWithKnowledgeBaseResponseBodyMultiCollectionRecallResultMatches(DaraMo
         self.content = content
         # The file name.
         self.file_name = file_name
-        # The public URL of the image in the query result. The default validity period is 2 hours. You can specify the validity period by using the UrlExpiration request parameter.
+        # The public URL of the query result image. The default validity period is 2 hours. You can specify the validity period by using the UrlExpiration request parameter.
         self.file_url = file_url
         # The unique ID of the vector data.
         self.id = id
@@ -231,9 +231,9 @@ class ChatWithKnowledgeBaseResponseBodyMultiCollectionRecallResultMatches(DaraMo
         self.metadata = metadata
         # The reranking score.
         self.rerank_score = rerank_score
-        # The source of the retrieve results. 1 indicates AISearch, 2 indicates full-text index, and 3 indicates dual-channel recall.
+        # The source of the retrieve result. A value of 1 indicates AISearch. A value of 2 indicates full-text index. A value of 3 indicates dual-channel recall.
         self.retrieval_source = retrieval_source
-        # The similarity score of this data entry. The scoring algorithm is related to the algorithm specified when the index is created, such as l2, ip, or cosine.
+        # The similarity score of this data entry. The scoring algorithm depends on the algorithm specified during index creation, such as l2, ip, or cosine.
         self.score = score
         # The vector data.
         self.vector = vector
@@ -537,7 +537,7 @@ class ChatWithKnowledgeBaseResponseBodyChatCompletionChoicesMessage(DaraModel):
         # - user
         # - assistant
         self.role = role
-        # The list of tool invocation responses.
+        # The list of tool calling invoke responses.
         self.tool_calls = tool_calls
 
     def validate(self):
@@ -597,7 +597,7 @@ class ChatWithKnowledgeBaseResponseBodyChatCompletionChoicesMessageToolCalls(Dar
         self.function = function
         # The ID.
         self.id = id
-        # The ordinal number of the tool invocation.
+        # The ordinal number of the tool calling invoke.
         self.index = index
 
     def validate(self):
@@ -640,7 +640,7 @@ class ChatWithKnowledgeBaseResponseBodyChatCompletionChoicesMessageToolCallsFunc
         arguments: str = None,
         name: str = None,
     ):
-        # The arguments of the called function.
+        # The arguments for the called function.
         self.arguments = arguments
         # The name of the called function.
         self.name = name

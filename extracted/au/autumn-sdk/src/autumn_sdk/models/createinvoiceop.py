@@ -1990,6 +1990,7 @@ CreateInvoiceProcessorType = Union[
     Literal[
         "stripe",
         "revenuecat",
+        "quartz",
     ],
     UnrecognizedStr,
 ]

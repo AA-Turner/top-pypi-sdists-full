@@ -23,7 +23,7 @@ use pyo3::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{conflicts::PyConflict, impl_pickle};
+use crate::{conflicts::PyConflict, impl_exception_pickle_state};
 
 /// A simple wrapper around the `StoreError` to make it easier to convert to a `PyErr`
 ///
@@ -644,6 +644,10 @@ fn chain_message(error: &(dyn std::error::Error + 'static)) -> String {
         current = err.source();
     }
     let mut out = parts.join(": ");
+    if let Some(hint) = icechunk::storage::tls::tls_hint(error) {
+        out.push_str("\n\nhint: ");
+        out.push_str(&hint);
+    }
     for ctx in contexts {
         out.push_str(CTX_MARKER);
         out.push_str(&ctx);
@@ -792,7 +796,7 @@ impl IcechunkError {
     }
 }
 
-impl_pickle!(IcechunkError);
+impl_exception_pickle_state!(IcechunkError);
 
 #[pyclass(extends=IcechunkError, subclass, name = "ConflictError", module = "icechunk")]
 #[derive(Serialize, Deserialize)]
@@ -857,7 +861,7 @@ impl PyConflictError {
     }
 }
 
-impl_pickle!(PyConflictError);
+impl_exception_pickle_state!(PyConflictError);
 
 #[pyclass(extends=PyConflictError, name = "RebaseFailedError", module = "icechunk")]
 #[derive(Serialize, Deserialize)]
@@ -914,4 +918,4 @@ impl PyRebaseFailedError {
     }
 }
 
-impl_pickle!(PyRebaseFailedError);
+impl_exception_pickle_state!(PyRebaseFailedError);

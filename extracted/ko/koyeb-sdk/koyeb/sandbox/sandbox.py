@@ -18,6 +18,7 @@ from koyeb.api.exceptions import ApiException
 from koyeb.api.models.create_service import ServiceLifeCycle
 from koyeb.api.models.egress_policy import EgressPolicy
 from koyeb.api.models.egress_policy_mode import EgressPolicyMode
+from koyeb.api.models.mesh_scope import MeshScope
 from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.update_service import UpdateService
 
@@ -44,6 +45,22 @@ from .errors import (
     SandboxDeploymentError,
     SandboxError,
     SandboxTimeoutError,
+    SidecarError,
+)
+from .sidecar import (
+    EGRESS_WITH_SIDECARS,
+    INACTIVITY_WITH_SIDECARS,
+    SIDECARS_ENV,
+    Sidecar,
+    SidecarInfo,
+    SidecarTimeoutError,
+    check_sidecar_deployment,
+    aligned_delete_after,
+    match_sidecars,
+    parse_sidecars_env,
+    prepare_sidecars,
+    sidecar_service_payloads,
+    sidecars_env_value,
 )
 from .status import classify_deployment_status
 
@@ -120,6 +137,248 @@ async def _cleanup_after_failure_async(sandbox: "Sandbox") -> bool:
     except Exception as e:
         logger.warning(f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}")
         return False
+
+
+def _keep_mesh(
+    new_policy: Dict[str, Any], current_policy: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Carry the current mesh scope into a new network policy.
+
+    update_network_policy only changes egress; replacing the whole
+    network_policy would silently move the sandbox to another mesh."""
+    mesh = (current_policy or {}).get("mesh")
+    if mesh:
+        new_policy = dict(new_policy)
+        new_policy["mesh"] = mesh
+    return new_policy
+
+
+def _sidecar_ready(cp: SyncControlPlane, info: SidecarInfo) -> bool:
+    """True when healthy, False while starting or on a transient API error
+    (retried until the deadline); SidecarError on a terminal state."""
+    try:
+        deployment_id = cp.get_service(info.service_id).latest_deployment_id
+        if not deployment_id:
+            return False
+        status = cp.get_deployment(deployment_id).status
+    except Exception as e:
+        logger.debug(f"Could not poll sidecar '{info.name}': {e}")
+        return False
+    return check_sidecar_deployment(info, status)
+
+
+async def _sidecar_ready_async(cp: AsyncControlPlane, info: SidecarInfo) -> bool:
+    """Async twin of _sidecar_ready."""
+    try:
+        deployment_id = (await cp.get_service(info.service_id)).latest_deployment_id
+        if not deployment_id:
+            return False
+        status = (await cp.get_deployment(deployment_id)).status
+    except Exception as e:
+        logger.debug(f"Could not poll sidecar '{info.name}': {e}")
+        return False
+    return check_sidecar_deployment(info, status)
+
+
+def _list_app_services(cp: SyncControlPlane, app_id: str) -> List["ServiceInfo"]:
+    """Every WEB service of an app (paginated). Names are matched exactly by
+    the caller: the API's name filter is a substring match."""
+    services: List["ServiceInfo"] = []
+    offset = 0
+    while True:
+        page, count = cp.list_services(
+            offset=offset, limit=100, app_id=app_id, types=["WEB"]
+        )
+        services.extend(page)
+        offset += 100
+        if offset >= count or not page:
+            return services
+
+
+async def _list_app_services_async(
+    cp: AsyncControlPlane, app_id: str
+) -> List["ServiceInfo"]:
+    """Async twin of _list_app_services."""
+    services: List["ServiceInfo"] = []
+    offset = 0
+    while True:
+        page, count = await cp.list_services(
+            offset=offset, limit=100, app_id=app_id, types=["WEB"]
+        )
+        services.extend(page)
+        offset += 100
+        if offset >= count or not page:
+            return services
+
+
+def _find_sidecars(
+    cp: SyncControlPlane, service: "ServiceInfo", env: Dict[str, Optional[str]]
+) -> List[SidecarInfo]:
+    """The sidecars listed in a sandbox's KOYEB_SIDECARS env, matched by
+    exact name to the services of the sandbox's app.
+
+    Raises SidecarError when the env is damaged, the lookup fails, or a
+    listed sidecar is missing: a partial list would make update_lifecycle
+    skip sidecars silently.
+    """
+    entries = parse_sidecars_env(env.get(SIDECARS_ENV))
+    if not entries:
+        return []
+    try:
+        services = _list_app_services(cp, service.app_id)
+    except Exception as e:
+        raise SidecarError(
+            f"Could not look up the sidecars of sandbox '{service.name}': {e}"
+        ) from e
+    infos, missing = match_sidecars(entries, services)
+    if missing:
+        raise SidecarError(_missing_sidecars(service, missing))
+    return infos
+
+
+async def _find_sidecars_async(
+    cp: AsyncControlPlane, service: "ServiceInfo", env: Dict[str, Optional[str]]
+) -> List[SidecarInfo]:
+    """Async twin of _find_sidecars."""
+    entries = parse_sidecars_env(env.get(SIDECARS_ENV))
+    if not entries:
+        return []
+    try:
+        services = await _list_app_services_async(cp, service.app_id)
+    except Exception as e:
+        raise SidecarError(
+            f"Could not look up the sidecars of sandbox '{service.name}': {e}"
+        ) from e
+    infos, missing = match_sidecars(entries, services)
+    if missing:
+        raise SidecarError(_missing_sidecars(service, missing))
+    return infos
+
+
+def _missing_sidecars(service: "ServiceInfo", missing: List[str]) -> str:
+    names = ", ".join(f"'{n}'" for n in missing)
+    return (
+        f"Sandbox '{service.name}' lists sidecar {names} but its app has no "
+        "such service (deleted?)"
+    )
+
+
+def _lists_sidecars(definition: Dict[str, Any]) -> bool:
+    """True when a deployment definition (dict) carries KOYEB_SIDECARS."""
+    return any(
+        e.get("key") == SIDECARS_ENV and e.get("value")
+        for e in definition.get("env") or []
+    )
+
+
+def _remaining(deadline: float) -> float:
+    """Seconds left before ``deadline`` (time.monotonic), at least 1 so the
+    final readiness check still runs."""
+    return max(1.0, deadline - time.monotonic())
+
+
+def _app_outcome(deleted: Optional[bool], app_id: str) -> str:
+    """What happened to the app after a failed create with sidecars.
+    ``deleted`` is None when it was kept on purpose."""
+    if deleted is None:
+        return (
+            f"The sandbox was not created; app {app_id} was kept for inspection. "
+            "Delete it when done."
+        )
+    if deleted:
+        return "The sandbox was not created and its app was deleted."
+    return (
+        f"The sandbox was not created and app {app_id} could not be deleted: "
+        "delete it, its sidecars keep running until then."
+    )
+
+
+def _with_outcome(error: BaseException, outcome: str) -> None:
+    error.args = (f"{error.args[0] if error.args else error} {outcome}",) + tuple(
+        error.args[1:]
+    )
+
+
+def _sidecar_timeout_error(
+    pending: List[SidecarInfo], timeout: float
+) -> SidecarTimeoutError:
+    names = ", ".join(f"'{i.name}'" for i in pending)
+    return SidecarTimeoutError(
+        f"Sidecar {names} did not become healthy within {timeout:.0f} seconds "
+        "(its first port must accept TCP connections; raise timeout or the "
+        "sidecar's startup_grace_period for slow images)"
+    )
+
+
+def _create_sidecars(
+    cp: SyncControlPlane, sidecars: List[Sidecar], app_id: str, spec: SandboxSpec
+) -> List[SidecarInfo]:
+    """Create the sidecar services in the sandbox's app."""
+    infos = []
+    for sidecar, payload in zip(
+        sidecars, sidecar_service_payloads(sidecars, app_id, spec)
+    ):
+        try:
+            service_id = cp.create_service(payload)
+        except ApiException as e:
+            raise SidecarError(f"Failed to create sidecar '{sidecar.name}': {e}") from e
+        infos.append(SidecarInfo(sidecar.name, service_id, list(sidecar.ports)))
+    return infos
+
+
+def _wait_sidecars(
+    cp: SyncControlPlane, infos: List[SidecarInfo], timeout: float, poll_interval: float
+) -> None:
+    """Wait until every sidecar is healthy; SidecarError on failure or timeout."""
+    start = time.time()
+    interval = min(FAST_POLL_INTERVAL, poll_interval)
+    pending = list(infos)
+    while True:
+        pending = [i for i in pending if not _sidecar_ready(cp, i)]
+        if not pending:
+            return
+        if time.time() - start >= timeout:
+            raise _sidecar_timeout_error(pending, timeout)
+        time.sleep(interval)
+        interval = _next_poll_interval(time.time() - start, interval, poll_interval)
+
+
+async def _create_sidecars_async(
+    cp: AsyncControlPlane, sidecars: List[Sidecar], app_id: str, spec: SandboxSpec
+) -> List[SidecarInfo]:
+    """Async twin of _create_sidecars."""
+    from koyeb.api_async.exceptions import ApiException as AsyncApiException
+
+    infos = []
+    for sidecar, payload in zip(
+        sidecars, sidecar_service_payloads(sidecars, app_id, spec)
+    ):
+        try:
+            service_id = await cp.create_service(payload)
+        except AsyncApiException as e:
+            raise SidecarError(f"Failed to create sidecar '{sidecar.name}': {e}") from e
+        infos.append(SidecarInfo(sidecar.name, service_id, list(sidecar.ports)))
+    return infos
+
+
+async def _wait_sidecars_async(
+    cp: AsyncControlPlane,
+    infos: List[SidecarInfo],
+    timeout: float,
+    poll_interval: float,
+) -> None:
+    """Async twin of _wait_sidecars."""
+    start = time.time()
+    interval = min(FAST_POLL_INTERVAL, poll_interval)
+    pending = list(infos)
+    while True:
+        pending = [i for i in pending if not await _sidecar_ready_async(cp, i)]
+        if not pending:
+            return
+        if time.time() - start >= timeout:
+            raise _sidecar_timeout_error(pending, timeout)
+        await asyncio.sleep(interval)
+        interval = _next_poll_interval(time.time() - start, interval, poll_interval)
 
 
 def validate_port(port: int) -> None:
@@ -238,11 +497,28 @@ class Sandbox:
         self._deployment_id: Optional[str] = None
         self._executor = None
         self._filesystem = None
+        self._sidecars: List[SidecarInfo] = []
 
     @property
     def id(self) -> str:
         """Get the service ID of the sandbox."""
         return self.service_id
+
+    @property
+    def sidecars(self) -> List[SidecarInfo]:
+        """Sidecars created with this sandbox."""
+        return list(self._sidecars)
+
+    def sidecar(self, name: str) -> SidecarInfo:
+        """The sidecar called ``name``.
+
+        Raises:
+            SidecarError: If this sandbox has no sidecar with that name
+        """
+        for info in self._sidecars:
+            if info.name == name:
+                return info
+        raise SidecarError(f"Sandbox '{self.name}' has no sidecar '{name}'")
 
     @classmethod
     def create(
@@ -277,6 +553,8 @@ class Sandbox:
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
         cleanup_on_failure: bool = True,
+        mesh_scope: Optional[Union[MeshScope, str]] = None,
+        sidecars: Optional[List[Sidecar]] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -313,6 +591,17 @@ class Sandbox:
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
+                mesh_scope: Which services share the sandbox's mesh: MESH_SCOPE_APP,
+                    MESH_SCOPE_WORKSPACE or MESH_SCOPE_ORGANIZATION (a MeshScope or its
+                    name). None keeps the organization default. Setting a scope turns
+                    the mesh on (enable_mesh=False is rejected). Not available on free
+                    instances or with a full snapshot.
+                sidecars: Trusted helper services to run next to the sandbox,
+                    reached from it at http://<name>:<port>. They are created first and,
+                    when wait_ready is True, the sandbox is created once they are healthy.
+                    They share the sandbox's app (deleted with it) and a private app-scoped
+                    mesh. Can't be combined with app_id, snapshot, block_network,
+                    outbound_allowlist or enable_mesh=False.
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
@@ -366,6 +655,23 @@ class Sandbox:
             if not api_token:
                 raise MissingApiTokenError()
 
+        sidecars = prepare_sidecars(
+            sidecars,
+            name=name,
+            app_id=app_id,
+            snapshot=snapshot,
+            block_network=block_network,
+            outbound_allowlist=outbound_allowlist,
+            enable_mesh=enable_mesh,
+            mesh_scope=mesh_scope,
+            delete_after_inactivity_delay=delete_after_inactivity_delay,
+            env=env,
+        )
+        if sidecars:
+            enable_mesh = True
+            mesh_scope = MeshScope.MESH_SCOPE_APP
+            env = {**(env or {}), SIDECARS_ENV: sidecars_env_value(sidecars)}
+
         snapshot_id, snapshot_type = _resolve_snapshot_reference(
             snapshot, api_token, host
         )
@@ -386,6 +692,7 @@ class Sandbox:
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
             enable_mesh=enable_mesh,
+            mesh_scope=mesh_scope,
             entrypoint=entrypoint,
             command=command,
             args=args,
@@ -395,6 +702,7 @@ class Sandbox:
             snapshot_type=snapshot_type,
         )
 
+        deadline = time.monotonic() + timeout
         sandbox = cls._create_sync(
             spec,
             api_token=api_token,
@@ -403,10 +711,15 @@ class Sandbox:
             host=host,
             app_id=app_id,
             sandbox_secret=sandbox_secret,
+            sidecars=sidecars,
+            wait_sidecars=wait_ready,
+            cleanup_on_failure=cleanup_on_failure,
         )
         if wait_ready:
             try:
-                is_ready = sandbox.wait_ready(timeout=timeout)
+                is_ready = sandbox.wait_ready(
+                    timeout=_remaining(deadline) if sidecars else timeout
+                )
             except SandboxError as e:
                 if cleanup_on_failure:
                     deleted = _cleanup_after_failure(sandbox)
@@ -448,8 +761,15 @@ class Sandbox:
         host: Optional[str] = None,
         app_id: Optional[str] = None,
         sandbox_secret: Optional[str] = None,
+        sidecars: Optional[List[Sidecar]] = None,
+        wait_sidecars: bool = True,
+        cleanup_on_failure: bool = True,
     ) -> Sandbox:
-        """Create the sandbox service from the spec and return the instance."""
+        """Create the sandbox service from the spec and return the instance.
+
+        With sidecars, they are created first in the same app and, when
+        wait_sidecars is True, the sandbox is created once they are healthy.
+        """
         sandbox_secret = spec.apply_sandbox_secret(sandbox_secret)
 
         cp = SyncControlPlane(get_api_clients(api_token, host))
@@ -459,24 +779,46 @@ class Sandbox:
             app_id = cp.create_app(spec.app_payload())
             created_app = True
 
-        def _delete_created_app() -> None:
-            """Delete the app this call created; never masks the real error."""
+        def _delete_created_app() -> bool:
+            """Delete the app this call created; never masks the real error.
+            Returns whether it is gone."""
             if not created_app:
-                return
+                return True
             try:
                 cp.delete_app(app_id)
+                return True
             except Exception as cleanup_error:
                 logger.warning(
                     f"Failed to delete app {app_id} after sandbox creation error: {cleanup_error}"
                 )
+                return False
+
+        sidecar_infos: List[SidecarInfo] = []
+        if sidecars:
+            try:
+                sidecar_infos = _create_sidecars(cp, sidecars, app_id, spec)
+                if wait_sidecars:
+                    _wait_sidecars(cp, sidecar_infos, timeout, poll_interval)
+            except BaseException as e:
+                # A sidecar that ran and failed may be worth inspecting;
+                # anything else (including Ctrl-C) cleans up.
+                keep = isinstance(e, SidecarError) and not cleanup_on_failure
+                deleted = None if keep else _delete_created_app()
+                _with_outcome(e, _app_outcome(deleted, app_id))
+                raise
 
         try:
             service_id = cp.create_service(spec.create_service_payload(app_id))
         except ApiException as e:
-            _delete_created_app()
-            raise SandboxError(f"Failed to create sandbox '{spec.name}': {e}") from e
-        except Exception:
-            _delete_created_app()
+            deleted = _delete_created_app()
+            error = SandboxError(f"Failed to create sandbox '{spec.name}': {e}")
+            if sidecars:
+                _with_outcome(error, _app_outcome(deleted, app_id))
+            raise error from e
+        except BaseException as e:
+            deleted = _delete_created_app()
+            if sidecars:
+                _with_outcome(e, _app_outcome(deleted, app_id))
             raise
 
         sandbox = cls(
@@ -491,6 +833,11 @@ class Sandbox:
             snapshot_id=spec.snapshot_id,
         )
         sandbox._owns_app = created_app
+        sandbox._sidecars = sidecar_infos
+        if sidecar_infos and spec.delete_after_delay:
+            # Sidecars were created first and the platform counts the delay
+            # from each service's creation: extend theirs to the sandbox's.
+            sandbox._align_sidecars_after_create(spec.delete_after_delay)
         return sandbox
 
     @classmethod
@@ -535,6 +882,9 @@ class Sandbox:
                 logger.debug(f"Could not get deployment {deployment_id}: {e}")
 
         sandbox = _hydrate_sandbox_handle(cls, service, deployment, api_token, host)
+        if deployment is not None:
+            # Raises rather than returning a partial list.
+            sandbox._sidecars = _find_sidecars(cp, service, deployment.env)
 
         if deployment is None or not deployment.sandbox_url:
             try:
@@ -1465,9 +1815,17 @@ class Sandbox:
         Raises:
             SandboxError: If updating life cycle fails
 
+        With sidecars, the sidecars are updated first, so they expire with
+        the sandbox (without redeploying them), and delete_after_inactivity
+        is rejected: sidecars never sleep, so they would outlive the
+        sandbox. The sidecars are read from the sandbox's current
+        deployment, so this also works on handles from list().
+
         Example:
             >>> sandbox.update_life_cycle(delete_after_delay=600, delete_after_inactivity=300)
         """
+        if self._sidecars and delete_after_inactivity:
+            raise SidecarError(INACTIVITY_WITH_SIDECARS)
         try:
             clients = get_api_clients(self.api_token, self.host)
             services_api = clients.services
@@ -1482,6 +1840,14 @@ class Sandbox:
                 service.latest_deployment_id
             )
             deployment = deployment_response.deployment
+
+            sidecars = self._lifecycle_sidecars(deployment)
+            if sidecars and delete_after_inactivity:
+                raise SidecarError(INACTIVITY_WITH_SIDECARS)
+            if sidecars and delete_after_delay is not None:
+                self._update_sidecars_delete_after(
+                    clients, sidecars, delete_after_delay, service.created_at
+                )
 
             # Update life cycle settings
             life_cycle = service.life_cycle or ServiceLifeCycle()
@@ -1521,6 +1887,65 @@ class Sandbox:
                 raise
             raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
 
+    def _align_sidecars_after_create(self, delay: int) -> None:
+        """Best effort: a failure only logs, the sidecars then expire a few
+        seconds before the sandbox."""
+        try:
+            clients = get_api_clients(self.api_token, self.host)
+            created = SyncControlPlane(clients).get_service(self.service_id).created_at
+            self._update_sidecars_delete_after(clients, self._sidecars, delay, created)
+        except Exception as e:
+            logger.warning(f"Could not align sidecar expiry with the sandbox: {e}")
+
+    def _lifecycle_sidecars(self, deployment: Any) -> List[SidecarInfo]:
+        """The sidecars to keep in step: from the live deployment's
+        KOYEB_SIDECARS (covers list() handles and stale handles)."""
+        env = {e.key: e.value for e in (deployment.definition.env or [])}
+        if not env.get(SIDECARS_ENV):
+            return list(self._sidecars)
+        cp = SyncControlPlane(get_api_clients(self.api_token, self.host))
+        info = cp.get_service(self.service_id)
+        sidecars = _find_sidecars(cp, info, env)
+        self._sidecars = sidecars
+        return sidecars
+
+    def _update_sidecars_delete_after(
+        self,
+        clients: Any,
+        sidecars: List[SidecarInfo],
+        delay: int,
+        sandbox_created_at: Any,
+    ) -> None:
+        """Set each sidecar's delete_after_create so it expires with the
+        sandbox, as a life-cycle-only update. Skips sidecars already set:
+        an update that changes nothing would redeploy them."""
+        cp = SyncControlPlane(clients)
+        failed = []
+        for info in sidecars:
+            try:
+                current = cp.get_service(info.service_id)
+                target = aligned_delete_after(
+                    delay, sandbox_created_at, current.created_at
+                )
+                if (current.delete_after_create or 0) == target:
+                    continue
+                clients.services.update_service(
+                    id=info.service_id,
+                    service=UpdateService(
+                        life_cycle=ServiceLifeCycle(delete_after_create=target)
+                    ),
+                    update_mask="life_cycle.delete_after_create",
+                )
+            except Exception as e:
+                logger.debug(f"Sidecar '{info.name}' life cycle update failed: {e}")
+                failed.append(info.name)
+        if failed:
+            raise SidecarError(
+                "Nothing was changed on the sandbox: the life cycle of sidecar "
+                + ", ".join(f"'{n}'" for n in failed)
+                + " could not be updated. Retry update_lifecycle."
+            )
+
     def update_network_policy(
         self,
         block_network: bool = False,
@@ -1556,6 +1981,8 @@ class Sandbox:
             >>> sandbox.update_network_policy(outbound_allowlist=["10.0.0.0/8", "1.2.3.4"])
             >>> sandbox.update_network_policy()  # reset to unrestricted
         """
+        if self._sidecars and (block_network or outbound_allowlist is not None):
+            raise SidecarError(EGRESS_WITH_SIDECARS)
         network_policy = build_network_policy(block_network, outbound_allowlist)
         if network_policy is None:
             network_policy = NetworkPolicy(
@@ -1565,7 +1992,14 @@ class Sandbox:
             cp = SyncControlPlane(get_api_clients(self.api_token, self.host))
             service = cp.get_service(self.service_id)
             definition = cp.deployment_definition(service.latest_deployment_id)
-            definition["network_policy"] = network_policy.to_dict()
+            if (block_network or outbound_allowlist is not None) and _lists_sidecars(
+                definition
+            ):
+                # Covers handles that don't know their sidecars (list()).
+                raise SidecarError(EGRESS_WITH_SIDECARS)
+            definition["network_policy"] = _keep_mesh(
+                network_policy.to_dict(), definition.get("network_policy")
+            )
 
             # Pin the sandbox to the new deployment so wait_ready() polls
             # the replacement; a failed id lookup must not surface as an
@@ -1665,6 +2099,8 @@ class AsyncSandbox(Sandbox):
                 logger.debug(f"Could not get deployment {deployment_id}: {e}")
 
         sandbox = _hydrate_sandbox_handle(cls, service, deployment, api_token, host)
+        if deployment is not None:
+            sandbox._sidecars = await _find_sidecars_async(cp, service, deployment.env)
 
         if deployment is None or not deployment.sandbox_url:
             try:
@@ -1712,6 +2148,8 @@ class AsyncSandbox(Sandbox):
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
         cleanup_on_failure: bool = True,
+        mesh_scope: Optional[Union[MeshScope, str]] = None,
+        sidecars: Optional[List[Sidecar]] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1750,6 +2188,17 @@ class AsyncSandbox(Sandbox):
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
+                mesh_scope: Which services share the sandbox's mesh: MESH_SCOPE_APP,
+                    MESH_SCOPE_WORKSPACE or MESH_SCOPE_ORGANIZATION (a MeshScope or its
+                    name). None keeps the organization default. Setting a scope turns
+                    the mesh on (enable_mesh=False is rejected). Not available on free
+                    instances or with a full snapshot.
+                sidecars: Trusted helper services to run next to the sandbox,
+                    reached from it at http://<name>:<port>. They are created first and,
+                    when wait_ready is True, the sandbox is created once they are healthy.
+                    They share the sandbox's app (deleted with it) and a private app-scoped
+                    mesh. Can't be combined with app_id, snapshot, block_network,
+                    outbound_allowlist or enable_mesh=False.
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
@@ -1777,6 +2226,23 @@ class AsyncSandbox(Sandbox):
             if not api_token:
                 raise MissingApiTokenError()
 
+        sidecars = prepare_sidecars(
+            sidecars,
+            name=name,
+            app_id=app_id,
+            snapshot=snapshot,
+            block_network=block_network,
+            outbound_allowlist=outbound_allowlist,
+            enable_mesh=enable_mesh,
+            mesh_scope=mesh_scope,
+            delete_after_inactivity_delay=delete_after_inactivity_delay,
+            env=env,
+        )
+        if sidecars:
+            enable_mesh = True
+            mesh_scope = MeshScope.MESH_SCOPE_APP
+            env = {**(env or {}), SIDECARS_ENV: sidecars_env_value(sidecars)}
+
         snapshot_id, snapshot_type = _resolve_snapshot_reference(
             snapshot, api_token, host
         )
@@ -1797,6 +2263,7 @@ class AsyncSandbox(Sandbox):
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
             enable_mesh=enable_mesh,
+            mesh_scope=mesh_scope,
             entrypoint=entrypoint,
             command=command,
             args=args,
@@ -1817,24 +2284,50 @@ class AsyncSandbox(Sandbox):
             app_id = await cp.create_app(spec.app_payload())
             created_app = True
 
-        async def _delete_created_app() -> None:
-            """Delete the app this call created; never masks the real error."""
+        async def _delete_created_app() -> bool:
+            """Delete the app this call created; never masks the real error.
+            Shielded so a cancelled create still cleans up. Returns whether
+            the app is gone."""
             if not created_app:
-                return
+                return True
             try:
-                await cp.delete_app(app_id)
-            except Exception as cleanup_error:
+                await asyncio.shield(cp.delete_app(app_id))
+                return True
+            except BaseException as cleanup_error:
                 logger.warning(
                     f"Failed to delete app {app_id} after sandbox creation error: {cleanup_error}"
                 )
+                return False
+
+        deadline = time.monotonic() + timeout
+        sidecar_infos: List[SidecarInfo] = []
+        if sidecars:
+            try:
+                sidecar_infos = await _create_sidecars_async(cp, sidecars, app_id, spec)
+                if wait_ready:
+                    await _wait_sidecars_async(
+                        cp, sidecar_infos, timeout, poll_interval
+                    )
+            except BaseException as e:
+                # A sidecar that ran and failed may be worth inspecting;
+                # anything else (including cancellation) cleans up.
+                keep = isinstance(e, SidecarError) and not cleanup_on_failure
+                deleted = None if keep else await _delete_created_app()
+                _with_outcome(e, _app_outcome(deleted, app_id))
+                raise
 
         try:
             service_id = await cp.create_service(spec.create_service_payload(app_id))
         except AsyncApiException as e:
-            await _delete_created_app()
-            raise SandboxError(f"Failed to create sandbox '{name}': {e}") from e
-        except Exception:
-            await _delete_created_app()
+            deleted = await _delete_created_app()
+            error = SandboxError(f"Failed to create sandbox '{name}': {e}")
+            if sidecars:
+                _with_outcome(error, _app_outcome(deleted, app_id))
+            raise error from e
+        except BaseException as e:
+            deleted = await _delete_created_app()
+            if sidecars:
+                _with_outcome(e, _app_outcome(deleted, app_id))
             raise
 
         sandbox = cls(
@@ -1849,9 +2342,14 @@ class AsyncSandbox(Sandbox):
             snapshot_id=spec.snapshot_id,
         )
         sandbox._owns_app = created_app
+        sandbox._sidecars = sidecar_infos
+        if sidecar_infos and spec.delete_after_delay:
+            await sandbox._align_sidecars_after_create(spec.delete_after_delay)
         if wait_ready:
             try:
-                is_ready = await sandbox.wait_ready(timeout=timeout)
+                is_ready = await sandbox.wait_ready(
+                    timeout=_remaining(deadline) if sidecars else timeout
+                )
             except SandboxError as e:
                 if cleanup_on_failure:
                     deleted = await _cleanup_after_failure_async(sandbox)
@@ -2339,7 +2837,12 @@ class AsyncSandbox(Sandbox):
         delete_after_delay: Optional[int] = None,
         delete_after_inactivity: Optional[int] = None,
     ) -> None:
-        """Update the sandbox's life cycle settings asynchronously."""
+        """Update the sandbox's life cycle settings asynchronously.
+
+        See Sandbox.update_lifecycle, including the sidecar rules.
+        """
+        if self._sidecars and delete_after_inactivity:
+            raise SidecarError(INACTIVITY_WITH_SIDECARS)
         try:
             from .clients import get_async_api_clients
             from koyeb.api_async.models.create_service import (
@@ -2360,6 +2863,14 @@ class AsyncSandbox(Sandbox):
                 service.latest_deployment_id
             )
             deployment = deployment_response.deployment
+
+            sidecars = await self._lifecycle_sidecars_async(clients, deployment)
+            if sidecars and delete_after_inactivity:
+                raise SidecarError(INACTIVITY_WITH_SIDECARS)
+            if sidecars and delete_after_delay is not None:
+                await self._update_sidecars_delete_after(
+                    clients, sidecars, delete_after_delay, service.created_at
+                )
 
             life_cycle = service.life_cycle or AsyncServiceLifeCycle()
             if delete_after_delay is not None:
@@ -2404,6 +2915,74 @@ class AsyncSandbox(Sandbox):
                 raise
             raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
 
+    async def _align_sidecars_after_create(self, delay: int) -> None:
+        """Async twin of Sandbox._align_sidecars_after_create."""
+        try:
+            clients = get_async_api_clients(self.api_token, self.host)
+            created = (
+                await AsyncControlPlane(clients).get_service(self.service_id)
+            ).created_at
+            await self._update_sidecars_delete_after(
+                clients, self._sidecars, delay, created
+            )
+        except Exception as e:
+            logger.warning(f"Could not align sidecar expiry with the sandbox: {e}")
+
+    async def _lifecycle_sidecars_async(
+        self, clients: Any, deployment: Any
+    ) -> List[SidecarInfo]:
+        """Async twin of Sandbox._lifecycle_sidecars."""
+        env = {e.key: e.value for e in (deployment.definition.env or [])}
+        if not env.get(SIDECARS_ENV):
+            return list(self._sidecars)
+        cp = AsyncControlPlane(clients)
+        info = await cp.get_service(self.service_id)
+        sidecars = await _find_sidecars_async(cp, info, env)
+        self._sidecars = sidecars
+        return sidecars
+
+    async def _update_sidecars_delete_after(
+        self,
+        clients: Any,
+        sidecars: List[SidecarInfo],
+        delay: int,
+        sandbox_created_at: Any,
+    ) -> None:
+        """Async twin of Sandbox._update_sidecars_delete_after."""
+        from koyeb.api_async.models.create_service import (
+            ServiceLifeCycle as AsyncServiceLifeCycle,
+        )
+        from koyeb.api_async.models.update_service import (
+            UpdateService as AsyncUpdateService,
+        )
+
+        cp = AsyncControlPlane(clients)
+        failed = []
+        for info in sidecars:
+            try:
+                current = await cp.get_service(info.service_id)
+                target = aligned_delete_after(
+                    delay, sandbox_created_at, current.created_at
+                )
+                if (current.delete_after_create or 0) == target:
+                    continue
+                await clients.services.update_service(
+                    id=info.service_id,
+                    service=AsyncUpdateService(
+                        life_cycle=AsyncServiceLifeCycle(delete_after_create=target)
+                    ),
+                    update_mask="life_cycle.delete_after_create",
+                )
+            except Exception as e:
+                logger.debug(f"Sidecar '{info.name}' life cycle update failed: {e}")
+                failed.append(info.name)
+        if failed:
+            raise SidecarError(
+                "Nothing was changed on the sandbox: the life cycle of sidecar "
+                + ", ".join(f"'{n}'" for n in failed)
+                + " could not be updated. Retry update_lifecycle."
+            )
+
     async def update_network_policy(
         self,
         block_network: bool = False,
@@ -2426,6 +3005,8 @@ class AsyncSandbox(Sandbox):
                 passed, or an allowlist entry is not a valid IP address or CIDR
             SandboxError: If updating the network policy fails
         """
+        if self._sidecars and (block_network or outbound_allowlist is not None):
+            raise SidecarError(EGRESS_WITH_SIDECARS)
         network_policy = build_network_policy(block_network, outbound_allowlist)
         if network_policy is None:
             network_policy = NetworkPolicy(
@@ -2436,7 +3017,13 @@ class AsyncSandbox(Sandbox):
             cp = AsyncControlPlane(get_async_api_clients(self.api_token, self.host))
             service = await cp.get_service(self.service_id)
             definition = await cp.deployment_definition(service.latest_deployment_id)
-            definition["network_policy"] = network_policy.to_dict()
+            if (block_network or outbound_allowlist is not None) and _lists_sidecars(
+                definition
+            ):
+                raise SidecarError(EGRESS_WITH_SIDECARS)
+            definition["network_policy"] = _keep_mesh(
+                network_policy.to_dict(), definition.get("network_policy")
+            )
 
             # Pin the sandbox to the new deployment so wait_ready() polls
             # the replacement; a failed id lookup must not surface as an

@@ -54,12 +54,7 @@ _T = TypeVar('_T', bound=Mapping[str, Any])
 def _close_requests_session(session: 'ks_session.Session | None') -> None:
     if session is None:
         return
-    requests_session = getattr(session, '_session', None)
-    if requests_session is not None:
-        try:
-            requests_session.close()
-        except (OSError, requests.exceptions.RequestException):
-            pass
+    session.close()
 
 
 # plain function so nothing keeps ref to connection
@@ -146,64 +141,55 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         :class:`~keystoneauth1.session.Session` and wants to use it, it may be
         passed in.
 
-        :param str cloud: Name of the cloud from config to use.
+        :param cloud: Name of the cloud from config to use.
         :param config: CloudRegion object representing the config for the
             region of the cloud in question.
-        :type config: :class:`~openstack.config.cloud_region.CloudRegion`
         :param session: A session object compatible with
             :class:`~keystoneauth1.session.Session`.
-        :type session: :class:`~keystoneauth1.session.Session`
-        :param str app_name: Name of the application to be added to User Agent.
-        :param str app_version: Version of the application to be added to
+        :param app_name: Name of the application to be added to User Agent.
+        :param app_version: Version of the application to be added to
             User Agent.
         :param extra_services: List of
             :class:`~openstack.service_description.ServiceDescription`
             objects describing services that openstacksdk otherwise does not
             know about.
-        :param bool use_direct_get:
-            For get methods, make specific REST calls for server-side
-            filtering instead of making list calls and filtering client-side.
-            Default false.
-        :param task_manager:
-            Ignored. Exists for backwards compat during transition. Rate limit
-            parameters should be passed directly to the `rate_limit` parameter.
-        :param rate_limit:
-            Client-side rate limit, expressed in calls per second. The
-            parameter can either be a single float, or it can be a dict with
-            keys as service-type and values as floats expressing the calls
-            per second for that service. Defaults to None, which means no
+        :param use_direct_get: **DEPRECATED**
+        :param task_manager: **DEPRECATED**
+        :param rate_limit: Client-side rate limit, expressed in calls per
+            second. The parameter can either be a single float, or it can be a
+            dict with keys as service-type and values as floats expressing the
+            calls per second for that service. Defaults to None, which means no
             rate-limiting is performed.
-        :param oslo_conf: An oslo.config CONF object.
-        :type oslo_conf: :class:`~oslo_config.cfg.ConfigOpts`
-            An oslo.config ``CONF`` object that has been populated with
-            ``keystoneauth1.loading.register_adapter_conf_options`` in
-            groups named by the OpenStack service's project name.
+        :param oslo_conf: An oslo.config ``CONF`` object that has been
+            populated with
+            ``keystoneauth1.loading.register_adapter_conf_options`` in groups
+            named by the OpenStack service's project name.
         :param service_types:
             A list/set of service types this Connection should support. All
             other service types will be disabled (will error if used).
             **Currently only supported in conjunction with the ``oslo_conf``
             kwarg.**
         :param global_request_id: A Request-id to send with all interactions.
-        :param strict_proxies:
-            If True, check proxies on creation and raise
-            ServiceDiscoveryException if the service is unavailable.
-        :type strict_proxies: bool
-            Throw an ``openstack.exceptions.ServiceDiscoveryException`` if the
-            endpoint for a given service doesn't work. This is useful for
-            OpenStack services using sdk to talk to other OpenStack services
-            where it can be expected that the deployer config is correct and
-            errors should be reported immediately.
-            Default false.
-        :param pool_executor:
-        :type pool_executor: :class:`~futurist.Executor`
-            A futurist ``Executor`` object to be used for concurrent background
-            activities. Defaults to None in which case a ThreadPoolExecutor
-            will be created if needed.
+        :param strict_proxies: If True, throw an
+            ``openstack.exceptions.ServiceDiscoveryException`` if the endpoint
+            for a given service doesn't work. This is useful for OpenStack
+            services using sdk to talk to other OpenStack services where it can
+            be expected that the deployer config is correct and errors should
+            be reported immediately.
+        :param pool_executor: A futurist ``Executor`` object to be used for
+            concurrent background activities. Defaults to None in which case a
+            ThreadPoolExecutor will be created if needed.
         :param kwargs: If a config is not provided, the rest of the parameters
             provided are assumed to be arguments to be passed to the
             CloudRegion constructor.
         """
         super().__init__()
+
+        if task_manager is not None:
+            warnings.warn(
+                "The 'task_manager' argument is deprecated for removal",
+                os_warnings.RemovedInSDK50Warning,
+            )
 
         if use_direct_get is not None:
             warnings.warn(
@@ -349,22 +335,6 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         _run_close(
             self.config, self._pool_executor_holder, self._session_holder
         )
-
-    def _close_session(self) -> None:
-        """Release the connection pool of the keystoneauth1 session.
-
-        Closes the underlying ``requests.Session`` directly, but only if
-        keystoneauth1 created it itself. A session constructed with an
-        externally supplied ``requests.Session`` is left untouched, as its
-        ownership belongs to the caller (mirroring the ownership rules
-        keystoneauth1 applies in its own cleanup).
-
-        Tearing down idle pooled connections is best-effort: socket and
-        request errors are swallowed so that releasing the pool can never
-        propagate out of ``close()``, which also runs from the finalizer at
-        interpreter shutdown and from the context manager exit.
-        """
-        _close_requests_session(self._session)
 
     def __enter__(self) -> Self:
         return self
@@ -778,7 +748,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
     def project_cleanup(
         self,
         dry_run: bool = True,
-        wait_timeout: int | float = 120,
+        wait_timeout: float = 120,
         status_queue: queue.Queue[resource.Resource] | None = None,
         filters: dict[str, Any] | None = None,
         resource_evaluation_fn: Callable[

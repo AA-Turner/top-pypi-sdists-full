@@ -10,9 +10,9 @@ class DownloadSlowSQLRecordsResponseBody(DaraModel):
         dbinstance_id: str = None,
         request_id: str = None,
     ):
-        # The cluster ID.
+        # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The unique ID of the request.
+        # The request ID.
         self.request_id = request_id
 
     def validate(self):

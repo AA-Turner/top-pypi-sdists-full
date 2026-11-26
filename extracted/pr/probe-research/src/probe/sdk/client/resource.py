@@ -3,6 +3,7 @@ with the server's named response models. The flat methods (`client.get_run`) kee
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from ..delivery.transport.transport import Page
@@ -38,4 +39,5 @@ class Resource:
     @staticmethod
     def _to_typed_page(model: type[_Model], page: Page) -> Page:
         """The same page with its items as `model`s; `next_cursor` unchanged."""
-        return Page(items=[model.model_validate(row) for row in page.items], next_cursor=page.next_cursor)
+        # `replace` keeps what a page type adds beyond the items (a runs page's resolved metric keys).
+        return dataclasses.replace(page, items=[model.model_validate(row) for row in page.items])

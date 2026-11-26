@@ -18,33 +18,33 @@ class DownloadSlowSQLRecordsRequest(DaraModel):
         start_time: str = None,
         user_name: str = None,
     ):
-        # The cluster ID.
+        # The instance ID.
         # 
-        # >  You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the information about all AnalyticDB for PostgreSQL instances within a region, including instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # The database name.
         self.dbname = dbname
-        # The end of the time range to query. The time must be in UTC and formatted as *yyyy-MM-dd*T*HH:mm*Z. The time must be in UTC. The end time must be later than the start time.
+        # The end time of the query. The end time must be later than the start time. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         # 
-        # Defaults to the current time
+        # Default value: the current time.
         self.end_time = end_time
-        # The search keyword.
+        # The query keyword.
         self.keyword = keyword
-        # The longest execution duration. Unit: seconds.
+        # The maximum execution duration. Unit: seconds.
         self.max_duration = max_duration
         # The minimum execution duration. Unit: seconds.
         self.min_duration = min_duration
-        # Sort criteria.
+        # The sorting condition.
         self.order_by = order_by
         # The region ID of the instance.
         self.region_id = region_id
-        # The beginning of the time range to query. The time must be in UTC and formatted as *yyyy-MM-dd*T*HH:mm*Z.
+        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
         # 
-        # Defaults to the current time minus 5 minutes.
+        # Default value: 5 minutes before the current time.
         self.start_time = start_time
-        # The database account.
+        # The database username.
         self.user_name = user_name
 
     def validate(self):

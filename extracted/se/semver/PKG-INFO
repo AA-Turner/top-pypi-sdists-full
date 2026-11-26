@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semver
-Version: 3.1.2
+Version: 3.2.0
 Summary: Python helper for Semantic Versioning (https://semver.org)
 Author-email: Kostiantyn Rybnikov <k-bx@k-bx.com>, Tom Schraitle <toms@suse.de>
 Maintainer-email: Tom Schraitle <toms@suse.de>, Sebastien Celles <s.celles@gmail.com>

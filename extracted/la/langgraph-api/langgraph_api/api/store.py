@@ -78,12 +78,16 @@ async def put_item(request: ApiRequest):
     namespace = tuple(payload["namespace"]) if payload.get("namespace") else ()
     if err := _validate_namespace(namespace):
         return err
+    ttl = payload.get("ttl")
+    if "ttl" not in payload:
+        store = await get_store()
+        ttl = (store.ttl_config or {}).get("default_ttl")
     handler_payload: dict[str, Any] = {
         "namespace": namespace,
         "key": payload["key"],
         "value": payload["value"],
         "index": payload.get("index"),
-        "ttl": payload.get("ttl"),
+        "ttl": ttl,
     }
     await handle_event("put", handler_payload)
     if err := _validate_namespace(handler_payload["namespace"]):

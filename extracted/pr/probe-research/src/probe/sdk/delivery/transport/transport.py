@@ -4,7 +4,7 @@ the ingest token and an HMAC), its retries and its typed errors; stages in DESIG
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import os
 import re
@@ -116,6 +116,8 @@ class Page:
 
     items: list[Any]
     next_cursor: str | None
+    #: The response's headers: a list route says what it can beyond the cursor there, since its body is the list.
+    headers: Mapping[str, str] = field(default_factory=dict, repr=False, compare=False)
 
 
 if TYPE_CHECKING:
@@ -582,7 +584,7 @@ class Transport(_TransportParts):
 
     def get_page(self, path: str, *, params: dict[str, Any] | None = None) -> Page:
         resp = self.request("GET", path, params=params, idempotent=True)
-        return Page(items=resp.json(), next_cursor=resp.headers.get("X-Next-Cursor"))
+        return Page(items=resp.json(), next_cursor=resp.headers.get("X-Next-Cursor"), headers=resp.headers)
 
 
 #: The Probe daemon runs each `probe` command with an operation id (R12). Every write

@@ -23,29 +23,29 @@ class DescribeSQLLogCountRequest(DaraModel):
     ):
         # The instance ID.
         # 
-        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specific region, including the instance IDs.
+        # > You can call the [DescribeDBInstances](https://help.aliyun.com/document_detail/86911.html) operation to query the details of all AnalyticDB for PostgreSQL instances in a specified region, including instance IDs.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         # The name of the database.
         self.database = database
-        # The end time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
+        # The end time of the query. The format is <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC time).
         # 
-        # > The end time must be later than the start time. The time span between the start time and the end time cannot exceed seven days.
+        # > The end time must be later than the start time, and the time interval between the start time and the end time cannot exceed seven days.
         # 
         # This parameter is required.
         self.end_time = end_time
-        # The execution duration. Unit: seconds.
+        # The execution duration, in seconds.
         self.execute_cost = execute_cost
-        # The execution state. Valid values:
+        # The execution status. Valid values:
         # 
-        # - 1: success
-        # - 0: failure
-        # - 0,1 or 1,0: all
+        # - 1: Success.
+        # - 0: Failure.
+        # - 0,1 or 1,0: All.
         self.execute_state = execute_state
-        # The maximum execution duration of slow SQL queries. The value must be greater than or equal to 0. Unit: seconds.
+        # The maximum execution duration of slow SQL queries. The value must be greater than or equal to 0, in seconds.
         self.max_execute_cost = max_execute_cost
-        # The minimum execution duration of slow SQL queries. The value must be greater than or equal to 0. Unit: seconds.
+        # The minimum execution duration of slow SQL queries. The value must be greater than or equal to 0, in seconds.
         self.min_execute_cost = min_execute_cost
         # The operation class. Valid values:
         # 
@@ -57,7 +57,7 @@ class DescribeSQLLogCountRequest(DaraModel):
         self.operation_class = operation_class
         # The type of the executed SQL statement.
         # 
-        # >- If the **OperationClass** parameter is specified, the value of **OperationType** must belong to the corresponding language type. For example, if **OperationClass** is set to **DQL**, the value of **OperationType** must be a DQL-type SQL statement, such as **SELECT**.
+        # >- If the **OperationClass** parameter is specified, the value of **OperationType** must belong to the corresponding language type. For example, if the value of **OperationClass** is **DQL**, the value of **OperationType** must be a **DQL** SQL statement, such as **SELECT**.
         # >- If the **OperationClass** parameter is not specified, the value of **OperationType** can be any type of SQL statement.
         # >- If neither the **OperationClass** nor the **OperationType** parameter is specified, all types of SQL statements are returned.
         self.operation_type = operation_type
@@ -65,7 +65,7 @@ class DescribeSQLLogCountRequest(DaraModel):
         self.query_keywords = query_keywords
         # The source IP address.
         self.source_ip = source_ip
-        # The start time of the query. Specify the time in the <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z format. The time must be in UTC.
+        # The start time of the query. The format is <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC time).
         # 
         # This parameter is required.
         self.start_time = start_time

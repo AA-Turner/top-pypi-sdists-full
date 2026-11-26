@@ -102,11 +102,17 @@ async def wait_if_not_done(coro: Coroutine[Any, Any, T], done: ValueEvent) -> T:
     try:
         async with asyncio.TaskGroup() as tg:
             coro_task = tg.create_task(coro)
-            done_task = tg.create_task(done.wait())
-            coro_task.add_done_callback(
-                lambda _: done_task.cancel("Coro task completed")
-            )
-            done_task.add_done_callback(lambda _: coro_task.cancel(done._value))
+            if done.is_set():
+                # Cancel before its first step: anext() on a stream with output
+                # waiting returns without suspending, so a stream that never runs
+                # dry would otherwise never see the cancel.
+                coro_task.cancel(done._value)
+            else:
+                done_task = tg.create_task(done.wait())
+                coro_task.add_done_callback(
+                    lambda _: done_task.cancel("Coro task completed")
+                )
+                done_task.add_done_callback(lambda _: coro_task.cancel(done._value))
             try:
                 return await coro_task
             except asyncio.CancelledError as e:

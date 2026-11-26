@@ -14,15 +14,18 @@ class DescribeDBInstanceSSLResponseBody(DaraModel):
         sslenabled: bool = None,
         sslexpired_time: str = None,
     ):
-        # The name of the SSL certificate.
+        # The SSL certificate information.
         self.cert_common_name = cert_common_name
-        # The ID of the instance.
+        # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The name of the instance.
+        # The instance name.
         self.dbinstance_name = dbinstance_name
-        # The ID of the request.
+        # The request ID.
         self.request_id = request_id
-        # Indicates whether SSL encryption is enabled.
+        # Indicates whether Secure Sockets Layer (SSL) encryption is enabled. Valid values:
+        # 
+        # - **true**: SSL encryption is enabled.
+        # - **false**: SSL encryption is disabled.
         self.sslenabled = sslenabled
         # The expiration time of the SSL certificate.
         self.sslexpired_time = sslexpired_time

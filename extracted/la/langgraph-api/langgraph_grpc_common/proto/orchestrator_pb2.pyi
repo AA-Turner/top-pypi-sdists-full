@@ -183,11 +183,14 @@ class Done(_message.Message):
     MESSAGE_FIELD_NUMBER: _builtins.int
     CHECKPOINT_JSON_FIELD_NUMBER: _builtins.int
     EXCEPTION_JSON_FIELD_NUMBER: _builtins.int
+    REFUSED_RESUME_FIELD_NUMBER: _builtins.int
     status: _builtins.str
     """success | error | retry"""
     message: _builtins.str
     checkpoint_json: _builtins.bytes
     exception_json: _builtins.bytes
+    refused_resume: _builtins.bool
+    """Strict resume refused the run's answer before anything ran."""
     def __init__(
         self,
         *,
@@ -195,10 +198,11 @@ class Done(_message.Message):
         message: _builtins.str = ...,
         checkpoint_json: _builtins.bytes = ...,
         exception_json: _builtins.bytes = ...,
+        refused_resume: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["checkpoint_json", b"checkpoint_json", "exception_json", b"exception_json", "message", b"message", "status", b"status"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["checkpoint_json", b"checkpoint_json", "exception_json", b"exception_json", "message", b"message", "refused_resume", b"refused_resume", "status", b"status"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

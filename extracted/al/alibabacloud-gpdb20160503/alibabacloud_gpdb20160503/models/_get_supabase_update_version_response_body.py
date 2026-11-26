@@ -12,7 +12,7 @@ class GetSupabaseUpdateVersionResponseBody(DaraModel):
         request_id: str = None,
         stable_version: str = None,
     ):
-        # The latest available upgrade version.
+        # The latest version available for upgrade.
         self.latest_version = latest_version
         # The Supabase project ID.
         self.project_id = project_id

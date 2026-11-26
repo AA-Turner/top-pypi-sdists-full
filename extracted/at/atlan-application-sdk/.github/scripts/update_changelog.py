@@ -15,8 +15,10 @@ import json
 import os
 import re
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
+
+from conventional_breaking import declares_breaking_change
 
 
 def _get_repo() -> tuple[str, str]:
@@ -188,7 +190,10 @@ def sections_for_repo(root="."):
     return LEGACY_SECTIONS
 
 
-def categorize_commits(commits, sections=SECTIONS):
+def categorize_commits(
+    commits: list[str],
+    sections: tuple[tuple[str, str, tuple[str, ...]], ...] = SECTIONS,
+) -> dict[str, list[tuple[str, str, str]]]:
     """
     Categorize commits based on conventional commit types.
 
@@ -201,8 +206,12 @@ def categorize_commits(commits, sections=SECTIONS):
         `ci` commits and sub-package commits are omitted, as is any type the
         sections don't render (everything outside feat/docs/fix in legacy).
     """
-    categories = {key: [] for key, _, _ in sections}
-    type_to_section = {t: key for key, _, types in sections for t in types}
+    categories: dict[str, list[tuple[str, str, str]]] = {
+        key: [] for key, _, _ in sections
+    }
+    type_to_section: dict[str | None, str] = {
+        t: key for key, _, types in sections for t in types
+    }
 
     owner, repo = _get_repo()
 
@@ -231,7 +240,9 @@ def categorize_commits(commits, sections=SECTIONS):
         if section not in categories:
             continue
         msg = message_subject if section == "other" else match["desc"]
-        if match and match["breaking"]:
+        # The predicate release.py prices a major with, so every major's notes
+        # say which commit made it one (FND-4672).
+        if declares_breaking_change(message_subject):
             msg = f"**BREAKING:** {msg}"
         categories[section].append((commit_link, author_name, msg))
 
@@ -262,7 +273,7 @@ def format_changelog_section(
     Returns:
         str: Formatted changelog section
     """
-    now = datetime.now()
+    now = datetime.now(UTC)
     date_str = now.strftime("%B %d, %Y")
 
     changelog = f"## v{new_version} ({date_str})\n\n"

@@ -1,33 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-search
-Version: 9.2.0
+Version: 10.0.0
 Summary: Microsoft Azure Search Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.5.0
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Search Management Client Library.
-This package has been tested with Python 3.9+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -38,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.9+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -50,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -86,8 +85,132 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 10.0.0 (2026-11-01)
+
+### Features Added
+
+  - Client `SearchManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Client `SearchManagementClient` added method `send_request`
+  - Model `SearchService` added property `properties`
+  - Model `SearchServiceUpdate` added property `properties`
+  - Enum `SkuName` added member `SERVERLESS`
+  - Added model `CloudError`
+  - Added enum `KnowledgeRetrieval`
+  - Added model `SearchServiceProperties`
+  - Operation group `ServicesOperations` added parameter `content_type` in method `check_name_availability`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - For the method breakings, please refer to https://aka.ms/azsdk/python/migrate/operations for migration.
+  - Model `SearchService` moved instance variable `auth_options`, `compute_type`, `data_exfiltration_protections`, `disable_local_auth`, `e_tag`, `encryption_with_cmk`, `endpoint`, `hosting_mode`, `network_rule_set`, `partition_count`, `private_endpoint_connections`, `provisioning_state`, `public_network_access`, `replica_count`, `semantic_search`, `service_upgraded_at`, `shared_private_link_resources`, `status`, `status_details` and `upgrade_available` under property `properties` whose type is `SearchServiceProperties`
+  - Model `SearchServiceUpdate` moved instance variable `auth_options`, `compute_type`, `data_exfiltration_protections`, `disable_local_auth`, `e_tag`, `encryption_with_cmk`, `endpoint`, `hosting_mode`, `network_rule_set`, `partition_count`, `private_endpoint_connections`, `provisioning_state`, `public_network_access`, `replica_count`, `semantic_search`, `service_upgraded_at`, `shared_private_link_resources`, `status`, `status_details` and `upgrade_available` under property `properties` whose type is `SearchServiceProperties`
+  - Method `ServicesOperations.check_name_availability` moved parameter `name` under parameter `check_name_availability_input`
+  - Method `SearchManagementClient.usage_by_subscription_sku` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `AdminKeysOperations.get` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `AdminKeysOperations.regenerate` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateEndpointConnectionsOperations.delete` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateEndpointConnectionsOperations.get` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateEndpointConnectionsOperations.list_by_service` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateEndpointConnectionsOperations.update` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateLinkResourcesOperations.list_supported` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `QueryKeysOperations.create` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `QueryKeysOperations.delete` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `QueryKeysOperations.list_by_search_service` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.begin_create_or_update` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.check_name_availability` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.delete` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.get` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.list_by_resource_group` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.list_by_subscription` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.update` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `SharedPrivateLinkResourcesOperations.begin_create_or_update` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `SharedPrivateLinkResourcesOperations.begin_delete` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `SharedPrivateLinkResourcesOperations.get` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `SharedPrivateLinkResourcesOperations.list_by_service` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `UsagesOperations.list_by_subscription` deleted or renamed its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Deleted or renamed model `SearchManagementRequestOptions`
+
+### Other Changes
+
+  - Deleted models `AsyncOperationResult`/`ListQueryKeysResult`/`NetworkSecurityPerimeterConfigurationListResult`/`OperationListResult`/`PrivateEndpointConnectionListResult`/`QuotaUsagesListResult`/`SearchServiceListResult`/`SharedPrivateLinkResourceListResult`/`SharedPrivateLinkResourceAsyncOperationResult`/`SearchManagementClientOperationsMixin` which actually were not used by SDK users
+
+## 10.0.0b2 (2026-09-10)
+
+### Features Added
+
+  - Model `SearchServiceProperties` added property `auto_generated_domain_name_label_scope`
+  - Added enum `AutoGeneratedDomainNameLabelScope`
+  - Added model `OfferingsResult`
+  - Operation group `OfferingsOperations` added method `fetch`
+
+### Breaking Changes
+
+  - Deleted or renamed model `OfferingsListResult`
+  - Deleted or renamed method `OfferingsOperations.list`
+
+## 10.0.0b1 (2026-03-27)
+
+### Features Added
+
+  - Client `SearchManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Client `SearchManagementClient` added method `send_request`
+  - Client `SearchManagementClient` added operation group `offerings`
+  - Model `CheckNameAvailabilityInput` added property `type`
+  - Model `EncryptionWithCmk` added property `service_level_encryption_key`
+  - Enum `SearchBypass` added member `AZURE_PORTAL`
+  - Enum `SkuName` added member `SERVERLESS`
+  - Added model `AzureActiveDirectoryApplicationCredentials`
+  - Added model `CloudError`
+  - Added model `DataIdentity`
+  - Added model `DataNoneIdentity`
+  - Added model `DataUserAssignedIdentity`
+  - Added model `FeatureOffering`
+  - Added enum `KnowledgeRetrieval`
+  - Added model `OfferingsByRegion`
+  - Added model `OfferingsListResult`
+  - Added model `SearchResourceEncryptionKey`
+  - Added model `SkuLimits`
+  - Added model `SkuOffering`
+  - Added operation group `OfferingsOperations`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - For the method breakings, please refer to https://aka.ms/azsdk/python/migrate/operations for migration.
+  - Model `SearchServiceUpdate` moved instance variable `replica_count`, `partition_count`, `endpoint`, `hosting_mode`, `compute_type`, `public_network_access`, `status`, `status_details`, `provisioning_state`, `network_rule_set`, `data_exfiltration_protections`, `encryption_with_cmk`, `disable_local_auth`, `auth_options`, `semantic_search`, `private_endpoint_connections`, `shared_private_link_resources`, `e_tag`, `upgrade_available` and `service_upgraded_at` under property `properties` whose type is `SearchServiceProperties`
+  - Method `ServicesOperations.check_name_availability` moved parameter `name` under parameter `check_name_availability_input`
+  - `SearchManagementRequestOptions.client_request_id` was previously used to set http header `x-ms-client-request-id` but now you can pass `request_id="..."` directly in any operation instead
+  - Method `SearchManagementClient.usage_by_subscription_sku` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `AdminKeysOperations.get` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `AdminKeysOperations.regenerate` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateEndpointConnectionsOperations.delete` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateEndpointConnectionsOperations.get` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateEndpointConnectionsOperations.list_by_service` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateEndpointConnectionsOperations.update` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `PrivateLinkResourcesOperations.list_supported` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `QueryKeysOperations.create` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `QueryKeysOperations.delete` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `QueryKeysOperations.list_by_search_service` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.begin_create_or_update` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.check_name_availability` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.delete` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.get` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.list_by_resource_group` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.list_by_subscription` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `ServicesOperations.update` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `SharedPrivateLinkResourcesOperations.begin_create_or_update` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `SharedPrivateLinkResourcesOperations.begin_delete` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `SharedPrivateLinkResourcesOperations.get` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `SharedPrivateLinkResourcesOperations.list_by_service` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Method `UsagesOperations.list_by_subscription` deleted its parameter `search_management_request_options` of kind `positional_or_keyword`
+  - Deleted model `SearchManagementRequestOptions`
+
+### Other Changes
+
+  - Deleted model `AsyncOperationResult`/`ListQueryKeysResult`/`PrivateLinkResourcesResult`/`SharedPrivateLinkResourceAsyncOperationResult`/`SearchManagementClientOperationsMixin` which actually were not used by SDK users
 
 ## 9.2.0 (2025-07-21)
 

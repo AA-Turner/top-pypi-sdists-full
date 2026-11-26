@@ -19,13 +19,10 @@ so the token is built there and this module only applies it.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from .models import ErrorLogPage
-
-logger = logging.getLogger(__name__)
 
 CURSOR_TOKEN_PREFIX = "cursor:"
 
@@ -82,16 +79,6 @@ def parse_cursor_token(token: str) -> tuple[str, int]:
             "'next_offset'"
         )
     return cursor, int(skip)
-
-
-def token_cursor(token: str) -> str:
-    """The cursor carried by ``token``; raises ``ValueError`` when malformed."""
-    return parse_cursor_token(token)[0]
-
-
-def token_skip(token: str) -> int:
-    """The skip carried by ``token``; raises ``ValueError`` when malformed."""
-    return parse_cursor_token(token)[1]
 
 
 def range_header(lines: int, offset: int = 0) -> str:

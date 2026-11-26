@@ -5,7 +5,7 @@ workspaces, the computer workspace, access groups
 from __future__ import annotations
 import builtins
 from collections.abc import Iterable
-from ....generated.models import AccessGroupOut, BestPickOut, WorkspaceOut, WorkspaceWriters
+from ....generated.models import AccessGroupOut, BestPickOut, WorkspaceIconEdit, WorkspaceOut, WorkspaceWriters
 from ..resource import Resource
 import sys
 import uuid
@@ -224,6 +224,19 @@ class WorkspacesMixin:
         ``name`` is the only editable field; the slug stays unchanged.
         """
         return self.transport.patch(f"/v1/workspaces/{workspace_id}", {"name": name})
+
+    def save_workspace_icon(self, workspace_id: str, icon: WorkspaceIconEdit | None) -> dict:
+        """PATCH /v1/workspaces/{id}: set the icon everyone on the team sees; None removes it.
+
+        One emoji or a base64 PNG of at most 64x64 px (no data-URL prefix), checked here
+        first (`ValidationError`). The answer carries icon metadata, never the image.
+        """
+        from ...values.workspace_icon import check_workspace_icon
+
+        if icon is not None:
+            check_workspace_icon(icon)
+        body = {"icon": None if icon is None else icon.model_dump(mode="json", exclude_none=True)}
+        return self.transport.patch(f"/v1/workspaces/{workspace_id}", body)
 
     def delete_workspace(self, workspace_id: str) -> None:
         """DELETE /v1/workspaces/{id}. Any workspace, only while empty.

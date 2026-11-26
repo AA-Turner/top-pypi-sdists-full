@@ -11,14 +11,13 @@ class UpsertCollectionDataResponseBody(DaraModel):
         request_id: str = None,
         status: str = None,
     ):
-        # The returned message.
+        # The message.
         self.message = message
         # The request ID.
         self.request_id = request_id
-        # Indicates whether the request was successful. Valid values:
-        # 
-        # *   **success**
-        # *   **fail**
+        # The upload status. Valid values:
+        # - **success**: The upload succeeded.
+        # - **fail**: The upload failed.
         self.status = status
 
     def validate(self):

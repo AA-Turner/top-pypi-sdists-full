@@ -1,17 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mozinfo
-Version: 1.2.3
+Version: 2.0.0
 Summary: Library to get system information for use in Mozilla testing
 Home-page: https://wiki.mozilla.org/Auto-tools/Projects/Mozbase
 Author: Mozilla Automation and Testing Team
 Author-email: tools@lists.mozilla.org
 License: MPL
 Keywords: mozilla
-Platform: UNKNOWN
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Development Status :: 5 - Production/Stable
+Requires-Python: >=3.9
+Requires-Dist: distro>=1.4.0
+Requires-Dist: mozfile>=0.12
+Requires-Dist: pyyaml>=6.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 see https://firefox-source-docs.mozilla.org/mozbase/index.html
-

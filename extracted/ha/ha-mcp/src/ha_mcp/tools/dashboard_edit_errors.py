@@ -8,9 +8,14 @@ from typing import Any, NoReturn
 from ha_mcp._vendor.fastmcp.exceptions import ToolError
 
 from ..client.rest_client import HomeAssistantAuthError
+from ..error_wording import (
+    dashboard_save_in_recovery_mode,
+    dashboard_save_not_supported,
+)
 from ..errors import ErrorCode, create_error_response, get_error_code, get_error_message
 from .dashboard_read_errors import CONFIG_NOT_FOUND_CODE
 from .helpers import (
+    core_error_message,
     exception_to_structured_error,
     extract_tool_error_message,
     raise_tool_error,
@@ -140,7 +145,7 @@ def raise_dashboard_edit_fetch_error(
     """Only Core's explicit config_not_found means an absent dashboard/config."""
     try:
         data = json.loads(str(exc))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         data = None
     reason = (
         "not_found"
@@ -168,7 +173,7 @@ def raise_known_dashboard_save_rejection(
         raise_dashboard_edit_error(url_path, code, message, False, action)
     if code == CONFIG_NOT_FOUND_CODE:
         raise_dashboard_edit_error(url_path, "not_found", message, False, action)
-    if code == "error" and message.removeprefix("Command failed: ") == "Not supported":
+    if code == "error" and dashboard_save_not_supported(core_error_message(message)):
         raise_dashboard_edit_error(
             url_path,
             "unsupported_mode",
@@ -176,10 +181,6 @@ def raise_known_dashboard_save_rejection(
             False,
             action,
         )
-    if (
-        code == "error"
-        and message.removeprefix("Command failed: ")
-        == "Saving not supported in recovery mode"
-    ):
+    if code == "error" and dashboard_save_in_recovery_mode(core_error_message(message)):
         # LovelaceStorage checks recovery mode before changing its live config.
         raise_dashboard_edit_error(url_path, "recovery_mode", message, False, action)

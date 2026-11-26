@@ -473,7 +473,11 @@ def load_eval_snapshot(
         id=data["datasetId"],
         name=data["reference"],
         version=data["fingerprint"],
-        rows=data["rows"],
+        # Manifest rows also carry fields an agent row does not have, such as history.
+        rows=[
+            {key: row[key] for key in ("id", "name", "input", "output", "properties")}
+            for row in data["rows"]
+        ],
         remote={
             "reference": data["reference"],
             "datasetId": data["datasetId"],

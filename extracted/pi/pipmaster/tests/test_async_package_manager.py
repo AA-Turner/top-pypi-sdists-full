@@ -44,9 +44,15 @@ def apm() -> AsyncPackageManager:
 # Mark all tests in this module to be run by pytest-asyncio
 pytestmark = pytest.mark.asyncio
 
+
+@pytest.fixture(autouse=True)
+def _disable_quarantine_in_tests(monkeypatch):
+    """Keep unit tests hermetic: quarantine is disabled unless a test opts in."""
+    monkeypatch.setenv("PIPMASTER_MIN_AGE_HOURS", "0")
+
 # === Test _run_command ===
 
-@patch("asyncio.create_subprocess_shell", new_callable=AsyncMock)
+@patch("asyncio.create_subprocess_exec", new_callable=AsyncMock)
 async def test_async_run_command_success(mock_create_subprocess, apm: AsyncPackageManager):
     """Test successful execution of _run_command."""
     mock_create_subprocess.return_value = _create_mock_async_process(
@@ -56,15 +62,15 @@ async def test_async_run_command_success(mock_create_subprocess, apm: AsyncPacka
 
     assert success is True
     assert output == "Success!"
-    # Construct expected command string like the method does
-    expected_cmd_str = " ".join(apm.pip_command_base + ["list"])
+    # exec passes the argv list as individual positional arguments
+    expected_argv = apm._sync_pm_instance._build_command(["list"])
     mock_create_subprocess.assert_awaited_once_with(
-        expected_cmd_str,
+        *expected_argv,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
 
-@patch("asyncio.create_subprocess_shell", new_callable=AsyncMock)
+@patch("asyncio.create_subprocess_exec", new_callable=AsyncMock)
 async def test_async_run_command_failure(mock_create_subprocess, apm: AsyncPackageManager):
     """Test failed execution of _run_command."""
     mock_create_subprocess.return_value = _create_mock_async_process(
@@ -77,14 +83,14 @@ async def test_async_run_command_failure(mock_create_subprocess, apm: AsyncPacka
     assert success is False
     assert "[Async] Command failed (code 1)" in output
     assert "--- stderr ---\nError!" in output # Check specific formatting
-    expected_cmd_str = " ".join(apm.pip_command_base + ["install", "nonexistent"])
+    expected_argv = apm._sync_pm_instance._build_command(["install", "nonexistent"])
     mock_create_subprocess.assert_awaited_once_with(
-        expected_cmd_str,
+        *expected_argv,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
 
-@patch("asyncio.create_subprocess_shell", new_callable=AsyncMock)
+@patch("asyncio.create_subprocess_exec", new_callable=AsyncMock)
 async def test_async_run_command_dry_run(mock_create_subprocess, apm: AsyncPackageManager):
     """Test dry run functionality."""
     # Dry run shouldn't actually call subprocess if applicable
@@ -187,7 +193,7 @@ async def test_async_install_if_missing_package_present_force_update(mock_check,
 # === Test Check Vulnerabilities ===
 
 @patch("shutil.which")
-@patch("asyncio.create_subprocess_shell", new_callable=AsyncMock)
+@patch("asyncio.create_subprocess_exec", new_callable=AsyncMock)
 async def test_async_check_vulnerabilities_no_vulns(mock_create_subprocess, mock_which, apm: AsyncPackageManager):
     """Test vulnerability check when no vulnerabilities are found."""
     mock_which.return_value = "/path/to/pip-audit" # Simulate pip-audit is found
@@ -200,12 +206,11 @@ async def test_async_check_vulnerabilities_no_vulns(mock_create_subprocess, mock
     assert output == "No vulnerabilities found"
     mock_which.assert_called_once_with("pip-audit")
     mock_create_subprocess.assert_awaited_once()
-    # Check the command string passed to shell
-    call_args, _ = mock_create_subprocess.call_args
-    assert call_args[0] == "/path/to/pip-audit"
+    # exec passes argv as individual positional arguments
+    assert mock_create_subprocess.call_args.args == ("/path/to/pip-audit",)
 
 @patch("shutil.which")
-@patch("asyncio.create_subprocess_shell", new_callable=AsyncMock)
+@patch("asyncio.create_subprocess_exec", new_callable=AsyncMock)
 async def test_async_check_vulnerabilities_found_vulns(mock_create_subprocess, mock_which, apm: AsyncPackageManager):
     """Test vulnerability check when vulnerabilities are found."""
     mock_which.return_value = "/path/to/pip-audit"
@@ -219,11 +224,12 @@ async def test_async_check_vulnerabilities_found_vulns(mock_create_subprocess, m
     assert "Found 1 vulnerability" in output
     mock_which.assert_called_once_with("pip-audit")
     mock_create_subprocess.assert_awaited_once()
-    call_args, _ = mock_create_subprocess.call_args
-    assert call_args[0] == "/path/to/pip-audit -r reqs.txt --fix"
+    assert mock_create_subprocess.call_args.args == (
+        "/path/to/pip-audit", "-r", "reqs.txt", "--fix",
+    )
 
 @patch("shutil.which")
-@patch("asyncio.create_subprocess_shell", new_callable=AsyncMock)
+@patch("asyncio.create_subprocess_exec", new_callable=AsyncMock)
 async def test_async_check_vulnerabilities_pip_audit_error(mock_create_subprocess, mock_which, apm: AsyncPackageManager):
     """Test vulnerability check when pip-audit itself fails."""
     mock_which.return_value = "/path/to/pip-audit"
@@ -239,7 +245,7 @@ async def test_async_check_vulnerabilities_pip_audit_error(mock_create_subproces
     mock_create_subprocess.assert_awaited_once()
 
 @patch("shutil.which")
-@patch("asyncio.create_subprocess_shell", new_callable=AsyncMock)
+@patch("asyncio.create_subprocess_exec", new_callable=AsyncMock)
 async def test_async_check_vulnerabilities_not_found(mock_create_subprocess, mock_which, apm: AsyncPackageManager):
     """Test vulnerability check when pip-audit is not installed."""
     mock_which.return_value = None # Simulate pip-audit not found

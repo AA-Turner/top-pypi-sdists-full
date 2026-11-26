@@ -36,9 +36,9 @@ txaio.use_twisted()
 
 import twisted.internet.protocol
 from autobahn.twisted.util import (
+    create_tls_channel_id,
     create_transport_details,
     extract_peer_certificate,
-    transport_channel_id,
 )
 from autobahn.util import _is_tls_error, _maybe_tls_reason, hltype, hlval, public
 from autobahn.wamp import websocket
@@ -285,6 +285,7 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
 
         # try to set "Nagle" option for TCP sockets
         try:
+            assert self.transport is not None
             self.transport.setTcpNoDelay(self.tcpNoDelay)
         except:  # don't touch this! does not work: AttributeError, OSError
             # eg Unix Domain sockets throw Errno 22 on this
@@ -368,6 +369,7 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
         self._dataReceived(data)
 
     def _closeConnection(self, abort: bool=False) -> None:
+        assert self.transport is not None
         if abort and hasattr(self.transport, "abortConnection"):
             self.transport.abortConnection()
         else:
@@ -378,12 +380,9 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
         if self._transport_details.is_secure:
             # now that the TLS opening handshake is complete, the actual TLS channel ID
             # and the peer certificate will be available. make sure to set them!
-            channel_id = {
-                "tls-unique": transport_channel_id(
-                    self.transport, self._transport_details.is_server, "tls-unique"
-                ),
-            }
-            self._transport_details.channel_id = channel_id
+            self._transport_details.channel_id = create_tls_channel_id(
+                self.transport, self._transport_details.is_server
+            )
             self._transport_details.peer_cert = extract_peer_certificate(self.transport)
 
         self.onOpen()
@@ -427,12 +426,14 @@ class WebSocketAdapterProtocol(twisted.internet.protocol.Protocol):
         :param streaming: Producer type.
         :type streaming: bool
         """
+        assert self.transport is not None
         self.transport.registerProducer(producer, streaming)
 
     def unregisterProducer(self) -> None:
         """
         Unregister Twisted producer with this protocol.
         """
+        assert self.transport is not None
         self.transport.unregisterProducer()
 
 
@@ -476,6 +477,7 @@ class WebSocketClientProtocol(
 
     def startTLS(self):
         self.log.debug("Starting TLS upgrade")
+        assert self.transport is not None
         self.transport.startTLS(self.factory.contextFactory)
 
 
@@ -585,8 +587,10 @@ class WrappingWebSocketAdapter:
     the ``base64`` subprotocol.
     """
 
-    def onConnect(self, requestOrResponse):
-        # Negotiate either the 'binary' or the 'base64' WebSocket subprotocol
+    def onConnect(self, requestOrResponse, /):
+        # Negotiate either the 'binary' or the 'base64' WebSocket subprotocol.
+        # Positional-only: the server and client protocols below override it
+        # with their base class' parameter name (request, response).
         if isinstance(requestOrResponse, ConnectionRequest):
             request = requestOrResponse
             for p in request.protocols:
@@ -667,6 +671,10 @@ class WrappingWebSocketServerProtocol(
     Server protocol for stream-based transport over WebSocket.
     """
 
+    def onConnect(self, request):
+        # named like the base class' parameter
+        return WrappingWebSocketAdapter.onConnect(self, request)
+
 
 class WrappingWebSocketClientProtocol(
     WrappingWebSocketAdapter, WebSocketClientProtocol
@@ -674,6 +682,10 @@ class WrappingWebSocketClientProtocol(
     """
     Client protocol for stream-based transport over WebSocket.
     """
+
+    def onConnect(self, response):
+        # named like the base class' parameter
+        return WrappingWebSocketAdapter.onConnect(self, response)
 
 
 class WrappingWebSocketServerFactory(WebSocketServerFactory):

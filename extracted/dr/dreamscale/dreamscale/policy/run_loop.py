@@ -1976,21 +1976,6 @@ class AsyncActionController:
         horizon_s = max(2, self.actions_remaining) / self._contract.action_hz
         return time.monotonic() - self._last_step_at > horizon_s
 
-    async def reset_episode(self) -> None:
-        """Flush queued chunks, cancel any in-flight request, and clear client + server history.
-
-        Called on human-to-policy handback after a clutch takeover (and between episodes) so the
-        next prediction starts cleanly from the robot's post-takeover pose without stale chunks or
-        pre-takeover frame history.
-        """
-        async with self._lock:
-            await self._flush_plan()
-            self._last_observation = None
-            self._episode_begun = False
-            history = getattr(self._policy, "observation_history", None)
-            if history is not None and hasattr(history, "clear"):
-                history.clear()
-
     async def _flush_plan(self) -> None:
         if self._pending is not None:
             if not self._pending.task.done():

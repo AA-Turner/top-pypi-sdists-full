@@ -14,16 +14,16 @@ class ModifyVectorConfigurationResponseBody(DaraModel):
     ):
         # The instance ID.
         self.dbinstance_id = dbinstance_id
-        # The error message that is returned.
+        # The error message.
         # 
-        # This parameter is returned only if the request fails.
+        # This parameter is returned only when the API call fails.
         self.error_message = error_message
         # The request ID.
         self.request_id = request_id
-        # Indicates whether the request was successful. Valid values:
+        # The API execution status. Valid values:
         # 
-        # *   **true**
-        # *   **false**
+        # - **true**: The execution succeeded.
+        # - **false**: The execution failed.
         self.status = status
 
     def validate(self):

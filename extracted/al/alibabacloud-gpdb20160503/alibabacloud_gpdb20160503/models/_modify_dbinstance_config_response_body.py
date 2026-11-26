@@ -12,16 +12,16 @@ class ModifyDBInstanceConfigResponseBody(DaraModel):
         request_id: str = None,
         status: bool = None,
     ):
-        # The ID of the instance.
+        # The instance ID.
         self.db_instance_id = db_instance_id
-        # The error message returned if the operation fails.
+        # The error message. This parameter is returned only when the call fails.
         self.error_message = error_message
         # The ID of the request.
         self.request_id = request_id
-        # The state of the operation. Valid values:
+        # The modification status. Valid values:
         # 
-        # *   **0**: The operation failed.
-        # *   **1**: The operation is successful.
+        # - **0**: The modification failed.
+        # - **1**: The modification succeeded.
         self.status = status
 
     def validate(self):

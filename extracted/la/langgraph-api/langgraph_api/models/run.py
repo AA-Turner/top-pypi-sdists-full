@@ -12,7 +12,6 @@ from typing_extensions import TypedDict
 
 from langgraph_api import config as api_config
 from langgraph_api.auth.noop import UnauthenticatedUser
-from langgraph_api.event_streaming.constants import EVENT_STREAMING_V2_CONFIG_KEY
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.graph import (
     GRAPHS,
@@ -32,7 +31,10 @@ from langgraph_api.schema import (
     RunCommand,
     StreamMode,
 )
-from langgraph_api.tracing_session import resolve_tracing_session_name
+from langgraph_api.tracing_session import (
+    resolve_tracing_session_name,
+    tracer_destination,
+)
 from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx, get_user_id
 from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.utils.uuids import uuid7
@@ -55,6 +57,7 @@ class LangSmithTracer(TypedDict, total=False):
 
     example_id: str | None
     project_name: str | None
+    address: Mapping[str, str] | None
 
 
 class RunCreateDict(TypedDict):
@@ -112,7 +115,7 @@ class RunCreateDict(TypedDict):
     stream_subgraphs: bool | None
     """Stream output from subgraphs. By default, streams only the top graph."""
     stream_resumable: bool | None
-    """Whether to persist the stream chunks in order to resume the stream later."""
+    """Whether to keep the run's stream events so a client can rejoin the run. Deployments keep every run's events for `RESUMABLE_STREAM_TTL_SECONDS` (2 minutes by default) regardless of this field. The in-memory runtime (`langgraph dev`) keeps them only when it is true."""
     feedback_keys: list[str] | None
     """Pass one or more feedback_keys if you want to request short-lived signed URLs
     for submitting feedback to LangSmith with this key for this run."""
@@ -233,21 +236,6 @@ async def create_valid_run(
             detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
         )
 
-    # ``lifecycle`` is emitted only by the protocol v2 streaming pipeline
-    # (``stream_v2.py`` plus the registered stream transformers), so legacy
-    # routes reject it up front instead of returning a silently empty stream.
-    # ``tools`` is accepted on legacy routes and dropped in ``stream.py``.
-    if not configurable.get(EVENT_STREAMING_V2_CONFIG_KEY):
-        v2_only = {"lifecycle"}.intersection(stream_mode)
-        if v2_only:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    f"stream_mode entries {sorted(v2_only)!r} are only "
-                    "supported on the v2 event streaming endpoints."
-                ),
-            )
-
     # Mark context-provided runs so stream.py can filter their mirrored configurable values safely.
     if context:
         configurable = context.copy()
@@ -289,7 +277,12 @@ async def create_valid_run(
     if not configurable.get("langgraph_request_id"):
         configurable["langgraph_request_id"] = request_id
     if ls_tracing := payload.get("langsmith_tracer"):
-        configurable["__langsmith_project__"] = ls_tracing.get("project_name")
+        try:
+            ls_project, ls_address = tracer_destination(payload) or (None, None)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        configurable["__langsmith_project__"] = ls_project
+        configurable["__langsmith_address__"] = ls_address
         configurable["__langsmith_example_id__"] = ls_tracing.get("example_id")
     if request_start_time:
         configurable["__request_start_time_ms__"] = request_start_time
@@ -327,6 +320,7 @@ async def create_valid_run(
             "resumable": stream_resumable,
             "checkpoint_during": payload.get("checkpoint_during", True),
             "durability": durability,
+            **({"strict_resume": True} if payload.get("strict_resume") else {}),
         },
         metadata=payload.get("metadata"),
         status="pending",

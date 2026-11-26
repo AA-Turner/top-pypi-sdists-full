@@ -1319,6 +1319,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -2481,6 +2485,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -8443,6 +8451,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -10608,6 +10620,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -14307,6 +14323,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -16093,6 +16113,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -18970,6 +18994,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -20412,6 +20440,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -22402,6 +22434,80 @@ class EntitiesApi(object):
                 'auth': [],
                 'endpoint_path': '/api/v1/entities/workspaces/{workspaceId}/datasets/search',
                 'operation_id': 'search_entities_datasets',
+                'http_method': 'POST',
+                'servers': None,
+            },
+            params_map={
+                'all': [
+                    'workspace_id',
+                    'entity_search_body',
+                    'origin',
+                    'x_gdc_validate_relations',
+                ],
+                'required': [
+                    'workspace_id',
+                    'entity_search_body',
+                ],
+                'nullable': [
+                ],
+                'enum': [
+                    'origin',
+                ],
+                'validation': [
+                ]
+            },
+            root_map={
+                'validations': {
+                },
+                'allowed_values': {
+                    ('origin',): {
+
+                        "ALL": "ALL",
+                        "PARENTS": "PARENTS",
+                        "NATIVE": "NATIVE"
+                    },
+                },
+                'openapi_types': {
+                    'workspace_id':
+                        (str,),
+                    'entity_search_body':
+                        (EntitySearchBody,),
+                    'origin':
+                        (str,),
+                    'x_gdc_validate_relations':
+                        (bool,),
+                },
+                'attribute_map': {
+                    'workspace_id': 'workspaceId',
+                    'origin': 'origin',
+                    'x_gdc_validate_relations': 'X-GDC-VALIDATE-RELATIONS',
+                },
+                'location_map': {
+                    'workspace_id': 'path',
+                    'entity_search_body': 'body',
+                    'origin': 'query',
+                    'x_gdc_validate_relations': 'header',
+                },
+                'collection_format_map': {
+                }
+            },
+            headers_map={
+                'accept': [
+                    'application/json',
+                    'application/vnd.gooddata.api+json'
+                ],
+                'content_type': [
+                    'application/json'
+                ]
+            },
+            api_client=api_client
+        )
+        self.search_entities_documents_endpoint = _Endpoint(
+            settings={
+                'response_type': (JsonApiPublisherDocumentOutList,),
+                'auth': [],
+                'endpoint_path': '/api/v1/entities/workspaces/{workspaceId}/documents/search',
+                'operation_id': 'search_entities_documents',
                 'http_method': 'POST',
                 'servers': None,
             },
@@ -24618,6 +24724,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -25979,6 +26089,10 @@ class EntitiesApi(object):
                     ('include',): {
 
                         "USERIDENTIFIERS": "userIdentifiers",
+                        "VISUALIZATIONOBJECTS": "visualizationObjects",
+                        "LABELS": "labels",
+                        "DATASETS": "datasets",
+                        "METRICS": "metrics",
                         "CREATEDBY": "createdBy",
                         "MODIFIEDBY": "modifiedBy",
                         "ALL": "ALL"
@@ -46508,7 +46622,7 @@ class EntitiesApi(object):
         json_api_attribute_patch_document,
         **kwargs
     ):
-        """Patch an Attribute (beta)  # noqa: E501
+        """Patch an Attribute  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -47404,7 +47518,7 @@ class EntitiesApi(object):
         json_api_dataset_patch_document,
         **kwargs
     ):
-        """Patch a Dataset (beta)  # noqa: E501
+        """Patch a Dataset  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -47859,7 +47973,7 @@ class EntitiesApi(object):
         json_api_fact_patch_document,
         **kwargs
     ):
-        """Patch a Fact (beta)  # noqa: E501
+        """Patch a Fact  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -48402,7 +48516,7 @@ class EntitiesApi(object):
         json_api_label_patch_document,
         **kwargs
     ):
-        """Patch a Label (beta)  # noqa: E501
+        """Patch a Label  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -50660,7 +50774,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -50748,7 +50862,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -50836,7 +50950,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -50924,7 +51038,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51012,7 +51126,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51100,7 +51214,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51188,7 +51302,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51276,7 +51390,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51364,7 +51478,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51452,7 +51566,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51534,13 +51648,101 @@ class EntitiesApi(object):
             entity_search_body
         return self.search_entities_datasets_endpoint.call_with_http_info(**kwargs)
 
+    def search_entities_documents(
+        self,
+        workspace_id,
+        entity_search_body,
+        **kwargs
+    ):
+        """The search endpoint  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.search_entities_documents(workspace_id, entity_search_body, async_req=True)
+        >>> result = thread.get()
+
+        Args:
+            workspace_id (str):
+            entity_search_body (EntitySearchBody): Search request body with filter, pagination, and sorting options
+
+        Keyword Args:
+            origin (str): [optional] if omitted the server will use the default value of "ALL"
+            x_gdc_validate_relations (bool): [optional] if omitted the server will use the default value of False
+            _return_http_data_only (bool): response data without head status
+                code and headers. Default is True.
+            _preload_content (bool): if False, the urllib3.HTTPResponse object
+                will be returned without reading/decoding response data.
+                Default is True.
+            _request_timeout (int/float/tuple): timeout setting for this request. If
+                one number provided, it will be total request timeout. It can also
+                be a pair (tuple) of (connection, read) timeouts.
+                Default is None.
+            _check_input_type (bool): specifies if type checking
+                should be done one the data sent to the server.
+                Default is True.
+            _check_return_type (bool): specifies if type checking
+                should be done one the data received from the server.
+                Default is True.
+            _spec_property_naming (bool): True if the variable names in the input data
+                are serialized names, as specified in the OpenAPI document.
+                False if the variable names in the input data
+                are pythonic names, e.g. snake case (default)
+            _content_type (str/None): force body content-type.
+                Default is None and content-type will be predicted by allowed
+                content-types and body.
+            _host_index (int/None): specifies the index of the server
+                that we want to use.
+                Default is read from the configuration.
+            _request_auths (list): set to override the auth_settings for an a single
+                request; this effectively ignores the authentication
+                in the spec for a single request.
+                Default is None
+            async_req (bool): execute request asynchronously
+
+        Returns:
+            JsonApiPublisherDocumentOutList
+                If the method is called asynchronously, returns the request
+                thread.
+        """
+        kwargs['async_req'] = kwargs.get(
+            'async_req', False
+        )
+        kwargs['_return_http_data_only'] = kwargs.get(
+            '_return_http_data_only', True
+        )
+        kwargs['_preload_content'] = kwargs.get(
+            '_preload_content', True
+        )
+        kwargs['_request_timeout'] = kwargs.get(
+            '_request_timeout', None
+        )
+        kwargs['_check_input_type'] = kwargs.get(
+            '_check_input_type', True
+        )
+        kwargs['_check_return_type'] = kwargs.get(
+            '_check_return_type', True
+        )
+        kwargs['_spec_property_naming'] = kwargs.get(
+            '_spec_property_naming', False
+        )
+        kwargs['_content_type'] = kwargs.get(
+            '_content_type')
+        kwargs['_host_index'] = kwargs.get('_host_index')
+        kwargs['_request_auths'] = kwargs.get('_request_auths', None)
+        kwargs['workspace_id'] = \
+            workspace_id
+        kwargs['entity_search_body'] = \
+            entity_search_body
+        return self.search_entities_documents_endpoint.call_with_http_info(**kwargs)
+
     def search_entities_export_definitions(
         self,
         workspace_id,
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51628,7 +51830,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51716,7 +51918,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51804,7 +52006,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51892,7 +52094,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -51980,7 +52182,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -52068,7 +52270,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -52156,7 +52358,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -52244,7 +52446,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -52332,7 +52534,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -52420,7 +52622,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -52508,7 +52710,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -52596,7 +52798,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -52684,7 +52886,7 @@ class EntitiesApi(object):
         entity_search_body,
         **kwargs
     ):
-        """The search endpoint (beta)  # noqa: E501
+        """The search endpoint  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True

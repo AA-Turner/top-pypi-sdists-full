@@ -310,7 +310,7 @@ class GoogleAdsNamespace:
         format, run dates, impression range, regions, and creative variations as
         clean JSON.
 
-        Price: $0.0012 per request.
+        Price: $0.00119 per request.
 
         Example:
             res = client.google_ads.ad_details(url="https://adstransparency.google.com/advertiser/AR13309761427309854721/creative/CR00826878176251609089")
@@ -331,7 +331,7 @@ class GoogleAdsNamespace:
         Search the Google Ads Transparency Center for advertisers by keyword and get
         matching advertiser IDs, regions, and estimated ad counts as clean JSON.
 
-        Price: $0.0012 per request.
+        Price: $0.0011 per request.
 
         Example:
             res = client.google_ads.advertiser_search(query="lululemon")
@@ -353,7 +353,7 @@ class GoogleAdsNamespace:
         domain or advertiser ID (creative ID, format, ad URL, and first/last shown
         dates) with cursor pagination.
 
-        Price: $0.00072 per request.
+        Price: $0.0007 per request.
 
         Example:
             res = client.google_ads.company_ads(domain="lululemon.com")
@@ -429,7 +429,7 @@ class AsyncGoogleAdsNamespace:
         format, run dates, impression range, regions, and creative variations as
         clean JSON.
 
-        Price: $0.0012 per request.
+        Price: $0.00119 per request.
 
         Example:
             res = client.google_ads.ad_details(url="https://adstransparency.google.com/advertiser/AR13309761427309854721/creative/CR00826878176251609089")
@@ -450,7 +450,7 @@ class AsyncGoogleAdsNamespace:
         Search the Google Ads Transparency Center for advertisers by keyword and get
         matching advertiser IDs, regions, and estimated ad counts as clean JSON.
 
-        Price: $0.0012 per request.
+        Price: $0.0011 per request.
 
         Example:
             res = client.google_ads.advertiser_search(query="lululemon")
@@ -472,7 +472,7 @@ class AsyncGoogleAdsNamespace:
         domain or advertiser ID (creative ID, format, ad URL, and first/last shown
         dates) with cursor pagination.
 
-        Price: $0.00072 per request.
+        Price: $0.0007 per request.
 
         Example:
             res = client.google_ads.company_ads(domain="lululemon.com")

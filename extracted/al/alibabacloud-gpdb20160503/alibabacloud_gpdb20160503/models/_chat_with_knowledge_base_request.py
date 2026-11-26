@@ -25,9 +25,9 @@ class ChatWithKnowledgeBaseRequest(DaraModel):
         self.dbinstance_id = dbinstance_id
         # Specifies whether to return the recall results. Default value: false.
         self.include_knowledge_base_results = include_knowledge_base_results
-        # The knowledge retrieval parameter object. If this parameter is not specified, only chat is performed.
+        # The knowledge retrieval parameters. If this parameter is not specified, only chat is performed.
         self.knowledge_params = knowledge_params
-        # The large language model (LLM) call parameter object.
+        # The call parameter object for the large language model (LLM).
         # 
         # This parameter is required.
         self.model_params = model_params
@@ -130,7 +130,7 @@ class ChatWithKnowledgeBaseRequestModelParams(DaraModel):
         self.presence_penalty = presence_penalty
         # The random seed.
         self.seed = seed
-        # The stop word list.
+        # The list of stop words.
         self.stop = stop
         # The sampling temperature. Valid values: 0 to 2.
         self.temperature = temperature
@@ -360,14 +360,14 @@ class ChatWithKnowledgeBaseRequestKnowledgeParams(DaraModel):
         source_collection: List[main_models.ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollection] = None,
         top_k: int = None,
     ):
-        # The method used to merge multiple knowledge bases. Default value: RRF. Valid values:
+        # The method for merging multiple knowledge bases. Default value: RRF. Valid values:
         # - RRF
         # - Weight
         self.merge_method = merge_method
         # The parameters for merging multiple knowledge bases.
         self.merge_method_args = merge_method_args
-        # The reranking factor. If this value is not empty, the vector retrieve results are reranked. Valid values: 1 < RerankFactor <= 5.
-        # > - When documents are sparsely chunked, the reranking efficiency is low.
+        # The reranking factor. If this value is not empty, the vector search results are reranked. Valid values: 1 < RerankFactor <= 5.
+        # > - When document chunks are sparse, reranking is slow.
         # > - We recommend that the number of reranked items (TopK × Factor, rounded up) does not exceed 50.
         self.rerank_factor = rerank_factor
         # The reranking model parameters.
@@ -451,7 +451,7 @@ class ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollection(DaraModel):
         namespace_password: str = None,
         query_params: main_models.ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollectionQueryParams = None,
     ):
-        # The name of the collection to be recalled.
+        # The name of the collection to be retrieved.
         # 
         # This parameter is required.
         self.collection = collection
@@ -459,7 +459,7 @@ class ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollection(DaraModel):
         # 
         # > You can call the [CreateNamespace](https://help.aliyun.com/document_detail/2401495.html) operation to create a namespace and call the [ListNamespaces](https://help.aliyun.com/document_detail/2401502.html) operation to view the namespace list.
         self.namespace = namespace
-        # The password corresponding to the namespace.
+        # The password for the namespace.
         # 
         # > This value is specified when you call the CreateNamespace operation.
         # 
@@ -529,15 +529,17 @@ class ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollectionQueryParams(Dar
         self.graph_enhance = graph_enhance
         # The top number of entities and relationship edges to return. Default value: 60.
         self.graph_search_args = graph_search_args
-        # The multi-channel recall algorithm. Default value: empty (which means directly comparing and sorting the scores of dense vectors and full text). Valid values:
+        # The multi-channel recall algorithm. Default value: empty, which means directly comparing and sorting the scores of dense vectors and the full-text index.
         # 
-        # - RRF: Reciprocal rank fusion. A parameter k is used to control the fusion effect. For details, see HybridSearchArgs.
-        # - Weight: Weighted sorting. Parameters are used to control the score weights of vectors and full text before sorting. For details, see HybridSearchArgs.
-        # - Cascaded: Full-text retrieve is performed first, followed by vector retrieve based on the results.
+        # Valid values:
+        # 
+        # - RRF: Reciprocal Rank Fusion. A parameter k is used to control the fusion effect. For more information, see the HybridSearchArgs configuration.
+        # - Weight: Weight-based sorting. Parameters are used to control the score weights of vectors and the full-text index before sorting. For more information, see the HybridSearchArgs configuration.
+        # - Cascaded: Performs full-text search first, and then performs vector search based on the results.
         self.hybrid_search = hybrid_search
-        # The algorithm parameters for multi-channel recall. RRF and Weight are supported. HybridPathsSetting can be used to specify the recall of dense vectors (dense), sparse vectors (sparse), and full-text retrieve (fulltext). If this value is empty, dense vectors (dense) and full-text retrieve (fulltext) are recalled by default.
+        # The algorithm parameters for multi-channel recall. Currently, RRF and Weight are supported. You can use HybridPathsSetting to specify the recall paths for dense vectors (dense), sparse vectors (sparse), and full-text search (fulltext). If this value is empty, dense vectors (dense) and full-text search (fulltext) are recalled by default.
         # 
-        # - RRF: The constant k in the score calculation formula 1/(k+rank_i). The value must be a positive integer greater than 1. Format:
+        # - RRF: The constant k in the score calculation formula `1/(k+rank_i)`. The value must be a positive integer greater than 1. Format:
         # ```
         # {
         #   "HybridPathsSetting": {
@@ -551,7 +553,7 @@ class ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollectionQueryParams(Dar
         # 
         # - Weight: 
         #    - Dual-channel recall (HybridPathsSetting is not specified, only alpha is specified):
-        #       - Calculation formula: alpha * dense_score + (1-alpha) * fulltext_score. The alpha parameter represents the score weight of dense vectors and full-text retrieve. The value ranges from 0 to 1, where 0 indicates full-text retrieve only and 1 indicates dense vectors only:
+        #       - Calculation formula: alpha * dense_score + (1-alpha) * fulltext_score. The parameter alpha represents the score weights of dense vectors and full-text search. The value ranges from 0 to 1, where 0 indicates that only full-text search is used, and 1 indicates that only dense vectors are used:
         # ```
         # { 
         #    "Weight": {
@@ -559,8 +561,8 @@ class ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollectionQueryParams(Dar
         #    }
         # }
         # ```
-        #   - Triple-channel recall pattern:
-        #      - Calculation formula: normalized_dense * dense_score + normalized_sparse * sparse_score + normalized_fulltext * fulltext_score. dense, sparse, and fulltext represent the weights of dense vectors, sparse vectors, and full-text retrieve, respectively. The value must be greater than or equal to 0. The system automatically performs normalization on the weights to 0 to 1 (that is, normalized_x = x / (dense + sparse + fulltext)).
+        #   - Triple-channel recall mode:
+        #      - Calculation formula: normalized_dense * dense_score + normalized_sparse * sparse_score + normalized_fulltext * fulltext_score. Here, dense, sparse, and fulltext represent the weights of dense vectors, sparse vectors, and full-text search, respectively. The values must be greater than or equal to 0. The system automatically normalizes the weights to scale them from 0 to 1 (that is, normalized_x = x / (dense + sparse + fulltext)).
         # ```
         # {
         #   "HybridPathsSetting": {
@@ -576,22 +578,22 @@ class ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollectionQueryParams(Dar
         self.hybrid_search_args = hybrid_search_args
         # The method used to build the vector index. Valid values:
         # - l2: Euclidean distance.
-        # - ip: Inner product distance.
+        # - ip: Dot product (inner product) distance.
         # - cosine: Cosine similarity.
         self.metrics = metrics
-        # The recall window. If this value is not empty, the context of the retrieval results is additionally returned. The format is an array of two elements: List<A, B>, where -10 <= A <= 0 and 0 <= B <= 10.
-        # > - We recommend that you use this parameter when documents are chunked into excessively small pieces and retrieval may lose context information.
+        # The recall window. If this value is not empty, the context of the retrieval results is added to the response. The format is an array of two elements: List<A, B>, where -10 <= A <= 0 and 0 <= B <= 10.
+        # > - We recommend that you use this parameter when document chunks are too small and retrieval may lose context information.
         # > - Reranking takes precedence over windowing. That is, reranking is performed before windowing.
         self.recall_window = recall_window
-        # The reranking factor. If this value is not empty, the vector retrieve results are reranked. Valid values: 1 < RerankFactor <= 5.
-        # > - When documents are sparsely chunked, the reranking efficiency is low.
+        # The reranking factor. If this value is not empty, the vector search results are reranked. Valid values: 1 < RerankFactor <= 5.
+        # > - When document chunks are sparse, reranking is slow.
         # > - We recommend that the number of reranked items (TopK × Factor, rounded up) does not exceed 50.
         self.rerank_factor = rerank_factor
         # The reranking model parameters.
         self.rerank_model = rerank_model
         # The number of top results to return.
         self.top_k = top_k
-        # Specifies whether to use full-text retrieve (dual-channel recall). Default value: false, which indicates that only vector retrieve is used.
+        # Specifies whether to use full-text search (dual-channel recall). Default value: false, which indicates that only vector search is used.
         self.use_full_text_retrieval = use_full_text_retrieval
 
     def validate(self):
@@ -686,11 +688,11 @@ class ChatWithKnowledgeBaseRequestKnowledgeParamsSourceCollectionQueryParamsRera
         name: str = None,
         rerank_metadata_fields: str = None,
     ):
-        # Configurable when RerankModel.Name is set to qwen3-rerank. Adds a custom sorting task type description. You can use this parameter to guide the model to adopt different sorting strategies.
+        # This parameter can be configured when RerankModel.Name is set to qwen3-rerank. You can add a custom sorting task type description to guide the model to adopt different sorting strategies.
         self.instruct = instruct
         # The name of the reranking model. Valid values: qwen3-rerank and gte-rerank-v2.
         self.name = name
-        # The metadata fields that participate in reranking. Separate multiple fields with commas (,). By default, only the document content (content) is used for reranking. The field names must be metadata defined in the collection.
+        # The metadata fields that participate in reranking. Separate multiple fields with commas (,). By default, only the document content (content) is used for reranking. The field names must be defined in the Metadata of the Collection.
         self.rerank_metadata_fields = rerank_metadata_fields
 
     def validate(self):
@@ -759,7 +761,7 @@ class ChatWithKnowledgeBaseRequestKnowledgeParamsRerankModel(DaraModel):
         instruct: str = None,
         name: str = None,
     ):
-        # Configurable when RerankModel.Name is set to qwen3-rerank. Adds a custom sorting task type description. You can use this parameter to guide the model to adopt different sorting strategies.
+        # This parameter can be configured when RerankModel.Name is set to qwen3-rerank. You can add a custom sorting task type description to guide the model to adopt different sorting strategies.
         self.instruct = instruct
         # The name of the reranking model. Valid values: qwen3-rerank and gte-rerank-v2.
         self.name = name

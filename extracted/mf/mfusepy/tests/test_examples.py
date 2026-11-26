@@ -3,7 +3,6 @@
 
 import ctypes
 import errno
-import fcntl
 import io
 import os
 import stat
@@ -19,7 +18,21 @@ from types import ModuleType
 from typing import Optional
 
 import pytest
-from ioctl_opt import IOWR
+
+fcntl: Optional[ModuleType]
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
+# Only needed for the ioctl test, which only runs on Linux.
+ioctl_opt: Optional[ModuleType]
+try:
+    import ioctl_opt as _ioctl_opt
+except ImportError:
+    ioctl_opt = None
+else:
+    ioctl_opt = _ioctl_opt
 
 pwd: Optional[ModuleType]
 try:
@@ -40,11 +53,21 @@ except ImportError:
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../examples')))
 
+from context import Context as ContextOperations  # noqa: E402
+from context import cli as cli_context  # noqa: E402
+from loopback import Loopback  # noqa: E402
 from loopback import cli as cli_loopback  # noqa: E402
 from memory import cli as cli_memory  # noqa: E402
 from memory_nullpath import cli as cli_memory_nullpath  # noqa: E402
 from readdir_returning_offsets import cli as cli_readdir_returning_offsets  # noqa: E402
 from readdir_with_offset import cli as cli_readdir_with_offset  # noqa: E402
+
+import mfusepy  # noqa: E402
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == 'win32',
+    reason="The example harness uses Unix mount points and fusermount/umount.",
+)
 
 # Some Python interpreters, e.g. the macOS Python may lack os.*xattr APIs.
 os_has_xattr_funcs = all(hasattr(os, f) for f in ("listxattr", "setxattr", "getxattr", "removexattr"))
@@ -115,7 +138,7 @@ class RunCLI:
         self.timeout = 4
         self.mount_point = str(mount_point)
         self.args = [*arguments, self.mount_point]
-        self.thread = threading.Thread(target=cli, args=(self.args,))
+        self.thread = threading.Thread(target=cli, args=(self.args,), daemon=sys.platform == 'darwin')
 
         self._stdout = None
         self._stderr = None
@@ -127,7 +150,19 @@ class RunCLI:
         sys.stderr = io.StringIO()
 
         self.thread.start()
-        self.wait_for_mount_point()
+        try:
+            self.wait_for_mount_point()
+        except RuntimeError as exception:
+            sys.stdout = self._stdout
+            sys.stderr = self._stderr
+            self.thread.join(self.timeout)
+            if sys.platform == 'darwin':
+                library = getattr(mfusepy._libfuse, '_name', '<unknown>')
+                pytest.skip(
+                    f"FUSE mount is not available (library {library}, "
+                    f"FUSE {mfusepy.fuse_version_major}.{mfusepy.fuse_version_minor}): {exception}"
+                )
+            raise
 
         return self
 
@@ -244,11 +279,11 @@ def test_read_write_file_system(cli, tmp_path):
         # ioctl does not work for regular files on macOS / *BSD.
         # IOCTL(2) for BSDs and macOS:
         # [ENOTTY] The fd argument is not associated with a character special device.
-        if sys.platform == 'linux' and cli == cli_memory:
+        if sys.platform == 'linux' and cli == cli_memory and ioctl_opt is not None:
             with open(path, 'rb') as file:
                 # Test a simple ioctl command that returns the argument incremented by one.
                 argument = 123
-                iowr_m = IOWR(ord('M'), 1, ctypes.c_uint32)
+                iowr_m = ioctl_opt.IOWR(ord('M'), 1, ctypes.c_uint32)
                 result = fcntl.ioctl(file, iowr_m, struct.pack('I', argument))
                 assert struct.unpack('I', result)[0] == argument + 1
 
@@ -292,6 +327,13 @@ def test_read_write_file_system(cli, tmp_path):
         os.utime(path, ns=(int(1.5e9), int(12.5e9)))
         assert os.stat(path).st_atime == 1.5
         assert os.stat(path).st_mtime == 12.5
+
+        # FreeBSD's FUSE implementation rejects hard links when st_ino and the kernel nodeid differ.
+        if cli == cli_loopback and not sys.platform.startswith('freebsd'):
+            hardlink = mount_point / "hardlink"
+            os.link(path, hardlink)
+            assert hardlink.read_bytes() == b"ba"
+            os.unlink(hardlink)
 
         assert filter_platform_files(os.listdir(mount_point)) == ["foo"]
         os.unlink(path)
@@ -343,6 +385,22 @@ def test_read_write_file_system(cli, tmp_path):
             path.unlink()
 
 
+def test_context_example(tmp_path):
+    with RunCLI(cli_context, tmp_path, []):
+        assert (tmp_path / 'uid').read_text().strip() == str(os.getuid())
+        assert (tmp_path / 'gid').read_text().strip() == str(os.getgid())
+        assert int((tmp_path / 'pid').read_text()) > 0
+        with pytest.raises(OSError) as exception:  # noqa: PT011 - The errno is platform-dependent.
+            (tmp_path / 'uid').write_text('x')
+        assert exception.value.errno in (
+            errno.EPERM,
+            errno.EACCES,
+            errno.EROFS,
+            errno.ENOSYS,
+            errno.EOPNOTSUPP,
+        )
+
+
 @pytest.mark.parametrize('cli', [cli_memory_nullpath])
 def test_use_inode(cli, tmp_path):
     mount_point = tmp_path
@@ -384,6 +442,107 @@ def test_readdir_with_offset(cli, tmp_path):
         assert not path.is_dir()
 
         assert len(set(filter_platform_files(os.listdir(mount_point)))) == 1000
+
+
+class LockOperations(mfusepy.Operations):
+    def __init__(self):
+        self.locks = []
+        self.posix_locks_enabled = False
+
+    def init_with_config(self, conn_info, config_3):
+        if conn_info:
+            self.posix_locks_enabled = conn_info.enable_capability(
+                mfusepy.FuseCapability.POSIX_LOCKS  # pylint: disable=no-member
+            )
+
+    def getattr(self, path, fh=None):
+        if path == '/':
+            return {'st_mode': stat.S_IFDIR | 0o755}
+        if path == '/file':
+            return {'st_mode': stat.S_IFREG | 0o644, 'st_size': 0}
+        raise mfusepy.FuseOSError(errno.ENOENT)
+
+    def readdir(self, path, fh):
+        return ['.', '..', 'file']
+
+    def open(self, path, flags):
+        return 0
+
+    def lock(self, path, fh, cmd, lock):
+        self.locks.append(
+            (path, fh, cmd, lock.contents.l_type, lock.contents.l_whence, lock.contents.l_start, lock.contents.l_len)
+        )
+        return 0
+
+
+def test_context_read_respects_size_and_offset(monkeypatch):
+    monkeypatch.setattr(mfusepy, 'fuse_get_context', lambda: (12345, 23456, 42))
+    context = ContextOperations()
+    assert context.open('/uid', os.O_RDONLY) == 0
+    assert context.read('/uid', 1, 0, 0) == b'1'
+    assert context.read('/uid', 10, 1, 0) == b'2345\n'
+    assert context.read('/uid', 10, 100, 0) == b''
+
+
+def test_loopback_getattr_reports_inode(tmp_path):
+    path = tmp_path / 'file'
+    path.write_bytes(b'x')
+    operations = Loopback(str(tmp_path))
+    assert operations.getattr('/file')['st_ino'] == os.stat(path).st_ino
+
+
+@pytest.mark.parametrize('cli', [cli_loopback, cli_memory, cli_memory_nullpath])
+@pytest.mark.skipif(sys.platform != 'linux', reason="flock semantics differ on the BSDs and macOS")
+def test_flock_callback(cli, tmp_path):
+    if cli == cli_loopback:
+        mount_source = tmp_path / "folder"
+        mount_point = tmp_path / "mounted"
+        mount_source.mkdir()
+        mount_point.mkdir()
+        arguments = [str(mount_source)]
+    else:
+        mount_point = tmp_path
+        arguments = []
+
+    with RunCLI(cli, mount_point, arguments):
+        path = mount_point / "file"
+        path.write_bytes(b"x")
+
+        with open(path, 'r+b') as first, open(path, 'r+b') as second:
+            fcntl.flock(first, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with pytest.raises(BlockingIOError) as exception:
+                fcntl.flock(second, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            assert exception.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+
+            fcntl.flock(first, fcntl.LOCK_UN)
+            fcntl.flock(second, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(second, fcntl.LOCK_UN)
+
+
+@pytest.mark.skipif(sys.platform != 'linux', reason="lockf semantics differ on the BSDs and macOS")
+def test_lock_callback_receives_flock(tmp_path):
+    operations = []
+
+    def cli(arguments):
+        instance = LockOperations()
+        operations.append(instance)
+        mfusepy.FUSE(instance, arguments[0], foreground=True)
+
+    with RunCLI(cli, tmp_path, []), open(tmp_path / 'file', 'r+b') as file:
+        fcntl.lockf(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.lockf(file, fcntl.LOCK_UN)
+
+    assert operations
+    assert operations[0].posix_locks_enabled
+    assert operations[0].locks
+
+    path, _fh, cmd, l_type, l_whence, l_start, l_len = operations[0].locks[0]
+    assert path == '/file'
+    assert cmd in (fcntl.F_SETLK, fcntl.F_SETLKW)
+    assert l_type == fcntl.F_WRLCK
+    assert l_whence == os.SEEK_SET
+    assert l_start == 0
+    assert l_len == 0
 
 
 if __name__ == '__main__':

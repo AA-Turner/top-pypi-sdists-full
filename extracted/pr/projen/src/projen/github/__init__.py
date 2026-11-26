@@ -66,7 +66,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_CREATE_GITHUB_APP_TOKEN")
     @builtins.classmethod
     def ACTIONS_CREATE_GITHUB_APP_TOKEN(cls) -> builtins.str:
-        '''(experimental) actions/create-github-app-token at v3.3.0 (immutable).
+        '''(experimental) actions/create-github-app-token at v3.4.0 (immutable).
 
         :stability: experimental
         '''

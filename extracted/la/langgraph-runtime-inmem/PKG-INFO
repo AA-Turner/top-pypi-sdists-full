@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: langgraph-runtime-inmem
-Version: 0.38.5
-Summary: Inmem implementation for the LangGraph API server.
+Version: 0.39.0
+Summary: In-memory runtime for the LangGraph API server; installs langgraph-api[inmem].
 Author-email: Will Fu-Hinthorn <will@langchain.dev>
 License: Elastic-2.0
 Requires-Python: >=3.11.0
 Requires-Dist: blockbuster<2.0.0,>=1.5.24
 Requires-Dist: croniter>=1.0.1
+Requires-Dist: langgraph-api[inmem]>=0.19.0.dev0
 Requires-Dist: langgraph-checkpoint<5,>=3
 Requires-Dist: langgraph<2,>=0.4.10
 Requires-Dist: sse-starlette>=2
@@ -16,4 +17,4 @@ Description-Content-Type: text/markdown
 
 # LangGraph Runtime Inmem
 
-This is the inmem implementation of the LangGraph Runtime API.
+The Python in-memory runtime, used only with `FF_INMEM_CORE=false`. `langgraph-api` runs the in-memory runtime on Go core; this package depends on `langgraph-api[inmem]` so older `langgraph-cli[inmem]` installs pick that up.

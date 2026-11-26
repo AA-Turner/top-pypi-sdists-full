@@ -3,11 +3,10 @@ Assist Pipeline Tools for Home Assistant.
 
 This module provides ha_manage_pipeline: reading, creating and updating Assist
 pipelines, and running a sentence through Assist's conversation agent
-(action='process'). Entity exposure to voice assistants lives in
-tools_voice_assistant.py.
+(action='process'). Entity exposure to voice assistants is read with
+ha_get_entity and set with ha_set_entity.
 """
 
-import logging
 from typing import Annotated, Any, Literal
 
 from pydantic import Field
@@ -24,8 +23,6 @@ from .helpers import (
 )
 from .tool_hints import write_hints
 from .util_helpers import websocket_error_message
-
-logger = logging.getLogger(__name__)
 
 PipelineAction = Literal["list", "get", "create", "update", "set_preferred", "process"]
 

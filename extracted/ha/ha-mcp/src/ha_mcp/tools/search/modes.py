@@ -11,6 +11,7 @@ from ha_mcp._vendor.fastmcp.exceptions import ToolError
 
 from ...utils.fuzzy_search import apply_hidden_penalty
 from ...visibility.resolver import (
+    core_device_list_reply,
     device_registry_needed_for_visibility,
     load_hidden_set,
 )
@@ -53,8 +54,8 @@ class EntityModesMixin(EntityEnrichmentMixin):
     ) -> dict[str, Any]:
         """Search within area entities using fuzzy matching against a query string."""
         # Collect entities from all matched areas, applying domain_filter if present.
-        # _ha_search_entities calls get_entities_by_area with group_by_domain=True,
-        # so area_result["areas"][id]["entities"] is always a dict keyed by domain.
+        # get_entities_by_area groups each area's entities by domain, so
+        # area_result["areas"][id]["entities"] is always a dict keyed by domain.
         all_area_entities = []
         for area_id in sorted(area_result.get("areas", {})):
             area_data = area_result["areas"][area_id]
@@ -331,23 +332,13 @@ class EntityModesMixin(EntityEnrichmentMixin):
             ),
         ]
         if need_device:
-            fetch_coros.append(
-                self._client.send_websocket_message(
-                    {"type": "config/device_registry/list"}
-                )
-            )
+            fetch_coros.append(core_device_list_reply(self._client))
         gather_results = await asyncio.gather(*fetch_coros, return_exceptions=True)
         states_result: Any = gather_results[0]
         registry_result: Any = gather_results[1]
         device_result: Any = gather_results[2] if need_device else None
         if isinstance(states_result, BaseException):
             raise states_result
-        # CancelledError must propagate; gather captures it like any other
-        # exception when return_exceptions=True.
-        if isinstance(registry_result, asyncio.CancelledError):
-            raise registry_result
-        if isinstance(device_result, asyncio.CancelledError):
-            raise device_result
 
         hidden_ids = _build_hidden_ids(registry_result)
         # Opt-in visibility filter: hard exclude, fails open (empty set on any

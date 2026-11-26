@@ -4,8 +4,9 @@ from __future__ import annotations
 import hashlib
 import os
 import time
-from typing import Any
+from typing import Any, BinaryIO
 from ... import secret_gate as _secret_gate
+from .unpack import ArchiveLimits, ArchiveOverLimit, _get_archive_kind, _read_archive_members
 
 #: The largest file whose bytes a capture will upload: the credential gate's own
 #: inspection limit (``secret_gate.ScanPolicy.max_bytes``, which is also the
@@ -22,7 +23,9 @@ CONTENT_SCAN_MAX_BYTES = _secret_gate.ScanPolicy().max_bytes
 #: A file whose scan runs past its budget, or a large (> FULL_SCAN_MAX_BYTES)
 #: non-source file reached after the snapshot's budget is spent, is WITHHELD
 #: with reason ``scan_budget``: recorded, never uploaded unscanned. Small files
-#: and source files are always scanned, and the file budget holds for them too:
+#: and source files are always scanned; a small non-source file reached after
+#: the snapshot's budget is spent gets the vendor-shaped rules only (5,000 small
+#: data files cost +6.4 s with every rule; T51). The file budget holds too:
 #: a big file's clock is read between chunks, a small file's between the
 #: scanner's hits (``credential_rules``' ``deadline``; one regex pass cannot be
 #: interrupted, so a small file can run a little past it). Override with the
@@ -79,77 +82,33 @@ NOTEBOOK_DECODE_MAX_BYTES = 16 * 1024 * 1024
 #: withheld for the scan budget (a small gzip can expand to gigabytes).
 ARCHIVE_EXPAND_MAX_BYTES = 256 * 1024 * 1024
 _UNREADABLE_ARCHIVE = "unreadable-archive"
+#: A cookie jar holds live sessions under an innocent name; its header gives it
+#: away (curl, wget, Python's `http.cookiejar`). Capture-only: not a shared rule.
+_COOKIE_JAR = "cookie-jar"
+_COOKIE_JAR_HEADS = (b"# Netscape HTTP Cookie File", b"# HTTP Cookie File")
 _NAME_IN_ARCHIVE = "credential-name-in-archive"
 
 
-def _compressed_kind(head: bytes) -> str | None:
-    """The compression wrapping a file, from its first bytes: its CONTENT is not
-    in its raw bytes, so the raw scan cannot see it. A zip is listed here too;
-    ``_archive_rules`` only opens its compressed members (a stored member -- a
-    torch checkpoint, say -- is already plain in the raw bytes)."""
-    if head[:2] == b"\x1f\x8b":
-        return "gzip"
-    if head[:3] == b"BZh":
-        return "bz2"
-    if head[:6] == b"\xfd7zXZ\x00":
-        return "xz"
-    if head[:4] in (b"PK\x03\x04", b"PK\x05\x06"):
-        return "zip"
-    return None
-
-
-def _archive_streams(path: str, kind: str):
-    """``(member name, readable)`` pairs to scan: the members of a compressed
-    tar (their names checked too), the compressed members of a zip, or the one
-    decompressed stream of a plain `.gz`/`.bz2`/`.xz`. One level deep."""
-    import bz2
-    import gzip
-    import lzma
-    import tarfile
-    import zipfile
-
-    if kind == "zip":
-        with zipfile.ZipFile(path) as zf:
-            for info in zf.infolist():
-                if info.is_dir() or info.compress_type == zipfile.ZIP_STORED:
-                    continue
-                with zf.open(info) as member:
-                    yield info.filename, member
-        return
-    opener = {"gzip": gzip.open, "bz2": bz2.open, "xz": lzma.open}[kind]
-    tar_mode = {"gzip": "r|gz", "bz2": "r|bz2", "xz": "r|xz"}[kind]
-    try:
-        tar = tarfile.open(path, mode=tar_mode)
-    except tarfile.ReadError:
-        tar = None
-    if tar is not None:
-        with tar:
-            for info in tar:
-                if not info.isfile():
-                    continue
-                member = tar.extractfile(info)
-                if member is not None:
-                    yield info.name, member
-        return
-    with opener(path, "rb") as stream:
-        yield os.path.basename(path).rsplit(".", 1)[0], stream
-
-
 def _archive_rules(
-    path: str, kind: str, allowed: float, spent: float
+    path: str | BinaryIO, kind: str, allowed: float, spent: float, *, is_vendor_only: bool = False
 ) -> tuple[set[str], float, bool]:
     """``(rules, seconds spent in total, out of budget)`` for what a compressed
     archive holds: each member's NAME against the credential-name rules and its
     decompressed bytes through the same chunked scan as a big file, under the
-    same time budget. An archive that cannot be opened (corrupt, encrypted) is a
-    finding: its bytes are not uploaded unread."""
+    same time budget. An archive that breaks before its end (truncated, corrupt,
+    encrypted) adds `_UNREADABLE_ARCHIVE` after the part before the break was
+    scanned (``unpack``). ``is_vendor_only``: every member
+    gets the vendor-shaped rules only (the output sweep, T51)."""
     rules: set[str] = set()
-    expanded = 0
+    started = time.monotonic()
+    limits = ArchiveLimits(ARCHIVE_EXPAND_MAX_BYTES, started + max(0.0, allowed - spent))
     try:
-        for member_name, stream in _archive_streams(path, kind):
+        for member_name, stream in _read_archive_members(path, kind, limits):
             base = member_name.rsplit("/", 1)[-1]
             if _skip_reason(base) == "secret" or _in_secret_dir(member_name):
                 rules.add(_NAME_IN_ARCHIVE)
+            if stream is None:  # plain in the raw bytes, already scanned: its name only
+                continue
             carry = b""
             codec: str | None = None
             while True:
@@ -158,19 +117,16 @@ def _archive_rules(
                     break
                 if not carry:
                     codec = _utf16_codec(chunk)
-                expanded += len(chunk)
-                if expanded > ARCHIVE_EXPAND_MAX_BYTES:
-                    return rules, spent, True
                 window = carry + chunk
-                started = time.monotonic()
-                rules |= _chunk_rules(window, base, codec)
-                spent += time.monotonic() - started
+                rules |= _chunk_rules(window, base, codec, is_vendor_only=is_vendor_only)
                 carry = window[-_SCAN_OVERLAP:]
-                if spent >= allowed:
-                    return rules, spent, True
+                limits.check_limits()
+    except ArchiveOverLimit:  # a byte or time limit, or a tar header over its cap
+        limits.is_over = True
     except Exception:  # noqa: BLE001 -- corrupt, truncated, encrypted: not readable
-        rules.add(_UNREADABLE_ARCHIVE)
-    return rules, spent, False
+        if not limits.is_over:  # a stream ended at a limit breaks tarfile too
+            rules.add(_UNREADABLE_ARCHIVE)
+    return rules, spent + time.monotonic() - started, limits.is_over
 
 
 def _read_for_capture(
@@ -247,7 +203,9 @@ def _read_for_capture(
     if small is not None and n <= limit and not out_of_budget:
         started = time.monotonic()
         try:
-            rules |= set(credential_rules(small, name, deadline=started + file_budget))
+            rules |= set(credential_rules(
+                small, name, deadline=started + file_budget, is_vendor_only=not source and total_left <= 0
+            ))
         except _ScanOutOfTime:
             out_of_budget = True
         spent += time.monotonic() - started
@@ -260,7 +218,9 @@ def _read_for_capture(
         except Exception:  # noqa: BLE001 -- fail closed, as credential_rules does
             rules.add("inspection-failed")
         spent += time.monotonic() - started
-    kind = _compressed_kind(head) if scan and n <= limit and not out_of_budget else None
+    if scan and n <= limit and head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(_COOKIE_JAR_HEADS):
+        rules.add(_COOKIE_JAR)
+    kind = _get_archive_kind(head) if scan and n <= limit and not out_of_budget else None
     if kind is not None:
         archive_rules, spent, out_of_budget = _archive_rules(path, kind, allowed, spent)
         rules |= archive_rules
@@ -335,8 +295,7 @@ class _ContentGate:
         sha, size, rules, seconds, out_of_time = _read_for_capture(
             full,
             os.path.basename(rel),
-            # scanning disabled: scan=self.scan,
-            scan=False,
+            scan=self.scan,
             limit=limit,
             file_budget=self.file_budget,
             total_left=self.total_budget - self.seconds,

@@ -13,7 +13,7 @@ import sys
 from collections import abc
 from pathlib import Path
 
-from .. import config, obsidian
+from .. import config, obsidian, po_box
 from ..config import load_config
 from ..inbox import db
 from ..tasks.briefs import completion, subject_hints
@@ -22,6 +22,7 @@ from . import (
     command,
     created,
     doc_table,
+    flags,
     foreign_edit,
     hidden,
     links,
@@ -92,17 +93,22 @@ def _cmd_hide(args: argparse.Namespace) -> None:
     edited(args, lambda brief: hidden.with_hidden(brief, not args.show))
 
 
+def _cmd_po_box(args: argparse.Namespace) -> None:
+    edited(args, lambda brief: flags.with_flag(brief, po_box.enrollment.LABEL, not args.off))
+
+
 def _cmd_status(args: argparse.Namespace) -> None:
     if args.state == "done" and load_config().tasks.enabled:
         path, _ = command.own_brief(args)
         with db.connect() as conn:
             lemon_id, held = completion.open_tasks(conn, path) if path else ("", [])
-            handed, held, why = completion.hand_to_parent(conn, lemon_id, held)
+            reviewing = bool(path) and hidden.is_hidden(path.read_text())
+            handed, held, why = completion.hand_to_parent(conn, lemon_id, held, reviewing)
         for line in handed:
             print(line, file=sys.stderr)
         if held:
             result = {"path": str(path), "open_tasks": [t["task_id"] for t in held]}
-            command.finish(args, result, completion.refusal(held, why))
+            command.finish(args, result, completion.refusal(held, why, reviewing))
 
     if args.state in store.RETIRED:
         print(
@@ -221,6 +227,15 @@ def add_parsers(brief_subparsers: argparse._SubParsersAction) -> None:
     )
     hide.add_argument("--show", action="store_true", help="Remove the line instead")
     hide.set_defaults(func=_cmd_hide)
+
+    box = command.parser(
+        brief_subparsers,
+        "po-box",
+        "Add `PO box: yes` to a lemon's brief, so its watcher opens a PO box teammates can "
+        "write to",
+    )
+    box.add_argument("--off", action="store_true", help="Remove the line; the box closes")
+    box.set_defaults(func=_cmd_po_box)
 
     bullet = brief_subparsers.add_parser(
         "bullet",

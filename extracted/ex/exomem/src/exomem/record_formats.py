@@ -14,6 +14,7 @@ import re
 import stat
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from functools import partial
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -1384,12 +1385,19 @@ def presentation_relationship_resolver(
     observe_read: Callable[[vault.PathGuard], None] | None = None,
     wikilink_resolver: Callable[[], vault.WikilinkResolver] | None = None,
     targeted_namespace_contains: Callable[[str], bool] | None = None,
+    resolve_identifier: Callable[[str], str] | None = None,
 ) -> Callable[[str, str], tuple[str, str] | None] | None:
-    """Resolve selected canonical relationships without disclosing withheld targets."""
+    """Resolve selected canonical relationships without disclosing withheld targets.
+
+    ``resolve_identifier`` turns a relationship value into a vault path or link target, as
+    `memory_refs.resolve_identifier_read_only` does by default.
+    """
     recipe = manifest.item_presentation
     if recipe is None or not recipe.relationships:
         return None
     root = Path(vault_root)
+    if resolve_identifier is None:
+        resolve_identifier = partial(memory_refs.resolve_identifier_read_only, root)
     if lookup_path is None or wikilink_resolver is None:
         from .collection_store import preview
 
@@ -1443,13 +1451,13 @@ def presentation_relationship_resolver(
             readable_relative = current_item_paths.get(parsed[1])
         if relative is None:
             try:
-                target = memory_refs.resolve_identifier_read_only(root, raw)
+                link_target = resolve_identifier(raw)
                 # The reader's filter runs before candidates are counted, so a page it may not
                 # see never makes a name ambiguous or takes a path another page left. Counting
                 # releases nothing, so it records no receipt; the target's own check below does.
                 with egress.decide_without_receipt():
                     canonical, _warning = vault.normalize_wikilink(
-                        target,
+                        link_target,
                         root,
                         resolver_factory=get_wikilinks,
                         targeted_namespace_contains=targeted_namespace_contains,
@@ -2000,6 +2008,9 @@ class RecordQueryResult:
     source_versions: tuple[collections.SourceVersion, ...] = ()
     columns: tuple[str, ...] = ()
     view: Mapping[str, Any] | None = None
+    # The returned link fields whose memory references and bare titles were left out unchecked,
+    # because no published link index could be borrowed for this query.
+    unresolved_links: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -2501,6 +2512,51 @@ def _field_is_link(spec: collections.FieldSpec) -> bool:
     return spec.type == "array" and spec.items is not None and spec.items.type == "link"
 
 
+def is_profile_aggregate(aggregate: object) -> bool:
+    """Whether `aggregate` asks for a profile, which reads every column."""
+    return isinstance(aggregate, str) and aggregate.strip() == "profile"
+
+
+def selection_columns(
+    manifest: collections.CollectionManifest,
+    *,
+    filters: object,
+    sort_by: object,
+    date_column: object,
+    date_from: object,
+    date_to: object,
+    aggregate: object,
+) -> set[str] | None:
+    """The top-level names whose values decide which rows a query selects and what its aggregate says.
+
+    They are its filter, sort, date and aggregate columns, with the default date column when the
+    query bounds dates or aggregates without naming one. A name outside the schema is a child
+    table's column. None when the selection reads every column (a profile) or names a column in a
+    shape that validation refuses.
+    """
+    if aggregate is not None and (not isinstance(aggregate, str) or is_profile_aggregate(aggregate)):
+        return None  # a profile reads every column
+    aggregated = aggregate.split(":", 1)[1] if isinstance(aggregate, str) and ":" in aggregate else None
+    columns: list[object] = [sort_by, date_column, aggregated]
+    if filters is not None:
+        if not isinstance(filters, list):
+            return None
+        for predicate in filters:
+            if not isinstance(predicate, dict) or predicate.get("column") is None:
+                return None
+            columns.append(predicate["column"])
+    roots: set[str] = set()
+    for column in columns:
+        if column is not None:
+            if type(column) is not str or not column.strip():
+                return None
+            roots.add(column.strip().split(".", 1)[0])
+    dated = date_from or date_to or (aggregate and DEFAULT_DATE_COLUMN in manifest.schema.fields)
+    if date_column is None and dated:
+        roots.add(DEFAULT_DATE_COLUMN)  # it bounds dates and orders `latest`
+    return roots
+
+
 def _selection_roots(
     manifest: collections.CollectionManifest,
     *,
@@ -2522,32 +2578,16 @@ def _selection_roots(
     fields = manifest.schema.fields
     if expand_children or expand_child is not None or manifest.child_tables or set(fields) & system:
         return None
-    roots: set[str] = set()
-    columns = [sort_by, date_column]
-    if aggregate is not None:
-        if type(aggregate) is not str or aggregate.strip() == "profile":
-            return None  # a profile reads every column
-        columns.append(aggregate.split(":", 1)[1] if ":" in aggregate else None)
-    for column in columns:
-        if column is not None:
-            if type(column) is not str or not column.strip():
-                return None
-            roots.add(column.strip().split(".", 1)[0])
-    if date_column is None and (date_from or date_to or (aggregate and DEFAULT_DATE_COLUMN in fields)):
-        roots.add(DEFAULT_DATE_COLUMN)  # it bounds dates and orders `latest`
-    if filters is not None:
-        if not isinstance(filters, list):
+    roots = selection_columns(
+        manifest, filters=filters, sort_by=sort_by, date_column=date_column,
+        date_from=date_from, date_to=date_to, aggregate=aggregate,
+    )
+    if roots is None:
+        return None
+    for predicate in filters or ():
+        op = predicate.get("op", query_data.DEFAULT_OP)
+        if type(op) is not str or op not in query_data._OPS:
             return None
-        for predicate in filters:
-            if not isinstance(predicate, dict):
-                return None
-            column = predicate.get("column")
-            if type(column) is not str or not column:
-                return None
-            op = predicate.get("op", query_data.DEFAULT_OP)
-            if type(op) is not str or op not in query_data._OPS:
-                return None
-            roots.add(column.split(".", 1)[0])
     # Reuse the field schema's closed scalar types; arrays, objects and links can change selection.
     scalars = collections._PRESENTATION_SCALAR_TYPES - {"link"}
     if all(name in system or (name in fields and fields[name].type in scalars) for name in roots):
@@ -2638,7 +2678,8 @@ def _selected_query(
                 parsed, _ = rows_of(())
                 result = selection.aggregate
                 if selection.latest_row_id is not None:
-                    result = {**result, "row": rows_of((selection.latest_row_id,))[1][0]}
+                    row = rows_of((selection.latest_row_id,))[1][0]
+                    result = {**result, "row": row if staged_projector is None else staged_projector(row)}
                 return parsed, offset, query_data.present_aggregate(result, columns=cols, **common)
             parsed, rows = rows_of(selection.row_ids)
             return parsed, offset, query_data.present_rows(
@@ -2903,7 +2944,7 @@ def query_collection(
         )
         if stage_store_projection and not late_link_projection and project_values is not None else None
     )
-    use_staged_projection = roots is not None and aggregate is None
+    use_staged_projection = roots is not None
     adapter = load_adapter(
         vault_root,
         manifest,
@@ -3623,6 +3664,11 @@ def _safe_presentation_values(
             safe_rows.append(child)
         result[table.field] = safe_rows
     return result
+
+
+def expanded_child(manifest: collections.CollectionManifest, query: Mapping[str, Any]) -> str | None:
+    """The child field whose rows `query` expands into reply rows, else None; it raises a refused expansion's error."""
+    return _resolve_child_selector(manifest, bool(query.get("expand_children")), query.get("expand_child"))
 
 
 def _resolve_child_selector(

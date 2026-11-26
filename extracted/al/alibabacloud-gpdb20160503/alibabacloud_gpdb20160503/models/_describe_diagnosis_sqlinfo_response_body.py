@@ -23,30 +23,30 @@ class DescribeDiagnosisSQLInfoResponseBody(DaraModel):
     ):
         # The name of the database.
         self.database = database
-        # The execution duration of the query. Unit: seconds.
+        # The total execution duration of the query, in seconds.
         self.duration = duration
         # The maximum number of output rows.
         self.max_output_rows = max_output_rows
         # The query ID.
         self.query_id = query_id
-        # The information about the operator.
+        # The operator information.
         self.query_plan = query_plan
         # The request ID.
         self.request_id = request_id
         # The SQL statement.
         self.sqlstmt = sqlstmt
-        # The ID of the session that contains the query.
+        # The ID of the session to which the query belongs.
         self.session_id = session_id
-        # The sequence of metrics.
+        # The sorting structure based on metrics.
         self.sorted_metrics = sorted_metrics
-        # The start time of the query. This value is a UNIX timestamp representing the number of milliseconds that have elapsed since January 1, 1970, 00:00:00 UTC.
+        # The start time of the query. The value is a UNIX timestamp in milliseconds.
         self.start_time = start_time
-        # The execution state of the query. Valid values:
+        # The execution status of the SQL statement. Valid values:
         # 
-        # *   **running**
-        # *   **finished**
+        # - **running**: The SQL statement is being executed.
+        # - **finished**: The execution of the SQL statement is complete.
         self.status = status
-        # The information about the execution plan.
+        # The query plan information.
         self.text_plan = text_plan
         # The username.
         self.user = user

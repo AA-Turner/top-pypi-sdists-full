@@ -38,10 +38,13 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/http/default_transport.h"
+#include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/internal/uri/path.h"
-#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -82,6 +85,9 @@ using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal::UniqueNow;
+using ::tensorstore::internal_http::DefaultMockHttpTransport;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_ocdbt::BtreeNodeEncoder;
 using ::tensorstore::internal_ocdbt::BtreeNodeHeight;
 using ::tensorstore::internal_ocdbt::CommitTime;
@@ -907,6 +913,102 @@ TEST(OcdbtTest, TransactionalCopyRange) {
                                  ::testing::Pair("y/b", absl::Cord("value_b")),
                                  ::testing::Pair("z/a", absl::Cord("value_a")),
                                  ::testing::Pair("z/b", absl::Cord("value_b")),
+                             })));
+}
+
+TEST(OcdbtTest, TransactionalCopyRangeNonAtomic) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({
+                                    {"driver", "ocdbt"},
+                                    {"base", "memory://"},
+                                    {"config", {{"max_inline_value_bytes", 0}}},
+                                })
+                      .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+
+  // Non-atomic transaction after an existing NonAtomicTransactionNode has been
+  // created by `kvstore::Write`.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+    TENSORSTORE_ASSERT_OK(kvstore::Write(txn_store, "w/k", absl::Cord("val")));
+    EXPECT_THAT(kvstore::ExperimentalCopyRange(store.WithPathSuffix("x/"),
+                                               txn_store.WithPathSuffix("y/"))
+                    .result(),
+                StatusIs(absl::StatusCode::kUnimplemented));
+    TENSORSTORE_ASSERT_OK(txn.CommitAsync());
+  }
+
+  // Non-atomic transaction starting with `ExperimentalCopyRange` followed by
+  // `kvstore::Write`.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+    EXPECT_THAT(kvstore::ExperimentalCopyRange(store.WithPathSuffix("x/"),
+                                               txn_store.WithPathSuffix("y/"))
+                    .result(),
+                StatusIs(absl::StatusCode::kUnimplemented));
+    TENSORSTORE_ASSERT_OK(kvstore::Write(txn_store, "w/k2", absl::Cord("v2")));
+    TENSORSTORE_ASSERT_OK(txn.CommitAsync());
+  }
+
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("w/k", absl::Cord("val")),
+                                 ::testing::Pair("w/k2", absl::Cord("v2")),
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                             })));
+}
+
+TEST(OcdbtTest, TransactionalCopyRangeAbortAndEmptyPrefix) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({
+                                    {"driver", "ocdbt"},
+                                    {"base", "memory://"},
+                                    {"config", {{"max_inline_value_bytes", 0}}},
+                                })
+                      .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+
+  // Overwriting, deleting, and aborting `IndirectValueReadModifyWriteSource`
+  // entries must not leak memory.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::atomic_isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), txn_store.WithPathSuffix("y/")));
+    // Overwrite one key and range-delete the other before aborting.
+    TENSORSTORE_ASSERT_OK(
+        kvstore::Write(txn_store, "y/a", absl::Cord("overwritten")));
+    TENSORSTORE_ASSERT_OK(
+        kvstore::DeleteRange(txn_store, KeyRange::Singleton("y/b")));
+    // Overwrite an entire copied range with another `ExperimentalCopyRange`.
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), txn_store.WithPathSuffix("z/")));
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), txn_store.WithPathSuffix("z/")));
+    txn.Abort();
+    txn.future().Wait();
+  }
+
+  // Copying an empty source prefix and deleting an empty `KeyRange` in an
+  // `atomic_isolated` transaction leaves the `BtreeWriterTransactionNode` with
+  // no mutation entries (`phases_.phase_number_ == kInvalidPhase`) and must
+  // commit cleanly without tripping `assert(!transaction.atomic())`.
+  {
+    auto txn = tensorstore::Transaction(tensorstore::atomic_isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+    TENSORSTORE_ASSERT_OK(kvstore::DeleteRange(txn_store, KeyRange{"z", "a"}));
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("empty/"), txn_store.WithPathSuffix("y/")));
+    TENSORSTORE_ASSERT_OK(txn.CommitAsync());
+  }
+
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
                              })));
 }
 
@@ -1754,6 +1856,195 @@ TEST(OcdbtTest, CopyRangeTargetPrefixExceedsMaxKeyLength) {
       kvstore::Write(target_store, "valid_key", absl::Cord("ok")));
   EXPECT_THAT(kvstore::Read(target_store, "valid_key").result(),
               MatchesKvsReadResult(absl::Cord("ok")));
+}
+
+TEST(OcdbtTest, SeparateManifestBoundSpec) {
+  auto context = Context::Default();
+  ::nlohmann::json spec_json = {
+      {"driver", "ocdbt"},
+      {"base", {{"driver", "memory"}, {"path", "base_dir/"}}},
+      {"manifest",
+       {{"driver", "ocdbt"},
+        {"base", {{"driver", "memory"}, {"path", "manifest_dir/"}}},
+        {"config", {{"max_inline_value_bytes", 8}}},
+        {"assume_config", true}}},
+      {"config", {{"max_inline_value_bytes", 4}, {"manifest_kind", "single"}}},
+      {"assume_config", true},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(spec_json, context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_json, bound_spec.ToJson());
+  EXPECT_EQ(bound_json["base"]["driver"], "memory");
+  EXPECT_EQ(bound_json["base"]["path"], "base_dir/");
+  EXPECT_EQ(bound_json["manifest"]["driver"], "ocdbt");
+  EXPECT_EQ(bound_json["manifest"]["base"]["path"], "manifest_dir/");
+  EXPECT_EQ(bound_json["manifest"]["config"]["max_inline_value_bytes"], 8);
+  EXPECT_EQ(bound_json["manifest"]["assume_config"], true);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_spec,
+                                   store.spec(tensorstore::MinimalSpec{true}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_json, minimal_spec.ToJson());
+  EXPECT_FALSE(minimal_json.contains("config"));
+  EXPECT_FALSE(minimal_json.contains("assume_config"));
+  EXPECT_EQ(minimal_json["manifest"]["driver"], "ocdbt");
+  EXPECT_EQ(minimal_json["manifest"]["base"]["path"], "manifest_dir/");
+  EXPECT_FALSE(minimal_json["manifest"].contains("config"));
+  EXPECT_FALSE(minimal_json["manifest"].contains("assume_config"));
+}
+
+TEST(OcdbtTest, SeparateManifestSupportedFeatures) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto memory_store, kvstore::Open("memory://", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  MockKeyValueStore* mock_key_value_store =
+      mock_key_value_store_resource->get();
+  mock_key_value_store->supported_features =
+      SupportedFeatures::kAtomicWriteWithoutOverwrite;
+  mock_key_value_store->forward_to = memory_store.driver;
+  mock_key_value_store->log_requests = true;
+
+  // `base` ("memory") supports `kSingleKeyAtomicReadModifyWrite`, which would
+  // select `manifest_kind = "single"` if queried. `manifest`
+  // ("mock_key_value_store") only supports `kAtomicWriteWithoutOverwrite`,
+  // which selects `manifest_kind = "numbered"`.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open(
+          {{"driver", "ocdbt"},
+           {"base", {{"driver", "memory"}, {"path", "base_dir/"}}},
+           {"manifest",
+            {{"driver", "mock_key_value_store"}, {"path", "manifest_dir/"}}}},
+          context)
+          .result());
+  EXPECT_THAT(
+      mock_key_value_store->request_log.pop(),
+      tensorstore::MatchesJson(
+          {{"type", "supported_features"},
+           {"range", {"manifest_dir/manifest.", "manifest_dir/manifest/"}}}));
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("b")));
+  EXPECT_THAT(kvstore::ListFuture(memory_store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry(::testing::StartsWith("base_dir/d/")),
+                  MatchesListEntry("manifest_dir/manifest.ocdbt"),
+                  MatchesListEntry("manifest_dir/manifest.0000000000000001"),
+                  MatchesListEntry("manifest_dir/manifest.0000000000000002"))));
+}
+
+TEST(OcdbtTest, MaxDecodedNodeBytesValidation) {
+  TENSORSTORE_EXPECT_OK(kvstore::Spec::FromJson(
+      {{"driver", "ocdbt"},
+       {"base", "memory://"},
+       {"config", {{"max_decoded_node_bytes", 268435456}}}}));
+  EXPECT_THAT(kvstore::Spec::FromJson(
+                  {{"driver", "ocdbt"},
+                   {"base", "memory://"},
+                   {"config", {{"max_decoded_node_bytes", 268435457}}}}),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  // Verify that a legacy manifest with `max_decoded_node_bytes > 256 MiB` can
+  // be opened, its bound spec round-tripped through JSON, reopened with that
+  // bound spec, and written/read without error.
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://legacy_max/", context).result());
+  Manifest manifest;
+  manifest.config.max_decoded_node_bytes = 1000000000;
+  auto& v = manifest.versions.emplace_back();
+  v.generation_number = 1;
+  v.root_height = 0;
+  v.commit_time = CommitTime{1};
+  v.root.location = IndirectDataReference::Missing();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_manifest,
+                                   EncodeManifest(manifest));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(base_store, "manifest.ocdbt", encoded_manifest));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://legacy_max/"}},
+                    context)
+          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("v1")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_json, bound_spec.ToJson());
+  EXPECT_EQ(bound_json["config"]["max_decoded_node_bytes"], 268435456);
+  // Use a separate cache pool so `store2` re-reads and validates the manifest.
+  bound_json["cache_pool"] = {{"total_bytes_limit", 0}};
+  TENSORSTORE_EXPECT_OK(kvstore::Spec::FromJson(bound_json));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store2,
+                                   kvstore::Open(bound_json, context).result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store2, "b", absl::Cord("v2")));
+  EXPECT_THAT(kvstore::Read(store2, "a").result(),
+              MatchesKvsReadResult(absl::Cord("v1")));
+  EXPECT_THAT(kvstore::Read(store2, "b").result(),
+              MatchesKvsReadResult(absl::Cord("v2")));
+}
+
+TEST(OcdbtTest, HttpBaseRejectsDotDotDataFilePath) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mem_ocdbt, kvstore::Open({{"driver", "ocdbt"},
+                                     {"base", "memory://src/"},
+                                     {"config", {{"manifest_kind", "single"}}}},
+                                    context)
+                          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(mem_ocdbt, "k", absl::Cord("val")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mem_base, kvstore::Open("memory://src/", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto encoded_manifest,
+      kvstore::Read(mem_base, "manifest.ocdbt").result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto orig_manifest,
+      tensorstore::internal_ocdbt::DecodeManifest(encoded_manifest.value));
+  ASSERT_FALSE(orig_manifest.versions.empty());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto node_read,
+      kvstore::Read(
+          mem_base,
+          orig_manifest.versions.back().root.location.file_id.FullPath())
+          .result());
+
+  auto crafted_manifest = orig_manifest;
+  crafted_manifest.versions.back().root.location.file_id =
+      DataFileId{"", "../secret"};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto crafted_bytes,
+                                   EncodeManifest(crafted_manifest));
+
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"GET https://example.com/ocdbt/manifest.ocdbt",
+           HttpResponse{200, crafted_bytes}},
+          {"GET https://example.com/ocdbt/../secret",
+           HttpResponse{200, node_read.value}},
+      });
+  auto prev_transport = SetDefaultHttpTransport(mock_transport);
+  struct RestoreTransport {
+    std::shared_ptr<tensorstore::internal_http::HttpTransport> prev;
+    ~RestoreTransport() { SetDefaultHttpTransport(std::move(prev)); }
+  } restore{std::move(prev_transport)};
+
+  // HTTP base blocks `..` data file paths before issuing a request.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto http_ocdbt,
+      kvstore::Open({{"driver", "ocdbt"},
+                     {"base", "https://example.com/ocdbt/"},
+                     {"cache_pool", {{"total_bytes_limit", 0}}}},
+                    context)
+          .result());
+  EXPECT_THAT(kvstore::Read(http_ocdbt, "k").result(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("must not contain \"..\"")));
+  for (const auto& req : mock_transport->requests()) {
+    EXPECT_THAT(req.url, ::testing::Not(HasSubstr("secret")));
+  }
 }
 
 }  // namespace

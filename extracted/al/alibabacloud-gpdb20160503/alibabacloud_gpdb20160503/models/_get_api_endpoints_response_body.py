@@ -18,9 +18,9 @@ class GetApiEndpointsResponseBody(DaraModel):
     ):
         # The list of items.
         self.items = items
-        # The maximum number of records to return for the current query.
+        # The maximum number of records to return in this request.
         self.max_results = max_results
-        # The paging token for the next paged query.
+        # The token used to start the next paging query.
         self.next_token = next_token
         # Id of the request
         self.request_id = request_id

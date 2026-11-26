@@ -13,16 +13,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 import unittest
+from unittest.mock import patch
 
-from scalecodec.base import ScaleBytes, RuntimeConfigurationObject
-from scalecodec.type_registry import load_type_registry_file, load_type_registry_preset
+from scalecodec import ScaleBytes
 
 from substrateinterface import SubstrateInterface, Keypair, KeypairType
+from substrateinterface.constants import DEV_PHRASE
+from substrateinterface.utils.ss58 import ss58_encode
 from test import settings
+from test.fixtures import RuntimeFixture
 
 
+@settings.requires_live_node
 class KusamaTypeRegistryTestCase(unittest.TestCase):
 
     @classmethod
@@ -41,6 +44,7 @@ class KusamaTypeRegistryTestCase(unittest.TestCase):
             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
 
 
+@settings.requires_live_node
 class PolkadotTypeRegistryTestCase(unittest.TestCase):
 
     @classmethod
@@ -60,44 +64,6 @@ class PolkadotTypeRegistryTestCase(unittest.TestCase):
             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
 
 
-class RococoTypeRegistryTestCase(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.substrate = SubstrateInterface(
-            url=settings.ROCOCO_NODE_URL,
-            ss58_format=42,
-            type_registry_preset='rococo'
-        )
-
-    def test_type_registry_compatibility(self):
-
-        for scale_type in self.substrate.get_type_registry():
-
-            obj = self.substrate.runtime_config.get_decoder_class(scale_type)
-
-            self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
-
-#
-# class DevelopmentTypeRegistryTestCase(unittest.TestCase):
-#
-#     @classmethod
-#     def setUpClass(cls):
-#         cls.substrate = SubstrateInterface(
-#             url="ws://127.0.0.1:9944",
-#             ss58_format=42,
-#             type_registry_preset='development'
-#         )
-#
-#     def test_type_registry_compatibility(self):
-#
-#         for scale_type in self.substrate.get_type_registry():
-#
-#             obj = self.substrate.runtime_config.get_decoder_class(scale_type)
-#
-#             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
-
-
 class ReloadTypeRegistryTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -112,19 +78,14 @@ class ReloadTypeRegistryTestCase(unittest.TestCase):
         self.assertEqual(self.substrate.runtime_config.get_decoder_class('u32'), decoding_class)
 
     def test_reloading_use_remote_preset(self):
-
-        # Intentionally overwrite type in local preset
-        u32_cls = self.substrate.runtime_config.get_decoder_class('u32')
         u64_cls = self.substrate.runtime_config.get_decoder_class('u64')
+        with patch('scalecodec.type_registry.requests.get') as mock_get:
+            mock_get.return_value.status_code = 200
+            mock_get.return_value.json.return_value = {'types': {'Index': 'u64'}}
+            self.substrate.reload_type_registry()
 
-        self.substrate.runtime_config.type_registry['types']['index'] = u64_cls
-
+        mock_get.assert_called_once()
         self.assertEqual(u64_cls, self.substrate.runtime_config.get_decoder_class('Index'))
-
-        # Reload type registry
-        self.substrate.reload_type_registry()
-
-        self.assertEqual(u32_cls, self.substrate.runtime_config.get_decoder_class('Index'))
 
     def test_reloading_use_local_preset(self):
 
@@ -141,56 +102,25 @@ class ReloadTypeRegistryTestCase(unittest.TestCase):
 
         self.assertEqual(u32_cls, self.substrate.runtime_config.get_decoder_class('Index'))
 
+    def test_account_decoders_keep_runtime_ss58_formats(self):
+        public_key = Keypair.create_from_uri('//Alice').public_key
+        default_decoder = self.substrate.runtime_config.get_decoder_class('AccountId')
 
-class AutodiscoverV14RuntimeTestCase(unittest.TestCase):
-    runtime_config = None
-    metadata_obj = None
-    metadata_fixture_dict = None
+        with RuntimeFixture(ss58_format=2, auto_discover=False) as kusama:
+            kusama_decoder = kusama.runtime_config.get_decoder_class('AccountId')
+            self.assertEqual(default_decoder(data=ScaleBytes(public_key)).decode(), ss58_encode(public_key, 42))
+            self.assertEqual(kusama_decoder(data=ScaleBytes(public_key)).decode(), ss58_encode(public_key, 2))
 
-    @classmethod
-    def setUpClass(cls):
-        module_path = os.path.dirname(__file__)
-        cls.metadata_fixture_dict = load_type_registry_file(
-            os.path.join(module_path, 'fixtures', 'metadata_hex.json')
-        )
-        cls.runtime_config = RuntimeConfigurationObject(implements_scale_info=True)
-        cls.runtime_config.update_type_registry(load_type_registry_preset("core"))
 
-        cls.metadata_obj = cls.runtime_config.create_scale_object(
-            'MetadataVersioned', data=ScaleBytes(cls.metadata_fixture_dict['V14'])
-        )
-        cls.metadata_obj.decode()
-
-    def setUp(self) -> None:
-
-        class MockedSubstrateInterface(SubstrateInterface):
-
-            def rpc_request(self, method, params, result_handler=None):
-
-                if method == 'system_chain':
-                    return {
-                        'jsonrpc': '2.0',
-                        'result': 'test',
-                        'id': self.request_id
-                    }
-
-                return super().rpc_request(method, params, result_handler)
-
-        self.substrate = MockedSubstrateInterface(
-            url=settings.KUSAMA_NODE_URL
-        )
-
+class PortableRegistryTestCase(unittest.TestCase):
     def test_type_reg_preset_applied(self):
-        self.substrate.init_runtime()
-        self.assertIsNotNone(self.substrate.runtime_config.get_decoder_class('SpecificTestType'))
-
-
-class AutodetectAddressTypeTestCase(unittest.TestCase):
+        substrate = RuntimeFixture(chain='test')
+        substrate.init_runtime()
+        self.assertTrue(substrate.implements_scaleinfo())
+        self.assertIsNotNone(substrate.runtime_config.get_decoder_class('SpecificTestType'))
 
     def test_default_substrate_address(self):
-        substrate = SubstrateInterface(
-            url=settings.POLKADOT_NODE_URL, auto_discover=False
-        )
+        substrate = RuntimeFixture(auto_discover=False)
 
         keypair_alice = Keypair.create_from_uri('//Alice', ss58_format=substrate.ss58_format)
 
@@ -203,16 +133,34 @@ class AutodetectAddressTypeTestCase(unittest.TestCase):
             }
         )
 
-        extrinsic = substrate.create_signed_extrinsic(call, keypair_alice)
+        extrinsic = substrate.create_signed_extrinsic(call, keypair_alice, nonce=0)
 
         self.assertEqual(extrinsic.value['address'], f'0x{keypair_alice.public_key.hex()}')
 
     def test_eth_address(self):
-        substrate = SubstrateInterface(
-            url=settings.MOONBEAM_NODE_URL, auto_discover=False
-        )
+        substrate = RuntimeFixture(auto_discover=False)
+        metadata = substrate.get_block_metadata()
+        runtime = metadata.value[1]['V14']
+        types = {entry['id']: entry['type'] for entry in runtime['types']['types']}
 
-        keypair_alice = Keypair.create_from_mnemonic(Keypair.generate_mnemonic(), crypto_type=KeypairType.ECDSA)
+        def variant_fields(type_id, name):
+            variants = types[type_id]['def']['variant']['variants']
+            return next(variant['fields'] for variant in variants if variant['name'] == name)
+
+        # Model Ethereum-compatible runtimes with the fixture's 20-byte address and raw ECDSA signature.
+        extrinsic_type = types[runtime['extrinsic']['ty']]
+        params = {param['name']: param for param in extrinsic_type['params']}
+        address_type = variant_fields(params['Address']['type'], 'Address20')[0]['type']
+        params['Address']['type'] = address_type
+        params['Signature']['type'] = variant_fields(params['Signature']['type'], 'Ecdsa')[0]['type']
+
+        balances = next(pallet for pallet in runtime['pallets'] if pallet['name'] == 'Balances')
+        fields = variant_fields(balances['calls']['ty'], 'transfer_keep_alive')
+        next(field for field in fields if field['name'] == 'dest')['type'] = address_type
+        metadata_encoder = substrate.runtime_config.create_scale_object('MetadataVersioned')
+        substrate.rpc_results['state_getMetadata'] = str(metadata_encoder.encode(metadata.value))
+
+        keypair_alice = Keypair.create_from_mnemonic(DEV_PHRASE, crypto_type=KeypairType.ECDSA)
 
         call = substrate.compose_call(
             call_module='Balances',
@@ -223,9 +171,10 @@ class AutodetectAddressTypeTestCase(unittest.TestCase):
             }
         )
 
-        extrinsic = substrate.create_signed_extrinsic(call, keypair_alice)
+        extrinsic = substrate.create_signed_extrinsic(call, keypair_alice, nonce=0)
+        decoded = substrate.create_scale_object('Extrinsic').decode(extrinsic.data)
 
-        self.assertEqual(extrinsic.value['address'], f'0x{keypair_alice.public_key.hex()}')
+        self.assertEqual(decoded['address'], f'0x{keypair_alice.public_key.hex()}')
 
 
 if __name__ == '__main__':

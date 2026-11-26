@@ -96,6 +96,7 @@ AssociatedResourceTypeType = Literal[
     "APP_RUNNER_SERVICE",
     "CLOUDFRONT",
     "COGNITO_USER_POOL",
+    "ELB_PROXY",
     "VERIFIED_ACCESS_INSTANCE",
 ]
 BlockchainChainType = Literal["BASE", "BASE_SEPOLIA", "SOLANA", "SOLANA_DEVNET"]
@@ -409,6 +410,7 @@ ResourceTypeType = Literal[
     "APPSYNC",
     "APP_RUNNER_SERVICE",
     "COGNITO_USER_POOL",
+    "ELB_PROXY",
     "VERIFIED_ACCESS_INSTANCE",
 ]
 ResponseContentTypeType = Literal["APPLICATION_JSON", "TEXT_HTML", "TEXT_PLAIN"]
@@ -611,6 +613,7 @@ ServiceName = Literal[
     "elasticache",
     "elasticbeanstalk",
     "elb",
+    "elb-proxy",
     "elbv2",
     "elementalinference",
     "emr",

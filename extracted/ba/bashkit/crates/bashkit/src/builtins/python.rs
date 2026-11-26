@@ -588,7 +588,14 @@ async fn run_python(
         match progress {
             RunProgress::OsCall(os_call) => {
                 let function_call = os_call.function_call.clone();
-                let result = handle_os_call(function_call, &fs, cwd, env).await;
+                let read = super::vfs_read::VfsRead::new(
+                    py_limits.common.max_memory.saturating_sub(meter.live()),
+                    execution_budget.clone(),
+                );
+                let result = handle_os_call(function_call, &fs, cwd, env, &read, &meter).await;
+                if let Some(budget) = &execution_budget {
+                    budget.check()?;
+                }
                 match in_vm!(
                     os_call.resume(result, PrintWriter::CollectString(&mut buf, print_cap))
                 ) {
@@ -742,10 +749,20 @@ async fn handle_os_call(
     fs: &Arc<dyn FileSystem>,
     cwd: &Path,
     env: &HashMap<String, String>,
+    read: &super::vfs_read::VfsRead,
+    meter: &crate::vm_meter::VmMeter,
 ) -> ExtFunctionResult {
     use OsFunctionCall as F;
-    let rp = |p: &monty_types::MontyPath| resolve_python_path(p.as_str(), cwd);
+    let charge = |bytes| read.reserve(bytes);
+    let rp = |p: &monty_types::MontyPath| {
+        if p.is_empty() {
+            PathBuf::new()
+        } else {
+            resolve_python_path(p.as_str(), cwd)
+        }
+    };
     let ret = ExtFunctionResult::Return;
+    let text_read = matches!(&function, F::ReadText(_));
     match function {
         F::Getenv(a) => match env.get(&a.key) {
             Some(v) => ret(MontyObject::string(v.clone())),
@@ -789,26 +806,29 @@ async fn handle_os_call(
                 .map(|m| m.file_type.is_symlink())
                 .unwrap_or(false),
         )),
-        F::ReadText(p) => {
+        F::ReadText(p) | F::ReadBytes(p) => {
             let path = rp(&p);
-            match fs.read_file(&path).await {
-                Ok(bytes) => match String::from_utf8(bytes) {
-                    Ok(s) => ret(MontyObject::string(s)),
-                    Err(_) => ExtFunctionResult::Error(MontyException::new(
-                        ExcType::OSError,
-                        Some(format!(
-                            "can't decode '{}': not valid UTF-8",
-                            path.display()
-                        )),
-                    )),
-                },
-                Err(e) => map_vfs_error(e, &path),
-            }
-        }
-        F::ReadBytes(p) => {
-            let path = rp(&p);
-            match fs.read_file(&path).await {
-                Ok(bytes) => ret(MontyObject::bytes(bytes)),
+            match fs.read_file_bounded(&path, Some(&charge)).await {
+                Ok(bytes) => {
+                    if let Err(error) = read.reserve(bytes.len().saturating_add(256)) {
+                        return map_vfs_error(error, &path);
+                    }
+                    let _window = crate::vm_meter::VmWindow::enter(meter);
+                    if text_read {
+                        match std::str::from_utf8(&bytes) {
+                            Ok(s) => ret(MontyObject::string(s)),
+                            Err(_) => ExtFunctionResult::Error(MontyException::new(
+                                ExcType::OSError,
+                                Some(format!(
+                                    "can't decode '{}': not valid UTF-8",
+                                    path.display()
+                                )),
+                            )),
+                        }
+                    } else {
+                        ret(MontyObject::bytes(bytes.as_slice()))
+                    }
+                }
                 Err(e) => map_vfs_error(e, &path),
             }
         }
@@ -850,6 +870,7 @@ async fn handle_os_call(
                 Err(e) => map_vfs_error(e, &path),
             }
         }
+        F::Unlink(p) | F::Rmdir(p) if p.is_empty() => python_missing_path(),
         F::Unlink(p) | F::Rmdir(p) => {
             let path = rp(&p);
             match fs.remove(&path, false).await {
@@ -859,10 +880,24 @@ async fn handle_os_call(
         }
         F::Iterdir(p) => {
             let path = rp(&p);
-            match fs.read_dir(&path).await {
-                Ok(entries) => ret(MontyObject::list(entries.into_iter().map(|e| {
-                    MontyObject::path(vfs_join(&path, &e.name).to_string_lossy().to_string())
-                }))),
+            match fs.read_dir_bounded(&path, Some(&charge)).await {
+                Ok(entries) => {
+                    for entry in &entries {
+                        if let Err(error) = read.reserve(
+                            path.as_os_str()
+                                .len()
+                                .saturating_add(entry.name.len())
+                                .saturating_mul(6)
+                                .saturating_add(1024),
+                        ) {
+                            return map_vfs_error(error, &path);
+                        }
+                    }
+                    let _window = crate::vm_meter::VmWindow::enter(meter);
+                    ret(MontyObject::list(entries.iter().map(|e| {
+                        MontyObject::path(vfs_join(&path, &e.name).to_string_lossy().into_owned())
+                    })))
+                }
                 Err(e) => map_vfs_error(e, &path),
             }
         }
@@ -884,6 +919,7 @@ async fn handle_os_call(
                 Err(e) => map_vfs_error(e, &path),
             }
         }
+        F::Rename(a) if a.src.is_empty() || a.dst.is_empty() => python_missing_path(),
         F::Rename(a) => {
             let (src, dst) = (rp(&a.src), rp(&a.dst));
             match fs.rename(&src, &dst).await {
@@ -891,10 +927,12 @@ async fn handle_os_call(
                 Err(e) => map_vfs_error(e, &src),
             }
         }
-        F::Resolve(p) | F::Absolute(p) => {
-            ret(MontyObject::path(rp(&p).to_string_lossy().to_string()))
-        }
-        F::Scan(a) => handle_scan(&a, &rp(&a.path), fs).await,
+        F::Resolve(p) | F::Absolute(p) => ret(MontyObject::path(
+            resolve_python_path(p.as_str(), cwd)
+                .to_string_lossy()
+                .to_string(),
+        )),
+        F::Scan(a) => handle_scan(&a, &rp(&a.path), fs, read, meter).await,
         // Unknown modules: no host modules are offered. Monty 1.5 passes the
         // import's `search_path` alongside the name for its file-import path;
         // bashkit answers from host modules only, so the name is all that is
@@ -921,6 +959,8 @@ async fn handle_scan(
     args: &monty_types::ScanArgs,
     root: &Path,
     fs: &Arc<dyn FileSystem>,
+    read: &super::vfs_read::VfsRead,
+    meter: &crate::vm_meter::VmMeter,
 ) -> ExtFunctionResult {
     use monty_types::scan::{EntryInfo, ScanEntry, scan_reply};
     let info = |t: FileType| EntryInfo {
@@ -932,6 +972,10 @@ async fn handle_scan(
         Ok(m) => m,
         Err(e) => return map_vfs_error(e, root),
     };
+    let charge = |bytes| read.reserve(bytes);
+    if let Err(error) = read.reserve(root.as_os_str().len().saturating_add(1024)) {
+        return map_vfs_error(error, root);
+    }
     let mut entries = vec![ScanEntry {
         path: String::new(),
         info: info(root_meta.file_type),
@@ -944,7 +988,7 @@ async fn handle_scan(
         if args.max_depth.is_some_and(|max| depth >= max) {
             continue;
         }
-        let children = match fs.read_dir(&dir).await {
+        let children = match fs.read_dir_bounded(&dir, Some(&charge)).await {
             Ok(c) => c,
             Err(e) => return map_vfs_error(e, &dir),
         };
@@ -954,6 +998,15 @@ async fn handle_scan(
                     ExcType::OSError,
                     Some(format!("directory scan exceeds {MAX_SCAN_ENTRIES} entries")),
                 ));
+            }
+            let storage = rel
+                .len()
+                .saturating_add(child.name.len())
+                .saturating_add(dir.as_os_str().len())
+                .saturating_mul(8)
+                .saturating_add(1024);
+            if let Err(error) = read.reserve(storage) {
+                return map_vfs_error(error, &dir);
             }
             let child_rel = if rel.is_empty() {
                 child.name.clone()
@@ -970,7 +1023,11 @@ async fn handle_scan(
             });
         }
     }
-    ExtFunctionResult::Return(scan_reply(entries))
+    let _window = crate::vm_meter::VmWindow::enter(meter);
+    ExtFunctionResult::Return(scan_reply(entries.iter().map(|entry| ScanEntry {
+        path: entry.path.clone(),
+        info: entry.info,
+    })))
 }
 
 async fn open_vfs_file(path: &Path, mode: FileMode, fs: &Arc<dyn FileSystem>) -> Result<()> {
@@ -1006,6 +1063,13 @@ fn resolve_python_path(path_str: &str, cwd: &Path) -> PathBuf {
     } else {
         vfs_join(cwd, p)
     }
+}
+
+fn python_missing_path() -> ExtFunctionResult {
+    ExtFunctionResult::Error(MontyException::new(
+        ExcType::FileNotFoundError,
+        Some("[Errno 2] No such file or directory: ''".into()),
+    ))
 }
 
 /// Map a Bashkit VFS error to a Python exception via ExtFunctionResult.

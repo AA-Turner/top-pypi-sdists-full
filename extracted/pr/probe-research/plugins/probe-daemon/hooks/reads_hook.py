@@ -127,6 +127,10 @@ TEXT_FAILED = '[Probe] Your ask {id} failed: {reason}. No answer is coming for i
 TEXT_PARTIAL = ('[Probe] Partial answer to your ask {id} - the daemon is still looking; the full '
                 "answer follows:\n{message}")
 NOTHING_MORE = "(the daemon found nothing more)"
+#: A line of a message's sources list, and the longest one (`probe.shared.mailbox.citations`, mirrored):
+#: NOTHING_MORE goes above the list, which stays last.
+SOURCE_LINE = re.compile(r"^(?:\*\*)?\[(\d{1,2})\](?:\*\*)? *[-–—] *(\S.{0,119}?) *\(id:([^\s()]{1,100})\)[.,;]?$")
+SOURCE_LINE_CHARS = 250
 TEXT_NOTHING_AFTER_PARTIAL = ('[Probe] Answer to your ask {id}: nothing more in the team\'s '
                               "records beyond the partial answer.")
 TEXT_FAILED_AFTER_PARTIAL = ('[Probe] Your ask {id} stopped: {reason}. No fuller answer is '
@@ -486,6 +490,24 @@ def render_server_banner(text: str) -> str:
     return TEXT_SERVER_BANNER.format(message=" ".join(text.split()))
 
 
+def add_to_body(text: str, line: str) -> str:
+    """`citations.add_to_body`: `line` after the text's body, above its sources list (the run of source lines
+    at the bottom)."""
+    lines = (text or "").rstrip().split("\n")
+    first_source = len(lines)
+    for index in range(len(lines) - 1, -1, -1):
+        stripped = lines[index].strip()
+        if not stripped:
+            continue
+        if len(stripped) > SOURCE_LINE_CHARS or not SOURCE_LINE.match(stripped):
+            break
+        first_source = index
+    body = "\n".join(lines[:first_source]).strip()
+    sources = [lines[i].strip() for i in range(first_source, len(lines)) if lines[i].strip()]
+    body = f"{body}\n{line}" if body else line
+    return "\n\n".join([body, "\n".join(sources)]) if sources else body
+
+
 def rendered(msg: dict) -> str:
     """`Message.rendered`: what the main agent reads, under the one-label rule."""
     return one_label(_framed(msg))
@@ -512,7 +534,7 @@ def _framed(msg: dict) -> str:
     if _is_partial(msg):
         return TEXT_PARTIAL.format(id=msg.get("ask"), message=text)
     if kind == KIND_ANSWER:
-        answer = f"{text}\n{NOTHING_MORE}" if after else text
+        answer = add_to_body(text, NOTHING_MORE) if after else text
         return TEXT_ANSWER.format(id=msg.get("ask"), message=answer)
     if kind == KIND_NOTHING:
         return (TEXT_NOTHING_AFTER_PARTIAL if after else TEXT_NOTHING).format(id=msg.get("ask"))
